@@ -3057,6 +3057,7 @@ name = "patient-administration-system-frontend"
 version = "0.2.0"
 dependencies = [
  "async-trait",
+ "axum",
  "axum-extra",
  "chrono",
  "loco-rs",

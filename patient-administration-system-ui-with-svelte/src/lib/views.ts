@@ -1,0 +1,125 @@
+// Pure mappings from PAS API shapes to the Lily components' inputs. No DOM,
+// no Svelte, no clock, so they are unit-tested.
+
+import type { CalendarEvent } from "@lilydesignsystem/svelte-calendar";
+import type { GanttTask } from "@lilydesignsystem/svelte-gantt-chart";
+import type { KanbanCard, KanbanColumn } from "@lilydesignsystem/svelte-kanban-board";
+
+export interface AppointmentLike {
+  id: string;
+  person_id: string;
+  start_datetime: string;
+  end_datetime: string;
+  status: string;
+  reason?: string | null;
+}
+
+/** `YYYY-MM-DD` of an instant, in UTC. The PAS stores UTC. */
+export const dayOf = (iso: string): string => iso.slice(0, 10);
+
+/** `HH:MM` of an instant, in UTC. */
+export const timeOf = (iso: string): string => iso.slice(11, 16);
+
+export const statusLabel = (s: string): string =>
+  s === "no_show" ? "Did not attend" : s.charAt(0).toUpperCase() + s.slice(1);
+
+export function appointmentEvents(rows: AppointmentLike[]): CalendarEvent[] {
+  return rows.map((a) => ({
+    id: a.id,
+    date: dayOf(a.start_datetime),
+    title: `${timeOf(a.start_datetime)} ${a.reason?.trim() || "Appointment"}`,
+    done: a.status === "fulfilled",
+    values: {
+      time: `${timeOf(a.start_datetime)}–${timeOf(a.end_datetime)}`,
+      status: statusLabel(a.status),
+    },
+  }));
+}
+
+/** One parent task per day, with each appointment as a one-day milestone beneath it. */
+export function appointmentGantt(rows: AppointmentLike[]): GanttTask[] {
+  const days = [...new Set(rows.map((a) => dayOf(a.start_datetime)))].sort();
+  const tasks: GanttTask[] = days.map((d) => ({ id: `day:${d}`, label: d, start: d, end: d }));
+  for (const a of [...rows].sort((x, y) => x.start_datetime.localeCompare(y.start_datetime))) {
+    const d = dayOf(a.start_datetime);
+    tasks.push({
+      id: a.id,
+      label: `${timeOf(a.start_datetime)} ${a.reason?.trim() || "Appointment"}`,
+      start: d,
+      end: d,
+      parentId: `day:${d}`,
+      percentComplete: a.status === "fulfilled" ? 100 : 0,
+    });
+  }
+  return tasks;
+}
+
+/** The inclusive `{start,end}` day range that covers the rows, padded to at least a week. */
+export function ganttRange(rows: AppointmentLike[], today: string): { start: string; end: string } {
+  const days = rows.map((a) => dayOf(a.start_datetime)).sort();
+  const start = days[0] && days[0] < today ? days[0] : today;
+  const last = days[days.length - 1] ?? today;
+  const minEnd = new Date(Date.parse(`${start}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
+  return { start, end: last > minEnd ? last : minEnd };
+}
+
+export interface WaitlistLike {
+  id: string;
+  person_id: string;
+  target_service: string;
+  priority: string;
+  status: string;
+}
+
+export const WAITLIST_COLUMNS: KanbanColumn[] = [
+  { id: "waiting", title: "Waiting" },
+  { id: "booked", title: "Booked" },
+  { id: "treated", title: "Treated" },
+  { id: "removed", title: "Removed" },
+];
+
+const PRIORITY_RANK: Record<string, number> = { emergency: 0, two_week_wait: 1, urgent: 2, routine: 3 };
+
+export const priorityLabel = (p: string): string =>
+  p === "two_week_wait" ? "Two-week wait" : p.charAt(0).toUpperCase() + p.slice(1);
+
+export function waitlistCards(rows: WaitlistLike[]): KanbanCard[] {
+  return [...rows]
+    .sort((a, b) => (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9))
+    .map((w) => ({
+      id: w.id,
+      columnId: WAITLIST_COLUMNS.some((c) => c.id === w.status) ? w.status : "waiting",
+      title: w.target_service,
+      subtitle: `Patient ${w.person_id.slice(0, 8)}`,
+      badges: [priorityLabel(w.priority)],
+    }));
+}
+
+export interface PersonLike {
+  id?: string;
+  name?: unknown;
+  birth_date?: string;
+  date_of_birth?: string;
+  [k: string]: unknown;
+}
+
+/** Person names arrive as a string or as `{given, family}` (possibly arrays). */
+export function personName(p: PersonLike): string {
+  const n = p.name;
+  if (typeof n === "string") return n;
+  if (Array.isArray(n)) return personName({ name: n[0] });
+  if (n && typeof n === "object") {
+    const o = n as { given?: unknown; family?: unknown };
+    const given = Array.isArray(o.given) ? o.given.join(" ") : (o.given ?? "");
+    return `${given} ${o.family ?? ""}`.trim();
+  }
+  return "";
+}
+
+export function patientRows(rows: PersonLike[]): Record<string, unknown>[] {
+  return rows.map((p) => ({
+    id: p.id ?? "",
+    name: personName(p),
+    birthDate: p.birth_date ?? p.date_of_birth ?? "",
+  }));
+}

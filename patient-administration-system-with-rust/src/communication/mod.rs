@@ -95,6 +95,29 @@ impl CommunicationService {
         self
     }
 
+    /// The address `channel` would deliver to for `person_id`, or `None` when
+    /// the person has no suitable contact point. Lets callers skip a channel
+    /// before any letter is persisted.
+    pub async fn recipient(
+        &self,
+        person_id: Uuid,
+        channel: DeliveryChannel,
+        ctx: &UserContext,
+    ) -> Result<Option<String>> {
+        let person_client = self
+            .person_client
+            .as_ref()
+            .ok_or_else(|| Error::upstream("CommunicationService not wired with a PersonClient"))?;
+        let upstream_ctx = UpstreamUserContext {
+            user_id: ctx.user_id.clone(),
+            user_ip: ctx.user_ip.clone(),
+            user_agent: ctx.user_agent.clone(),
+        };
+        let person = person_client.get(person_id, &upstream_ctx).await?;
+        let value = serde_json::to_value(&person).unwrap_or_default();
+        Ok(recipient_for(channel, &value))
+    }
+
     /// True when a sender is wired for `channel` and reports itself enabled.
     pub fn channel_ready(&self, channel: DeliveryChannel) -> bool {
         self.senders.get(&channel).is_some_and(|s| s.is_enabled())

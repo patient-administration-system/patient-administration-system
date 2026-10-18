@@ -14,6 +14,11 @@ publish = false
 # from incompatible axum versions in the dep graph.
 loco-rs = "0.14"
 
+# Needed only to name `Router` and `Extension` in the view-engine initializer
+# (Loco does not re-export them). Same axum 0.8 line Loco 0.14.1 resolves, so one
+# axum stays in the graph.
+axum = { version = "0.8", default-features = false }
+
 # Cookie-based CSRF token storage for the write-flow forms (`csrf` module).
 # Pinned to the same minor as the `axum-extra` that Loco 0.14.1 brings via
 # axum 0.8, so a single `CookieJar` type flows through every handler.

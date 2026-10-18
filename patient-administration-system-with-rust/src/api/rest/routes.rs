@@ -143,6 +143,14 @@ pub fn router(state: AppState) -> Router {
         // Scheduling — book / cancel / check-in / complete.
         .route("/api/slots/{id}/book", post(handlers_scheduling::book_slot))
         .route(
+            "/api/appointments",
+            get(handlers_scheduling::list_appointments),
+        )
+        .route(
+            "/api/patients/{id}/appointments",
+            get(handlers_scheduling::list_patient_appointments),
+        )
+        .route(
             "/api/appointments/{id}/cancel",
             post(handlers_scheduling::cancel_appointment),
         )

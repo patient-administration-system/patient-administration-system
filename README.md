@@ -77,7 +77,7 @@ cargo fmt --all
 ```bash
 # 1. Start the database.
 cd patient-administration-system-with-rust
-docker compose up -d postgres
+podman compose -f podman/compose.yml up -d postgres
 
 # 2. Apply migrations once — both apps see the same schema.
 DATABASE_URL=postgres://pas:pas_dev_password@localhost:5432/pas \

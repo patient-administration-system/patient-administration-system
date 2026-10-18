@@ -27,7 +27,7 @@ The v0.3.1 dep audit removed 15 unused direct deps (`loco-rs`, `fluvio`, `tonic`
 | **Money / Decimal**  | rust_decimal 1.36 (`serde-with-str`)        | Exact monetary arithmetic                |
 | **Testing**          | assertables 9.8, tempfile 3.24              | Rich asserts + temp directories          |
 | **Benchmarking**     | Criterion 0.5 (`html_reports`, `async_tokio`) | Statistical performance benchmarks     |
-| **Containerization** | Docker (multi-stage), docker-compose        | Deployment packaging                     |
+| **Containerization** | Podman (multi-stage Containerfile), podman compose        | Deployment packaging                     |
 
 ## Workspace context
 

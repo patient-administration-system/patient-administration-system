@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 #
 # Multi-stage production build for the PAS server.
 #
@@ -10,13 +9,14 @@
 # Stage 2 (runtime): minimal Debian image carrying only the binary, TLS roots,
 # libssl, and curl (for the HTTP healthcheck). Runs as a non-root user.
 
-FROM rust:1-slim AS builder
+FROM docker.io/library/rust:1-slim AS builder
 WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         pkg-config \
         libssl-dev \
         ca-certificates \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Cache dependencies: copy manifests and build a stub binary so Cargo resolves
@@ -32,10 +32,11 @@ RUN rm -rf src
 # Real build
 COPY src ./src
 COPY benches ./benches
+COPY templates ./templates
 COPY migrations ./migrations
 RUN cargo build --release --bin patient-administration-system
 
-FROM debian:bookworm-slim AS runtime
+FROM docker.io/library/debian:bookworm-slim AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \

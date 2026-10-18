@@ -79,7 +79,7 @@ DATABASE_URL=postgres://… cargo test              # actually exercise them
 | `tests/hl7v2_outbound_test.rs`    | y  | `Hl7v2MllpPublisher` (2 tests): AA happy path, AE peer leaves outbox row unpublished           |
 | `tests/dashboard_test.rs`         | y  | `GET /dashboard` returns 200 + `text/html` with every Lily panel header                        |
 
-A local Postgres is most easily provided via `docker compose up -d postgres` (see `docker-compose.yml`), then `cargo run --bin pas-migrate -- up` from the workspace root (or from this crate, since the `pas-migrate` binary lives in the sibling migration crate).
+A local Postgres is most easily provided via `podman compose up -d postgres` (see `compose.yml`), then `cargo run --bin pas-migrate -- up` from the workspace root (or from this crate, since the `pas-migrate` binary lives in the sibling migration crate).
 
 ## Benchmarks
 

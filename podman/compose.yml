@@ -5,8 +5,11 @@
 #   podman compose -f podman/compose.yml down       # keep data
 #   podman compose -f podman/compose.yml down -v    # wipe data
 #
-# Postgres:  postgres://pas:pas_dev_password@localhost:5432/pas
-# Keycloak:  http://localhost:8180  (admin / admin, development only)
+# Postgres:  postgres://pas:pas_dev_password@localhost:${PAS_PG_PORT:-5432}/pas
+# Keycloak:  http://localhost:${PAS_KEYCLOAK_PORT:-8180}  (admin / admin, development only)
+#
+# Ports are overridable when another stack already holds them, e.g.
+#   PAS_PG_PORT=5442 PAS_KEYCLOAK_PORT=8190 podman compose -f podman/compose.yml up -d
 #            realm "pas", imported from keycloak/pas-realm.json
 
 services:
@@ -17,9 +20,9 @@ services:
       POSTGRES_PASSWORD: pas_dev_password
       POSTGRES_DB: pas
     ports:
-      - "5432:5432"
+      - "${PAS_PG_PORT:-5432}:5432"
     volumes:
-      - pas_pgdata:/var/lib/postgresql/data
+      - pas_pgdata:/var/lib/postgresql
       - ./postgres/init-keycloak.sql:/docker-entrypoint-initdb.d/init-keycloak.sql:ro,Z
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pas"]
@@ -37,9 +40,8 @@ services:
       KC_DB_PASSWORD: keycloak_dev_password
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-      KC_HTTP_PORT: 8180
     ports:
-      - "8180:8180"
+      - "${PAS_KEYCLOAK_PORT:-8180}:8080"
     volumes:
       - ./keycloak/pas-realm.json:/opt/keycloak/data/import/pas-realm.json:ro,Z
     depends_on:

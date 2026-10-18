@@ -6,9 +6,18 @@
   "loginWithEmailAllowed": true,
   "roles": {
     "realm": [
-      { "name": "patient", "description": "A patient signing in to see their own appointments" },
-      { "name": "staff", "description": "Hospital staff using the administration frontend" },
-      { "name": "admin", "description": "Administrators, including message-template editing" }
+      {
+        "name": "patient",
+        "description": "A patient signing in to see their own appointments"
+      },
+      {
+        "name": "staff",
+        "description": "Hospital staff using the administration frontend"
+      },
+      {
+        "name": "admin",
+        "description": "Administrators, including message-template editing"
+      }
     ]
   },
   "clients": [
@@ -20,10 +29,54 @@
       "secret": "pas_dev_client_secret",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
-      "redirectUris": ["http://localhost:5150/auth/callback"],
-      "webOrigins": ["http://localhost:5150"],
-      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "http://localhost:5150/*" },
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+      "redirectUris": [
+        "http://localhost:5173/signin/oidc/callback",
+        "http://localhost:4173/signin/oidc/callback",
+        "http://localhost:3000/signin/oidc/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:4173",
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/signin##http://localhost:4173/signin##http://localhost:3000/signin"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles"
+      ],
+      "protocolMappers": [
+        {
+          "name": "person_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "person_id",
+            "claim.name": "person_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "multivalued": "true",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
@@ -32,17 +85,42 @@
       "email": "patient@example.test",
       "emailVerified": true,
       "enabled": true,
-      "attributes": { "person_id": ["00000000-0000-0000-0000-000000000000"] },
-      "credentials": [{ "type": "password", "value": "patient", "temporary": false }],
-      "realmRoles": ["patient"]
+      "attributes": {
+        "person_id": [
+          "00000000-0000-0000-0000-000000000000"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "patient",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "patient"
+      ],
+      "firstName": "Pat",
+      "lastName": "Patient"
     },
     {
       "username": "admin",
       "email": "admin@example.test",
       "emailVerified": true,
       "enabled": true,
-      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
-      "realmRoles": ["staff", "admin"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "staff",
+        "admin"
+      ],
+      "firstName": "Ada",
+      "lastName": "Admin"
     }
   ]
 }

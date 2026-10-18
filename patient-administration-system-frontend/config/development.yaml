@@ -26,8 +26,7 @@ server:
     trace:
       enable: true
 
-# Bring your own DATABASE_URL via the env, or fall back to the docker-compose
-# default the PAS Axum project ships.
+# Bring your own DATABASE_URL via the env, or fall back to the compose# default the PAS Axum project ships.
 database:
   uri: "{{ get_env(name="DATABASE_URL", default="postgres://pas:pas_dev_password@localhost:5432/pas") }}"
   enable_logging: false
@@ -42,9 +41,11 @@ database:
 mailer:
   smtp:
     enable: false
+    host: localhost  # required by the schema even while disabled
+    port: 1025
+    secure: false
 
-queue:
-  kind: Null  # no background queue; patient-administration-system-frontend is read-mostly
-
+# No background queue: this app is read-mostly and defines no workers, and Loco 0.14 has no
+# "Null" queue kind. Workers (if ever added) run inline.
 workers:
-  mode: BackgroundQueue
+  mode: ForegroundBlocking

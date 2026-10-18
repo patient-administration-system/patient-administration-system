@@ -870,7 +870,7 @@ Pure-Rust types in `src/models/<name>.rs` with `serde` derives, factory methods,
 
 - **T6.1 Integration tests — `tests/`.** Share `tests/common/mod.rs` (`database_url`, `build_state`). Write the 19 files listed in [`AGENTS/testing.md`](AGENTS/testing.md): `health`, `auth`, `patient_crud`, `practitioner`, `adt_flow`, `scheduling_flow`, `waitlist_rtt_flow`, `billing_flow`, `letter_flow`, `consent_flow`, `fhir_write`, `concurrency` (two-way races: exactly one 200, one 409), `outbox_dispatcher`.
 - **T6.2 Benchmarks — `benches/`.** Three Criterion suites: `adt_bench` (`BedStatus::try_transition_to` full cycle), `scheduling_bench` (`TimeRange::overlaps` at 16…1024 ranges), `waitlist_bench` (`compute_active_weeks` at 4…256 events). `harness = false` on each.
-- **T6.3 Docker.** `Dockerfile` multi-stage (builder + slim runtime, non-root), `Dockerfile.test`, `docker-compose.yml` (Postgres + PAS), `docker-compose.test.yml` (Postgres only), `.dockerignore`, `.env.example`.
+- **T6.3 Containers.** `Containerfile` multi-stage (builder + slim runtime, non-root), `Containerfile.test`, `compose.yml` (Postgres + PAS), `compose.test.yml` (Postgres only), `.dockerignore`, `.env.example`.
 - **T6.4 Demo + seed.** `src/bin/seed.rs` (1 facility, 1 ward, 1 room, 3 `Available` beds, 2 practitioners, 1 patient, 1 letter template). `demo.sh` walks admit → ward-occupancy → transfer → discharge → audit history → letter generation against a running server.
 - **T6.5 Docs fill-in.** Flesh out every `AGENTS/*.md` from the stubs created in T0.5. README with project overview, quick-start, full endpoint table, configuration table, curl examples per headline flow.
 

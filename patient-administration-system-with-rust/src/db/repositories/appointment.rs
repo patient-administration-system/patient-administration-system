@@ -46,6 +46,24 @@ impl AppointmentRepository {
         rows.into_iter().map(from_model).collect()
     }
 
+    /// All non-deleted appointments (any status) starting inside `[from, to)`,
+    /// earliest first; backs the staff calendar.
+    pub async fn list_between<C: ConnectionTrait>(
+        conn: &C,
+        from: chrono::DateTime<chrono::Utc>,
+        to: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<Appointment>> {
+        let rows = appointment::Entity::find()
+            .filter(appointment::Column::StartDatetime.gte(from.fixed_offset()))
+            .filter(appointment::Column::StartDatetime.lt(to.fixed_offset()))
+            .filter(appointment::Column::DeletedAt.is_null())
+            .order_by_asc(appointment::Column::StartDatetime)
+            .all(conn)
+            .await
+            .map_err(Error::Database)?;
+        rows.into_iter().map(from_model).collect()
+    }
+
     /// Booked appointments whose start falls inside `[from, to)`; the
     /// reminder scheduler's work list.
     pub async fn list_booked_starting_between<C: ConnectionTrait>(

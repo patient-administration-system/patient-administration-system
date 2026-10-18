@@ -8,6 +8,6 @@
 - Stateless server: every request reads from the DB. Horizontal scaling is straightforward — run more replicas behind a load balancer.
 - The outbox dispatcher runs in-process. If multiple replicas run, each polls; duplicate delivery is possible. Production deployments that need exactly-once delivery should either pin the dispatcher to one replica or wrap publish in an idempotent consumer.
 - The optional MLLP TCP listener (`HL7V2_MLLP_BIND`) is also in-process. It dispatches via `axum::Router::oneshot` against the same router as the HTTP path, so handler logic and middleware are shared (auth excepted — see [restful.md](restful.md)).
-- Docker image (`Dockerfile`) is multi-stage and runs as a non-root user.
-- `docker-compose.yml` brings up Postgres + the PAS server; `docker-compose.test.yml` brings up Postgres only for the integration suite.
+- Container image (`Containerfile`) is multi-stage and runs as a non-root user.
+- `compose.yml` brings up Postgres + the PAS server; `compose.test.yml` brings up Postgres only for the integration suite.
 - Sibling `patient-administration-system-frontend` (Loco-rs, port 5150) is stateless against the same DB; deploy independently with its own replica count.

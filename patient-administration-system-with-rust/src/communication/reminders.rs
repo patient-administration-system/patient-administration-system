@@ -93,6 +93,21 @@ impl ReminderService {
                 if !self.communication.channel_ready(*channel) {
                     continue;
                 }
+                // Check the contact point first: generating a letter persists it
+                // even when nothing can be delivered, and a stray pending letter
+                // would block a later reminder.
+                match self
+                    .communication
+                    .recipient(a.person_id, *channel, &ctx)
+                    .await
+                {
+                    Ok(Some(_)) => {}
+                    Ok(None) => continue,
+                    Err(e) => {
+                        tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "recipient lookup failed: {e}");
+                        break;
+                    }
+                }
                 match self
                     .communication
                     .generate_letter(
@@ -111,7 +126,7 @@ impl ReminderService {
                         sent = true;
                         break;
                     }
-                    Ok(_) => continue, // no contact point for this channel; try the next
+                    Ok(_) => continue, // the sender failed; try the next channel
                     Err(e) => {
                         tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "reminder failed: {e}");
                         continue;

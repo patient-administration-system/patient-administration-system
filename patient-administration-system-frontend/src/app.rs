@@ -8,7 +8,7 @@ use std::path::Path;
 use async_trait::async_trait;
 use loco_rs::{
     Result,
-    app::{AppContext, Hooks},
+    app::{AppContext, Hooks, Initializer},
     bgworker::Queue,
     boot::{BootResult, StartMode, create_app},
     config::Config,
@@ -40,8 +40,16 @@ impl Hooks for App {
         create_app::<Self, Migrator>(mode, environment, config).await
     }
 
+    async fn initializers(_ctx: &AppContext) -> Result<Vec<Box<dyn Initializer>>> {
+        Ok(vec![Box::new(
+            crate::initializers::view_engine::ViewEngineInitializer,
+        )])
+    }
+
     fn routes(_ctx: &AppContext) -> AppRoutes {
-        AppRoutes::with_default_routes()
+        // Not `with_default_routes()`: it also registers Loco's own `/_health`, which
+        // would collide with `controllers::health` (richer: reports the database).
+        AppRoutes::empty()
             .add_route(controllers::dashboard::routes())
             .add_route(controllers::patients::routes())
             .add_route(controllers::wards::routes())
@@ -50,6 +58,7 @@ impl Hooks for App {
             .add_route(controllers::appointments::routes())
             .add_route(controllers::letters::routes())
             .add_route(controllers::health::routes())
+            .add_route(controllers::health::ping_routes())
     }
 
     fn register_tasks(_tasks: &mut Tasks) {

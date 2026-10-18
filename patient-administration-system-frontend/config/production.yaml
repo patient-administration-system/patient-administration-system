@@ -39,9 +39,11 @@ database:
 mailer:
   smtp:
     enable: false
+    host: localhost  # required by the schema even while disabled
+    port: 1025
+    secure: false
 
-queue:
-  kind: Null
-
+# No background queue: this app is read-mostly and defines no workers, and Loco 0.14 has no
+# "Null" queue kind. Workers (if ever added) run inline.
 workers:
-  mode: BackgroundQueue
+  mode: ForegroundBlocking

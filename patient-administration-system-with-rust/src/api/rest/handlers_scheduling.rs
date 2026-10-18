@@ -7,7 +7,7 @@
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
 };
 use serde::Deserialize;
@@ -42,6 +42,51 @@ fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
 
 fn ok_value(value: Value) -> HandlerResult {
     (StatusCode::OK, Json(ApiResponse::ok(value)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RangeQuery {
+    pub from: chrono::DateTime<chrono::Utc>,
+    pub to: chrono::DateTime<chrono::Utc>,
+}
+
+/// `GET /api/appointments?from=<rfc3339>&to=<rfc3339>` — appointments
+/// starting in `[from, to)`. The range is capped at 366 days.
+pub async fn list_appointments(
+    State(state): State<AppState>,
+    Query(q): Query<RangeQuery>,
+) -> HandlerResult {
+    if q.to <= q.from || q.to - q.from > chrono::Duration::days(366) {
+        return error_to_response(crate::Error::validation(
+            "`from` must precede `to` by at most 366 days",
+        ));
+    }
+    match crate::db::repositories::appointment::AppointmentRepository::list_between(
+        &state.db, q.from, q.to,
+    )
+    .await
+    {
+        Ok(rows) => ok_value(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `GET /api/patients/{id}/appointments` — every appointment for one patient.
+pub async fn list_patient_appointments(
+    State(state): State<AppState>,
+    Path(person_id): Path<Uuid>,
+) -> HandlerResult {
+    match crate::db::repositories::appointment::AppointmentRepository::list_by_patient(
+        &state.db, person_id,
+    )
+    .await
+    {
+        Ok(mut rows) => {
+            rows.sort_by_key(|a| a.start_datetime);
+            ok_value(serde_json::to_value(rows).unwrap_or(Value::Null))
+        }
+        Err(e) => error_to_response(e),
+    }
 }
 
 /// `POST /api/slots/:id/book` — book the named slot for the supplied

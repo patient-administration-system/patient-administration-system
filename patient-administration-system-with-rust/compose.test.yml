@@ -1,4 +1,4 @@
-# docker-compose.test.yml — ephemeral Postgres for integration tests.
+# compose.test.yml — ephemeral Postgres for integration tests.
 #
 # Exposes Postgres on host port 5433 to avoid clashing with a developer's
 # local Postgres on 5432. Intended for CI and short-lived test runs; no
@@ -6,7 +6,7 @@
 
 services:
   postgres-test:
-    image: postgres:18
+    image: docker.io/library/postgres:18
     environment:
       POSTGRES_USER: pas
       POSTGRES_PASSWORD: pas_test_password

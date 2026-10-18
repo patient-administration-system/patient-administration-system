@@ -16,3 +16,13 @@ pub async fn index(State(ctx): State<AppContext>) -> Result<Response> {
     });
     format::json(body)
 }
+
+/// `GET /_ping` — process liveness with no database call (Loco's own `/_ping`
+/// is not reachable once the default routes are replaced; see `app.rs`).
+pub fn ping_routes() -> Routes {
+    Routes::new().add("/_ping", get(ping))
+}
+
+pub async fn ping() -> Result<Response> {
+    format::json(serde_json::json!({ "ok": true }))
+}

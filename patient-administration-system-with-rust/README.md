@@ -34,7 +34,7 @@ This crate is the v0.1 tier: a compiling, tested library + binary covering the h
 
 - Rust 1.93+
 - PostgreSQL 18+
-- Docker (optional, recommended for local Postgres)
+- Podman (optional, recommended for local Postgres)
 
 ### Bootstrap a working server
 
@@ -44,7 +44,7 @@ cd patient-administration-system-with-rust
 cp .env.example .env
 
 # 1. Start Postgres
-docker-compose up -d postgres
+podman compose up -d postgres
 
 # 2. Apply migrations + load demo data
 (cd migrations && cargo run --bin pas-migrate -- up)
@@ -114,7 +114,7 @@ Mirrors `Cargo.toml` exactly. The v0.3.1 dep audit removed 15 unused direct deps
 | **Money / Decimal**  | rust\_decimal 1.36 (`serde-with-str`)       | Exact monetary arithmetic                |
 | **Testing**          | `assertables` 9.8, `tempfile` 3.24          | Rich asserts + temp directories          |
 | **Benchmarking**     | Criterion 0.5 (`html_reports`, `async_tokio`) | Statistical performance benchmarks     |
-| **Containerization** | Docker (multi-stage), docker-compose        | Deployment packaging                     |
+| **Containerization** | Podman (multi-stage Containerfile), podman compose        | Deployment packaging                     |
 
 ## Project Structure
 
@@ -582,7 +582,7 @@ The single migration `m20260520_000001_init.rs` creates 29 tables. To keep the v
 - Dashboard — Tera template render + Lily class-name assertions.
 - Cross-cutting — validation, privacy, search, streaming, config, error mapping.
 
-**Integration tests:** 62 test functions across 24 files in `tests/`. Most gated on `DATABASE_URL`; `auth_test.rs`, `rate_limit_test.rs`, and (v0.14) `webhook_test.rs` exercise pure middleware / publisher logic without a database and run every `cargo test`. Live Postgres (e.g. `docker compose up -d postgres` or `docker-compose.test.yml`) is required for the rest.
+**Integration tests:** 62 test functions across 24 files in `tests/`. Most gated on `DATABASE_URL`; `auth_test.rs`, `rate_limit_test.rs`, and (v0.14) `webhook_test.rs` exercise pure middleware / publisher logic without a database and run every `cargo test`. Live Postgres (e.g. `podman compose up -d postgres` or `compose.test.yml`) is required for the rest.
 
 | File                              | DB | What's tested                                                                |
 | --------------------------------- | -- | ---------------------------------------------------------------------------- |

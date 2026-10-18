@@ -18,6 +18,11 @@ use sha2::Sha256;
 use tower::ServiceExt;
 use uuid::Uuid;
 
+/// The tests below set and clear process-wide environment variables (the webhook
+/// secrets). Cargo runs a binary's tests on parallel threads, so they take this
+/// lock to run one at a time.
+static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 async fn body_json(resp: axum::response::Response) -> Value {
     let bytes = to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
     serde_json::from_slice(&bytes).unwrap_or(Value::Null)
@@ -38,6 +43,7 @@ fn sign(secret: &[u8], body: &[u8]) -> String {
 
 #[tokio::test]
 async fn test_person_merged_webhook_without_secret_returns_503() {
+    let _env_guard = ENV_LOCK.lock().await;
     let Some(url) = common::database_url() else {
         return;
     };
@@ -70,6 +76,7 @@ async fn test_person_merged_webhook_without_secret_returns_503() {
 
 #[tokio::test]
 async fn test_person_merged_webhook_wrong_signature_returns_401() {
+    let _env_guard = ENV_LOCK.lock().await;
     let Some(url) = common::database_url() else {
         return;
     };
@@ -107,6 +114,7 @@ async fn test_person_merged_webhook_wrong_signature_returns_401() {
 
 #[tokio::test]
 async fn test_person_merged_webhook_happy_path_applied_then_dedupe() {
+    let _env_guard = ENV_LOCK.lock().await;
     let Some(url) = common::database_url() else {
         return;
     };
@@ -166,6 +174,7 @@ async fn test_person_merged_webhook_happy_path_applied_then_dedupe() {
 
 #[tokio::test]
 async fn test_person_merged_self_merge_returns_400() {
+    let _env_guard = ENV_LOCK.lock().await;
     let Some(url) = common::database_url() else {
         return;
     };
@@ -198,6 +207,7 @@ async fn test_person_merged_self_merge_returns_400() {
 
 #[tokio::test]
 async fn test_worker_merged_webhook_happy_path() {
+    let _env_guard = ENV_LOCK.lock().await;
     let Some(url) = common::database_url() else {
         return;
     };
