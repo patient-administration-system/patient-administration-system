@@ -19,6 +19,17 @@ test("a patient signs in and sees only their own appointments", async ({ page, r
   const asked: string[] = await (await request.get(`${MOCK_URL}/__requests`)).json();
   expect(asked).toContain("/api/patients/00000000-0000-0000-0000-000000000000/appointments");
 
+  // The BFF presented a genuine token from the real issuer and named the signed-in person. The mock
+  // API verified the PASETO signature, so a missing or forged token would have been a 401 here.
+  const seen: { path: string; actor: string | null; sub: string | null; service: boolean }[] = await (
+    await request.get(`${MOCK_URL}/__actors`)
+  ).json();
+  const mine = seen.find((r) => r.path === "/api/patients/00000000-0000-0000-0000-000000000000/appointments");
+  expect(mine?.sub).toBe("pas-ui");
+  expect(mine?.service).toBe(true);
+  expect(mine?.actor).toMatch(/^[0-9a-f-]{36}$/);
+  expect(seen.every((r) => r.sub === "pas-ui")).toBe(true);
+
   // Secure portal messages: shown after sign-in, fetched for the token's own person id only.
   await page.getByRole("link", { name: "My messages" }).click();
   await expect(page.getByRole("heading", { name: "Your appointment letter" })).toBeVisible();

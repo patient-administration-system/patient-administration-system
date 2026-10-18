@@ -6,6 +6,9 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = Number(process.env.PW_PORT ?? 4173);
 const KEYCLOAK = process.env.KEYCLOAK_URL ?? "http://localhost:8180";
 const MOCK_PORT = Number(process.env.MOCK_PORT ?? 4181);
+// The real token issuer (a Rust binary): see tests/e2e/support/issuer.mjs.
+const ISSUER_PORT = Number(process.env.ISSUER_PORT ?? 4195);
+const ISSUER_DIR = `${process.cwd()}/test-results/issuer`;
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -29,9 +32,16 @@ export default defineConfig({
   ],
   webServer: [
     {
+      command: "node tests/e2e/support/issuer.mjs",
+      url: `http://127.0.0.1:${ISSUER_PORT}/keys.json`,
+      env: { ISSUER_PORT: String(ISSUER_PORT), ISSUER_DIR },
+      reuseExistingServer: !process.env.CI,
+      timeout: 240_000,
+    },
+    {
       command: "node tests/e2e/support/pas-mock.mjs",
       url: `http://127.0.0.1:${MOCK_PORT}/__health`,
-      env: { MOCK_PORT: String(MOCK_PORT) },
+      env: { MOCK_PORT: String(MOCK_PORT), ISSUER_URL: `http://127.0.0.1:${ISSUER_PORT}` },
       reuseExistingServer: !process.env.CI,
     },
     {
@@ -44,6 +54,7 @@ export default defineConfig({
         HOST: "127.0.0.1",
         PROTOCOL_HEADER: "x-forwarded-proto",
         PAS_API_URL: `http://127.0.0.1:${MOCK_PORT}`,
+        PAS_API_TOKEN_FILE: `${ISSUER_DIR}/service.token`,
         OIDC_ISSUER: `${KEYCLOAK}/realms/pas`,
         OIDC_CLIENT_ID: "pas-frontend",
         OIDC_CLIENT_SECRET: "pas_dev_client_secret",

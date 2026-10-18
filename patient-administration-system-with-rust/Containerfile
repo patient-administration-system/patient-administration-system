@@ -34,7 +34,7 @@ COPY src ./src
 COPY benches ./benches
 COPY templates ./templates
 COPY migrations ./migrations
-RUN cargo build --release --bin patient-administration-system
+RUN cargo build --release --bin patient-administration-system --bin pas-token-issuer
 
 FROM docker.io/library/debian:bookworm-slim AS runtime
 RUN apt-get update \
@@ -47,6 +47,8 @@ RUN apt-get update \
 USER pas
 WORKDIR /app
 COPY --from=builder /app/target/release/patient-administration-system /usr/local/bin/pas
+# The token issuer ships in the same image so one image can run both roles (see operations/deployment.md).
+COPY --from=builder /app/target/release/pas-token-issuer /usr/local/bin/pas-token-issuer
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -fsS http://localhost:8080/api/health || exit 1

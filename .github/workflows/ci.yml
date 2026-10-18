@@ -104,6 +104,13 @@ jobs:
           cache: pnpm
           cache-dependency-path: patient-administration-system-ui-with-svelte/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      # The browser suite runs the real token issuer (a Rust binary) next to the UI.
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+      - run: cargo build --locked --bin pas-token-issuer
+        working-directory: .
       - name: Start PostgreSQL and Keycloak
         working-directory: .
         run: docker compose -f podman/compose.yml up -d

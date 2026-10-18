@@ -19,4 +19,4 @@
 | NFR-15 | No message MAY be sent on a channel the patient has opted out of, or outside quiet hours. | **Not yet built** (tasks.md NOT-5) |
 
 `ui/` abbreviates `patient-administration-system-ui-with-svelte/`.
-| NFR-16 | When per-user authentication is on, the audit user id MUST be the verified token subject; a client-supplied `X-User-Id` MUST be discarded, and `X-On-Behalf-Of` MUST be honoured only from an authenticated service. | `tests/user_auth_test.rs`, `ui/tests/unit/acting-as.test.ts` |
+| NFR-16 | When per-user authentication is on, the audit user id MUST be the verified token subject; a client-supplied `X-User-Id` MUST be discarded, and `X-On-Behalf-Of` MUST be honoured only from an authenticated service. | `tests/user_auth_test.rs`, `tests/token_issuer_test.rs`, `ui/tests/unit/acting-as.test.ts`, `ui/tests/e2e/sign-in.spec.ts` |

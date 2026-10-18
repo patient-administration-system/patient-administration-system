@@ -40,3 +40,21 @@ Terminate TLS in front of the UI and send `X-Forwarded-Proto: https` (see `conta
 ## Not ready for production
 
 See [`../governance/production-readiness.md`](../governance/production-readiness.md). Notably: API authentication, MFA, patient identity proofing, consent for messaging, and several documents.
+
+## Issuing API tokens (per-user authentication, DTAC-4)
+
+The API verifies PASETO v4.public tokens; something must issue them. This repository ships a small issuer, `pas-token-issuer` (in the API image as `/usr/local/bin/pas-token-issuer`), for **services**: the UI's server and operator tooling. Staff and patients still sign in through Keycloak; the UI's server then acts for them, and the API records `svc:<service> for <person>`.
+
+```sh
+pas-token-issuer keygen --dir /secrets/pas-issuer --kid 2026-10        # once; private.key is 0600
+pas-token-issuer serve  --key /secrets/pas-issuer/private.key --kid 2026-10 --sub pas-ui \
+  --ttl 300 --token-file /run/pas/service.token --bind 0.0.0.0:8195     # keys at /keys.json
+```
+
+Point the API at `http://<issuer>:8195/keys.json` (`PAS_PASETO_KEYS_URL`), set `PAS_REQUIRE_AUTH=true`, and point the UI at the token file (`PAS_API_TOKEN_FILE`). Tokens last five minutes and the file is rewritten every half-TTL.
+
+- **The private key is the crown jewel.** Keep it in your secret store, readable by the issuer only. Anyone with it can act as any user the API knows.
+- **The keys URL must be `https`** outside loopback; the API refuses plain `http` otherwise.
+- **Rotation:** generate a new key under a new `kid`, publish both public keys (merge the two `keys.json` documents) until the longest token has expired, switch the issuer to the new key, then drop the old one. The API re-reads the keys every `PAS_PASETO_KEYS_REFRESH_SECS`.
+- **Per-person tokens** at the API (rather than the UI acting for people) need a full authentication service in place of this issuer. The API does not change: it only reads the key set.
+- **Development:** `sh scripts/dev-auth.sh` does all of the above with a throwaway key.
