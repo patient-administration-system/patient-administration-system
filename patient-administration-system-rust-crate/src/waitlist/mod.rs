@@ -29,13 +29,13 @@ impl WaitlistService {
     pub async fn add(
         &self,
         referral_id: Option<Uuid>,
-        patient_id: Uuid,
+        person_id: Uuid,
         target_service: String,
         priority: Priority,
         ctx: &UserContext,
     ) -> Result<WaitlistEntry> {
         let ctx_clone = ctx.clone();
-        let mut entry = WaitlistEntry::new(patient_id, target_service, priority);
+        let mut entry = WaitlistEntry::new(person_id, target_service, priority);
         entry.referral_id = referral_id;
         let entry_clone = entry.clone();
         let res = self
@@ -57,7 +57,7 @@ impl WaitlistService {
                         txn,
                         "WaitlistAdded",
                         &serde_json::json!({
-                            "entry_id": e.id, "patient_id": patient_id,
+                            "entry_id": e.id, "person_id": person_id,
                         }),
                     )
                     .await?;
@@ -129,12 +129,12 @@ impl RttService {
 
     pub async fn start(
         &self,
-        patient_id: Uuid,
+        person_id: Uuid,
         target_service: String,
         ctx: &UserContext,
     ) -> Result<RTTPathway> {
         let ctx_clone = ctx.clone();
-        let pathway = RTTPathway::new(patient_id, target_service);
+        let pathway = RTTPathway::new(person_id, target_service);
         let pathway_clone = pathway.clone();
         let res = self
             .db

@@ -29,28 +29,27 @@
 
 pub mod ack;
 pub mod batch;
+pub mod encode;
 pub mod encoder;
 pub mod escape;
 pub mod listener;
-pub mod mapping;
 pub mod mllp;
 pub mod parser;
+pub mod pid_translation;
 
 pub use ack::{AckCode, ack};
 pub use batch::{Batch, MAX_BATCH_MESSAGES, encode_batch_ack, looks_like_batch, parse_batch};
+pub use encode::{EncodeContext, encode_adt, encode_siu, fmt_ts};
 pub use encoder::encode_message;
 pub use escape::{escape_value, unescape_value};
 pub use listener::MllpServer;
-pub use mapping::{
-    DftP03Item, DftP03Message, MfnM02Item, MfnM02Message, MfnM05Item, MfnM05Message, SiuMessage,
-    encode_adt_a01, encode_adt_a02, encode_adt_a03, encode_adt_a04, encode_adt_a05, encode_adt_a06,
-    encode_adt_a08, encode_adt_a11, encode_adt_a12, encode_adt_a13, encode_adt_a21, encode_adt_a22,
-    encode_adt_a23, encode_adt_a28, encode_adt_a38, encode_adt_a40, encode_dft_p03, encode_mfn_m02,
-    encode_mfn_m05, encode_siu_s12, encode_siu_s13, encode_siu_s14, encode_siu_s15, message_type,
-    parse_dft_p03, parse_merge_source_mrn, parse_mfn_m02, parse_mfn_m05, parse_siu,
-    patient_from_pid, pid_from_patient,
-};
 pub use parser::parse_message;
+
+// NOTE: `mapping` module deleted in v0.44.0 Option C. Every PID/STF/MFE
+// shape conversion now happens inside the proxy handlers in Phase 3,
+// which translate between the upstream `Person` / `Worker` JSON and the
+// HL7 v2 wire format directly. ADT/SIU/DFT/MFN encoders are rebuilt as
+// proxy-handler-local helpers in Phase 3.
 
 use serde::{Deserialize, Serialize};
 

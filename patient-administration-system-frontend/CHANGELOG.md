@@ -4,6 +4,42 @@ All notable changes to `patient-administration-system-frontend` are documented i
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this
 crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-05-31
+
+Paired with PAS Axum **v0.44.0** Option C identity delegation. The
+`patients` table no longer exists in the shared schema, so the
+frontend's patient projection moves to an HTTP client against
+`person-service` (`:5180`).
+
+### Added
+
+- `src/services/person_api.rs` — reqwest client with
+  `list_persons(limit)` and `get_person(id)` against
+  `PERSON_SERVICE_URL` (defaults to `http://localhost:5180`).
+  Tolerates both PAS-envelope (`{ success, data }`) and bare-array
+  upstream response shapes. 3 inline unit tests.
+
+### Changed
+
+- `src/models/patient.rs` — entire module rewritten. The local
+  `patients` sea-orm projection is gone; `list_active_patients` and
+  `find_patient_by_id` now delegate to `services::person_api` and
+  translate the upstream `Person` JSON into the existing
+  `PatientCard` / `PatientDetail` view-models so the templates stay
+  unchanged. `list_active_patients` returns an empty `Vec` on
+  upstream failure (best-effort dashboard render). 5 inline unit
+  tests cover the name / identifier / telecom / address extractors
+  including FHIR `line[]` arrays and legacy `line1` strings.
+- `controllers/patients.rs`, `controllers/admissions.rs`,
+  `controllers/appointments.rs`, `controllers/letters.rs` — call
+  sites lose the `&ctx.db` argument since the new model functions
+  source their data over HTTP.
+
+### Removed
+
+- Sea-orm entity for `patients` (the table no longer exists after
+  PAS v0.44 destructive migration).
+
 ## [0.1.0] — 2026-05-24
 
 First release. A Loco-rs front-end for the Patient Administration

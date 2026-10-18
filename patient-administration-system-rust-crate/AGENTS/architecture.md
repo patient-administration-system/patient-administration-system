@@ -5,25 +5,31 @@
 The Patient Administration System (PAS) is a layered Rust service:
 
 ```
-api → service → repository → db
+                                                ┌── repository → db (PAS-owned tables)
+api → service ──────────────────────────────────┤
+                                                └── upstream  → person-service / worker-service (HTTP)
 ```
+
+> **v0.44.0 Option C target.** The four-layer architecture (api → service → repository → db) gains a parallel fifth layer (`upstream`) for HTTP-delegated identity + workforce concerns. The shipped v0.43.0 surface predates this layer; rewrites land in §13 Layer 11.
 
 ### Layers
 
-**api** — Axum routers for both REST (`/api/...`) and FHIR R5 (`/fhir/...`), with Utoipa-driven OpenAPI annotations. Handlers are thin shells: they extract user context from `X-User-Id` / `X-User-Ip` / `X-User-Agent` headers, decode and validate the JSON body, call a service, and serialize the response into an `ApiResponse<T>` envelope. Errors are mapped to HTTP status codes by the `ApiError` type. The api layer holds no business logic.
+**api** — Axum routers for both REST (`/api/...`) and FHIR R5 (`/fhir/...`), with Utoipa-driven OpenAPI annotations. Handlers are thin shells: they extract user context from `X-User-Id` / `X-User-Ip` / `X-User-Agent` headers, decode and validate the JSON body, call a service or an upstream client, and serialize the response into an `ApiResponse<T>` envelope. Errors are mapped to HTTP status codes by the `ApiError` type. The api layer holds no business logic.
 
-**service** — Modules under `src/adt/`, `src/scheduling/`, `src/waitlist/`, `src/resources/`, `src/billing/`, and `src/communication/`. Each service owns the business rules and state-machine transitions for one aggregate cluster. Services receive their dependencies (repositories, event publisher, audit log, clock) by injection and own all transactional boundaries. State changes that touch multiple rows always run inside one `DatabaseTransaction`.
+**service** — Modules under `src/adt/`, `src/scheduling/`, `src/waitlist/`, `src/resources/`, `src/billing/`, and `src/communication/`. Each service owns the business rules and state-machine transitions for one aggregate cluster. Services receive their dependencies (repositories, upstream clients, event publisher, audit log, clock) by injection and own all transactional boundaries. State changes that touch multiple PAS-owned rows always run inside one `DatabaseTransaction`. Resolution of a `person_id` / `worker_id` against the upstream services happens *before* opening the DB transaction (no nested I/O inside `with_txn`).
 
-**repository** — Repositories under `src/db/repositories/`, one per aggregate cluster (patient, encounter, admission, appointment, bed, schedule, slot, waitlist, rtt, letter, billing, consent, audit, outbox). Each talks to SeaORM. The `db::with_txn(db, |txn| async { ... })` helper composes multiple repository calls inside one `DatabaseTransaction`. `AuditLogRepository::log` and `OutboxRepository::publish` accept any `&C: ConnectionTrait`, so callers can compose them with the primary writes in the same transaction.
+**repository** — Repositories under `src/db/repositories/`, one per **PAS-owned** aggregate (encounter, admission, appointment, bed, schedule, slot, waitlist, rtt, letter, billing, consent, audit, outbox). Each talks to SeaORM. The `db::with_txn(db, |txn| async { ... })` helper composes multiple repository calls inside one `DatabaseTransaction`. `AuditLogRepository::log` and `OutboxRepository::publish` accept any `&C: ConnectionTrait`, so callers can compose them with the primary writes in the same transaction. **No `PatientRepository` / `PractitionerRepository`** in the v0.44.0 target — those concerns live upstream.
 
-**db** — `src/db/mod.rs` exposes a `connect(url)` helper (pool size 2-10, 8s connect timeout, 60s idle timeout) and the `with_txn` wrapper. `src/db/entities/` holds 29 SeaORM entities, one file per table. `src/db/repositories/audit.rs` and `src/db/repositories/outbox.rs` are the transactional sinks for the cross-cutting compliance trail.
+**upstream** (v0.44.0) — `src/upstream/` exposes `PersonClient` and `WorkerClient` async traits. HTTP impls (`HttpPersonClient`, `HttpWorkerClient`) wrap `reqwest::Client` with `UPSTREAM_TIMEOUT_SECS`, attach `Authorization: Bearer <MAIN_*_TOKEN>` when set, and pass through `X-User-Id` / `X-User-Ip` / `X-User-Agent` headers so upstream audit credits the original caller. Stub impls (`StubPersonClient`, `StubWorkerClient`) bind ephemeral `TcpListener` ports in tests, mirroring the v0.14 `webhook_test.rs` pattern. Translation between the upstream `Person` / `Worker` shape and the PAS-exposed `Patient` / `Practitioner` shape lives in `src/upstream/translate.rs`.
+
+**db** — `src/db/mod.rs` exposes a `connect(url)` helper (pool size 2-10, 8s connect timeout, 60s idle timeout) and the `with_txn` wrapper. `src/db/entities/` holds ~28 SeaORM entities (v0.44.0 target), one file per table — down from 32 at v0.43.0 because `patient`, `practitioner`, `practitioner_role`, `department` are gone. `src/db/repositories/audit.rs` and `src/db/repositories/outbox.rs` are the transactional sinks for the cross-cutting compliance trail.
 
 ## Aggregates
 
 | Aggregate            | Root                  | Members                                                       |
 | -------------------- | --------------------- | ------------------------------------------------------------- |
-| Patient              | `Patient`             | identifiers, additional names, addresses, contacts, contacts  |
-| Workforce            | `Practitioner`        | `PractitionerRole`, `Department`                              |
+| *Patient*            | *(delegated)*         | Owned by `person-service`; PAS references via `person_id: Uuid`. |
+| *Workforce*          | *(delegated)*         | Owned by `worker-service`; PAS references via `worker_id: Uuid`. |
 | Facility             | `Facility`            | `Ward`, `Room`, `Bed` (each its own table; loaded by id)      |
 | Encounter            | `Encounter`           | (state machine root for inpatient/outpatient/ED)              |
 | Admission            | `Encounter`           | `Admission`, `Transfer`, `Discharge`, `BedAssignment`         |

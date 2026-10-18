@@ -1,5 +1,7 @@
 # Auditability
 
+> **v0.44.0 Option C delta.** Audit of *patient/practitioner CRUD* moves to `person-service` / `worker-service` (those services own the data and the audit). PAS-owned audit (encounter, admission, transfer, discharge, appointment, charge, invoice, payment, letter, consent, coverage) stays here. `GET /api/patients/{id}/audit` becomes a *merged* view: it calls `GET /api/persons/{id}/audit` upstream, fetches PAS-owned audit rows for that `person_id`, and returns the two time-sorted.
+
 ## Audit log
 
 Every state-changing API call writes an `audit_log` row in the same transaction as the entity change. The row carries:

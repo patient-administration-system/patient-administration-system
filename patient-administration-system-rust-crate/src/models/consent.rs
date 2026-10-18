@@ -42,7 +42,7 @@ pub struct Consent {
     /// Internal consent identifier.
     pub id: Uuid,
     /// Patient who granted (or revoked) the consent.
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     /// Category of consent.
     pub consent_type: ConsentType,
     /// Current lifecycle state.
@@ -65,11 +65,11 @@ pub struct Consent {
 
 impl Consent {
     /// Create a new active consent record granted on `granted_date`.
-    pub fn new(patient_id: Uuid, consent_type: ConsentType, granted_date: NaiveDate) -> Self {
+    pub fn new(person_id: Uuid, consent_type: ConsentType, granted_date: NaiveDate) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
-            patient_id,
+            person_id,
             consent_type,
             status: ConsentStatus::Active,
             granted_date,
@@ -113,10 +113,10 @@ mod tests {
 
     #[test]
     fn test_consent_new_defaults() {
-        let patient_id = Uuid::new_v4();
+        let person_id = Uuid::new_v4();
         let granted = date(2026, 1, 1);
-        let c = Consent::new(patient_id, ConsentType::DataProcessing, granted);
-        assert_eq!(c.patient_id, patient_id);
+        let c = Consent::new(person_id, ConsentType::DataProcessing, granted);
+        assert_eq!(c.person_id, person_id);
         assert_eq!(c.consent_type, ConsentType::DataProcessing);
         assert_eq!(c.status, ConsentStatus::Active);
         assert_eq!(c.granted_date, granted);
@@ -191,7 +191,7 @@ mod tests {
         let json = serde_json::to_string(&c).expect("serialize");
         let back: Consent = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.id, c.id);
-        assert_eq!(back.patient_id, c.patient_id);
+        assert_eq!(back.person_id, c.person_id);
         assert_eq!(back.consent_type, c.consent_type);
         assert_eq!(back.status, c.status);
         assert_eq!(back.granted_date, c.granted_date);

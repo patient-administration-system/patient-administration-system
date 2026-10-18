@@ -6,6 +6,213 @@ the member crates at a point in time. For per-crate detail, see:
 - [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md)
 - [`patient-administration-system-frontend/CHANGELOG.md`](patient-administration-system-frontend/CHANGELOG.md)
 
+## 2026-06-01 — Option C delegation: shipped (PAS v0.44.0 + frontend v0.2.0)
+
+The Option C identity delegation work that Phase 0 (below) doc-led
+on 2026-05-30 has fully landed across both member crates. Workspace
+state at this entry:
+
+| Crate                                       | Version | Tests        | Notes |
+| ------------------------------------------- | ------- | ------------ | ----- |
+| `patient-administration-system`             | 0.44.0  | 358 lib      | PAS Axum workflow service; identity delegated upstream |
+| `patient-administration-system-frontend`    | 0.2.0   | 17 lib       | Loco-rs UI; patient reads via HTTP client against person-service |
+| `patient-administration-system-migrations`  | (unbumped) | 0 lib    | sea-orm migration crate; gained `m20260601_000006_delegate_identity` (forward-only destructive) |
+
+What landed since Phase 0:
+
+- **Phase 1 (clients).** `src/upstream/` module with `PersonClient` /
+  `WorkerClient` traits, `HttpPersonClient` / `HttpWorkerClient`
+  reqwest impls, and `StubPersonClient` / `StubWorkerClient` test
+  stubs. `Error::Upstream` variant + 503 mapping.
+- **Phase 2 (destructive migration).** Tables `patients`,
+  `practitioners`, `practitioner_roles`, `departments` dropped
+  CASCADE. 18 `patient_id` columns → `person_id`; 13
+  `practitioner_id` family columns → `worker_id`. v0.43 search
+  engine (Tantivy patient index) removed.
+- **Phase 3a (REST + FHIR proxies).** 16 patient / practitioner
+  proxy handlers + 2 HMAC merge webhooks. Transparent
+  passthrough to upstream JSON shapes under PAS envelope.
+- **Phase 3b1–3b3 (PAS-owned typed handlers).** Every non-identity
+  REST surface restored on top of the new schema: ADT, scheduling,
+  billing, coverage, consent, encounter, audit, admin, waitlist,
+  series, letters, facility/ward/room/bed CRUD.
+- **Phase 3c1–3c3 (HL7 v2 inbound).** 18 inbound handlers covering
+  ADT^A01/A02/A03/A04/A05/A06/A07/A08/A11/A12/A13/A21/A22/A23/A28/A38/A40
+  + DFT^P03 + SIU^S12/S13/S14/S15 + MFN^M02 (staff) +
+  MFN^M05 (location) + batch envelope dispatcher. Every inbound PID
+  resolves through the upstream's search-then-create dedup pipeline.
+- **Phase 3c4 (HL7 v2 outbound).** New `src/streaming/hl7v2_publisher.rs`
+  subscribes to the outbox, hydrates Encounter / Appointment / Bed
+  locally + Person via `PersonClient`, encodes
+  ADT^A01/A02/A03/A04/A05/A06/A07/A11/A12/A13/A38 +
+  SIU^S12/S13/S14/S15/S26, MLLP-frames over TCP, parses MSA-1.
+  `AA` → success; `AE` / `AR` / timeout → outbox retry. New
+  `src/hl7v2/encode.rs` with reusable MSH/EVN/PID/PV1/SCH/AIS/
+  AIL/AIP builders. MFN^M05 MAD now resolves rooms by LOC-1.2
+  code via `RoomRepository::find_by_code`.
+- **Phase 3d (bulk interchange).** `PersonClient` gained
+  `bulk_export(format)` + `bulk_import(content_type, body)`. 5 new
+  routes: `GET /api/patients/export.{json,xml,tsv,csv}`
+  (transparent content-type passthrough) +
+  `POST /api/patients/import`.
+- **Phase 3e (FHIR writes + Bundle).** Typed FHIR Schedule + Slot
+  create/update/delete (accept FHIR `actor[0].reference` /
+  `schedule.reference` and PAS-native `owner { kind, id }` /
+  `schedule_id`). FHIR Bundle POST enforces Decision #4: any entry
+  of `resourceType=Patient` or `Practitioner` rejected per-entry
+  with a routing hint to person-service / worker-service. FHIR
+  Encounter + Appointment create intentionally not exposed; callers
+  use typed REST so state-machine + outbox invariants hold.
+- **Frontend v0.2.0 (paired release).** `src/services/person_api.rs`
+  new; `src/models/patient.rs` rewritten to delegate to it.
+  `patients` sea-orm entity removed.
+
+PAS route count: **115** REST (incl. 16 upstream proxies, 28 HL7 v2
+endpoints, 5 bulk interchange) + 19 FHIR R5.
+
+## 2026-05-30 — Option C delegation: Phase 0 (docs lead, no code change)
+
+Doctrine-reversal documentation pass. No member-crate version bumps, no
+schema change, no code change. The next several phases (Layer 11A–11G
+in PAS Axum `spec.md`) implement what this entry describes.
+
+### What changed in the docs
+
+- **Architectural target moved.** The PAS reverses its v0.43.0 §2.3
+  "*PAS does not depend on the MPI*" position and commits to the
+  Option C end-state: identity (`Patient`) and workforce
+  (`Practitioner`) are HTTP-delegated to `person-service`
+  (`:5180`) and `worker-service` (`:5181`). The PAS schema drops
+  `patients`, `practitioners`, `practitioner_roles`, `departments` in
+  the destructive forward-only migration `m20260601_000006_delegate_identity`.
+  `patient_id` columns rename to `person_id`; `practitioner_id`
+  renames to `worker_id`. No DB-level FKs across the service boundary.
+  Integration is **HTTP-only** — no Cargo dep on the upstream crates.
+- **Five decisions encoded as defaults** (override before Layer 11A):
+  (1) hard runtime dep on the two upstream services, no local cache;
+  (2) forward-only migration, no backfill tool — existing local data
+  is lost on the upgrade; (3) `GET /api/patients/{id}/audit` proxies
+  upstream + merges PAS-owned audit rows; (4) FHIR `transaction`
+  Bundles **reject** Patient/Practitioner entries (clients call the
+  upstream services directly); batch Bundles still accept them via
+  per-entry proxy; (5) `person-service` + `worker-service`
+  are the deferred MPI vision realized — abstract MPI references in
+  the docs are rewritten to point at them.
+- **PAS Axum `spec.md` rewritten end-to-end** for the v0.44.0 target:
+  identity section §4.0 + §4.0.1 (delegated, with the proxy endpoint
+  matrix and the inbound webhook contract for merge propagation);
+  invariants §5 (two new — runtime dep, cross-service writes are not
+  transactional); architecture §6.1–§6.8 (new `upstream` layer,
+  ~28 entities down from 32, new `Error::Upstream → 503 +
+  UPSTREAM_UNAVAILABLE` variant, operational shape including the
+  `/api/health` aggregator); module map §6.6 (new `src/upstream/`
+  module, `src/search/` deleted, `src/models/{patient,practitioner,
+  identifier}.rs` deleted, `src/validation/identifier.rs` deleted);
+  schema §9 (`patients`/`practitioners`/`practitioner_roles`/
+  `departments` removed from the table list; `m20260601_000006_delegate_identity`
+  migration described); deps §10 (`tantivy` removed; `reqwest`
+  promoted to first-class for the two upstream clients); env vars §11
+  (six new — `PERSON_SERVICE_URL/TOKEN/WEBHOOK_SECRET`,
+  `WORKER_SERVICE_URL/TOKEN/WEBHOOK_SECRET`, plus shared
+  `UPSTREAM_TIMEOUT_SECS`); coverage targets §12.1 split into v0.43.0
+  shipped + v0.44.0 target (lib drops from 506 to ~350–400; integration
+  drops from 62 to ~50); Layer 11A–11G added to §13 with explicit
+  destructive-migration callouts; §14 acceptance criteria split into
+  shipped + target.
+- **PAS Axum AGENTS docs:** version banner notes both shipped (v0.43.0)
+  and target (v0.44.0); working rules add the no-Cargo-dep rule and
+  the cross-service-non-atomicity rule. `AGENTS/architecture.md` adds
+  the upstream layer to the layered-design diagram. `AGENTS/models.md`
+  banners the three deleted-in-v0.44.0 sections (`patient.rs`,
+  `identifier.rs`, `practitioner.rs`) without removing them — they're
+  kept for archaeological reference until Layer 11C. `AGENTS/restful.md`,
+  `AGENTS/share/match-search-merge.md`, `AGENTS/share/overview.md`,
+  `AGENTS/share/technology.md`, `AGENTS/share/auditability.md`,
+  `AGENTS/share/availability.md`, `AGENTS/national-person-identifiers.md`
+  all gain v0.44.0 target callouts at the top.
+- **Frontend `spec.md` + AGENTS:** the front-end loses its direct
+  sea-orm read path to patient + practitioner data in v0.2. The
+  v0.2 target adds two new reqwest clients (`services/main_person_api.rs`,
+  `services/main_worker_api.rs`) that hit the upstream services
+  directly with the user's auth context. CSRF write surface is
+  unchanged in shape — writes still go through the PAS Axum API
+  which internally re-proxies identity-bearing fields.
+- **Test counts unchanged** because no code changed. Shipped gates
+  remain: cargo build clean, 506 passing lib tests
+  (497 PAS + 9 frontend), clippy clean, fmt clean.
+
+### Open questions still flagged for the user (defaults applied above)
+
+1. Existing prod deployments? — assumed none; if any exist, an
+   out-of-band export-to-upstream is the operator's responsibility.
+2. Service auth between PAS and upstream — defaulted to bearer token
+   via `PERSON_SERVICE_TOKEN` / `WORKER_SERVICE_TOKEN`
+   (static), with `X-User-*` audit headers passed through per-request.
+3. Bench coverage — no changes; the three Criterion suites do not
+   touch identity or workforce shape.
+
+### What did NOT change
+
+- No Rust file modified outside doc paths.
+- No version bumps on any crate.
+- No new workspace member.
+- No new Cargo dep.
+- `cargo build --workspace`, `cargo test --workspace --lib`,
+  `cargo clippy --workspace --all-targets -- -D warnings`,
+  `cargo fmt --check --all` all still pass.
+
+## 2026-05-30 — Workspace harmonization + audit pass
+
+Documentation + workspace-structure sweep. No member-crate version bumps.
+
+- **Workspace manifest landed.** Added the root `Cargo.toml` that
+  `spec.md`, both crate READMEs, and every `AGENTS.md` already
+  referenced. Three members: `patient-administration-system-rust-crate`,
+  `patient-administration-system-rust-crate/migrations`,
+  `patient-administration-system-frontend`. Hoisted `[profile.release]`
+  (LTO + single codegen unit + strip) and `[profile.bench]` (inherits
+  release) to the workspace root — both member `Cargo.toml`s had been
+  carrying `# hoisted to the workspace root` placeholder comments since
+  v0.1. `cargo build --workspace`, `cargo test --workspace --lib`, and
+  `cargo clippy --workspace --all-targets -- -D warnings` now actually
+  resolve.
+- **Front-end spec.md created.** New
+  `patient-administration-system-frontend/spec.md` — comprehensive
+  spec-driven-development document mirroring the structure of the
+  rust-crate spec (identity & purpose, scope, stakeholders, functional
+  + non-functional requirements, architecture, API, data model,
+  dependency stack, configuration, testing, build sequence, acceptance
+  criteria, document map, maintenance).
+- **Front-end AGENTS files created.** New
+  `patient-administration-system-frontend/AGENTS.md` plus
+  `AGENTS/{index,architecture,routes,csrf,testing}.md`.
+- **rust-crate AGENTS.md / AGENTS/index.md refreshed** to the v0.43.0
+  baseline (was anchored at v0.3.4 / CHANGELOG v0.26.0).
+- **rust-crate spec.md drift fixed**: §6.1 workspace baseline
+  v0.3.4 → v0.43.0; §12.1 / §12.2 / §14 test counts 479 / 54 / 488
+  → 497 / 62 / 506; §13 layer-2 task language updated to call out the
+  four follow-on migrations that bring the schema from the original 29
+  tables to today's 32; OpenAPI handler count refreshed to 131 across
+  19 tags.
+- **`src/api/openapi.rs` `version = "0.3.0"` → `"0.43.0"`** so the
+  rendered Swagger UI page matches the shipped crate version.
+- **AGENTS/share/match-search-merge.md** updated to record that merge
+  *application* (tombstone, FHIR `replaced-by` link, search drop, A40
+  inbound + outbound) lives in the PAS as of v0.11 — only the
+  probabilistic *decisioning* still belongs entirely to the MPI crate.
+- **examples/README.md**: `localhost:3000` → `localhost:8080`
+  (matches the actual default `SERVER_PORT`); added the v0.6 batch
+  envelope sample to the file list and a pointer at the full HL7 v2
+  trigger surface for readers expecting more than the four ADT
+  starter messages.
+- **Workspace README.md**: layout block fleshed out (AGENTS dirs,
+  test counts, profile-hoist note); See also block links to both
+  per-crate `spec.md` + `AGENTS.md` and to the new workspace
+  `Cargo.toml`.
+- **No code behavior changes.** Workspace gates still all green:
+  cargo build clean, `cargo test --workspace --lib` = 506 passing
+  (497 PAS lib + 9 frontend csrf), clippy clean, fmt clean.
+
 ## 2026-05-30 — PAS Axum v0.43.0: HL7 v2 ADT^A07 (Change Inpatient to Outpatient)
 
 - **PAS Axum v0.43.0** — symmetric pair to v0.41 A06. Adds

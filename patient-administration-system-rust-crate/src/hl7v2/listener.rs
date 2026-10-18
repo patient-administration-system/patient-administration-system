@@ -13,8 +13,23 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream};
 use tower::ServiceExt;
 
-use crate::hl7v2::{message_type, mllp, parse_message};
+use crate::hl7v2::{Message, mllp, parse_message};
 use crate::{Error, Result};
+
+/// Local replacement for the deleted `mapping::message_type` helper.
+/// Reads MSH-9.1 (message code) and MSH-9.2 (trigger event); returns
+/// empty strings when either is missing.
+fn message_type(msg: &Message) -> (String, String) {
+    let msh = match msg.segment("MSH") {
+        Some(s) => s,
+        None => return (String::new(), String::new()),
+    };
+    let field = msh.field(9);
+    let mut parts = field.split('^');
+    let code = parts.next().unwrap_or("").to_string();
+    let event = parts.next().unwrap_or("").to_string();
+    (code, event)
+}
 
 /// MLLP TCP server. Owns a clone of the axum router and accepts connections
 /// in a loop; each connection runs on its own tokio task and may carry

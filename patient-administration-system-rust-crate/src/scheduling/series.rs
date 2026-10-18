@@ -44,8 +44,8 @@ pub struct SeriesService {
 /// request structs in `api::rest::handlers`.
 #[derive(Debug, Clone)]
 pub struct CreateSeriesInput {
-    pub patient_id: Uuid,
-    pub practitioner_id: Option<Uuid>,
+    pub person_id: Uuid,
+    pub worker_id: Option<Uuid>,
     pub service_type: String,
     pub start_datetime: DateTime<Utc>,
     pub duration_minutes: u32,
@@ -122,8 +122,8 @@ impl SeriesService {
 
         let series = AppointmentSeries {
             id: Uuid::new_v4(),
-            patient_id: input.patient_id,
-            practitioner_id: input.practitioner_id,
+            person_id: input.person_id,
+            worker_id: input.worker_id,
             service_type: input.service_type.clone(),
             start_datetime: input.start_datetime,
             duration_minutes: input.duration_minutes,
@@ -151,7 +151,7 @@ impl SeriesService {
                         // so the user can fix it before the next try.
                         let conflicts = AppointmentRepository::find_overlapping_for_patient(
                             txn,
-                            series_clone.patient_id,
+                            series_clone.person_id,
                             start,
                             end,
                         )
@@ -163,8 +163,8 @@ impl SeriesService {
                                 c.id, c.start_datetime, c.end_datetime
                             )));
                         }
-                        let mut a = Appointment::new(series_clone.patient_id, start, end);
-                        a.practitioner_id = series_clone.practitioner_id;
+                        let mut a = Appointment::new(series_clone.person_id, start, end);
+                        a.worker_id = series_clone.worker_id;
                         a.status = AppointmentStatus::Booked;
                         a.reason = series_clone.reason.clone();
                         a.series_id = Some(series_clone.id);
@@ -179,7 +179,7 @@ impl SeriesService {
                         None,
                         Some(serde_json::json!({
                             "series_id": series_clone.id,
-                            "patient_id": series_clone.patient_id,
+                            "person_id": series_clone.person_id,
                             "count": appointments.len(),
                         })),
                         &ctx_clone,
@@ -190,7 +190,7 @@ impl SeriesService {
                         "AppointmentSeriesCreated",
                         &serde_json::json!({
                             "series_id": series_clone.id,
-                            "patient_id": series_clone.patient_id,
+                            "person_id": series_clone.person_id,
                             "count": appointments.len(),
                         }),
                     )
@@ -285,7 +285,7 @@ impl SeriesService {
                         "AppointmentSeriesCancelled",
                         &serde_json::json!({
                             "series_id": series_id,
-                            "patient_id": series.patient_id,
+                            "person_id": series.person_id,
                             "cancelled_occurrences": cancelled_count,
                         }),
                     )
@@ -327,8 +327,8 @@ impl SeriesService {
     }
 
     /// List every series belonging to a patient, newest-first.
-    pub async fn list_by_patient(&self, patient_id: Uuid) -> Result<Vec<AppointmentSeries>> {
-        AppointmentSeriesRepository::list_by_patient(&self.db, patient_id).await
+    pub async fn list_by_patient(&self, person_id: Uuid) -> Result<Vec<AppointmentSeries>> {
+        AppointmentSeriesRepository::list_by_patient(&self.db, person_id).await
     }
 }
 
@@ -349,8 +349,8 @@ mod tests {
         // Smoke test the input struct — real exercise lives in the
         // integration test where a DB is available.
         let _ = CreateSeriesInput {
-            patient_id: Uuid::new_v4(),
-            practitioner_id: None,
+            person_id: Uuid::new_v4(),
+            worker_id: None,
             service_type: "cardiology".into(),
             start_datetime: chrono::Utc::now(),
             duration_minutes: 30,

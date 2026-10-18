@@ -59,7 +59,7 @@ pub struct Account {
     /// Internal account identifier.
     pub id: Uuid,
     /// Patient who owns the account.
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     /// Current lifecycle status.
     pub status: AccountStatus,
     /// ISO 4217 currency of all charges/invoices on this account.
@@ -75,12 +75,12 @@ pub struct Account {
 }
 
 impl Account {
-    /// Create a new open account for `patient_id` in `currency`.
-    pub fn new(patient_id: Uuid, currency: crate::models::Iso4217) -> Self {
+    /// Create a new open account for `person_id` in `currency`.
+    pub fn new(person_id: Uuid, currency: crate::models::Iso4217) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
-            patient_id,
+            person_id,
             status: AccountStatus::Open,
             currency,
             opened_at: now,
@@ -244,9 +244,9 @@ mod tests {
 
     #[test]
     fn test_account_new_defaults() {
-        let patient_id = Uuid::new_v4();
-        let acct = Account::new(patient_id, usd());
-        assert_eq!(acct.patient_id, patient_id);
+        let person_id = Uuid::new_v4();
+        let acct = Account::new(person_id, usd());
+        assert_eq!(acct.person_id, person_id);
         assert_eq!(acct.status, AccountStatus::Open);
         assert_eq!(acct.currency.0, "USD");
         assert!(acct.closed_at.is_none());
@@ -340,7 +340,7 @@ mod tests {
         let json = serde_json::to_string(&acct).expect("serialize");
         let back: Account = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.id, acct.id);
-        assert_eq!(back.patient_id, acct.patient_id);
+        assert_eq!(back.person_id, acct.person_id);
         assert_eq!(back.status, acct.status);
         assert_eq!(back.currency, acct.currency);
         assert_eq!(back.closed_at, acct.closed_at);

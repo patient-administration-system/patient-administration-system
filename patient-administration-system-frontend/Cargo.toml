@@ -1,9 +1,9 @@
 [package]
 name = "patient-administration-system-frontend"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["joel@joelparkerhenderson.com"]
-description = "Loco-rs front-end for the Patient Administration System (PAS). Tera templates + HTMX live-refresh + Lily Design System markup. Shares the PAS PostgreSQL database via sea-orm; does NOT replace the PAS Axum API server."
+description = "Loco-rs front-end for the Patient Administration System (PAS). Tera templates + HTMX live-refresh + Lily Design System markup. Patient reads delegate to person-service (v0.2.0); PAS-owned reads share the PAS PostgreSQL database via sea-orm; writes go through the PAS Axum API server."
 license = "MIT OR Apache-2.0"
 publish = false
 
@@ -21,7 +21,7 @@ axum-extra = { version = "0.10", features = ["cookie"] }
 
 # Async runtime. Loco re-exports tokio but pinning a matching minor here
 # keeps `#[tokio::main]` ergonomic in `src/main.rs`.
-tokio = { version = "1.49", features = ["full"] }
+tokio = { version = "1.53", features = ["full"] }
 
 # Database — same as the PAS Axum app so the two share schemas + migrations.
 sea-orm = { version = "1.1", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "with-json"] }
@@ -40,14 +40,14 @@ serde_json = "1.0"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 
 # Utilities.
-uuid = { version = "1.19", features = ["v4", "serde"] }
+uuid = { version = "1.26", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2.0"
 async-trait = "0.1"
 
 [dev-dependencies]
 loco-rs = { version = "0.14", features = ["testing"] }
-serial_test = "3.2"
+serial_test = "3.5"
 
 [[bin]]
 name = "patient-administration-system-frontend"

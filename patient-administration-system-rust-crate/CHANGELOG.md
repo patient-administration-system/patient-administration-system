@@ -3,6 +3,149 @@
 All notable changes to the Patient Administration System are listed below.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.44.0] — 2026-05-31
+
+The **Option C identity delegation** release. `Patient` and
+`Practitioner` rows leave PAS entirely and move to two external
+HTTP services (`person-service` at `:5180`, `worker-service` at
+`:5181`). PAS-owned rows reference identity by opaque
+`person_id` / `worker_id` UUID columns. Integration is HTTP-only;
+no Cargo dep on the upstream crates.
+
+### Added — upstream clients (Phase 1)
+
+- `src/upstream/` module with `PersonClient` + `WorkerClient`
+  async traits, `HttpPersonClient` + `HttpWorkerClient` reqwest
+  impls, and `StubPersonClient` + `StubWorkerClient` in-memory
+  test stubs.
+- Trait surface mirrors the upstream REST API: `create`, `get`,
+  `update`, `delete`, `search`, `match`, `check_duplicates`,
+  `merge`, `masked`, `export`, `audit`, plus `bulk_export` +
+  `bulk_import` on `PersonClient` (Phase 3d).
+- `UserContext { user_id, user_ip, user_agent }` propagates the
+  PAS-side caller identity to upstream audit logs via
+  `X-User-*` headers.
+- `Error::Upstream(String)` variant + `Error::upstream(...)`
+  constructor; REST surface maps it to
+  `503 + UPSTREAM_UNAVAILABLE`, FHIR surface to
+  `503 + transient`.
+- `PERSON_SERVICE_URL` / `WORKER_SERVICE_URL` (+ optional
+  `_TOKEN`) configuration; `main.rs` builds the clients at
+  startup and attaches them to `AppState`.
+
+### Changed — destructive schema migration (Phase 2)
+
+- New forward-only migration
+  `m20260601_000006_delegate_identity.rs`:
+    - `DROP TABLE patients`, `practitioners`,
+      `practitioner_roles`, `departments` (CASCADE).
+    - Rename 18 `patient_id` columns to `person_id` across
+      `encounters`, `appointments`, `coverages`, `consents`,
+      `accounts`, `charges`, `payments`, `invoices`, `letters`,
+      `waitlist_entries`, `admissions`, `outpatient_attendances`,
+      `referrals`, `transfers`, `discharges`, etc.
+    - Rename 13 `practitioner_id` columns (incl.
+      `admitting_`, `discharging_`, `referring_` prefixed) to
+      `worker_id`.
+    - Recreate `ux_coverages_active_policy` unique partial index.
+    - `CREATE TABLE upstream_inbox (event_id PK, source,
+      received_at)` for webhook dedup.
+- v0.43 search engine (Tantivy) removed; patient search now
+  proxies to `person-service`.
+
+### Added — REST proxies + webhooks (Phase 3a + 3b + 3d)
+
+- 16 patient/practitioner proxy handlers in
+  `src/api/rest/upstream_proxy.rs` covering CRUD, search, mask,
+  export, audit on both `/api/patients/*` and
+  `/api/practitioners/*`.
+- 2 HMAC-verified merge webhooks
+  (`/api/upstream/{person,worker}-merged`) that rewrite
+  `person_id` / `worker_id` columns across PAS tables in a
+  transaction when the upstream announces a merge decision.
+- Bulk interchange (Phase 3d): 5 routes —
+  `GET /api/patients/export.{json,xml,tsv,csv}` (transparent
+  passthrough of upstream content-type + body) +
+  `POST /api/patients/import` (forwards body with caller's
+  content-type, wraps the upstream report).
+- Phase 3b restored every PAS-owned typed handler family on
+  top of the new schema: ADT (12 handlers), scheduling (5),
+  resources (facility/ward/room/bed CRUD + ward occupancy),
+  billing (open/charge/finalize/payment/close), coverage,
+  consent, encounter, audit, admin, waitlist, series, letters.
+
+### Added — HL7 v2 inbound + outbound (Phase 3c1–3c4)
+
+- 18 inbound HL7 v2 handlers in
+  `src/api/rest/handlers_hl7v2.rs`: ADT^A01/A02/A03/A04/A05/A06/
+  A07/A08/A11/A12/A13/A21/A22/A23/A28/A38/A40 + DFT^P03 +
+  SIU^S12/S13/S14/S15 + MFN^M02 (staff) + MFN^M05 (location) +
+  HL7 v2 batch envelope dispatcher.
+- Every inbound PID is resolved through the upstream's
+  search-then-create dedup pipeline before any PAS-owned row
+  writes.
+- New outbound MLLP publisher in
+  `src/streaming/hl7v2_publisher.rs` (Phase 3c4): subscribes to
+  the outbox via `EventPublisher`, hydrates Encounter /
+  Appointment / Bed locally + Person via `PersonClient`,
+  encodes ADT^A01/A02/A03/A04/A05/A06/A07/A11/A12/A13/A38 +
+  SIU^S12/S13/S14/S15/S26, frames over MLLP, parses MSA-1
+  with `AA` → success, `AE` / `AR` / timeout → retry.
+- New `src/hl7v2/encode.rs` with `build_msh/evn/pid/pv1/sch/
+  ais/ail/aip`, `encode_adt`, `encode_siu`, `EncodeContext`.
+- New `src/hl7v2/pid_translation.rs` covers PID parsing for
+  every inbound trigger plus `FT1` / `SCH` / `STF` / `LOC`
+  segment parsers used by DFT/SIU/MFN.
+- MFN^M05 MAD now resolves rooms by LOC-1.2 code via the new
+  `RoomRepository::find_by_code`.
+
+### Added — FHIR R5 (Phase 3a + 3e)
+
+- `/fhir/Patient/*` and `/fhir/Practitioner/*` proxy
+  transparently to upstream services.
+- `/fhir/Encounter/{id}`, `/fhir/Appointment/{id}`,
+  `/fhir/Coverage/{id}`, `/fhir/Schedule/{id}`, `/fhir/Slot/{id}`,
+  `/fhir/Location/{id}` reads return the PAS row with
+  `resourceType` bolted on.
+- Phase 3e wires typed creators for FHIR Schedule + Slot
+  (create / update / delete) — both accept the FHIR shape
+  (`actor[0].reference`, `schedule.reference`) *and* a
+  PAS-native shape (`owner { kind, id }`, `schedule_id`).
+- Phase 3e Bundle handler enforces Decision #4: any entry of
+  `resourceType=Patient` or `Practitioner` is rejected
+  per-entry with `invalid` + a routing hint that those
+  resources must go to person-service / worker-service
+  directly. Other resource types currently return
+  `not-supported` per entry.
+- FHIR Encounter and Appointment create are intentionally
+  not exposed via FHIR; callers use
+  `POST /api/admissions` / `POST /api/appointments` so the
+  state-machine + outbox guarantees are honoured.
+
+### Removed
+
+- `src/models/patient.rs`, `src/models/practitioner.rs`,
+  `src/models/practitioner_role.rs`,
+  `src/models/department.rs` and their sea-orm entities.
+- `src/db/repositories/{patient,practitioner,practitioner_role,
+  department}.rs`.
+- v0.43 `mapping` module under `src/hl7v2/` (encoders are
+  rebuilt as proxy-handler-local helpers in Phase 3).
+- v0.43 Tantivy patient index + `search_engine` module.
+
+### Notes
+
+- Doctrine reversal: v0.43 §2.3 said "the PAS does not depend
+  on the MPI." v0.44 says "the PAS does depend on the
+  identity + workforce services" — those services *are* the
+  MPI realized.
+- All bulk interchange + GDPR per-patient export now passes
+  through `person-service`; PAS no longer materializes patient
+  rows for those flows.
+- Per-trigger HL7 v2 wire formats are documented in
+  `src/hl7v2/pid_translation.rs` and
+  `src/hl7v2/encode.rs`.
+
 ## [0.43.0] — 2026-05-30
 
 The ADT^A07 (Change Inpatient to Outpatient) release. Symmetric

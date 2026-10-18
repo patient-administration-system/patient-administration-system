@@ -65,9 +65,9 @@ pub enum CancellationReason {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Appointment {
     pub id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub slot_id: Option<Uuid>,
-    pub practitioner_id: Option<Uuid>,
+    pub worker_id: Option<Uuid>,
     pub start_datetime: DateTime<Utc>,
     pub end_datetime: DateTime<Utc>,
     pub status: AppointmentStatus,
@@ -85,16 +85,16 @@ pub struct Appointment {
 
 impl Appointment {
     pub fn new(
-        patient_id: Uuid,
+        person_id: Uuid,
         start_datetime: DateTime<Utc>,
         end_datetime: DateTime<Utc>,
     ) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
-            patient_id,
+            person_id,
             slot_id: None,
-            practitioner_id: None,
+            worker_id: None,
             start_datetime,
             end_datetime,
             status: AppointmentStatus::Proposed,
@@ -115,13 +115,13 @@ mod tests {
 
     #[test]
     fn test_appointment_new_defaults() {
-        let patient_id = Uuid::new_v4();
+        let person_id = Uuid::new_v4();
         let start = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
         let end = Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap();
-        let appt = Appointment::new(patient_id, start, end);
-        assert_eq!(appt.patient_id, patient_id);
+        let appt = Appointment::new(person_id, start, end);
+        assert_eq!(appt.person_id, person_id);
         assert!(appt.slot_id.is_none());
-        assert!(appt.practitioner_id.is_none());
+        assert!(appt.worker_id.is_none());
         assert_eq!(appt.start_datetime, start);
         assert_eq!(appt.end_datetime, end);
         assert_eq!(appt.status, AppointmentStatus::Proposed);
@@ -251,22 +251,22 @@ mod tests {
 
     #[test]
     fn test_appointment_serde_roundtrip() {
-        let patient_id = Uuid::new_v4();
+        let person_id = Uuid::new_v4();
         let start = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
         let end = Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap();
-        let mut appt = Appointment::new(patient_id, start, end);
+        let mut appt = Appointment::new(person_id, start, end);
         appt.reason = Some("Routine checkup".to_string());
         appt.cancellation_reason = Some(CancellationReason::PatientRequest);
-        appt.practitioner_id = Some(Uuid::new_v4());
+        appt.worker_id = Some(Uuid::new_v4());
         appt.slot_id = Some(Uuid::new_v4());
         appt.from_waitlist_entry_id = Some(Uuid::new_v4());
 
         let json = serde_json::to_string(&appt).expect("serialize");
         let back: Appointment = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.id, appt.id);
-        assert_eq!(back.patient_id, appt.patient_id);
+        assert_eq!(back.person_id, appt.person_id);
         assert_eq!(back.slot_id, appt.slot_id);
-        assert_eq!(back.practitioner_id, appt.practitioner_id);
+        assert_eq!(back.worker_id, appt.worker_id);
         assert_eq!(back.status, appt.status);
         assert_eq!(back.reason, appt.reason);
         assert_eq!(back.from_waitlist_entry_id, appt.from_waitlist_entry_id);

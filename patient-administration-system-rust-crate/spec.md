@@ -1,6 +1,11 @@
 # Patient Administration System (PAS) — Specification
 
-Comprehensive specification-driven-development document for the Patient Administration System workspace. This file is the **single source of truth** for what the system is, how it must behave, how it is architected, and the sequence in which it is built from a clean checkout to the current shipped baseline (PAS Axum v0.43.0 + `patient-administration-system-frontend` v0.1.0).
+Comprehensive specification-driven-development document for the Patient Administration System workspace. This file is the **single source of truth** for what the system is, how it must behave, and how it is architected.
+
+> **Shipped baseline: v0.44.0 — Option C identity delegation.**
+> Identity (`Patient`) and workforce (`Practitioner` + `PractitionerRole` + `Department`) are **fully delegated** to external HTTP services: `person-service` (`:5180`) and `worker-service` (`:5181`). v0.44 has shipped: the delegation landed across Phases 0 → 3e (docs → upstream clients → destructive migration → REST + FHIR proxies → PAS-owned typed handlers → HL7 v2 inbound + outbound MLLP publisher → bulk interchange → FHIR Schedule/Slot writes + Bundle Decision #4 enforcement). The PAS schema no longer holds `patients` / `practitioners` / `practitioner_roles` / `departments` tables.
+>
+> This is a *doctrine reversal* from v0.43 §2.3, which said "the PAS does not depend on the MPI." In v0.44 it does — those two services *are* the MPI realized — and the integration is **HTTP-only** (no Cargo dependency on either upstream crate).
 
 This document replaces the former `plan.md` + `tasks.md` pair. Past release notes live in [`CHANGELOG.md`](CHANGELOG.md) (per-crate) and [`../CHANGELOG.md`](../CHANGELOG.md) (workspace). Detailed reference per topic lives under [`AGENTS/`](AGENTS/).
 
@@ -8,17 +13,21 @@ This document replaces the former `plan.md` + `tasks.md` pair. Past release note
 
 ## 1. Identity & Purpose
 
-The Patient Administration System (PAS) is the foundational, **non-clinical system of record** for hospital workflow. It owns the *who, when, where, what visit type, what bed, what bill*; it does **not** own the *what diagnosis*. Clinical content (diagnoses, prescriptions, lab results, vitals, orders) belongs to the EMR; the PAS feeds clinical portals and downstream systems (EMR, billing, analytics) but does not host clinical data.
+The Patient Administration System (PAS) is the foundational, **non-clinical workflow service** for a hospital. It owns *when, where, what visit type, what bed, what bill*. It **delegates** the *who*: identity (`Patient`) lives in `person-service`, workforce (`Practitioner`) lives in `worker-service`. The PAS holds opaque foreign keys (`person_id`, `worker_id`) that reference those services. It does **not** own the *what diagnosis* either; clinical content (diagnoses, prescriptions, lab results, vitals, orders) belongs to the EMR.
 
-The shipped system is a Rust Cargo workspace with three members:
+The shipped system is a Rust Cargo workspace with three members, plus two **runtime HTTP dependencies** on services that ship from separate workspaces:
 
-| Crate                                       | Role                                                                | Port  | Stack                                |
-|---------------------------------------------|---------------------------------------------------------------------|-------|--------------------------------------|
-| `patient-administration-system`             | System of record. REST + FHIR R5 + HL7 v2 ADT lifecycle (HTTP + MLLP). | 8080 | Axum 0.7, sea-orm 1.1, Tantivy 0.22, utoipa 5.4 |
-| `patient-administration-system-migrations`  | sea-orm migration crate shared by both apps. CLI binary `pas-migrate`. | n/a | sea-orm-migration 1.1                |
-| `patient-administration-system-frontend`                              | Loco-rs read-mostly UI. Server-side Tera + HTMX + Lily Design System. | 5150  | Loco-rs 0.14.1, Tera, axum-extra cookies, reqwest |
+| Crate / Service                                 | Role                                                                | Port  | Stack                                |
+|-------------------------------------------------|---------------------------------------------------------------------|-------|--------------------------------------|
+| `patient-administration-system`                 | Workflow service. REST + FHIR R5 + HL7 v2 ADT lifecycle (HTTP + MLLP). | 8080 | Axum 0.7, sea-orm 1.1, utoipa 5.4 |
+| `patient-administration-system-migrations`      | sea-orm migration crate shared by both PAS apps. CLI binary `pas-migrate`. | n/a | sea-orm-migration 1.1                |
+| `patient-administration-system-frontend`        | Loco-rs read-mostly UI. Server-side Tera + HTMX + Lily Design System. | 5150 | Loco-rs 0.14.1, Tera, axum-extra cookies, reqwest |
+| `person-service` *(HTTP dep, external)*    | Person identity, demographics, search, match, merge, FHIR R5 Person. | 5180 | (own crate; see its `spec.md`) |
+| `worker-service` *(HTTP dep, external)*    | Worker (= practitioner) identity, demographics, search, match, merge, FHIR R5 Worker. | 5181 | (own crate; see its `spec.md`) |
 
-Both binary crates share the same PostgreSQL database. The migration crate is the single source of truth for the schema; apply it once via `pas-migrate up` and both apps see it.
+Both PAS binary crates share the same PostgreSQL database. The migration crate is the single source of truth for the *PAS-owned* schema (encounters, admissions, appointments, billing, etc.); apply it once via `pas-migrate up` and both apps see it. **The PAS schema does not contain `patients`, `practitioners`, `practitioner_roles`, or `departments` tables** — those live in the upstream services' databases.
+
+The PAS is **HTTP-coupled** to the two upstream services: every `person_id` / `worker_id` mention in a PAS API call results in a lookup against the matching upstream service. There is no local cache (Option C v1); operational availability of the PAS therefore depends on availability of both upstream services. See §5 invariant #1 and §6.8 for the operational implications.
 
 ---
 
@@ -26,8 +35,10 @@ Both binary crates share the same PostgreSQL database. The migration crate is th
 
 ### 2.1 In scope
 
-- Identity records, demographics, addresses, contacts, emergency contacts, optional MPI linkage.
-- **Multinational national-government healthcare identifiers (v0.15)**: typed factories + format validators for UK NHS Number, France NIR (INSEE), España TSI / SNS CIP, Ireland Individual Health Identifier (IHI), and Northern Ireland Health & Care (H&C) Number. Coexist with the local MRN and the existing US SSN / DL / Passport / Other types on the same `Patient.identifiers` collection.
+- **Visit lifecycle** — Encounter, Admission, Transfer, Discharge, BedAssignment. Owns `person_id` (FK to upstream).
+- **Identity proxy** — `/api/patients/*`, `/fhir/Patient/*`, and PID-bearing HL7 v2 triggers (A01/A02/A03/A04/A05/A06/A07/A08/A11/A12/A13/A21/A22/A23/A28/A38/A40 + DFT^P03 + SIU + MFN^M02-via-PID) all **proxy** to `person-service`. The PAS parses the wire, performs dedup-or-create against the upstream, and stores only the returned `person_id` on its local rows. Bulk interchange (`/api/patients/export.{json,xml,tsv,csv}` + `/api/patients/import`) likewise proxies upstream.
+- **Workforce proxy** — `/api/practitioners/*`, `/fhir/Practitioner/*`, and MFN^M02 inbound/outbound all proxy to `worker-service`. The PAS stores only the returned `worker_id` on its local rows (`appointments.worker_id`, `schedules.owner_worker_id`, etc.).
+- **Multinational national-government healthcare identifiers** — handled entirely by `person-service` (UK NHS Number, France NIR, España TSI, Ireland IHI, Northern Ireland HCN, US SSN/DL/Passport/Other). The PAS never validates an identifier itself; the upstream returns 400 on bad input and the PAS proxies the error envelope.
 - ADT (Admission / Discharge / Transfer) with atomic bed allocation.
 - Scheduling: slots, appointments, booking, cancellation, check-in, completion, no-show, bulk slot generation.
 - Waitlist + RTT (Referral-To-Treatment) clock with per-pathway breach threshold.
@@ -65,13 +76,31 @@ Listed so a developer knows **not** to build them:
 - Probabilistic patient matching, fuzzy duplicate detection, record merging — sister MPI crate's job.
 - Web UI inside the PAS Axum binary — that's what `patient-administration-system-frontend` is for.
 
-### 2.3 Boundary with MPI
+### 2.3 Boundary with the upstream identity services
 
-The sister crate `master-patient-index-rust-crate` handles probabilistic identity resolution: fuzzy matching, deduplication, merging, MRN assignment. The PAS does **not** depend on it. Identity is resolved out-of-band. The PAS reuses MPI model shapes (`HumanName`, `Address`, `ContactPoint`, `Identifier`, `Gender`, `NameUse`) by **re-implementing** them — not by importing the crate. The integration seam is `Patient.mpi_id: Option<Uuid>`.
+The PAS **fully delegates** identity decisioning, storage, search, matching, and merging to two external HTTP services that ship from separate workspaces:
 
-The PAS's only matching surface is **exact-MRN dedup** on HL7 v2 ADT^A01 / ^A28 ingest (Postgres JSONB `@>` containment query). Probabilistic dedup remains the MPI's job.
+| Concern | Owner | Endpoint family |
+|---|---|---|
+| Person CRUD | `person-service` | `POST/GET/PUT/DELETE /api/persons[/{id}]` |
+| Person search (full-text + fuzzy + phonetic) | `person-service` | `GET /api/persons/search` |
+| Person match + dedup | `person-service` | `POST /api/persons/{match,check-duplicates,deduplicate}` |
+| Person merge | `person-service` | `POST /api/persons/merge` |
+| Person FHIR R5 | `person-service` | `/fhir/Person/*` |
+| Worker (= Practitioner) CRUD / search / match / merge / FHIR | `worker-service` | symmetric to person — `/api/workers/*` + `/fhir/Worker/*` |
 
-**Merge-back integration (v0.11).** When the MPI determines two PAS patient rows refer to the same person, it (or an operator) calls `POST /api/patients/{source_id}/merge-into/{target_id}`. The source row becomes a **merge tombstone** (`replaced_by = target_id`, `active = false`); both rows survive in the database for audit. The tombstone is dropped from the Tantivy search index, excluded from default `GET /api/patients` listings, and surfaced in FHIR R5 via `Patient.link[type = "replaced-by"]`. The inverse direction (a survivor enumerating what it replaces) is available at `GET /api/patients/{id}/replaces`. A `PatientMerged { source_id, target_id }` outbox event lets downstream systems keep their own identity tables in lockstep.
+The PAS exposes a **compatibility-shim surface** so external callers see the historical `/api/patients/*`, `/api/practitioners/*`, `/fhir/Patient/*`, `/fhir/Practitioner/*` URLs unchanged. Every handler on those routes proxies to the matching upstream endpoint and translates the resource shape (Patient ↔ Person, Practitioner ↔ Worker).
+
+The integration seam between the PAS and the upstream services is two opaque UUIDs:
+
+- **`person_id: Uuid`** replaces every former `patient_id` column on every PAS-owned table (encounters, admissions, transfers, discharges, bed_assignments, appointments, appointment_series, waitlist_entries, rtt_pathways, accounts, charges, invoices, payments, coverages, consents, generated_letters, referrals).
+- **`worker_id: Uuid`** replaces every former `practitioner_id` column on every PAS-owned table (encounters, admissions, transfers, discharges, appointments, schedules).
+
+The columns carry no DB-level foreign key (the referenced row lives in another service's database). Validity is enforced at write time: the PAS's REST/FHIR/HL7 handler resolves the `person_id` against `person-service` (e.g. via `GET /api/persons/{id}`) before persisting; missing rows return `404 + NOT_FOUND` from the PAS.
+
+**Merge-back integration.** Merges are decided and executed entirely by `person-service` / `worker-service`. The PAS receives merge notifications via **inbound webhook** at `POST /api/upstream/person-merged` / `POST /api/upstream/worker-merged` (HMAC-SHA256 verified via `PERSON_SERVICE_WEBHOOK_SECRET` / `WORKER_SERVICE_WEBHOOK_SECRET`). On receipt the PAS rewrites every PAS-owned row whose `person_id`/`worker_id` matched the merge `source_id` to point at `target_id`, audit-logs the rewrite (`action = "upstream_person_merged"` / `"upstream_worker_merged"`), and **does not** emit its own outbox event — the upstream is the system of record for the merge.
+
+The `/api/patients/{id}/merge-into/{target_id}` endpoint historically owned by the PAS is **removed** in v0.44.0; clients that need to trigger a merge call `POST /api/persons/merge` on `person-service` directly. The same applies to the merge tombstone surface (`/api/patients/{id}/replaces`) and the FHIR `Patient.link[type = "replaced-by"]` shape — those become responsibilities of `person-service`'s `/fhir/Person/{id}` representation.
 
 ---
 
@@ -93,30 +122,53 @@ The PAS's only matching surface is **exact-MRN dedup** on HL7 v2 ADT^A01 / ^A28 
 
 ## 4. Functional Requirements
 
-### 4.0 Patient identity & merges (v0.11)
+### 4.0 Patient identity (delegated)
 
-- **Create / read / update / soft-delete** (`POST/GET/PUT/DELETE /api/patients[/{id}]`): standard CRUD over the demographic snapshot. Soft-delete sets `deleted_at`; default lists filter it out.
-- **Search** (`GET /api/patients/search?q=…`): Tantivy full-text over name + identifiers + birthdate + postal code. Kept in lockstep with create/update/soft-delete/merge.
-- **Merge tombstone** (`POST /api/patients/{id}/merge-into/{target_id}`, v0.11): when the MPI (or an operator) determines two rows are the same person, the source becomes a tombstone — `replaced_by = target_id`, `active = false` — and is dropped from the Tantivy index. Both rows survive in the database; the audit trail records `action = "merge_into"` and an outbox `PatientMerged { source_id, target_id }` event fires. **Rules**: `id != target_id` (400 self-merge); source must not already be a tombstone (409 no chained merges); both rows must exist (404). One DB transaction wraps the flip + audit + outbox. FHIR R5 surfaces the link as `Patient.link[type = "replaced-by"]` on the tombstone's resource.
-- **Replaces history** (`GET /api/patients/{id}/replaces`, v0.11): inverse lookup — every tombstone that points at this row, newest-first. Empty array when the row has never received a merge.
-- **MPI link**: `Patient.mpi_id: Option<Uuid>` is the integration seam with the sister MPI crate. The PAS does not call the MPI; identity resolution is out-of-band, and merges are the MPI's signal back to the PAS.
+Every endpoint listed below is a **thin proxy** over `person-service`. The PAS handler maps the legacy `/api/patients/*` URL to the matching `/api/persons/*` upstream URL, translates the response (`Person` → `Patient` shape on the wire so historical clients see no change), and surfaces upstream errors via the standard PAS envelope.
 
-#### 4.0.1 Multinational national-government healthcare identifiers (v0.15)
+| PAS-exposed endpoint | Upstream call | Notes |
+|---|---|---|
+| `POST /api/patients` | `POST /api/persons` | Body translated; returned `person.id` surfaces as `patient.id` to the client. |
+| `GET /api/patients/{id}` | `GET /api/persons/{id}` | Identity is shared — `{id}` *is* the upstream person id. |
+| `PUT /api/patients/{id}` | `PUT /api/persons/{id}` | |
+| `DELETE /api/patients/{id}` | `DELETE /api/persons/{id}` | Upstream owns soft-delete semantics. |
+| `GET /api/patients/search` | `GET /api/persons/search` | Query string passed through; result shape translated. |
+| `GET /api/patients/{id}/masked` | `GET /api/persons/{id}/masked` | |
+| `GET /api/patients/{id}/export` | `GET /api/persons/{id}/export` | GDPR export now combines upstream demographics + PAS-owned related rows (encounters, appointments, billing, consents). PAS handler concatenates. |
+| `GET /api/patients/{id}/audit` | `GET /api/persons/{id}/audit` *(proxied)* + PAS-local audit rows merged | Audit on demographics lives upstream; audit on PAS-owned actions (admit, book, charge) lives in PAS `audit_log`. The handler returns both, time-sorted. |
 
-The PAS carries a typed `IdentifierType` enum plus one typed factory per supported national scheme. A `Patient` row may hold any mix of these in `Patient.identifiers: Vec<Identifier>` — there is no "primary national identifier" slot; multinational patients (e.g. a French resident treated in the UK) keep both their NIR and an NHS Number on the same row, each carrying its own `system` URI.
+#### Removed in v0.44.0
 
-| Country / scheme | `IdentifierType` | Factory | System URI | Format rule |
-|---|---|---|---|---|
-| United Kingdom — NHS Number | `NHS` | `Identifier::nhs` | `https://fhir.nhs.uk/Id/nhs-number` | 10 digits; Mod 11 check digit on the last; pretty-printed `XXX XXX XXXX` / `XXX-XXX-XXXX` accepted |
-| France — Numéro d'Identification au Répertoire (NIR / INSEE) | `NIR` | `Identifier::nir` | `urn:oid:1.2.250.1.213.1.4.8` | 15 chars: sex(1) + year(2) + month(2) + dept(2 — digits or Corsica `2A`/`2B`) + commune(3) + order(3) + control(2); control = `97 − (body mod 97)`, with Corsica `2A → 19` / `2B → 18` substitution |
-| España — Tarjeta Sanitaria Individual (TSI / SNS CIP) | `TSI` | `Identifier::tsi` | `urn:oid:2.16.724.4.40` | 1–20 ASCII alphanumeric characters (per-region issuance — no national checksum to enforce) |
-| Ireland — Individual Health Identifier (IHI) | `IHI` | `Identifier::ihi` | `https://fhir.hl7.ie/Id/individual-health-identifier` | 7 digits; HSE allocates randomly with no documented public checksum |
-| Northern Ireland — Health & Care (H&C) Number | `HCN` | `Identifier::hcn` | `https://fhir.hscni.net/Id/hcn` | 10 digits; modern HSC allocation, no public checksum |
+- **`POST /api/patients/{id}/merge-into/{target_id}`** — merges happen at `person-service` (`POST /api/persons/merge`). Clients call upstream directly.
+- **`GET /api/patients/{id}/replaces`** — superseded by the upstream `/fhir/Person/{id}` `link[type = "replaced-by"]` representation.
+- **Local Tantivy patient index** — `person-service` owns search.
+- **Local exact-MRN dedup on HL7 v2 A01/A28** — handled by the upstream's `POST /api/persons/match` (or `check-duplicates`) call performed inside the proxy handler.
 
-Format validation lives in `src/validation/`:
-`validate_nhs_number`, `validate_nir`, `validate_tsi`, `validate_ihi`, `validate_hcn`, and the type-dispatch helper `validate_identifier(&Identifier)`. `validate_patient` calls the dispatcher over every entry in `Patient.identifiers` — invalid national-identifier values now surface as `Error::Validation`, which the REST layer maps to `400` and the FHIR layer maps to `OperationOutcome { severity: error, code: invalid }`. The local `MRN`, US `SSN`, `DL`, `Passport`, and `Other` types intentionally pass with no per-type format check (their formats vary by issuing authority).
+#### PAS-owned related-row endpoints (still local)
 
-The wire encoding is unchanged: `IdentifierType` continues to serialize UPPERCASE (`"NHS"`, `"NIR"`, `"TSI"`, `"IHI"`, `"HCN"`, …), so any existing FHIR Bundle / bulk import payload that already used `"NHS"` keeps working byte-for-byte. New national values flow through the same `Identifier { use_type, identifier_type, system, value, assigner }` shape on every interop surface (REST JSON, FHIR R5, HL7 v2 PID-3, JSON / XML / TSV / CSV bulk via the `PatientRow` projection — the projection's `mrn` column is unchanged; secondary national identifiers ride in the full JSON / FHIR shapes, not the flat TSV/CSV).
+These are unchanged — they read PAS-owned tables keyed by `person_id`:
+
+- `GET /api/patients/{id}/encounters`
+- `GET /api/patients/{id}/appointments`
+- `GET /api/patients/{id}/appointment-series`
+- `GET /api/patients/{id}/consents`
+- `GET /api/patients/{id}/coverages`
+
+#### Merge propagation (inbound webhook)
+
+When `person-service` completes a merge, it POSTs to `/api/upstream/person-merged` on the PAS:
+
+```json
+{ "source_id": "<uuid>", "target_id": "<uuid>", "at": "..." }
+```
+
+HMAC-SHA256 signed via `X-Upstream-Signature` keyed by `PERSON_SERVICE_WEBHOOK_SECRET`. Handler rewrites every PAS-owned row whose `person_id == source_id` to `target_id` in one DB transaction, writes one `audit_log` row per rewritten table (`action = "upstream_person_merged"`), and ACKs 200. Replay-safe on `X-Upstream-Event-Id`.
+
+#### 4.0.1 Multinational national-government healthcare identifiers (delegated)
+
+`person-service` owns identifier types and per-country format validation (NHS Mod 11, NIR Mod 97 with Corsica fix-up, TSI alphanumeric envelope, IHI, HCN). The PAS surface forwards identifier objects verbatim in the request body to `/api/persons` and surfaces upstream `400 + invalid` envelopes as `400 + VALIDATION` in the PAS envelope. No identifier validation logic lives in the PAS as of v0.44.0; the v0.15 `src/validation/identifier.rs` family is removed.
+
+> **DECISION (default, override before Phase 1):** The PAS does **not** cache identifier validation locally. Every identifier-bearing PAS call costs one upstream round-trip. If latency becomes a concern, add a 1 min in-process LRU cache on `GET /api/persons/{id}` in Phase 7.
 
 ### 4.1 ADT (Admission / Discharge / Transfer)
 
@@ -255,7 +307,7 @@ The wire encoding is unchanged: `IdentifierType` continues to serialize UPPERCAS
 
 #### 4.8.4 OpenAPI
 
-- `src/api/openapi.rs::ApiDoc` aggregates every `#[utoipa::path]` handler (92 handlers across 19 tags as of v0.6.0; was 86 at v0.3.4, 89 at v0.4, 91 at v0.5).
+- `src/api/openapi.rs::ApiDoc` aggregates every `#[utoipa::path]` handler (**131 handlers across 19 tags** at v0.43.0; was 92 at v0.6.0, 91 at v0.5, 89 at v0.4, 86 at v0.3.4 — every ADT / SIU / DFT / MFN addition since brings a new annotated handler).
 - Swagger UI at `/swagger-ui`; raw spec at `/api-docs/openapi.json`.
 
 ### 4.9 Observability & Ops
@@ -277,18 +329,20 @@ These are **non-negotiable**. Every reviewer (human or agent) checks them.
 
 | # | Invariant | Why |
 |---|-----------|-----|
-| 1 | Money is `rust_decimal::Decimal` + `Iso4217`. **Never** `f64`. | Financial precision; multi-currency safety. |
-| 2 | Time at the domain layer is `chrono::DateTime<Utc>`. Naive local times never enter the domain. SeaORM `DateTimeWithTimeZone` at the DB; convert at the repository. | Audit determinism; timezone-safe arithmetic. |
-| 3 | Soft-delete (`deleted_at TIMESTAMPTZ`) **only on** `patients`, `encounters`, `appointments`. Other tables are append-only or operational. Repositories filter `deleted_at IS NULL` by default; surfacing tombstones requires `include_deleted`. | Audit retention vs. operational simplicity. |
-| 4 | State changes touching multiple rows run in one `DatabaseTransaction` and write `audit_log` + `outbox_events` rows in the same transaction. Never split. | Outbox invariant — audit + event stream can never be inconsistent with canonical data. |
-| 5 | `SELECT … FOR UPDATE` on contention points (bed allocation, slot booking). The partial unique index `bed_assignments (bed_id) WHERE released_at IS NULL` enforces "at most one active assignment per bed" at the database level. | Concurrent-booking safety. |
-| 6 | PAS is administrative, not clinical. | Scope discipline. |
-| 7 | `README.md` owns the full endpoint table. `AGENTS/restful.md` documents the shape but does not duplicate the list. | Single source of truth. |
-| 8 | `patient-administration-system-frontend` never writes directly to the shared DB. Every write flow proxies through the PAS Axum REST API. | Audit + outbox completeness regardless of which app initiated the change. |
-| 9 | Stateless server: every request reads from the DB. Horizontal scaling by adding replicas behind a load balancer. | Availability. |
-| 10 | The outbox dispatcher runs in-process. If multiple replicas run, each polls; duplicate delivery is possible. Production deployments wanting exactly-once should pin the dispatcher to one replica or wrap publish in an idempotent consumer. | Honest about delivery semantics. |
-| 11 | All response envelopes for `/api/*` use `{ success, data, error }`. All `/fhir/*` responses return canonical FHIR resources on success and FHIR `OperationOutcome` on failure. | Predictable client contract. |
-| 12 | `auth_test.rs` is the only DB-free integration test. Every other integration test calls `common::database_url()` first and skips silently when unset, so CI without Postgres remains green. | Tests stay runnable without infra. |
+| 1 | **Identity and workforce are HTTP-delegated** to `person-service` and `worker-service`. The PAS schema holds no `patients` / `practitioners` / `practitioner_roles` / `departments` tables; PAS-owned rows reference identity via `person_id: Uuid` and `worker_id: Uuid` columns (no DB-level FK — the row lives in another service's database). | Single source of truth per concern; avoids dual identity stores. |
+| 2 | **Hard runtime dependency** on both upstream services. PAS handlers that write a `person_id` or `worker_id` resolve the id against the upstream before persisting; unreachable upstream → `503 + UPSTREAM_UNAVAILABLE` envelope. No local read-through cache in v0.44.0 (see §4.0.1 decision callout). | Honest about coupling. Cache can be added in Phase 7 if latency or availability demand it. |
+| 3 | Money is `rust_decimal::Decimal` + `Iso4217`. **Never** `f64`. | Financial precision; multi-currency safety. |
+| 4 | Time at the domain layer is `chrono::DateTime<Utc>`. Naive local times never enter the domain. SeaORM `DateTimeWithTimeZone` at the DB; convert at the repository. | Audit determinism; timezone-safe arithmetic. |
+| 5 | Soft-delete (`deleted_at TIMESTAMPTZ`) **only on** `encounters` and `appointments`. Other tables are append-only or operational. Patient/practitioner soft-delete is upstream's concern. | Audit retention vs. operational simplicity. |
+| 6 | State changes touching multiple rows run in one `DatabaseTransaction` and write `audit_log` + `outbox_events` rows in the same transaction. Never split. **Cross-service writes (PAS + upstream) are *not* transactional** — see §4.8.2 for FHIR transaction Bundle implications. | Outbox invariant for PAS-owned writes; cross-service atomicity is given up by Option C. |
+| 7 | `SELECT … FOR UPDATE` on contention points (bed allocation, slot booking). The partial unique index `bed_assignments (bed_id) WHERE released_at IS NULL` enforces "at most one active assignment per bed" at the database level. | Concurrent-booking safety. |
+| 8 | PAS is administrative, not clinical. | Scope discipline. |
+| 9 | `README.md` owns the full endpoint table. `AGENTS/restful.md` documents the shape but does not duplicate the list. | Single source of truth. |
+| 10 | `patient-administration-system-frontend` never writes directly to the shared DB or to upstream services. Every write flow proxies through the PAS Axum REST API. | Audit + outbox completeness regardless of which app initiated the change. |
+| 11 | Stateless server: every request reads from the DB (or upstream). Horizontal scaling by adding replicas behind a load balancer. | Availability. |
+| 12 | The outbox dispatcher runs in-process. If multiple replicas run, each polls; duplicate delivery is possible. Production deployments wanting exactly-once should pin the dispatcher to one replica or wrap publish in an idempotent consumer. | Honest about delivery semantics. |
+| 13 | All response envelopes for `/api/*` use `{ success, data, error }`. All `/fhir/*` responses return canonical FHIR resources on success and FHIR `OperationOutcome` on failure. | Predictable client contract. |
+| 14 | `auth_test.rs` is the only DB-free integration test. Every other integration test calls `common::database_url()` first and skips silently when unset, so CI without Postgres remains green. Integration tests additionally use an embedded stub of the two upstream services (HTTP-server-on-localhost-via-`TcpListener`, same pattern as v0.14 `webhook_test.rs`). | Tests stay runnable without infra. |
 
 ---
 
@@ -298,10 +352,10 @@ These are **non-negotiable**. Every reviewer (human or agent) checks them.
 
 ```
 .
-├── Cargo.toml                                 workspace manifest (resolver 2)
+├── Cargo.toml                                 workspace manifest (resolver 2) — three members + hoisted [profile.release]/[profile.bench]
 ├── CHANGELOG.md                               workspace-level changelog
 ├── README.md                                  workspace README
-├── patient-administration-system-rust-crate/  PAS Axum API server (v0.3.4)
+├── patient-administration-system-rust-crate/  PAS Axum API server (v0.44.0)
 │   ├── Cargo.toml
 │   ├── src/                                   library + bins
 │   ├── tests/                                 19 integration test files
@@ -325,12 +379,13 @@ Workspace-level profile blocks (`[profile.release]` LTO + single codegen unit + 
 
 ### 6.2 Layered design (PAS Axum)
 
-Strict four-layer service: `api → service → repository → db`.
+Strict five-layer service: `api → service → (repository → db) | (upstream → person-service / worker-service)`.
 
 - **api** (`src/api/`) — Axum routers for REST and FHIR, `#[utoipa::path]` annotations, dashboard handler. Handlers extract user context from `X-User-Id` / `X-User-Ip` / `X-User-Agent`, decode + validate the JSON body, call a service, serialize the response into `ApiResponse<T>`. **No business logic in handlers.**
-- **service** (`src/{adt, scheduling, waitlist, resources, billing, communication}/`) — one module per aggregate cluster. Owns business rules, state-machine transitions, transactional boundaries.
-- **repository** (`src/db/repositories/`) — one repo per aggregate. Talks to sea-orm. The `db::with_txn(db, |txn| async { … })` helper composes multiple repos inside one transaction. `AuditLogRepository::log` and `OutboxRepository::publish` accept any `&C: ConnectionTrait`, composing with primary writes in the same transaction.
-- **db** (`src/db/`) — `connect(url)` (pool 2–10, 8 s connect timeout, 60 s idle timeout, `sqlx_logging` off), `with_txn`, 32 SeaORM entities (`src/db/entities/*.rs`, one file per table; `outbox_dead_letter` added in v0.5, `appointment_series` added in v0.9, `coverage` added in v0.10).
+- **service** (`src/{adt, scheduling, waitlist, resources, billing, communication}/`) — one module per aggregate cluster. Owns business rules, state-machine transitions, transactional boundaries. Services receive both `&DatabaseConnection` and `&dyn PersonClient` / `&dyn WorkerClient` by injection; resolving a `person_id` is just an upstream call.
+- **repository** (`src/db/repositories/`) — one repo per **PAS-owned** aggregate (encounter, admission, appointment, bed, schedule, slot, waitlist, rtt, letter, billing, consent, audit, outbox). Talks to sea-orm. The `db::with_txn(db, |txn| async { … })` helper composes multiple repos inside one transaction. `AuditLogRepository::log` and `OutboxRepository::publish` accept any `&C: ConnectionTrait`, composing with primary writes in the same transaction. **No `PatientRepository` or `PractitionerRepository`** — those identities live upstream.
+- **db** (`src/db/`) — `connect(url)` (pool 2–10, 8 s connect timeout, 60 s idle timeout, `sqlx_logging` off), `with_txn`, ~28 SeaORM entities (`src/db/entities/*.rs`, one file per table). Down from 32 at v0.43.0 because `patient`, `practitioner`, `practitioner_role`, `department` are gone.
+- **upstream** (`src/upstream/`) — `PersonClient` and `WorkerClient` traits plus reqwest-backed `HttpPersonClient` / `HttpWorkerClient` impls. Each client exposes the full upstream surface (`create`, `get`, `update`, `delete`, `search`, `match`, `check_duplicates`, `merge`, `masked`, `export`, `audit`). Stub implementations (`StubPersonClient`, `StubWorkerClient`) live alongside for integration tests, mirroring the v0.14 `webhook_test.rs` `TcpListener` pattern.
 
 ### 6.3 Transactional outbox
 
@@ -350,7 +405,9 @@ A background dispatcher (`src/streaming/dispatcher.rs`, spawned in `main.rs` at 
 
 **Dead-letter queue (v0.5).** Failed publishes increment `outbox_events.retry_count`, record the diagnostic in `last_error`, and stamp `last_attempted_at`. After `PAS_OUTBOX_MAX_RETRIES` (default `10`) consecutive failures the dispatcher moves the row into `outbox_dead_letters` in one DB transaction (insert dead-letter + delete original). Operators inspect via `GET /api/admin/outbox/dead-letters` and replay via `POST /api/admin/outbox/dead-letters/{id}/replay`, which re-inserts the row into `outbox_events` with `retry_count = 0`. Rows in the DLQ are kept indefinitely; nothing else deletes them. Set `PAS_OUTBOX_MAX_RETRIES=0` to disable dead-lettering (retry forever). Dead-lettering applies uniformly to all publisher backends (HL7 v2 MLLP and webhook).
 
-Domain event payloads include: `PatientCreated/Updated/Deleted`, `EncounterAdmitted/Transferred/Discharged/Cancelled`, `EncounterDischargeCancelled` (v0.4), `AppointmentBooked/Cancelled/CheckedIn/Completed/NoShow`, `WaitlistAdded/Removed`, `RTTClockStarted/Paused/Resumed/Stopped`, `BedStatusChanged`, `LetterGenerated`, `ChargePosted`, `InvoiceFinalized`, `PaymentPosted`.
+Domain event payloads cover **PAS-owned state changes only**: `EncounterAdmitted/Transferred/Discharged/Cancelled`, `EncounterDischargeCancelled`, `AppointmentBooked/Cancelled/CheckedIn/Completed/NoShow`, `WaitlistAdded/Removed`, `RTTClockStarted/Paused/Resumed/Stopped`, `BedStatusChanged`, `LetterGenerated`, `ChargePosted`, `InvoiceFinalized`, `PaymentPosted`.
+
+> **REMOVED in v0.44.0:** `PatientCreated/Updated/Deleted/Merged` and `PractitionerCreated/Updated/Deactivated` — those events now fire from `person-service` / `worker-service` directly. PAS subscribers that need them subscribe to the upstream services. The PAS *consumes* merge notifications via the inbound webhook described in §2.3.
 
 ### 6.4 State machines (four)
 
@@ -406,8 +463,8 @@ The RTT clock has its own lifecycle (`Active` → `Paused` → `Active` → `Sto
 
 | Aggregate            | Root                  | Members                                                       |
 | -------------------- | --------------------- | ------------------------------------------------------------- |
-| Patient              | `Patient`             | identifiers, additional names, addresses, contacts, optional `replaced_by` tombstone link (v0.11) |
-| Workforce            | `Practitioner`        | `PractitionerRole`, `Department`                              |
+| *Patient*            | *(delegated)*         | Owned by `person-service`; PAS references via `person_id: Uuid`. |
+| *Workforce*          | *(delegated)*         | Owned by `worker-service`; PAS references via `worker_id: Uuid`. |
 | Facility             | `Facility`            | `Ward`, `Room`, `Bed` (each its own table; loaded by id)      |
 | Encounter            | `Encounter`           | (state-machine root for inpatient/outpatient/ED)              |
 | Admission            | `Encounter`           | `Admission`, `Transfer`, `Discharge`, `BedAssignment`         |
@@ -418,47 +475,52 @@ The RTT clock has its own lifecycle (`Active` → `Paused` → `Active` → `Sto
 | RTT                  | `RTTPathway`          | append-only `RTTClockEvent` log                               |
 | Letter               | `LetterTemplate`      | `GeneratedLetter` per render                                  |
 | Billing              | `Account`             | `Charge`, `Invoice`, `Payment`                                |
-| Coverage             | `Coverage`            | (one record per patient × policy; optional `account_id` link) |
-| Consent              | `Consent`             | (one record per patient × `ConsentType`)                      |
+| Coverage             | `Coverage`            | one record per `person_id` × policy; optional `account_id` link |
+| Consent              | `Consent`             | one record per `person_id` × `ConsentType`                    |
 
 ### 6.6 Module map (PAS Axum)
 
 ```
 src/
 ├── lib.rs                     Public re-exports
-├── main.rs                    Binary entry (Axum + optional MLLP listener + outbox dispatcher)
-├── error.rs                   Error enum (11 variants), Result alias
-├── config/                    Env loader
-├── models/                    Pure-Rust domain types (no DB deps)
+├── main.rs                    Binary entry (Axum + optional MLLP listener + outbox dispatcher + upstream client builders)
+├── error.rs                   Error enum (12 variants — adds `Upstream`), Result alias
+├── config/                    Env loader (incl. PERSON_SERVICE_URL, WORKER_SERVICE_URL)
+├── models/                    Pure-Rust domain types for PAS-owned aggregates (no Patient/Practitioner here)
 ├── db/
 │   ├── mod.rs                 connect(), with_txn()
-│   ├── entities/              32 SeaORM entities
-│   └── repositories/          One per aggregate + audit.rs + outbox.rs
-├── adt/                       Admit / transfer / discharge service
-├── scheduling/                Slot booking + overlap detection
+│   ├── entities/              ~28 SeaORM entities (no patient/practitioner/practitioner_role/department)
+│   └── repositories/          One per PAS-owned aggregate + audit.rs + outbox.rs
+├── upstream/                  HTTP clients for person-service + worker-service
+│   ├── mod.rs                 PersonClient, WorkerClient traits
+│   ├── person_client.rs  reqwest-backed impl + StubPersonClient (for tests)
+│   ├── worker_client.rs  reqwest-backed impl + StubWorkerClient (for tests)
+│   ├── translate.rs           Patient ↔ Person, Practitioner ↔ Worker shape mapping
+│   └── webhook.rs             inbound merge-notification handler
+├── adt/                       Admit / transfer / discharge service (resolves person_id + worker_id upstream)
+├── scheduling/                Slot booking + overlap detection (resolves person_id + worker_id upstream)
 ├── waitlist/                  Priority queue + RTT clock arithmetic
 ├── resources/                 Bed status + ward occupancy
 ├── billing/                   Charge / invoice / payment service
 ├── communication/             Tera letter rendering
 ├── hl7v2/                     Parser, encoder, mapping, ACK, escapes, MLLP framing + listener
-├── interchange/               PatientRow + JSON/XML/TSV/CSV serializers + parsers
+├── interchange/               JSON / XML / TSV / CSV bulk patient surface — every row proxies upstream
 ├── api/
-│   ├── mod.rs                 ApiResponse, ApiError, AppState
+│   ├── mod.rs                 ApiResponse, ApiError, AppState (carries the two upstream clients)
 │   ├── rest/                  Axum router + handlers + auth middleware
 │   ├── fhir/                  FHIR R5 converters + handlers + OperationOutcome + Bundle write
 │   ├── dashboard.rs           Ops dashboard (Tera + HTMX, Lily markup)
 │   └── openapi.rs             ApiDoc aggregator
-├── search/                    Tantivy schema + SearchEngine
-├── streaming/                 EventPublisher trait + InMemory + Fluvio stub + Hl7v2MllpPublisher + WebhookEventPublisher (v0.14) + CompositePublisher fan-out + dispatcher
-├── validation/                Phone, address, dates, charge amount, RTT order
-├── privacy/                   Masking, GDPR export, consent gate
+├── streaming/                 EventPublisher trait + InMemory + Hl7v2MllpPublisher + WebhookEventPublisher + CompositePublisher fan-out + dispatcher
+├── validation/                Phone, address, dates, charge amount, RTT order (no patient identifier validators — upstream owns)
+├── privacy/                   Masking, GDPR export aggregator (delegates demographics to upstream, joins PAS-owned related rows), consent gate
 ├── observability/             tracing-subscriber init
-└── bin/seed.rs                pas-seed binary (demo data)
+└── bin/seed.rs                pas-seed binary (demo data — calls person-service / worker-service to provision identities)
 ```
 
 ### 6.7 Error handling
 
-A single `Error` enum in `src/error.rs` covers 11 variants. The api layer converts errors to HTTP status codes:
+A single `Error` enum in `src/error.rs` covers **12 variants** (gains `Upstream` in v0.44.0). The api layer converts errors to HTTP status codes:
 
 | Variant                  | REST status | REST code                  | FHIR status        |
 | ------------------------ | ----------- | -------------------------- | ------------------ |
@@ -472,9 +534,19 @@ A single `Error` enum in `src/error.rs` covers 11 variants. The api layer conver
 | `Streaming`              |         500 | `STREAMING`                | 500 (`exception`)  |
 | `Render`                 |         500 | `RENDER`                   | 500 (`exception`)  |
 | `Config`                 |         500 | `CONFIG`                   | 500 (`exception`)  |
+| `Upstream`               |         503 | `UPSTREAM_UNAVAILABLE`     | 503 (`transient`)  |
 | `Internal`               |         500 | `INTERNAL`                 | 500 (`exception`)  |
 
+`Error::Upstream` is raised by the `upstream` layer on transport / TLS / DNS / read failures *and* on non-2xx responses from `person-service` / `worker-service` that do not carry an envelope the PAS can translate. Upstream 4xx responses that *do* carry a standard envelope are translated to the matching PAS variant (`UPSTREAM 404 → NotFound`, `400 + invalid → Validation`, etc.).
+
 Success responses use `200 OK` (or `204 No Content` for `DELETE /fhir/Patient/:id`).
+
+### 6.8 Operational shape under Option C
+
+- **Three services in the request path** for any patient/practitioner write: PAS → person-service → upstream DB; or PAS → worker-service → upstream DB.
+- **No local cache.** Every request re-resolves identities. Latency-sensitive flows (HL7 v2 ADT^A01 ingest at high rates) should run the upstream services co-located (same pod / same VLAN). A future 1-minute LRU on `GET /api/persons/{id}` is the Phase 7 escape hatch.
+- **Liveness probe extension.** `GET /api/health` returns `{ database, person_service, worker_service }`. Any one of the three `unreachable` flips overall status to `degraded` (still 200; downstream load balancers should not yank a degraded replica out of rotation purely on this — make that call at the deployment layer).
+- **Auth pass-through.** PAS handlers attach `X-User-Id` / `X-User-Ip` / `X-User-Agent` from the inbound request to every upstream call, so upstream audit rows credit the original caller. PAS also attaches `Authorization: Bearer <PERSON_SERVICE_TOKEN>` (configured at startup; static rotation, no per-request token).
 
 ---
 
@@ -495,17 +567,19 @@ Full field-level reference: [`AGENTS/models.md`](AGENTS/models.md). Headline ele
 - `Money` — `{amount: Decimal, currency: Iso4217}`. Methods: `new`, `zero`, `try_add` (returns `Error::Validation` on currency mismatch), `impl Add` (panics on mismatch — use `try_add` outside known-safe sites).
 - `TimeRange` — `{start: DateTime<Utc>, end: DateTime<Utc>}`. Methods: `is_valid()`, `overlaps(&other)` (half-open; touching ranges do not overlap).
 
-### 7.2 Identity, workforce, resources, ADT, scheduling, waitlist, RTT, communication, billing, consent
+### 7.2 PAS-owned aggregates: resources, ADT, scheduling, waitlist, RTT, communication, billing, consent, coverage
 
 See [`AGENTS/models.md`](AGENTS/models.md) for each `models/*.rs` file's full field list, factory methods, and state-machine signatures. Headline contracts:
 
-- `Patient::new(name, gender)` generates UUID + timestamps; `active=true`.
-- `Identifier::mrn / nhs / nir / tsi / ihi / hcn / ssn` are typed factories. `IdentifierType` variants: `MRN`, `NHS`, `NIR`, `TSI`, `IHI`, `HCN`, `SSN`, `DL`, `Passport`, `Other` (serialized UPPERCASE). System-URI constants live alongside (`NHS_SYSTEM_URI`, `NIR_SYSTEM_URI`, `TSI_SYSTEM_URI`, `IHI_SYSTEM_URI`, `HCN_SYSTEM_URI`, `SSN_SYSTEM_URI`). See §4.0.1 for the per-country format rules.
 - `BedStatus::try_transition_to`, `EncounterStatus::try_transition_to`, `SlotStatus::try_transition_to`, `AppointmentStatus::try_transition_to` — state-machine guards.
 - `compute_active_weeks(events, now) -> u32` — RTT clock arithmetic (free function in `models::rtt`).
 - `Invoice::finalize(&mut self) -> Result<()>` — only valid from `Draft`.
 - `Consent::is_active(today: NaiveDate) -> bool` — active on the expiry day itself.
-- `validate_nhs_number / validate_nir / validate_tsi / validate_ihi / validate_hcn` (free functions in `validation`), plus the `validate_identifier(&Identifier)` dispatch helper. Called from `validate_patient` for every entry in `Patient.identifiers`.
+- `Encounter`, `Admission`, `Transfer`, `Discharge`, `BedAssignment`, `Appointment`, `AppointmentSeries`, `WaitlistEntry`, `RTTPathway`, `RTTClockEvent`, `LetterTemplate`, `GeneratedLetter`, `Account`, `Charge`, `Invoice`, `Payment`, `Coverage`, `Consent`, `Facility`, `Ward`, `Room`, `Bed` — all unchanged shape-wise, except every former `patient_id: Uuid` field is now `person_id: Uuid` and every former `practitioner_id: Uuid` is now `worker_id: Uuid`.
+
+### 7.3 Delegated aggregates
+
+`Patient` and `Practitioner` (and their members `PractitionerRole`, `Department`) are **not** PAS domain types in v0.44.0. When a handler needs demographic detail it calls the upstream service via the `upstream` layer and works with the upstream's `Person` / `Worker` shape directly (deserialized into types defined in `src/upstream/translate.rs`). The wire shape the PAS exposes to its own callers (`Patient` / `Practitioner`) is built by translating from the upstream shape inside the handler — see §4.0 + §4.0.1 for the rule.
 
 ---
 
@@ -551,37 +625,42 @@ Lives in [`README.md`](README.md#api-endpoint-reference) — the single source o
 
 ### 9.1 Schema overview
 
-32 tables in PostgreSQL, grouped:
+**~28 tables in PostgreSQL** at v0.44.0 (down from 32 at v0.43.0), grouped:
 
 | Group           | Count | Tables                                                                 |
 |-----------------|-------|------------------------------------------------------------------------|
-| Identity        | 1     | `patients`                                                             |
-| Workforce       | 3     | `practitioners`, `practitioner_roles`, `departments`                   |
+| *Identity*      | *0*   | *(delegated to `person-service`)*                                 |
+| *Workforce*     | *0*   | *(delegated to `worker-service`)*                                 |
 | Resources       | 4     | `facilities`, `wards`, `rooms`, `beds`                                 |
 | ADT             | 5     | `encounters`, `admissions`, `transfers`, `discharges`, `bed_assignments` |
-| Scheduling      | 4     | `schedules`, `slots`, `appointments`, `appointment_series` (v0.9)      |
+| Scheduling      | 4     | `schedules`, `slots`, `appointments`, `appointment_series`             |
 | Waitlist + RTT  | 4     | `referrals`, `waitlist_entries`, `rtt_pathways`, `rtt_clock_events`    |
 | Communication   | 2     | `letter_templates`, `generated_letters`                                |
-| Billing         | 5     | `accounts`, `charges`, `invoices`, `payments`, `coverages` (v0.10)     |
+| Billing         | 5     | `accounts`, `charges`, `invoices`, `payments`, `coverages`             |
 | Consent         | 1     | `consents`                                                             |
-| Audit + Events  | 3     | `audit_log`, `outbox_events`, `outbox_dead_letters` (v0.5)             |
+| Audit + Events  | 3     | `audit_log`, `outbox_events`, `outbox_dead_letters`                    |
 
-v0.1 trade-off: repeated child collections on `patients` and `practitioners` (`identifiers`, `additional_names`, `telecom`, `addresses`, `emergency_contacts`) are stored inline as `JSONB` columns instead of separate tables. Flagged for future normalization in the migration comment.
+Every former `patient_id UUID` column on a PAS-owned table is now `person_id UUID`. Every former `practitioner_id UUID` is now `worker_id UUID`. These columns carry **no DB-level FK constraint** because the referenced row lives in another service's database.
 
 ### 9.2 Strategic indexes
 
 | Index                                                       | Purpose                                |
 |-------------------------------------------------------------|----------------------------------------|
-| `appointments (patient_id, start_datetime)`                 | Per-patient overlap check              |
+| `appointments (person_id, start_datetime)`                  | Per-person overlap check               |
 | `slots (schedule_id, start_datetime) WHERE status = 'Free'` | Slot search                            |
 | `bed_assignments (bed_id) WHERE released_at IS NULL`        | At most one active per bed (partial UNIQUE) |
 | `waitlist_entries (target_service, priority, created_at)`   | Priority queue scan                    |
 | `rtt_clock_events (pathway_id, event_at)`                   | Clock arithmetic ordering              |
 | `outbox_events (published) WHERE published = false`         | Dispatcher hot path                    |
 
-v0.11 added a nullable `replaced_by UUID` column on `patients` (with a partial index `WHERE replaced_by IS NOT NULL`) so a row can record its merge-into target.
+Authoritative source: the original five migrations (`m20260520_000001_init`, `m20260525_000002_outbox_dlq`, `m20260526_000003_appointment_series`, `m20260527_000004_coverage`, `m20260528_000005_patient_replaced_by`) plus the v0.44.0 forward-only migration `m20260601_000006_delegate_identity` that:
 
-Authoritative source: `migrations/src/m20260520_000001_init.rs` + the four follow-on migrations (`m20260525_000002_outbox_dlq`, `m20260526_000003_appointment_series`, `m20260527_000004_coverage`, `m20260528_000005_patient_replaced_by`).
+1. Drops `patients`, `practitioners`, `practitioner_roles`, `departments` (and every index touching them, including the v0.11 `replaced_by` partial index).
+2. Renames `patient_id → person_id` on 18 dependent columns across 9 tables (accounts, appointments, consents, encounters, generated_letters, referrals, rtt_pathways, waitlist_entries, plus `coverages.patient_id`).
+3. Renames `practitioner_id → worker_id` on 13 dependent columns across 5 tables (admissions, appointments, encounters, schedules, transfers/discharges where applicable).
+4. Drops the local Tantivy patient index directory.
+
+The migration is **forward-only** (no `down` implementation). See §13 Layer 11 + risk #2 below.
 
 ### 9.3 Time handling
 
@@ -603,7 +682,7 @@ Mirrors `Cargo.toml`. The v0.3.1 audit removed 15 unused direct deps; v0.3.4 rem
 | Templates            | `tera` 1.20                                                            |
 | ORM                  | `sea-orm` 1.1 (`sqlx-postgres`, `runtime-tokio-rustls`, `with-chrono`, `with-uuid`, `with-json`) |
 | Migrations           | `sea-orm-migration` 1.1                                                |
-| Search               | `tantivy` 0.22                                                         |
+| Upstream HTTP client | `reqwest` 0.12 (`json`, `rustls-tls`) — promoted from transitive to direct in v0.44.0 for the two `PersonClient` / `WorkerClient` impls; was already a direct dep at v0.14 for `WebhookEventPublisher`. |
 | OpenAPI              | `utoipa` 5.4 + `utoipa-swagger-ui` 8.1                                 |
 | Serialization        | `serde`, `serde_json`, `quick-xml` 0.36 (`serialize`), `csv` 1.3       |
 | Logging              | `tracing` 0.1, `tracing-subscriber` 0.3 (`env-filter`, `json`)         |
@@ -615,12 +694,17 @@ Mirrors `Cargo.toml`. The v0.3.1 audit removed 15 unused direct deps; v0.3.4 rem
 | Money                | `rust_decimal` 1.36 (`serde-with-str`)                                 |
 | Dev-deps             | `assertables` 9.8, `tempfile` 3.24, `criterion` 0.5                    |
 
+**Removed in v0.44.0** (and why):
+
+- `tantivy` 0.22 — local patient search index is gone; `person-service` owns full-text + fuzzy + phonetic search.
+
 **Explicitly not included** (and why):
 
+- **`person-service` / `worker-service` as Cargo deps.** Integration is **HTTP-only** (see §1 + §6.2). Adding the upstream crates as path / git deps would pull their full transitive trees (loco-rs, tonic, prost, openapiv3, fluvio, …) into this binary for no benefit; the wire shape is the contract.
 - `mockall` / `tokio-test` — no `use mockall` or `tokio_test::` anywhere; `#[tokio::test]` comes from `tokio` itself.
-- `loco-rs` (in PAS Axum), `fluvio`, `tonic` / `prost` / `tonic-build`, `openapiv3` — nothing uses them.
+- `loco-rs`, `fluvio`, `tonic` / `prost` / `tonic-build`, `openapiv3` — nothing uses them.
 - `jsonwebtoken`, `argon2` — bearer-token middleware is the only auth in v0.1.
-- `strsim` — fuzzy matching belongs to the MPI crate.
+- `strsim` — fuzzy matching belongs to `person-service`.
 - `anyhow`, `bigdecimal`, `validator`, `hyper` — `thiserror` + `rust_decimal` + hand-written validators + axum are sufficient.
 
 ---
@@ -636,7 +720,13 @@ Read from environment (or `.env`).
 | `DATABASE_URL`         | Yes      | —                | PostgreSQL connection string                             |
 | `SERVER_HOST`          | No       | `0.0.0.0`        | HTTP bind address                                        |
 | `SERVER_PORT`          | No       | `8080`           | HTTP port                                                |
-| `SEARCH_INDEX_PATH`    | No       | `./search_index` | Tantivy index directory                                  |
+| `PERSON_SERVICE_URL` | **Yes** | `http://localhost:5180` (dev only) | Base URL of the upstream `person-service`. **Required at startup in non-test mode**; PAS refuses to boot if unreachable on first ping. v0.44.0. |
+| `PERSON_SERVICE_TOKEN` | No  | unset            | Bearer token attached to every outbound call to `person-service` via `Authorization: Bearer <token>`. v0.44.0. |
+| `PERSON_SERVICE_WEBHOOK_SECRET` | No | unset       | HMAC-SHA256 secret used to verify inbound `POST /api/upstream/person-merged` calls. When unset, that endpoint refuses every request (`401 + UNSIGNED_WEBHOOK`). v0.44.0. |
+| `WORKER_SERVICE_URL` | **Yes** | `http://localhost:5181` (dev only) | Base URL of the upstream `worker-service`. Same boot-time check as `PERSON_SERVICE_URL`. v0.44.0. |
+| `WORKER_SERVICE_TOKEN` | No  | unset            | Bearer token attached to every outbound call to `worker-service`. v0.44.0. |
+| `WORKER_SERVICE_WEBHOOK_SECRET` | No | unset       | HMAC-SHA256 secret for inbound `POST /api/upstream/worker-merged`. Same semantics as the person variant. v0.44.0. |
+| `UPSTREAM_TIMEOUT_SECS` | No      | `10`             | reqwest timeout applied to every outbound call to either upstream service. v0.44.0. |
 | `RUST_LOG`             | No       | `info`           | Tracing filter                                           |
 | `API_TOKEN`            | No       | unset            | When set, bearer-auth enforced on `/api/*` except `/api/health` |
 | `CORS_ORIGINS`         | No       | unset            | Comma-separated allowlist; unset = permissive            |
@@ -664,24 +754,34 @@ Read from environment (or `.env`).
 
 ## 12. Testing & Quality Specification
 
-### 12.1 Coverage targets (current baseline = v0.43.0 / patient-administration-system-frontend v0.1.0)
+### 12.1 Coverage targets
 
-| Suite                             | Count   | Notes                                              |
-|-----------------------------------|---------|----------------------------------------------------|
-| PAS lib unit tests                | 479     | `cargo test --lib`, all green, <2 s                |
-| patient-administration-system-frontend csrf unit tests      | 9       | constant-time compare, ensure/verify paths         |
-| PAS integration test files        | 24      | 54 test functions total                            |
-| patient-administration-system-frontend integration tests    | 13      | dashboard smoke + form CSRF + 404 + health         |
-| Criterion benchmark suites        | 3       | adt, scheduling, waitlist                          |
+**Shipped baseline (v0.44.0, as of 2026-06-01)** — what the code currently passes:
+
+| Suite                                                   | Count   | Notes                                              |
+|---------------------------------------------------------|---------|----------------------------------------------------|
+| PAS lib unit tests                                      | 358     | `cargo test --lib`, all green, ~3 s                |
+| `patient-administration-system-frontend` lib tests      | 17      | csrf (9) + person_api (3) + patient view-model (5) |
+| PAS integration test files                              | 27      | DB-gated; net of v0.43 minus `patient_crud_test.rs` / `patient_merge_test.rs`, plus `upstream_person_proxy_test.rs` + `upstream_worker_proxy_test.rs` + `upstream_merge_webhook_test.rs` |
+| `patient-administration-system-frontend` integration tests | 13   | dashboard smoke + form CSRF + 404 + health         |
+| Criterion benchmark suites                              | 3       | adt, scheduling, waitlist                          |
+
+**Historical baseline (v0.43.0)** — pre-Option-C, kept here for delta-tracking only:
+
+| Suite                                                   | Count   | Delta (v0.44 − v0.43) | Notes |
+|---------------------------------------------------------|---------|-----------------------|-------|
+| PAS lib unit tests                                      | 497     | −139                  | Patient / Practitioner / Identifier model + validator + Tantivy search unit tests removed; new `upstream::` + `hl7v2::encode` + `streaming::hl7v2_publisher` + FHIR write tests added |
+| PAS integration test files                              | 24      | +3                    | `patient_*` removed; `upstream_*` (3 files) added |
 
 ### 12.2 Quality gates
 
-Run from the workspace root:
+Run from the workspace root (the workspace `Cargo.toml` lists all three members):
 
 ```bash
+# v0.44.0 (shipped today):
 cargo build  --workspace --all-targets             # zero errors, zero warnings
-cargo test   --workspace --lib                     # 479 PAS + 9 patient-administration-system-frontend = 488
-cargo test   --workspace                           # add 54 + 13 integration (needs DATABASE_URL)
+cargo test   --workspace --lib                     # 358 PAS + 17 frontend = 375
+cargo test   --workspace                           # add DB-gated integration tests (needs DATABASE_URL + upstream stubs spun up inside the harness)
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt    --check --all
 cargo bench                                        # optional
@@ -707,7 +807,9 @@ cargo bench                                        # optional
 
 ## 13. Build Sequence (Implementation Tasks)
 
-Ordered, layered build sequence to recreate the v0.3.4 baseline from a clean checkout. Same-layer tasks parallelize; later layers depend on earlier ones. After every layer, run the gates in §12.2.
+Ordered, layered build sequence to recreate the **PAS Axum v0.43.0 / patient-administration-system-frontend v0.1.0** baseline from a clean checkout. Same-layer tasks parallelize; later layers depend on earlier ones. After every layer, run the gates in §12.2.
+
+Layers 0–8 land the PAS Axum binary up through the HL7 v2 ADT^A07 demote-inpatient surface (v0.43.0). Layer 9 lands the Loco-rs sibling crate (`patient-administration-system-frontend` v0.1.0). Layer 10 is workspace-level release engineering.
 
 ### Layer 0 — Workspace scaffolding (blocking, single agent)
 
@@ -732,8 +834,8 @@ Pure-Rust types in `src/models/<name>.rs` with `serde` derives, factory methods,
 
 ### Layer 2 — Persistence (after Layer 1)
 
-- **T2.1 Initial migration.** `migrations/src/m20260520_000001_init.rs` creates the 29 tables from §9.1 with the indexes from §9.2. Inline `JSONB` for repeated child collections on `patients` / `practitioners`.
-- **T2.2 SeaORM entities.** `src/db/entities/*.rs` — one file per table (29 + `mod.rs`).
+- **T2.1 Initial migration plus follow-ons.** `migrations/src/m20260520_000001_init.rs` creates the original 29 tables with the indexes from §9.2. Inline `JSONB` for repeated child collections on `patients` / `practitioners`. Four follow-on migrations bring the schema to the 32 tables in §9.1: `m20260525_000002_outbox_dlq` (`outbox_dead_letters`, v0.5), `m20260526_000003_appointment_series` (`appointment_series`, v0.9), `m20260527_000004_coverage` (`coverages`, v0.10), `m20260528_000005_patient_replaced_by` (nullable `patients.replaced_by`, v0.11).
+- **T2.2 SeaORM entities.** `src/db/entities/*.rs` — one file per table (32 + `mod.rs`).
 - **T2.3 Repositories.** One file per aggregate cluster. CRUD honors soft-delete (default filter `deleted_at IS NULL`; explicit `include_deleted` to surface tombstones).
 - **T2.4 Audit + outbox repositories.** Accept any `&C: ConnectionTrait` so callers compose with primary writes in the same transaction.
 - **T2.5 DB module.** `connect(url)` (pool 2–10, 8 s connect timeout, 60 s idle, `sqlx_logging` off), `with_txn<F, R>(db, f) -> Result<R>`.
@@ -810,22 +912,70 @@ A separate workspace member at `../patient-administration-system-frontend/`. **R
 - **T10.2 Repo unification (one-time, optional).** If the PAS Axum crate started life as a standalone repo, merge its history into the workspace root via `git subtree add --prefix=patient-administration-system-rust-crate/ <source> <commit> --squash`. A single `git log` at the workspace root then surfaces every commit forward.
 - **T10.3 Doc audit pass.** On every release, sweep `AGENTS.md`, every `AGENTS/*.md` and `AGENTS/share/*.md`, the PAS README, and this `spec.md` for drift. Test counts, version pins, deferred-list items, and the technology stack table are the usual culprits.
 
+### Layer 11 — Option C identity delegation (v0.44.0) — **SHIPPED 2026-06-01**
+
+The big architectural shift: drop the local `Patient` + `Practitioner` tables and proxy every identity/workforce surface to `person-service` + `worker-service` over HTTP. Each sub-layer ends with workspace gates green; only Layer 11C is destructive.
+
+**Status:** Shipped. The task list below is preserved verbatim as a historical implementation record; the work it describes corresponds to Phases 1 / 2 / 3a / 3b1–3b3 / 3c1–3c4 / 3d / 3e in `CHANGELOG.md`. Measured outcome (2026-06-01): 358 PAS lib tests pass; 11 inbound HL7 v2 handlers + 18 outbound trigger encoders shipped; route count 115 (REST) + 19 (FHIR R5); frontend v0.2.0 paired-release moves patient reads to `services/person_api.rs`.
+
+> **DECISION CALLOUTS** (defaults chosen in Phase 0 doc rewrite; override before Layer 11A):
+>
+> 1. **Hard runtime dep, no cache.** PAS refuses to write a `person_id` / `worker_id` it cannot resolve upstream. Future LRU cache is a Phase 7 escape hatch.
+> 2. **Forward-only migration; no backfill tool.** Existing local `patients` / `practitioners` rows are *lost* on the v0.44.0 upgrade unless an out-of-band export-to-upstream is performed first. The PAS does not ship one.
+> 3. **Audit proxy.** `GET /api/patients/{id}/audit` merges upstream demographic-audit rows + local PAS-owned audit rows time-sorted.
+> 4. **FHIR transaction Bundles dropping Patient/Practitioner.** `POST /fhir` with `type: transaction` **rejects** bundles that contain `Patient` or `Practitioner` entries with `400 + invalid: Patient/Practitioner entries are not supported in PAS transaction bundles; call person-service /fhir/Person and worker-service /fhir/Worker directly.` Batch Bundles still accept them by proxying each entry individually.
+> 5. **MPI / person-service relationship.** This spec treats `person-service` + `worker-service` as the deferred MPI vision now realized. References to the abstract sister "MPI crate" elsewhere in the docs are deprecated and rewritten to point at these two services.
+
+- **T11A.1 Upstream client trait + HTTP impl.** `src/upstream/mod.rs` defines `PersonClient` and `WorkerClient` async traits. `person_client.rs::HttpPersonClient` (and worker twin) wrap `reqwest::Client` with `UPSTREAM_TIMEOUT_SECS`, attach `Authorization: Bearer <MAIN_*_TOKEN>` when set, attach pass-through `X-User-Id` / `X-User-Ip` / `X-User-Agent` headers from a per-call `UserContext`. Errors map to `Error::Upstream` (transport / non-translatable non-2xx) or to `Error::NotFound` / `Error::Validation` / `Error::Conflict` when the upstream envelope is parseable.
+- **T11A.2 Translation layer.** `src/upstream/translate.rs` — `Person ↔ Patient` and `Worker ↔ Practitioner` shape conversion. Drives every proxy handler in T11D.
+- **T11A.3 Stub impls for tests.** `StubPersonClient` + `StubWorkerClient` — in-process HTTP servers on ephemeral `TcpListener` ports, same pattern as v0.14 `webhook_test.rs`. Used by every integration test that proxies upstream.
+- **T11A.4 Unit tests.** Per-method tests for both clients against the in-process stubs: envelope unwrap, 4xx translation, transport error → `Upstream`, header attachment, signature attachment when configured.
+
+- **T11B.1 Webhook inbound endpoints.** `POST /api/upstream/person-merged` and `POST /api/upstream/worker-merged`. HMAC-SHA256 signature check against `MAIN_*_WEBHOOK_SECRET` before any side-effect. Body `{source_id, target_id, at}`. Replay-safe on `X-Upstream-Event-Id` (stored in a small `upstream_inbox` table — adds one table; revisit count in §9.1).
+- **T11B.2 Merge propagation logic.** Single DB transaction: `UPDATE encounters SET person_id = target WHERE person_id = source` (and the same for the 8 other person-bearing tables; 5 worker-bearing tables for the worker variant). One `audit_log` row per table touched, `action = "upstream_person_merged"` / `"upstream_worker_merged"`.
+
+- **T11C.1 Destructive migration.** `migrations/src/m20260601_000006_delegate_identity.rs`:
+    1. `DROP TABLE patients, practitioners, practitioner_roles, departments CASCADE` (CASCADE because the v0.11 `patients.replaced_by` partial index + every dependent table's FK go too).
+    2. For each of 9 dependent tables, drop the FK constraint pointing at `patients.id`, then `ALTER COLUMN patient_id RENAME TO person_id`.
+    3. For each of 5 dependent tables, drop the FK constraint pointing at `practitioners.id`, then `ALTER COLUMN practitioner_id RENAME TO worker_id`.
+    4. Drop the local Tantivy index directory at `SEARCH_INDEX_PATH` from the filesystem (logged, not migrated).
+    5. Create `upstream_inbox (event_id UUID PRIMARY KEY, received_at TIMESTAMPTZ NOT NULL)` for webhook replay-safety.
+- **T11C.2 Entity teardown.** Delete `src/db/entities/{patient,practitioner,practitioner_role,department}.rs`; rename `patient_id → person_id` and `practitioner_id → worker_id` on every other entity. Delete `src/db/repositories/{patient,practitioner}.rs` and their references.
+- **T11C.3 Model teardown.** Delete `src/models/{patient,practitioner,identifier}.rs`. Delete `src/validation/identifier.rs` and the national-identifier validators (`validate_nhs_number` etc.). Delete `src/search/` (Tantivy patient index).
+- **T11C.4 Interchange teardown.** `src/interchange/` keeps the four format submodules but every `PatientRow` reader/writer now calls the upstream client per row instead of touching local DB.
+
+- **T11D.1 Proxy REST handlers.** Every patient/practitioner REST handler in `src/api/rest/handlers.rs` is rewritten as a one-line proxy over `state.person_client` / `state.worker_client`. Wire shape preserved; translation via `upstream::translate`.
+- **T11D.2 Proxy FHIR handlers.** Same for `src/api/fhir/handlers.rs` Patient + Practitioner handlers. `POST /fhir` transaction-Bundle path rejects Patient/Practitioner entries per Decision #4.
+- **T11D.3 HL7 v2 PID/STF rewrites.** Every PID-bearing handler (17 ADT triggers + DFT^P03 + SIU + MFN^M02 PID inside the wire) replaces local `PatientRepository::dedup_or_create` with `state.person_client.match` + (on no match) `.create`. MFN^M02 STF segments handle worker identity the same way via `state.worker_client`. Audit + outbox events that fired locally for patient/practitioner CRUD **disappear**; encounter/admission/charge events keep firing.
+
+- **T11E.1 Wire `main.rs`.** Build `HttpPersonClient` + `HttpWorkerClient` from env vars at startup. Ping each upstream `/api/health` once; abort startup with `Error::Config` if either returns non-2xx (production); log `warn!` and continue (test mode). Extend `/api/health` aggregator to include upstream status.
+
+- **T11F.1 Test rewrites.** Delete `tests/patient_crud_test.rs` and `tests/patient_merge_test.rs`. Rewrite every other integration test to spin up `StubPersonClient` + `StubWorkerClient` HTTP stubs and seed them with a minimal person/worker before exercising the PAS flow. Add `tests/upstream_person_proxy_test.rs` (proxy round-trip), `tests/upstream_worker_proxy_test.rs`, `tests/upstream_merge_webhook_test.rs` (HMAC verify + merge propagation).
+- **T11F.2 Bench rewrites.** Three Criterion suites stay (none touch Patient/Practitioner shape).
+
+- **T11G.1 Final doc sweep.** Refresh §12.1 v0.44.0 counts with measured values. Bump Cargo.toml to `0.44.0`. Per-crate CHANGELOG entries. Workspace CHANGELOG entry pointing at the per-crate entries + this Layer 11 anchor.
+
 ---
 
 ## 14. Acceptance Criteria
 
-A fresh checkout matches the v0.43.0 / patient-administration-system-frontend v0.1.0 baseline when **all** of these hold:
+### 14.1 Shipped baseline (v0.44.0, as of 2026-06-01) — currently passing
 
 - `cargo build --workspace --all-targets` → zero errors, zero warnings.
-- `cargo test --workspace --lib` → 479 PAS + 9 patient-administration-system-frontend = **488 passing**.
-- `cargo test --workspace` with a live `DATABASE_URL` → 488 lib + 54 PAS integration + 13 patient-administration-system-frontend integration tests passing.
+- `cargo test --workspace --lib` → **358 PAS + 17 frontend = 375 passing**.
+- `cargo test --workspace` with a live `DATABASE_URL` → above + DB-gated integration tests. Integration tests bind ephemeral ports for `StubPersonClient` / `StubWorkerClient` so no live upstream is required.
 - `cargo clippy --workspace --all-targets -- -D warnings` → clean.
 - `cargo fmt --check --all` → clean.
-- `cargo run --example interchange` → exits 0.
 - `cargo bench` → runs the three Criterion suites end-to-end.
-- A live `cargo run --bin patient-administration-system` answers `/api/health` with `{ status: "ok", database: "ok" }` and serves Swagger UI at `/swagger-ui`.
-- `./demo.sh` against a seeded DB walks admit → transfer → discharge → letter without error.
-- `cargo run --bin patient-administration-system-frontend -- start` in the sibling crate serves `/dashboard` and the three write forms; all three CSRF-protected POSTs proxy back to the PAS Axum API and succeed when given valid tokens, return 400 when given invalid ones.
+- A live `cargo run --bin patient-administration-system` requires `PERSON_SERVICE_URL` + `WORKER_SERVICE_URL` reachable; `/api/health` returns `{ status, database, ... }` and serves Swagger UI at `/swagger-ui`.
+- `cargo run --bin patient-administration-system-frontend -- start` in the sibling crate serves `/dashboard` + `/patients`; patient pages render from `person-service` over HTTP and the three CSRF-protected write forms proxy back to the PAS Axum API and succeed when given valid tokens, return 400 when given invalid ones.
+
+### 14.2 Historical baseline (v0.43.0) — kept for delta-tracking
+
+- `cargo test --workspace --lib` → 497 PAS + 9 frontend = 506 passing. Patient/Practitioner/Identifier model + validator + Tantivy search tests accounted for the bulk of the v0.43 → v0.44 lib-test drop.
+- `POST /api/patients` succeeds end-to-end: PAS proxies to `person-service POST /api/persons`, the returned `id` round-trips through `GET /api/patients/{id}` and `POST /api/admissions { person_id: <id>, bed_id: ... }`.
+- `POST /api/upstream/person-merged` with a valid HMAC signature rewrites every PAS-owned row referencing the merge `source_id` to point at `target_id`, in one DB transaction, and ACKs 200. Replays of the same `X-Upstream-Event-Id` are no-ops.
+- The PAS PostgreSQL schema contains no `patients`, `practitioners`, `practitioner_roles`, or `departments` tables. `\d patients` in psql returns "Did not find any relation named ...".
 
 ---
 
@@ -846,7 +996,10 @@ A fresh checkout matches the v0.43.0 / patient-administration-system-frontend v0
 | [`AGENTS/interchange.md`](AGENTS/interchange.md)    | Bulk JSON/XML/TSV/CSV import-export, FHIR Bundles, HL7 v2 ADT.     |
 | [`AGENTS/testing.md`](AGENTS/testing.md)            | Unit + integration test layout, benchmark suites, quality gates.   |
 | [`AGENTS/share/*.md`](AGENTS/share)                 | Cross-cutting reference snippets (overview, technology, auditability, availability, observability, privacy, restful, match-search-merge). |
+| [`AGENTS/national-person-identifiers.md`](AGENTS/national-person-identifiers.md) | Historical reference; the surface itself moved to `person-service` at v0.44.0. |
 | `seed.md`                                           | Historical problem statement — do not modify.                      |
+| **External:** `person-service` `spec.md`       | The upstream identity service that owns `Patient` shape, search, match, merge. |
+| **External:** `worker-service` `spec.md`       | The upstream workforce service that owns `Practitioner` shape, search, match, merge. |
 
 ---
 

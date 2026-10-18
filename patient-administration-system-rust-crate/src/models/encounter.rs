@@ -100,12 +100,12 @@ impl EncounterStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Encounter {
     pub id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub class: EncounterClass,
     pub status: EncounterStatus,
     pub period_start: DateTime<Utc>,
     pub period_end: Option<DateTime<Utc>>,
-    pub practitioner_id: Option<Uuid>,
+    pub worker_id: Option<Uuid>,
     pub department_id: Option<Uuid>,
     pub reason: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -115,16 +115,16 @@ pub struct Encounter {
 impl Encounter {
     /// Build a new encounter in the `Planned` state for the given patient
     /// and class. `period_start` and the timestamps are set to `Utc::now()`.
-    pub fn new(patient_id: Uuid, class: EncounterClass) -> Self {
+    pub fn new(person_id: Uuid, class: EncounterClass) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
-            patient_id,
+            person_id,
             class,
             status: EncounterStatus::Planned,
             period_start: now,
             period_end: None,
-            practitioner_id: None,
+            worker_id: None,
             department_id: None,
             reason: None,
             created_at: now,
@@ -139,13 +139,13 @@ mod tests {
 
     #[test]
     fn test_encounter_new_defaults() {
-        let patient_id = Uuid::new_v4();
-        let e = Encounter::new(patient_id, EncounterClass::Inpatient);
-        assert_eq!(e.patient_id, patient_id);
+        let person_id = Uuid::new_v4();
+        let e = Encounter::new(person_id, EncounterClass::Inpatient);
+        assert_eq!(e.person_id, person_id);
         assert_eq!(e.class, EncounterClass::Inpatient);
         assert_eq!(e.status, EncounterStatus::Planned);
         assert!(e.period_end.is_none());
-        assert!(e.practitioner_id.is_none());
+        assert!(e.worker_id.is_none());
         assert!(e.department_id.is_none());
         assert!(e.reason.is_none());
         assert_eq!(e.created_at, e.updated_at);
@@ -273,16 +273,16 @@ mod tests {
     fn test_encounter_serde_roundtrip() {
         let mut e = Encounter::new(Uuid::new_v4(), EncounterClass::Emergency);
         e.reason = Some("chest pain".into());
-        e.practitioner_id = Some(Uuid::new_v4());
+        e.worker_id = Some(Uuid::new_v4());
         e.department_id = Some(Uuid::new_v4());
         let json = serde_json::to_string(&e).expect("serialize");
         let back: Encounter = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.id, e.id);
-        assert_eq!(back.patient_id, e.patient_id);
+        assert_eq!(back.person_id, e.person_id);
         assert_eq!(back.class, EncounterClass::Emergency);
         assert_eq!(back.status, EncounterStatus::Planned);
         assert_eq!(back.reason.as_deref(), Some("chest pain"));
-        assert_eq!(back.practitioner_id, e.practitioner_id);
+        assert_eq!(back.worker_id, e.worker_id);
         assert_eq!(back.department_id, e.department_id);
     }
 }

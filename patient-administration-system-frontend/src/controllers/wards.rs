@@ -21,7 +21,7 @@ struct BedDisplayRow {
     code: String,
     room_code: String,
     status: String,
-    occupant_patient_id: Option<Uuid>,
+    occupant_person_id: Option<Uuid>,
     occupant_family: Option<String>,
     occupant_given: Option<String>,
 }
@@ -63,7 +63,7 @@ pub async fn show(
                 code: b.code,
                 room_code: b.room_code,
                 status: b.status,
-                occupant_patient_id: occ.as_ref().map(|o| o.patient_id),
+                occupant_person_id: occ.as_ref().map(|o| o.person_id),
                 occupant_family: occ.as_ref().map(|o| o.family.clone()),
                 occupant_given: occ.as_ref().map(|o| o.given.clone()),
             }

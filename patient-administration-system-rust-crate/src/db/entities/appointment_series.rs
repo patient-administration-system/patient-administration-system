@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub patient_id: Uuid,
-    pub practitioner_id: Option<Uuid>,
+    pub person_id: Uuid,
+    pub worker_id: Option<Uuid>,
     pub service_type: String,
     pub start_datetime: DateTimeWithTimeZone,
     pub duration_minutes: i32,

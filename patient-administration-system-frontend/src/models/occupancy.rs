@@ -36,12 +36,12 @@ mod encounter_entity {
     pub struct Model {
         #[sea_orm(primary_key, auto_increment = false)]
         pub id: Uuid,
-        pub patient_id: Uuid,
+        pub person_id: Uuid,
         pub class: String,
         pub status: String,
         pub period_start: chrono::DateTime<chrono::FixedOffset>,
         pub period_end: Option<chrono::DateTime<chrono::FixedOffset>>,
-        pub practitioner_id: Option<Uuid>,
+        pub worker_id: Option<Uuid>,
         pub department_id: Option<Uuid>,
         pub reason: Option<String>,
         pub created_at: chrono::DateTime<chrono::FixedOffset>,
@@ -89,7 +89,7 @@ mod patient_entity {
 /// Current occupant of one bed.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Occupant {
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub family: String,
     pub given: String,
 }
@@ -122,15 +122,15 @@ pub async fn current_occupants_for_beds(
         .all(db)
         .await?;
     let patient_by_encounter: HashMap<Uuid, Uuid> =
-        encounters.iter().map(|e| (e.id, e.patient_id)).collect();
+        encounters.iter().map(|e| (e.id, e.person_id)).collect();
 
     // 3. Look up patient rows.
-    let patient_ids: Vec<Uuid> = patient_by_encounter.values().copied().collect();
-    if patient_ids.is_empty() {
+    let person_ids: Vec<Uuid> = patient_by_encounter.values().copied().collect();
+    if person_ids.is_empty() {
         return Ok(HashMap::new());
     }
     let patients = patient_entity::Entity::find()
-        .filter(patient_entity::Column::Id.is_in(patient_ids))
+        .filter(patient_entity::Column::Id.is_in(person_ids))
         .all(db)
         .await?;
     let patient_by_id: HashMap<Uuid, patient_entity::Model> =
@@ -139,17 +139,17 @@ pub async fn current_occupants_for_beds(
     // 4. Stitch: bed_id → encounter → patient.
     let mut out: HashMap<Uuid, Occupant> = HashMap::with_capacity(assignments.len());
     for a in assignments {
-        let Some(patient_id) = patient_by_encounter.get(&a.encounter_id).copied() else {
+        let Some(person_id) = patient_by_encounter.get(&a.encounter_id).copied() else {
             continue;
         };
-        let Some(p) = patient_by_id.get(&patient_id) else {
+        let Some(p) = patient_by_id.get(&person_id) else {
             continue;
         };
         let (family, given) = name_parts(&p.name);
         out.insert(
             a.bed_id,
             Occupant {
-                patient_id,
+                person_id,
                 family,
                 given,
             },

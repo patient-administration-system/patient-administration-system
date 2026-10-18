@@ -30,14 +30,13 @@ pub mod config;
 pub mod db;
 pub mod error;
 pub mod hl7v2;
-pub mod interchange;
 pub mod models;
 pub mod observability;
 pub mod privacy;
 pub mod resources;
 pub mod scheduling;
-pub mod search;
 pub mod streaming;
+pub mod upstream;
 pub mod validation;
 pub mod waitlist;
 

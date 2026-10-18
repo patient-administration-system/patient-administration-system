@@ -5,3 +5,4 @@
 //! writing to the shared database directly.
 
 pub mod pas_api;
+pub mod person_api;

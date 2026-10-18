@@ -1,9 +1,23 @@
 //! REST API
 pub mod auth;
 pub mod handlers;
+pub mod handlers_admin;
+pub mod handlers_adt;
+pub mod handlers_audit;
+pub mod handlers_billing;
+pub mod handlers_consent;
+pub mod handlers_coverage;
+pub mod handlers_encounter;
+pub mod handlers_hl7v2;
+pub mod handlers_letters;
+pub mod handlers_resources;
+pub mod handlers_scheduling;
+pub mod handlers_series;
+pub mod handlers_waitlist;
 pub mod rate_limit;
 pub mod routes;
 pub mod state;
+pub mod upstream_proxy;
 
 pub use auth::{RequireBearerToken, require_bearer};
 pub use rate_limit::{RateLimitConfig, RateLimiter, rate_limit_middleware};

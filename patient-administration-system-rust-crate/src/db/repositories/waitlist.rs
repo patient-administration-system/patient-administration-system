@@ -126,7 +126,7 @@ fn to_active_model(e: &WaitlistEntry) -> waitlist_entry::ActiveModel {
     waitlist_entry::ActiveModel {
         id: Set(e.id),
         referral_id: Set(e.referral_id),
-        patient_id: Set(e.patient_id),
+        person_id: Set(e.person_id),
         target_service: Set(e.target_service.clone()),
         priority: Set(priority_to_str(e.priority).to_string()),
         status: Set(waitlist_status_to_str(e.status).to_string()),
@@ -139,7 +139,7 @@ fn from_model(m: waitlist_entry::Model) -> Result<WaitlistEntry> {
     Ok(WaitlistEntry {
         id: m.id,
         referral_id: m.referral_id,
-        patient_id: m.patient_id,
+        person_id: m.person_id,
         target_service: m.target_service,
         priority: priority_from_str(&m.priority)?,
         status: waitlist_status_from_str(&m.status)?,
@@ -159,7 +159,7 @@ mod tests {
         let m = waitlist_entry::Model {
             id: am.id.clone().unwrap(),
             referral_id: am.referral_id.clone().unwrap(),
-            patient_id: am.patient_id.clone().unwrap(),
+            person_id: am.person_id.clone().unwrap(),
             target_service: am.target_service.clone().unwrap(),
             priority: am.priority.clone().unwrap(),
             status: am.status.clone().unwrap(),

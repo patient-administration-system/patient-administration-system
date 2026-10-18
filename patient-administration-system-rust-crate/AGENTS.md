@@ -2,7 +2,7 @@
 
 Orientation for AI agents (and humans) working on the Patient Administration System (PAS).
 
-**Current version: v0.3.4** (see `Cargo.toml` and `CHANGELOG.md`). Workspace sibling `patient-administration-system-frontend` is at v0.1.0.
+**Current shipped version: v0.44.0** (see `Cargo.toml` and `CHANGELOG.md`). Workspace sibling `patient-administration-system-frontend` is at v0.1.0. v0.44 is the **Option C identity delegation** release: `Patient` rows are owned by `person-service` (`:5180`) and `Practitioner` rows by `worker-service` (`:5181`); PAS holds only opaque `person_id` / `worker_id` references on the rows it still owns (encounters, appointments, beds, billing, coverage, consents, letters, schedules, slots). Integration is HTTP-only (no Cargo dep on the upstream crates).
 
 ## Start here for AI agents
 
@@ -54,11 +54,12 @@ Ground truth for any claim about behavior:
 
 ## Working rules
 
-- The PAS is administrative, not clinical. Identity, ADT, scheduling, waitlists, resources, communications, billing. No diagnoses, prescriptions, vitals.
+- The PAS is administrative, not clinical. ADT, scheduling, waitlists, resources, communications, billing. No diagnoses, prescriptions, vitals. **Identity and workforce are also out of scope** as of the v0.44.0 target — they live in `person-service` and `worker-service` respectively, reached via HTTP.
 - Money is `rust_decimal::Decimal` + `Iso4217`. Never `f64`.
 - Time at the domain layer is `chrono::DateTime<Utc>`. Naive local times are never accepted.
-- State changes touching multiple rows run inside one `DatabaseTransaction` and write `audit_log` + `outbox_events` rows in the same transaction.
-- Soft-delete (`deleted_at`) only on `patients`, `encounters`, `appointments`. Other tables are append-only or operational.
+- State changes touching multiple rows run inside one `DatabaseTransaction` and write `audit_log` + `outbox_events` rows in the same transaction. **Cross-service writes (PAS + upstream) are not transactional** — Option C accepts this.
+- Soft-delete (`deleted_at`) only on `encounters` and `appointments` (v0.44.0 target — was also on `patients` at v0.43.0). Other PAS-owned tables are append-only or operational. Patient/practitioner soft-delete is the upstream's concern.
+- **Never depend on `person-service` or `worker-service` as Cargo deps.** Integration is HTTP-only via `src/upstream/`. Adding the upstream crates as path / git deps would pull their full transitive trees in for no benefit.
 - README owns the full endpoint table; AGENTS/restful.md does not duplicate it.
 - `seed.md` is a historical problem statement — do not modify.
 - `spec.md` is the **comprehensive specification-driven-development document** — scope, invariants, architecture, dependency stack, build sequence, acceptance criteria. Treat it as a living document: keep it aligned with the shipped surface whenever any of those things change. Past release history belongs in `CHANGELOG.md`, not in `spec.md`.
@@ -68,10 +69,12 @@ Ground truth for any claim about behavior:
 
 This crate is one of three workspace members rooted at `..`:
 
-| Crate                                       | Role                                                              | Port  |
-|---------------------------------------------|-------------------------------------------------------------------|-------|
-| `patient-administration-system` (this one)  | System of record. REST + FHIR R5 + HL7 v2 (HTTP + MLLP).          | 8080  |
-| `patient-administration-system-migrations`  | sea-orm migration crate, shared by both apps; CLI is `pas-migrate`. | n/a |
-| `patient-administration-system-frontend`                              | Loco-rs read-mostly UI. Tera + HTMX + Lily Design System.         | 5150  |
+| Crate / Service                                | Role                                                              | Port  |
+|------------------------------------------------|-------------------------------------------------------------------|-------|
+| `patient-administration-system` (this one)     | Workflow service. REST + FHIR R5 + HL7 v2 (HTTP + MLLP). Proxies identity + workforce to upstream services. | 8080 |
+| `patient-administration-system-migrations`     | sea-orm migration crate, shared by both PAS apps; CLI is `pas-migrate`. | n/a |
+| `patient-administration-system-frontend`       | Loco-rs read-mostly UI. Tera + HTMX + Lily Design System.         | 5150  |
+| `person-service` *(HTTP dep, external)*   | Person identity, demographics, search, match, merge, FHIR R5 Person. | 5180 |
+| `worker-service` *(HTTP dep, external)*   | Worker (= practitioner) identity, demographics, search, match, merge, FHIR R5 Worker. | 5181 |
 
 Run workspace gates from the workspace root: `cargo build --workspace`, `cargo test --workspace --lib`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check --all`.

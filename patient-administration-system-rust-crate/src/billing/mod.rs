@@ -38,19 +38,19 @@ impl BillingService {
 
     pub async fn open_account(
         &self,
-        patient_id: Uuid,
+        person_id: Uuid,
         currency: Iso4217,
         ctx: &UserContext,
     ) -> Result<Account> {
         if let Some(_existing) =
-            BillingRepository::find_open_account_for_patient(&self.db, patient_id).await?
+            BillingRepository::find_open_account_for_patient(&self.db, person_id).await?
         {
             return Err(Error::conflict(format!(
-                "patient {patient_id} already has an open account"
+                "patient {person_id} already has an open account"
             )));
         }
         let ctx_clone = ctx.clone();
-        let account = Account::new(patient_id, currency);
+        let account = Account::new(person_id, currency);
         let account_clone = account.clone();
         let res = self
             .db
@@ -70,7 +70,7 @@ impl BillingService {
                     OutboxRepository::publish(
                         txn,
                         "AccountOpened",
-                        &serde_json::json!({ "account_id": a.id, "patient_id": patient_id }),
+                        &serde_json::json!({ "account_id": a.id, "person_id": person_id }),
                     )
                     .await?;
                     Ok(a)

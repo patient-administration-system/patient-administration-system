@@ -26,10 +26,10 @@ impl ConsentRepository {
 
     pub async fn list_for_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Vec<Consent>> {
         let rows = consent::Entity::find()
-            .filter(consent::Column::PatientId.eq(patient_id))
+            .filter(consent::Column::PersonId.eq(person_id))
             .all(conn)
             .await
             .map_err(Error::Database)?;
@@ -97,7 +97,7 @@ pub(crate) fn consent_status_from_str(s: &str) -> Result<ConsentStatus> {
 fn to_active_model(c: &Consent) -> consent::ActiveModel {
     consent::ActiveModel {
         id: Set(c.id),
-        patient_id: Set(c.patient_id),
+        person_id: Set(c.person_id),
         consent_type: Set(consent_type_to_str(c.consent_type).to_string()),
         status: Set(consent_status_to_str(c.status).to_string()),
         granted_date: Set(c.granted_date),
@@ -113,7 +113,7 @@ fn to_active_model(c: &Consent) -> consent::ActiveModel {
 fn from_model(m: consent::Model) -> Result<Consent> {
     Ok(Consent {
         id: m.id,
-        patient_id: m.patient_id,
+        person_id: m.person_id,
         consent_type: consent_type_from_str(&m.consent_type)?,
         status: consent_status_from_str(&m.status)?,
         granted_date: m.granted_date,
@@ -138,7 +138,7 @@ mod tests {
         let am = to_active_model(&c);
         let m = consent::Model {
             id: am.id.clone().unwrap(),
-            patient_id: am.patient_id.clone().unwrap(),
+            person_id: am.person_id.clone().unwrap(),
             consent_type: am.consent_type.clone().unwrap(),
             status: am.status.clone().unwrap(),
             granted_date: am.granted_date.clone().unwrap(),

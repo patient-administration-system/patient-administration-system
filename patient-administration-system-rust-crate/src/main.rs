@@ -18,7 +18,6 @@ use patient_administration_system::{
     config::Config,
     db::connect,
     observability,
-    search::SearchEngine,
     streaming::InMemoryEventPublisher,
 };
 use utoipa::OpenApi;
@@ -43,17 +42,10 @@ async fn main() -> Result<()> {
     // published (it just drops them).
     let mut children: Vec<Arc<dyn patient_administration_system::streaming::EventPublisher>> =
         Vec::new();
-    if let Some(peer) = cfg.hl7v2_outbound_peer.clone() {
-        tracing::info!("HL7 v2 outbound peer configured at {peer}");
-        children.push(Arc::new(
-            patient_administration_system::streaming::Hl7v2MllpPublisher::new(
-                db.clone(),
-                peer,
-                "PAS",
-                "EMR",
-            ),
-        ));
-    }
+    // Hold the MLLP peer config but defer building the publisher until
+    // after the upstream clients are constructed below — Phase 3c4
+    // hydrates events against `person-service` / `worker-service`.
+    let hl7v2_peer = cfg.hl7v2_outbound_peer.clone();
     if let Some(url) = cfg.pas_webhook_url.clone() {
         tracing::info!(
             "Webhook publisher configured: url={url}, hmac_signing={}, timeout={}s",
@@ -67,15 +59,8 @@ async fn main() -> Result<()> {
         )?;
         children.push(Arc::new(webhook));
     }
-    let publisher: Arc<dyn patient_administration_system::streaming::EventPublisher> =
-        match children.len() {
-            0 => Arc::new(InMemoryEventPublisher::new()),
-            1 => children.into_iter().next().unwrap(),
-            _ => Arc::new(
-                patient_administration_system::streaming::CompositePublisher::new(children),
-            ),
-        };
-    let search = Arc::new(SearchEngine::new(&cfg.search_index_path)?);
+    // v0.43.0 SearchEngine bootstrap removed in Phase 2 — Tantivy patient
+    // index is gone. Phase 3 may add a search proxy over person-service.
 
     // SMS provider selection (v0.8). Unknown values fall back to NoopSmsProvider
     // so a typo can't accidentally enable auto-send against a live patient
@@ -98,9 +83,95 @@ async fn main() -> Result<()> {
             }
         };
 
-    let state = AppState::new(db.clone(), publisher.clone())
-        .with_search(search)
-        .with_sms_provider(sms_provider);
+    // Upstream identity + workforce clients (v0.44.0 Option C, Phase 1).
+    // Optional in Phase 1 so existing deployments + tests work unchanged.
+    // Phase 5 (final wiring) makes both URLs required at startup with an
+    // upstream `/api/health` ping check.
+    let upstream_timeout = std::time::Duration::from_secs(cfg.upstream_timeout_secs);
+    let person_client = match cfg.person_service_url.clone() {
+        Some(url) => {
+            tracing::info!(
+                "person-service configured at {url} (bearer_auth={})",
+                cfg.person_service_token.is_some()
+            );
+            Some(Arc::new(
+                patient_administration_system::upstream::HttpPersonClient::new(
+                    url,
+                    upstream_timeout,
+                    cfg.person_service_token.clone(),
+                )?,
+            )
+                as Arc<
+                    dyn patient_administration_system::upstream::PersonClient,
+                >)
+        }
+        None => {
+            tracing::warn!(
+                "PERSON_SERVICE_URL not set; identity proxy handlers will return 503 once Phase 3 lands"
+            );
+            None
+        }
+    };
+    let worker_client = match cfg.worker_service_url.clone() {
+        Some(url) => {
+            tracing::info!(
+                "worker-service configured at {url} (bearer_auth={})",
+                cfg.worker_service_token.is_some()
+            );
+            Some(Arc::new(
+                patient_administration_system::upstream::HttpWorkerClient::new(
+                    url,
+                    upstream_timeout,
+                    cfg.worker_service_token.clone(),
+                )?,
+            )
+                as Arc<
+                    dyn patient_administration_system::upstream::WorkerClient,
+                >)
+        }
+        None => {
+            tracing::warn!(
+                "WORKER_SERVICE_URL not set; workforce proxy handlers will return 503 once Phase 3 lands"
+            );
+            None
+        }
+    };
+
+    // Now that the upstream clients exist, build the MLLP publisher (if
+    // configured) with them attached so it can hydrate events against
+    // person-service / worker-service.
+    if let Some(peer) = hl7v2_peer {
+        tracing::info!("HL7 v2 outbound peer configured at {peer}");
+        let mut mllp = patient_administration_system::streaming::Hl7v2MllpPublisher::new(
+            db.clone(),
+            peer,
+            "PAS",
+            "EMR",
+        );
+        if let Some(ref c) = person_client {
+            mllp = mllp.with_person_client(c.clone());
+        }
+        if let Some(ref c) = worker_client {
+            mllp = mllp.with_worker_client(c.clone());
+        }
+        children.push(Arc::new(mllp));
+    }
+    let publisher: Arc<dyn patient_administration_system::streaming::EventPublisher> =
+        match children.len() {
+            0 => Arc::new(InMemoryEventPublisher::new()),
+            1 => children.into_iter().next().unwrap(),
+            _ => Arc::new(
+                patient_administration_system::streaming::CompositePublisher::new(children),
+            ),
+        };
+
+    let mut state = AppState::new(db.clone(), publisher.clone()).with_sms_provider(sms_provider);
+    if let Some(c) = person_client {
+        state = state.with_person_client(c);
+    }
+    if let Some(c) = worker_client {
+        state = state.with_worker_client(c);
+    }
 
     let cors = if cfg.cors_origins.is_empty() {
         tracing::warn!("CORS_ORIGINS unset; using permissive CORS");

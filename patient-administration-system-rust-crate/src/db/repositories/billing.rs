@@ -24,10 +24,10 @@ impl BillingRepository {
 
     pub async fn find_open_account_for_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Option<Account>> {
         let m = account::Entity::find()
-            .filter(account::Column::PatientId.eq(patient_id))
+            .filter(account::Column::PersonId.eq(person_id))
             .filter(account::Column::Status.eq(account_status_to_str(AccountStatus::Open)))
             .one(conn)
             .await
@@ -203,7 +203,7 @@ pub(crate) fn payment_method_from_str(s: &str) -> Result<PaymentMethod> {
 fn account_to_active_model(a: &Account) -> account::ActiveModel {
     account::ActiveModel {
         id: Set(a.id),
-        patient_id: Set(a.patient_id),
+        person_id: Set(a.person_id),
         status: Set(account_status_to_str(a.status).to_string()),
         currency: Set(a.currency.0.clone()),
         opened_at: Set(a.opened_at.fixed_offset()),
@@ -216,7 +216,7 @@ fn account_to_active_model(a: &Account) -> account::ActiveModel {
 fn account_from_model(m: account::Model) -> Result<Account> {
     Ok(Account {
         id: m.id,
-        patient_id: m.patient_id,
+        person_id: m.person_id,
         status: account_status_from_str(&m.status)?,
         currency: Iso4217::new(&m.currency)?,
         opened_at: m.opened_at.with_timezone(&chrono::Utc),

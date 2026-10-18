@@ -51,7 +51,7 @@ pub async fn new_form(
 #[derive(Debug, Deserialize)]
 pub struct BookForm {
     pub slot_id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub csrf_token: String,
 }
 
@@ -65,14 +65,14 @@ pub async fn submit(
     csrf::verify_token(&jar, &form.csrf_token)?;
     let (csrf_token, jar) = csrf::ensure_token(jar);
     let req = BookSlotRequest {
-        patient_id: form.patient_id,
+        person_id: form.person_id,
     };
     let (error, result) = match book_slot(form.slot_id, &req).await {
         Ok(out) => (
             None,
             Some(json!({
                 "appointment_id": out.id,
-                "patient_id": out.patient_id,
+                "person_id": out.person_id,
                 "start": out.start_datetime,
                 "end": out.end_datetime,
                 "status": out.status,
@@ -104,9 +104,7 @@ async fn render_form(
             });
         }
     }
-    let patients = list_active_patients(&ctx.db, 200)
-        .await
-        .map_err(Error::wrap)?;
+    let patients = list_active_patients(200).await;
     format::render().view(
         v,
         "appointments/new.html",

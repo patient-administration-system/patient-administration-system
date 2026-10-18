@@ -2,6 +2,8 @@
 
 This document is the architectural reference for the PAS HTTP layer: the response envelope, error mapping, authentication contract, and the headline request/response shapes. **For the full endpoint route list, see the table in [`README.md`](../README.md#api-endpoint-reference).**
 
+> **v0.44.0 Option C delegation.** `/api/patients/*`, `/api/practitioners/*`, `/fhir/Patient/*`, `/fhir/Practitioner/*`, and every PID-bearing HL7 v2 trigger become **thin proxies** over `person-service` / `worker-service`. The wire shape the PAS exposes is unchanged (historical clients keep working byte-for-byte); the handler body shrinks to "translate body → call upstream → translate response → return". `POST /api/patients/{id}/merge-into/{target_id}` and `GET /api/patients/{id}/replaces` are **removed** — those operations move entirely to the upstream `POST /api/persons/merge` and the upstream `/fhir/Person/{id}` `link[type = "replaced-by"]` representation respectively. Two new inbound webhooks land at `POST /api/upstream/person-merged` and `POST /api/upstream/worker-merged` (HMAC-verified) so upstream merges can propagate to PAS-owned rows. A new error variant `Error::Upstream → 503 + UPSTREAM_UNAVAILABLE` surfaces transport / TLS / DNS / read failures from the two upstream HTTP calls. See `spec.md` §4.0, §6.7, §13 Layer 11.
+
 ## Library API
 
 The PAS crate exposes a Rust library API mirroring the module layout under `src/`. See `AGENTS/models.md` for domain types.

@@ -46,8 +46,8 @@
       </div>
 
       <div class="field">
-        <label class="label" for="patient_id" style="display:block;font-size:13px;color:var(--muted);">Patient</label>
-        <select class="select" id="patient_id" name="patient_id" required style="width:100%;padding:6px 8px;">
+        <label class="label" for="person_id" style="display:block;font-size:13px;color:var(--muted);">Patient</label>
+        <select class="select" id="person_id" name="person_id" required style="width:100%;padding:6px 8px;">
           {% for p in patients %}
             <option value="{{ p.id }}">{{ p.family }}, {{ p.given }}{% if p.birth_date %} · {{ p.birth_date }}{% endif %}</option>
           {% endfor %}

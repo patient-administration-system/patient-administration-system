@@ -18,7 +18,8 @@ pub async fn index(
     ViewEngine(v): ViewEngine<TeraView>,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
-    let patients = list_active_patients(&ctx.db, 100).await.unwrap_or_default();
+    let _ = &ctx;
+    let patients = list_active_patients(100).await;
     format::render().view(
         &v,
         "patients/index.html",
@@ -35,7 +36,11 @@ pub async fn show(
     State(ctx): State<AppContext>,
     Path(id): Path<Uuid>,
 ) -> Result<Response> {
-    let Some(p) = find_patient_by_id(&ctx.db, id).await? else {
+    let _ = &ctx;
+    let Some(p) = find_patient_by_id(id)
+        .await
+        .map_err(|e| Error::Message(e.to_string()))?
+    else {
         return Err(Error::NotFound);
     };
     format::render().view(

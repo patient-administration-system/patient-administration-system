@@ -35,10 +35,10 @@ impl AppointmentRepository {
 
     pub async fn list_by_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Vec<Appointment>> {
         let rows = appointment::Entity::find()
-            .filter(appointment::Column::PatientId.eq(patient_id))
+            .filter(appointment::Column::PersonId.eq(person_id))
             .filter(appointment::Column::DeletedAt.is_null())
             .all(conn)
             .await
@@ -49,12 +49,12 @@ impl AppointmentRepository {
     /// Appointments for a practitioner inside `[start, end)`.
     pub async fn list_by_practitioner<C: ConnectionTrait>(
         conn: &C,
-        practitioner_id: Uuid,
+        worker_id: Uuid,
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<Vec<Appointment>> {
         let rows = appointment::Entity::find()
-            .filter(appointment::Column::PractitionerId.eq(practitioner_id))
+            .filter(appointment::Column::WorkerId.eq(worker_id))
             .filter(appointment::Column::DeletedAt.is_null())
             .filter(appointment::Column::StartDatetime.gte(start.fixed_offset()))
             .filter(appointment::Column::StartDatetime.lt(end.fixed_offset()))
@@ -113,13 +113,13 @@ impl AppointmentRepository {
     /// double-booking.
     pub async fn find_overlapping_for_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<Vec<Appointment>> {
         // Overlap: existing.start < new.end AND existing.end > new.start
         let rows = appointment::Entity::find()
-            .filter(appointment::Column::PatientId.eq(patient_id))
+            .filter(appointment::Column::PersonId.eq(person_id))
             .filter(appointment::Column::DeletedAt.is_null())
             .filter(
                 Condition::all()
@@ -143,13 +143,13 @@ impl AppointmentRepository {
     /// being rescheduled, and that's not a conflict.
     pub async fn find_overlapping_for_patient_excluding<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
         start: DateTime<Utc>,
         end: DateTime<Utc>,
         exclude_id: Uuid,
     ) -> Result<Vec<Appointment>> {
         let rows = appointment::Entity::find()
-            .filter(appointment::Column::PatientId.eq(patient_id))
+            .filter(appointment::Column::PersonId.eq(person_id))
             .filter(appointment::Column::Id.ne(exclude_id))
             .filter(appointment::Column::DeletedAt.is_null())
             .filter(
@@ -221,9 +221,9 @@ pub(crate) fn cancellation_reason_from_str(s: &str) -> Result<CancellationReason
 fn to_active_model(a: &Appointment) -> appointment::ActiveModel {
     appointment::ActiveModel {
         id: Set(a.id),
-        patient_id: Set(a.patient_id),
+        person_id: Set(a.person_id),
         slot_id: Set(a.slot_id),
-        practitioner_id: Set(a.practitioner_id),
+        worker_id: Set(a.worker_id),
         start_datetime: Set(a.start_datetime.fixed_offset()),
         end_datetime: Set(a.end_datetime.fixed_offset()),
         status: Set(appointment_status_to_str(a.status).to_string()),
@@ -242,9 +242,9 @@ fn to_active_model(a: &Appointment) -> appointment::ActiveModel {
 fn from_model(m: appointment::Model) -> Result<Appointment> {
     Ok(Appointment {
         id: m.id,
-        patient_id: m.patient_id,
+        person_id: m.person_id,
         slot_id: m.slot_id,
-        practitioner_id: m.practitioner_id,
+        worker_id: m.worker_id,
         start_datetime: m.start_datetime.with_timezone(&chrono::Utc),
         end_datetime: m.end_datetime.with_timezone(&chrono::Utc),
         status: appointment_status_from_str(&m.status)?,
@@ -275,9 +275,9 @@ mod tests {
         let am = to_active_model(&a);
         let m = appointment::Model {
             id: am.id.clone().unwrap(),
-            patient_id: am.patient_id.clone().unwrap(),
+            person_id: am.person_id.clone().unwrap(),
             slot_id: am.slot_id.clone().unwrap(),
-            practitioner_id: am.practitioner_id.clone().unwrap(),
+            worker_id: am.worker_id.clone().unwrap(),
             start_datetime: am.start_datetime.clone().unwrap(),
             end_datetime: am.end_datetime.clone().unwrap(),
             status: am.status.clone().unwrap(),

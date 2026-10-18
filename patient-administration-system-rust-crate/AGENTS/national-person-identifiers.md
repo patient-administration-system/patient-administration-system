@@ -1,5 +1,7 @@
 # National personal identifiers
 
+> **v0.44.0 Option C: delegated to `person-service`.** Identifier types, factories, format validators, and FHIR-aligned system URIs all move to the upstream service. This table stays here for cross-reference (so PAS reviewers can sanity-check what the upstream supports) but the *implementation* is no longer a PAS responsibility. See `spec.md` §4.0.1.
+
 | National personal identifier kebab case       | Country name endonym | Country name exonym English | ISO 3166-1 code | Personal identifier name endonym            | Personal identifier exonym English          |
 | --------------------------------------------- | -------------------- | --------------------------- | --------------- | ------------------------------------------- | ------------------------------------------- |
 | alba-community-health-index                   | Alba                 | Scotland                    | GB-SCT          | Community Health Index (CHI)                | Community Health Index (CHI)                |

@@ -25,7 +25,7 @@ fn client() -> Result<reqwest::Client, reqwest::Error> {
 #[derive(Debug, Serialize)]
 pub struct GenerateLetterRequest {
     pub template_id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub appointment_id: Option<Uuid>,
     pub channel: String,
@@ -35,7 +35,7 @@ pub struct GenerateLetterRequest {
 #[derive(Debug, Deserialize)]
 pub struct GeneratedLetter {
     pub id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub template_id: Uuid,
     pub rendered_subject: String,
     pub rendered_body: String,
@@ -84,7 +84,7 @@ async fn post_envelope<B: Serialize>(
 
 #[derive(Debug, Serialize)]
 pub struct AdmitRequest {
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub bed_id: Uuid,
 }
 
@@ -104,7 +104,7 @@ pub struct AdmissionStub {
 #[derive(Debug, Deserialize)]
 pub struct EncounterStub {
     pub id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
 }
 
 /// `POST /api/admissions` on the PAS Axum binary.
@@ -115,13 +115,13 @@ pub async fn admit(req: &AdmitRequest) -> Result<AdmissionResult, PasApiError> {
 
 #[derive(Debug, Serialize)]
 pub struct BookSlotRequest {
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct BookSlotResult {
     pub id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub slot_id: Option<Uuid>,
     pub start_datetime: String,
     pub end_datetime: String,

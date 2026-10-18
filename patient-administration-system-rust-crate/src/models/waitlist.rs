@@ -31,8 +31,8 @@ pub enum WaitlistStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Referral {
     pub id: Uuid,
-    pub patient_id: Uuid,
-    pub referring_practitioner_id: Option<Uuid>,
+    pub person_id: Uuid,
+    pub referring_worker_id: Option<Uuid>,
     pub target_service: String,
     pub reason: Option<String>,
     pub received_at: DateTime<Utc>,
@@ -40,12 +40,12 @@ pub struct Referral {
 }
 
 impl Referral {
-    pub fn new(patient_id: Uuid, target_service: impl Into<String>) -> Self {
+    pub fn new(person_id: Uuid, target_service: impl Into<String>) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
-            patient_id,
-            referring_practitioner_id: None,
+            person_id,
+            referring_worker_id: None,
             target_service: target_service.into(),
             reason: None,
             received_at: now,
@@ -58,7 +58,7 @@ impl Referral {
 pub struct WaitlistEntry {
     pub id: Uuid,
     pub referral_id: Option<Uuid>,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub target_service: String,
     pub priority: Priority,
     pub status: WaitlistStatus,
@@ -67,12 +67,12 @@ pub struct WaitlistEntry {
 }
 
 impl WaitlistEntry {
-    pub fn new(patient_id: Uuid, target_service: impl Into<String>, priority: Priority) -> Self {
+    pub fn new(person_id: Uuid, target_service: impl Into<String>, priority: Priority) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
             referral_id: None,
-            patient_id,
+            person_id,
             target_service: target_service.into(),
             priority,
             status: WaitlistStatus::Waiting,
@@ -94,20 +94,20 @@ mod tests {
 
     #[test]
     fn test_referral_new_defaults() {
-        let patient_id = Uuid::new_v4();
-        let r = Referral::new(patient_id, "cardiology");
-        assert_eq!(r.patient_id, patient_id);
+        let person_id = Uuid::new_v4();
+        let r = Referral::new(person_id, "cardiology");
+        assert_eq!(r.person_id, person_id);
         assert_eq!(r.target_service, "cardiology");
-        assert!(r.referring_practitioner_id.is_none());
+        assert!(r.referring_worker_id.is_none());
         assert!(r.reason.is_none());
         assert_eq!(r.received_at, r.created_at);
     }
 
     #[test]
     fn test_waitlist_entry_new_defaults() {
-        let patient_id = Uuid::new_v4();
-        let e = WaitlistEntry::new(patient_id, "orthopedics", Priority::Routine);
-        assert_eq!(e.patient_id, patient_id);
+        let person_id = Uuid::new_v4();
+        let e = WaitlistEntry::new(person_id, "orthopedics", Priority::Routine);
+        assert_eq!(e.person_id, person_id);
         assert_eq!(e.target_service, "orthopedics");
         assert_eq!(e.priority, Priority::Routine);
         assert_eq!(e.status, WaitlistStatus::Waiting);
@@ -196,7 +196,7 @@ mod tests {
         let json = serde_json::to_string(&r).expect("serialize");
         let back: Referral = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.id, r.id);
-        assert_eq!(back.patient_id, r.patient_id);
+        assert_eq!(back.person_id, r.person_id);
         assert_eq!(back.target_service, "cardiology");
     }
 
@@ -206,7 +206,7 @@ mod tests {
         let json = serde_json::to_string(&e).expect("serialize");
         let back: WaitlistEntry = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.id, e.id);
-        assert_eq!(back.patient_id, e.patient_id);
+        assert_eq!(back.person_id, e.person_id);
         assert_eq!(back.priority, Priority::Urgent);
         assert_eq!(back.status, WaitlistStatus::Waiting);
     }

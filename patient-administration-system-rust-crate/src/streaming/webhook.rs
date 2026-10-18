@@ -258,7 +258,7 @@ mod tests {
             Duration::from_secs(5),
         )
         .unwrap();
-        let event = DomainEvent::new("EncounterAdmitted", json!({ "patient_id": "abc" }));
+        let event = DomainEvent::new("EncounterAdmitted", json!({ "person_id": "abc" }));
         let event_id = event.id;
         pub_.publish(event).await.expect("2xx must be Ok");
 
@@ -270,7 +270,7 @@ mod tests {
         // Body is the serialised DomainEvent.
         let parsed: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(parsed["event_type"], "EncounterAdmitted");
-        assert_eq!(parsed["payload"]["patient_id"], "abc");
+        assert_eq!(parsed["payload"]["person_id"], "abc");
         assert_eq!(parsed["id"], event_id.to_string());
         // Required headers are present.
         assert_eq!(

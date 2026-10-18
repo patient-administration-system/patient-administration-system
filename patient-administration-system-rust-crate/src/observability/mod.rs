@@ -150,6 +150,11 @@ mod tests {
             pas_webhook_url: None,
             pas_webhook_secret: None,
             pas_webhook_timeout_secs: 10,
+            person_service_url: None,
+            person_service_token: None,
+            worker_service_url: None,
+            worker_service_token: None,
+            upstream_timeout_secs: 10,
         }
     }
 

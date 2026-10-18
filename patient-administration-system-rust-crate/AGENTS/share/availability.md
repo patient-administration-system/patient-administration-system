@@ -1,5 +1,7 @@
 # Availability
 
+> **v0.44.0 Option C delta.** The PAS gains **two hard runtime HTTP dependencies**: `person-service` and `worker-service`. A PAS replica refuses to boot if either is unreachable at startup (`Error::Config`); a PAS request that needs to resolve a `person_id` / `worker_id` and finds the upstream unreachable returns `503 + UPSTREAM_UNAVAILABLE`. `GET /api/health` aggregates `{ database, person_service, worker_service }`; any "unreachable" flips overall status to `degraded` (still HTTP 200 so probes don't yank replicas mid-request — make rotation decisions at the deployment layer). No local cache in v0.44.0; latency-sensitive deployments should co-locate the three services. Phase 7 (future) ships a 1-minute LRU on `GET /api/persons/{id}`.
+
 - Database connection pool (`src/db/mod.rs`): max 10, min 2, 8 s connect timeout, 60 s idle timeout, `sqlx_logging` off.
 - Health check: `GET /api/health` pings the database and returns `{ "status": "ok" | "degraded", "database": "ok" | "unreachable" }`. Always exempt from bearer auth **and from the rate-limit middleware** so probes stay green under load.
 - Per-IP token-bucket rate limit (v0.12): default 600 req/min with burst 60. Buckets keyed by `ConnectInfo<SocketAddr>` peer IP (X-Forwarded-For is *not* trusted — terminate proxy headers upstream). Exhaustion returns 429 with `Retry-After` and a `RATE_LIMITED` error code in the standard envelope. Set `PAS_RATE_LIMIT_RPM=0` to disable entirely. Cleanup sweep evicts idle buckets after 5 min and caps the table at 50 000 entries.

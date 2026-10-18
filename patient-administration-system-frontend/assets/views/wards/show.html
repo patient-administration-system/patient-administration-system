@@ -40,8 +40,8 @@
             {% endif %}
           </td>
           <td class="data-table-td">
-            {% if b.occupant_patient_id %}
-              <a href="/patients/{{ b.occupant_patient_id }}">{{ b.occupant_given }} <strong>{{ b.occupant_family }}</strong></a>
+            {% if b.occupant_person_id %}
+              <a href="/patients/{{ b.occupant_person_id }}">{{ b.occupant_given }} <strong>{{ b.occupant_family }}</strong></a>
             {% else %}
               —
             {% endif %}

@@ -24,7 +24,7 @@ pub enum RTTEventKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RTTPathway {
     pub id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub target_service: String,
     pub breach_weeks: u32,
     pub status: RTTStatus,
@@ -38,11 +38,11 @@ impl RTTPathway {
     /// Default breach threshold in weeks (NHS RTT convention).
     pub const DEFAULT_BREACH_WEEKS: u32 = 18;
 
-    pub fn new(patient_id: Uuid, target_service: impl Into<String>) -> Self {
+    pub fn new(person_id: Uuid, target_service: impl Into<String>) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
-            patient_id,
+            person_id,
             target_service: target_service.into(),
             breach_weeks: Self::DEFAULT_BREACH_WEEKS,
             status: RTTStatus::Active,
@@ -270,9 +270,9 @@ mod tests {
 
     #[test]
     fn test_rtt_pathway_new_defaults() {
-        let patient_id = Uuid::new_v4();
-        let p = RTTPathway::new(patient_id, "orthopedics");
-        assert_eq!(p.patient_id, patient_id);
+        let person_id = Uuid::new_v4();
+        let p = RTTPathway::new(person_id, "orthopedics");
+        assert_eq!(p.person_id, person_id);
         assert_eq!(p.target_service, "orthopedics");
         assert_eq!(p.breach_weeks, 18);
         assert_eq!(p.status, RTTStatus::Active);
@@ -347,7 +347,7 @@ mod tests {
         let json = serde_json::to_string(&p).expect("serialize");
         let back: RTTPathway = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.id, p.id);
-        assert_eq!(back.patient_id, p.patient_id);
+        assert_eq!(back.person_id, p.person_id);
         assert_eq!(back.target_service, "ent");
         assert_eq!(back.breach_weeks, 18);
         assert_eq!(back.status, RTTStatus::Active);

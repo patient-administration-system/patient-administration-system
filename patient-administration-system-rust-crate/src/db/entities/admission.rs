@@ -10,7 +10,7 @@ pub struct Model {
     pub id: Uuid,
     pub encounter_id: Uuid,
     pub bed_id: Uuid,
-    pub admitting_practitioner_id: Option<Uuid>,
+    pub admitting_worker_id: Option<Uuid>,
     pub admitted_at: DateTimeWithTimeZone,
     pub reason: Option<String>,
     pub created_at: DateTimeWithTimeZone,

@@ -2,7 +2,7 @@
 //!
 //! Maps to the FHIR R5 `Coverage` resource. One patient may carry many
 //! coverages (primary + secondary insurance, retired plans, etc.); each
-//! row is independent and linked back to the patient by `patient_id`.
+//! row is independent and linked back to the patient by `person_id`.
 //! A coverage may optionally be linked to a billing
 //! [`crate::models::billing::Account`] via `account_id` — that link is
 //! the join the billing aggregate uses to surface payer info on
@@ -80,7 +80,7 @@ pub struct Coverage {
     pub id: Uuid,
     /// The patient receiving care under this coverage — the *beneficiary*
     /// in FHIR terms. Always set; coverage cannot exist without a patient.
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     /// Billing account this coverage is linked to. Optional because a
     /// coverage may be captured before the account is opened, and may be
     /// re-linked later via `PUT /api/coverages/{id}`.
@@ -89,7 +89,7 @@ pub struct Coverage {
     pub status: CoverageStatus,
     pub kind: CoverageKind,
     /// The policy holder. When the patient *is* the policy holder
-    /// (`relationship = "self"`), this is `Some(patient_id)` — but it's
+    /// (`relationship = "self"`), this is `Some(person_id)` — but it's
     /// optional so callers can omit it and let the handler default it.
     #[serde(default)]
     pub subscriber_id: Option<Uuid>,
@@ -117,19 +117,19 @@ pub struct Coverage {
 }
 
 impl Coverage {
-    /// Build a fresh `Active` coverage row for `patient_id`. Caller is
+    /// Build a fresh `Active` coverage row for `person_id`. Caller is
     /// expected to fill in the payer-specific fields immediately after.
     /// `start_date` defaults to today (UTC); callers with a known
     /// effective date should overwrite.
     pub fn new(
-        patient_id: Uuid,
+        person_id: Uuid,
         payor_name: impl Into<String>,
         policy_number: impl Into<String>,
     ) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
-            patient_id,
+            person_id,
             account_id: None,
             status: CoverageStatus::Active,
             kind: CoverageKind::Insurance,
@@ -153,9 +153,9 @@ mod tests {
 
     #[test]
     fn test_coverage_new_defaults() {
-        let patient_id = Uuid::new_v4();
-        let c = Coverage::new(patient_id, "Aetna", "AET-12345");
-        assert_eq!(c.patient_id, patient_id);
+        let person_id = Uuid::new_v4();
+        let c = Coverage::new(person_id, "Aetna", "AET-12345");
+        assert_eq!(c.person_id, person_id);
         assert_eq!(c.status, CoverageStatus::Active);
         assert_eq!(c.kind, CoverageKind::Insurance);
         assert_eq!(c.payor_name, "Aetna");

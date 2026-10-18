@@ -38,6 +38,15 @@ pub enum Error {
     #[error("Configuration error: {0}")]
     Config(String),
 
+    /// An upstream service (`person-service` / `worker-service`) was
+    /// unreachable, returned a non-translatable non-2xx, or otherwise failed
+    /// in a way the PAS cannot recover from per-request. Maps to
+    /// `503 + UPSTREAM_UNAVAILABLE`. Translatable 4xx envelopes from upstream
+    /// are surfaced as the matching variant (`NotFound`, `Validation`,
+    /// `Conflict`) instead — see `src/upstream/`.
+    #[error("Upstream service error: {0}")]
+    Upstream(String),
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -76,5 +85,10 @@ impl Error {
     /// Build a `Render` error.
     pub fn render(msg: impl Into<String>) -> Self {
         Error::Render(msg.into())
+    }
+
+    /// Build an `Upstream` error.
+    pub fn upstream(msg: impl Into<String>) -> Self {
+        Error::Upstream(msg.into())
     }
 }

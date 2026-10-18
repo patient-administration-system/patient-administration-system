@@ -217,7 +217,7 @@ mod tests {
     fn test_payload_value_constructs_cleanly() {
         // Confirms the payload type used by `publish` is well-formed JSON.
         let v = serde_json::json!({
-            "patient_id": Uuid::new_v4(),
+            "person_id": Uuid::new_v4(),
             "name": "alice",
         });
         assert!(v.is_object());

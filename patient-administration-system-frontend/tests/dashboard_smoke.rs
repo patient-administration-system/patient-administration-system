@@ -274,7 +274,7 @@ async fn admission_post_with_bad_csrf_returns_400() {
         let resp = request
             .post("/admissions/new")
             .form(&[
-                ("patient_id", "00000000-0000-0000-0000-000000000000"),
+                ("person_id", "00000000-0000-0000-0000-000000000000"),
                 ("bed_id", "00000000-0000-0000-0000-000000000000"),
                 ("csrf_token", "not-the-real-token"),
             ])
@@ -296,7 +296,7 @@ async fn appointment_post_with_bad_csrf_returns_400() {
             .post("/appointments/new")
             .form(&[
                 ("slot_id", "00000000-0000-0000-0000-000000000000"),
-                ("patient_id", "00000000-0000-0000-0000-000000000000"),
+                ("person_id", "00000000-0000-0000-0000-000000000000"),
                 ("csrf_token", "not-the-real-token"),
             ])
             .await;
@@ -317,7 +317,7 @@ async fn letter_post_with_bad_csrf_returns_400() {
             .post("/letters/new")
             .form(&[
                 ("template_id", "00000000-0000-0000-0000-000000000000"),
-                ("patient_id", "00000000-0000-0000-0000-000000000000"),
+                ("person_id", "00000000-0000-0000-0000-000000000000"),
                 ("channel", "print"),
                 ("csrf_token", "not-the-real-token"),
             ])

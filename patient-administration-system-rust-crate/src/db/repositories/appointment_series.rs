@@ -42,10 +42,10 @@ impl AppointmentSeriesRepository {
     /// Every series row owned by a patient, newest-first.
     pub async fn list_by_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Vec<AppointmentSeries>> {
         let rows = appointment_series::Entity::find()
-            .filter(appointment_series::Column::PatientId.eq(patient_id))
+            .filter(appointment_series::Column::PersonId.eq(person_id))
             .order_by_desc(appointment_series::Column::CreatedAt)
             .all(conn)
             .await
@@ -104,8 +104,8 @@ fn series_status_from_str(s: &str) -> Result<SeriesStatus> {
 fn to_active_model(s: &AppointmentSeries) -> Result<appointment_series::ActiveModel> {
     Ok(appointment_series::ActiveModel {
         id: Set(s.id),
-        patient_id: Set(s.patient_id),
-        practitioner_id: Set(s.practitioner_id),
+        person_id: Set(s.person_id),
+        worker_id: Set(s.worker_id),
         service_type: Set(s.service_type.clone()),
         start_datetime: Set(s.start_datetime.fixed_offset()),
         duration_minutes: Set(s.duration_minutes as i32),
@@ -121,8 +121,8 @@ fn to_active_model(s: &AppointmentSeries) -> Result<appointment_series::ActiveMo
 fn from_model(m: appointment_series::Model) -> Result<AppointmentSeries> {
     Ok(AppointmentSeries {
         id: m.id,
-        patient_id: m.patient_id,
-        practitioner_id: m.practitioner_id,
+        person_id: m.person_id,
+        worker_id: m.worker_id,
         service_type: m.service_type,
         start_datetime: m.start_datetime.with_timezone(&chrono::Utc),
         duration_minutes: m.duration_minutes.max(0) as u32,

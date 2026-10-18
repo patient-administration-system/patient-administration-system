@@ -32,7 +32,7 @@
       <tbody class="data-table-body">
         {% for p in pathways %}
         <tr class="data-table-row">
-          <td class="data-table-td"><a href="/patients/{{ p.patient_id }}">{{ p.patient_given }} <strong>{{ p.patient_family }}</strong></a></td>
+          <td class="data-table-td"><a href="/patients/{{ p.person_id }}">{{ p.patient_given }} <strong>{{ p.patient_family }}</strong></a></td>
           <td class="data-table-td"><strong>{{ p.target_service }}</strong></td>
           <td class="data-table-td">
             {% if p.status == "active" %}

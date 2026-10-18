@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub admission_id: Uuid,
-    pub discharging_practitioner_id: Option<Uuid>,
+    pub discharging_worker_id: Option<Uuid>,
     pub discharged_at: DateTimeWithTimeZone,
     pub disposition: Option<String>,
     pub notes: Option<String>,

@@ -5,6 +5,7 @@ mod m20260525_000002_outbox_dlq;
 mod m20260526_000003_appointment_series;
 mod m20260527_000004_coverage;
 mod m20260528_000005_patient_replaced_by;
+mod m20260601_000006_delegate_identity;
 
 pub struct Migrator;
 
@@ -17,6 +18,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260526_000003_appointment_series::Migration),
             Box::new(m20260527_000004_coverage::Migration),
             Box::new(m20260528_000005_patient_replaced_by::Migration),
+            Box::new(m20260601_000006_delegate_identity::Migration),
         ]
     }
 }

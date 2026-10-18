@@ -15,7 +15,7 @@
       {% for b in breaches %}
       <tr class="data-table-row">
         <td class="data-table-td"><strong>{{ b.target_service }}</strong></td>
-        <td class="data-table-td"><code class="code">{{ b.patient_id_short }}</code></td>
+        <td class="data-table-td"><code class="code">{{ b.person_id_short }}</code></td>
         <td class="data-table-td num"><span class="badge" data-status="error" aria-label="Weeks waiting">{{ b.weeks_waiting }}</span></td>
         <td class="data-table-td num">{{ b.breach_weeks }}</td>
       </tr>

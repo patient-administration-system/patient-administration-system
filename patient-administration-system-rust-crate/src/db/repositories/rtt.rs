@@ -32,10 +32,10 @@ impl RttRepository {
 
     pub async fn list_pathways_by_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Vec<RTTPathway>> {
         let rows = rtt_pathway::Entity::find()
-            .filter(rtt_pathway::Column::PatientId.eq(patient_id))
+            .filter(rtt_pathway::Column::PersonId.eq(person_id))
             .all(conn)
             .await
             .map_err(Error::Database)?;
@@ -112,7 +112,7 @@ fn pathway_to_active_model(p: &RTTPathway) -> Result<rtt_pathway::ActiveModel> {
     })?;
     Ok(rtt_pathway::ActiveModel {
         id: Set(p.id),
-        patient_id: Set(p.patient_id),
+        person_id: Set(p.person_id),
         target_service: Set(p.target_service.clone()),
         breach_weeks: Set(breach_weeks_i32),
         status: Set(rtt_status_to_str(p.status).to_string()),
@@ -132,7 +132,7 @@ fn pathway_from_model(m: rtt_pathway::Model) -> Result<RTTPathway> {
     })?;
     Ok(RTTPathway {
         id: m.id,
-        patient_id: m.patient_id,
+        person_id: m.person_id,
         target_service: m.target_service,
         breach_weeks,
         status: rtt_status_from_str(&m.status)?,
@@ -175,7 +175,7 @@ mod tests {
         let am = pathway_to_active_model(&p).expect("to active model");
         let m = rtt_pathway::Model {
             id: am.id.clone().unwrap(),
-            patient_id: am.patient_id.clone().unwrap(),
+            person_id: am.person_id.clone().unwrap(),
             target_service: am.target_service.clone().unwrap(),
             breach_weeks: am.breach_weeks.clone().unwrap(),
             status: am.status.clone().unwrap(),

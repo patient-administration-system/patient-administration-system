@@ -1,313 +1,422 @@
-//! REST API routing table.
+//! REST API routing table — Phase 3b1.
+//!
+//! Wires:
+//! - `/api/health` (real)
+//! - `/api/patients/*` (proxy `person-service`)
+//! - `/api/practitioners/*` (proxy `worker-service`)
+//! - `/api/upstream/{person,worker}-merged` (inbound merge webhooks)
+//! - `/api/admissions` + `/api/admissions/:id/{transfer,discharge,cancel-admit}` (ADT)
+//! - `/api/slots/:id/book` + `/api/appointments/:id/{cancel,check-in,complete}` (scheduling)
+//! - `/api/wards/:id/{occupancy,beds}` + `/api/beds/:id` + `PUT /api/beds/:id/status` (resources)
+//!
+//! Still unbound (Phase 3b2): billing, communication, consent, coverage,
+//! waitlist + RTT, encounter CRUD, audit query, outbox diagnostics +
+//! DLQ, dashboard, facility/ward/room creation, bulk slot generation,
+//! appointment series, the remaining ADT cancellation + leave + change
+//! variants.
 
 use axum::{
     Router,
     routing::{delete, get, post, put},
 };
 
-use super::{handlers, state::AppState};
+use super::AppState;
+use super::handlers;
+use super::handlers_admin;
+use super::handlers_adt;
+use super::handlers_audit;
+use super::handlers_billing;
+use super::handlers_consent;
+use super::handlers_coverage;
+use super::handlers_encounter;
+use super::handlers_hl7v2;
+use super::handlers_letters;
+use super::handlers_resources;
+use super::handlers_scheduling;
+use super::handlers_series;
+use super::handlers_waitlist;
+use super::upstream_proxy;
 
-/// Build the PAS REST router and attach the shared [`AppState`].
+/// Build the REST sub-router and attach the shared [`AppState`].
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(handlers::health))
+        // /api/patients/* — proxy to person-service
         .route(
             "/api/patients",
-            post(handlers::create_patient).get(handlers::list_patients),
+            post(upstream_proxy::create_patient).get(upstream_proxy::search_patients),
         )
-        .route("/api/patients/search", get(handlers::search_patients))
+        .route(
+            "/api/patients/{id}",
+            get(upstream_proxy::get_patient)
+                .put(upstream_proxy::update_patient)
+                .delete(upstream_proxy::delete_patient),
+        )
+        .route("/api/patients/search", get(upstream_proxy::search_patients))
+        .route(
+            "/api/patients/{id}/masked",
+            get(upstream_proxy::masked_patient),
+        )
+        .route(
+            "/api/patients/{id}/export",
+            get(upstream_proxy::export_patient),
+        )
+        .route(
+            "/api/patients/{id}/audit",
+            get(upstream_proxy::audit_patient),
+        )
+        // Phase 3d bulk interchange — transparent passthrough to person-service.
         .route(
             "/api/patients/export.json",
-            get(handlers::export_patients_json),
+            get(upstream_proxy::export_patients_json),
         )
         .route(
             "/api/patients/export.xml",
-            get(handlers::export_patients_xml),
+            get(upstream_proxy::export_patients_xml),
         )
         .route(
             "/api/patients/export.tsv",
-            get(handlers::export_patients_tsv),
+            get(upstream_proxy::export_patients_tsv),
         )
         .route(
             "/api/patients/export.csv",
-            get(handlers::export_patients_csv),
-        )
-        .route("/api/patients/import", post(handlers::import_patients))
-        .route("/api/hl7/v2/parse", post(handlers::hl7_v2_parse))
-        .route("/api/hl7/v2/batch", post(handlers::hl7_v2_batch))
-        .route("/api/hl7/v2/patient", post(handlers::hl7_v2_patient))
-        .route("/api/hl7/v2/update", post(handlers::hl7_v2_update))
-        .route("/api/hl7/v2/admit", post(handlers::hl7_v2_admit))
-        .route("/api/hl7/v2/pre-admit", post(handlers::hl7_v2_pre_admit))
-        .route(
-            "/api/hl7/v2/cancel-pre-admit",
-            post(handlers::hl7_v2_cancel_pre_admit),
+            get(upstream_proxy::export_patients_csv),
         )
         .route(
-            "/api/hl7/v2/leave-start",
-            post(handlers::hl7_v2_leave_start),
+            "/api/patients/import",
+            post(upstream_proxy::import_patients),
         )
-        .route("/api/hl7/v2/leave-end", post(handlers::hl7_v2_leave_end))
-        .route(
-            "/api/hl7/v2/delete-patient",
-            post(handlers::hl7_v2_delete_patient),
-        )
-        .route(
-            "/api/hl7/v2/change-to-inpatient",
-            post(handlers::hl7_v2_change_to_inpatient),
-        )
-        .route(
-            "/api/hl7/v2/change-to-outpatient",
-            post(handlers::hl7_v2_change_to_outpatient),
-        )
-        .route("/api/hl7/v2/register", post(handlers::hl7_v2_register))
-        .route("/api/hl7/v2/transfer", post(handlers::hl7_v2_transfer))
-        .route("/api/hl7/v2/discharge", post(handlers::hl7_v2_discharge))
-        .route(
-            "/api/hl7/v2/cancel-admit",
-            post(handlers::hl7_v2_cancel_admit),
-        )
-        .route(
-            "/api/hl7/v2/cancel-transfer",
-            post(handlers::hl7_v2_cancel_transfer),
-        )
-        .route(
-            "/api/hl7/v2/cancel-discharge",
-            post(handlers::hl7_v2_cancel_discharge),
-        )
-        .route("/api/hl7/v2/merge", post(handlers::hl7_v2_merge))
-        .route("/api/hl7/v2/dft", post(handlers::hl7_v2_dft))
-        .route("/api/hl7/v2/mfn-staff", post(handlers::hl7_v2_mfn_staff))
-        .route(
-            "/api/hl7/v2/mfn-location",
-            post(handlers::hl7_v2_mfn_location),
-        )
-        .route(
-            "/api/hl7/v2/schedule-book",
-            post(handlers::hl7_v2_schedule_book),
-        )
-        .route(
-            "/api/hl7/v2/schedule-reschedule",
-            post(handlers::hl7_v2_schedule_reschedule),
-        )
-        .route(
-            "/api/hl7/v2/schedule-modify",
-            post(handlers::hl7_v2_schedule_modify),
-        )
-        .route(
-            "/api/hl7/v2/schedule-cancel",
-            post(handlers::hl7_v2_schedule_cancel),
-        )
+        // /api/practitioners/* — proxy to worker-service
         .route(
             "/api/practitioners",
-            post(handlers::create_practitioner).get(handlers::list_practitioners),
+            post(upstream_proxy::create_practitioner).get(upstream_proxy::search_practitioners),
         )
         .route(
-            "/api/practitioners/:id",
-            get(handlers::get_practitioner)
-                .put(handlers::update_practitioner)
-                .delete(handlers::delete_practitioner),
+            "/api/practitioners/{id}",
+            get(upstream_proxy::get_practitioner)
+                .put(upstream_proxy::update_practitioner)
+                .delete(upstream_proxy::delete_practitioner),
         )
         .route(
-            "/api/patients/:id/consents",
-            post(handlers::create_consent).get(handlers::list_patient_consents),
-        )
-        .route("/api/consents/:id/revoke", post(handlers::revoke_consent))
-        .route(
-            "/api/patients/:id",
-            get(handlers::get_patient)
-                .put(handlers::update_patient)
-                .delete(handlers::delete_patient),
+            "/api/practitioners/search",
+            get(upstream_proxy::search_practitioners),
         )
         .route(
-            "/api/patients/:id/masked",
-            get(handlers::get_patient_masked),
+            "/api/practitioners/{id}/masked",
+            get(upstream_proxy::masked_practitioner),
         )
         .route(
-            "/api/patients/:id/export",
-            get(handlers::get_patient_export),
-        )
-        .route("/api/patients/:id/audit", get(handlers::get_patient_audit))
-        .route(
-            "/api/patients/:id/merge-into/:target_id",
-            post(handlers::merge_patient_into),
+            "/api/practitioners/{id}/export",
+            get(upstream_proxy::export_practitioner),
         )
         .route(
-            "/api/patients/:id/replaces",
-            get(handlers::list_patient_replaces),
+            "/api/practitioners/{id}/audit",
+            get(upstream_proxy::audit_practitioner),
         )
-        .route("/api/audit/recent", get(handlers::get_recent_audit))
-        .route("/api/audit/entity", get(handlers::get_entity_audit))
+        // Inbound merge webhooks (HMAC-verified inside the handler).
+        .route(
+            "/api/upstream/person-merged",
+            post(upstream_proxy::person_merged_webhook),
+        )
+        .route(
+            "/api/upstream/worker-merged",
+            post(upstream_proxy::worker_merged_webhook),
+        )
+        // ADT — admit / transfer / discharge / cancel-admit / cancel-discharge.
+        .route("/api/admissions", post(handlers_adt::admit))
+        .route("/api/admissions/{id}/transfer", post(handlers_adt::transfer))
+        .route(
+            "/api/admissions/{id}/discharge",
+            post(handlers_adt::discharge),
+        )
+        .route(
+            "/api/admissions/{id}/cancel-admit",
+            post(handlers_adt::cancel_admit),
+        )
+        .route(
+            "/api/admissions/{id}/cancel-discharge",
+            post(handlers_adt::cancel_discharge),
+        )
+        // Scheduling — book / cancel / check-in / complete.
+        .route("/api/slots/{id}/book", post(handlers_scheduling::book_slot))
+        .route(
+            "/api/appointments/{id}/cancel",
+            post(handlers_scheduling::cancel_appointment),
+        )
+        .route(
+            "/api/appointments/{id}/check-in",
+            post(handlers_scheduling::check_in_appointment),
+        )
+        .route(
+            "/api/appointments/{id}/complete",
+            post(handlers_scheduling::complete_appointment),
+        )
+        // Resources — ward occupancy + bed reads + bed status change.
+        .route(
+            "/api/wards/{id}/occupancy",
+            get(handlers_resources::ward_occupancy),
+        )
+        .route(
+            "/api/wards/{id}/beds",
+            get(handlers_resources::list_beds_by_ward),
+        )
+        .route("/api/beds/{id}", get(handlers_resources::get_bed))
+        .route(
+            "/api/beds/{id}/status",
+            put(handlers_resources::set_bed_status),
+        )
+        // Extra ADT variants — pre-admit / cancel-pre-admit / cancel-transfer
+        // / leave-start / leave-end / change-to-{inpatient,outpatient}.
+        .route("/api/admissions/pre-admit", post(handlers_adt::pre_admit))
+        .route(
+            "/api/admissions/cancel-pre-admit",
+            post(handlers_adt::cancel_pre_admit),
+        )
+        .route(
+            "/api/admissions/change-to-inpatient",
+            post(handlers_adt::change_to_inpatient),
+        )
+        .route(
+            "/api/admissions/{id}/change-to-outpatient",
+            post(handlers_adt::change_to_outpatient),
+        )
+        .route(
+            "/api/admissions/{id}/cancel-transfer",
+            post(handlers_adt::cancel_transfer),
+        )
+        .route(
+            "/api/admissions/{id}/leave-start",
+            post(handlers_adt::leave_start),
+        )
+        .route(
+            "/api/admissions/{id}/leave-end",
+            post(handlers_adt::leave_end),
+        )
+        // Scheduling — no-show.
+        .route(
+            "/api/appointments/{id}/no-show",
+            post(handlers_scheduling::mark_no_show),
+        )
+        // Appointment series.
+        .route(
+            "/api/appointment-series",
+            post(handlers_series::create_series),
+        )
+        .route(
+            "/api/appointment-series/{id}",
+            get(handlers_series::get_series),
+        )
+        .route(
+            "/api/appointment-series/{id}/cancel",
+            post(handlers_series::cancel_series),
+        )
+        .route(
+            "/api/patients/{id}/appointment-series",
+            get(handlers_series::list_series_for_person),
+        )
+        // Encounter.
+        .route(
+            "/api/encounters/{id}",
+            get(handlers_encounter::get_encounter),
+        )
+        .route(
+            "/api/encounters/{id}/status",
+            put(handlers_encounter::set_status),
+        )
+        .route(
+            "/api/encounters/{id}/cancel",
+            post(handlers_encounter::cancel_encounter),
+        )
+        .route(
+            "/api/patients/{id}/encounters",
+            get(handlers_encounter::list_encounters_for_person),
+        )
+        // Billing.
+        .route("/api/accounts", post(handlers_billing::open_account))
+        .route(
+            "/api/accounts/{id}/close",
+            post(handlers_billing::close_account),
+        )
+        .route("/api/charges", post(handlers_billing::post_charge))
+        .route("/api/invoices", post(handlers_billing::finalize_invoice))
+        .route("/api/payments", post(handlers_billing::post_payment))
+        // Coverage.
+        .route("/api/coverages", post(handlers_coverage::create_coverage))
+        .route(
+            "/api/coverages/{id}",
+            get(handlers_coverage::get_coverage)
+                .put(handlers_coverage::update_coverage)
+                .delete(handlers_coverage::delete_coverage),
+        )
+        .route(
+            "/api/patients/{id}/coverages",
+            get(handlers_coverage::list_coverages_for_person),
+        )
+        .route(
+            "/api/accounts/{id}/coverages",
+            get(handlers_coverage::list_coverages_for_account),
+        )
+        // Consent.
+        .route(
+            "/api/patients/{id}/consents",
+            post(handlers_consent::create_consent).get(handlers_consent::list_consents_for_person),
+        )
+        .route(
+            "/api/consents/{id}/revoke",
+            post(handlers_consent::revoke_consent),
+        )
+        // Waitlist + RTT.
+        .route(
+            "/api/waitlist",
+            post(handlers_waitlist::add_to_waitlist).get(handlers_waitlist::list_waitlist),
+        )
+        .route(
+            "/api/waitlist/{id}",
+            delete(handlers_waitlist::remove_from_waitlist),
+        )
+        .route("/api/rtt/start", post(handlers_waitlist::rtt_start))
+        .route("/api/rtt/{id}/pause", post(handlers_waitlist::rtt_pause))
+        .route("/api/rtt/{id}/resume", post(handlers_waitlist::rtt_resume))
+        .route("/api/rtt/{id}/stop", post(handlers_waitlist::rtt_stop))
+        .route(
+            "/api/rtt/{id}/weeks-waiting",
+            get(handlers_waitlist::rtt_weeks_waiting),
+        )
+        .route(
+            "/api/rtt/{id}/breaching",
+            get(handlers_waitlist::rtt_is_breaching),
+        )
+        // Audit query.
+        .route("/api/audit/recent", get(handlers_audit::list_recent))
+        .route("/api/audit/entity", get(handlers_audit::list_for_entity))
+        .route(
+            "/api/patients/{id}/audit/local",
+            get(handlers_audit::list_local_for_person),
+        )
+        // Admin: outbox diagnostics + DLQ replay.
         .route(
             "/api/admin/outbox/unpublished",
-            get(handlers::get_unpublished_outbox),
+            get(handlers_admin::list_unpublished_outbox),
         )
         .route(
             "/api/admin/outbox/dead-letters",
-            get(handlers::list_dead_letter_outbox),
+            get(handlers_admin::list_dead_letters),
         )
         .route(
-            "/api/admin/outbox/dead-letters/:id/replay",
-            post(handlers::replay_dead_letter_outbox),
+            "/api/admin/outbox/dead-letters/{id}/replay",
+            post(handlers_admin::replay_dead_letter),
         )
-        .route("/api/encounters/:id", get(handlers::get_encounter))
-        .route(
-            "/api/patients/:id/encounters",
-            get(handlers::list_patient_encounters),
-        )
-        .route("/api/appointments", get(handlers::list_appointments))
-        .route(
-            "/api/appointment-series/preview",
-            post(handlers::preview_appointment_series),
-        )
-        .route(
-            "/api/appointment-series",
-            post(handlers::create_appointment_series),
-        )
-        .route(
-            "/api/appointment-series/:id",
-            get(handlers::get_appointment_series),
-        )
-        .route(
-            "/api/appointment-series/:id/cancel",
-            post(handlers::cancel_appointment_series),
-        )
-        .route(
-            "/api/patients/:id/appointment-series",
-            get(handlers::list_patient_appointment_series),
-        )
-        .route("/api/appointments/:id", get(handlers::get_appointment))
-        .route("/api/patients/:id/rtt", get(handlers::list_patient_rtt))
-        .route(
-            "/api/patients/:id/account",
-            get(handlers::get_patient_account),
-        )
-        .route(
-            "/api/letter-templates",
-            get(handlers::list_letter_templates).post(handlers::create_letter_template),
-        )
-        .route(
-            "/api/letter-templates/:id",
-            put(handlers::update_letter_template).delete(handlers::delete_letter_template),
-        )
-        .route("/api/admissions", post(handlers::admit))
-        .route("/api/admissions/pre-admit", post(handlers::pre_admit))
-        .route(
-            "/api/admissions/change-to-inpatient",
-            post(handlers::change_to_inpatient),
-        )
-        .route(
-            "/api/admissions/cancel-pre-admit",
-            post(handlers::cancel_pre_admit),
-        )
-        .route("/api/admissions/:id/transfer", post(handlers::transfer))
-        .route(
-            "/api/admissions/:id/cancel-admit",
-            post(handlers::cancel_admit),
-        )
-        .route(
-            "/api/admissions/:id/cancel-transfer",
-            post(handlers::cancel_transfer),
-        )
-        .route(
-            "/api/admissions/:id/leave-start",
-            post(handlers::leave_start),
-        )
-        .route("/api/admissions/:id/leave-end", post(handlers::leave_end))
-        .route("/api/admissions/:id/discharge", post(handlers::discharge))
-        .route("/api/slots/:id/book", post(handlers::book_slot))
-        .route(
-            "/api/appointments/:id/cancel",
-            post(handlers::cancel_appointment),
-        )
-        .route(
-            "/api/appointments/:id/check-in",
-            post(handlers::check_in_appointment),
-        )
-        .route(
-            "/api/appointments/:id/complete",
-            post(handlers::complete_appointment),
-        )
-        .route(
-            "/api/waitlist",
-            get(handlers::list_waitlist).post(handlers::add_to_waitlist),
-        )
-        .route("/api/waitlist/:id", delete(handlers::remove_from_waitlist))
-        .route("/api/rtt/start", post(handlers::rtt_start))
-        .route("/api/rtt/:id/pause", post(handlers::rtt_pause))
-        .route("/api/rtt/:id/resume", post(handlers::rtt_resume))
-        .route("/api/rtt/:id/stop", post(handlers::rtt_stop))
-        .route(
-            "/api/rtt/:id/weeks-waiting",
-            get(handlers::rtt_weeks_waiting),
-        )
-        .route("/api/wards/:id/occupancy", get(handlers::ward_occupancy))
-        .route("/api/beds/:id/status", put(handlers::set_bed_status))
-        .route("/api/accounts", post(handlers::open_account))
-        .route(
-            "/api/accounts/:id/coverages",
-            get(handlers::list_account_coverages),
-        )
-        .route("/api/coverages", post(handlers::create_coverage))
-        .route(
-            "/api/coverages/:id",
-            get(handlers::get_coverage)
-                .put(handlers::update_coverage)
-                .delete(handlers::delete_coverage),
-        )
-        .route(
-            "/api/patients/:id/coverages",
-            get(handlers::list_patient_coverages),
-        )
-        .route("/api/charges", post(handlers::post_charge))
-        .route("/api/invoices", post(handlers::finalize_invoice))
-        .route("/api/payments", post(handlers::post_payment))
-        .route("/api/letters/generate", post(handlers::generate_letter))
-        .route("/api/letters/:id", get(handlers::get_generated_letter))
-        .route("/api/letters/:id/sent", post(handlers::mark_letter_sent))
-        .route(
-            "/api/letters/:id/failed",
-            post(handlers::mark_letter_failed),
-        )
-        .route("/api/schedules", post(handlers::create_schedule))
-        .route(
-            "/api/schedules/:id",
-            get(handlers::get_schedule).delete(handlers::delete_schedule),
-        )
-        .route("/api/slots/:id", delete(handlers::delete_slot))
-        .route(
-            "/api/schedules/:id/slots",
-            get(handlers::list_schedule_slots).post(handlers::create_slot),
-        )
-        .route(
-            "/api/schedules/:id/slots/bulk",
-            post(handlers::bulk_create_slots),
-        )
-        .route("/api/wards/:id/beds", get(handlers::list_ward_beds))
-        .route(
-            "/api/beds/:id",
-            get(handlers::get_bed).put(handlers::update_bed),
-        )
-        .route("/api/encounters", post(handlers::create_encounter))
-        .route(
-            "/api/encounters/:id/cancel",
-            post(handlers::cancel_encounter),
-        )
-        .route(
-            "/api/encounters/:id/status",
-            put(handlers::set_encounter_status),
-        )
+        // Facility / Ward / Room / Bed creation + reads.
         .route(
             "/api/facilities",
-            post(handlers::create_facility).get(handlers::list_facilities),
+            post(handlers_resources::create_facility).get(handlers_resources::list_facilities),
+        )
+        .route("/api/facilities/{id}", get(handlers_resources::get_facility))
+        .route(
+            "/api/facilities/{id}/wards",
+            get(handlers_resources::list_wards_by_facility),
+        )
+        .route("/api/wards", post(handlers_resources::create_ward))
+        .route("/api/wards/{id}", get(handlers_resources::get_ward))
+        .route(
+            "/api/wards/{id}/rooms",
+            get(handlers_resources::list_rooms_by_ward),
+        )
+        .route("/api/rooms", post(handlers_resources::create_room))
+        .route("/api/rooms/{id}", get(handlers_resources::get_room))
+        .route("/api/beds", post(handlers_resources::create_bed))
+        // Letter templates + generation.
+        .route(
+            "/api/letter-templates",
+            post(handlers_letters::create_template).get(handlers_letters::list_templates),
         )
         .route(
-            "/api/wards",
-            post(handlers::create_ward).get(handlers::list_wards),
+            "/api/letter-templates/{id}",
+            get(handlers_letters::get_template),
         )
-        .route("/api/rooms", post(handlers::create_room))
-        .route("/api/beds", post(handlers::create_bed))
-        .route("/api/waitlist/:id", put(handlers::update_waitlist_entry))
-        .route("/api/waitlist/breaches", get(handlers::list_rtt_breaches))
+        .route(
+            "/api/letters/generate",
+            post(handlers_letters::generate_letter),
+        )
+        .route("/api/letters/{id}", get(handlers_letters::get_letter))
+        .route("/api/letters/{id}/sent", post(handlers_letters::mark_sent))
+        .route(
+            "/api/letters/{id}/failed",
+            post(handlers_letters::mark_failed),
+        )
+        // HL7 v2 (Phase 3c minimum viable surface: parse + ADT
+        // A28/A01/A02/A03). Each handler dedup-or-creates the person
+        // upstream via `PersonClient` before invoking the local
+        // ADT service. Phase 3c2 lands the remaining 14 ADT variants
+        // + DFT^P03 + SIU + MFN.
+        .route("/api/hl7/v2/parse", post(handlers_hl7v2::parse))
+        .route("/api/hl7/v2/patient", post(handlers_hl7v2::add_person))
+        .route("/api/hl7/v2/admit", post(handlers_hl7v2::admit))
+        .route("/api/hl7/v2/transfer", post(handlers_hl7v2::transfer))
+        .route("/api/hl7/v2/discharge", post(handlers_hl7v2::discharge))
+        // Phase 3c2 — remaining 13 ADT trigger surface (URLs match
+        // `listener.rs::route_for_payload` so MLLP traffic reaches
+        // them unchanged).
+        .route("/api/hl7/v2/register", post(handlers_hl7v2::register))
+        .route("/api/hl7/v2/pre-admit", post(handlers_hl7v2::pre_admit))
+        .route(
+            "/api/hl7/v2/cancel-pre-admit",
+            post(handlers_hl7v2::cancel_pre_admit),
+        )
+        .route(
+            "/api/hl7/v2/change-to-inpatient",
+            post(handlers_hl7v2::change_to_inpatient),
+        )
+        .route(
+            "/api/hl7/v2/change-to-outpatient",
+            post(handlers_hl7v2::change_to_outpatient),
+        )
+        .route("/api/hl7/v2/update", post(handlers_hl7v2::update))
+        .route(
+            "/api/hl7/v2/cancel-admit",
+            post(handlers_hl7v2::cancel_admit),
+        )
+        .route(
+            "/api/hl7/v2/cancel-transfer",
+            post(handlers_hl7v2::cancel_transfer),
+        )
+        .route(
+            "/api/hl7/v2/cancel-discharge",
+            post(handlers_hl7v2::cancel_discharge),
+        )
+        .route("/api/hl7/v2/leave-start", post(handlers_hl7v2::leave_start))
+        .route("/api/hl7/v2/leave-end", post(handlers_hl7v2::leave_end))
+        .route(
+            "/api/hl7/v2/delete-patient",
+            post(handlers_hl7v2::delete_patient),
+        )
+        .route("/api/hl7/v2/merge", post(handlers_hl7v2::merge))
+        // Phase 3c3 — DFT / SIU / MFN / batch envelope.
+        .route("/api/hl7/v2/dft", post(handlers_hl7v2::dft))
+        .route(
+            "/api/hl7/v2/schedule-book",
+            post(handlers_hl7v2::schedule_book),
+        )
+        .route(
+            "/api/hl7/v2/schedule-reschedule",
+            post(handlers_hl7v2::schedule_reschedule),
+        )
+        .route(
+            "/api/hl7/v2/schedule-modify",
+            post(handlers_hl7v2::schedule_modify),
+        )
+        .route(
+            "/api/hl7/v2/schedule-cancel",
+            post(handlers_hl7v2::schedule_cancel),
+        )
+        .route("/api/hl7/v2/mfn-staff", post(handlers_hl7v2::mfn_staff))
+        .route(
+            "/api/hl7/v2/mfn-location",
+            post(handlers_hl7v2::mfn_location),
+        )
+        .route("/api/hl7/v2/batch", post(handlers_hl7v2::batch))
+        // Dashboard (/dashboard + 4 fragment routes) is mounted from
+        // `main.rs` as a sibling router that merges in at boot time —
+        // it isn't part of this REST table.
         .with_state(state)
 }

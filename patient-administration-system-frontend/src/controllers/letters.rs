@@ -31,9 +31,7 @@ pub async fn new_form(
 ) -> Result<(CookieJar, Response)> {
     let (csrf_token, jar) = csrf::ensure_token(jar);
     let templates = list_active_templates(&ctx.db).await.map_err(Error::wrap)?;
-    let patients = list_active_patients(&ctx.db, 200)
-        .await
-        .map_err(Error::wrap)?;
+    let patients = list_active_patients(200).await;
     let resp = format::render().view(
         &v,
         "letters/new.html",
@@ -54,7 +52,7 @@ pub async fn new_form(
 #[derive(Debug, Deserialize)]
 pub struct ComposeForm {
     pub template_id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub channel: String,
     pub csrf_token: String,
 }
@@ -72,7 +70,7 @@ pub async fn submit(
     let (csrf_token, jar) = csrf::ensure_token(jar);
     let req = GenerateLetterRequest {
         template_id: form.template_id,
-        patient_id: form.patient_id,
+        person_id: form.person_id,
         appointment_id: None,
         channel: form.channel,
         extra: serde_json::json!({}),
@@ -101,9 +99,7 @@ pub async fn submit(
     };
 
     let templates = list_active_templates(&ctx.db).await.map_err(Error::wrap)?;
-    let patients = list_active_patients(&ctx.db, 200)
-        .await
-        .map_err(Error::wrap)?;
+    let patients = list_active_patients(200).await;
     let resp = format::render().view(
         &v,
         "letters/new.html",

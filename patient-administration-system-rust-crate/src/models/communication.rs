@@ -68,7 +68,7 @@ impl LetterTemplate {
 pub struct GeneratedLetter {
     pub id: Uuid,
     pub template_id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub appointment_id: Option<Uuid>,
     pub rendered_subject: String,
     pub rendered_body: String,
@@ -82,7 +82,7 @@ pub struct GeneratedLetter {
 impl GeneratedLetter {
     pub fn new(
         template_id: Uuid,
-        patient_id: Uuid,
+        person_id: Uuid,
         channel: DeliveryChannel,
         rendered_subject: String,
         rendered_body: String,
@@ -91,7 +91,7 @@ impl GeneratedLetter {
         Self {
             id: Uuid::new_v4(),
             template_id,
-            patient_id,
+            person_id,
             appointment_id: None,
             rendered_subject,
             rendered_body,
@@ -207,7 +207,7 @@ mod tests {
         let back: GeneratedLetter = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.id, g.id);
         assert_eq!(back.template_id, g.template_id);
-        assert_eq!(back.patient_id, g.patient_id);
+        assert_eq!(back.person_id, g.person_id);
         assert_eq!(back.appointment_id, g.appointment_id);
         assert_eq!(back.rendered_subject, g.rendered_subject);
         assert_eq!(back.rendered_body, g.rendered_body);

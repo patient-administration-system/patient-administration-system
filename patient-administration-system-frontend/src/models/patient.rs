@@ -1,41 +1,17 @@
-//! `patients` table — read-only projection just rich enough for list +
-//! detail pages.
+//! Patient view-models — sourced from upstream `person-service` over HTTP.
+//!
+//! v0.1 read these straight from the local `patients` table. v0.2 (paired
+//! with PAS v0.44.0 Option C identity delegation) drops that table and
+//! moves identity to `person-service`. These helpers now wrap
+//! [`crate::services::person_api`] and translate the upstream `Person`
+//! shape into the [`PatientCard`] / [`PatientDetail`] view-models the
+//! templates already render — so the controllers and templates stay
+//! unchanged.
 
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, QuerySelect};
 use serde::Serialize;
 use uuid::Uuid;
 
-mod entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "patients")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub mpi_id: Option<Uuid>,
-        pub active: bool,
-        pub name: serde_json::Value,
-        pub additional_names: serde_json::Value,
-        pub identifiers: serde_json::Value,
-        pub telecom: serde_json::Value,
-        pub addresses: serde_json::Value,
-        pub gender: String,
-        pub birth_date: Option<chrono::NaiveDate>,
-        pub deceased: bool,
-        pub deceased_datetime: Option<chrono::DateTime<chrono::FixedOffset>>,
-        pub emergency_contacts: serde_json::Value,
-        pub marital_status: Option<String>,
-        pub deleted_at: Option<chrono::DateTime<chrono::FixedOffset>>,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
-}
+use crate::services::person_api::{self, PersonApiError, UpstreamPerson};
 
 #[derive(Serialize, Debug)]
 pub struct PatientCard {
@@ -63,56 +39,55 @@ pub struct PatientDetail {
     pub primary_address: Option<String>,
 }
 
-pub async fn list_active_patients(
-    db: &DatabaseConnection,
-    limit: u64,
-) -> Result<Vec<PatientCard>, DbErr> {
-    let rows = entity::Entity::find()
-        .filter(entity::Column::DeletedAt.is_null())
-        .limit(limit)
-        .all(db)
-        .await?;
-    Ok(rows.into_iter().map(model_to_card).collect())
-}
-
-pub async fn find_patient_by_id(
-    db: &DatabaseConnection,
-    id: Uuid,
-) -> Result<Option<PatientDetail>, loco_rs::Error> {
-    let row = entity::Entity::find_by_id(id)
-        .one(db)
-        .await
-        .map_err(loco_rs::Error::wrap)?;
-    Ok(row.map(model_to_detail))
-}
-
-fn model_to_card(m: entity::Model) -> PatientCard {
-    let (family, given) = name_parts(&m.name);
-    PatientCard {
-        id: m.id,
-        family,
-        given,
-        gender: m.gender,
-        birth_date: m.birth_date.map(|d| d.format("%Y-%m-%d").to_string()),
-        active: m.active,
+/// List active patients (capped at `limit`) from `person-service`.
+/// Returns an empty list on transport / status / parse failure so the
+/// dashboard / picker pages can still render a useful skeleton when
+/// the upstream is briefly unavailable.
+pub async fn list_active_patients(limit: u32) -> Vec<PatientCard> {
+    match person_api::list_persons(limit).await {
+        Ok(persons) => persons.into_iter().map(person_to_card).collect(),
+        Err(e) => {
+            eprintln!("list_active_patients: person-service unavailable ({e}); returning empty");
+            Vec::new()
+        }
     }
 }
 
-fn model_to_detail(m: entity::Model) -> PatientDetail {
-    let (family, given) = name_parts(&m.name);
-    let mrn = first_identifier_value(&m.identifiers, "MRN");
-    let primary_phone = first_telecom_value(&m.telecom, "phone");
-    let primary_email = first_telecom_value(&m.telecom, "email");
-    let primary_address = first_address_line(&m.addresses);
-    PatientDetail {
-        id: m.id,
+/// Fetch one patient by id. Maps:
+/// - `Ok(Some(_))` → `Ok(Some(detail))`
+/// - `Ok(None)` (upstream 404) → `Ok(None)`
+/// - transport / status error → `Err`
+pub async fn find_patient_by_id(id: Uuid) -> Result<Option<PatientDetail>, PersonApiError> {
+    Ok(person_api::get_person(id).await?.map(person_to_detail))
+}
+
+fn person_to_card(p: UpstreamPerson) -> PatientCard {
+    let (family, given) = name_parts(p.name.as_ref().or(p.names.as_ref()));
+    PatientCard {
+        id: p.id,
         family,
         given,
-        gender: m.gender,
-        birth_date: m.birth_date.map(|d| d.format("%Y-%m-%d").to_string()),
-        active: m.active,
-        deceased: m.deceased,
-        marital_status: m.marital_status,
+        gender: p.gender.unwrap_or_default(),
+        birth_date: p.birth_date,
+        active: p.active.unwrap_or(true),
+    }
+}
+
+fn person_to_detail(p: UpstreamPerson) -> PatientDetail {
+    let (family, given) = name_parts(p.name.as_ref().or(p.names.as_ref()));
+    let mrn = first_identifier_value(p.identifiers.as_ref());
+    let primary_phone = first_telecom_value(p.telecom.as_ref(), "phone");
+    let primary_email = first_telecom_value(p.telecom.as_ref(), "email");
+    let primary_address = first_address_line(p.addresses.as_ref());
+    PatientDetail {
+        id: p.id,
+        family,
+        given,
+        gender: p.gender.unwrap_or_default(),
+        birth_date: p.birth_date,
+        active: p.active.unwrap_or(true),
+        deceased: p.deceased.unwrap_or(false),
+        marital_status: p.marital_status,
         mrn,
         primary_phone,
         primary_email,
@@ -120,13 +95,24 @@ fn model_to_detail(m: entity::Model) -> PatientDetail {
     }
 }
 
-fn name_parts(v: &serde_json::Value) -> (String, String) {
-    let family = v
+fn name_parts(v: Option<&serde_json::Value>) -> (String, String) {
+    let Some(v) = v else {
+        return (String::new(), String::new());
+    };
+    let obj = match v {
+        serde_json::Value::Array(a) => a.first(),
+        serde_json::Value::Object(_) => Some(v),
+        _ => None,
+    };
+    let Some(obj) = obj else {
+        return (String::new(), String::new());
+    };
+    let family = obj
         .get("family")
         .and_then(|x| x.as_str())
         .unwrap_or("")
         .to_string();
-    let given = v
+    let given = obj
         .get("given")
         .and_then(|x| x.as_array())
         .map(|arr| {
@@ -139,18 +125,14 @@ fn name_parts(v: &serde_json::Value) -> (String, String) {
     (family, given)
 }
 
-fn first_identifier_value(v: &serde_json::Value, kind: &str) -> Option<String> {
-    v.as_array()?.iter().find_map(|i| {
-        if i.get("identifier_type")?.as_str()? == kind {
-            i.get("value")?.as_str().map(String::from)
-        } else {
-            None
-        }
-    })
+fn first_identifier_value(v: Option<&serde_json::Value>) -> Option<String> {
+    v?.as_array()?
+        .first()
+        .and_then(|i| i.get("value")?.as_str().map(String::from))
 }
 
-fn first_telecom_value(v: &serde_json::Value, system: &str) -> Option<String> {
-    v.as_array()?.iter().find_map(|c| {
+fn first_telecom_value(v: Option<&serde_json::Value>, system: &str) -> Option<String> {
+    v?.as_array()?.iter().find_map(|c| {
         if c.get("system")?.as_str()? == system {
             c.get("value")?.as_str().map(String::from)
         } else {
@@ -159,17 +141,91 @@ fn first_telecom_value(v: &serde_json::Value, system: &str) -> Option<String> {
     })
 }
 
-fn first_address_line(v: &serde_json::Value) -> Option<String> {
-    let addr = v.as_array()?.first()?;
-    let line1 = addr.get("line1")?.as_str()?.to_string();
+fn first_address_line(v: Option<&serde_json::Value>) -> Option<String> {
+    let addr = v?.as_array()?.first()?;
+    let line = addr
+        .get("line")
+        .and_then(|x| x.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|x| x.as_str())
+        .or_else(|| addr.get("line1").and_then(|x| x.as_str()))?;
     let city = addr
         .get("city")
         .and_then(|x| x.as_str())
-        .map(String::from)
         .unwrap_or_default();
     if city.is_empty() {
-        Some(line1)
+        Some(line.to_string())
     } else {
-        Some(format!("{line1}, {city}"))
+        Some(format!("{line}, {city}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn make_person(extra: serde_json::Value) -> UpstreamPerson {
+        let mut v = json!({ "id": Uuid::new_v4().to_string() });
+        if let (serde_json::Value::Object(m), serde_json::Value::Object(extra_m)) = (&mut v, extra)
+        {
+            for (k, val) in extra_m {
+                m.insert(k, val);
+            }
+        }
+        serde_json::from_value(v).expect("parse")
+    }
+
+    #[test]
+    fn person_to_card_extracts_family_and_given() {
+        let p = make_person(json!({
+            "name": { "family": "Doe", "given": ["Jane", "M"] },
+            "gender": "female",
+            "birth_date": "1990-01-15"
+        }));
+        let card = person_to_card(p);
+        assert_eq!(card.family, "Doe");
+        assert_eq!(card.given, "Jane M");
+        assert_eq!(card.gender, "female");
+        assert_eq!(card.birth_date.as_deref(), Some("1990-01-15"));
+        assert!(card.active);
+    }
+
+    #[test]
+    fn person_to_detail_finds_mrn_and_phone() {
+        let p = make_person(json!({
+            "name": { "family": "Doe", "given": ["Jane"] },
+            "identifiers": [{ "value": "MRN-99" }],
+            "telecom": [{ "system": "phone", "value": "(555)555-0100" }]
+        }));
+        let d = person_to_detail(p);
+        assert_eq!(d.mrn.as_deref(), Some("MRN-99"));
+        assert_eq!(d.primary_phone.as_deref(), Some("(555)555-0100"));
+    }
+
+    #[test]
+    fn person_to_detail_address_handles_fhir_line_array() {
+        let p = make_person(json!({
+            "addresses": [{ "line": ["123 Elm"], "city": "Springfield" }]
+        }));
+        let d = person_to_detail(p);
+        assert_eq!(d.primary_address.as_deref(), Some("123 Elm, Springfield"));
+    }
+
+    #[test]
+    fn person_to_detail_address_handles_legacy_line1() {
+        let p = make_person(json!({
+            "addresses": [{ "line1": "Old Field" }]
+        }));
+        let d = person_to_detail(p);
+        assert_eq!(d.primary_address.as_deref(), Some("Old Field"));
+    }
+
+    #[test]
+    fn empty_name_yields_empty_strings() {
+        let p = make_person(json!({}));
+        let card = person_to_card(p);
+        assert_eq!(card.family, "");
+        assert_eq!(card.given, "");
     }
 }

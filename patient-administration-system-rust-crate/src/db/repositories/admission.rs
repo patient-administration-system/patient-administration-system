@@ -67,10 +67,10 @@ impl AdmissionRepository {
     /// inpatient admission at any time.
     pub async fn find_open_for_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Option<Admission>> {
         let encounter_ids: Vec<Uuid> = encounter::Entity::find()
-            .filter(encounter::Column::PatientId.eq(patient_id))
+            .filter(encounter::Column::PersonId.eq(person_id))
             .all(conn)
             .await
             .map_err(Error::Database)?
@@ -105,11 +105,11 @@ impl AdmissionRepository {
     /// separately if needed.
     pub async fn list_by_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Vec<Admission>> {
         // Two queries: fetch the patient's encounter ids, then admissions.
         let encounter_ids: Vec<Uuid> = encounter::Entity::find()
-            .filter(encounter::Column::PatientId.eq(patient_id))
+            .filter(encounter::Column::PersonId.eq(person_id))
             .all(conn)
             .await
             .map_err(Error::Database)?
@@ -164,10 +164,10 @@ impl AdmissionRepository {
     /// to identify which discharge to undo.
     pub async fn find_most_recently_discharged_for_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Option<(Admission, Discharge)>> {
         let encounter_ids: Vec<Uuid> = encounter::Entity::find()
-            .filter(encounter::Column::PatientId.eq(patient_id))
+            .filter(encounter::Column::PersonId.eq(person_id))
             .all(conn)
             .await
             .map_err(Error::Database)?
@@ -269,7 +269,7 @@ fn discharge_from_model(m: discharge::Model) -> Result<Discharge> {
     Ok(Discharge {
         id: m.id,
         admission_id: m.admission_id,
-        discharging_practitioner_id: m.discharging_practitioner_id,
+        discharging_worker_id: m.discharging_worker_id,
         discharged_at: m.discharged_at.with_timezone(&chrono::Utc),
         disposition: m.disposition,
         notes: m.notes,
@@ -284,7 +284,7 @@ fn admission_to_active_model(a: &Admission) -> admission::ActiveModel {
         id: Set(a.id),
         encounter_id: Set(a.encounter_id),
         bed_id: Set(a.bed_id),
-        admitting_practitioner_id: Set(a.admitting_practitioner_id),
+        admitting_worker_id: Set(a.admitting_worker_id),
         admitted_at: Set(a.admitted_at.fixed_offset()),
         reason: Set(a.reason.clone()),
         created_at: Set(a.created_at.fixed_offset()),
@@ -297,7 +297,7 @@ fn admission_from_model(m: admission::Model) -> Result<Admission> {
         id: m.id,
         encounter_id: m.encounter_id,
         bed_id: m.bed_id,
-        admitting_practitioner_id: m.admitting_practitioner_id,
+        admitting_worker_id: m.admitting_worker_id,
         admitted_at: m.admitted_at.with_timezone(&chrono::Utc),
         reason: m.reason,
         created_at: m.created_at.with_timezone(&chrono::Utc),
@@ -333,7 +333,7 @@ fn discharge_to_active_model(d: &Discharge) -> discharge::ActiveModel {
     discharge::ActiveModel {
         id: Set(d.id),
         admission_id: Set(d.admission_id),
-        discharging_practitioner_id: Set(d.discharging_practitioner_id),
+        discharging_worker_id: Set(d.discharging_worker_id),
         discharged_at: Set(d.discharged_at.fixed_offset()),
         disposition: Set(d.disposition.clone()),
         notes: Set(d.notes.clone()),
@@ -377,7 +377,7 @@ mod tests {
             id: am.id.clone().unwrap(),
             encounter_id: am.encounter_id.clone().unwrap(),
             bed_id: am.bed_id.clone().unwrap(),
-            admitting_practitioner_id: am.admitting_practitioner_id.clone().unwrap(),
+            admitting_worker_id: am.admitting_worker_id.clone().unwrap(),
             admitted_at: am.admitted_at.clone().unwrap(),
             reason: am.reason.clone().unwrap(),
             created_at: am.created_at.clone().unwrap(),

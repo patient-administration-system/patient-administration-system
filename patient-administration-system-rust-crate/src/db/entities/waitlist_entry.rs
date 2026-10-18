@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub referral_id: Option<Uuid>,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub target_service: String,
     pub priority: String,
     pub status: String,

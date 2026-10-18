@@ -22,7 +22,7 @@ pub struct Admission {
     pub id: Uuid,
     pub encounter_id: Uuid,
     pub bed_id: Uuid,
-    pub admitting_practitioner_id: Option<Uuid>,
+    pub admitting_worker_id: Option<Uuid>,
     pub admitted_at: DateTime<Utc>,
     pub reason: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -39,7 +39,7 @@ impl Admission {
             id: Uuid::new_v4(),
             encounter_id,
             bed_id,
-            admitting_practitioner_id: None,
+            admitting_worker_id: None,
             admitted_at: now,
             reason: None,
             created_at: now,
@@ -82,7 +82,7 @@ impl Transfer {
 pub struct Discharge {
     pub id: Uuid,
     pub admission_id: Uuid,
-    pub discharging_practitioner_id: Option<Uuid>,
+    pub discharging_worker_id: Option<Uuid>,
     pub discharged_at: DateTime<Utc>,
     pub disposition: Option<String>,
     pub notes: Option<String>,
@@ -97,7 +97,7 @@ impl Discharge {
         Self {
             id: Uuid::new_v4(),
             admission_id,
-            discharging_practitioner_id: None,
+            discharging_worker_id: None,
             discharged_at: now,
             disposition: None,
             notes: None,
@@ -164,7 +164,7 @@ mod tests {
         let a = Admission::new(encounter_id, bed_id);
         assert_eq!(a.encounter_id, encounter_id);
         assert_eq!(a.bed_id, bed_id);
-        assert!(a.admitting_practitioner_id.is_none());
+        assert!(a.admitting_worker_id.is_none());
         assert!(a.reason.is_none());
         assert_eq!(a.created_at, a.updated_at);
         assert_eq!(a.admitted_at, a.created_at);
@@ -188,7 +188,7 @@ mod tests {
         let admission_id = Uuid::new_v4();
         let d = Discharge::new(admission_id);
         assert_eq!(d.admission_id, admission_id);
-        assert!(d.discharging_practitioner_id.is_none());
+        assert!(d.discharging_worker_id.is_none());
         assert!(d.disposition.is_none());
         assert!(d.notes.is_none());
         assert_eq!(d.discharged_at, d.created_at);
@@ -219,14 +219,14 @@ mod tests {
     #[test]
     fn test_admission_serde_roundtrip() {
         let mut a = Admission::new(Uuid::new_v4(), Uuid::new_v4());
-        a.admitting_practitioner_id = Some(Uuid::new_v4());
+        a.admitting_worker_id = Some(Uuid::new_v4());
         a.reason = Some("planned surgery".into());
         let json = serde_json::to_string(&a).expect("serialize");
         let back: Admission = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.id, a.id);
         assert_eq!(back.encounter_id, a.encounter_id);
         assert_eq!(back.bed_id, a.bed_id);
-        assert_eq!(back.admitting_practitioner_id, a.admitting_practitioner_id);
+        assert_eq!(back.admitting_worker_id, a.admitting_worker_id);
         assert_eq!(back.reason.as_deref(), Some("planned surgery"));
         assert_eq!(back.admitted_at, a.admitted_at);
     }

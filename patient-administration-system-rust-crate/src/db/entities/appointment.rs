@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub slot_id: Option<Uuid>,
-    pub practitioner_id: Option<Uuid>,
+    pub worker_id: Option<Uuid>,
     pub start_datetime: DateTimeWithTimeZone,
     pub end_datetime: DateTimeWithTimeZone,
     pub status: String,

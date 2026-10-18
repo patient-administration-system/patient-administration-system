@@ -21,7 +21,7 @@ mod pathway_entity {
     pub struct Model {
         #[sea_orm(primary_key, auto_increment = false)]
         pub id: Uuid,
-        pub patient_id: Uuid,
+        pub person_id: Uuid,
         pub target_service: String,
         pub breach_weeks: i32,
         pub status: String,
@@ -94,7 +94,7 @@ mod patient_entity {
 #[derive(Debug, Clone, Serialize)]
 pub struct PathwayRow {
     pub pathway_id: Uuid,
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub patient_family: String,
     pub patient_given: String,
     pub target_service: String,
@@ -117,9 +117,9 @@ pub async fn list_active_pathways(db: &DatabaseConnection) -> Result<Vec<Pathway
     }
 
     // Patient name lookup table.
-    let patient_ids: Vec<Uuid> = pathways.iter().map(|p| p.patient_id).collect();
+    let person_ids: Vec<Uuid> = pathways.iter().map(|p| p.person_id).collect();
     let patients = patient_entity::Entity::find()
-        .filter(patient_entity::Column::Id.is_in(patient_ids))
+        .filter(patient_entity::Column::Id.is_in(person_ids))
         .all(db)
         .await?;
     let patient_by_id: HashMap<Uuid, patient_entity::Model> =
@@ -137,12 +137,12 @@ pub async fn list_active_pathways(db: &DatabaseConnection) -> Result<Vec<Pathway
         let weeks = compute_active_weeks_from_models(&events, now);
         let breach_weeks = p.breach_weeks.max(0) as u32;
         let (family, given) = patient_by_id
-            .get(&p.patient_id)
+            .get(&p.person_id)
             .map(|m| name_parts(&m.name))
             .unwrap_or_else(|| ("(unknown)".into(), String::new()));
         rows.push(PathwayRow {
             pathway_id: p.id,
-            patient_id: p.patient_id,
+            person_id: p.person_id,
             patient_family: family,
             patient_given: given,
             target_service: p.target_service,

@@ -65,7 +65,7 @@ impl AdtService {
     ///    event via the configured publisher.
     pub async fn admit(
         &self,
-        patient_id: Uuid,
+        person_id: Uuid,
         bed_id: Uuid,
         ctx: &UserContext,
     ) -> Result<AdmissionResult> {
@@ -85,7 +85,7 @@ impl AdtService {
                     }
 
                     // Create encounter and advance status to InProgress.
-                    let mut enc = Encounter::new(patient_id, EncounterClass::Inpatient);
+                    let mut enc = Encounter::new(person_id, EncounterClass::Inpatient);
                     enc.status = enc.status.try_transition_to(EncounterStatus::Arrived)?;
                     enc.status = enc.status.try_transition_to(EncounterStatus::InProgress)?;
                     let enc = EncounterRepository::create(txn, &enc).await?;
@@ -117,7 +117,7 @@ impl AdtService {
                         "EncounterAdmitted",
                         &serde_json::json!({
                             "encounter_id": enc.id,
-                            "patient_id": patient_id,
+                            "person_id": person_id,
                             "bed_id": bed_id,
                             "admission_id": adm.id,
                         }),
@@ -169,7 +169,7 @@ impl AdtService {
     /// pre-existing planned encounter (future work).
     pub async fn pre_admit(
         &self,
-        patient_id: Uuid,
+        person_id: Uuid,
         bed_id: Uuid,
         source: Option<&str>,
         ctx: &UserContext,
@@ -191,7 +191,7 @@ impl AdtService {
                         )));
                     }
                     BedRepository::update_status(txn, bed_id, BedStatus::Reserved).await?;
-                    let enc = Encounter::new(patient_id, EncounterClass::Inpatient);
+                    let enc = Encounter::new(person_id, EncounterClass::Inpatient);
                     let enc = EncounterRepository::create(txn, &enc).await?;
                     AuditLogRepository::log(
                         txn,
@@ -205,7 +205,7 @@ impl AdtService {
                     .await?;
                     let mut payload = serde_json::json!({
                         "encounter_id": enc.id,
-                        "patient_id": patient_id,
+                        "person_id": person_id,
                         "bed_id": bed_id,
                     });
                     if let Some(s) = source_for_txn.as_deref() {
@@ -227,7 +227,7 @@ impl AdtService {
                 "EncounterPreAdmitted",
                 serde_json::json!({
                     "encounter_id": res.id,
-                    "patient_id": patient_id,
+                    "person_id": person_id,
                     "bed_id": bed_id,
                 }),
             ))
@@ -247,7 +247,7 @@ impl AdtService {
     /// (`Planned → Cancelled` is legal), write audit + outbox, commit.
     pub async fn cancel_pre_admit(
         &self,
-        patient_id: Uuid,
+        person_id: Uuid,
         bed_id: Uuid,
         source: Option<&str>,
         ctx: &UserContext,
@@ -271,12 +271,12 @@ impl AdtService {
                     let enc =
                         EncounterRepository::find_latest_planned_inpatient_for_patient(
                             txn,
-                            patient_id,
+                            person_id,
                         )
                         .await?
                         .ok_or_else(|| {
                             Error::not_found(format!(
-                                "patient {patient_id} has no planned inpatient encounter to cancel"
+                                "patient {person_id} has no planned inpatient encounter to cancel"
                             ))
                         })?;
                     BedRepository::update_status(txn, bed_id, BedStatus::Available).await?;
@@ -293,7 +293,7 @@ impl AdtService {
                         "cancel_pre_admit",
                         None,
                         Some(serde_json::json!({
-                            "patient_id": patient_id,
+                            "person_id": person_id,
                             "bed_id": bed_id,
                         })),
                         &ctx_clone,
@@ -301,7 +301,7 @@ impl AdtService {
                     .await?;
                     let mut payload = serde_json::json!({
                         "encounter_id": enc.id,
-                        "patient_id": patient_id,
+                        "person_id": person_id,
                         "bed_id": bed_id,
                     });
                     if let Some(s) = source_for_txn.as_deref() {
@@ -319,7 +319,7 @@ impl AdtService {
 
         let mut in_mem = serde_json::json!({
             "encounter_id": res.id,
-            "patient_id": patient_id,
+            "person_id": person_id,
             "bed_id": bed_id,
         });
         if let Some(s) = source_owned.as_deref() {
@@ -549,7 +549,7 @@ impl AdtService {
     /// 7. Write audit + outbox `EncounterPromotedToInpatient`.
     pub async fn change_to_inpatient(
         &self,
-        patient_id: Uuid,
+        person_id: Uuid,
         bed_id: Uuid,
         source: Option<&str>,
         ctx: &UserContext,
@@ -571,12 +571,12 @@ impl AdtService {
                         )));
                     }
                     let enc = EncounterRepository::find_latest_active_ambulatory_for_patient(
-                        txn, patient_id,
+                        txn, person_id,
                     )
                     .await?
                     .ok_or_else(|| {
                         Error::not_found(format!(
-                            "patient {patient_id} has no active ambulatory encounter to promote"
+                            "patient {person_id} has no active ambulatory encounter to promote"
                         ))
                     })?;
                     let enc =
@@ -608,7 +608,7 @@ impl AdtService {
                     .await?;
                     let mut payload = serde_json::json!({
                         "encounter_id": enc.id,
-                        "patient_id": patient_id,
+                        "person_id": person_id,
                         "bed_id": bed_id,
                         "admission_id": adm.id,
                     });
@@ -632,7 +632,7 @@ impl AdtService {
         let mut in_mem = serde_json::json!({
             "encounter_id": res.encounter.id,
             "admission_id": res.admission.id,
-            "patient_id": patient_id,
+            "person_id": person_id,
             "bed_id": bed_id,
         });
         if let Some(s) = source_owned.as_deref() {
@@ -706,7 +706,7 @@ impl AdtService {
                     .await?;
                     let mut payload = serde_json::json!({
                         "encounter_id": enc.id,
-                        "patient_id": enc.patient_id,
+                        "person_id": enc.person_id,
                         "admission_id": admission_id,
                         "released_bed_id": ba.bed_id,
                     });
@@ -725,7 +725,7 @@ impl AdtService {
             })?;
         let mut in_mem = serde_json::json!({
             "encounter_id": res.id,
-            "patient_id": res.patient_id,
+            "person_id": res.person_id,
             "admission_id": admission_id,
         });
         if let Some(s) = source_owned.as_deref() {

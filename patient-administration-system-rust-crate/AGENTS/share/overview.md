@@ -1,6 +1,6 @@
 ### Overview
 
-The Patient Administration System (PAS) is an administrative system of record for hospital workflow. Non-clinical: identity, ADT, scheduling, waitlists, resources, communications, billing.
+The Patient Administration System (PAS) is an administrative workflow service for a hospital. Non-clinical: ADT, scheduling, waitlists, resources, communications, billing. **Identity (`Patient`) and workforce (`Practitioner`) are HTTP-delegated** to `person-service` and `worker-service` as of the v0.44.0 target — see `spec.md` §1 + §13 Layer 11. The bullets below describe the shipped v0.43.0 feature surface; identity-bearing endpoints become thin proxies in v0.44.0 but keep the same wire shape.
 
 - ADT: admit → transfer → discharge with atomic bed allocation under `SELECT … FOR UPDATE`
 - Scheduling: slot booking, cancellation, check-in, completion, no-show, bulk slot generation. **Recurring appointment series** (v0.9): RFC 5545 subset (daily/weekly/monthly + INTERVAL + BYDAY + COUNT/UNTIL); atomic per-patient-overlap reject; cap 200 occurrences.

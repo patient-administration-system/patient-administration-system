@@ -34,7 +34,7 @@ impl SchedulingService {
     pub async fn book_slot(
         &self,
         slot_id: Uuid,
-        patient_id: Uuid,
+        person_id: Uuid,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         let ctx_clone = ctx.clone();
@@ -53,7 +53,7 @@ impl SchedulingService {
                     }
                     let overlapping = AppointmentRepository::find_overlapping_for_patient(
                         txn,
-                        patient_id,
+                        person_id,
                         slot.start_datetime,
                         slot.end_datetime,
                     )
@@ -65,7 +65,7 @@ impl SchedulingService {
                     }
                     SlotRepository::update_status(txn, slot_id, SlotStatus::Busy).await?;
                     let mut appt =
-                        Appointment::new(patient_id, slot.start_datetime, slot.end_datetime);
+                        Appointment::new(person_id, slot.start_datetime, slot.end_datetime);
                     appt.slot_id = Some(slot.id);
                     appt.status = appt.status.try_transition_to(AppointmentStatus::Booked)?;
                     let appt = AppointmentRepository::create(txn, &appt).await?;
@@ -84,7 +84,7 @@ impl SchedulingService {
                         "AppointmentBooked",
                         &serde_json::json!({
                             "appointment_id": appt.id,
-                            "patient_id": patient_id,
+                            "person_id": person_id,
                             "slot_id": slot.id,
                             "start": appt.start_datetime,
                         }),

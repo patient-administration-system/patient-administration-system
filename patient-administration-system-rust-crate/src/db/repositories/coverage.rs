@@ -82,10 +82,10 @@ impl CoverageRepository {
     /// All coverage rows for a patient, newest-first.
     pub async fn list_by_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Vec<Coverage>> {
         let rows = coverage::Entity::find()
-            .filter(coverage::Column::PatientId.eq(patient_id))
+            .filter(coverage::Column::PersonId.eq(person_id))
             .order_by_desc(coverage::Column::CreatedAt)
             .all(conn)
             .await
@@ -133,7 +133,7 @@ fn kind_from_str(s: &str) -> Result<CoverageKind> {
 fn to_active_model(c: &Coverage) -> coverage::ActiveModel {
     coverage::ActiveModel {
         id: Set(c.id),
-        patient_id: Set(c.patient_id),
+        person_id: Set(c.person_id),
         account_id: Set(c.account_id),
         status: Set(c.status.as_str().to_string()),
         kind: Set(c.kind.as_str().to_string()),
@@ -153,7 +153,7 @@ fn to_active_model(c: &Coverage) -> coverage::ActiveModel {
 fn from_model(m: coverage::Model) -> Result<Coverage> {
     Ok(Coverage {
         id: m.id,
-        patient_id: m.patient_id,
+        person_id: m.person_id,
         account_id: m.account_id,
         status: status_from_str(&m.status)?,
         kind: kind_from_str(&m.kind)?,
@@ -212,7 +212,7 @@ mod tests {
         let am = to_active_model(&c);
         let m = coverage::Model {
             id: am.id.clone().unwrap(),
-            patient_id: am.patient_id.clone().unwrap(),
+            person_id: am.person_id.clone().unwrap(),
             account_id: am.account_id.clone().unwrap(),
             status: am.status.clone().unwrap(),
             kind: am.kind.clone().unwrap(),

@@ -1,6 +1,13 @@
 # Domain Model Reference
 
-This document describes the domain model surface of the Patient Administration System (PAS). Models live under `src/models/` as pure Rust types with `serde` derives and no DB dependencies. The PAS is administrative: it owns identity, ADT, scheduling, waitlists, resources, communications, and billing. Clinical content (diagnoses, orders, results) is intentionally out of scope.
+This document describes the domain model surface of the Patient Administration System (PAS). Models live under `src/models/` as pure Rust types with `serde` derives and no DB dependencies. The PAS is administrative: it owns ADT, scheduling, waitlists, resources, communications, and billing. Clinical content (diagnoses, orders, results) is intentionally out of scope.
+
+> **v0.44.0 Option C — IDENTITY + WORKFORCE DELEGATED.**
+> The Patient (`src/models/patient.rs`), Identifier (`src/models/identifier.rs`), and Workforce (`src/models/practitioner.rs`) sections below document the **shipped v0.43.0** surface. **They are removed in v0.44.0** — Layer 11C deletes those three files (along with `src/validation/identifier.rs` and `src/search/`).
+>
+> In v0.44.0 the PAS holds no Patient / Practitioner / Identifier types. Every former `Patient` field is reached via the `PersonClient` HTTP trait against `person-service`; every former `Practitioner` field is reached via `WorkerClient` against `worker-service`. The PAS-exposed wire shapes (`Patient` JSON, FHIR `Patient`, HL7 v2 PID) are built inside the proxy handlers by translating the upstream `Person` / `Worker` shape — see `src/upstream/translate.rs` and `spec.md` §4.0 / §4.0.1.
+>
+> Sections below marked "v0.43.0 only" are kept for archaeological reference until Layer 11C lands; do not extend or modify them. Add new model docs under the PAS-owned sections only.
 
 ## Shared Value Types (`models/mod.rs`)
 
@@ -71,7 +78,9 @@ A newtype wrapping a `String`. Validates that the code is exactly three uppercas
 - `is_valid()` — `start < end`.
 - `overlaps(&other)` — half-open interval overlap (touching ranges do not overlap).
 
-## Patient (`models/patient.rs`)
+## Patient (`models/patient.rs`) — **v0.43.0 only; removed in v0.44.0**
+
+> Delegated to `person-service` at v0.44.0. The PAS holds opaque `person_id: Uuid` columns and proxies every Patient-shape request to `/api/persons/*` upstream.
 
 ### `HumanName`
 
@@ -118,7 +127,9 @@ A newtype wrapping a `String`. Validates that the code is exactly three uppercas
 - `Patient::new(name, gender) -> Self` — generates UUID and timestamps; active=true.
 - `Patient::full_name() -> String` — `"<given joined> <family>"`.
 
-## Identifier (`models/identifier.rs`)
+## Identifier (`models/identifier.rs`) — **v0.43.0 only; removed in v0.44.0**
+
+> Delegated to `person-service` at v0.44.0. National-identifier validators (NHS Mod 11, NIR Mod 97 + Corsica fix-up, TSI, IHI, HCN) move to the upstream service; the PAS-exposed Patient body forwards identifier objects verbatim and surfaces upstream `400 + invalid` envelopes as `400 + VALIDATION` in the PAS envelope.
 
 ### `IdentifierUse`
 
@@ -157,7 +168,9 @@ The system URIs are also exported as public constants
 `HCN_SYSTEM_URI`, `SSN_SYSTEM_URI`) so callers building `Identifier`
 literals against the same scheme stay byte-identical.
 
-## Workforce (`models/practitioner.rs`)
+## Workforce (`models/practitioner.rs`) — **v0.43.0 only; removed in v0.44.0**
+
+> Delegated to `worker-service` at v0.44.0. The PAS holds opaque `worker_id: Uuid` columns on `encounters`, `admissions`, `appointments`, `schedules`, etc. and proxies every Practitioner-shape request to `/api/workers/*` upstream. `PractitionerRole` and `Department` move upstream too.
 
 ### `Practitioner`
 

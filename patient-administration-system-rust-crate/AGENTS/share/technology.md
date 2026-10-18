@@ -2,6 +2,8 @@
 
 Snapshot of the dependencies declared in this crate's `Cargo.toml`. The README has the same table with versions; this file mirrors it so AGENTS-only readers see the stack without context-switching. Update both together.
 
+> **v0.44.0 Option C delta.** `tantivy` 0.22 is removed (local patient search index is gone; `person-service` owns search). `reqwest` is promoted from "via WebhookEventPublisher" to a first-class dep used by `src/upstream/{person_client,worker_client}.rs`. **No Cargo dep is added on `person-service` or `worker-service`** — those are HTTP-only runtime dependencies, not compile-time. See `spec.md` §10.
+
 The v0.3.1 dep audit removed 15 unused direct deps (`loco-rs`, `fluvio`, `tonic`, `prost`, `tonic-build`, `openapiv3`, `jsonwebtoken`, `argon2`, `strsim`, `anyhow`, `bigdecimal`, `validator`, `hyper`, plus all five `opentelemetry*` crates). v0.3.4 removed `mockall` + `tokio-test` from dev-deps. v0.7.0 reintroduced four `opentelemetry*` crates (`opentelemetry`, `opentelemetry_sdk`, `opentelemetry-otlp`, `tracing-opentelemetry`) when the OTLP exporter actually started being used. Anything below is actually compiled and used.
 
 | Component            | Technology                                  | Purpose                                  |

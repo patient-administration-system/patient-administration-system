@@ -38,10 +38,10 @@ impl EncounterRepository {
     /// encounter that should be reclassified + bedded.
     pub async fn find_latest_active_ambulatory_for_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Option<Encounter>> {
         let m = encounter::Entity::find()
-            .filter(encounter::Column::PatientId.eq(patient_id))
+            .filter(encounter::Column::PersonId.eq(person_id))
             .filter(encounter::Column::DeletedAt.is_null())
             .filter(
                 encounter::Column::Class
@@ -65,10 +65,10 @@ impl EncounterRepository {
     /// that should be cancelled when a pre-admission is undone.
     pub async fn find_latest_planned_inpatient_for_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Option<Encounter>> {
         let m = encounter::Entity::find()
-            .filter(encounter::Column::PatientId.eq(patient_id))
+            .filter(encounter::Column::PersonId.eq(person_id))
             .filter(encounter::Column::DeletedAt.is_null())
             .filter(encounter::Column::Status.eq("planned"))
             .filter(encounter::Column::Class.eq("inpatient"))
@@ -81,10 +81,10 @@ impl EncounterRepository {
 
     pub async fn list_by_patient<C: ConnectionTrait>(
         conn: &C,
-        patient_id: Uuid,
+        person_id: Uuid,
     ) -> Result<Vec<Encounter>> {
         let rows = encounter::Entity::find()
-            .filter(encounter::Column::PatientId.eq(patient_id))
+            .filter(encounter::Column::PersonId.eq(person_id))
             .filter(encounter::Column::DeletedAt.is_null())
             .all(conn)
             .await
@@ -211,12 +211,12 @@ pub(crate) fn encounter_status_from_str(s: &str) -> Result<EncounterStatus> {
 fn to_active_model(e: &Encounter) -> encounter::ActiveModel {
     encounter::ActiveModel {
         id: Set(e.id),
-        patient_id: Set(e.patient_id),
+        person_id: Set(e.person_id),
         class: Set(encounter_class_to_str(e.class).to_string()),
         status: Set(encounter_status_to_str(e.status).to_string()),
         period_start: Set(e.period_start.fixed_offset()),
         period_end: Set(e.period_end.map(|t| t.fixed_offset())),
-        practitioner_id: Set(e.practitioner_id),
+        worker_id: Set(e.worker_id),
         department_id: Set(e.department_id),
         reason: Set(e.reason.clone()),
         deleted_at: Set(None),
@@ -228,12 +228,12 @@ fn to_active_model(e: &Encounter) -> encounter::ActiveModel {
 fn from_model(m: encounter::Model) -> Result<Encounter> {
     Ok(Encounter {
         id: m.id,
-        patient_id: m.patient_id,
+        person_id: m.person_id,
         class: encounter_class_from_str(&m.class)?,
         status: encounter_status_from_str(&m.status)?,
         period_start: m.period_start.with_timezone(&chrono::Utc),
         period_end: m.period_end.map(|t| t.with_timezone(&chrono::Utc)),
-        practitioner_id: m.practitioner_id,
+        worker_id: m.worker_id,
         department_id: m.department_id,
         reason: m.reason,
         created_at: m.created_at.with_timezone(&chrono::Utc),
@@ -251,12 +251,12 @@ mod tests {
         let am = to_active_model(&e);
         let m = encounter::Model {
             id: am.id.clone().unwrap(),
-            patient_id: am.patient_id.clone().unwrap(),
+            person_id: am.person_id.clone().unwrap(),
             class: am.class.clone().unwrap(),
             status: am.status.clone().unwrap(),
             period_start: am.period_start.clone().unwrap(),
             period_end: am.period_end.clone().unwrap(),
-            practitioner_id: am.practitioner_id.clone().unwrap(),
+            worker_id: am.worker_id.clone().unwrap(),
             department_id: am.department_id.clone().unwrap(),
             reason: am.reason.clone().unwrap(),
             deleted_at: am.deleted_at.clone().unwrap(),

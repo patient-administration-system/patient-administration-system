@@ -107,8 +107,8 @@ pub enum SeriesStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppointmentSeries {
     pub id: Uuid,
-    pub patient_id: Uuid,
-    pub practitioner_id: Option<Uuid>,
+    pub person_id: Uuid,
+    pub worker_id: Option<Uuid>,
     pub service_type: String,
     /// First occurrence's start time. Subsequent occurrences are
     /// computed as offsets from this.
@@ -125,7 +125,7 @@ pub struct AppointmentSeries {
 
 impl AppointmentSeries {
     pub fn new(
-        patient_id: Uuid,
+        person_id: Uuid,
         service_type: impl Into<String>,
         start_datetime: DateTime<Utc>,
         duration_minutes: u32,
@@ -134,8 +134,8 @@ impl AppointmentSeries {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
-            patient_id,
-            practitioner_id: None,
+            person_id,
+            worker_id: None,
             service_type: service_type.into(),
             start_datetime,
             duration_minutes,
@@ -483,6 +483,6 @@ mod tests {
         );
         assert_eq!(s.status, SeriesStatus::Active);
         assert_eq!(s.duration_minutes, 30);
-        assert!(s.practitioner_id.is_none());
+        assert!(s.worker_id.is_none());
     }
 }

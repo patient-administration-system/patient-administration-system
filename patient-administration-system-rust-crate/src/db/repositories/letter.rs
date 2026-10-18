@@ -169,7 +169,7 @@ fn letter_to_active_model(g: &GeneratedLetter) -> generated_letter::ActiveModel 
     generated_letter::ActiveModel {
         id: Set(g.id),
         template_id: Set(g.template_id),
-        patient_id: Set(g.patient_id),
+        person_id: Set(g.person_id),
         appointment_id: Set(g.appointment_id),
         rendered_subject: Set(g.rendered_subject.clone()),
         rendered_body: Set(g.rendered_body.clone()),
@@ -185,7 +185,7 @@ fn letter_from_model(m: generated_letter::Model) -> Result<GeneratedLetter> {
     Ok(GeneratedLetter {
         id: m.id,
         template_id: m.template_id,
-        patient_id: m.patient_id,
+        person_id: m.person_id,
         appointment_id: m.appointment_id,
         rendered_subject: m.rendered_subject,
         rendered_body: m.rendered_body,

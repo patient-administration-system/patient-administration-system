@@ -28,9 +28,7 @@ pub async fn new_form(
     jar: CookieJar,
 ) -> Result<(CookieJar, Response)> {
     let (csrf_token, jar) = csrf::ensure_token(jar);
-    let patients = list_active_patients(&ctx.db, 200)
-        .await
-        .map_err(Error::wrap)?;
+    let patients = list_active_patients(200).await;
     let beds = list_available(&ctx.db).await.map_err(Error::wrap)?;
     let resp = format::render().view(
         &v,
@@ -49,7 +47,7 @@ pub async fn new_form(
 
 #[derive(Debug, Deserialize)]
 pub struct AdmitForm {
-    pub patient_id: Uuid,
+    pub person_id: Uuid,
     pub bed_id: Uuid,
     pub csrf_token: String,
 }
@@ -65,7 +63,7 @@ pub async fn submit(
     csrf::verify_token(&jar, &form.csrf_token)?;
     let (csrf_token, jar) = csrf::ensure_token(jar);
     let req = AdmitRequest {
-        patient_id: form.patient_id,
+        person_id: form.person_id,
         bed_id: form.bed_id,
     };
     let (error, result) = match admit(&req).await {
@@ -74,7 +72,7 @@ pub async fn submit(
             json!({
                 "admission_id": out.admission.id,
                 "encounter_id": out.encounter.id,
-                "patient_id": out.encounter.patient_id,
+                "person_id": out.encounter.person_id,
                 "bed_id": out.admission.bed_id,
             }),
         ),
@@ -83,9 +81,7 @@ pub async fn submit(
             serde_json::Value::Null,
         ),
     };
-    let patients = list_active_patients(&ctx.db, 200)
-        .await
-        .map_err(Error::wrap)?;
+    let patients = list_active_patients(200).await;
     let beds = list_available(&ctx.db).await.map_err(Error::wrap)?;
     let resp = format::render().view(
         &v,

@@ -95,6 +95,28 @@ pub struct Config {
     /// `PAS_WEBHOOK_TIMEOUT_SECS`. Ignored when `pas_webhook_url` is
     /// `None`.
     pub pas_webhook_timeout_secs: u64,
+    /// Base URL of the upstream `person-service` (v0.44.0
+    /// Option C identity delegation, Phase 1 wiring). When `None` the
+    /// PAS does not attach a [`crate::upstream::PersonClient`] to
+    /// the AppState; the proxy handlers added in Phase 3 will then
+    /// return `503 + UPSTREAM_UNAVAILABLE` for any identity-bearing
+    /// request. Read from `PERSON_SERVICE_URL`.
+    pub person_service_url: Option<String>,
+    /// Optional bearer token attached as `Authorization: Bearer <token>`
+    /// on every outbound call to `person-service`. Read from
+    /// `PERSON_SERVICE_TOKEN`. Ignored when
+    /// `person_service_url` is `None`.
+    pub person_service_token: Option<String>,
+    /// Base URL of the upstream `worker-service`. Same semantics
+    /// as `person_service_url`. Read from `WORKER_SERVICE_URL`.
+    pub worker_service_url: Option<String>,
+    /// Optional bearer token attached to every outbound call to
+    /// `worker-service`. Read from `WORKER_SERVICE_TOKEN`.
+    pub worker_service_token: Option<String>,
+    /// reqwest timeout (seconds) applied to every outbound call to
+    /// either upstream service. Default `10`. Read from
+    /// `UPSTREAM_TIMEOUT_SECS`.
+    pub upstream_timeout_secs: u64,
 }
 
 impl Config {
@@ -163,6 +185,22 @@ impl Config {
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(crate::streaming::webhook::DEFAULT_TIMEOUT_SECS);
+        let person_service_url = std::env::var("PERSON_SERVICE_URL")
+            .ok()
+            .filter(|s| !s.is_empty());
+        let person_service_token = std::env::var("PERSON_SERVICE_TOKEN")
+            .ok()
+            .filter(|s| !s.is_empty());
+        let worker_service_url = std::env::var("WORKER_SERVICE_URL")
+            .ok()
+            .filter(|s| !s.is_empty());
+        let worker_service_token = std::env::var("WORKER_SERVICE_TOKEN")
+            .ok()
+            .filter(|s| !s.is_empty());
+        let upstream_timeout_secs = std::env::var("UPSTREAM_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(10);
         Ok(Self {
             database_url,
             server_host,
@@ -182,6 +220,11 @@ impl Config {
             pas_webhook_url,
             pas_webhook_secret,
             pas_webhook_timeout_secs,
+            person_service_url,
+            person_service_token,
+            worker_service_url,
+            worker_service_token,
+            upstream_timeout_secs,
         })
     }
 }

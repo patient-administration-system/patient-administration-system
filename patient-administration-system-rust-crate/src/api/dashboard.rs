@@ -55,7 +55,7 @@ struct BreachRow {
     target_service: String,
     /// First 8 chars of the patient UUID — enough for an operator to spot a
     /// row, short enough to fit on screen.
-    patient_id_short: String,
+    person_id_short: String,
     weeks_waiting: u32,
     breach_weeks: u32,
 }
@@ -174,7 +174,7 @@ async fn collect_breaches(state: &AppState) -> Vec<BreachRow> {
         if weeks > threshold {
             out.push(BreachRow {
                 target_service: p.target_service,
-                patient_id_short: short_uuid(p.patient_id),
+                person_id_short: short_uuid(p.person_id),
                 weeks_waiting: weeks,
                 breach_weeks: threshold,
             });
@@ -294,7 +294,7 @@ mod tests {
     fn test_breaches_fragment_populated() {
         let rows = vec![BreachRow {
             target_service: "cardiology".into(),
-            patient_id_short: "abc12345".into(),
+            person_id_short: "abc12345".into(),
             weeks_waiting: 24,
             breach_weeks: 18,
         }];
