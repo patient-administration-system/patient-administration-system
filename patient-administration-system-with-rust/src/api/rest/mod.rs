@@ -14,6 +14,7 @@ pub mod handlers_resources;
 pub mod handlers_scheduling;
 pub mod handlers_series;
 pub mod handlers_waitlist;
+pub mod handlers_writeback;
 pub mod rate_limit;
 pub mod routes;
 pub mod state;

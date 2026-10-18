@@ -40,6 +40,7 @@ pub mod streaming;
 pub mod upstream;
 pub mod validation;
 pub mod waitlist;
+pub mod writeback;
 
 // Re-exports
 pub use error::{Error, Result};

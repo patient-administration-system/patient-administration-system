@@ -35,6 +35,7 @@ use super::handlers_resources;
 use super::handlers_scheduling;
 use super::handlers_series;
 use super::handlers_waitlist;
+use super::handlers_writeback;
 use super::upstream_proxy;
 
 /// Build the REST sub-router and attach the shared [`AppState`].
@@ -142,6 +143,15 @@ pub fn router(state: AppState) -> Router {
         )
         // Scheduling — book / cancel / check-in / complete.
         .route("/api/slots/{id}/book", post(handlers_scheduling::book_slot))
+        // Write-back (CAP-2): a patient's reply changes the appointment now.
+        .route(
+            "/api/write-back/replies",
+            post(handlers_writeback::post_reply),
+        )
+        .route(
+            "/api/write-back/batch",
+            post(handlers_writeback::post_batch),
+        )
         .route(
             "/api/appointments",
             get(handlers_scheduling::list_appointments),

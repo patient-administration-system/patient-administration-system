@@ -25,3 +25,55 @@ pub async fn build_state(url: &str) -> AppState {
     let publisher = Arc::new(InMemoryEventPublisher::new());
     AppState::new(db, publisher)
 }
+
+/// A fresh schedule, so a test's slots are its own.
+#[allow(dead_code)]
+pub async fn new_schedule(
+    db: &sea_orm::DatabaseConnection,
+) -> patient_administration_system::models::schedule::Schedule {
+    use patient_administration_system::db::repositories::schedule::ScheduleRepository;
+    use patient_administration_system::models::schedule::{Schedule, ScheduleOwner};
+    let s = Schedule::new(
+        ScheduleOwner::Practitioner(uuid::Uuid::new_v4()),
+        "test-clinic".into(),
+    );
+    ScheduleRepository::create(db, &s)
+        .await
+        .expect("create schedule")
+}
+
+/// A free slot starting `in_days` days from now and lasting 30 minutes.
+#[allow(dead_code)]
+pub async fn free_slot(
+    db: &sea_orm::DatabaseConnection,
+    schedule_id: uuid::Uuid,
+    in_days: i64,
+) -> patient_administration_system::models::schedule::Slot {
+    use patient_administration_system::db::repositories::slot::SlotRepository;
+    use patient_administration_system::models::schedule::Slot;
+    let start = chrono::Utc::now() + chrono::Duration::days(in_days);
+    let slot = Slot::new(schedule_id, start, start + chrono::Duration::minutes(30));
+    SlotRepository::create(db, &slot)
+        .await
+        .expect("create slot")
+}
+
+/// How many audit rows exist for an entity and action.
+#[allow(dead_code)]
+pub async fn audit_count(
+    db: &sea_orm::DatabaseConnection,
+    entity_id: uuid::Uuid,
+    action: &str,
+) -> i64 {
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+    let row = db
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT count(*) AS n FROM audit_log WHERE entity_id = $1 AND action = $2",
+            [entity_id.into(), action.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    row.try_get("", "n").unwrap()
+}

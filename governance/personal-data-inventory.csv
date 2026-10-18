@@ -142,6 +142,19 @@ generated_letters,status,none,"Not personal data (structure, status, timestamps,
 generated_letters,sent_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 generated_letters,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 generated_letters,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,message_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,action,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,person_id,identifier,Link a record to a person held by person-service,record
+inbound_replies,channel,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,barrier_code,health,"Administrative care information (why, where, what service, outcome)",record
+inbound_replies,new_slot_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,reject_reason,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,new_appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,received_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 invoices,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 invoices,account_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 invoices,status,none,"Not personal data (structure, status, timestamps, places, templates)",record

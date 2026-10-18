@@ -27,6 +27,7 @@ pub struct AppState {
     pub publisher: Arc<dyn EventPublisher>,
     pub adt: Arc<AdtService>,
     pub scheduling: Arc<SchedulingService>,
+    pub writeback: Arc<crate::writeback::WriteBackService>,
     pub series: Arc<SeriesService>,
     pub waitlist: Arc<WaitlistService>,
     pub rtt: Arc<RttService>,
@@ -50,9 +51,14 @@ impl AppState {
     /// [`Self::with_sms_provider`] before serving requests to enable
     /// real auto-send.
     pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
+        let scheduling = Arc::new(SchedulingService::new(db.clone(), publisher.clone()));
         Self {
             adt: Arc::new(AdtService::new(db.clone(), publisher.clone())),
-            scheduling: Arc::new(SchedulingService::new(db.clone(), publisher.clone())),
+            writeback: Arc::new(crate::writeback::WriteBackService::new(
+                db.clone(),
+                scheduling.clone(),
+            )),
+            scheduling,
             series: Arc::new(SeriesService::new(db.clone(), publisher.clone())),
             waitlist: Arc::new(WaitlistService::new(db.clone(), publisher.clone())),
             rtt: Arc::new(RttService::new(db.clone(), publisher.clone())),
