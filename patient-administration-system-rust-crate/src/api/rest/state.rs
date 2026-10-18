@@ -82,6 +82,7 @@ impl AppState {
         self.communication = Arc::new(
             CommunicationService::new(self.db.clone(), self.publisher.clone())
                 .with_sms_provider(sms_provider)
+                .with_senders_of(&self.communication)
                 .with_person_client(client.clone()),
         );
         self.person_client = Some(client);
@@ -96,6 +97,23 @@ impl AppState {
         self
     }
 
+    /// Wire a sender for Email, AppleMessages or WhatsApp.
+    pub fn with_sender(
+        mut self,
+        channel: crate::models::communication::DeliveryChannel,
+        sender: Arc<dyn crate::communication::MessageSender>,
+    ) -> Self {
+        let mut svc = CommunicationService::new(self.db.clone(), self.publisher.clone())
+            .with_sms_provider(self.communication.sms_provider_arc())
+            .with_senders_of(&self.communication)
+            .with_sender(channel, sender);
+        if let Some(c) = self.person_client.clone() {
+            svc = svc.with_person_client(c);
+        }
+        self.communication = Arc::new(svc);
+        self
+    }
+
     /// Swap in a concrete [`SmsProvider`] for the [`CommunicationService`].
     /// `main.rs` calls this from the config; tests can install
     /// `LogSmsProvider` to exercise the auto-send path without a real
@@ -106,7 +124,8 @@ impl AppState {
         // preserving any previously-attached PersonClient.
         let _ = NoopSmsProvider; // silence unused-import warning when sms is unused
         let mut svc = CommunicationService::new(self.db.clone(), self.publisher.clone())
-            .with_sms_provider(sms_provider);
+            .with_sms_provider(sms_provider)
+            .with_senders_of(&self.communication);
         if let Some(c) = self.person_client.clone() {
             svc = svc.with_person_client(c);
         }

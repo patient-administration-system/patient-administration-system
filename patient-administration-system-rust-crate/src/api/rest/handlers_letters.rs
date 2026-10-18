@@ -71,6 +71,44 @@ pub async fn create_template(
     }
 }
 
+/// `PUT /api/letter-templates/{id}` — administrators edit a template's
+/// subject, body, channels, required variables and active flag. The Tera
+/// source is validated before it is stored so a typo cannot break reminders.
+pub async fn update_template(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(mut body): Json<LetterTemplate>,
+) -> HandlerResult {
+    body.id = id;
+    for (field, src) in [("subject", &body.subject), ("body_tera", &body.body_tera)] {
+        if let Err(e) = tera::Tera::default().add_raw_template("t", src) {
+            return error_to_response(Error::validation(format!("{field}: {e}")));
+        }
+    }
+    let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let before = LetterRepository::find_template_by_id(&state.db, id).await;
+    match LetterRepository::update_template(&state.db, &body).await {
+        Ok(t) => {
+            let _ = AuditLogRepository::log(
+                &state.db,
+                "letter_template",
+                t.id,
+                "update",
+                before
+                    .ok()
+                    .flatten()
+                    .and_then(|b| serde_json::to_value(b).ok()),
+                Some(serde_json::to_value(&t).unwrap_or_default()),
+                &ctx,
+            )
+            .await;
+            ok(serde_json::to_value(t).unwrap_or(Value::Null))
+        }
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `GET /api/letter-templates/:id`.
 pub async fn get_template(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match LetterRepository::find_template_by_id(&state.db, id).await {

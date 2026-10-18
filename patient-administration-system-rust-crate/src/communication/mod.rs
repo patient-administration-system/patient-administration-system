@@ -19,11 +19,15 @@
 //!    upstream JSON, dispatches via [`SmsProvider::send`], and flips
 //!    status accordingly.
 
+pub mod reminders;
+pub mod sender;
 pub mod sms;
 
+pub use sender::{LogMessageSender, MessageSender, SmsSender};
 pub use sms::{LogSmsProvider, NoopSmsProvider, SmsProvider};
 
 use sea_orm::{DatabaseConnection, TransactionTrait};
+use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -39,6 +43,7 @@ pub struct CommunicationService {
     db: DatabaseConnection,
     publisher: Arc<dyn EventPublisher>,
     sms_provider: Arc<dyn SmsProvider>,
+    senders: HashMap<DeliveryChannel, Arc<dyn MessageSender>>,
     /// Upstream identity client. `None` keeps the v0.44.0 Phase 2 stub
     /// behavior (every `generate_letter` returns `Error::Upstream`); the
     /// real renderer needs the upstream client to fetch demographic JSON.
@@ -52,12 +57,22 @@ impl CommunicationService {
             db,
             publisher,
             sms_provider: Arc::new(NoopSmsProvider),
+            senders: HashMap::new(),
             person_client: None,
         }
     }
 
+    /// Wire a sender for Email, AppleMessages or WhatsApp. SMS keeps using
+    /// [`Self::with_sms_provider`].
+    pub fn with_sender(mut self, channel: DeliveryChannel, sender: Arc<dyn MessageSender>) -> Self {
+        self.senders.insert(channel, sender);
+        self
+    }
+
     pub fn with_sms_provider(mut self, provider: Arc<dyn SmsProvider>) -> Self {
-        self.sms_provider = provider;
+        self.sms_provider = provider.clone();
+        self.senders
+            .insert(DeliveryChannel::Sms, Arc::new(SmsSender(provider)));
         self
     }
 
@@ -69,6 +84,22 @@ impl CommunicationService {
     /// Read-only accessor for the current SMS provider — `AppState`
     /// uses it when rebuilding the service with a new PersonClient
     /// to carry over whatever SMS provider was previously installed.
+    /// Copy another service's non-SMS senders onto this one (used when
+    /// `AppState` rebuilds the service around a new dependency).
+    pub fn with_senders_of(mut self, other: &CommunicationService) -> Self {
+        for (channel, sender) in &other.senders {
+            self.senders
+                .entry(*channel)
+                .or_insert_with(|| sender.clone());
+        }
+        self
+    }
+
+    /// True when a sender is wired for `channel` and reports itself enabled.
+    pub fn channel_ready(&self, channel: DeliveryChannel) -> bool {
+        self.senders.get(&channel).is_some_and(|s| s.is_enabled())
+    }
+
     pub fn sms_provider_arc(&self) -> Arc<dyn SmsProvider> {
         self.sms_provider.clone()
     }
@@ -186,70 +217,75 @@ impl CommunicationService {
             .await;
 
         // 7. SMS auto-send when configured and the channel is SMS.
-        let letter = if matches!(channel, DeliveryChannel::Sms) && self.sms_provider.is_enabled() {
-            let phone = phone_from_upstream(&person_value);
-            match phone {
-                None => {
-                    tracing::warn!(
-                        target: "pas::sms",
-                        letter_id = %persisted.id,
-                        person_id = %person_id,
-                        "SMS letter generated but upstream person has no Phone telecom; leaving status=pending"
-                    );
-                    let _ = AuditLogRepository::log(
-                        &self.db,
-                        "generated_letter",
-                        persisted.id,
-                        "send_sms_skipped_no_phone",
-                        None,
-                        None,
-                        ctx,
-                    )
-                    .await;
-                    persisted
-                }
-                Some(to) => match self.sms_provider.send(&to, &persisted.rendered_body).await {
-                    Ok(()) => match LetterRepository::mark_sent(&self.db, persisted.id).await {
-                        Ok(updated) => {
-                            let _ = AuditLogRepository::log(
-                                &self.db,
-                                "generated_letter",
-                                updated.id,
-                                "send_sms_ok",
-                                None,
-                                Some(serde_json::json!({ "to": to })),
-                                ctx,
-                            )
-                            .await;
-                            updated
-                        }
-                        Err(_) => persisted,
-                    },
-                    Err(send_err) => {
+        let sender = self.senders.get(&channel).filter(|s| s.is_enabled());
+        let letter = match sender {
+            None => persisted,
+            Some(sender) => {
+                let label = channel_label(channel);
+                match recipient_for(channel, &person_value) {
+                    None => {
+                        tracing::warn!(
+                            target: "pas::message",
+                            letter_id = %persisted.id,
+                            person_id = %person_id,
+                            channel = label,
+                            "letter generated but upstream person has no contact point for the channel; leaving status=pending"
+                        );
                         let _ = AuditLogRepository::log(
                             &self.db,
                             "generated_letter",
                             persisted.id,
-                            "send_sms_failed",
+                            &format!("send_{label}_skipped_no_recipient"),
                             None,
-                            Some(serde_json::json!({
-                                "to": to,
-                                "error": send_err.to_string(),
-                            })),
+                            None,
                             ctx,
                         )
                         .await;
-                        LetterRepository::mark_failed(&self.db, persisted.id)
-                            .await
-                            .unwrap_or(persisted)
+                        persisted
                     }
-                },
+                    Some(to) => match sender
+                        .send(&to, &persisted.rendered_subject, &persisted.rendered_body)
+                        .await
+                    {
+                        Ok(()) => match LetterRepository::mark_sent(&self.db, persisted.id).await {
+                            Ok(updated) => {
+                                let _ = AuditLogRepository::log(
+                                    &self.db,
+                                    "generated_letter",
+                                    updated.id,
+                                    &format!("send_{label}_ok"),
+                                    None,
+                                    Some(serde_json::json!({ "to": to })),
+                                    ctx,
+                                )
+                                .await;
+                                updated
+                            }
+                            Err(_) => persisted,
+                        },
+                        Err(send_err) => {
+                            let _ = AuditLogRepository::log(
+                                &self.db,
+                                "generated_letter",
+                                persisted.id,
+                                &format!("send_{label}_failed"),
+                                None,
+                                Some(serde_json::json!({
+                                    "to": to,
+                                    "error": send_err.to_string(),
+                                })),
+                                ctx,
+                            )
+                            .await;
+                            LetterRepository::mark_failed(&self.db, persisted.id)
+                                .await
+                                .unwrap_or(persisted)
+                        }
+                    },
+                }
             }
-        } else {
-            persisted
         };
 
-        // Silence the unused-import warning when the SMS path isn't taken.
         let _ = LetterStatus::Pending;
         Ok(letter)
     }
@@ -259,6 +295,47 @@ impl CommunicationService {
 /// The upstream emits FHIR-flavored `telecom: [{ system, value, … }]`
 /// arrays; this helper is intentionally tolerant of either FHIR-style
 /// `"phone"` or PAS-style `"Phone"` system strings.
+fn channel_label(channel: DeliveryChannel) -> &'static str {
+    match channel {
+        DeliveryChannel::Print => "print",
+        DeliveryChannel::Email => "email",
+        DeliveryChannel::Sms => "sms",
+        DeliveryChannel::AppleMessages => "apple_messages",
+        DeliveryChannel::WhatsApp => "whatsapp",
+    }
+}
+
+fn email_from_upstream(person: &serde_json::Value) -> Option<String> {
+    let telecom = person.get("telecom")?.as_array()?;
+    telecom.iter().find_map(|cp| {
+        let system = cp
+            .get("system")
+            .and_then(|v| v.as_str())?
+            .to_ascii_lowercase();
+        if system == "email" {
+            cp.get("value").and_then(|v| v.as_str()).map(String::from)
+        } else {
+            None
+        }
+    })
+}
+
+/// The address a channel delivers to, or `None` when the person has no
+/// suitable contact point (or the channel has no remote recipient, i.e. print).
+pub(crate) fn recipient_for(
+    channel: DeliveryChannel,
+    person: &serde_json::Value,
+) -> Option<String> {
+    match channel {
+        DeliveryChannel::Print => None,
+        DeliveryChannel::Email => email_from_upstream(person),
+        DeliveryChannel::Sms | DeliveryChannel::WhatsApp => phone_from_upstream(person),
+        DeliveryChannel::AppleMessages => {
+            phone_from_upstream(person).or_else(|| email_from_upstream(person))
+        }
+    }
+}
+
 fn phone_from_upstream(person: &serde_json::Value) -> Option<String> {
     let telecom = person.get("telecom")?.as_array()?;
     for cp in telecom {
@@ -324,6 +401,40 @@ mod tests {
             ]
         });
         assert!(phone_from_upstream(&p).is_none());
+    }
+
+    #[test]
+    fn test_recipient_for_channels() {
+        let p = serde_json::json!({
+            "telecom": [
+                { "system": "email", "value": "a@b.io" },
+                { "system": "phone", "value": "555-1234" },
+            ]
+        });
+        assert_eq!(
+            recipient_for(DeliveryChannel::Email, &p),
+            Some("a@b.io".into())
+        );
+        assert_eq!(
+            recipient_for(DeliveryChannel::Sms, &p),
+            Some("555-1234".into())
+        );
+        assert_eq!(
+            recipient_for(DeliveryChannel::WhatsApp, &p),
+            Some("555-1234".into())
+        );
+        assert_eq!(
+            recipient_for(DeliveryChannel::AppleMessages, &p),
+            Some("555-1234".into())
+        );
+        assert_eq!(recipient_for(DeliveryChannel::Print, &p), None);
+        let email_only =
+            serde_json::json!({ "telecom": [{ "system": "email", "value": "a@b.io" }] });
+        assert_eq!(
+            recipient_for(DeliveryChannel::AppleMessages, &email_only),
+            Some("a@b.io".into())
+        );
+        assert_eq!(recipient_for(DeliveryChannel::WhatsApp, &email_only), None);
     }
 
     #[test]

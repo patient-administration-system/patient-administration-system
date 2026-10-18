@@ -166,6 +166,37 @@ async fn main() -> Result<()> {
         };
 
     let mut state = AppState::new(db.clone(), publisher.clone()).with_sms_provider(sms_provider);
+    // Per-channel senders. "log" enables log-only dispatch; anything else
+    // leaves the channel disabled so a typo cannot message real patients.
+    for (var, channel, label) in [
+        (
+            "PAS_EMAIL_PROVIDER",
+            patient_administration_system::models::communication::DeliveryChannel::Email,
+            "email",
+        ),
+        (
+            "PAS_APPLE_MESSAGES_PROVIDER",
+            patient_administration_system::models::communication::DeliveryChannel::AppleMessages,
+            "apple_messages",
+        ),
+        (
+            "PAS_WHATSAPP_PROVIDER",
+            patient_administration_system::models::communication::DeliveryChannel::WhatsApp,
+            "whatsapp",
+        ),
+    ] {
+        if std::env::var(var).as_deref() == Ok("log") {
+            tracing::info!("{label} provider: log-only dispatch enabled");
+            state = state.with_sender(
+                channel,
+                Arc::new(
+                    patient_administration_system::communication::LogMessageSender {
+                        channel: label,
+                    },
+                ),
+            );
+        }
+    }
     if let Some(c) = person_client {
         state = state.with_person_client(c);
     }
@@ -204,6 +235,29 @@ async fn main() -> Result<()> {
         )
         .await;
     });
+
+    // Appointment reminders: opt in with PAS_REMINDERS_ENABLED=true. Lead
+    // time via PAS_REMINDER_LEAD_HOURS (default 24); scanned every 5 minutes.
+    if std::env::var("PAS_REMINDERS_ENABLED").as_deref() == Ok("true") {
+        let lead = patient_administration_system::communication::reminders::lead_from_hours(
+            std::env::var("PAS_REMINDER_LEAD_HOURS").ok().as_deref(),
+        )?;
+        let reminders =
+            patient_administration_system::communication::reminders::ReminderService::new(
+                db.clone(),
+                state.communication.clone(),
+            );
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(300));
+            loop {
+                tick.tick().await;
+                match reminders.run_once(chrono::Utc::now(), lead).await {
+                    Ok(r) => tracing::info!(target: "pas::reminders", ?r, "reminder scan complete"),
+                    Err(e) => tracing::warn!(target: "pas::reminders", "reminder scan failed: {e}"),
+                }
+            }
+        });
+    }
 
     let dashboard_routes = axum::Router::new()
         .route("/dashboard", axum::routing::get(dashboard::dashboard_page))

@@ -1,0 +1,48 @@
+{
+  "realm": "pas",
+  "enabled": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "patient", "description": "A patient signing in to see their own appointments" },
+      { "name": "staff", "description": "Hospital staff using the administration frontend" },
+      { "name": "admin", "description": "Administrators, including message-template editing" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "pas-frontend",
+      "name": "PAS frontend",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "pas_dev_client_secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:5150/auth/callback"],
+      "webOrigins": ["http://localhost:5150"],
+      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "http://localhost:5150/*" },
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    }
+  ],
+  "users": [
+    {
+      "username": "patient",
+      "email": "patient@example.test",
+      "emailVerified": true,
+      "enabled": true,
+      "attributes": { "person_id": ["00000000-0000-0000-0000-000000000000"] },
+      "credentials": [{ "type": "password", "value": "patient", "temporary": false }],
+      "realmRoles": ["patient"]
+    },
+    {
+      "username": "admin",
+      "email": "admin@example.test",
+      "emailVerified": true,
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["staff", "admin"]
+    }
+  ]
+}

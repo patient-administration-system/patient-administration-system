@@ -32,6 +32,52 @@ impl LetterRepository {
         m.map(template_from_model).transpose()
     }
 
+    pub async fn find_active_template_by_name<C: ConnectionTrait>(
+        conn: &C,
+        name: &str,
+    ) -> Result<Option<LetterTemplate>> {
+        let m = letter_template::Entity::find()
+            .filter(letter_template::Column::Name.eq(name))
+            .filter(letter_template::Column::Active.eq(true))
+            .one(conn)
+            .await
+            .map_err(Error::Database)?;
+        m.map(template_from_model).transpose()
+    }
+
+    /// Replace the editable fields of a template (administrator edit).
+    pub async fn update_template<C: ConnectionTrait>(
+        conn: &C,
+        t: &LetterTemplate,
+    ) -> Result<LetterTemplate> {
+        let existing = letter_template::Entity::find_by_id(t.id)
+            .one(conn)
+            .await
+            .map_err(Error::Database)?
+            .ok_or_else(|| Error::not_found(format!("letter template {}", t.id)))?;
+        let mut am = template_to_active_model(t)?;
+        am.created_at = Set(existing.created_at);
+        am.updated_at = Set(chrono::Utc::now().fixed_offset());
+        let updated = am.update(conn).await.map_err(Error::Database)?;
+        template_from_model(updated)
+    }
+
+    /// True when a non-failed reminder letter already exists for the appointment.
+    pub async fn exists_for_appointment<C: ConnectionTrait>(
+        conn: &C,
+        appointment_id: Uuid,
+        template_id: Uuid,
+    ) -> Result<bool> {
+        let n = generated_letter::Entity::find()
+            .filter(generated_letter::Column::AppointmentId.eq(appointment_id))
+            .filter(generated_letter::Column::TemplateId.eq(template_id))
+            .filter(generated_letter::Column::Status.ne("failed"))
+            .count(conn)
+            .await
+            .map_err(Error::Database)?;
+        Ok(n > 0)
+    }
+
     pub async fn list_active_templates<C: ConnectionTrait>(
         conn: &C,
     ) -> Result<Vec<LetterTemplate>> {
@@ -100,6 +146,8 @@ pub(crate) fn delivery_channel_to_str(c: DeliveryChannel) -> &'static str {
         DeliveryChannel::Print => "print",
         DeliveryChannel::Email => "email",
         DeliveryChannel::Sms => "sms",
+        DeliveryChannel::AppleMessages => "apple_messages",
+        DeliveryChannel::WhatsApp => "whatsapp",
     }
 }
 
@@ -108,6 +156,8 @@ pub(crate) fn delivery_channel_from_str(s: &str) -> Result<DeliveryChannel> {
         "print" => Ok(DeliveryChannel::Print),
         "email" => Ok(DeliveryChannel::Email),
         "sms" => Ok(DeliveryChannel::Sms),
+        "apple_messages" => Ok(DeliveryChannel::AppleMessages),
+        "whatsapp" => Ok(DeliveryChannel::WhatsApp),
         other => Err(Error::internal(format!(
             "unknown delivery channel: {other}"
         ))),

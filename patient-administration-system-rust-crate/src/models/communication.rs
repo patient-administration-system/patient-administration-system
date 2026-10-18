@@ -18,12 +18,17 @@ use uuid::Uuid;
 ///   or `Failed` on error. When the configured provider is
 ///   [`crate::communication::NoopSmsProvider`] (the default), the letter
 ///   stays `Pending` — the same behavior as `Print` and `Email`.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum DeliveryChannel {
     Print,
     Email,
     Sms,
+    /// Apple Messages for Business; recipient is the patient's phone or email.
+    AppleMessages,
+    /// WhatsApp Business; recipient is the patient's phone number.
+    #[serde(rename = "whatsapp")]
+    WhatsApp,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

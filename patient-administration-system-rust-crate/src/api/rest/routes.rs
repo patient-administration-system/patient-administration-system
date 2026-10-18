@@ -124,7 +124,10 @@ pub fn router(state: AppState) -> Router {
         )
         // ADT — admit / transfer / discharge / cancel-admit / cancel-discharge.
         .route("/api/admissions", post(handlers_adt::admit))
-        .route("/api/admissions/{id}/transfer", post(handlers_adt::transfer))
+        .route(
+            "/api/admissions/{id}/transfer",
+            post(handlers_adt::transfer),
+        )
         .route(
             "/api/admissions/{id}/discharge",
             post(handlers_adt::discharge),
@@ -311,7 +314,10 @@ pub fn router(state: AppState) -> Router {
             "/api/facilities",
             post(handlers_resources::create_facility).get(handlers_resources::list_facilities),
         )
-        .route("/api/facilities/{id}", get(handlers_resources::get_facility))
+        .route(
+            "/api/facilities/{id}",
+            get(handlers_resources::get_facility),
+        )
         .route(
             "/api/facilities/{id}/wards",
             get(handlers_resources::list_wards_by_facility),
@@ -332,7 +338,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route(
             "/api/letter-templates/{id}",
-            get(handlers_letters::get_template),
+            get(handlers_letters::get_template).put(handlers_letters::update_template),
         )
         .route(
             "/api/letters/generate",
