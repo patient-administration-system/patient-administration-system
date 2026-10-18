@@ -13,6 +13,6 @@ The complete, generated contract is the OpenAPI document served at `/api-docs/op
 | `POST /api/letters/generate` | Render and send one letter |
 | `GET /api/waitlist?service=` | Waitlist for a service |
 
-Authentication: a shared bearer token, or none in trusted-caller mode. The API does not authenticate end users; the UI's server does (see NFR-3 and the DTAC gap DTAC-4).
+Authentication: per-user PASETO v4.public tokens verified offline (`PAS_PASETO_KEYS_URL`); or, if that is unset, one shared bearer token; or none in trusted-caller mode. With per-user tokens the audit user id is the verified `sub`, a client `X-User-Id` is discarded, and only a `svc=true` service may add `X-On-Behalf-Of`. Verified by `tests/user_auth_test.rs`. `PAS_REQUIRE_AUTH=true` refuses to start without per-user auth. The UI's server still enforces what a patient may see (NFR-3).
 
 Routes use `{param}` syntax (axum 0.8).

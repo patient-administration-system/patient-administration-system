@@ -97,6 +97,22 @@ impl LetterRepository {
         rows.into_iter().map(letter_from_model).collect()
     }
 
+    /// How many delivery attempts for this appointment and template have failed.
+    pub async fn count_failed_for_appointment<C: ConnectionTrait>(
+        conn: &C,
+        appointment_id: Uuid,
+        template_id: Uuid,
+    ) -> Result<i64> {
+        let n = generated_letter::Entity::find()
+            .filter(generated_letter::Column::AppointmentId.eq(appointment_id))
+            .filter(generated_letter::Column::TemplateId.eq(template_id))
+            .filter(generated_letter::Column::Status.eq("failed"))
+            .count(conn)
+            .await
+            .map_err(Error::Database)?;
+        Ok(i64::try_from(n).unwrap_or(i64::MAX))
+    }
+
     pub async fn list_active_templates<C: ConnectionTrait>(
         conn: &C,
     ) -> Result<Vec<LetterTemplate>> {

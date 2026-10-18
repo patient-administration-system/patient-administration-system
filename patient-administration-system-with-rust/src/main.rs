@@ -12,10 +12,7 @@ use patient_administration_system::{
     api::ApiDoc,
     api::dashboard,
     api::fhir::fhir_router,
-    api::rest::{
-        AppState, RateLimitConfig, RateLimiter, RequireBearerToken, rate_limit_middleware,
-        require_bearer, router,
-    },
+    api::rest::{AppState, RateLimitConfig, RateLimiter, rate_limit_middleware, router},
     config::Config,
     db::connect,
     observability,
@@ -289,15 +286,36 @@ async fn main() -> Result<()> {
         .merge(fhir_router(state))
         .merge(dashboard_routes)
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()));
-    if let Some(token) = cfg.api_token.clone() {
-        tracing::info!("API token configured; bearer auth required");
-        let auth_state = RequireBearerToken::new(token);
-        app = app.layer(axum::middleware::from_fn_with_state(
-            auth_state,
-            require_bearer,
-        ));
-    } else {
-        tracing::warn!("API_TOKEN not set; running in trusted-caller mode");
+    // Authentication (DTAC-4). With PAS_PASETO_KEYS_URL / PAS_PASETO_KEYS_JSON every caller needs a
+    // verified per-user token; with only API_TOKEN it is the old shared token; with neither the API
+    // trusts its callers. PAS_REQUIRE_AUTH=true refuses to start without per-user auth.
+    let auth_cfg = patient_administration_system::api::rest::user_auth::UserAuthConfig::from_env(
+        cfg.api_token.clone(),
+    );
+    match patient_administration_system::api::rest::user_auth::UserAuth::build(auth_cfg).await {
+        Ok(Some(auth)) => {
+            if auth.is_per_user() {
+                tracing::info!(
+                    "per-user authentication enabled (PASETO v4.public, verified offline)"
+                );
+                let every = std::env::var("PAS_PASETO_KEYS_REFRESH_SECS")
+                    .ok()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .filter(|s| *s >= 30)
+                    .unwrap_or(300);
+                patient_administration_system::api::rest::user_auth::spawn_key_refresh(
+                    auth.clone(),
+                    std::time::Duration::from_secs(every),
+                );
+            } else {
+                tracing::warn!(
+                    "shared API_TOKEN only: callers are not individually identified; set PAS_PASETO_KEYS_URL"
+                );
+            }
+            app = patient_administration_system::api::rest::user_auth::with_user_auth(app, auth);
+        }
+        Ok(None) => tracing::warn!("no authentication configured; running in trusted-caller mode"),
+        Err(e) => return Err(Error::Config(e)),
     }
 
     // Per-IP rate-limit middleware (v0.12). Slotted OUTSIDE bearer auth

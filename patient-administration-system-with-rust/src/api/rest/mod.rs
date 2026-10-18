@@ -21,6 +21,7 @@ pub mod rate_limit;
 pub mod routes;
 pub mod state;
 pub mod upstream_proxy;
+pub mod user_auth;
 
 pub use auth::{RequireBearerToken, require_bearer};
 pub use rate_limit::{RateLimitConfig, RateLimiter, rate_limit_middleware};

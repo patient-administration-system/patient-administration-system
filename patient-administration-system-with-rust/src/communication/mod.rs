@@ -377,6 +377,17 @@ impl CommunicationService {
 /// The upstream emits FHIR-flavored `telecom: [{ system, value, … }]`
 /// arrays; this helper is intentionally tolerant of either FHIR-style
 /// `"phone"` or PAS-style `"Phone"` system strings.
+/// Refuse a template whose subject or body is not valid Tera, so a typo is caught when an
+/// administrator saves it and not when a patient's reminder fails to render (FR-7).
+pub fn validate_template_syntax(subject: &str, body_tera: &str) -> Result<()> {
+    for (field, src) in [("subject", subject), ("body_tera", body_tera)] {
+        if let Err(e) = tera::Tera::default().add_raw_template("t", src) {
+            return Err(Error::validation(format!("{field}: {e}")));
+        }
+    }
+    Ok(())
+}
+
 fn channel_label(channel: DeliveryChannel) -> &'static str {
     match channel {
         DeliveryChannel::Print => "print",
@@ -484,6 +495,29 @@ mod tests {
             ]
         });
         assert!(phone_from_upstream(&p).is_none());
+    }
+
+    #[test]
+    fn test_template_syntax_is_checked_for_subject_and_body() {
+        assert!(
+            validate_template_syntax(
+                "Hello {{ patient.name.given }}",
+                "Seen at {{ appointment.start }}"
+            )
+            .is_ok()
+        );
+        assert!(validate_template_syntax("plain", "also plain").is_ok());
+        let bad_body = validate_template_syntax("ok", "{{ unclosed")
+            .unwrap_err()
+            .to_string();
+        assert!(bad_body.contains("body_tera"), "{bad_body}");
+        assert!(
+            validate_template_syntax("{% if %}", "ok")
+                .unwrap_err()
+                .to_string()
+                .contains("subject")
+        );
+        assert!(validate_template_syntax("ok", "{% for x in %}{% endfor %}").is_err());
     }
 
     #[test]

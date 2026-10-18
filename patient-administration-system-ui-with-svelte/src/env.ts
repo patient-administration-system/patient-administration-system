@@ -6,6 +6,8 @@ export const variables = defineEnvVars({
   // The PAS REST API and its shared bearer token (server-side only).
   PAS_API_URL: optional,
   PAS_API_TOKEN: optional,
+  // A file holding a short-lived service token, re-read as it rotates. Takes precedence over PAS_API_TOKEN.
+  PAS_API_TOKEN_FILE: optional,
   // OpenID Connect against Keycloak (see ../podman/keycloak/pas-realm.json).
   OIDC_ISSUER: optional,
   OIDC_CLIENT_ID: optional,

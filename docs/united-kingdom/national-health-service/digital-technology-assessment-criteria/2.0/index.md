@@ -99,7 +99,7 @@ masked patient views, a JSON subject-access export (`GET /api/patients/{id}/expo
 - Per-IP rate limiting (`src/api/rest/rate_limit.rs`) and a shared bearer-token check on the API (`src/api/rest/auth.rs`).
 - The SvelteKit UI sets a strict Content-Security-Policy and security headers, keeps tokens on the server (a backend-for-frontend with an httpOnly session cookie), and refuses cross-role access (browser tests in `patient-administration-system-ui-with-svelte/tests/e2e/sign-in.spec.ts`).
 - **Missing:** no CI pipeline, no `cargo-deny` policy, no `#![forbid(unsafe_code)]`, no secret scanning, no SBOM, no vulnerability disclosure policy (`SECURITY.md`).
-- **Weak point to state plainly:** the API authenticates callers with one shared bearer token (or none: `API_TOKEN not set; running in trusted-caller mode` is logged at start-up). It has no per-user authentication of its own. The UI's server enforces who may see what and is the only supported client for patients.
+- **Weak point to state plainly:** per-user authentication now exists (PASETO tokens via `authentication-verifier`, DTAC-4) but is **opt-in**: with `PAS_PASETO_KEYS_URL` unset the API still falls back to one shared bearer token or none (`trusted-caller mode` is logged at start-up). Set `PAS_REQUIRE_AUTH=true` in any real deployment. No auth service that issues the tokens ships with this repository, and the UI has not yet been run against one. The UI's server enforces who may see what and is the only supported client for patients.
 
 ## C4. Interoperability (assessed)
 
@@ -156,7 +156,7 @@ masked patient views, a JSON subject-access export (`GET /api/patients/{id}/expo
 | 1 | Name a Clinical Safety Officer and run DCB0129: hazard log, safety case report | Document, needs a clinician | DTAC-1 |
 | 2 | DPIA, privacy notice and data-flow diagram | Document | DTAC-2 |
 | 3 | Add a `LICENSE` file and a `SECURITY.md` disclosure policy | Document, small | DTAC-3 |
-| 4 | Per-user authentication on the API, and a trustworthy audit user id | Code | DTAC-4 |
+| 4 | Per-user authentication on the API, and a trustworthy audit user id: **code done, deployment open** | Code + deployment | DTAC-4 |
 | 5 | Require MFA in the Keycloak realm and write the MFA plan | Config and document | DTAC-5 |
 | 6 | CI with fmt, clippy `-D warnings`, tests, `cargo-deny`, SBOM, secret scan | Code | DTAC-6 |
 | 7 | WCAG 2.2 AA: axe over every route, keyboard and screen-reader pass, accessibility statement | Code and document | DTAC-12 |

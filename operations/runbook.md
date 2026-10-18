@@ -12,7 +12,8 @@
 | No reminders sent | Reminders off, no sender enabled, patient has no contact point, outside the lead window | `PAS_REMINDERS_ENABLED=true`; a channel provider set; check `pas::reminders` log lines |
 | Same reminder sent twice | Should not happen (a letter is the marker) | Report it; include the appointment id and the `generated_letters` rows |
 | Worker merge webhook returns 500 | Missing column rename | Apply all migrations (`pas-migrate up`) |
-| Startup says "trusted-caller mode" | `API_TOKEN` unset | Set it unless a trusted network is the only protection |
+| Startup says "trusted-caller mode" | No `PAS_PASETO_KEYS_URL` and no `API_TOKEN` | Configure per-user auth and set `PAS_REQUIRE_AUTH=true` |
+| Every request is 401 after enabling per-user auth | Keys not fetched (log: "could not fetch PASETO keys"), wrong issuer/audience, or an expired token | Check the keys URL is reachable; keys refresh on a timer |
 | `cargo test` shows tests "ignored" | DB tests need PostgreSQL | `DATABASE_URL=… cargo test -- --ignored` |
 
 ## Who to tell

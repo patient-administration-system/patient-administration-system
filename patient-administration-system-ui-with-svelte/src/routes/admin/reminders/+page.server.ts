@@ -2,13 +2,14 @@ import type { Actions, PageServerLoad } from "./$types";
 import { error, fail } from "@sveltejs/kit";
 import { requireAdmin } from "#lib/server/guard.js";
 import { PasError, letterTemplates, updateLetterTemplate } from "#lib/server/pas.js";
+import { actingAs } from "#lib/acting-as.js";
 import { cleanChannels } from "#lib/channels.js";
 import { isUuid } from "#lib/access.js";
 
 export const load: PageServerLoad = async ({ locals, fetch }) => {
   requireAdmin(locals, "/admin/reminders");
   try {
-    return { templates: await letterTemplates(fetch) };
+    return { templates: await letterTemplates(actingAs(fetch, locals.oidc?.user.sub)) };
   } catch (e) {
     if (e instanceof PasError) error(502, e.message);
     throw e;
@@ -28,10 +29,10 @@ export const actions: Actions = {
     if (channels.length === 0) return fail(400, { id, messageKey: "admin.error.channelRequired" });
 
     // Edit only the editable fields of the template as stored, never a browser-supplied copy of the rest.
-    const current = (await letterTemplates(fetch)).find((t) => t.id === id);
+    const current = (await letterTemplates(actingAs(fetch, locals.oidc?.user.sub))).find((t) => t.id === id);
     if (!current) return fail(404, { id, messageKey: "admin.error.notFound" });
     try {
-      await updateLetterTemplate(fetch, {
+      await updateLetterTemplate(actingAs(fetch, locals.oidc?.user.sub), {
         ...current,
         subject,
         body_tera: body,

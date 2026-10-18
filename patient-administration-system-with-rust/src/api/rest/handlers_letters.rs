@@ -47,6 +47,9 @@ pub async fn create_template(
     headers: HeaderMap,
     Json(mut body): Json<LetterTemplate>,
 ) -> HandlerResult {
+    if let Err(e) = crate::communication::validate_template_syntax(&body.subject, &body.body_tera) {
+        return error_to_response(e);
+    }
     if body.id == Uuid::nil() {
         body.id = Uuid::new_v4();
     }
@@ -81,10 +84,8 @@ pub async fn update_template(
     Json(mut body): Json<LetterTemplate>,
 ) -> HandlerResult {
     body.id = id;
-    for (field, src) in [("subject", &body.subject), ("body_tera", &body.body_tera)] {
-        if let Err(e) = tera::Tera::default().add_raw_template("t", src) {
-            return error_to_response(Error::validation(format!("{field}: {e}")));
-        }
+    if let Err(e) = crate::communication::validate_template_syntax(&body.subject, &body.body_tera) {
+        return error_to_response(e);
     }
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let before = LetterRepository::find_template_by_id(&state.db, id).await;

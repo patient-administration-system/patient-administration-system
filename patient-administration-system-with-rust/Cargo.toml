@@ -48,6 +48,10 @@ opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
 opentelemetry-otlp = { version = "0.27", default-features = false, features = ["http-proto", "reqwest-client"] }
 tracing-opentelemetry = "0.28"
 
+# Offline PASETO v4.public verification of per-user bearer tokens from the authentication-service
+# (DTAC-4). `fetch` adds Verifier::from_paseto_keys_url for the boot-time key fetch.
+authentication-verifier = { version = "0.9.1", default-features = false, features = ["paseto", "fetch"] }
+
 # Utilities
 uuid = { version = "1.26", features = ["v4", "v5", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
@@ -67,6 +71,10 @@ sha2 = "0.10"
 hmac = "0.12"
 
 [dev-dependencies]
+# Mint PASETO v4.public tokens in tests (the inverse of what authentication-verifier checks).
+ed25519-dalek = "3.0.0"
+rusty_paseto = { version = "0.10.1", default-features = false, features = ["v4_public", "serde_json"] }
+base64 = "0.22"
 # Testing
 assertables = "10"
 tempfile = "3.27"

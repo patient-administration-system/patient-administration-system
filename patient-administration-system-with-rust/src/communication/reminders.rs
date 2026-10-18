@@ -24,8 +24,15 @@ use sea_orm::DatabaseConnection;
 /// Name administrators edit to change the reminder wording.
 pub const REMINDER_TEMPLATE_NAME: &str = "appointment_reminder";
 
+/// After this many failed delivery attempts for one appointment, stop trying. Without a limit a
+/// carrier outage makes every five-minute scan write a new failed letter for the same appointment,
+/// and a number that bounces is hammered for ever. A person can still follow up (CAP-7).
+pub const MAX_FAILED_ATTEMPTS: i64 = 6;
+
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ReminderReport {
+    /// Appointments given up on after [`MAX_FAILED_ATTEMPTS`] failed attempts.
+    pub gave_up: usize,
     pub considered: usize,
     pub sent: usize,
     pub skipped_already_reminded: usize,
@@ -78,6 +85,13 @@ impl ReminderService {
         for a in appointments {
             if LetterRepository::exists_for_appointment(&self.db, a.id, template.id).await? {
                 report.skipped_already_reminded += 1;
+                continue;
+            }
+            if LetterRepository::count_failed_for_appointment(&self.db, a.id, template.id).await?
+                >= MAX_FAILED_ATTEMPTS
+            {
+                tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "giving up after {MAX_FAILED_ATTEMPTS} failed attempts");
+                report.gave_up += 1;
                 continue;
             }
             let extra = serde_json::json!({

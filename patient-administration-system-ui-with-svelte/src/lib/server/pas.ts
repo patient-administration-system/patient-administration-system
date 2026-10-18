@@ -1,7 +1,7 @@
 // The BFF's client for the PAS REST API. The bearer token lives here, on the
 // server; the browser only ever talks to this app's own routes.
 
-import { PAS_API_TOKEN, PAS_API_URL } from "./config";
+import { PAS_API_URL, serviceToken } from "./config";
 
 type FetchFn = typeof fetch;
 
@@ -28,7 +28,8 @@ export async function pas<T>(
   init: { method?: string; body?: unknown } = {},
 ): Promise<T> {
   const headers: Record<string, string> = { accept: "application/json" };
-  if (PAS_API_TOKEN) headers.authorization = `Bearer ${PAS_API_TOKEN}`;
+  const token = serviceToken();
+  if (token) headers.authorization = `Bearer ${token}`;
   if (init.body !== undefined) headers["content-type"] = "application/json";
   let res: Response;
   try {
