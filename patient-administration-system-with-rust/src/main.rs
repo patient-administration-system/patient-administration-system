@@ -166,6 +166,12 @@ async fn main() -> Result<()> {
         };
 
     let mut state = AppState::new(db.clone(), publisher.clone()).with_sms_provider(sms_provider);
+    // Public address of the patient portal, exposed to message templates as `portal_url`.
+    if let Ok(url) = std::env::var("PAS_PORTAL_URL")
+        && !url.trim().is_empty()
+    {
+        state = state.with_portal_base_url(url.trim());
+    }
     // Per-channel senders. "log" enables log-only dispatch; anything else
     // leaves the channel disabled so a typo cannot message real patients.
     for (var, channel, label) in [

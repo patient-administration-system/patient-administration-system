@@ -97,6 +97,20 @@ impl AppState {
         self
     }
 
+    /// Set the public patient-portal address used for the `portal_url`
+    /// template variable.
+    pub fn with_portal_base_url(mut self, url: &str) -> Self {
+        let mut svc = CommunicationService::new(self.db.clone(), self.publisher.clone())
+            .with_sms_provider(self.communication.sms_provider_arc())
+            .with_senders_of(&self.communication)
+            .with_portal_base_url(url);
+        if let Some(c) = self.person_client.clone() {
+            svc = svc.with_person_client(c);
+        }
+        self.communication = Arc::new(svc);
+        self
+    }
+
     /// Wire a sender for Email, AppleMessages or WhatsApp.
     pub fn with_sender(
         mut self,

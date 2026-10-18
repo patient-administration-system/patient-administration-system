@@ -24,6 +24,12 @@ test("a patient signs in and sees only their own appointments", async ({ page, r
   const asked: string[] = await (await request.get("http://127.0.0.1:4181/__requests")).json();
   expect(asked).toContain("/api/patients/00000000-0000-0000-0000-000000000000/appointments");
 
+  // Secure portal messages: shown after sign-in, fetched for the token's own person id only.
+  await page.getByRole("link", { name: "My messages" }).click();
+  await expect(page.getByRole("heading", { name: "Your appointment letter" })).toBeVisible();
+  const asked2: string[] = await (await request.get("http://127.0.0.1:4181/__requests")).json();
+  expect(asked2).toContain("/api/patients/00000000-0000-0000-0000-000000000000/letters?channel=portal");
+
   // A patient is not staff: the staff pages refuse them.
   const res = await page.goto("/appointments");
   expect(res?.status()).toBe(403);

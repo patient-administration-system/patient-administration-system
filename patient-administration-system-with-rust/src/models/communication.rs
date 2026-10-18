@@ -29,6 +29,10 @@ pub enum DeliveryChannel {
     /// WhatsApp Business; recipient is the patient's phone number.
     #[serde(rename = "whatsapp")]
     WhatsApp,
+    /// Secure patient portal. The message is stored and is readable only after
+    /// the patient signs in; nothing clinical leaves the system. Counts as
+    /// delivered the moment it is stored.
+    Portal,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

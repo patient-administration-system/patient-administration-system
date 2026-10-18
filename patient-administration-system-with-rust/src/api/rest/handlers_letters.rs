@@ -126,6 +126,34 @@ pub async fn list_templates(State(state): State<AppState>) -> HandlerResult {
     }
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct PatientLettersQuery {
+    /// `portal`, `email`, ... — omit for every channel.
+    pub channel: Option<String>,
+}
+
+/// `GET /api/patients/{id}/letters?channel=portal` — a patient's letters,
+/// newest first. The patient portal reads `channel=portal`.
+pub async fn list_patient_letters(
+    State(state): State<AppState>,
+    Path(person_id): Path<Uuid>,
+    axum::extract::Query(q): axum::extract::Query<PatientLettersQuery>,
+) -> HandlerResult {
+    let channel = match q.channel.as_deref() {
+        None | Some("") => None,
+        Some(c) => match crate::db::repositories::letter::delivery_channel_from_str(c) {
+            Ok(c) => Some(c),
+            Err(_) => {
+                return error_to_response(Error::validation(format!("unknown channel: {c}")));
+            }
+        },
+    };
+    match LetterRepository::list_for_person(&state.db, person_id, channel).await {
+        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `POST /api/letters/generate` — render + persist a letter (proxies to
 /// `person-service` to fetch the person snapshot).
 pub async fn generate_letter(

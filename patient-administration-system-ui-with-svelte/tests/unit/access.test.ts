@@ -29,8 +29,8 @@ describe("roles", () => {
 });
 
 describe("navFor", () => {
-  it("gives patients only their own appointments", () => {
-    expect(navFor({ roles: ["patient"] }).map((n) => n.href)).toEqual(["/my/appointments"]);
+  it("gives patients only their own pages", () => {
+    expect(navFor({ roles: ["patient"] }).map((n) => n.href)).toEqual(["/my/appointments", "/my/messages"]);
   });
   it("adds reminder templates for admins only", () => {
     expect(navFor({ roles: ["staff"] }).some((n) => n.href === "/admin/reminders")).toBe(false);

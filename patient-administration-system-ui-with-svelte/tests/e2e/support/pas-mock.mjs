@@ -27,6 +27,22 @@ http
         ]),
       );
     }
+    if (url.pathname === `/api/patients/${PATIENT}/letters`) {
+      return res.end(
+        envelope(
+          url.searchParams.get("channel") === "portal"
+            ? [
+                {
+                  id: "33333333-3333-3333-3333-333333333333",
+                  rendered_subject: "Your appointment letter",
+                  rendered_body: "Please bring your medication list.",
+                  created_at: "2026-10-18T09:00:00Z",
+                },
+              ]
+            : [],
+        ),
+      );
+    }
     if (url.pathname === "/api/appointments") return res.end(envelope([]));
     if (url.pathname === "/api/letter-templates") {
       return res.end(

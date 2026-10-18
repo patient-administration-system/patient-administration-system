@@ -44,6 +44,7 @@ pub struct CommunicationService {
     publisher: Arc<dyn EventPublisher>,
     sms_provider: Arc<dyn SmsProvider>,
     senders: HashMap<DeliveryChannel, Arc<dyn MessageSender>>,
+    portal_base_url: Option<String>,
     /// Upstream identity client. `None` keeps the v0.44.0 Phase 2 stub
     /// behavior (every `generate_letter` returns `Error::Upstream`); the
     /// real renderer needs the upstream client to fetch demographic JSON.
@@ -58,8 +59,20 @@ impl CommunicationService {
             publisher,
             sms_provider: Arc::new(NoopSmsProvider),
             senders: HashMap::new(),
+            portal_base_url: None,
             person_client: None,
         }
+    }
+
+    /// Public address of the patient portal (no trailing slash), e.g.
+    /// `https://pas.example.nhs.uk`. Exposed to templates as `portal_url`.
+    pub fn with_portal_base_url(mut self, url: impl Into<String>) -> Self {
+        self.portal_base_url = Some(url.into().trim_end_matches('/').to_string());
+        self
+    }
+
+    pub fn portal_base_url(&self) -> Option<&str> {
+        self.portal_base_url.as_deref()
     }
 
     /// Wire a sender for Email, AppleMessages or WhatsApp. SMS keeps using
@@ -87,6 +100,9 @@ impl CommunicationService {
     /// Copy another service's non-SMS senders onto this one (used when
     /// `AppState` rebuilds the service around a new dependency).
     pub fn with_senders_of(mut self, other: &CommunicationService) -> Self {
+        if self.portal_base_url.is_none() {
+            self.portal_base_url = other.portal_base_url.clone();
+        }
         for (channel, sender) in &other.senders {
             self.senders
                 .entry(*channel)
@@ -168,6 +184,11 @@ impl CommunicationService {
         let person_value =
             serde_json::to_value(&person).unwrap_or(serde_json::Value::Object(Default::default()));
         tctx.insert("patient", &person_value);
+        // A link to the secure portal, for messages that must not carry the
+        // detail themselves ("You have a new message: {{ portal_url }}").
+        if let Some(base) = &self.portal_base_url {
+            tctx.insert("portal_url", &format!("{base}/my/messages"));
+        }
         if let serde_json::Value::Object(map) = &extra_context {
             for (k, v) in map {
                 tctx.insert(k, v);
@@ -240,6 +261,22 @@ impl CommunicationService {
             .await;
 
         // 7. SMS auto-send when configured and the channel is SMS.
+        // The portal needs no carrier: storing the message is delivering it.
+        if channel == DeliveryChannel::Portal {
+            let updated = LetterRepository::mark_sent(&self.db, persisted.id).await?;
+            let _ = AuditLogRepository::log(
+                &self.db,
+                "generated_letter",
+                updated.id,
+                "deliver_portal",
+                None,
+                None,
+                ctx,
+            )
+            .await;
+            return Ok(updated);
+        }
+
         let sender = self.senders.get(&channel).filter(|s| s.is_enabled());
         let letter = match sender {
             None => persisted,
@@ -325,6 +362,7 @@ fn channel_label(channel: DeliveryChannel) -> &'static str {
         DeliveryChannel::Sms => "sms",
         DeliveryChannel::AppleMessages => "apple_messages",
         DeliveryChannel::WhatsApp => "whatsapp",
+        DeliveryChannel::Portal => "portal",
     }
 }
 
@@ -350,7 +388,7 @@ pub(crate) fn recipient_for(
     person: &serde_json::Value,
 ) -> Option<String> {
     match channel {
-        DeliveryChannel::Print => None,
+        DeliveryChannel::Print | DeliveryChannel::Portal => None,
         DeliveryChannel::Email => email_from_upstream(person),
         DeliveryChannel::Sms | DeliveryChannel::WhatsApp => phone_from_upstream(person),
         DeliveryChannel::AppleMessages => {

@@ -150,3 +150,63 @@ async fn edited_template_wording_is_what_gets_sent() {
     assert_eq!(letter.channel, "whatsapp");
     assert_eq!(letter.status, "sent");
 }
+
+#[tokio::test]
+async fn portal_channel_stores_and_delivers_without_a_carrier_and_exposes_portal_url() {
+    let Some(url) = common::database_url() else {
+        return;
+    };
+    let state = common::build_state(&url).await;
+    // A patient with no phone or email at all: the portal needs neither.
+    let p = person(serde_json::json!([]));
+    let stub = Arc::new(StubPersonClient::new());
+    stub.insert(p.clone());
+    let state = state
+        .with_person_client(stub)
+        .with_portal_base_url("https://pas.example.test/");
+    assert_eq!(
+        state.communication.portal_base_url(),
+        Some("https://pas.example.test")
+    );
+
+    let mut t = patient_administration_system::models::communication::LetterTemplate::new(
+        format!("portal-test-{}", Uuid::new_v4()),
+        "New message".into(),
+        "You have a new message. Sign in to read it: {{ portal_url }}".into(),
+    );
+    t.channels = vec![DeliveryChannel::Portal];
+    let t = LetterRepository::create_template(&state.db, &t)
+        .await
+        .unwrap();
+
+    let letter = state
+        .communication
+        .generate_letter(
+            t.id,
+            p.id,
+            None,
+            DeliveryChannel::Portal,
+            serde_json::json!({}),
+            &patient_administration_system::db::repositories::audit::UserContext::system(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(letter.channel, DeliveryChannel::Portal);
+    assert_eq!(
+        letter.status,
+        patient_administration_system::models::communication::LetterStatus::Sent
+    );
+    assert_eq!(
+        letter.rendered_body,
+        "You have a new message. Sign in to read it: https://pas.example.test/my/messages"
+    );
+
+    let mine = LetterRepository::list_for_person(&state.db, p.id, Some(DeliveryChannel::Portal))
+        .await
+        .unwrap();
+    assert_eq!(mine.len(), 1);
+    let none = LetterRepository::list_for_person(&state.db, p.id, Some(DeliveryChannel::Sms))
+        .await
+        .unwrap();
+    assert!(none.is_empty(), "channel filter excludes other channels");
+}

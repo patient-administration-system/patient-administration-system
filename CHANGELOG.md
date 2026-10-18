@@ -5,6 +5,17 @@ the member crates at a point in time. For per-crate detail, see:
 
 - [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md)
 - [`patient-administration-system-frontend/CHANGELOG.md`](patient-administration-system-frontend/CHANGELOG.md)
+- [`patient-administration-system-ui-with-svelte/CHANGELOG.md`](patient-administration-system-ui-with-svelte/CHANGELOG.md)
+
+## Unreleased (2026-10-18)
+
+- **New:** `patient-administration-system-ui-with-svelte` (SvelteKit 3 / Svelte 5; Keycloak sign-in; patient appointments and messages; staff calendar, waitlist kanban, schedule gantt, patient grid; admin reminder-template editor).
+- **New:** appointment reminders and patient notifications by postal letter, email, SMS, WhatsApp, Apple Messages and the secure portal. Only log-only senders exist; no carrier is integrated yet (see `tasks.md` NOT-3).
+- **New:** `podman/` with PostgreSQL 18 and Keycloak 26; Docker replaced by Podman throughout.
+- **Renamed:** `patient-administration-system-rust-crate` to `patient-administration-system-with-rust` (package name unchanged).
+- **Changed:** `axum` 0.8, `utoipa` 6, `utoipa-swagger-ui` 10, `tantivy` 0.27, `quick-xml` 0.42 and a full `cargo update`. `cargo audit` still reports 6 transitive vulnerabilities (`tasks.md` DEP-2).
+- **Fixed:** appointment-series column never renamed to `worker_id` (new migration); the Loco front-end could not start (config, duplicate `/_health`, missing view engine); Postgres 18 volume mount; container image build; racing webhook tests.
+- **Added:** `docs/.../digital-technology-assessment-criteria/2.0/index.md`, an NHS DTAC v2.0 self-assessment. It concludes the product would not pass today. `plan.md` and `tasks.md`.
 
 ## 2026-06-01 — Option C delegation: shipped (PAS v0.44.0 + frontend v0.2.0)
 

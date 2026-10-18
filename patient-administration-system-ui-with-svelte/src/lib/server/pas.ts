@@ -92,3 +92,14 @@ export interface WaitlistEntry {
 }
 
 export const waitlist = (f: FetchFn) => pas<WaitlistEntry[]>(f, "/api/waitlist");
+
+export interface PortalMessage {
+  id: string;
+  rendered_subject: string;
+  rendered_body: string;
+  created_at: string;
+}
+
+/** Messages delivered to one patient's secure portal inbox, newest first. */
+export const portalMessages = (f: FetchFn, personId: string) =>
+  pas<PortalMessage[]>(f, `/api/patients/${encodeURIComponent(personId)}/letters?channel=portal`);

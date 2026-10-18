@@ -352,6 +352,10 @@ pub fn router(state: AppState) -> Router {
             "/api/letters/generate",
             post(handlers_letters::generate_letter),
         )
+        .route(
+            "/api/patients/{id}/letters",
+            get(handlers_letters::list_patient_letters),
+        )
         .route("/api/letters/{id}", get(handlers_letters::get_letter))
         .route("/api/letters/{id}/sent", post(handlers_letters::mark_sent))
         .route(

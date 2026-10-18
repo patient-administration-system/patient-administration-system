@@ -4,6 +4,12 @@ All notable changes to `patient-administration-system-frontend` are documented i
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this
 crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- The application could not start: `mailer.smtp` lacked `host`, `queue.kind: Null` is not valid in Loco 0.14, Loco's default routes duplicated `/_health`, and no Tera view engine was installed, so every page returned 500. `/_ping` is now served by this app.
+- All 13 smoke tests now pass with `DATABASE_URL` set.
+
 ## [0.2.0] — 2026-05-31
 
 Paired with PAS Axum **v0.44.0** Option C identity delegation. The

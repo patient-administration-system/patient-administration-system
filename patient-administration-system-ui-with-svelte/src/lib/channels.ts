@@ -4,7 +4,8 @@ export const CHANNELS = [
   { id: "apple_messages", label: "Apple Messages" },
   { id: "sms", label: "SMS" },
   { id: "email", label: "Email" },
-  { id: "print", label: "Print" },
+  { id: "portal", label: "Secure portal" },
+  { id: "print", label: "Postal letter" },
 ] as const;
 
 const KNOWN = new Set<string>(CHANNELS.map((c) => c.id));

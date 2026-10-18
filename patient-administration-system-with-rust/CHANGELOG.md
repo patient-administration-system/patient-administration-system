@@ -3,6 +3,23 @@
 All notable changes to the Patient Administration System are listed below.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Appointment reminders: `communication::reminders::ReminderService`, a background scan (`PAS_REMINDERS_ENABLED`, `PAS_REMINDER_LEAD_HOURS`), and an administrator-editable `appointment_reminder` template.
+- Delivery channels `apple_messages`, `whatsapp` and `portal`, a generic `MessageSender` per channel (`PAS_EMAIL_PROVIDER`, `PAS_WHATSAPP_PROVIDER`, `PAS_APPLE_MESSAGES_PROVIDER`: `log` or off), and the `{{ portal_url }}` template variable (`PAS_PORTAL_URL`).
+- `PUT /api/letter-templates/{id}`, `GET /api/appointments?from&to`, `GET /api/patients/{id}/appointments`, `GET /api/patients/{id}/letters?channel=`.
+- `tests/reminders_test.rs` (database-backed).
+
+### Changed
+- `axum` 0.8 (route parameters are `{id}`), `utoipa` 6, `utoipa-swagger-ui` 10, `tantivy` 0.27, `quick-xml` 0.42; `cargo update`.
+- Directory renamed from `patient-administration-system-rust-crate`; Docker files are now `Containerfile`, `Containerfile.test`, `compose.yml`, `compose.test.yml`, `.containerignore`.
+
+### Fixed
+- Migration `m20260602_000007_appointment_series_worker_id`: `appointment_series.practitioner_id` was never renamed to `worker_id`, so appointment-series writes and worker merges failed.
+- Postgres 18 volume mount in `compose.yml`; `Containerfile` now copies `templates/` and installs `curl`.
+- Webhook tests no longer race on process-wide environment variables.
+
 ## [0.44.0] — 2026-05-31
 
 The **Option C identity delegation** release. `Patient` and

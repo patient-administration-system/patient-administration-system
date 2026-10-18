@@ -78,6 +78,25 @@ impl LetterRepository {
         Ok(n > 0)
     }
 
+    /// A person's letters, newest first, optionally only one channel.
+    pub async fn list_for_person<C: ConnectionTrait>(
+        conn: &C,
+        person_id: Uuid,
+        channel: Option<DeliveryChannel>,
+    ) -> Result<Vec<GeneratedLetter>> {
+        let mut q = generated_letter::Entity::find()
+            .filter(generated_letter::Column::PersonId.eq(person_id));
+        if let Some(c) = channel {
+            q = q.filter(generated_letter::Column::Channel.eq(delivery_channel_to_str(c)));
+        }
+        let rows = q
+            .order_by_desc(generated_letter::Column::CreatedAt)
+            .all(conn)
+            .await
+            .map_err(Error::Database)?;
+        rows.into_iter().map(letter_from_model).collect()
+    }
+
     pub async fn list_active_templates<C: ConnectionTrait>(
         conn: &C,
     ) -> Result<Vec<LetterTemplate>> {
@@ -148,6 +167,7 @@ pub(crate) fn delivery_channel_to_str(c: DeliveryChannel) -> &'static str {
         DeliveryChannel::Sms => "sms",
         DeliveryChannel::AppleMessages => "apple_messages",
         DeliveryChannel::WhatsApp => "whatsapp",
+        DeliveryChannel::Portal => "portal",
     }
 }
 
@@ -158,6 +178,7 @@ pub(crate) fn delivery_channel_from_str(s: &str) -> Result<DeliveryChannel> {
         "sms" => Ok(DeliveryChannel::Sms),
         "apple_messages" => Ok(DeliveryChannel::AppleMessages),
         "whatsapp" => Ok(DeliveryChannel::WhatsApp),
+        "portal" => Ok(DeliveryChannel::Portal),
         other => Err(Error::internal(format!(
             "unknown delivery channel: {other}"
         ))),

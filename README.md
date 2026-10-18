@@ -32,6 +32,10 @@ Cargo workspace housing the PAS API server and its Loco-rs front-end.
 ├── Cargo.toml                                 workspace manifest (3 members + hoisted [profile.release]/[profile.bench])
 ├── CHANGELOG.md                               workspace-level changelog
 ├── README.md                                  this file
+├── plan.md, tasks.md                          research and the live work queue
+├── podman/                                    PostgreSQL + Keycloak for development (podman compose)
+├── docs/                                      NHS DTAC v2.0 self-assessment
+├── patient-administration-system-ui-with-svelte/  SvelteKit UI: patient sign-in, staff calendar, kanban, gantt, grid
 ├── patient-administration-system-with-rust/  PAS Axum API server (v0.44.0)
 │   ├── Cargo.toml
 │   ├── src/
@@ -70,6 +74,7 @@ cargo fmt --all
 |-------|------|------|-------|
 | `patient-administration-system` | Workflow service. REST + FHIR R5 + HL7 v2 over HTTP and MLLP. Audit, outbox, scheduling. Identity (`Patient`) + workforce (`Practitioner`) delegated upstream to person-service / worker-service. | `8080` | Axum, sea-orm, utoipa |
 | `patient-administration-system-frontend` | Web UI. Server-side rendered Tera with HTMX live-refresh and Lily Design System markup. Read-mostly view layer over the shared database. | `5150` | Loco-rs, Tera, HTMX, Lily |
+| `patient-administration-system-ui-with-svelte` | Browser UI (not a Cargo crate). SvelteKit backend-for-frontend with Keycloak sign-in; patients see their own appointments and messages, staff get calendar, waitlist, schedule and patient search, administrators edit reminder templates. | `5173` (dev) | SvelteKit 3, Svelte 5, Lily |
 | `patient-administration-system-migrations` | sea-orm migration crate. Shared between the two app crates. | n/a | sea-orm-migration |
 
 ## Quick start
