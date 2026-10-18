@@ -40,6 +40,11 @@ appointments,deleted_at,none,"Not personal data (structure, status, timestamps, 
 appointments,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 appointments,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 appointments,series_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,cancelled_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,cancelled_by,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,barrier_code,health,"Administrative care information (why, where, what service, outcome)",record
+appointments,notice_days,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,confirmed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 audit_log,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 audit_log,entity_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
 audit_log,entity_id,none,"Not personal data (structure, status, timestamps, places, templates)",record

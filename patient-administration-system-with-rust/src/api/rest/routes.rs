@@ -155,6 +155,10 @@ pub fn router(state: AppState) -> Router {
             post(handlers_scheduling::cancel_appointment),
         )
         .route(
+            "/api/appointments/{id}/barrier",
+            put(handlers_scheduling::record_barrier),
+        )
+        .route(
             "/api/appointments/{id}/check-in",
             post(handlers_scheduling::check_in_appointment),
         )

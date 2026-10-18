@@ -16,10 +16,21 @@ use crate::db::repositories::{
     outbox::OutboxRepository,
     slot::SlotRepository,
 };
-use crate::models::appointment::{Appointment, AppointmentStatus, CancellationReason};
+use crate::models::appointment::{
+    Appointment, AppointmentStatus, BarrierCode, CancellationReason, CancelledBy, notice_days,
+};
 use crate::models::schedule::SlotStatus;
 use crate::streaming::{DomainEvent, EventPublisher};
 use crate::{Error, Result};
+
+/// What the caller knows about a cancellation (CAP-1).
+#[derive(Debug, Clone, Copy)]
+pub struct CancelDetails {
+    pub cancelled_by: CancelledBy,
+    pub barrier_code: Option<BarrierCode>,
+    /// Overrides the reason derived from `cancelled_by` (used by `rescheduled`).
+    pub legacy_reason: Option<CancellationReason>,
+}
 
 pub struct SchedulingService {
     db: DatabaseConnection,
@@ -111,6 +122,34 @@ impl SchedulingService {
         reason: CancellationReason,
         ctx: &UserContext,
     ) -> Result<Appointment> {
+        let cancelled_by = match reason {
+            CancellationReason::ProviderRequest => CancelledBy::Provider,
+            CancellationReason::PatientRequest | CancellationReason::Rescheduled => {
+                CancelledBy::Patient
+            }
+            CancellationReason::NoShow | CancellationReason::Other => CancelledBy::System,
+        };
+        self.cancel_with(
+            appointment_id,
+            CancelDetails {
+                cancelled_by,
+                barrier_code: None,
+                legacy_reason: Some(reason),
+            },
+            ctx,
+        )
+        .await
+    }
+
+    /// Cancel and record who cancelled, the patient's barrier if they gave one, when, and how many
+    /// whole days of notice the service had (CAP-1). The outbox event carries the same facts so a
+    /// consumer can tell an early release from a late one without another query.
+    pub async fn cancel_with(
+        &self,
+        appointment_id: Uuid,
+        details: CancelDetails,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
         let ctx_clone = ctx.clone();
         let appt = self
             .db
@@ -122,8 +161,17 @@ impl SchedulingService {
                     appt.status = appt
                         .status
                         .try_transition_to(AppointmentStatus::Cancelled)?;
-                    appt.cancellation_reason = Some(reason);
-                    appt.updated_at = chrono::Utc::now();
+                    let now = chrono::Utc::now();
+                    appt.cancellation_reason = Some(
+                        details
+                            .legacy_reason
+                            .unwrap_or_else(|| details.cancelled_by.legacy_reason()),
+                    );
+                    appt.cancelled_at = Some(now);
+                    appt.cancelled_by = Some(details.cancelled_by);
+                    appt.barrier_code = details.barrier_code;
+                    appt.notice_days = Some(notice_days(now, appt.start_datetime));
+                    appt.updated_at = now;
                     let appt = AppointmentRepository::update(txn, &appt).await?;
                     if let Some(sid) = appt.slot_id {
                         SlotRepository::update_status(txn, sid, SlotStatus::Free).await?;
@@ -141,7 +189,15 @@ impl SchedulingService {
                     OutboxRepository::publish(
                         txn,
                         "AppointmentCancelled",
-                        &serde_json::json!({ "appointment_id": appt.id }),
+                        &serde_json::json!({
+                            "appointment_id": appt.id,
+                            "slot_id": appt.slot_id,
+                            "start_datetime": appt.start_datetime,
+                            "cancelled_by": appt.cancelled_by,
+                            "barrier_code": appt.barrier_code,
+                            "notice_days": appt.notice_days,
+                            "release_class": appt.release_class,
+                        }),
                     )
                     .await?;
                     Ok(appt)
@@ -157,6 +213,47 @@ impl SchedulingService {
             ))
             .await;
         Ok(appt)
+    }
+
+    /// Record the barrier for an appointment that has already ended in a cancellation or a miss,
+    /// for example after a welfare call. Refused for an appointment that is still to happen.
+    pub async fn record_barrier(
+        &self,
+        appointment_id: Uuid,
+        barrier: BarrierCode,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
+        let ctx_clone = ctx.clone();
+        self.db
+            .transaction::<_, Appointment, Error>(|txn| {
+                Box::pin(async move {
+                    let mut appt = AppointmentRepository::find_by_id(txn, appointment_id)
+                        .await?
+                        .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
+                    if !matches!(appt.status, AppointmentStatus::Cancelled | AppointmentStatus::NoShow) {
+                        return Err(Error::invalid_transition(
+                            "a barrier can only be recorded for a cancelled appointment or a no-show",
+                        ));
+                    }
+                    let before = appt.barrier_code;
+                    appt.barrier_code = Some(barrier);
+                    appt.updated_at = chrono::Utc::now();
+                    let appt = AppointmentRepository::update(txn, &appt).await?;
+                    AuditLogRepository::log(
+                        txn,
+                        "appointment",
+                        appt.id,
+                        "record_barrier",
+                        Some(serde_json::json!({ "barrier_code": before })),
+                        Some(serde_json::json!({ "barrier_code": appt.barrier_code })),
+                        &ctx_clone,
+                    )
+                    .await?;
+                    Ok(appt)
+                })
+            })
+            .await
+            .map_err(unwrap_txn_err)
     }
 
     pub async fn check_in(&self, appointment_id: Uuid, ctx: &UserContext) -> Result<Appointment> {

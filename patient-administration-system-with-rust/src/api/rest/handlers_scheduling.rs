@@ -19,7 +19,6 @@ use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
-use crate::models::appointment::CancellationReason;
 
 #[derive(Debug, Deserialize)]
 pub struct BookBody {
@@ -28,8 +27,20 @@ pub struct BookBody {
 
 #[derive(Debug, Deserialize, Default)]
 pub struct CancelBody {
+    /// Free text from older callers. Accepted and ignored; use `barrier_code`.
     #[serde(default)]
     pub reason: Option<String>,
+    /// Who is cancelling. Defaults to `patient`, which is what this endpoint always recorded.
+    #[serde(default)]
+    pub cancelled_by: Option<crate::models::appointment::CancelledBy>,
+    /// The patient's barrier, when they gave one. An unknown code is refused with 422.
+    #[serde(default)]
+    pub barrier_code: Option<crate::models::appointment::BarrierCode>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BarrierBody {
+    pub barrier_code: crate::models::appointment::BarrierCode,
 }
 
 fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
@@ -118,12 +129,38 @@ pub async fn cancel_appointment(
     body: Option<Json<CancelBody>>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    // `reason` body field is reserved for Phase 3b2 (when we add a
-    // free-text reason column or extend the enum). For Phase 3b1 every
-    // cancel maps to `PatientRequest`.
-    let _ = body.and_then(|Json(b)| b.reason);
-    let reason = CancellationReason::PatientRequest;
-    match state.scheduling.cancel(appointment_id, reason, &ctx).await {
+    let body = body.map(|Json(b)| b).unwrap_or_default();
+    let details = crate::scheduling::CancelDetails {
+        cancelled_by: body
+            .cancelled_by
+            .unwrap_or(crate::models::appointment::CancelledBy::Patient),
+        barrier_code: body.barrier_code,
+        legacy_reason: None,
+    };
+    match state
+        .scheduling
+        .cancel_with(appointment_id, details, &ctx)
+        .await
+    {
+        Ok(appt) => ok_value(serde_json::to_value(appt).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `PUT /api/appointments/{id}/barrier` — record why a cancelled or missed appointment happened,
+/// typically after a welfare call (CAP-1).
+pub async fn record_barrier(
+    State(state): State<AppState>,
+    Path(appointment_id): Path<Uuid>,
+    headers: HeaderMap,
+    Json(body): Json<BarrierBody>,
+) -> HandlerResult {
+    let ctx = audit_ctx(&user_context_from_headers(&headers));
+    match state
+        .scheduling
+        .record_barrier(appointment_id, body.barrier_code, &ctx)
+        .await
+    {
         Ok(appt) => ok_value(serde_json::to_value(appt).unwrap_or(Value::Null)),
         Err(e) => error_to_response(e),
     }

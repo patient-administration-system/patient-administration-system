@@ -61,6 +61,77 @@ pub enum CancellationReason {
     Other,
 }
 
+/// Who ended an appointment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CancelledBy {
+    Patient,
+    Provider,
+    System,
+}
+
+impl CancelledBy {
+    /// The coarse legacy reason this maps to.
+    pub fn legacy_reason(self) -> CancellationReason {
+        match self {
+            CancelledBy::Patient => CancellationReason::PatientRequest,
+            CancelledBy::Provider => CancellationReason::ProviderRequest,
+            CancelledBy::System => CancellationReason::Other,
+        }
+    }
+}
+
+/// Why a patient could not or did not attend: the barrier, in the patient's own terms.
+/// These feed the discovery work on access barriers, so they describe the situation, not blame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BarrierCode {
+    CannotTravel,
+    Caring,
+    Work,
+    FeelBetter,
+    Unwell,
+    Forgot,
+    Other,
+}
+
+/// How an ended appointment relates to the chance to refill its slot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReleaseClass {
+    /// Cancelled with at least [`EARLY_RELEASE_DAYS`] days' notice: the slot can be refilled.
+    EarlyRelease,
+    /// Cancelled with less notice: refilling is difficult.
+    LateRelease,
+    /// A no-show: nobody told us, and the slot was lost.
+    SilentMiss,
+}
+
+/// Notice, in whole days, at or above which a cancellation counts as an early release.
+pub const EARLY_RELEASE_DAYS: i32 = 3;
+
+/// Whole days between `cancelled_at` and the start, never negative (cancelling after the start
+/// gives no notice).
+pub fn notice_days(cancelled_at: DateTime<Utc>, start: DateTime<Utc>) -> i32 {
+    let days = (start - cancelled_at).num_days();
+    days.clamp(0, i64::from(i32::MAX)) as i32
+}
+
+/// Classify an ended appointment. `None` for one that has not ended without attendance.
+pub fn classify_release(
+    status: AppointmentStatus,
+    notice_days: Option<i32>,
+) -> Option<ReleaseClass> {
+    match status {
+        AppointmentStatus::NoShow => Some(ReleaseClass::SilentMiss),
+        AppointmentStatus::Cancelled => Some(match notice_days {
+            Some(d) if d >= EARLY_RELEASE_DAYS => ReleaseClass::EarlyRelease,
+            _ => ReleaseClass::LateRelease,
+        }),
+        _ => None,
+    }
+}
+
 /// An appointment scheduled for a patient.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Appointment {
@@ -79,6 +150,24 @@ pub struct Appointment {
     /// recurring series (v0.9). `None` for singleton appointments.
     #[serde(default)]
     pub series_id: Option<Uuid>,
+    /// When it was cancelled (CAP-1).
+    #[serde(default)]
+    pub cancelled_at: Option<DateTime<Utc>>,
+    /// Who cancelled it (CAP-1).
+    #[serde(default)]
+    pub cancelled_by: Option<CancelledBy>,
+    /// The patient's barrier, when known (CAP-1). Can be recorded after a no-show too.
+    #[serde(default)]
+    pub barrier_code: Option<BarrierCode>,
+    /// Whole days of notice given (CAP-1).
+    #[serde(default)]
+    pub notice_days: Option<i32>,
+    /// When the patient confirmed they are coming (CAP-2).
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    /// Derived from status and notice; never stored, so it cannot disagree with them.
+    #[serde(default)]
+    pub release_class: Option<ReleaseClass>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -102,6 +191,12 @@ impl Appointment {
             from_waitlist_entry_id: None,
             cancellation_reason: None,
             series_id: None,
+            cancelled_at: None,
+            cancelled_by: None,
+            barrier_code: None,
+            notice_days: None,
+            confirmed_at: None,
+            release_class: None,
             created_at: now,
             updated_at: now,
         }
@@ -297,6 +392,114 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&CancellationReason::NoShow).unwrap(),
             "\"no_show\""
+        );
+    }
+
+    #[test]
+    fn test_notice_days_counts_whole_days_and_never_goes_negative() {
+        let start = Utc::now() + chrono::Duration::days(10);
+        assert_eq!(notice_days(start - chrono::Duration::days(5), start), 5);
+        assert_eq!(
+            notice_days(start - chrono::Duration::hours(47), start),
+            1,
+            "47h is one whole day"
+        );
+        assert_eq!(notice_days(start - chrono::Duration::hours(2), start), 0);
+        assert_eq!(
+            notice_days(start + chrono::Duration::hours(1), start),
+            0,
+            "after the start: no notice"
+        );
+    }
+
+    #[test]
+    fn test_release_class_separates_early_late_and_silent() {
+        use AppointmentStatus::*;
+        assert_eq!(
+            classify_release(Cancelled, Some(EARLY_RELEASE_DAYS)),
+            Some(ReleaseClass::EarlyRelease)
+        );
+        assert_eq!(
+            classify_release(Cancelled, Some(10)),
+            Some(ReleaseClass::EarlyRelease)
+        );
+        assert_eq!(
+            classify_release(Cancelled, Some(EARLY_RELEASE_DAYS - 1)),
+            Some(ReleaseClass::LateRelease)
+        );
+        assert_eq!(
+            classify_release(Cancelled, Some(0)),
+            Some(ReleaseClass::LateRelease)
+        );
+        assert_eq!(
+            classify_release(Cancelled, None),
+            Some(ReleaseClass::LateRelease),
+            "unknown notice is not assumed early"
+        );
+        assert_eq!(
+            classify_release(NoShow, None),
+            Some(ReleaseClass::SilentMiss)
+        );
+        assert_eq!(
+            classify_release(NoShow, Some(9)),
+            Some(ReleaseClass::SilentMiss),
+            "a no-show is silent whatever the notice"
+        );
+        assert_eq!(classify_release(Booked, None), None);
+        assert_eq!(classify_release(Fulfilled, None), None);
+    }
+
+    #[test]
+    fn test_barrier_codes_use_the_agreed_wire_names() {
+        let names: Vec<String> = [
+            BarrierCode::CannotTravel,
+            BarrierCode::Caring,
+            BarrierCode::Work,
+            BarrierCode::FeelBetter,
+            BarrierCode::Unwell,
+            BarrierCode::Forgot,
+            BarrierCode::Other,
+        ]
+        .iter()
+        .map(|b| {
+            serde_json::to_value(b)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect();
+        assert_eq!(
+            names,
+            [
+                "cannot_travel",
+                "caring",
+                "work",
+                "feel_better",
+                "unwell",
+                "forgot",
+                "other"
+            ]
+        );
+        assert!(
+            serde_json::from_str::<BarrierCode>("\"too_busy\"").is_err(),
+            "unknown codes are refused"
+        );
+    }
+
+    #[test]
+    fn test_cancelled_by_maps_to_the_legacy_reason() {
+        assert_eq!(
+            CancelledBy::Patient.legacy_reason(),
+            CancellationReason::PatientRequest
+        );
+        assert_eq!(
+            CancelledBy::Provider.legacy_reason(),
+            CancellationReason::ProviderRequest
+        );
+        assert_eq!(
+            CancelledBy::System.legacy_reason(),
+            CancellationReason::Other
         );
     }
 }
