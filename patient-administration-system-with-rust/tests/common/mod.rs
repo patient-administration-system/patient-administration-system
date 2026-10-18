@@ -77,3 +77,36 @@ pub async fn audit_count(
         .unwrap();
     row.try_get("", "n").unwrap()
 }
+
+/// Like [`new_schedule`], for a named service, so a test's candidates are its own.
+#[allow(dead_code)]
+pub async fn new_schedule_for(
+    db: &sea_orm::DatabaseConnection,
+    service: &str,
+) -> patient_administration_system::models::schedule::Schedule {
+    use patient_administration_system::db::repositories::schedule::ScheduleRepository;
+    use patient_administration_system::models::schedule::{Schedule, ScheduleOwner};
+    let s = Schedule::new(
+        ScheduleOwner::Practitioner(uuid::Uuid::new_v4()),
+        service.into(),
+    );
+    ScheduleRepository::create(db, &s)
+        .await
+        .expect("create schedule")
+}
+
+/// A free slot starting `hours` hours from now (use for "cancelled a few hours before").
+#[allow(dead_code)]
+pub async fn free_slot_in_hours(
+    db: &sea_orm::DatabaseConnection,
+    schedule_id: uuid::Uuid,
+    hours: i64,
+) -> patient_administration_system::models::schedule::Slot {
+    use patient_administration_system::db::repositories::slot::SlotRepository;
+    use patient_administration_system::models::schedule::Slot;
+    let start = chrono::Utc::now() + chrono::Duration::hours(hours);
+    let slot = Slot::new(schedule_id, start, start + chrono::Duration::minutes(30));
+    SlotRepository::create(db, &slot)
+        .await
+        .expect("create slot")
+}

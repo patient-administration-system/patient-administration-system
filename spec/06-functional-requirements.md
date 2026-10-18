@@ -31,3 +31,9 @@
 | FR-25 | Completing an appointment MUST mark its entry `treated`. | `core2_waitlist_test.rs::completing_the_appointment_...` |
 | FR-26 | A rebook MUST carry the entry to the new appointment. | `core2_waitlist_test.rs::a_rebook_keeps_the_link_...` |
 | FR-27 | An entry that was removed or already treated MUST NOT be changed by a later appointment event. | `core2_waitlist_test.rs::an_entry_someone_removed_...` |
+| FR-28 | Freeing a future slot by a cancellation or a miss MUST record exactly one release (with notice and class) and publish one `SlotReleased` event; a slot whose time has passed MUST record none. | `tests/cap3_standby_test.rs::a_cancel_records_one_release_...`, `::a_cancel_hours_before_is_a_late_release_...` |
+| FR-29 | Booking a released slot MUST close the release as `refilled` with the seconds it took. | `cap3_standby_test.rs::booking_the_released_slot_marks_it_refilled_with_how_fast` |
+| FR-30 | Candidates for an open release MUST be ordered by time on standby and nothing else, and MUST exclude the patient who gave the slot up, inactive or not-short-notice entries, other services, and anyone with an overlapping appointment; tag filters MUST narrow without reordering. | `cap3_standby_test.rs::candidates_are_longest_waiting_first_...`, `::tag_filters_narrow_candidates_...` |
+| FR-31 | Booking from standby MUST book and remove the patient in one transaction; a failed booking MUST leave them on standby; a refilled release MUST offer no candidates. | `cap3_standby_test.rs::a_refilled_release_has_no_candidates_...` |
+| FR-32 | The booking team's list MUST show open, refilled and expired releases (expired derived from the start time) with a summary, and MUST refuse an unknown status. | `cap3_standby_test.rs::the_booking_team_sees_open_refilled_and_expired_releases_...` |
+| FR-33 | Adding a patient to standby twice MUST update their tags, not duplicate them. | `cap3_standby_test.rs::adding_twice_updates_the_tags_...` |

@@ -34,6 +34,7 @@ use super::handlers_letters;
 use super::handlers_resources;
 use super::handlers_scheduling;
 use super::handlers_series;
+use super::handlers_standby;
 use super::handlers_waitlist;
 use super::handlers_writeback;
 use super::upstream_proxy;
@@ -143,6 +144,24 @@ pub fn router(state: AppState) -> Router {
         )
         // Scheduling — book / cancel / check-in / complete.
         .route("/api/slots/{id}/book", post(handlers_scheduling::book_slot))
+        // Released slots and the standby list (CAP-3).
+        .route(
+            "/api/standby",
+            post(handlers_standby::add_standby).get(handlers_standby::list_standby),
+        )
+        .route(
+            "/api/standby/{id}",
+            delete(handlers_standby::remove_standby),
+        )
+        .route(
+            "/api/standby/{id}/book",
+            post(handlers_standby::book_from_standby),
+        )
+        .route("/api/slot-releases", get(handlers_standby::list_releases))
+        .route(
+            "/api/slot-releases/{id}/candidates",
+            get(handlers_standby::release_candidates),
+        )
         // Write-back (CAP-2): a patient's reply changes the appointment now.
         .route(
             "/api/write-back/replies",

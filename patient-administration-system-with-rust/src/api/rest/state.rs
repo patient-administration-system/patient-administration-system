@@ -28,6 +28,7 @@ pub struct AppState {
     pub adt: Arc<AdtService>,
     pub scheduling: Arc<SchedulingService>,
     pub writeback: Arc<crate::writeback::WriteBackService>,
+    pub standby: Arc<crate::standby::StandbyService>,
     pub series: Arc<SeriesService>,
     pub waitlist: Arc<WaitlistService>,
     pub rtt: Arc<RttService>,
@@ -55,6 +56,10 @@ impl AppState {
         Self {
             adt: Arc::new(AdtService::new(db.clone(), publisher.clone())),
             writeback: Arc::new(crate::writeback::WriteBackService::new(
+                db.clone(),
+                scheduling.clone(),
+            )),
+            standby: Arc::new(crate::standby::StandbyService::new(
                 db.clone(),
                 scheduling.clone(),
             )),

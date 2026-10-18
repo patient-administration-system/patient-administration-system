@@ -1,7 +1,9 @@
-// A tiny stand-in for the PAS REST API (port 4181). It records every request path
+// A tiny stand-in for the PAS REST API (port MOCK_PORT, default 4181). It records every request path
 // at /__requests so a test can prove which patient id the BFF asked for.
 import http from "node:http";
 
+// Another project on the same machine may hold 4181; run with MOCK_PORT=4191 (or any free port).
+const MOCK_PORT = Number(process.env.MOCK_PORT ?? 4181);
 const PATIENT = "00000000-0000-0000-0000-000000000000";
 const requests = [];
 const envelope = (data) => JSON.stringify({ success: true, data });
@@ -88,4 +90,4 @@ http
     res.statusCode = 404;
     res.end(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "not found" } }));
   })
-  .listen(4181, "127.0.0.1", () => console.log("pas-mock on 4181"));
+  .listen(MOCK_PORT, "127.0.0.1", () => console.log(`pas-mock on ${MOCK_PORT}`));

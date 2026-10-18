@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { keycloakLogin } from "./support/login";
+import { MOCK_URL } from "./support/ports";
 
 test("signed-out visitors are sent to sign in, then back where they were going", async ({ page }) => {
   await page.goto("/my/appointments");
@@ -15,13 +16,13 @@ test("a patient signs in and sees only their own appointments", async ({ page, r
   await expect(page.getByRole("cell", { name: "Knee review" })).toBeVisible();
 
   // The person id sent to the PAS came from the verified ID token, not from the browser.
-  const asked: string[] = await (await request.get("http://127.0.0.1:4181/__requests")).json();
+  const asked: string[] = await (await request.get(`${MOCK_URL}/__requests`)).json();
   expect(asked).toContain("/api/patients/00000000-0000-0000-0000-000000000000/appointments");
 
   // Secure portal messages: shown after sign-in, fetched for the token's own person id only.
   await page.getByRole("link", { name: "My messages" }).click();
   await expect(page.getByRole("heading", { name: "Your appointment letter" })).toBeVisible();
-  const asked2: string[] = await (await request.get("http://127.0.0.1:4181/__requests")).json();
+  const asked2: string[] = await (await request.get(`${MOCK_URL}/__requests`)).json();
   expect(asked2).toContain("/api/patients/00000000-0000-0000-0000-000000000000/letters?channel=portal");
 
   // A patient is not staff: the staff pages refuse them.

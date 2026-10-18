@@ -78,11 +78,8 @@ describe("waitlistCards", () => {
       { id: "2", person_id: "bbbbbbbb-2", target_service: "ENT", priority: "emergency", status: "mystery" },
     ], en);
     expect(cards.map((c) => c.id)).toEqual(["2", "1"]);
-    expect(cards[0]).toMatchObject({ columnId: "waiting" });
-    // WCAG 2.5.3: all visible text is in the title, so the cell's accessible name contains it.
-    expect(cards[0]?.title).toMatch(/^ENT · Patient .*bbbbbbbb.* · Emergency$/);
-    expect(cards[0]?.subtitle).toBeUndefined();
-    expect(cards[0]?.badges).toBeUndefined();
+    expect(cards[0]).toMatchObject({ columnId: "waiting", title: "ENT", badges: ["Emergency"] });
+    expect(cards[0]?.subtitle).toMatch(/^Patient .*bbbbbbbb/);
   });
 });
 

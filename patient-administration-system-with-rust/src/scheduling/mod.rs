@@ -126,6 +126,7 @@ impl SchedulingService {
         appt.status = appt.status.try_transition_to(AppointmentStatus::Booked)?;
         let appt = AppointmentRepository::create(txn, &appt).await?;
         Self::sync_waitlist(txn, &appt, WaitlistStatus::Booked, ctx).await?;
+        crate::standby::mark_refilled(txn, slot.id, &appt).await?;
         AuditLogRepository::log(
             txn,
             "appointment",
@@ -180,6 +181,9 @@ impl SchedulingService {
         }
         // A cancelled booking puts the patient back on the waiting list. It never removes them.
         Self::sync_waitlist(txn, &appt, WaitlistStatus::Waiting, ctx).await?;
+        if let Some(class) = appt.release_class {
+            crate::standby::record_release(txn, &appt, class).await?;
+        }
         AuditLogRepository::log(
             txn,
             "appointment",
@@ -534,6 +538,9 @@ impl SchedulingService {
                     }
                     // A miss returns the patient to the waiting list; it never removes them (CAP-7).
                     Self::sync_waitlist(txn, &appt, WaitlistStatus::Waiting, &ctx_clone).await?;
+                    if let Some(class) = appt.release_class {
+                        crate::standby::record_release(txn, &appt, class).await?;
+                    }
                     AuditLogRepository::log(
                         txn,
                         "appointment",

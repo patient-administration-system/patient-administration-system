@@ -12,4 +12,4 @@ minimumReleaseAgeExclude:
   - '@lilydesignsystem/svelte-calendar@0.7.0'
   - '@lilydesignsystem/svelte-data-grid@0.11.0'
   - '@lilydesignsystem/svelte-gantt-chart@0.8.0'
-  - '@lilydesignsystem/svelte-kanban-board@0.8.0'
+  - '@lilydesignsystem/svelte-kanban-board@0.8.0 || 0.8.1'

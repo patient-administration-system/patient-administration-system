@@ -90,10 +90,12 @@ export function waitlistCards(rows: WaitlistLike[], t: Translate): KanbanCard[] 
     .map((w) => ({
       id: w.id,
       columnId: (WAITLIST_COLUMN_IDS as readonly string[]).includes(w.status) ? w.status : "waiting",
-      // Everything a reader needs is in the title. The board also shows a card's subtitle and badges
-      // as separate text but names the cell by its title alone, so splitting them fails WCAG 2.5.3
-      // (label in name) and a screen-reader user hears less than a sighted one.
-      title: [w.target_service, t("waitlist.patient", { id: w.person_id.slice(0, 8) }), t(priorityKey(w.priority))].join(" · "),
+      // Subtitle and badges are separate text on the card. Since kanban 0.8.1 the board names the
+      // cell by all of it, so a screen-reader user hears what a sighted one sees (WCAG 2.5.3).
+      // (0.8.0 named it by the title alone, which forced everything into the title.)
+      title: w.target_service,
+      subtitle: t("waitlist.patient", { id: w.person_id.slice(0, 8) }),
+      badges: [t(priorityKey(w.priority))],
     }));
 }
 

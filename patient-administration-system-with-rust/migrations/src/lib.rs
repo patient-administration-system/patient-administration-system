@@ -10,6 +10,7 @@ mod m20260601_000006_delegate_identity;
 mod m20260602_000007_appointment_series_worker_id;
 mod m20260603_000008_appointment_outcomes;
 mod m20260604_000009_inbound_replies;
+mod m20260605_000010_standby_and_releases;
 
 pub struct Migrator;
 
@@ -26,6 +27,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260602_000007_appointment_series_worker_id::Migration),
             Box::new(m20260603_000008_appointment_outcomes::Migration),
             Box::new(m20260604_000009_inbound_replies::Migration),
+            Box::new(m20260605_000010_standby_and_releases::Migration),
         ]
     }
 }

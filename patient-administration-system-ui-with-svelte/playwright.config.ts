@@ -5,11 +5,14 @@ import { defineConfig, devices } from "@playwright/test";
 // and a mock PAS API. No Rust service is needed.
 const PORT = Number(process.env.PW_PORT ?? 4173);
 const KEYCLOAK = process.env.KEYCLOAK_URL ?? "http://localhost:8180";
+const MOCK_PORT = Number(process.env.MOCK_PORT ?? 4181);
 
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 30_000,
   fullyParallel: false,
+  // A real Keycloak login occasionally stalls; one retry keeps CI honest without hiding a real break.
+  retries: process.env.CI ? 1 : 0,
   // One worker: the specs share one Keycloak and one mock API whose request log a test reads, so
   // they cannot run side by side.
   workers: 1,
@@ -27,7 +30,8 @@ export default defineConfig({
   webServer: [
     {
       command: "node tests/e2e/support/pas-mock.mjs",
-      url: "http://127.0.0.1:4181/__health",
+      url: `http://127.0.0.1:${MOCK_PORT}/__health`,
+      env: { MOCK_PORT: String(MOCK_PORT) },
       reuseExistingServer: !process.env.CI,
     },
     {
@@ -39,7 +43,7 @@ export default defineConfig({
         PORT: String(PORT),
         HOST: "127.0.0.1",
         PROTOCOL_HEADER: "x-forwarded-proto",
-        PAS_API_URL: "http://127.0.0.1:4181",
+        PAS_API_URL: `http://127.0.0.1:${MOCK_PORT}`,
         OIDC_ISSUER: `${KEYCLOAK}/realms/pas`,
         OIDC_CLIENT_ID: "pas-frontend",
         OIDC_CLIENT_SECRET: "pas_dev_client_secret",

@@ -233,6 +233,19 @@ schedules,service_type,none,"Not personal data (structure, status, timestamps, p
 schedules,active,none,"Not personal data (structure, status, timestamps, places, templates)",record
 schedules,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 schedules,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,slot_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,service_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,start_datetime,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,released_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,notice_days,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,release_class,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,refilled_by_appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,refilled_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,seconds_to_refill,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_releases,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,schedule_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,start_datetime,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -240,6 +253,16 @@ slots,end_datetime,none,"Not personal data (structure, status, timestamps, place
 slots,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+standby_entries,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+standby_entries,person_id,identifier,Link a record to a person held by person-service,record
+standby_entries,service_type,health,"Administrative care information (why, where, what service, outcome)",record
+standby_entries,short_notice_ok,preference,"A personal preference or need that shapes how care is offered (language, transport, contact mode, accessibility)",record
+standby_entries,language,preference,"A personal preference or need that shapes how care is offered (language, transport, contact mode, accessibility)",record
+standby_entries,needs_transport,preference,"A personal preference or need that shapes how care is offered (language, transport, contact mode, accessibility)",record
+standby_entries,phone_only,preference,"A personal preference or need that shapes how care is offered (language, transport, contact mode, accessibility)",record
+standby_entries,active,none,"Not personal data (structure, status, timestamps, places, templates)",record
+standby_entries,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+standby_entries,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 transfers,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 transfers,admission_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 transfers,from_bed_id,none,"Not personal data (structure, status, timestamps, places, templates)",record

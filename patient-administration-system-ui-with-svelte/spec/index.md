@@ -17,7 +17,7 @@ Every route, form action and endpoint checks its role on the server (`src/lib/se
 
 Lily design system, exact-pinned: `svelte-calendar` (staff calendar, patient agenda), `svelte-kanban-board` (waitlist), `svelte-gantt-chart` (four-week schedule), `svelte-data-grid` (patient search). Their labels come from the catalogue where the widget allows.
 
-- Kanban cards put everything in the title. The board names a cell by its title alone but also renders subtitle and badges, which fails WCAG 2.5.3 (label in name).
+- Kanban 0.8.1 names each card cell by its full visible text (title, subtitle, badges), so cards keep their structure. (0.8.0 named it by the title alone, which fails WCAG 2.5.3; the earlier workaround of folding everything into the title is gone.) `tests/e2e/waitlist.spec.ts` pins this.
 - The calendar's view buttons are given a minimum size (WCAG 2.5.8).
 
 ## Security
