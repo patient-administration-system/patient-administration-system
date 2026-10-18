@@ -93,6 +93,51 @@ pub enum BarrierCode {
     Unwell,
     Forgot,
     Other,
+    /// Anxiety or fear about the appointment or the place.
+    Anxiety,
+    Cost,
+    /// The patient no longer needs the appointment (CAP-8: ask "still need this?" before closing).
+    NoLongerNeeded,
+    /// Could not cancel, or did not know how to.
+    CouldNotCancel,
+    /// A communication or access need was not met (language, hearing, sight, mobility).
+    AccessNeed,
+}
+
+impl BarrierCode {
+    /// Every code, in the order shown to a patient. The database CHECK must list exactly these.
+    pub const ALL: [BarrierCode; 12] = [
+        Self::CannotTravel,
+        Self::Caring,
+        Self::Work,
+        Self::FeelBetter,
+        Self::Unwell,
+        Self::Forgot,
+        Self::Anxiety,
+        Self::Cost,
+        Self::NoLongerNeeded,
+        Self::CouldNotCancel,
+        Self::AccessNeed,
+        Self::Other,
+    ];
+
+    /// The wire and database form.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::CannotTravel => "cannot_travel",
+            Self::Caring => "caring",
+            Self::Work => "work",
+            Self::FeelBetter => "feel_better",
+            Self::Unwell => "unwell",
+            Self::Forgot => "forgot",
+            Self::Other => "other",
+            Self::Anxiety => "anxiety",
+            Self::Cost => "cost",
+            Self::NoLongerNeeded => "no_longer_needed",
+            Self::CouldNotCancel => "could_not_cancel",
+            Self::AccessNeed => "access_need",
+        }
+    }
 }
 
 /// How an ended appointment relates to the chance to refill its slot.
@@ -451,24 +496,16 @@ mod tests {
 
     #[test]
     fn test_barrier_codes_use_the_agreed_wire_names() {
-        let names: Vec<String> = [
-            BarrierCode::CannotTravel,
-            BarrierCode::Caring,
-            BarrierCode::Work,
-            BarrierCode::FeelBetter,
-            BarrierCode::Unwell,
-            BarrierCode::Forgot,
-            BarrierCode::Other,
-        ]
-        .iter()
-        .map(|b| {
-            serde_json::to_value(b)
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string()
-        })
-        .collect();
+        let names: Vec<String> = BarrierCode::ALL
+            .iter()
+            .map(|b| {
+                serde_json::to_value(b)
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .to_string()
+            })
+            .collect();
         assert_eq!(
             names,
             [
@@ -478,9 +515,24 @@ mod tests {
                 "feel_better",
                 "unwell",
                 "forgot",
+                "anxiety",
+                "cost",
+                "no_longer_needed",
+                "could_not_cancel",
+                "access_need",
                 "other"
             ]
         );
+        // `as_str` (used for the database) and serde (used on the wire) must agree, and every code
+        // must round-trip.
+        for b in BarrierCode::ALL {
+            assert_eq!(
+                serde_json::to_value(b).unwrap().as_str().unwrap(),
+                b.as_str()
+            );
+            let back: BarrierCode = serde_json::from_str(&format!("\"{}\"", b.as_str())).unwrap();
+            assert_eq!(back, b);
+        }
         assert!(
             serde_json::from_str::<BarrierCode>("\"too_busy\"").is_err(),
             "unknown codes are refused"

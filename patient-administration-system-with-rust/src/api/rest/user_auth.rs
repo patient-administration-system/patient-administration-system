@@ -25,6 +25,9 @@
 //! | only `API_TOKEN` | The old behaviour: one shared token, identity unverified. |
 //! | nothing | Trusted-caller mode, as before; the server logs a warning. |
 //!
+//! Message carriers posting replies to `/api/write-back/*` authenticate with their own signed credential
+//! instead (`PAS_CARRIER_SECRETS`, see [`super::carrier_auth`]); they can reach nothing else.
+//!
 //! `PAS_REQUIRE_AUTH=true` makes the server **refuse to start** unless per-user (PASETO) auth is
 //! configured. Use it in every real deployment.
 //!
@@ -38,6 +41,7 @@ use std::time::Duration;
 use authentication_verifier::{Action, Claims, Policy, ReloadableVerifier, Verifier};
 use axum::{
     Json,
+    body::Body,
     extract::{Request, State},
     http::{HeaderMap, HeaderValue, Method, StatusCode, header},
     middleware::Next,
@@ -45,6 +49,7 @@ use axum::{
 };
 
 use crate::api::ApiResponse;
+use crate::api::rest::carrier_auth::{self, Carriers};
 
 /// A trusted service names the person it acts for with this header.
 pub const ON_BEHALF_OF: &str = "x-on-behalf-of";
@@ -62,6 +67,8 @@ pub struct UserAuthConfig {
     pub legacy_token: Option<String>,
     pub allow_legacy: bool,
     pub require_auth: bool,
+    /// `PAS_CARRIER_SECRETS`: one signing secret per message carrier (PILOT-3).
+    pub carrier_secrets: Option<String>,
 }
 
 impl UserAuthConfig {
@@ -79,6 +86,7 @@ impl UserAuthConfig {
             legacy_token,
             allow_legacy: truthy("PAS_ALLOW_LEGACY_API_TOKEN"),
             require_auth: truthy("PAS_REQUIRE_AUTH"),
+            carrier_secrets: get("PAS_CARRIER_SECRETS"),
         }
     }
 
@@ -109,6 +117,7 @@ pub struct UserAuth {
     paseto: Option<ReloadableVerifier>,
     policy: Policy,
     legacy: Option<String>,
+    carriers: Carriers,
     keys_url: Option<String>,
     issuer: String,
     audience: String,
@@ -151,6 +160,10 @@ impl UserAuth {
         } else {
             None
         };
+        let carriers = match &cfg.carrier_secrets {
+            Some(spec) => Carriers::parse(spec)?,
+            None => Carriers::default(),
+        };
         let legacy_allowed = paseto.is_none() || cfg.allow_legacy;
         let legacy = cfg
             .legacy_token
@@ -166,6 +179,7 @@ impl UserAuth {
             paseto: paseto.map(ReloadableVerifier::new),
             policy: Policy::default_policy(),
             legacy,
+            carriers,
             keys_url: cfg.keys_url,
             issuer: cfg.issuer,
             audience: cfg.audience,
@@ -312,6 +326,11 @@ pub async fn user_auth_middleware(
     if auth.is_open(&path) {
         return next.run(req).await;
     }
+    // A carrier's signed reply (PILOT-3) is authenticated by its own HMAC credential, never by a bearer
+    // token, and may reach the write-back API only.
+    if path.starts_with("/api/write-back/") && req.headers().contains_key(carrier_auth::ID_HEADER) {
+        return carrier_request(&auth, req, next).await;
+    }
     let principal = match auth.authenticate(req.headers()) {
         Ok(p) => p,
         Err(Denied::Unauthenticated(msg)) => {
@@ -341,6 +360,62 @@ pub async fn user_auth_middleware(
         }
     }
     next.run(req).await
+}
+
+/// Largest body a carrier may send (a 1000-row CSV batch is well under this).
+const MAX_CARRIER_BODY: usize = 2 * 1024 * 1024;
+
+async fn carrier_request(auth: &UserAuth, req: Request, next: Next) -> Response {
+    let (mut parts, body) = req.into_parts();
+    let header = |name: &str| {
+        parts
+            .headers
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string)
+    };
+    let (Some(id), Some(ts), Some(sig)) = (
+        header(carrier_auth::ID_HEADER),
+        header(carrier_auth::TIMESTAMP_HEADER),
+        header(carrier_auth::SIGNATURE_HEADER),
+    ) else {
+        return refuse(
+            StatusCode::UNAUTHORIZED,
+            "UNAUTHORIZED",
+            "invalid or expired credentials",
+        );
+    };
+    let Ok(bytes) = axum::body::to_bytes(body, MAX_CARRIER_BODY).await else {
+        return refuse(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "TOO_LARGE",
+            "request body too large",
+        );
+    };
+    if let Err(e) = auth.carriers.verify(
+        &id,
+        &ts,
+        &sig,
+        &bytes,
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0),
+    ) {
+        // The reason is for the operator's log; the caller learns nothing about which part failed.
+        tracing::warn!(target: "pas::auth", "carrier {id:?} refused: {e:?}");
+        return refuse(
+            StatusCode::UNAUTHORIZED,
+            "UNAUTHORIZED",
+            "invalid or expired credentials",
+        );
+    }
+    parts.headers.remove(USER_ID);
+    if let Ok(v) = HeaderValue::from_str(&format!("carrier:{id}")) {
+        parts.headers.insert(USER_ID, v);
+    }
+    next.run(Request::from_parts(parts, Body::from(bytes)))
+        .await
 }
 
 /// Put the authentication layer on a router.

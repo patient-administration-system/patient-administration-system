@@ -104,10 +104,22 @@ async fn echo(headers: HeaderMap) -> String {
         .to_string()
 }
 
+async fn echo_body(headers: HeaderMap, body: String) -> String {
+    format!(
+        "{}|{}",
+        headers
+            .get("x-user-id")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("-"),
+        body
+    )
+}
+
 fn app(auth: Arc<UserAuth>) -> Router {
     let r = Router::new()
         .route("/api/echo", get(echo).post(echo).put(echo).delete(echo))
         .route("/api/health", get(echo))
+        .route("/api/write-back/replies", post(echo_body))
         .route("/api/upstream/person-merged", post(echo))
         .route("/api/patients/import", post(echo));
     with_user_auth(r, auth)
@@ -561,4 +573,173 @@ async fn rotating_the_keys_takes_effect_without_a_restart_and_a_bad_document_cha
         StatusCode::UNAUTHORIZED,
         "the retired key no longer verifies"
     );
+}
+
+const SECRET: &str = "carrier-secret-0123456789";
+
+async fn carrier_app() -> Router {
+    let auth = UserAuth::build(UserAuthConfig {
+        carrier_secrets: Some(format!("twilio={SECRET},wa=other-secret-0123456789")),
+        ..cfg()
+    })
+    .await
+    .unwrap()
+    .unwrap();
+    app(auth)
+}
+
+async fn carrier_post(
+    app: &Router,
+    path: &str,
+    id: &str,
+    ts: i64,
+    sig: &str,
+    body: &str,
+) -> (StatusCode, String) {
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(path)
+                .header("x-carrier-id", id)
+                .header("x-carrier-timestamp", ts.to_string())
+                .header("x-carrier-signature", sig)
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let st = r.status();
+    (
+        st,
+        String::from_utf8_lossy(&axum::body::to_bytes(r.into_body(), 1 << 16).await.unwrap())
+            .to_string(),
+    )
+}
+
+#[tokio::test]
+async fn a_carrier_signed_reply_is_accepted_and_audited_under_the_carrier() {
+    use patient_administration_system::api::rest::carrier_auth::sign;
+    let app = carrier_app().await;
+    let body = r#"{"message_id":"m1","action":"confirm"}"#;
+    let ts = now();
+    let (st, out) = carrier_post(
+        &app,
+        "/api/write-back/replies",
+        "twilio",
+        ts,
+        &sign(SECRET.as_bytes(), ts, body.as_bytes()),
+        body,
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(
+        out,
+        format!("carrier:twilio|{body}"),
+        "the handler sees the intact body and the carrier identity, not anything the sender claimed"
+    );
+}
+
+#[tokio::test]
+async fn a_carrier_cannot_forge_replay_or_wander() {
+    use patient_administration_system::api::rest::carrier_auth::sign;
+    let app = carrier_app().await;
+    let body = r#"{"message_id":"m1","action":"cancel"}"#;
+    let ts = now();
+    let good = sign(SECRET.as_bytes(), ts, body.as_bytes());
+    // Tampered body, wrong secret, another carrier's id, unknown carrier, stale timestamp, no signature.
+    for (name, id, t, sig, b) in [
+        (
+            "tampered body",
+            "twilio",
+            ts,
+            good.clone(),
+            r#"{"message_id":"m1","action":"confirm"}"#,
+        ),
+        (
+            "wrong secret",
+            "twilio",
+            ts,
+            sign(b"not-the-secret-0123456789", ts, body.as_bytes()),
+            body,
+        ),
+        ("another carrier's id", "wa", ts, good.clone(), body),
+        ("unknown carrier", "evil", ts, good.clone(), body),
+        (
+            "stale",
+            "twilio",
+            ts - 3600,
+            sign(SECRET.as_bytes(), ts - 3600, body.as_bytes()),
+            body,
+        ),
+        (
+            "future",
+            "twilio",
+            ts + 3600,
+            sign(SECRET.as_bytes(), ts + 3600, body.as_bytes()),
+            body,
+        ),
+        ("no signature", "twilio", ts, String::new(), body),
+    ] {
+        let (st, out) = carrier_post(&app, "/api/write-back/replies", id, t, &sig, b).await;
+        assert_eq!(st, StatusCode::UNAUTHORIZED, "{name}");
+        assert!(
+            !out.contains(SECRET) && !out.contains("stale") && !out.contains("signature"),
+            "{name}: says nothing about why: {out}"
+        );
+    }
+    // A valid carrier credential opens nothing but the write-back API.
+    let (st, _) = carrier_post(
+        &app,
+        "/api/echo",
+        "twilio",
+        ts,
+        &sign(SECRET.as_bytes(), ts, body.as_bytes()),
+        body,
+    )
+    .await;
+    assert_eq!(
+        st,
+        StatusCode::UNAUTHORIZED,
+        "a carrier cannot reach other endpoints"
+    );
+    // A forged X-User-Id from the carrier is discarded in favour of its own id.
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/write-back/replies")
+                .header("x-carrier-id", "twilio")
+                .header("x-carrier-timestamp", ts.to_string())
+                .header("x-carrier-signature", sign(SECRET.as_bytes(), ts, b"x"))
+                .header("x-user-id", "admin")
+                .body(Body::from("x"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let out = String::from_utf8_lossy(&axum::body::to_bytes(r.into_body(), 1 << 16).await.unwrap())
+        .to_string();
+    assert_eq!(out, "carrier:twilio|x");
+}
+
+#[tokio::test]
+async fn weak_or_duplicate_carrier_secrets_stop_start_up() {
+    for spec in [
+        "twilio=short",
+        "twilio=carrier-secret-0123456789,twilio=carrier-secret-9876543210",
+        "noequals",
+    ] {
+        assert!(
+            UserAuth::build(UserAuthConfig {
+                carrier_secrets: Some(spec.into()),
+                ..cfg()
+            })
+            .await
+            .is_err(),
+            "{spec}"
+        );
+    }
 }

@@ -198,3 +198,66 @@ async fn the_cancel_endpoint_takes_codes_refuses_unknown_ones_and_still_accepts_
         StatusCode::OK
     );
 }
+
+/// PILOT-2: the database CHECK lists exactly the codes the application knows. A code added to the enum
+/// without a migration (or the reverse) fails here, not in production.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_database_accepts_every_barrier_code_and_nothing_else() {
+    use sea_orm::ConnectionTrait;
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let a = booked(&state.db, 6).await;
+    for code in BarrierCode::ALL {
+        state
+            .db
+            .execute_unprepared(&format!(
+                "UPDATE appointments SET barrier_code = '{}' WHERE id = '{}'",
+                code.as_str(),
+                a.id
+            ))
+            .await
+            .unwrap_or_else(|e| panic!("the database refused {}: {e}", code.as_str()));
+    }
+    for bad in ["too_busy", "", "CANNOT_TRAVEL", "cost "] {
+        let r = state
+            .db
+            .execute_unprepared(&format!(
+                "UPDATE appointments SET barrier_code = '{bad}' WHERE id = '{}'",
+                a.id
+            ))
+            .await;
+        assert!(r.is_err(), "the database must refuse {bad:?}");
+    }
+}
+
+/// PILOT-2: a patient can say they no longer need the appointment, or that they were afraid, and it is
+/// recorded as that, freeing the slot like any other cancellation.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_new_reasons_are_recorded_when_a_patient_cancels() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    for code in [
+        BarrierCode::NoLongerNeeded,
+        BarrierCode::Anxiety,
+        BarrierCode::Cost,
+        BarrierCode::CouldNotCancel,
+        BarrierCode::AccessNeed,
+    ] {
+        let a = booked(&state.db, 6).await;
+        let c = state
+            .scheduling
+            .cancel_with(
+                a.id,
+                CancelDetails {
+                    cancelled_by: CancelledBy::Patient,
+                    barrier_code: Some(code),
+                    legacy_reason: None,
+                },
+                &UserContext::system(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(c.barrier_code, Some(code));
+        assert_eq!(c.release_class, Some(ReleaseClass::EarlyRelease));
+    }
+}

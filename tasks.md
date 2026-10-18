@@ -117,8 +117,8 @@ Ten items, from a review of what is still missing before a pilot of two-way mess
 | # | Item | Builds on | Status |
 |---|---|---|---|
 | PILOT-1 | Test debt: FR-3 (second channel reached when the first fails), FR-7 (invalid template syntax), FR-11 (date-range limits) | FR-3, FR-7, FR-11 | **done** (4 database tests; found and fixed two bugs: template *creation* never checked syntax, and an outage retried every appointment on every scan for ever, now capped at 6 failed attempts) |
-| PILOT-2 | Widen barrier codes: add anxiety/fear, cost, no longer needed, could not cancel / did not know, communication or access need; "no longer needed" triggers the "still need this?" check | CAP-1, CAP-8 | open |
-| PILOT-3 | Authenticate inbound replies: HMAC signature, replay window, one credential per carrier; reuse the merge-webhook checks | CAP-2, DTAC-4 | open |
+| PILOT-2 | Widen barrier codes: add anxiety/fear, cost, no longer needed, could not cancel / did not know, communication or access need; "no longer needed" triggers the "still need this?" check | CAP-1, CAP-8 | **codes done** (migration 12; 12 codes; a database test fails if the CHECK and the enum drift). The "still need this?" check waits for CAP-8 |
+| PILOT-3 | Authenticate inbound replies: HMAC signature, replay window, one credential per carrier; reuse the merge-webhook checks | CAP-2, DTAC-4 | **done** (`X-Carrier-Id/Timestamp/Signature`, HMAC-SHA256 over `timestamp.body`, 5-minute window, per-carrier secrets with rotation via `PAS_CARRIER_SECRETS`, write-back endpoints only, audited as `carrier:<id>`) |
 | PILOT-4 | Map a real text reply to an appointment: per-message reply token or latest-open-reminder per number, English and Welsh keyword parser, ask-back when several appointments | REM-3, CAP-2 | open |
 | PILOT-5 | Welsh parity: bilingual templates (CAP-9), Welsh reply keywords, SMS length with Welsh characters | CAP-9, REM-3 | open |
 | PILOT-6 | Reminder cadence: 7 days, 3 days, 24 hours; the 3-day touch carries "can't come?" | REM-4 | open |
