@@ -90,12 +90,12 @@ Double-submit-cookie pattern. See [csrf.md](csrf.md) for the threat model + edge
 |---|---|
 | `app_name` | `env!("CARGO_PKG_NAME")` |
 | `app_version` | `env!("CARGO_PKG_VERSION").to_string()` |
-| `boot` | Delegates to `create_app::<Self, Migrator>(...)`, threading in the shared `Migrator` from the rust-crate's migration sub-crate |
+| `boot` | Delegates to `create_app::<Self, Migrator>(...)`, threading in the shared `Migrator` from the with-rust project's migration sub-crate |
 | `routes` | `AppRoutes::with_default_routes()` + every controller's `routes()` |
 | `register_tasks` | **no-op** — no background tasks; the outbox dispatcher lives in the PAS Axum binary |
 | `connect_workers` | **no-op** — HTTP-only |
 | `truncate` | **no-op** — this crate never mutates the shared schema (would corrupt the system of record) |
-| `seed` | **no-op** — seeding lives in `pas-seed` in the rust-crate |
+| `seed` | **no-op** — seeding lives in `pas-seed` in the with-rust project |
 
 ### `ViewEngine<TeraView>` + `format::render()`
 
@@ -136,4 +136,4 @@ Three POST routes constitute the entire write surface. Each one:
 - [testing.md](testing.md) — `boot_test::<App>()` + `#[serial]` patterns
 - [../README.md](../README.md) — public stack notes + route table
 - [../spec.md](../spec.md) — full specification-driven-development document
-- [../../patient-administration-system-rust-crate/AGENTS/restful.md](../../patient-administration-system-rust-crate/AGENTS/restful.md) — REST envelope + error mapping that `pas_api` consumes
+- [../../patient-administration-system-with-rust/AGENTS/restful.md](../../patient-administration-system-with-rust/AGENTS/restful.md) — REST envelope + error mapping that `pas_api` consumes

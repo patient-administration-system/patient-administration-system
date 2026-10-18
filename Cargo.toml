@@ -1,8 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-    "patient-administration-system-rust-crate",
-    "patient-administration-system-rust-crate/migrations",
+    "patient-administration-system-with-rust",
+    "patient-administration-system-with-rust/migrations",
     "patient-administration-system-frontend",
 ]
 

@@ -6,7 +6,7 @@ Comprehensive specification-driven-development document for the **Loco-rs front-
 > The PAS Axum back end ditches its local `patients` + `practitioners` tables and proxies identity to `person-service` + `worker-service`. This front-end therefore **loses its direct sea-orm read path** to patient + practitioner data — those reads move to two new reqwest clients (`src/services/main_person_api.rs` + `src/services/main_worker_api.rs`) that hit the upstream services directly with the user's auth context.
 > The CSRF write surface is unchanged in shape (`/admissions/new`, `/appointments/new`, `/letters/new`) — those forms still proxy the user's POST through the PAS Axum API at `:8080`, which in turn proxies identity-bearing fields to the upstream services. The PAS Axum API remains the single write-fan-in. See PAS Axum `spec.md` §13 Layer 11 for the back-end migration and the workspace `CHANGELOG.md` Phase 0 entry.
 
-Past release detail lives in [`CHANGELOG.md`](CHANGELOG.md) (this crate) and [`../CHANGELOG.md`](../CHANGELOG.md) (workspace). System-of-record contracts that this crate consumes live in [`../patient-administration-system-rust-crate/spec.md`](../patient-administration-system-rust-crate/spec.md).
+Past release detail lives in [`CHANGELOG.md`](CHANGELOG.md) (this crate) and [`../CHANGELOG.md`](../CHANGELOG.md) (workspace). System-of-record contracts that this crate consumes live in [`../patient-administration-system-with-rust/spec.md`](../patient-administration-system-with-rust/spec.md).
 
 ---
 
@@ -60,7 +60,7 @@ Listed so a developer knows **not** to build them here:
 | Read paths (lists, details, dashboard panels) | `patient-administration-system-frontend` | sea-orm reads against the shared Postgres schema |
 | Write paths (admit, book, generate letter) | `patient-administration-system` (Axum) | HTTP REST: `services/pas_api.rs` reqwest client proxies the form into the PAS API |
 | Audit + outbox + Tantivy index | `patient-administration-system` (Axum) | Side-effects of every PAS REST write |
-| Schema migrations | `patient-administration-system-migrations` | `pas-migrate up` from the rust-crate; both apps see the result |
+| Schema migrations | `patient-administration-system-migrations` | `pas-migrate up` from the with-rust project; both apps see the result |
 | CSRF on the three write forms | `patient-administration-system-frontend` | Double-submit-cookie middleware in `src/csrf.rs` |
 
 ---
@@ -141,7 +141,7 @@ These are **non-negotiable**. Every reviewer (human or agent) checks them.
 | 3 | Every POST form is CSRF-protected by the double-submit-cookie pattern. | Browser-borne CSRF is the realistic threat for a server-rendered UI. |
 | 4 | First paint of every page works **without JavaScript**. HTMX is a progressive enhancement on top. | Resilience + accessibility + degradation under flaky networks. |
 | 5 | Every template uses Lily Design System headless class names. Zero inline styles in templates. | Style swap (Tailwind / Sass / etc.) requires only one file change. |
-| 6 | The migration crate is shared by path (`migration = { path = "../patient-administration-system-rust-crate/migrations", … }`); this crate **does not declare its own migrations**. | Schema drift between the two binaries is impossible. |
+| 6 | The migration crate is shared by path (`migration = { path = "../patient-administration-system-with-rust/migrations", … }`); this crate **does not declare its own migrations**. | Schema drift between the two binaries is impossible. |
 | 7 | Stateless server: every request reads from the DB (or PAS API). Horizontal scaling by adding replicas. | Availability. |
 | 8 | Crate-level `#![allow(clippy::result_large_err)]` is intentional. `loco_rs::Error` is a wide enum that trips the lint on every handler signature. | Keep clippy clean without splattering `allow` on every handler. |
 | 9 | This crate **does not add a direct `axum` / `tower` / `tower-http` / `tracing` dependency**. Loco brings pinned versions of those; adding a second copy produces conflicting `FromRequest` impls. | Dependency graph hygiene. |
@@ -259,7 +259,7 @@ The front-end exposes only Tera-rendered HTML (and the JSON `/_health` probe). A
 
 ## 8. Data Model Specification
 
-This crate **defines no schema** and adds no migrations. The migration crate (`patient-administration-system-migrations`) is the single source of truth and is shared by path; apply migrations once via `pas-migrate up` from the rust-crate.
+This crate **defines no schema** and adds no migrations. The migration crate (`patient-administration-system-migrations`) is the single source of truth and is shared by path; apply migrations once via `pas-migrate up` from the with-rust project.
 
 `src/models/` holds **read-only sea-orm projections** sized to the templates that consume them:
 
@@ -360,7 +360,7 @@ Ordered, layered build sequence to recreate the **v0.1.0** baseline from a clean
 
 ### Layer F0 — Crate scaffolding (single agent, blocking)
 
-- **F0.1 Cargo manifest.** `Cargo.toml` with `loco-rs = "0.14"`, `sea-orm`, `axum-extra = { version = "0.10", features = ["cookie"] }`, `reqwest`, `serial_test` (dev-dep). Crate-level `#![allow(clippy::result_large_err)]` in `src/lib.rs` and `src/main.rs`. Migration dep by path (`../patient-administration-system-rust-crate/migrations`).
+- **F0.1 Cargo manifest.** `Cargo.toml` with `loco-rs = "0.14"`, `sea-orm`, `axum-extra = { version = "0.10", features = ["cookie"] }`, `reqwest`, `serial_test` (dev-dep). Crate-level `#![allow(clippy::result_large_err)]` in `src/lib.rs` and `src/main.rs`. Migration dep by path (`../patient-administration-system-with-rust/migrations`).
 - **F0.2 Workspace registration.** Add `patient-administration-system-frontend` as a member in the workspace `../Cargo.toml`.
 - **F0.3 Loco config files.** `config/{development,production,test}.yaml` — bind 5150, dev Postgres URL, production env-driven.
 
@@ -453,8 +453,8 @@ A fresh checkout matches the **v0.1.0** baseline when **all** of these hold:
 | [`../README.md`](../README.md) | Workspace-level README (PAS + frontend + migration crate). |
 | [`../CHANGELOG.md`](../CHANGELOG.md) | Workspace-level changelog coordinating member-crate releases. |
 | [`../Cargo.toml`](../Cargo.toml) | Workspace manifest (three members, hoisted `[profile.release]` + `[profile.bench]`). |
-| [`../patient-administration-system-rust-crate/spec.md`](../patient-administration-system-rust-crate/spec.md) | The PAS Axum binary's own spec — the system-of-record surface this crate reads from and proxies writes to. |
-| [`../patient-administration-system-rust-crate/AGENTS/restful.md`](../patient-administration-system-rust-crate/AGENTS/restful.md) | REST shape that this front-end's `pas_api` client consumes. |
+| [`../patient-administration-system-with-rust/spec.md`](../patient-administration-system-with-rust/spec.md) | The PAS Axum binary's own spec — the system-of-record surface this crate reads from and proxies writes to. |
+| [`../patient-administration-system-with-rust/AGENTS/restful.md`](../patient-administration-system-with-rust/AGENTS/restful.md) | REST shape that this front-end's `pas_api` client consumes. |
 
 ---
 

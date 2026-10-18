@@ -355,7 +355,7 @@ These are **non-negotiable**. Every reviewer (human or agent) checks them.
 ├── Cargo.toml                                 workspace manifest (resolver 2) — three members + hoisted [profile.release]/[profile.bench]
 ├── CHANGELOG.md                               workspace-level changelog
 ├── README.md                                  workspace README
-├── patient-administration-system-rust-crate/  PAS Axum API server (v0.44.0)
+├── patient-administration-system-with-rust/  PAS Axum API server (v0.44.0)
 │   ├── Cargo.toml
 │   ├── src/                                   library + bins
 │   ├── tests/                                 19 integration test files
@@ -909,7 +909,7 @@ A separate workspace member at `../patient-administration-system-frontend/`. **R
 ### Layer 10 — Release engineering
 
 - **T10.1 Workspace CHANGELOG.** `../CHANGELOG.md` at the workspace root coordinates the state of every member crate at each point in time; entries link out to per-crate `CHANGELOG.md` for detail.
-- **T10.2 Repo unification (one-time, optional).** If the PAS Axum crate started life as a standalone repo, merge its history into the workspace root via `git subtree add --prefix=patient-administration-system-rust-crate/ <source> <commit> --squash`. A single `git log` at the workspace root then surfaces every commit forward.
+- **T10.2 Repo unification (one-time, optional).** If the PAS Axum crate started life as a standalone repo, merge its history into the workspace root via `git subtree add --prefix=patient-administration-system-with-rust/ <source> <commit> --squash`. A single `git log` at the workspace root then surfaces every commit forward.
 - **T10.3 Doc audit pass.** On every release, sweep `AGENTS.md`, every `AGENTS/*.md` and `AGENTS/share/*.md`, the PAS README, and this `spec.md` for drift. Test counts, version pins, deferred-list items, and the technology stack table are the usual culprits.
 
 ### Layer 11 — Option C identity delegation (v0.44.0) — **SHIPPED 2026-06-01**

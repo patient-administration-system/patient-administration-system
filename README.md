@@ -13,7 +13,7 @@ Cargo workspace housing the PAS API server and its Loco-rs front-end.
 > `departments` tables; PAS-owned rows reference identity via opaque
 > `person_id` / `worker_id` UUID columns. Integration is **HTTP-only** — no
 > Cargo dep on the upstream crates. See
-> [`patient-administration-system-rust-crate/spec.md`](patient-administration-system-rust-crate/spec.md)
+> [`patient-administration-system-with-rust/spec.md`](patient-administration-system-with-rust/spec.md)
 > §13 Layer 11 for the migration plan and [`CHANGELOG.md`](CHANGELOG.md)
 > Phase 0 entry for the doc rewrite that landed first.
 >
@@ -32,7 +32,7 @@ Cargo workspace housing the PAS API server and its Loco-rs front-end.
 ├── Cargo.toml                                 workspace manifest (3 members + hoisted [profile.release]/[profile.bench])
 ├── CHANGELOG.md                               workspace-level changelog
 ├── README.md                                  this file
-├── patient-administration-system-rust-crate/  PAS Axum API server (v0.44.0)
+├── patient-administration-system-with-rust/  PAS Axum API server (v0.44.0)
 │   ├── Cargo.toml
 │   ├── src/
 │   ├── tests/                                 integration test files
@@ -76,7 +76,7 @@ cargo fmt --all
 
 ```bash
 # 1. Start the database.
-cd patient-administration-system-rust-crate
+cd patient-administration-system-with-rust
 docker compose up -d postgres
 
 # 2. Apply migrations once — both apps see the same schema.
@@ -104,10 +104,10 @@ Then browse to:
 
 - [`CHANGELOG.md`](CHANGELOG.md) — workspace-level release history.
 - [`Cargo.toml`](Cargo.toml) — workspace manifest. Lists all three members and hoists `[profile.release]` (LTO + single codegen unit + strip) and `[profile.bench]` (inherits release) so per-member profile blocks (silently ignored by Cargo) are unnecessary.
-- [`patient-administration-system-rust-crate/README.md`](patient-administration-system-rust-crate/README.md) — full PAS API documentation, endpoint reference, configuration, status.
-- [`patient-administration-system-rust-crate/spec.md`](patient-administration-system-rust-crate/spec.md) — comprehensive spec-driven-development document for the PAS Axum API server.
-- [`patient-administration-system-rust-crate/AGENTS.md`](patient-administration-system-rust-crate/AGENTS.md) — agent / human orientation for the PAS Axum crate.
-- [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md) — PAS Axum release history.
+- [`patient-administration-system-with-rust/README.md`](patient-administration-system-with-rust/README.md) — full PAS API documentation, endpoint reference, configuration, status.
+- [`patient-administration-system-with-rust/spec.md`](patient-administration-system-with-rust/spec.md) — comprehensive spec-driven-development document for the PAS Axum API server.
+- [`patient-administration-system-with-rust/AGENTS.md`](patient-administration-system-with-rust/AGENTS.md) — agent / human orientation for the PAS Axum crate.
+- [`patient-administration-system-with-rust/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md) — PAS Axum release history.
 - [`patient-administration-system-frontend/README.md`](patient-administration-system-frontend/README.md) — Loco-rs architecture notes + route table + CSRF design.
 - [`patient-administration-system-frontend/spec.md`](patient-administration-system-frontend/spec.md) — comprehensive spec-driven-development document for the Loco-rs front-end.
 - [`patient-administration-system-frontend/AGENTS.md`](patient-administration-system-frontend/AGENTS.md) — agent / human orientation for the front-end crate.

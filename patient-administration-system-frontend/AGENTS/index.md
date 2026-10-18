@@ -20,6 +20,6 @@ Detailed reference documentation for `patient-administration-system-frontend` (L
 - [../../README.md](../../README.md) — workspace-level README
 - [../../CHANGELOG.md](../../CHANGELOG.md) — workspace-level changelog
 - [../../Cargo.toml](../../Cargo.toml) — workspace manifest (three members)
-- [../../patient-administration-system-rust-crate/AGENTS.md](../../patient-administration-system-rust-crate/AGENTS.md) — PAS Axum API server orientation; the system-of-record contract (response envelopes, audit log, outbox events) every write flow here proxies into
-- [../../patient-administration-system-rust-crate/AGENTS/restful.md](../../patient-administration-system-rust-crate/AGENTS/restful.md) — REST shape this front-end's `pas_api` client consumes
-- [../../patient-administration-system-rust-crate/spec.md](../../patient-administration-system-rust-crate/spec.md) — PAS Axum spec (system of record)
+- [../../patient-administration-system-with-rust/AGENTS.md](../../patient-administration-system-with-rust/AGENTS.md) — PAS Axum API server orientation; the system-of-record contract (response envelopes, audit log, outbox events) every write flow here proxies into
+- [../../patient-administration-system-with-rust/AGENTS/restful.md](../../patient-administration-system-with-rust/AGENTS/restful.md) — REST shape this front-end's `pas_api` client consumes
+- [../../patient-administration-system-with-rust/spec.md](../../patient-administration-system-with-rust/spec.md) — PAS Axum spec (system of record)

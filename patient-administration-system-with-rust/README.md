@@ -39,8 +39,8 @@ This crate is the v0.1 tier: a compiling, tested library + binary covering the h
 ### Bootstrap a working server
 
 ```bash
-git clone https://github.com/sixarm/patient-administration-system-rust-crate.git
-cd patient-administration-system-rust-crate
+git clone https://github.com/sixarm/patient-administration-system-with-rust.git
+cd patient-administration-system-with-rust
 cp .env.example .env
 
 # 1. Start Postgres
@@ -119,7 +119,7 @@ Mirrors `Cargo.toml` exactly. The v0.3.1 dep audit removed 15 unused direct deps
 ## Project Structure
 
 ```
-patient-administration-system-rust-crate/
+patient-administration-system-with-rust/
 ├── src/
 │   ├── lib.rs                 Library root, public re-exports
 │   ├── main.rs                Binary entry (Axum server)

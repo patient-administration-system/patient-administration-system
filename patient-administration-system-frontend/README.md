@@ -63,7 +63,7 @@ patient-administration-system-frontend/
 
 ```bash
 # 1. Apply migrations once via the existing PAS migration CLI.
-cd ../patient-administration-system-rust-crate
+cd ../patient-administration-system-with-rust
 DATABASE_URL=postgres://pas:pas_dev_password@localhost:5432/pas \
   cargo run --bin pas-migrate -- up
 
@@ -156,5 +156,5 @@ Not in v0.1.0:
 
 - [`../README.md`](../README.md) — workspace-level README.
 - [`../CHANGELOG.md`](../CHANGELOG.md) — workspace-level changelog coordinating member-crate releases.
-- [`../patient-administration-system-rust-crate/AGENTS.md`](../patient-administration-system-rust-crate/AGENTS.md) — orientation for the PAS Axum API server; the system-of-record contract (response envelopes, audit log, outbox events) that every write flow here proxies into.
-- [`../patient-administration-system-rust-crate/AGENTS/restful.md`](../patient-administration-system-rust-crate/AGENTS/restful.md) — REST shape that this front-end's reqwest client consumes (`POST /api/admissions`, `POST /api/slots/{id}/book`, `POST /api/letters/generate`).
+- [`../patient-administration-system-with-rust/AGENTS.md`](../patient-administration-system-with-rust/AGENTS.md) — orientation for the PAS Axum API server; the system-of-record contract (response envelopes, audit log, outbox events) that every write flow here proxies into.
+- [`../patient-administration-system-with-rust/AGENTS/restful.md`](../patient-administration-system-with-rust/AGENTS/restful.md) — REST shape that this front-end's reqwest client consumes (`POST /api/admissions`, `POST /api/slots/{id}/book`, `POST /api/letters/generate`).
