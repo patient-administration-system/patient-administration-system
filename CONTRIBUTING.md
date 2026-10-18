@@ -23,7 +23,7 @@ pnpm install && pnpm run check && pnpm test
 KEYCLOAK_URL=http://localhost:8180 pnpm exec playwright test     # needs podman compose -f podman/compose.yml up -d
 ```
 
-Documents: `python3 scripts/check-links.py` and `scripts/generate-status.sh --check`.
+Documents: `python3 scripts/check-links.py`, `scripts/generate-status.sh --check`, and `python3 scripts/generate-llms.py --check` (edit the list in that script, never `llms.txt` or `llms.json`).
 
 ## Rules that are tests
 

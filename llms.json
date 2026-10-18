@@ -1,94 +1,210 @@
 {
   "name": "Patient Administration System",
-  "summary": "Hospital patient administration with a patient portal. Pre-1.0, not production-ready, unaudited.",
+  "summary": "Hospital patient administration: admissions, appointments, waiting lists, referrals, reminders and patient notifications, with a patient portal and staff tools. Rust server (Axum, PostgreSQL), SvelteKit UI (Keycloak sign-in), Podman development stack. Pre-1.0, not production-ready and unaudited; it does not pass its own NHS DTAC self-assessment.",
+  "details": "Behaviour is defined by the specification in spec/, and a change is spec + code + test together. Each requirement names the test that verifies it, or says \"not yet tested\". The REST API describes itself: a running server serves OpenAPI at /api-docs/openapi.json and Swagger UI at /swagger-ui/. Everything under governance/ is an unreviewed draft.",
   "sections": [
     {
       "title": "Start here",
+      "optional": false,
       "links": [
         {
           "title": "README",
           "path": "README.md",
-          "description": "Overview, layout, quick start"
-        },
-        {
-          "title": "Plan",
-          "path": "plan.md",
-          "description": "Research and reasoning"
-        },
-        {
-          "title": "Tasks",
-          "path": "tasks.md",
-          "description": "The live work queue"
+          "description": "Overview, repository layout, quick start"
         },
         {
           "title": "Install",
           "path": "INSTALL.md",
-          "description": "Run it locally"
+          "description": "Run the stack locally with Podman, then the server and the UI"
+        },
+        {
+          "title": "Tasks",
+          "path": "tasks.md",
+          "description": "The live work queue: what is done, with its evidence, and what is not"
+        },
+        {
+          "title": "Plan",
+          "path": "plan.md",
+          "description": "Research and reasoning behind the tasks"
         }
       ]
     },
     {
       "title": "Specification",
+      "optional": false,
       "links": [
         {
           "title": "Specification index",
           "path": "spec/index.md",
-          "description": "Source of truth for the cross-subproject contract"
+          "description": "Source of truth for the cross-subproject contract and the ground rules"
+        },
+        {
+          "title": "Domain model",
+          "path": "spec/05-domain-model.md",
+          "description": "Entities, appointment statuses, delivery channels, template variables"
         },
         {
           "title": "Functional requirements",
           "path": "spec/06-functional-requirements.md",
-          "description": "FR-n, each with its verifying test"
+          "description": "FR-n, each with the test that verifies it"
         },
         {
           "title": "Non-functional requirements",
           "path": "spec/07-non-functional-requirements.md",
-          "description": "NFR-n, each with its verifying test"
+          "description": "NFR-n, each with the test that verifies it"
+        },
+        {
+          "title": "Architecture",
+          "path": "spec/08-architecture.md",
+          "description": "Components, the backend-for-frontend, the transactional outbox"
+        },
+        {
+          "title": "API surface",
+          "path": "spec/09-api-surface.md",
+          "description": "The endpoints the recent work depends on"
+        },
+        {
+          "title": "Persistence",
+          "path": "spec/10-persistence.md",
+          "description": "PostgreSQL, migrations and their rules"
+        },
+        {
+          "title": "Testing strategy",
+          "path": "spec/11-testing-strategy.md",
+          "description": "Which tests run where, and the rules about skipping"
+        },
+        {
+          "title": "Compliance",
+          "path": "spec/12-compliance.md",
+          "description": "Honest status against GDPR, clinical safety, DTAC, WCAG"
+        },
+        {
+          "title": "Implementation status",
+          "path": "spec/14-implementation-status.md",
+          "description": "Generated counts of tests, routes, migrations, tasks"
+        },
+        {
+          "title": "Locales",
+          "path": "spec/locales.md",
+          "description": "Locale codes, locale-prefixed URLs, catalogues, and what is tested"
         },
         {
           "title": "Spec-driven development",
           "path": "agents/spec-driven-development.md",
           "description": "Spec, code and test change together"
-        },
-        {
-          "title": "Locales",
-          "path": "spec/locales.md",
-          "description": "Locale codes, URLs and catalogues"
         }
       ]
     },
     {
-      "title": "Governance (drafts)",
+      "title": "Subprojects",
+      "optional": false,
+      "links": [
+        {
+          "title": "Server (Rust)",
+          "path": "patient-administration-system-with-rust/README.md",
+          "description": "Axum API: ADT, scheduling, waiting list, letters, reminders, write-back, standby, contact profiles"
+        },
+        {
+          "title": "Server specification",
+          "path": "patient-administration-system-with-rust/spec.md",
+          "description": "Crate-level specification; wins over the root spec on crate internals"
+        },
+        {
+          "title": "Server agent notes",
+          "path": "patient-administration-system-with-rust/AGENTS.md",
+          "description": "Conventions and layout for working in the server crate"
+        },
+        {
+          "title": "Operator pages (Loco)",
+          "path": "patient-administration-system-frontend/README.md",
+          "description": "Server-rendered operator pages over the shared database"
+        },
+        {
+          "title": "UI (SvelteKit)",
+          "path": "patient-administration-system-ui-with-svelte/README.md",
+          "description": "Patient and staff UI: Keycloak sign-in, ten locales, Lily components"
+        },
+        {
+          "title": "UI specification",
+          "path": "patient-administration-system-ui-with-svelte/spec/index.md",
+          "description": "Routes, roles, components, security, tests"
+        },
+        {
+          "title": "Development stack",
+          "path": "podman/compose.yml",
+          "description": "PostgreSQL 18 and Keycloak 26 under Podman"
+        },
+        {
+          "title": "Keycloak realm",
+          "path": "podman/keycloak/pas-realm.json",
+          "description": "Development realm: roles patient, staff, admin; development users only"
+        }
+      ]
+    },
+    {
+      "title": "Governance (drafts, unreviewed)",
+      "optional": false,
       "links": [
         {
           "title": "Governance index",
           "path": "governance/README.md",
-          "description": "DPIA, hazard log, retention, accessibility"
+          "description": "What each draft feeds and its status"
         },
         {
           "title": "NHS DTAC v2.0 self-assessment",
           "path": "docs/united-kingdom/national-health-service/digital-technology-assessment-criteria/2.0/index.md",
-          "description": "Concludes the product would not pass today"
+          "description": "Question-by-question answers; concludes the product would not pass today"
+        },
+        {
+          "title": "DPIA",
+          "path": "governance/dpia.md",
+          "description": "Data protection impact assessment draft"
+        },
+        {
+          "title": "Clinical safety hazard log",
+          "path": "governance/clinical-safety.md",
+          "description": "Hazards found in the design, for a Clinical Safety Officer to score"
+        },
+        {
+          "title": "Personal-data inventory",
+          "path": "governance/personal-data-inventory.csv",
+          "description": "Every database column classified; a test fails if one is missing"
+        },
+        {
+          "title": "Retention schedule",
+          "path": "governance/retention-schedule.md",
+          "description": "Placeholders; no retention job exists yet"
+        },
+        {
+          "title": "Translation review",
+          "path": "governance/translation-review.md",
+          "description": "Non-English catalogues are AI drafts awaiting first-language review"
+        },
+        {
+          "title": "Production readiness",
+          "path": "governance/production-readiness.md",
+          "description": "Checklist of what is and is not done"
         },
         {
           "title": "Security policy",
           "path": "SECURITY.md",
-          "description": "Reporting a vulnerability and known limits"
+          "description": "Reporting a vulnerability, and the known limits"
         },
         {
           "title": "AI statement",
           "path": "AI_STATEMENT.md",
-          "description": "How AI was used"
+          "description": "How AI was used to build this"
         }
       ]
     },
     {
       "title": "Operations",
+      "optional": false,
       "links": [
         {
           "title": "Deployment",
           "path": "operations/deployment.md",
-          "description": "What to run and configure"
+          "description": "What to run, configuration that matters, TLS"
         },
         {
           "title": "Runbook",
@@ -98,7 +214,53 @@
         {
           "title": "Backup and restore",
           "path": "operations/backup-and-restore.md",
-          "description": "Includes the restore drill"
+          "description": "Backups and the restore drill (scripts/restore-test.sh)"
+        }
+      ]
+    },
+    {
+      "title": "Optional",
+      "optional": true,
+      "links": [
+        {
+          "title": "Changelog",
+          "path": "CHANGELOG.md",
+          "description": "Workspace release history"
+        },
+        {
+          "title": "Contributing",
+          "path": "CONTRIBUTING.md",
+          "description": "Checks to run, and the rules that are tests"
+        },
+        {
+          "title": "Governance of the project",
+          "path": "GOVERNANCE.md",
+          "description": "Single-maintainer decision making"
+        },
+        {
+          "title": "Maintainers",
+          "path": "MAINTAINERS.md",
+          "description": "Who maintains this"
+        },
+        {
+          "title": "Licence",
+          "path": "LICENSE.md",
+          "description": "Choice of MIT, Apache-2.0, BSD-3-Clause, GPL-2.0-only or GPL-3.0-only"
+        },
+        {
+          "title": "Citation",
+          "path": "CITATION.cff",
+          "description": "How to cite"
+        },
+        {
+          "title": "Dependency policy",
+          "path": "deny.toml",
+          "description": "cargo-deny: licences, advisories (each ignore justified), sources"
+        },
+        {
+          "title": "CI",
+          "path": ".github/workflows/ci.yml",
+          "description": "One required check, ci-ok, over nine jobs"
         }
       ]
     }

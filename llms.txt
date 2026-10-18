@@ -1,31 +1,68 @@
 # Patient Administration System
 
-> Hospital patient administration: admissions, appointments, waiting lists, reminders and patient notifications, with a patient portal. Rust server, SvelteKit UI, PostgreSQL, Keycloak. Pre-1.0, not production-ready, unaudited.
+> Hospital patient administration: admissions, appointments, waiting lists, referrals, reminders and patient notifications, with a patient portal and staff tools. Rust server (Axum, PostgreSQL), SvelteKit UI (Keycloak sign-in), Podman development stack. Pre-1.0, not production-ready and unaudited; it does not pass its own NHS DTAC self-assessment.
+
+Behaviour is defined by the specification in spec/, and a change is spec + code + test together. Each requirement names the test that verifies it, or says "not yet tested". The REST API describes itself: a running server serves OpenAPI at /api-docs/openapi.json and Swagger UI at /swagger-ui/. Everything under governance/ is an unreviewed draft.
 
 ## Start here
 
-- [README](README.md): Overview, layout, quick start
-- [Plan](plan.md): Research and reasoning
-- [Tasks](tasks.md): The live work queue
-- [Install](INSTALL.md): Run it locally
+- [README](README.md): Overview, repository layout, quick start
+- [Install](INSTALL.md): Run the stack locally with Podman, then the server and the UI
+- [Tasks](tasks.md): The live work queue: what is done, with its evidence, and what is not
+- [Plan](plan.md): Research and reasoning behind the tasks
 
 ## Specification
 
-- [Specification index](spec/index.md): Source of truth for the cross-subproject contract
-- [Functional requirements](spec/06-functional-requirements.md): FR-n, each with its verifying test
-- [Non-functional requirements](spec/07-non-functional-requirements.md): NFR-n, each with its verifying test
+- [Specification index](spec/index.md): Source of truth for the cross-subproject contract and the ground rules
+- [Domain model](spec/05-domain-model.md): Entities, appointment statuses, delivery channels, template variables
+- [Functional requirements](spec/06-functional-requirements.md): FR-n, each with the test that verifies it
+- [Non-functional requirements](spec/07-non-functional-requirements.md): NFR-n, each with the test that verifies it
+- [Architecture](spec/08-architecture.md): Components, the backend-for-frontend, the transactional outbox
+- [API surface](spec/09-api-surface.md): The endpoints the recent work depends on
+- [Persistence](spec/10-persistence.md): PostgreSQL, migrations and their rules
+- [Testing strategy](spec/11-testing-strategy.md): Which tests run where, and the rules about skipping
+- [Compliance](spec/12-compliance.md): Honest status against GDPR, clinical safety, DTAC, WCAG
+- [Implementation status](spec/14-implementation-status.md): Generated counts of tests, routes, migrations, tasks
+- [Locales](spec/locales.md): Locale codes, locale-prefixed URLs, catalogues, and what is tested
 - [Spec-driven development](agents/spec-driven-development.md): Spec, code and test change together
-- [Locales](spec/locales.md): Locale codes, URLs and catalogues
 
-## Governance (drafts)
+## Subprojects
 
-- [Governance index](governance/README.md): DPIA, hazard log, retention, accessibility
-- [NHS DTAC v2.0 self-assessment](docs/united-kingdom/national-health-service/digital-technology-assessment-criteria/2.0/index.md): Concludes the product would not pass today
-- [Security policy](SECURITY.md): Reporting a vulnerability and known limits
-- [AI statement](AI_STATEMENT.md): How AI was used
+- [Server (Rust)](patient-administration-system-with-rust/README.md): Axum API: ADT, scheduling, waiting list, letters, reminders, write-back, standby, contact profiles
+- [Server specification](patient-administration-system-with-rust/spec.md): Crate-level specification; wins over the root spec on crate internals
+- [Server agent notes](patient-administration-system-with-rust/AGENTS.md): Conventions and layout for working in the server crate
+- [Operator pages (Loco)](patient-administration-system-frontend/README.md): Server-rendered operator pages over the shared database
+- [UI (SvelteKit)](patient-administration-system-ui-with-svelte/README.md): Patient and staff UI: Keycloak sign-in, ten locales, Lily components
+- [UI specification](patient-administration-system-ui-with-svelte/spec/index.md): Routes, roles, components, security, tests
+- [Development stack](podman/compose.yml): PostgreSQL 18 and Keycloak 26 under Podman
+- [Keycloak realm](podman/keycloak/pas-realm.json): Development realm: roles patient, staff, admin; development users only
+
+## Governance (drafts, unreviewed)
+
+- [Governance index](governance/README.md): What each draft feeds and its status
+- [NHS DTAC v2.0 self-assessment](docs/united-kingdom/national-health-service/digital-technology-assessment-criteria/2.0/index.md): Question-by-question answers; concludes the product would not pass today
+- [DPIA](governance/dpia.md): Data protection impact assessment draft
+- [Clinical safety hazard log](governance/clinical-safety.md): Hazards found in the design, for a Clinical Safety Officer to score
+- [Personal-data inventory](governance/personal-data-inventory.csv): Every database column classified; a test fails if one is missing
+- [Retention schedule](governance/retention-schedule.md): Placeholders; no retention job exists yet
+- [Translation review](governance/translation-review.md): Non-English catalogues are AI drafts awaiting first-language review
+- [Production readiness](governance/production-readiness.md): Checklist of what is and is not done
+- [Security policy](SECURITY.md): Reporting a vulnerability, and the known limits
+- [AI statement](AI_STATEMENT.md): How AI was used to build this
 
 ## Operations
 
-- [Deployment](operations/deployment.md): What to run and configure
+- [Deployment](operations/deployment.md): What to run, configuration that matters, TLS
 - [Runbook](operations/runbook.md): Symptoms and actions
-- [Backup and restore](operations/backup-and-restore.md): Includes the restore drill
+- [Backup and restore](operations/backup-and-restore.md): Backups and the restore drill (scripts/restore-test.sh)
+
+## Optional
+
+- [Changelog](CHANGELOG.md): Workspace release history
+- [Contributing](CONTRIBUTING.md): Checks to run, and the rules that are tests
+- [Governance of the project](GOVERNANCE.md): Single-maintainer decision making
+- [Maintainers](MAINTAINERS.md): Who maintains this
+- [Licence](LICENSE.md): Choice of MIT, Apache-2.0, BSD-3-Clause, GPL-2.0-only or GPL-3.0-only
+- [Citation](CITATION.cff): How to cite
+- [Dependency policy](deny.toml): cargo-deny: licences, advisories (each ignore justified), sources
+- [CI](.github/workflows/ci.yml): One required check, ci-ok, over nine jobs
