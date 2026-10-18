@@ -102,6 +102,31 @@ pub async fn list_waitlist(
     }
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct BookFromEntryBody {
+    pub slot_id: Uuid,
+}
+
+/// `POST /api/waitlist/{id}/book`: book a slot for the patient on this entry, and mark the entry
+/// `booked`. A cancel or a miss later returns it to `waiting`; completing the appointment marks it
+/// `treated`.
+pub async fn book_from_waitlist(
+    State(state): State<AppState>,
+    Path(entry_id): Path<Uuid>,
+    headers: HeaderMap,
+    Json(body): Json<BookFromEntryBody>,
+) -> HandlerResult {
+    let ctx = audit_ctx(&user_context_from_headers(&headers));
+    match state
+        .scheduling
+        .book_for_entry(entry_id, body.slot_id, &ctx)
+        .await
+    {
+        Ok(a) => ok(serde_json::to_value(a).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
 // ─── RTT ───────────────────────────────────────────────────────────────
 
 /// `POST /api/rtt/start`.

@@ -299,6 +299,10 @@ pub fn router(state: AppState) -> Router {
             "/api/waitlist/{id}",
             delete(handlers_waitlist::remove_from_waitlist),
         )
+        .route(
+            "/api/waitlist/{id}/book",
+            post(handlers_waitlist::book_from_waitlist),
+        )
         .route("/api/rtt/start", post(handlers_waitlist::rtt_start))
         .route("/api/rtt/{id}/pause", post(handlers_waitlist::rtt_pause))
         .route("/api/rtt/{id}/resume", post(handlers_waitlist::rtt_resume))

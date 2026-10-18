@@ -10,6 +10,7 @@ use sea_orm::{DatabaseConnection, DatabaseTransaction, TransactionTrait};
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::db::repositories::waitlist::WaitlistRepository;
 use crate::db::repositories::{
     appointment::AppointmentRepository,
     audit::{AuditLogRepository, UserContext},
@@ -20,8 +21,21 @@ use crate::models::appointment::{
     Appointment, AppointmentStatus, BarrierCode, CancellationReason, CancelledBy, notice_days,
 };
 use crate::models::schedule::SlotStatus;
+use crate::models::waitlist::WaitlistStatus;
 use crate::streaming::{DomainEvent, EventPublisher};
 use crate::{Error, Result};
+
+/// How a new booking relates to a waiting-list entry (CORE-2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EntryLink {
+    /// Not from a waiting list.
+    None,
+    /// Booking *from* this entry: it must exist, belong to the patient and be waiting.
+    Explicit(Uuid),
+    /// A rebook carrying the old appointment's entry forward. Lenient: if the entry has moved on
+    /// (removed, treated) the new appointment is simply not linked to a live entry.
+    Inherit(Uuid),
+}
 
 /// What the caller knows about a cancellation (CAP-1).
 #[derive(Debug, Clone, Copy)]
@@ -56,6 +70,32 @@ impl SchedulingService {
         person_id: Uuid,
         ctx: &UserContext,
     ) -> Result<Appointment> {
+        Self::book_inner(txn, slot_id, person_id, EntryLink::None, ctx).await
+    }
+
+    pub(crate) async fn book_inner(
+        txn: &DatabaseTransaction,
+        slot_id: Uuid,
+        person_id: Uuid,
+        link: EntryLink,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
+        if let EntryLink::Explicit(entry_id) = link {
+            let entry = WaitlistRepository::find_entry_by_id(txn, entry_id)
+                .await?
+                .ok_or_else(|| Error::not_found(format!("waitlist entry {entry_id}")))?;
+            if entry.person_id != person_id {
+                return Err(Error::conflict(
+                    "that waiting-list entry belongs to a different patient",
+                ));
+            }
+            if entry.status != WaitlistStatus::Waiting {
+                return Err(Error::conflict(format!(
+                    "waiting-list entry {entry_id} is {:?}, not waiting",
+                    entry.status
+                )));
+            }
+        }
         let slot = SlotRepository::select_for_update(txn, slot_id)
             .await?
             .ok_or_else(|| Error::not_found(format!("slot {slot_id}")))?;
@@ -80,8 +120,12 @@ impl SchedulingService {
         SlotRepository::update_status(txn, slot_id, SlotStatus::Busy).await?;
         let mut appt = Appointment::new(person_id, slot.start_datetime, slot.end_datetime);
         appt.slot_id = Some(slot.id);
+        if let EntryLink::Explicit(e) | EntryLink::Inherit(e) = link {
+            appt.from_waitlist_entry_id = Some(e);
+        }
         appt.status = appt.status.try_transition_to(AppointmentStatus::Booked)?;
         let appt = AppointmentRepository::create(txn, &appt).await?;
+        Self::sync_waitlist(txn, &appt, WaitlistStatus::Booked, ctx).await?;
         AuditLogRepository::log(
             txn,
             "appointment",
@@ -134,6 +178,8 @@ impl SchedulingService {
         if let Some(sid) = appt.slot_id {
             SlotRepository::update_status(txn, sid, SlotStatus::Free).await?;
         }
+        // A cancelled booking puts the patient back on the waiting list. It never removes them.
+        Self::sync_waitlist(txn, &appt, WaitlistStatus::Waiting, ctx).await?;
         AuditLogRepository::log(
             txn,
             "appointment",
@@ -219,11 +265,96 @@ impl SchedulingService {
             ctx,
         )
         .await?;
-        let booked = Self::book_tx(txn, new_slot_id, old.person_id, ctx).await?;
+        let link = old
+            .from_waitlist_entry_id
+            .map_or(EntryLink::None, EntryLink::Inherit);
+        let booked = Self::book_inner(txn, new_slot_id, old.person_id, link, ctx).await?;
         Ok((cancelled, booked))
     }
 
+    /// Keep the waiting-list entry an appointment came from in step with it (CORE-2). It moves an
+    /// entry only when this appointment is responsible for the entry's current state, so a
+    /// removed or already-treated entry is never disturbed. A miss or cancellation returns the
+    /// patient to `waiting`; it never removes them (CAP-7).
+    pub(crate) async fn sync_waitlist(
+        txn: &DatabaseTransaction,
+        appt: &Appointment,
+        to: WaitlistStatus,
+        ctx: &UserContext,
+    ) -> Result<()> {
+        let Some(entry_id) = appt.from_waitlist_entry_id else {
+            return Ok(());
+        };
+        let Some(mut entry) = WaitlistRepository::find_entry_by_id(txn, entry_id).await? else {
+            return Ok(());
+        };
+        let responsible = match to {
+            WaitlistStatus::Booked => entry.status == WaitlistStatus::Waiting,
+            WaitlistStatus::Waiting | WaitlistStatus::Treated => {
+                entry.status == WaitlistStatus::Booked
+            }
+            WaitlistStatus::Removed => false,
+        };
+        if !responsible {
+            return Ok(());
+        }
+        let from = entry.status;
+        entry.status = to;
+        entry.updated_at = chrono::Utc::now();
+        let entry = WaitlistRepository::update_entry(txn, &entry).await?;
+        AuditLogRepository::log(
+            txn,
+            "waitlist_entry",
+            entry.id,
+            "status_changed",
+            Some(serde_json::json!({ "status": from })),
+            Some(serde_json::json!({ "status": to, "appointment_id": appt.id })),
+            ctx,
+        )
+        .await?;
+        OutboxRepository::publish(
+            txn,
+            "WaitlistStatusChanged",
+            &serde_json::json!({
+                "entry_id": entry.id, "from": from, "to": to, "appointment_id": appt.id,
+            }),
+        )
+        .await?;
+        Ok(())
+    }
+
     // --- public operations ----------------------------------------------------------------
+
+    /// Book a slot for the patient on a waiting-list entry and mark the entry `booked` (CORE-2).
+    pub async fn book_for_entry(
+        &self,
+        entry_id: Uuid,
+        slot_id: Uuid,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
+        let ctx = ctx.clone();
+        let appt = self
+            .db
+            .transaction::<_, Appointment, Error>(|txn| {
+                Box::pin(async move {
+                    let entry = WaitlistRepository::find_entry_by_id(txn, entry_id)
+                        .await?
+                        .ok_or_else(|| Error::not_found(format!("waitlist entry {entry_id}")))?;
+                    Self::book_inner(
+                        txn,
+                        slot_id,
+                        entry.person_id,
+                        EntryLink::Explicit(entry_id),
+                        &ctx,
+                    )
+                    .await
+                })
+            })
+            .await
+            .map_err(unwrap_txn_err)?;
+        self.publish_booked(&appt).await;
+        Ok(appt)
+    }
 
     pub async fn book_slot(
         &self,
@@ -401,6 +532,8 @@ impl SchedulingService {
                     if let Some(sid) = appt.slot_id {
                         SlotRepository::update_status(txn, sid, SlotStatus::Free).await?;
                     }
+                    // A miss returns the patient to the waiting list; it never removes them (CAP-7).
+                    Self::sync_waitlist(txn, &appt, WaitlistStatus::Waiting, &ctx_clone).await?;
                     AuditLogRepository::log(
                         txn,
                         "appointment",
@@ -453,6 +586,10 @@ impl SchedulingService {
                     appt.status = appt.status.try_transition_to(next)?;
                     appt.updated_at = chrono::Utc::now();
                     let appt = AppointmentRepository::update(txn, &appt).await?;
+                    if next == AppointmentStatus::Fulfilled {
+                        Self::sync_waitlist(txn, &appt, WaitlistStatus::Treated, &ctx_clone)
+                            .await?;
+                    }
                     AuditLogRepository::log(
                         txn,
                         "appointment",

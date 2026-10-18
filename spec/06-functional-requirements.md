@@ -26,3 +26,8 @@
 | FR-20 | A `rebook` reply MUST move the patient atomically (old released as `rescheduled`, new booked) and MUST leave the booking untouched when the new slot is taken or clashes with the patient's other appointments. | `cap2_writeback_test.rs::a_rebook_reply_moves_the_patient_all_or_nothing`, `::rebooking_into_a_clash_...` |
 | FR-21 | A confirm reply MUST set `confirmed_at` once; a later confirm MUST be harmless. | `cap2_writeback_test.rs::confirming_sets_the_time_once_...` |
 | FR-22 | The batch endpoint MUST accept JSON or CSV, report each row separately, and refuse a malformed CSV whole. | `cap2_writeback_test.rs::the_http_api_takes_one_reply_and_a_json_or_csv_batch_...`; unit tests in `handlers_writeback.rs` |
+| FR-23 | Booking from a waiting-list entry MUST link the appointment to it and mark the entry `booked`; an entry that is not `waiting` MUST be refused and take no slot. | `tests/core2_waitlist_test.rs::booking_from_an_entry_...`, `::an_entry_that_is_already_booked_...` |
+| FR-24 | A cancelled or missed appointment MUST return its entry to `waiting`, and MUST NOT remove it. | `core2_waitlist_test.rs::a_cancel_returns_...`, `::a_miss_returns_...` |
+| FR-25 | Completing an appointment MUST mark its entry `treated`. | `core2_waitlist_test.rs::completing_the_appointment_...` |
+| FR-26 | A rebook MUST carry the entry to the new appointment. | `core2_waitlist_test.rs::a_rebook_keeps_the_link_...` |
+| FR-27 | An entry that was removed or already treated MUST NOT be changed by a later appointment event. | `core2_waitlist_test.rs::an_entry_someone_removed_...` |
