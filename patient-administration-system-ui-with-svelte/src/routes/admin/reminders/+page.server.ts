@@ -20,16 +20,16 @@ export const actions: Actions = {
     requireAdmin(locals, "/admin/reminders");
     const form = await request.formData();
     const id = String(form.get("id") ?? "");
-    if (!isUuid(id)) return fail(400, { id, message: "Unknown template." });
+    if (!isUuid(id)) return fail(400, { id, messageKey: "admin.error.unknownTemplate" });
     const subject = String(form.get("subject") ?? "").trim();
     const body = String(form.get("body_tera") ?? "").trim();
-    if (!subject || !body) return fail(400, { id, message: "Subject and message are required." });
+    if (!subject || !body) return fail(400, { id, messageKey: "admin.error.required" });
     const channels = cleanChannels(form.getAll("channels").map(String));
-    if (channels.length === 0) return fail(400, { id, message: "Choose at least one channel." });
+    if (channels.length === 0) return fail(400, { id, messageKey: "admin.error.channelRequired" });
 
     // Edit only the editable fields of the template as stored, never a browser-supplied copy of the rest.
     const current = (await letterTemplates(fetch)).find((t) => t.id === id);
-    if (!current) return fail(404, { id, message: "Template not found." });
+    if (!current) return fail(404, { id, messageKey: "admin.error.notFound" });
     try {
       await updateLetterTemplate(fetch, {
         ...current,
@@ -39,7 +39,7 @@ export const actions: Actions = {
         active: form.get("active") === "on",
       });
     } catch (e) {
-      if (e instanceof PasError) return fail(e.status >= 500 ? 502 : 400, { id, message: e.message });
+      if (e instanceof PasError) return fail(e.status >= 500 ? 502 : 400, { id, messageKey: "admin.error.rejected" });
       throw e;
     }
     return { id, saved: true };

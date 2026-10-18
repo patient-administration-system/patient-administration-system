@@ -4,11 +4,15 @@
 import { error, redirect } from "@sveltejs/kit";
 import type { OidcSession } from "./oidc-session";
 import { isAdmin, isStaff, patientScope } from "../access";
+import { localizePath, type Locale } from "../locales";
 
-type Locals = { oidc: OidcSession | null };
+type Locals = { oidc: OidcSession | null; locale: Locale };
 
 function signedIn(locals: Locals, returnTo: string): OidcSession {
-  if (!locals.oidc) redirect(303, `/signin?return=${encodeURIComponent(returnTo)}`);
+  if (!locals.oidc) {
+    // The page to come back to is remembered in the reader's own language.
+    redirect(303, `${localizePath("/signin", locals.locale)}?return=${encodeURIComponent(localizePath(returnTo, locals.locale))}`);
+  }
   return locals.oidc;
 }
 

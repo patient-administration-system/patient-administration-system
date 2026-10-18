@@ -1,3 +1,4 @@
+#![cfg_attr(not(test), forbid(unsafe_code))]
 pub use sea_orm_migration::prelude::*;
 
 mod m20260520_000001_init;

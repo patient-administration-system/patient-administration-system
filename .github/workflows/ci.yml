@@ -1,0 +1,205 @@
+# One workflow, many jobs, and ONE required check: `ci-ok`. Require only `ci-ok` in branch
+# protection; it fails if any job failed, was cancelled, or was skipped.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Must equal `channel` in rust-toolchain.toml; the `fresh-clone` job asserts it.
+  RUST_TOOLCHAIN: "1.99.1"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, tests without a database)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component rustfmt,clippy && rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  rust-db:
+    name: Rust (tests that need PostgreSQL)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: pas
+          POSTGRES_PASSWORD: pas_dev_password
+          POSTGRES_DB: pas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pas"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://pas:pas_dev_password@localhost:5432/pas
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
+      # `--ignored` runs ONLY the tests marked #[ignore]; they fail (not skip) without a database.
+      - run: cargo test --workspace -- --ignored --test-threads=1
+
+  deny:
+    name: Dependencies (cargo deny)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --all-features
+
+  ui:
+    name: UI (check, unit tests, build)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: patient-administration-system-ui-with-svelte
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.10.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: patient-administration-system-ui-with-svelte/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
+      - run: pnpm test
+      - run: pnpm run build
+
+  ui-e2e:
+    name: "UI (browser tests: Keycloak, axe, CSP, phone width)"
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: patient-administration-system-ui-with-svelte
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.10.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: patient-administration-system-ui-with-svelte/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Start PostgreSQL and Keycloak
+        working-directory: .
+        run: docker compose -f podman/compose.yml up -d
+      - name: Wait for the realm
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8180/realms/pas/.well-known/openid-configuration -o /dev/null && exit 0
+            sleep 3
+          done
+          docker compose -f ../podman/compose.yml logs keycloak
+          echo "Keycloak did not become ready" >&2
+          exit 1
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test --project=chromium
+        env:
+          KEYCLOAK_URL: http://localhost:8180
+          CI: "true"
+      - run: pnpm exec playwright test --project=mobile
+        env:
+          KEYCLOAK_URL: http://localhost:8180
+          CI: "true"
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            patient-administration-system-ui-with-svelte/test-results
+            patient-administration-system-ui-with-svelte/playwright-report
+
+  docs:
+    name: Docs (links, generated status)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/check-links.py
+      - run: scripts/generate-status.sh --check
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --config lychee.toml .
+          fail: true
+
+  restore:
+    name: Backup and restore drill
+    runs-on: ubuntu-24.04
+    env:
+      PG_CONTAINER: pg
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@v2
+      - name: Start PostgreSQL
+        run: |
+          podman run -d --name pg -e POSTGRES_USER=pas -e POSTGRES_PASSWORD=pas_dev_password -e POSTGRES_DB=pas -p 5432:5432 docker.io/library/postgres:18
+          for i in $(seq 1 30); do podman exec pg pg_isready -U pas && break; sleep 2; done
+      - run: cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
+        env:
+          DATABASE_URL: postgres://pas:pas_dev_password@localhost:5432/pas
+      - run: scripts/restore-test.sh
+
+  container:
+    name: Container images build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: podman build --format docker -f patient-administration-system-with-rust/Containerfile -t pas-server patient-administration-system-with-rust
+      - run: podman build --format docker -f patient-administration-system-ui-with-svelte/Containerfile -t pas-ui patient-administration-system-ui-with-svelte
+
+  fresh-clone:
+    name: Fresh clone builds with locked dependencies
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: The pinned toolchain is the one CI uses
+        run: |
+          pinned="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
+          test "$pinned" = "$RUST_TOOLCHAIN" || { echo "rust-toolchain.toml ($pinned) != CI ($RUST_TOOLCHAIN)" >&2; exit 1; }
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - run: cargo build --workspace --locked
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.10.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - run: pnpm install --frozen-lockfile && pnpm run build
+        working-directory: patient-administration-system-ui-with-svelte
+
+  ci-ok:
+    name: ci-ok
+    if: always()
+    needs: [rust, rust-db, deny, ui, ui-e2e, docs, restore, container, fresh-clone]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every job must have succeeded (not failed, cancelled or skipped)
+        run: |
+          echo '${{ toJSON(needs) }}'
+          test "${{ contains(needs.*.result, 'failure') }}" = "false"
+          test "${{ contains(needs.*.result, 'cancelled') }}" = "false"
+          test "${{ contains(needs.*.result, 'skipped') }}" = "false"

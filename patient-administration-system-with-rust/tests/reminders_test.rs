@@ -47,6 +47,7 @@ async fn book(db: &sea_orm::DatabaseConnection, person_id: Uuid, in_hours: i64) 
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn reminders_send_once_skip_unreachable_and_ignore_far_future() {
     let Some(url) = common::database_url() else {
         return;
@@ -112,6 +113,7 @@ async fn reminders_send_once_skip_unreachable_and_ignore_far_future() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn edited_template_wording_is_what_gets_sent() {
     let Some(url) = common::database_url() else {
         return;
@@ -152,6 +154,7 @@ async fn edited_template_wording_is_what_gets_sent() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn portal_channel_stores_and_delivers_without_a_carrier_and_exposes_portal_url() {
     let Some(url) = common::database_url() else {
         return;

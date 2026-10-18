@@ -1,0 +1,60 @@
+# cargo-deny policy for the whole workspace: `cargo deny check`.
+# Every advisory ignore carries the reason and what would let us remove it.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+    # quick-xml 0.36.2, pulled in by loco-rs 0.14 -> opendal 0.50. Our own quick-xml is 0.42.
+    # Remove when loco-rs moves to 1.x (tasks.md DEP-2), which needs sea-orm 2.
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml 0.36 via loco-rs 0.14 -> opendal; we parse no untrusted XML through it. Removed by DEP-2" },
+    { id = "RUSTSEC-2026-0195", reason = "quick-xml 0.36 via loco-rs 0.14 -> opendal; we parse no untrusted XML through it. Removed by DEP-2" },
+    # zip is a BUILD-time dependency of utoipa-swagger-ui, extracting the Swagger UI archive it
+    # downloads from GitHub at build time. Nothing extracts a zip at run time.
+    # Remove when utoipa-swagger-ui moves to zip 9.
+    { id = "RUSTSEC-2026-0367", reason = "zip: build-time only (utoipa-swagger-ui build script, trusted archive)" },
+    { id = "RUSTSEC-2026-0368", reason = "zip: build-time only (utoipa-swagger-ui build script, trusted archive)" },
+    { id = "RUSTSEC-2026-0369", reason = "zip: build-time only (utoipa-swagger-ui build script, trusted archive)" },
+    # Unmaintained (not vulnerable) crates, all pulled in only by loco-rs 0.14; gone with DEP-2.
+    { id = "RUSTSEC-2025-0057", reason = "fxhash unmaintained; via loco-rs -> scraper -> selectors" },
+    { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 unmaintained; via loco-rs -> validator_derive (compile-time only)" },
+    { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml unmaintained; via loco-rs -> serde_yaml (reads our own config files)" },
+    # Not listed here: RUSTSEC-2023-0071 (rsa). It is in Cargo.lock via sqlx-mysql but is never
+    # compiled (`cargo tree -i rsa` is empty; PostgreSQL only). cargo-deny does not see it;
+    # `cargo audit` does, which is a false positive for this workspace.
+]
+
+[licenses]
+version = 2
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "CC0-1.0",
+    "BSL-1.0",
+    "0BSD",
+    "Unlicense",
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.8
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "warn"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

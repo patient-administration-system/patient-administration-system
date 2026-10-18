@@ -31,6 +31,7 @@ fn worker_with_id(id: Uuid, family: &str) -> Worker {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_get_practitioner_returns_seeded_worker() {
     let Some(url) = common::database_url() else {
         return;
@@ -58,6 +59,7 @@ async fn test_get_practitioner_returns_seeded_worker() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_create_practitioner_returns_new_id() {
     let Some(url) = common::database_url() else {
         return;
@@ -90,6 +92,7 @@ async fn test_create_practitioner_returns_new_id() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_practitioner_proxy_returns_503_when_unset() {
     let Some(url) = common::database_url() else {
         return;

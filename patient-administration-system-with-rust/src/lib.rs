@@ -21,6 +21,7 @@
 //! - Transactional outbox for domain events
 //! - Distributed tracing and observability via OpenTelemetry
 
+#![cfg_attr(not(test), forbid(unsafe_code))]
 // Module declarations
 pub mod adt;
 pub mod api;

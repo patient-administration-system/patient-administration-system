@@ -43,7 +43,31 @@ http
         ),
       );
     }
-    if (url.pathname === "/api/appointments") return res.end(envelope([]));
+    if (url.pathname === "/api/appointments") {
+      // Two appointments in the coming days, so the calendar and the schedule chart have content.
+      const at = (days, hour) => {
+        const d = new Date(Date.now() + days * 86_400_000);
+        d.setUTCHours(hour, 0, 0, 0);
+        return d.toISOString();
+      };
+      return res.end(
+        envelope([
+          { id: "44444444-4444-4444-4444-444444444444", person_id: PATIENT, start_datetime: at(1, 9), end_datetime: at(1, 10), status: "booked", reason: "Knee review" },
+          { id: "55555555-5555-5555-5555-555555555555", person_id: PATIENT, start_datetime: at(3, 14), end_datetime: at(3, 15), status: "booked", reason: null },
+        ]),
+      );
+    }
+    if (url.pathname === "/api/waitlist") {
+      return res.end(
+        envelope([
+          { id: "66666666-6666-6666-6666-666666666666", person_id: PATIENT, target_service: "general", priority: "urgent", status: "waiting" },
+          { id: "77777777-7777-7777-7777-777777777777", person_id: PATIENT, target_service: "general", priority: "routine", status: "booked" },
+        ]),
+      );
+    }
+    if (url.pathname === "/api/patients") {
+      return res.end(envelope([{ id: PATIENT, name: { given: ["Ada"], family: "Lovelace" }, birth_date: "1815-12-10" }]));
+    }
     if (url.pathname === "/api/letter-templates") {
       return res.end(
         envelope([

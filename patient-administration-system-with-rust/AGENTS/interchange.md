@@ -1,10 +1,12 @@
 # Interchange formats
 
+> **Historical (v0.2).** Since v0.44.0 patient demographics live in `person-service`; this crate no longer contains the `PatientRow` projection or the HL7 encoders named below, and `/api/patients/export.*` and `/api/patients/import` proxy upstream (`src/api/rest/upstream_proxy.rs`). The wire formats described here are kept as the contract the upstream service implements. The file paths in backticks are the removed v0.2 locations, not live links.
+
 v0.2 adds bulk JSON / XML / TSV import and export for patient demographic data, on top of the existing JSON-over-HTTP and FHIR R5 surfaces. This document describes the wire shape, the lossy projection, the REST endpoints, and the FHIR R5 collection `Bundle` extension.
 
 ## PatientRow — the common projection
 
-Every v0.2 interchange format serializes the same flat row, defined in [`src/interchange/mod.rs`](../src/interchange/mod.rs) as `PatientRow`. Field order is fixed (it's part of the TSV contract):
+Every v0.2 interchange format serializes the same flat row, defined in `src/interchange/mod.rs` as `PatientRow`. Field order is fixed (it's part of the TSV contract):
 
 | Field          | Type           | Source                                                           |
 |----------------|----------------|------------------------------------------------------------------|
@@ -131,7 +133,7 @@ For interop with legacy clinical systems, v0.3 added a pipe-delimited HL7 v2 sur
 - Standard delimiter set only: `|^~\&`. Custom delimiters return `400 + AR`.
 - Supported segments: `MSH`, `EVN`, `PID`, `PV1`.
 - Supported message types for domain mapping: `ADT^A01`, `ADT^A04`, `ADT^A08`, `ADT^A28`. The handler only consumes the `PID` segment for now (creating a patient); `PV1`-driven admission flow is a future task.
-- Outbound: [`encode_adt_a28`](../src/hl7v2/mapping.rs) builds an ADT^A28 message from a [`Patient`].
+- Outbound: `encode_adt_a28` builds an ADT^A28 message from a [`Patient`].
 
 ### Endpoints
 
@@ -214,7 +216,7 @@ Set `HL7V2_OUTBOUND_PEER=host:port` to make the PAS *emit* ADT messages to a dow
 3. When `HL7V2_OUTBOUND_PEER` is set, the configured publisher is [`Hl7v2MllpPublisher`](../src/streaming/hl7v2_publisher.rs), which:
    - Decodes the JSON payload to recover `patient_id` (and `bed_id` / `new_bed_id` when applicable).
    - Hydrates the full Patient + Bed from the database.
-   - Builds an `ADT^A01` / `A02` / `A03` via [`encode_adt_a01`](../src/hl7v2/mapping.rs) and friends.
+   - Builds an `ADT^A01` / `A02` / `A03` via `encode_adt_a01` and friends.
    - Opens a fresh TCP connection to the peer, writes the MLLP frame, reads the ACK.
    - Returns `Ok(())` only on `MSA|AA`. Any other ACK (or a network/timeout error) is reported as `Err`, which leaves the outbox row unpublished — the dispatcher retries on the next tick.
 

@@ -1,0 +1,6 @@
+# Offline link check for the Markdown in this repository: `lychee --offline --config lychee.toml .`
+# Only relative links and #fragments are checked, so CI never depends on the network.
+offline = true
+include_fragments = "full"
+extensions = ["md"]
+exclude_path = ["target", "node_modules", ".git", ".svelte-kit", "build", "test-results"]

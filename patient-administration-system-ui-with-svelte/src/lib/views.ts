@@ -20,31 +20,34 @@ export const dayOf = (iso: string): string => iso.slice(0, 10);
 /** `HH:MM` of an instant, in UTC. */
 export const timeOf = (iso: string): string => iso.slice(11, 16);
 
-export const statusLabel = (s: string): string =>
-  s === "no_show" ? "Did not attend" : s.charAt(0).toUpperCase() + s.slice(1);
+/** Translates a catalogue key; `t` from `i18n.svelte.ts`, or a stand-in in tests. */
+export type Translate = (key: string, values?: Record<string, string | number>) => string;
 
-export function appointmentEvents(rows: AppointmentLike[]): CalendarEvent[] {
+/** Catalogue key for an appointment status. */
+export const statusKey = (s: string): string => `status.${s}`;
+
+export function appointmentEvents(rows: AppointmentLike[], t: Translate): CalendarEvent[] {
   return rows.map((a) => ({
     id: a.id,
     date: dayOf(a.start_datetime),
-    title: `${timeOf(a.start_datetime)} ${a.reason?.trim() || "Appointment"}`,
+    title: `${timeOf(a.start_datetime)} ${a.reason?.trim() || t("appointments.generic")}`,
     done: a.status === "fulfilled",
     values: {
       time: `${timeOf(a.start_datetime)}–${timeOf(a.end_datetime)}`,
-      status: statusLabel(a.status),
+      status: t(statusKey(a.status)),
     },
   }));
 }
 
 /** One parent task per day, with each appointment as a one-day milestone beneath it. */
-export function appointmentGantt(rows: AppointmentLike[]): GanttTask[] {
+export function appointmentGantt(rows: AppointmentLike[], t: Translate): GanttTask[] {
   const days = [...new Set(rows.map((a) => dayOf(a.start_datetime)))].sort();
   const tasks: GanttTask[] = days.map((d) => ({ id: `day:${d}`, label: d, start: d, end: d }));
   for (const a of [...rows].sort((x, y) => x.start_datetime.localeCompare(y.start_datetime))) {
     const d = dayOf(a.start_datetime);
     tasks.push({
       id: a.id,
-      label: `${timeOf(a.start_datetime)} ${a.reason?.trim() || "Appointment"}`,
+      label: `${timeOf(a.start_datetime)} ${a.reason?.trim() || t("appointments.generic")}`,
       start: d,
       end: d,
       parentId: `day:${d}`,
@@ -71,27 +74,26 @@ export interface WaitlistLike {
   status: string;
 }
 
-export const WAITLIST_COLUMNS: KanbanColumn[] = [
-  { id: "waiting", title: "Waiting" },
-  { id: "booked", title: "Booked" },
-  { id: "treated", title: "Treated" },
-  { id: "removed", title: "Removed" },
-];
+const WAITLIST_COLUMN_IDS = ["waiting", "booked", "treated", "removed"] as const;
+
+export const waitlistColumns = (t: Translate): KanbanColumn[] =>
+  WAITLIST_COLUMN_IDS.map((id) => ({ id, title: t(`waitlist.column.${id}`) }));
 
 const PRIORITY_RANK: Record<string, number> = { emergency: 0, two_week_wait: 1, urgent: 2, routine: 3 };
 
-export const priorityLabel = (p: string): string =>
-  p === "two_week_wait" ? "Two-week wait" : p.charAt(0).toUpperCase() + p.slice(1);
+/** Catalogue key for a waitlist priority. */
+export const priorityKey = (p: string): string => `priority.${p}`;
 
-export function waitlistCards(rows: WaitlistLike[]): KanbanCard[] {
+export function waitlistCards(rows: WaitlistLike[], t: Translate): KanbanCard[] {
   return [...rows]
     .sort((a, b) => (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9))
     .map((w) => ({
       id: w.id,
-      columnId: WAITLIST_COLUMNS.some((c) => c.id === w.status) ? w.status : "waiting",
-      title: w.target_service,
-      subtitle: `Patient ${w.person_id.slice(0, 8)}`,
-      badges: [priorityLabel(w.priority)],
+      columnId: (WAITLIST_COLUMN_IDS as readonly string[]).includes(w.status) ? w.status : "waiting",
+      // Everything a reader needs is in the title. The board also shows a card's subtitle and badges
+      // as separate text but names the cell by its title alone, so splitting them fails WCAG 2.5.3
+      // (label in name) and a screen-reader user hears less than a sighted one.
+      title: [w.target_service, t("waitlist.patient", { id: w.person_id.slice(0, 8) }), t(priorityKey(w.priority))].join(" · "),
     }));
 }
 

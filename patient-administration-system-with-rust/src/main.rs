@@ -3,6 +3,7 @@
 //! Loads configuration, initializes observability, connects to the database,
 //! builds the application state, and starts the Axum HTTP server.
 
+#![cfg_attr(not(test), forbid(unsafe_code))]
 use std::net::SocketAddr;
 use std::sync::Arc;
 

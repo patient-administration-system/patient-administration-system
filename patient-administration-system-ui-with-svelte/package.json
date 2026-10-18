@@ -25,7 +25,8 @@
     "@lilydesignsystem/svelte-gantt-chart": "0.8.0",
     "@lilydesignsystem/svelte-headless": "0.5.1",
     "@lilydesignsystem/svelte-kanban-board": "0.8.0",
-    "@lilydesignsystem/themes": "0.5.0"
+    "@lilydesignsystem/themes": "0.5.0",
+    "@sveltia/i18n": "^1.5.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

@@ -9,9 +9,12 @@ declare global {
     // never sees a token.
     interface Locals {
       oidc: import("#lib/server/oidc-session.js").OidcSession | null;
+      // The locale of this request: from the URL prefix, else negotiated. Always set by `hooks.server.ts`.
+      locale: import("#lib/locales.js").Locale;
     }
     interface PageData {
       title?: string;
+      locale?: import("#lib/locales.js").Locale;
     }
     interface PageState {}
     interface Platform {}

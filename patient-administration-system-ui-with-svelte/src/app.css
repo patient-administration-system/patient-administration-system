@@ -30,3 +30,12 @@ textarea { min-height: 10rem; }
 fieldset { border: 1px solid var(--pas-border); margin: 1rem 0; }
 ul.messages { list-style: none; padding: 0; }
 ul.messages li { border: 1px solid var(--pas-border); border-radius: 4px; padding: 0.5rem 1rem; margin-bottom: 1rem; }
+details.languages { position: relative; }
+details.languages summary { cursor: pointer; }
+details.languages ul { position: absolute; z-index: 5; list-style: none; margin: 0.25rem 0 0; padding: 0.5rem; background: var(--pas-bg); color: var(--pas-fg); border: 1px solid var(--pas-border); border-radius: 4px; min-width: 11rem; inset-inline-end: 0; }
+details.languages a { color: inherit; }
+/* WCAG 2.2 AA, target size (2.5.8): the Lily calendar's view buttons are smaller than 24 CSS px in
+   the NHS theme. Give every control in the widget a comfortable minimum. */
+.calendar-view-switcher-button,
+.calendar-view-switcher button,
+[class*="calendar-"] button { min-block-size: 2rem; min-inline-size: 2rem; }

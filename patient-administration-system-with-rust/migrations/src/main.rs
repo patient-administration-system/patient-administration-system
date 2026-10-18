@@ -8,6 +8,7 @@
 //! - `fresh`  — drop everything and re-apply
 //! - `status` — print migration status
 
+#![cfg_attr(not(test), forbid(unsafe_code))]
 use migration::Migrator;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;

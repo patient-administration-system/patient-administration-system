@@ -1,0 +1,27 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      rust-minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /patient-administration-system-ui-with-svelte
+    schedule: { interval: weekly }
+    groups:
+      ui-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # TypeScript majors need a coordinated svelte-check / SvelteKit upgrade.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /patient-administration-system-with-rust
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /patient-administration-system-ui-with-svelte
+    schedule: { interval: weekly }

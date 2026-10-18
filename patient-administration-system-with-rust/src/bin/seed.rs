@@ -8,6 +8,7 @@
 //! (facility / ward / room / bed / letter template) referencing the
 //! returned UUIDs.
 
+#![cfg_attr(not(test), forbid(unsafe_code))]
 fn main() {
     eprintln!(
         "pas-seed is stubbed during v0.44.0 Phase 2. Phase 3 reintroduces \

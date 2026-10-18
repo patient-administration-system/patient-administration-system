@@ -11,6 +11,7 @@ use patient_administration_system::api::rest::router;
 use tower::ServiceExt;
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn health_endpoint_returns_ok() {
     let url = match common::database_url() {
         Some(u) => u,

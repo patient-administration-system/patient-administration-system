@@ -1,16 +1,10 @@
-import { expect, test, type Page } from "@playwright/test";
-
-async function keycloakLogin(page: Page, user: string) {
-  await page.goto("/signin");
-  await page.getByRole("link", { name: "Sign in" }).last().click();
-  await page.locator("#username").fill(user);
-  await page.locator("#password").fill(user);
-  await page.locator("#kc-login").click();
-}
+import { expect, test } from "@playwright/test";
+import { keycloakLogin } from "./support/login";
 
 test("signed-out visitors are sent to sign in, then back where they were going", async ({ page }) => {
   await page.goto("/my/appointments");
-  await expect(page).toHaveURL(/\/signin\?return=%2Fmy%2Fappointments/);
+  // A bare URL gains the reader's locale, and the page to come back to is remembered in it.
+  await expect(page).toHaveURL(/\/en-001\/signin\?return=%2Fen-001%2Fmy%2Fappointments/);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 

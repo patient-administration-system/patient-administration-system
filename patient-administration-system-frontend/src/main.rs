@@ -1,3 +1,4 @@
+#![cfg_attr(not(test), forbid(unsafe_code))]
 #![allow(clippy::result_large_err)]
 
 //! patient-administration-system-frontend binary entry point.

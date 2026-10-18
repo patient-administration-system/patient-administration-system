@@ -1,0 +1,106 @@
+{
+  "name": "Patient Administration System",
+  "summary": "Hospital patient administration with a patient portal. Pre-1.0, not production-ready, unaudited.",
+  "sections": [
+    {
+      "title": "Start here",
+      "links": [
+        {
+          "title": "README",
+          "path": "README.md",
+          "description": "Overview, layout, quick start"
+        },
+        {
+          "title": "Plan",
+          "path": "plan.md",
+          "description": "Research and reasoning"
+        },
+        {
+          "title": "Tasks",
+          "path": "tasks.md",
+          "description": "The live work queue"
+        },
+        {
+          "title": "Install",
+          "path": "INSTALL.md",
+          "description": "Run it locally"
+        }
+      ]
+    },
+    {
+      "title": "Specification",
+      "links": [
+        {
+          "title": "Specification index",
+          "path": "spec/index.md",
+          "description": "Source of truth for the cross-subproject contract"
+        },
+        {
+          "title": "Functional requirements",
+          "path": "spec/06-functional-requirements.md",
+          "description": "FR-n, each with its verifying test"
+        },
+        {
+          "title": "Non-functional requirements",
+          "path": "spec/07-non-functional-requirements.md",
+          "description": "NFR-n, each with its verifying test"
+        },
+        {
+          "title": "Spec-driven development",
+          "path": "agents/spec-driven-development.md",
+          "description": "Spec, code and test change together"
+        },
+        {
+          "title": "Locales",
+          "path": "spec/locales.md",
+          "description": "Locale codes, URLs and catalogues"
+        }
+      ]
+    },
+    {
+      "title": "Governance (drafts)",
+      "links": [
+        {
+          "title": "Governance index",
+          "path": "governance/README.md",
+          "description": "DPIA, hazard log, retention, accessibility"
+        },
+        {
+          "title": "NHS DTAC v2.0 self-assessment",
+          "path": "docs/united-kingdom/national-health-service/digital-technology-assessment-criteria/2.0/index.md",
+          "description": "Concludes the product would not pass today"
+        },
+        {
+          "title": "Security policy",
+          "path": "SECURITY.md",
+          "description": "Reporting a vulnerability and known limits"
+        },
+        {
+          "title": "AI statement",
+          "path": "AI_STATEMENT.md",
+          "description": "How AI was used"
+        }
+      ]
+    },
+    {
+      "title": "Operations",
+      "links": [
+        {
+          "title": "Deployment",
+          "path": "operations/deployment.md",
+          "description": "What to run and configure"
+        },
+        {
+          "title": "Runbook",
+          "path": "operations/runbook.md",
+          "description": "Symptoms and actions"
+        },
+        {
+          "title": "Backup and restore",
+          "path": "operations/backup-and-restore.md",
+          "description": "Includes the restore drill"
+        }
+      ]
+    }
+  ]
+}

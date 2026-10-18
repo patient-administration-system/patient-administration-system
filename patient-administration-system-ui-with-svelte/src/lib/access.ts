@@ -28,24 +28,25 @@ export function patientScope(p: Principal | null | undefined): string | null {
 
 export interface NavItem {
   href: string;
-  label: string;
+  /** Catalogue key of the link text (translated where it is shown). */
+  key: string;
 }
 
 /** Navigation for a principal. A presentation choice; every route also enforces its own guard. */
 export function navFor(p: Principal | null | undefined): NavItem[] {
   if (isStaff(p)) {
     const items: NavItem[] = [
-      { href: "/appointments", label: "Appointments" },
-      { href: "/waitlist", label: "Waitlist" },
-      { href: "/schedule", label: "Schedule" },
-      { href: "/patients", label: "Patients" },
+      { href: "/appointments", key: "nav.appointments" },
+      { href: "/waitlist", key: "nav.waitlist" },
+      { href: "/schedule", key: "nav.schedule" },
+      { href: "/patients", key: "nav.patients" },
     ];
-    if (isAdmin(p)) items.push({ href: "/admin/reminders", label: "Reminder templates" });
+    if (isAdmin(p)) items.push({ href: "/admin/reminders", key: "nav.reminders" });
     return items;
   }
   if (p && p.roles.includes("patient")) return [
-      { href: "/my/appointments", label: "My appointments" },
-      { href: "/my/messages", label: "My messages" },
+      { href: "/my/appointments", key: "nav.myAppointments" },
+      { href: "/my/messages", key: "nav.myMessages" },
     ];
   return [];
 }

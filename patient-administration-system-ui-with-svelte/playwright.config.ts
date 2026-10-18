@@ -10,8 +10,20 @@ export default defineConfig({
   testDir: "tests/e2e",
   timeout: 30_000,
   fullyParallel: false,
+  // One worker: the specs share one Keycloak and one mock API whose request log a test reads, so
+  // they cannot run side by side.
+  workers: 1,
   use: { baseURL: `http://localhost:${PORT}`, trace: "on-first-retry" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /mobile\.spec\.ts/ },
+    // A phone-width audit (390x844, about an iPhone 12 mini), run in isolation with
+    // `pnpm exec playwright test --project=mobile`.
+    {
+      name: "mobile",
+      testMatch: /mobile\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
+    },
+  ],
   webServer: [
     {
       command: "node tests/e2e/support/pas-mock.mjs",

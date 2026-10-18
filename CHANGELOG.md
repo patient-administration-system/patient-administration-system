@@ -3,7 +3,7 @@
 Workspace-level release history. Each entry coordinates the state of
 the member crates at a point in time. For per-crate detail, see:
 
-- [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md)
+- [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md)
 - [`patient-administration-system-frontend/CHANGELOG.md`](patient-administration-system-frontend/CHANGELOG.md)
 - [`patient-administration-system-ui-with-svelte/CHANGELOG.md`](patient-administration-system-ui-with-svelte/CHANGELOG.md)
 
@@ -933,7 +933,7 @@ Documentation + workspace-structure sweep. No member-crate version bumps.
   Workspace totals: 365 PAS lib + 9 patient-administration-system-frontend csrf = **374 passing**.
   Integration: 38 → 40.
 - See
-  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#0120--2026-05-25).
+  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#0120--2026-05-25).
 
 ## 2026-05-25 — PAS Axum v0.11.0: Patient merge / replaced_by tombstone
 
@@ -952,7 +952,7 @@ Documentation + workspace-structure sweep. No member-crate version bumps.
   Workspace totals: 357 PAS lib + 9 patient-administration-system-frontend csrf = **366 passing**.
   Integration: 37 → 38. OpenAPI: 103 → 105 handlers.
 - See
-  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#0110--2026-05-25).
+  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#0110--2026-05-25).
 
 ## 2026-05-25 — PAS Axum v0.10.0: Coverage (insurance) FHIR resource
 
@@ -972,7 +972,7 @@ Documentation + workspace-structure sweep. No member-crate version bumps.
   Workspace totals: 356 PAS lib + 9 patient-administration-system-frontend csrf = **365 passing**.
   Integration: 36 → 37. OpenAPI: 97 → 103 handlers.
 - See
-  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#0100--2026-05-25).
+  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#0100--2026-05-25).
 
 ## 2026-05-25 — PAS Axum v0.9.0: recurring appointment series
 
@@ -992,7 +992,7 @@ Documentation + workspace-structure sweep. No member-crate version bumps.
   Workspace totals: 347 PAS lib + 9 patient-administration-system-frontend csrf = **356 passing**.
   Integration: 34 → 36.
 - See
-  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#090--2026-05-25).
+  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#090--2026-05-25).
 
 ## 2026-05-25 — PAS Axum v0.8.0: SMS letter channel
 
@@ -1011,7 +1011,7 @@ Documentation + workspace-structure sweep. No member-crate version bumps.
   Workspace totals: 332 PAS lib + 9 patient-administration-system-frontend csrf = **341 passing**.
   Integration: 33 → 34.
 - See
-  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#080--2026-05-25).
+  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#080--2026-05-25).
 
 ## 2026-05-25 — PAS Axum v0.7.0: OpenTelemetry OTLP exporter
 
@@ -1029,7 +1029,7 @@ Documentation + workspace-structure sweep. No member-crate version bumps.
 - 3 new lib unit tests. Lib total: 326 → 328. Workspace totals: 328
   PAS lib + 9 patient-administration-system-frontend csrf = **337 passing**.
 - See
-  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#070--2026-05-25).
+  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#070--2026-05-25).
 
 ## 2026-05-25 — PAS Axum v0.6.0: HL7 v2 batch envelope
 
@@ -1047,7 +1047,7 @@ Documentation + workspace-structure sweep. No member-crate version bumps.
   Integration 32 → 33. Workspace totals: 326 PAS lib + 9 patient-administration-system-frontend
   csrf = **335 passing**.
 - See
-  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#060--2026-05-25).
+  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#060--2026-05-25).
 
 ## 2026-05-24 — PAS Axum v0.5.0: outbox dead-letter queue
 
@@ -1063,7 +1063,7 @@ Documentation + workspace-structure sweep. No member-crate version bumps.
 - Lib tests 314 → 315; integration tests 31 → 32. Workspace totals:
   315 PAS lib + 9 patient-administration-system-frontend csrf = **324 passing**.
 - See
-  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#050--2026-05-24).
+  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#050--2026-05-24).
 
 ## 2026-05-24 — PAS Axum v0.4.0: HL7 v2 ADT lifecycle
 
@@ -1087,7 +1087,7 @@ Documentation + workspace-structure sweep. No member-crate version bumps.
 - 6 new lib unit tests + 3 new integration tests. Workspace totals: 314
   PAS lib + 9 patient-administration-system-frontend csrf = **323 passing**.
 - See
-  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#040--2026-05-24).
+  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#040--2026-05-24).
 
 ## 2026-05-24 — patient-administration-system-frontend v0.1.0 + repo unification
 
@@ -1111,7 +1111,7 @@ Documentation + workspace-structure sweep. No member-crate version bumps.
 
 PAS Axum bumped to **v0.3.4** to capture the dev-dep cleanup. No
 behavior change — pure hygiene. See
-[`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#034--2026-05-24).
+[`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#034--2026-05-24).
 
 ## 2026-05-23 — Cargo workspace promotion + v0.3.3
 
@@ -1122,9 +1122,9 @@ behavior change — pure hygiene. See
 - **PAS Axum v0.3.3** released alongside — the "Lily + workspace
   release". Adopted Lily Design System headless markup across the
   dashboard templates. See
-  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md#033--2026-05-23).
+  [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md#033--2026-05-23).
 - **patient-administration-system-frontend** scaffolded as a sibling Loco-rs 0.14.1 app
   (unreleased at this point — see today's v0.1.0 entry).
 
 For PAS Axum's full release history (v0.1.0 → v0.3.3) see
-[`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-rust-crate/CHANGELOG.md).
+[`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md).

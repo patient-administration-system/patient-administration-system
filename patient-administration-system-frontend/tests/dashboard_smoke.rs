@@ -2,9 +2,8 @@
 //!
 //! Boots the app via Loco's testing harness and asserts that
 //! `/dashboard`, `/patients`, and `/_health` all return 2xx + the
-//! expected markup (or JSON shape). Gated on `DATABASE_URL` like the
-//! PAS Axum integration tests — silently skips when the env var is
-//! unset so `cargo test` works offline.
+//! expected markup (or JSON shape). `#[ignore]`d like the PAS Axum
+//! integration tests: run with `DATABASE_URL=… cargo test -- --ignored`.
 
 #![allow(clippy::result_large_err)]
 
@@ -12,11 +11,17 @@ use loco_rs::testing::prelude::*;
 use patient_administration_system_frontend::app::App;
 use serial_test::serial;
 
+/// These tests are `#[ignore]`d; asking for them without a database is a failure, not a skip.
 fn database_url() -> Option<String> {
-    std::env::var("DATABASE_URL").ok()
+    Some(
+        std::env::var("DATABASE_URL").expect(
+            "DATABASE_URL is required: these tests need PostgreSQL (see podman/compose.yml)",
+        ),
+    )
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn dashboard_renders_lily_markup() {
     if database_url().is_none() {
@@ -58,6 +63,7 @@ async fn dashboard_renders_lily_markup() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn dashboard_fragments_return_body_only() {
     if database_url().is_none() {
@@ -86,6 +92,7 @@ async fn dashboard_fragments_return_body_only() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn patients_index_renders_lily_table() {
     if database_url().is_none() {
@@ -110,6 +117,7 @@ async fn patients_index_renders_lily_table() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn admission_form_renders() {
     if database_url().is_none() {
@@ -134,6 +142,7 @@ async fn admission_form_renders() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn appointment_form_renders() {
     if database_url().is_none() {
@@ -158,6 +167,7 @@ async fn appointment_form_renders() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn letter_composer_renders_form() {
     if database_url().is_none() {
@@ -185,6 +195,7 @@ async fn letter_composer_renders_form() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn rtt_cockpit_renders_lily_markup() {
     if database_url().is_none() {
@@ -211,6 +222,7 @@ async fn rtt_cockpit_renders_lily_markup() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn unknown_ward_returns_404() {
     if database_url().is_none() {
@@ -228,6 +240,7 @@ async fn unknown_ward_returns_404() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn admission_get_sets_csrf_cookie_and_field() {
     if database_url().is_none() {
@@ -262,6 +275,7 @@ async fn admission_get_sets_csrf_cookie_and_field() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn admission_post_with_bad_csrf_returns_400() {
     if database_url().is_none() {
@@ -285,6 +299,7 @@ async fn admission_post_with_bad_csrf_returns_400() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn appointment_post_with_bad_csrf_returns_400() {
     if database_url().is_none() {
@@ -306,6 +321,7 @@ async fn appointment_post_with_bad_csrf_returns_400() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn letter_post_with_bad_csrf_returns_400() {
     if database_url().is_none() {
@@ -328,6 +344,7 @@ async fn letter_post_with_bad_csrf_returns_400() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn health_endpoint_returns_json() {
     if database_url().is_none() {

@@ -3,6 +3,7 @@
 //! Measures a full bed-status cycle through the state machine to detect
 //! regressions in `BedStatus::try_transition_to`.
 
+#![cfg_attr(not(test), forbid(unsafe_code))]
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use patient_administration_system::models::facility::BedStatus;
 

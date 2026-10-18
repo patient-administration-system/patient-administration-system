@@ -35,6 +35,7 @@ fn person_with_id(id: Uuid, family: &str) -> Person {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_get_patient_returns_seeded_person() {
     let Some(url) = common::database_url() else {
         return;
@@ -63,6 +64,7 @@ async fn test_get_patient_returns_seeded_person() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_get_unknown_patient_returns_404() {
     let Some(url) = common::database_url() else {
         return;
@@ -87,6 +89,7 @@ async fn test_get_unknown_patient_returns_404() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_create_patient_returns_new_id() {
     let Some(url) = common::database_url() else {
         return;
@@ -122,6 +125,7 @@ async fn test_create_patient_returns_new_id() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_delete_patient_removes_from_stub() {
     let Some(url) = common::database_url() else {
         return;
@@ -149,6 +153,7 @@ async fn test_delete_patient_removes_from_stub() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_proxy_returns_503_when_upstream_client_unset() {
     let Some(url) = common::database_url() else {
         return;

@@ -14,25 +14,31 @@ import {
   signingKeys,
 } from "#lib/server/oidc-session.js";
 import { sessions } from "#lib/server/session-store-instance.js";
+import { DEFAULT_LOCALE, localizePath, normalizeLocale } from "#lib/locales.js";
 
-export const GET: RequestHandler = async ({ url, cookies, fetch }) => {
+export const GET: RequestHandler = async ({ url, cookies, fetch, locals }) => {
   const cfg = oidcConfig();
   if (!cfg) error(404, "Sign-in is not configured");
+  // The callback is not locale-prefixed (the provider needs one fixed address), so the reader's
+  // language comes from the login that was started in it.
+  let language = locals.locale ?? DEFAULT_LOCALE;
+  const signin = (error: string) => `${localizePath("/signin", language)}?error=${error}`;
   const fail = (reason: string): never => {
     console.warn(`oidc sign-in refused: ${reason}`);
-    redirect(303, "/signin?error=failed");
+    redirect(303, signin("failed"));
   };
 
   const state = url.searchParams.get("state") ?? "";
   const bound = cookies.get(OIDC_TX_COOKIE) ?? "";
   cookies.delete(OIDC_TX_COOKIE, { path: "/" });
   const tx = state ? await sessions().takeTransaction(state) : null;
+  if (tx) language = normalizeLocale(tx.locale) ?? language;
   if (!tx || !bound || bound !== state) fail("state");
 
   const denied = url.searchParams.get("error");
   if (denied) {
     console.warn(`oidc sign-in refused: provider error ${denied}`);
-    redirect(303, `/signin?error=${denied === "access_denied" ? "denied" : "failed"}`);
+    redirect(303, signin(denied === "access_denied" ? "denied" : "failed"));
   }
   const code = url.searchParams.get("code");
   if (!code) fail("no code");

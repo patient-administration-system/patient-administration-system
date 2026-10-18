@@ -1,0 +1,6 @@
+# Pinned so a toolchain release cannot change `rustfmt` or `clippy` output under us.
+# CI asserts this channel equals RUST_TOOLCHAIN in .github/workflows/ci.yml.
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

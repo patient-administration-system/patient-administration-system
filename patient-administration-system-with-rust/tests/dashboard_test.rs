@@ -18,6 +18,7 @@ use std::sync::Arc;
 use tower::ServiceExt;
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn dashboard_renders_html_against_live_db() {
     let url = match common::database_url() {
         Some(u) => u,

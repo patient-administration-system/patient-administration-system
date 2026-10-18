@@ -1,0 +1,31 @@
+# Patient Administration System
+
+> Hospital patient administration: admissions, appointments, waiting lists, reminders and patient notifications, with a patient portal. Rust server, SvelteKit UI, PostgreSQL, Keycloak. Pre-1.0, not production-ready, unaudited.
+
+## Start here
+
+- [README](README.md): Overview, layout, quick start
+- [Plan](plan.md): Research and reasoning
+- [Tasks](tasks.md): The live work queue
+- [Install](INSTALL.md): Run it locally
+
+## Specification
+
+- [Specification index](spec/index.md): Source of truth for the cross-subproject contract
+- [Functional requirements](spec/06-functional-requirements.md): FR-n, each with its verifying test
+- [Non-functional requirements](spec/07-non-functional-requirements.md): NFR-n, each with its verifying test
+- [Spec-driven development](agents/spec-driven-development.md): Spec, code and test change together
+- [Locales](spec/locales.md): Locale codes, URLs and catalogues
+
+## Governance (drafts)
+
+- [Governance index](governance/README.md): DPIA, hazard log, retention, accessibility
+- [NHS DTAC v2.0 self-assessment](docs/united-kingdom/national-health-service/digital-technology-assessment-criteria/2.0/index.md): Concludes the product would not pass today
+- [Security policy](SECURITY.md): Reporting a vulnerability and known limits
+- [AI statement](AI_STATEMENT.md): How AI was used
+
+## Operations
+
+- [Deployment](operations/deployment.md): What to run and configure
+- [Runbook](operations/runbook.md): Symptoms and actions
+- [Backup and restore](operations/backup-and-restore.md): Includes the restore drill

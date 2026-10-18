@@ -1,11 +1,12 @@
-// Delivery channels a message template may use, in the PAS's own wire names.
+// Delivery channels a message template may use, in the PAS's own wire names. The visible name of
+// each is the catalogue entry `channel.<id>`.
 export const CHANNELS = [
-  { id: "whatsapp", label: "WhatsApp" },
-  { id: "apple_messages", label: "Apple Messages" },
-  { id: "sms", label: "SMS" },
-  { id: "email", label: "Email" },
-  { id: "portal", label: "Secure portal" },
-  { id: "print", label: "Postal letter" },
+  { id: "whatsapp" },
+  { id: "apple_messages" },
+  { id: "sms" },
+  { id: "email" },
+  { id: "portal" },
+  { id: "print" },
 ] as const;
 
 const KNOWN = new Set<string>(CHANNELS.map((c) => c.id));

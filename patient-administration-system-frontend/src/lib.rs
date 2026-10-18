@@ -1,3 +1,4 @@
+#![cfg_attr(not(test), forbid(unsafe_code))]
 // `loco_rs::Error` is intentionally a large enum (variant per backend);
 // every Loco handler signature ends up tripping `clippy::result_large_err`.
 // Box-everywhere isn't worth the readability cost — accept the noise.

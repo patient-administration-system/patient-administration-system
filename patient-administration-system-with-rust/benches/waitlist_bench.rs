@@ -3,6 +3,7 @@
 //! Measures `compute_active_weeks` at varying event counts to detect
 //! regressions in the linear scan over `RTTClockEvent`s.
 
+#![cfg_attr(not(test), forbid(unsafe_code))]
 use chrono::{Duration, Utc};
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use patient_administration_system::models::rtt::{RTTClockEvent, compute_active_weeks};

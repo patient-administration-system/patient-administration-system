@@ -1,16 +1,17 @@
 <script lang="ts">
   import type { PageData } from "./$types";
+  import { t } from "#lib/i18n.svelte.js";
   let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-  <title>My messages – Patient Administration System</title>
+  <title>{t("myMessages.title")} – {t("app.name")}</title>
   <link rel="stylesheet" href="/assets/themes/patient.css" />
 </svelte:head>
 
-<h1>My messages</h1>
+<h1>{t("myMessages.title")}</h1>
 {#if data.messages.length === 0}
-  <p>You have no messages.</p>
+  <p>{t("myMessages.empty")}</p>
 {:else}
   <ul class="messages">
     {#each data.messages as m (m.id)}

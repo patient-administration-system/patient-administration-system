@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Patient Administration System"
+abstract: "Hospital patient administration: admissions, appointments, waiting lists, reminders and patient notifications, with a patient portal."
+authors:
+  - family-names: "Henderson"
+    given-names: "Joel Parker"
+license:
+  - MIT
+  - Apache-2.0
+  - BSD-3-Clause
+  - GPL-2.0-only
+  - GPL-3.0-only
+repository-code: "https://github.com/patient-administration-system/patient-administration-system"
+keywords:
+  - patient administration
+  - healthcare
+  - appointments
+  - NHS

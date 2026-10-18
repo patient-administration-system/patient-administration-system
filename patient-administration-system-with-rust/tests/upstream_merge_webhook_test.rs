@@ -42,6 +42,7 @@ fn sign(secret: &[u8], body: &[u8]) -> String {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_person_merged_webhook_without_secret_returns_503() {
     let _env_guard = ENV_LOCK.lock().await;
     let Some(url) = common::database_url() else {
@@ -75,6 +76,7 @@ async fn test_person_merged_webhook_without_secret_returns_503() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_person_merged_webhook_wrong_signature_returns_401() {
     let _env_guard = ENV_LOCK.lock().await;
     let Some(url) = common::database_url() else {
@@ -113,6 +115,7 @@ async fn test_person_merged_webhook_wrong_signature_returns_401() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_person_merged_webhook_happy_path_applied_then_dedupe() {
     let _env_guard = ENV_LOCK.lock().await;
     let Some(url) = common::database_url() else {
@@ -173,6 +176,7 @@ async fn test_person_merged_webhook_happy_path_applied_then_dedupe() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_person_merged_self_merge_returns_400() {
     let _env_guard = ENV_LOCK.lock().await;
     let Some(url) = common::database_url() else {
@@ -206,6 +210,7 @@ async fn test_person_merged_self_merge_returns_400() {
 }
 
 #[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn test_worker_merged_webhook_happy_path() {
     let _env_guard = ENV_LOCK.lock().await;
     let Some(url) = common::database_url() else {

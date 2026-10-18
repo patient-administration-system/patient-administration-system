@@ -1,14 +1,15 @@
 <script lang="ts">
   import type { PageData } from "./$types";
+  import { t } from "#lib/i18n.svelte.js";
   let { data }: { data: PageData } = $props();
 </script>
 
-<svelte:head><title>Sign in – Patient Administration System</title></svelte:head>
-<h1>Sign in</h1>
-{#if data.message}<p class="error" role="alert">{data.message}</p>{/if}
+<svelte:head><title>{t("signin.title")} – {t("app.name")}</title></svelte:head>
+<h1>{t("signin.title")}</h1>
+{#if data.errorKey}<p class="error" role="alert">{t(data.errorKey)}</p>{/if}
 {#if data.enabled}
-  <p>Patients can sign in to see their appointments. Staff sign in to manage the hospital.</p>
-  <a class="button" href={`/signin/oidc?return=${encodeURIComponent(data.returnTo)}`}>Sign in</a>
+  <p>{t("signin.intro")}</p>
+  <a class="button" href={`/signin/oidc?return=${encodeURIComponent(data.returnTo)}`}>{t("app.signIn")}</a>
 {:else}
-  <p class="error">Sign-in is not configured on this server (OIDC_ISSUER and OIDC_CLIENT_ID).</p>
+  <p class="error">{t("signin.notConfigured")}</p>
 {/if}

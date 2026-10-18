@@ -2,15 +2,14 @@ import type { PageServerLoad } from "./$types";
 import { oidcConfig } from "#lib/server/config.js";
 import { safeReturnPath } from "#lib/server/oidc.js";
 
-const MESSAGES: Record<string, string> = {
-  failed: "Sign-in did not complete. Please try again.",
-  denied: "Sign-in was cancelled.",
-  unavailable: "The sign-in service is not available right now.",
-  idle: "You were signed out because you were away for a while.",
-};
+// Error codes are catalogue keys (`signin.error.<code>`), translated where they are shown.
+const ERRORS = new Set(["failed", "denied", "unavailable", "idle"]);
 
-export const load: PageServerLoad = ({ url }) => ({
-  enabled: oidcConfig() !== null,
-  message: MESSAGES[url.searchParams.get("error") ?? ""] ?? null,
-  returnTo: safeReturnPath(url.searchParams.get("return")),
-});
+export const load: PageServerLoad = ({ url }) => {
+  const code = url.searchParams.get("error") ?? "";
+  return {
+    enabled: oidcConfig() !== null,
+    errorKey: ERRORS.has(code) ? `signin.error.${code}` : null,
+    returnTo: safeReturnPath(url.searchParams.get("return")),
+  };
+};

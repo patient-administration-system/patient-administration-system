@@ -1,5 +1,9 @@
 allowBuilds:
   esbuild: true
+# Refuse any package version published less than a day ago (value in minutes), so a hijacked or
+# mistaken release cannot reach us before it is noticed. The exclusions below are the exact versions
+# we have reviewed and chose to take sooner.
+minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@sveltejs/kit@3.0.0'
   - '@sveltejs/adapter-node@6.0.0'

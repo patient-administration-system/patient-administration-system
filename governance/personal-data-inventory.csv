@@ -1,0 +1,250 @@
+table,column,category,purpose,retention_class
+accounts,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+accounts,person_id,identifier,Link a record to a person held by person-service,record
+accounts,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+accounts,currency,none,"Not personal data (structure, status, timestamps, places, templates)",record
+accounts,opened_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+accounts,closed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+accounts,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+accounts,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+admissions,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+admissions,encounter_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+admissions,bed_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+admissions,admitting_worker_id,staff-identifier,Attribute work to a staff member held by worker-service,record
+admissions,admitted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+admissions,reason,health,"Administrative care information (why, where, what service, outcome)",record
+admissions,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+admissions,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointment_series,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointment_series,person_id,identifier,Link a record to a person held by person-service,record
+appointment_series,worker_id,staff-identifier,Attribute work to a staff member held by worker-service,record
+appointment_series,service_type,health,"Administrative care information (why, where, what service, outcome)",record
+appointment_series,start_datetime,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointment_series,duration_minutes,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointment_series,rule,free-text,May contain personal data copied from the record it describes,audit-or-message
+appointment_series,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointment_series,reason,health,"Administrative care information (why, where, what service, outcome)",record
+appointment_series,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointment_series,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,person_id,identifier,Link a record to a person held by person-service,record
+appointments,slot_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,worker_id,staff-identifier,Attribute work to a staff member held by worker-service,record
+appointments,start_datetime,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,end_datetime,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,reason,health,"Administrative care information (why, where, what service, outcome)",record
+appointments,from_waitlist_entry_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,cancellation_reason,health,"Administrative care information (why, where, what service, outcome)",record
+appointments,deleted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,series_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+audit_log,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+audit_log,entity_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+audit_log,entity_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+audit_log,action,none,"Not personal data (structure, status, timestamps, places, templates)",record
+audit_log,old_value,free-text,May contain personal data copied from the record it describes,audit-or-message
+audit_log,new_value,free-text,May contain personal data copied from the record it describes,audit-or-message
+audit_log,user_id,staff-trace,"Audit of who did what, from where",audit
+audit_log,user_ip,staff-trace,"Audit of who did what, from where",audit
+audit_log,user_agent,staff-trace,"Audit of who did what, from where",audit
+audit_log,at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_assignments,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_assignments,encounter_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_assignments,bed_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_assignments,assigned_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_assignments,released_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_assignments,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_assignments,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+beds,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+beds,room_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+beds,name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+beds,code,none,"Not personal data (structure, status, timestamps, places, templates)",record
+beds,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+beds,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+beds,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+charges,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+charges,account_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+charges,encounter_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+charges,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+charges,code,financial,Billing and insurance,billing
+charges,description,free-text,May contain personal data copied from the record it describes,audit-or-message
+charges,amount_value,financial,Billing and insurance,billing
+charges,amount_currency,none,"Not personal data (structure, status, timestamps, places, templates)",record
+charges,posted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+charges,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+consents,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+consents,person_id,identifier,Link a record to a person held by person-service,record
+consents,consent_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+consents,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+consents,granted_date,none,"Not personal data (structure, status, timestamps, places, templates)",record
+consents,expiry_date,none,"Not personal data (structure, status, timestamps, places, templates)",record
+consents,revoked_date,none,"Not personal data (structure, status, timestamps, places, templates)",record
+consents,purpose,none,"Not personal data (structure, status, timestamps, places, templates)",record
+consents,method,none,"Not personal data (structure, status, timestamps, places, templates)",record
+consents,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+consents,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+coverages,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+coverages,person_id,identifier,Link a record to a person held by person-service,record
+coverages,account_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+coverages,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+coverages,kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
+coverages,subscriber_id,identifier,Link a record to a person held by person-service,record
+coverages,payor_name,financial,Billing and insurance,billing
+coverages,payor_identifier,financial,Billing and insurance,billing
+coverages,policy_number,financial,Billing and insurance,billing
+coverages,group_number,financial,Billing and insurance,billing
+coverages,relationship,financial,Billing and insurance,billing
+coverages,start_date,none,"Not personal data (structure, status, timestamps, places, templates)",record
+coverages,end_date,none,"Not personal data (structure, status, timestamps, places, templates)",record
+coverages,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+coverages,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+discharges,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+discharges,admission_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+discharges,discharging_worker_id,staff-identifier,Attribute work to a staff member held by worker-service,record
+discharges,discharged_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+discharges,disposition,health,"Administrative care information (why, where, what service, outcome)",record
+discharges,notes,health,"Administrative care information (why, where, what service, outcome)",record
+discharges,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+encounters,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+encounters,person_id,identifier,Link a record to a person held by person-service,record
+encounters,class,health,"Administrative care information (why, where, what service, outcome)",record
+encounters,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+encounters,period_start,none,"Not personal data (structure, status, timestamps, places, templates)",record
+encounters,period_end,none,"Not personal data (structure, status, timestamps, places, templates)",record
+encounters,worker_id,staff-identifier,Attribute work to a staff member held by worker-service,record
+encounters,department_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+encounters,reason,health,"Administrative care information (why, where, what service, outcome)",record
+encounters,deleted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+encounters,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+encounters,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+facilities,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+facilities,name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+facilities,code,none,"Not personal data (structure, status, timestamps, places, templates)",record
+facilities,address,none,"Not personal data (structure, status, timestamps, places, templates)",record
+facilities,active,none,"Not personal data (structure, status, timestamps, places, templates)",record
+facilities,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+facilities,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+generated_letters,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+generated_letters,template_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+generated_letters,person_id,identifier,Link a record to a person held by person-service,record
+generated_letters,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+generated_letters,rendered_subject,free-text,May contain personal data copied from the record it describes,audit-or-message
+generated_letters,rendered_body,free-text,May contain personal data copied from the record it describes,audit-or-message
+generated_letters,channel,none,"Not personal data (structure, status, timestamps, places, templates)",record
+generated_letters,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+generated_letters,sent_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+generated_letters,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+generated_letters,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+invoices,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+invoices,account_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+invoices,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+invoices,total_value,financial,Billing and insurance,billing
+invoices,total_currency,none,"Not personal data (structure, status, timestamps, places, templates)",record
+invoices,charge_ids,none,"Not personal data (structure, status, timestamps, places, templates)",record
+invoices,finalized_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+invoices,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+invoices,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+letter_templates,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+letter_templates,name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+letter_templates,subject,none,"Not personal data (structure, status, timestamps, places, templates)",record
+letter_templates,body_tera,none,"Not personal data (structure, status, timestamps, places, templates)",record
+letter_templates,required_variables,none,"Not personal data (structure, status, timestamps, places, templates)",record
+letter_templates,channels,none,"Not personal data (structure, status, timestamps, places, templates)",record
+letter_templates,active,none,"Not personal data (structure, status, timestamps, places, templates)",record
+letter_templates,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+letter_templates,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_dead_letters,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_dead_letters,original_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_dead_letters,event_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_dead_letters,payload,free-text,May contain personal data copied from the record it describes,audit-or-message
+outbox_dead_letters,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_dead_letters,dead_lettered_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_dead_letters,retry_count,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_dead_letters,last_error,free-text,May contain personal data copied from the record it describes,audit-or-message
+outbox_events,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_events,event_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_events,payload,free-text,May contain personal data copied from the record it describes,audit-or-message
+outbox_events,published,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_events,at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_events,retry_count,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_events,last_attempted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_events,last_error,free-text,May contain personal data copied from the record it describes,audit-or-message
+payments,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+payments,invoice_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+payments,amount_value,financial,Billing and insurance,billing
+payments,amount_currency,none,"Not personal data (structure, status, timestamps, places, templates)",record
+payments,method,none,"Not personal data (structure, status, timestamps, places, templates)",record
+payments,reference,free-text,May contain personal data copied from the record it describes,audit-or-message
+payments,posted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+payments,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+referrals,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+referrals,person_id,identifier,Link a record to a person held by person-service,record
+referrals,referring_worker_id,staff-identifier,Attribute work to a staff member held by worker-service,record
+referrals,target_service,health,"Administrative care information (why, where, what service, outcome)",record
+referrals,reason,health,"Administrative care information (why, where, what service, outcome)",record
+referrals,received_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+referrals,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rooms,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rooms,ward_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rooms,name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rooms,code,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rooms,active,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rooms,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rooms,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_clock_events,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_clock_events,pathway_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_clock_events,kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_clock_events,reason,health,"Administrative care information (why, where, what service, outcome)",record
+rtt_clock_events,event_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_clock_events,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_pathways,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_pathways,person_id,identifier,Link a record to a person held by person-service,record
+rtt_pathways,target_service,health,"Administrative care information (why, where, what service, outcome)",record
+rtt_pathways,breach_weeks,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_pathways,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_pathways,started_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_pathways,stopped_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_pathways,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rtt_pathways,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+schedules,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+schedules,owner_kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
+schedules,owner_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+schedules,service_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+schedules,active,none,"Not personal data (structure, status, timestamps, places, templates)",record
+schedules,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+schedules,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,schedule_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,start_datetime,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,end_datetime,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transfers,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transfers,admission_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transfers,from_bed_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transfers,to_bed_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transfers,reason,health,"Administrative care information (why, where, what service, outcome)",record
+transfers,transferred_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transfers,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+upstream_inbox,event_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+upstream_inbox,source,none,"Not personal data (structure, status, timestamps, places, templates)",record
+upstream_inbox,received_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+waitlist_entries,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+waitlist_entries,referral_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+waitlist_entries,person_id,identifier,Link a record to a person held by person-service,record
+waitlist_entries,target_service,health,"Administrative care information (why, where, what service, outcome)",record
+waitlist_entries,priority,health,"Administrative care information (why, where, what service, outcome)",record
+waitlist_entries,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+waitlist_entries,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+waitlist_entries,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+wards,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+wards,facility_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+wards,name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+wards,code,none,"Not personal data (structure, status, timestamps, places, templates)",record
+wards,capacity,none,"Not personal data (structure, status, timestamps, places, templates)",record
+wards,active,none,"Not personal data (structure, status, timestamps, places, templates)",record
+wards,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+wards,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
