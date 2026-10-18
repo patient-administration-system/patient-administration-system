@@ -28,6 +28,7 @@ pub mod api;
 pub mod billing;
 pub mod communication;
 pub mod config;
+pub mod contact;
 pub mod db;
 pub mod error;
 pub mod hl7v2;

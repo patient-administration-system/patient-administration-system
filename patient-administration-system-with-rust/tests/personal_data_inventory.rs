@@ -11,11 +11,12 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
-const CATEGORIES: [&str; 8] = [
+const CATEGORIES: [&str; 9] = [
     "identifier",
     "staff-identifier",
     "health",
     "preference",
+    "contact",
     "free-text",
     "financial",
     "staff-trace",

@@ -89,7 +89,10 @@ impl ReminderService {
                 }
             });
             let mut sent = false;
-            for channel in &template.channels {
+            let preferred = crate::contact::preferred_channel(&self.db, a.person_id)
+                .await?
+                .and_then(|c| crate::db::repositories::letter::delivery_channel_from_str(&c).ok());
+            for channel in &prefer_first(&template.channels, preferred) {
                 if !self.communication.channel_ready(*channel) {
                     continue;
                 }
@@ -143,6 +146,23 @@ impl ReminderService {
     }
 }
 
+/// The template's channels with the patient's preferred one first (when the template offers it).
+/// The patient's choice reorders what the template allows; it never adds a channel the template
+/// does not list, and never drops one.
+pub fn prefer_first(
+    channels: &[DeliveryChannel],
+    preferred: Option<DeliveryChannel>,
+) -> Vec<DeliveryChannel> {
+    let mut out = channels.to_vec();
+    if let Some(p) = preferred
+        && let Some(i) = out.iter().position(|c| *c == p)
+    {
+        let c = out.remove(i);
+        out.insert(0, c);
+    }
+    out
+}
+
 /// Parse `PAS_REMINDER_LEAD_HOURS` (default 24).
 pub fn lead_from_hours(hours: Option<&str>) -> Result<Duration> {
     let h: i64 = match hours {
@@ -160,6 +180,20 @@ pub fn lead_from_hours(hours: Option<&str>) -> Result<Duration> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_prefer_first_reorders_but_never_adds_or_drops() {
+        use DeliveryChannel::*;
+        let t = [WhatsApp, Sms, Email];
+        assert_eq!(prefer_first(&t, Some(Email)), vec![Email, WhatsApp, Sms]);
+        assert_eq!(prefer_first(&t, Some(WhatsApp)), vec![WhatsApp, Sms, Email]);
+        assert_eq!(
+            prefer_first(&t, Some(Print)),
+            t.to_vec(),
+            "not offered by the template: ignored"
+        );
+        assert_eq!(prefer_first(&t, None), t.to_vec());
+    }
 
     #[test]
     fn test_lead_defaults_to_24_hours() {

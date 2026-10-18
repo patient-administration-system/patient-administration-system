@@ -27,6 +27,7 @@ use super::handlers_adt;
 use super::handlers_audit;
 use super::handlers_billing;
 use super::handlers_consent;
+use super::handlers_contact;
 use super::handlers_coverage;
 use super::handlers_encounter;
 use super::handlers_hl7v2;
@@ -144,6 +145,19 @@ pub fn router(state: AppState) -> Router {
         )
         // Scheduling — book / cancel / check-in / complete.
         .route("/api/slots/{id}/book", post(handlers_scheduling::book_slot))
+        // Contact reliability and communication needs (CAP-4).
+        .route(
+            "/api/patients/{id}/communication-profile",
+            get(handlers_contact::get_profile).put(handlers_contact::put_profile),
+        )
+        .route(
+            "/api/patients/{id}/communication-profile/verify-mobile",
+            post(handlers_contact::verify_mobile),
+        )
+        .route(
+            "/api/communication-profiles/stale",
+            get(handlers_contact::stale_profiles),
+        )
         // Released slots and the standby list (CAP-3).
         .route(
             "/api/standby",

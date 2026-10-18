@@ -64,6 +64,20 @@ impl CommunicationService {
         }
     }
 
+    /// A copy of this service with the same configuration: database, publisher, SMS provider,
+    /// every sender, the portal address and the person client. Builders start from this so that
+    /// changing one thing can never drop another.
+    pub fn derive(&self) -> CommunicationService {
+        CommunicationService {
+            db: self.db.clone(),
+            publisher: self.publisher.clone(),
+            sms_provider: self.sms_provider.clone(),
+            senders: self.senders.clone(),
+            portal_base_url: self.portal_base_url.clone(),
+            person_client: self.person_client.clone(),
+        }
+    }
+
     /// Public address of the patient portal (no trailing slash), e.g.
     /// `https://pas.example.nhs.uk`. Exposed to templates as `portal_url`.
     pub fn with_portal_base_url(mut self, url: impl Into<String>) -> Self {
@@ -97,20 +111,6 @@ impl CommunicationService {
     /// Read-only accessor for the current SMS provider — `AppState`
     /// uses it when rebuilding the service with a new PersonClient
     /// to carry over whatever SMS provider was previously installed.
-    /// Copy another service's non-SMS senders onto this one (used when
-    /// `AppState` rebuilds the service around a new dependency).
-    pub fn with_senders_of(mut self, other: &CommunicationService) -> Self {
-        if self.portal_base_url.is_none() {
-            self.portal_base_url = other.portal_base_url.clone();
-        }
-        for (channel, sender) in &other.senders {
-            self.senders
-                .entry(*channel)
-                .or_insert_with(|| sender.clone());
-        }
-        self
-    }
-
     /// The address `channel` would deliver to for `person_id`, or `None` when
     /// the person has no suitable contact point. Lets callers skip a channel
     /// before any letter is persisted.
@@ -131,7 +131,26 @@ impl CommunicationService {
         };
         let person = person_client.get(person_id, &upstream_ctx).await?;
         let value = serde_json::to_value(&person).unwrap_or_default();
-        Ok(recipient_for(channel, &value))
+        self.resolve_recipient(channel, person_id, &value).await
+    }
+
+    /// Where a message on `channel` should go. For phone-based channels a *verified, recent* profile
+    /// mobile wins over the upstream record, because that is the number the patient confirmed;
+    /// anything less falls back to upstream, so an unproven number never receives a message.
+    async fn resolve_recipient(
+        &self,
+        channel: DeliveryChannel,
+        person_id: Uuid,
+        upstream_person: &serde_json::Value,
+    ) -> Result<Option<String>> {
+        if matches!(
+            channel,
+            DeliveryChannel::Sms | DeliveryChannel::WhatsApp | DeliveryChannel::AppleMessages
+        ) && let Some(mobile) = crate::contact::trusted_mobile(&self.db, person_id).await?
+        {
+            return Ok(Some(mobile));
+        }
+        Ok(recipient_for(channel, upstream_person))
     }
 
     /// True when a sender is wired for `channel` and reports itself enabled.
@@ -282,7 +301,10 @@ impl CommunicationService {
             None => persisted,
             Some(sender) => {
                 let label = channel_label(channel);
-                match recipient_for(channel, &person_value) {
+                match self
+                    .resolve_recipient(channel, person_id, &person_value)
+                    .await?
+                {
                     None => {
                         tracing::warn!(
                             target: "pas::message",

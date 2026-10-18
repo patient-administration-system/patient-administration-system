@@ -10,7 +10,7 @@ use sea_orm::DatabaseConnection;
 
 use crate::adt::AdtService;
 use crate::billing::BillingService;
-use crate::communication::{CommunicationService, NoopSmsProvider, SmsProvider};
+use crate::communication::{CommunicationService, SmsProvider};
 use crate::resources::ResourcesService;
 use crate::scheduling::{SchedulingService, SeriesService};
 use crate::streaming::EventPublisher;
@@ -29,6 +29,7 @@ pub struct AppState {
     pub scheduling: Arc<SchedulingService>,
     pub writeback: Arc<crate::writeback::WriteBackService>,
     pub standby: Arc<crate::standby::StandbyService>,
+    pub contact: Arc<crate::contact::ContactService>,
     pub series: Arc<SeriesService>,
     pub waitlist: Arc<WaitlistService>,
     pub rtt: Arc<RttService>,
@@ -59,6 +60,7 @@ impl AppState {
                 db.clone(),
                 scheduling.clone(),
             )),
+            contact: Arc::new(crate::contact::ContactService::new(db.clone())),
             standby: Arc::new(crate::standby::StandbyService::new(
                 db.clone(),
                 scheduling.clone(),
@@ -89,11 +91,9 @@ impl AppState {
         // Rebuild communication with the new person client so the renderer
         // can reach upstream. Carrying over the existing SMS provider keeps
         // any earlier `with_sms_provider` configuration intact.
-        let sms_provider = self.communication.sms_provider_arc();
         self.communication = Arc::new(
-            CommunicationService::new(self.db.clone(), self.publisher.clone())
-                .with_sms_provider(sms_provider)
-                .with_senders_of(&self.communication)
+            self.communication
+                .derive()
                 .with_person_client(client.clone()),
         );
         self.person_client = Some(client);
@@ -111,13 +111,7 @@ impl AppState {
     /// Set the public patient-portal address used for the `portal_url`
     /// template variable.
     pub fn with_portal_base_url(mut self, url: &str) -> Self {
-        let mut svc = CommunicationService::new(self.db.clone(), self.publisher.clone())
-            .with_sms_provider(self.communication.sms_provider_arc())
-            .with_senders_of(&self.communication)
-            .with_portal_base_url(url);
-        if let Some(c) = self.person_client.clone() {
-            svc = svc.with_person_client(c);
-        }
+        let svc = self.communication.derive().with_portal_base_url(url);
         self.communication = Arc::new(svc);
         self
     }
@@ -128,13 +122,7 @@ impl AppState {
         channel: crate::models::communication::DeliveryChannel,
         sender: Arc<dyn crate::communication::MessageSender>,
     ) -> Self {
-        let mut svc = CommunicationService::new(self.db.clone(), self.publisher.clone())
-            .with_sms_provider(self.communication.sms_provider_arc())
-            .with_senders_of(&self.communication)
-            .with_sender(channel, sender);
-        if let Some(c) = self.person_client.clone() {
-            svc = svc.with_person_client(c);
-        }
+        let svc = self.communication.derive().with_sender(channel, sender);
         self.communication = Arc::new(svc);
         self
     }
@@ -147,13 +135,7 @@ impl AppState {
     pub fn with_sms_provider(mut self, sms_provider: Arc<dyn SmsProvider>) -> Self {
         // Rebuild the CommunicationService with the new provider while
         // preserving any previously-attached PersonClient.
-        let _ = NoopSmsProvider; // silence unused-import warning when sms is unused
-        let mut svc = CommunicationService::new(self.db.clone(), self.publisher.clone())
-            .with_sms_provider(sms_provider)
-            .with_senders_of(&self.communication);
-        if let Some(c) = self.person_client.clone() {
-            svc = svc.with_person_client(c);
-        }
+        let svc = self.communication.derive().with_sms_provider(sms_provider);
         self.communication = Arc::new(svc);
         self
     }

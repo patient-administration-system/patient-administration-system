@@ -6,6 +6,7 @@ pub mod handlers_adt;
 pub mod handlers_audit;
 pub mod handlers_billing;
 pub mod handlers_consent;
+pub mod handlers_contact;
 pub mod handlers_coverage;
 pub mod handlers_encounter;
 pub mod handlers_hl7v2;

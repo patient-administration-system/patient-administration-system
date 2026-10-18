@@ -189,6 +189,21 @@ outbox_events,at,none,"Not personal data (structure, status, timestamps, places,
 outbox_events,retry_count,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_events,last_attempted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_events,last_error,free-text,May contain personal data copied from the record it describes,audit-or-message
+patient_communication_profiles,person_id,identifier,Link a record to a person held by person-service,record
+patient_communication_profiles,mobile_e164,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
+patient_communication_profiles,mobile_verified_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+patient_communication_profiles,mobile_verification_method,none,"Not personal data (structure, status, timestamps, places, templates)",record
+patient_communication_profiles,alternate_name,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
+patient_communication_profiles,alternate_relationship,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
+patient_communication_profiles,alternate_phone_e164,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
+patient_communication_profiles,alternate_email,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
+patient_communication_profiles,alternate_is_carer,health,"Administrative care information (why, where, what service, outcome); accessibility needs can reveal a disability",record
+patient_communication_profiles,alternate_is_emergency,preference,"A personal preference or need that shapes how care is offered (language, transport, contact mode, accessibility)",record
+patient_communication_profiles,preferred_channel,preference,"A personal preference or need that shapes how care is offered (language, transport, contact mode, accessibility)",record
+patient_communication_profiles,preferred_language,preference,"A personal preference or need that shapes how care is offered (language, transport, contact mode, accessibility)",record
+patient_communication_profiles,accessibility_needs,health,"Administrative care information (why, where, what service, outcome); accessibility needs can reveal a disability",record
+patient_communication_profiles,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+patient_communication_profiles,updated_by,staff-trace,"Audit of who did what, from where",record
 payments,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 payments,invoice_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 payments,amount_value,financial,Billing and insurance,billing
