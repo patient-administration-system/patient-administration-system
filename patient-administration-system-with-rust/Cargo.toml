@@ -46,7 +46,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 opentelemetry = "0.27"
 opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
 opentelemetry-otlp = { version = "0.27", default-features = false, features = ["http-proto", "reqwest-client"] }
-tracing-opentelemetry = "0.28"
+tracing-opentelemetry = "0.34"
 
 # Offline PASETO v4.public verification of per-user bearer tokens from the authentication-service
 # (DTAC-4). `fetch` adds Verifier::from_paseto_keys_url for the boot-time key fetch.
