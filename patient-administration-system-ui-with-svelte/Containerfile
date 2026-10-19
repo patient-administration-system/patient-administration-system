@@ -19,6 +19,16 @@ RUN pnpm run build \
  && pnpm install --frozen-lockfile --prod
 
 FROM docker.io/library/node:26-slim
+# Provenance labels. The release workflow passes the version it verified against the tag and the changelog
+# (scripts/release-notes.sh), and checks the built image carries it.
+ARG VERSION=unknown
+ARG REVISION=unknown
+ARG SOURCE=unknown
+LABEL org.opencontainers.image.title="patient-administration-system-ui" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.source="${SOURCE}" \
+      org.opencontainers.image.licenses="MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only"
 ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0 PROTOCOL_HEADER=x-forwarded-proto
 WORKDIR /app
 COPY --from=builder /ui/build ./build
