@@ -12,6 +12,7 @@ pub mod handlers_coverage;
 pub mod handlers_encounter;
 pub mod handlers_hl7v2;
 pub mod handlers_letters;
+pub mod handlers_links;
 pub mod handlers_resources;
 pub mod handlers_scheduling;
 pub mod handlers_series;

@@ -29,6 +29,9 @@ pub struct AppState {
     pub scheduling: Arc<SchedulingService>,
     pub writeback: Arc<crate::writeback::WriteBackService>,
     pub inbound: Arc<crate::inbound::InboundService>,
+    pub reply_links: Arc<crate::reply_links::ReplyLinks>,
+    /// Used for the staff call list; the scheduler in `main` builds its own from the environment.
+    pub ladder: Arc<crate::communication::ladder::LadderService>,
     pub standby: Arc<crate::standby::StandbyService>,
     pub contact: Arc<crate::contact::ContactService>,
     pub series: Arc<SeriesService>,
@@ -59,8 +62,17 @@ impl AppState {
             db.clone(),
             scheduling.clone(),
         ));
+        let communication = Arc::new(CommunicationService::new(db.clone(), publisher.clone()));
         Self {
             adt: Arc::new(AdtService::new(db.clone(), publisher.clone())),
+            reply_links: Arc::new(crate::reply_links::ReplyLinks::new(
+                db.clone(),
+                writeback.clone(),
+            )),
+            ladder: Arc::new(crate::communication::ladder::LadderService::new(
+                db.clone(),
+                communication.clone(),
+            )),
             inbound: Arc::new(crate::inbound::InboundService::new(
                 db.clone(),
                 writeback.clone(),
@@ -77,7 +89,7 @@ impl AppState {
             rtt: Arc::new(RttService::new(db.clone(), publisher.clone())),
             resources: Arc::new(ResourcesService::new(db.clone(), publisher.clone())),
             billing: Arc::new(BillingService::new(db.clone(), publisher.clone())),
-            communication: Arc::new(CommunicationService::new(db.clone(), publisher.clone())),
+            communication,
             person_client: None,
             worker_client: None,
             db,

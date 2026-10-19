@@ -32,6 +32,7 @@ use super::handlers_coverage;
 use super::handlers_encounter;
 use super::handlers_hl7v2;
 use super::handlers_letters;
+use super::handlers_links;
 use super::handlers_resources;
 use super::handlers_scheduling;
 use super::handlers_series;
@@ -192,6 +193,19 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/write-back/batch",
             post(handlers_writeback::post_batch),
+        )
+        .route("/api/reply-links/{token}", get(handlers_links::get_link))
+        .route(
+            "/api/reply-links/{token}/{action}",
+            post(handlers_links::post_link_action),
+        )
+        .route(
+            "/api/staff-call-tasks/open",
+            get(handlers_links::open_calls),
+        )
+        .route(
+            "/api/staff-call-tasks/{id}/outcome",
+            post(handlers_links::call_outcome),
         )
         .route(
             "/api/letter-template-groups",

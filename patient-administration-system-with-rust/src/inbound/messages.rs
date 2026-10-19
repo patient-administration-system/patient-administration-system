@@ -122,6 +122,14 @@ pub fn ask(lang: Lang, times: &[String]) -> String {
     format!("{head} {}", list.join(", "))
 }
 
+/// The second step of Cancel.
+pub fn are_you_sure(lang: Lang) -> String {
+    match lang {
+        Lang::En => "Are you sure you want to cancel this appointment? If you cancel, someone else may be given the slot.".into(),
+        Lang::Cy => "Ydych chi'n siŵr eich bod am ganslo'r apwyntiad hwn? Os byddwch yn canslo, gall rhywun arall gael y slot.".into(),
+    }
+}
+
 /// Both languages, for a person we cannot identify (so not yet knowing theirs).
 pub fn bilingual(kind: Kind) -> String {
     format!(

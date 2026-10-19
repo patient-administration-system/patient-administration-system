@@ -129,6 +129,8 @@ async fn edited_template_wording_is_what_gets_sent() {
     let service = ReminderService::new(state.db.clone(), state.communication.clone());
 
     let mut t = service.ensure_default_template().await.unwrap();
+    // The template is shared by every test, so put the wording back when this one is done.
+    let original = t.body_tera.clone();
     t.body_tera = "EDITED for {{ patient.name.given }}".into();
     LetterRepository::update_template(&state.db, &t)
         .await
@@ -146,9 +148,18 @@ async fn edited_template_wording_is_what_gets_sent() {
         .await
         .unwrap()
         .expect("a reminder was generated");
-    assert_eq!(letter.rendered_body, "EDITED for Ada");
-    assert_eq!(letter.channel, "whatsapp");
-    assert_eq!(letter.status, "sent");
+    let (body, channel, status) = (
+        letter.rendered_body.clone(),
+        letter.channel.clone(),
+        letter.status.clone(),
+    );
+    t.body_tera = original;
+    LetterRepository::update_template(&state.db, &t)
+        .await
+        .unwrap();
+    assert_eq!(body, "EDITED for Ada");
+    assert_eq!(channel, "whatsapp");
+    assert_eq!(status, "sent");
 }
 
 #[tokio::test]

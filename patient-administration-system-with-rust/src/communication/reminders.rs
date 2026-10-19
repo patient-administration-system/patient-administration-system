@@ -69,21 +69,22 @@ impl ReminderService {
     /// wording for any that is missing. Administrators edit them afterwards (`PUT
     /// /api/letter-templates/{id}`); a variant they have written is never replaced.
     pub async fn ensure_default_templates(&self) -> Result<Vec<LetterTemplate>> {
+        self.ensure_templates_named(REMINDER_TEMPLATE_NAME).await
+    }
+
+    /// The same for any ladder message (`appointment_reminder`, `_second`, `_final`).
+    pub async fn ensure_templates_named(&self, name: &str) -> Result<Vec<LetterTemplate>> {
         let required = super::templates::required_locales();
-        let mut present =
-            LetterRepository::list_active_by_name(&self.db, REMINDER_TEMPLATE_NAME).await?;
+        let mut present = LetterRepository::list_active_by_name(&self.db, name).await?;
         for locale in &required {
             if present.iter().any(|t| &t.locale == locale) {
                 continue;
             }
-            let Some((subject, body)) = default_wording(locale) else {
+            let Some((subject, body)) = default_wording(name, locale) else {
                 continue;
             };
-            let mut t = LetterTemplate::new(
-                REMINDER_TEMPLATE_NAME.to_string(),
-                subject.to_string(),
-                body.to_string(),
-            );
+            let mut t =
+                LetterTemplate::new(name.to_string(), subject.to_string(), body.to_string());
             t.locale = locale.clone();
             t.channels = vec![
                 DeliveryChannel::WhatsApp,
@@ -240,17 +241,36 @@ impl ReminderService {
     }
 }
 
-/// The wording a missing variant starts with: `(subject, body)`. **The Welsh is a first draft and needs
-/// review by a fluent speaker before any pilot.** Both tell the patient how to reply (PILOT-4).
-fn default_wording(locale: &str) -> Option<(&'static str, &'static str)> {
-    match crate::communication::templates::primary(locale).as_str() {
-        "en" => Some((
+/// The wording a missing variant starts with: `(subject, body)`, by message and language. **The Welsh is
+/// a first draft and needs review by a fluent speaker before any pilot.** Every message says how to reply
+/// (PILOT-4) and carries the single-use link when the server has one (`reply_url`, CAP-13). No clinical
+/// detail: these go over SMS and WhatsApp (NFR-13).
+fn default_wording(name: &str, locale: &str) -> Option<(&'static str, &'static str)> {
+    let lang = crate::communication::templates::primary(locale);
+    match (name, lang.as_str()) {
+        (REMINDER_TEMPLATE_NAME, "en") => Some((
             "Appointment reminder",
-            "Hello {{ patient.name.given | default(value=\"\") }}, this is a reminder of your appointment on {{ appointment.when }}. Reply Y to confirm, N to cancel or R to change it.",
+            "Hello {{ patient.name.given | default(value=\"\") }}, this is a reminder of your appointment on {{ appointment.when }}. Can't come? Tell us now so someone else can have the slot. Reply Y to confirm, N to cancel or R to change it.{% if reply_url %} Or tap: {{ reply_url }}{% endif %}",
         )),
-        "cy" => Some((
+        (REMINDER_TEMPLATE_NAME, "cy") => Some((
             "Nodyn atgoffa apwyntiad",
-            "Helo {{ patient.name.given | default(value=\"\") }}, dyma nodyn i'ch atgoffa o'ch apwyntiad ar {{ appointment.when }}. Atebwch IE i gadarnhau, NA i ganslo neu NEWID i'w newid.",
+            "Helo {{ patient.name.given | default(value=\"\") }}, dyma nodyn i'ch atgoffa o'ch apwyntiad ar {{ appointment.when }}. Methu dod? Dywedwch wrthym nawr er mwyn i rywun arall gael y slot. Atebwch IE i gadarnhau, NA i ganslo neu NEWID i'w newid.{% if reply_url %} Neu tapiwch: {{ reply_url }}{% endif %}",
+        )),
+        ("appointment_reminder_second", "en") => Some((
+            "Appointment reminder",
+            "Hello {{ patient.name.given | default(value=\"\") }}, we have not heard back about your appointment on {{ appointment.when }}. Reply Y to confirm, N to cancel or R to change it.{% if reply_url %} Or tap: {{ reply_url }}{% endif %}",
+        )),
+        ("appointment_reminder_second", "cy") => Some((
+            "Nodyn atgoffa apwyntiad",
+            "Helo {{ patient.name.given | default(value=\"\") }}, nid ydym wedi clywed gennych am eich apwyntiad ar {{ appointment.when }}. Atebwch IE i gadarnhau, NA i ganslo neu NEWID i'w newid.{% if reply_url %} Neu tapiwch: {{ reply_url }}{% endif %}",
+        )),
+        ("appointment_reminder_final", "en") => Some((
+            "Appointment tomorrow",
+            "Reminder: your appointment is on {{ appointment.when }}. Reply HELP if you need to talk to us.",
+        )),
+        ("appointment_reminder_final", "cy") => Some((
+            "Apwyntiad yfory",
+            "Nodyn atgoffa: mae eich apwyntiad ar {{ appointment.when }}. Atebwch CYMORTH os oes angen siarad â ni.",
         )),
         _ => None,
     }

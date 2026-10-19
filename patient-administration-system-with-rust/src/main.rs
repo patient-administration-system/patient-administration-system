@@ -242,7 +242,24 @@ async fn main() -> Result<()> {
 
     // Appointment reminders: opt in with PAS_REMINDERS_ENABLED=true. Lead
     // time via PAS_REMINDER_LEAD_HOURS (default 24); scanned every 5 minutes.
-    if std::env::var("PAS_REMINDERS_ENABLED").as_deref() == Ok("true") {
+    // The reminder ladder (CAP-13) replaces the single reminder: PAS_REMINDER_LADDER=true. Steps via
+    // PAS_REMINDER_STEPS (default main=7d,second=4d,call=3d,final=24h).
+    if std::env::var("PAS_REMINDER_LADDER").as_deref() == Ok("true") {
+        let ladder = patient_administration_system::communication::ladder::LadderService::from_env(
+            db.clone(),
+            state.communication.clone(),
+        )?;
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(300));
+            loop {
+                tick.tick().await;
+                match ladder.run_once(chrono::Utc::now()).await {
+                    Ok(r) => tracing::info!(target: "pas::ladder", ?r, "ladder scan complete"),
+                    Err(e) => tracing::warn!(target: "pas::ladder", "ladder scan failed: {e}"),
+                }
+            }
+        });
+    } else if std::env::var("PAS_REMINDERS_ENABLED").as_deref() == Ok("true") {
         let lead = patient_administration_system::communication::reminders::lead_from_hours(
             std::env::var("PAS_REMINDER_LEAD_HOURS").ok().as_deref(),
         )?;

@@ -20,6 +20,7 @@
 //!    status accordingly.
 
 pub mod consent;
+pub mod ladder;
 pub mod reminders;
 pub mod sender;
 pub mod sms;

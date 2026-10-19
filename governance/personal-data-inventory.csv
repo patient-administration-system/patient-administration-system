@@ -328,3 +328,28 @@ message_optouts,source,none,"Not personal data (structure, status, timestamps, p
 message_optouts,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 generated_letters,locale,none,"Not personal data (structure, status, timestamps, places, templates)",record
 letter_templates,locale,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reminder_steps,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reminder_steps,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reminder_steps,step,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reminder_steps,planned_for,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reminder_steps,channel,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reminder_steps,locale,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reminder_steps,outcome,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reminder_steps,letter_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reminder_steps,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_call_tasks,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_call_tasks,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_call_tasks,person_id,identifier,Link a record to a person held by person-service,record
+staff_call_tasks,reason,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_call_tasks,due_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_call_tasks,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_call_tasks,handled_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_call_tasks,handled_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+staff_call_tasks,call_outcome,health,"Administrative care information (why, where, what service, outcome)",record
+reply_tokens,token_hash,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reply_tokens,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reply_tokens,person_id,identifier,Link a record to a person held by person-service,record
+reply_tokens,expires_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reply_tokens,consumed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reply_tokens,consumed_action,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reply_tokens,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

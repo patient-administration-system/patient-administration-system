@@ -22,6 +22,10 @@ Everything this system sends is a **service message**: an appointment reminder, 
 | **Quiet hours** (default 21:00 to 08:00 clinic time, `PAS_QUIET_HOURS`, `off` to disable) hold back SMS, WhatsApp and Apple Messages. A reminder due then **waits for the morning**; it is not dropped and does not switch to another channel overnight. | `communication::reminders` | `quiet_hours_defer_the_reminder_without_losing_it`; unit tests for the window |
 | Email and the secure portal are not held back by quiet hours: they are read when the patient chooses. | `communication::consent::is_intrusive` | unit test |
 
+## The reminder ladder
+
+Reminders climb a ladder (default 7 days, 4 days, 3 days, 24 hours before). **Every patient who has not confirmed, asked to reschedule or used a link is escalated**: a second touch on another channel, then a phone call by a person. The test is a patient's action, never an email "open", which proves nothing. Every step is logged per appointment. Links in messages are single-use, carry no personal data, and **opening one never acts**: only a deliberate tap does, and Cancel asks twice. The caps, quiet hours and opt-outs above apply to every step.
+
 ## What this does not cover yet
 
 - **Delivery receipts and bounces** (NOT-4) and **real carriers** (NOT-3) are not built, so nothing is sent to a real person. These rules are in place before that, as intended.
