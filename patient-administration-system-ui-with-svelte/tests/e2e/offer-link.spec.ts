@@ -58,7 +58,7 @@ test("it reads in Welsh and Arabic, is not cached, leaks nothing onward and is n
   expect(await page.locator("html").getAttribute("dir")).toBe("rtl");
   const res = await request.get(`/en-001/o/${t}`);
   expect(res.headers()["cache-control"]).toContain("no-store");
-  expect(res.headers()["referrer-policy"]).toBe("no-referrer");
+  expect(res.headers()["referrer-policy"]).toBe("same-origin");
   await page.goto(`/en-001/o/${t}`);
   expect(await page.locator('meta[name="robots"]').getAttribute("content")).toBe("noindex");
 });

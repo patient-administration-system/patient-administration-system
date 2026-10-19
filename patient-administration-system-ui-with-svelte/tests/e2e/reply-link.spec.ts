@@ -152,9 +152,22 @@ test("the page is not cached, does not leak the address onward, and is not index
   const t = token();
   const res = await request.get(`/en-001/r/${t}`);
   expect(res.headers()["cache-control"]).toContain("no-store");
-  expect(res.headers()["referrer-policy"]).toBe("no-referrer");
+  expect(res.headers()["referrer-policy"]).toBe("same-origin");
   await page.goto(`/en-001/r/${t}`);
   expect(await page.locator('meta[name="robots"]').getAttribute("content")).toBe("noindex");
+});
+
+test("the buttons work with scripts off, as a slow phone or a locked-down browser would have them", async ({ browser, baseURL, request }) => {
+  // A plain form post carries `Origin: null` under `Referrer-Policy: no-referrer`, which SvelteKit refuses as
+  // cross-site: the page's policy is `same-origin` so this works.
+  const context = await browser.newContext({ javaScriptEnabled: false, baseURL });
+  const page = await context.newPage();
+  const t = token();
+  await page.goto(`/en-001/r/${t}`);
+  await page.getByRole("button", { name: "Confirm that I am coming" }).click();
+  await expect(page.getByText("Your appointment is confirmed.")).toBeVisible();
+  expect(await acts(request, t)).toEqual(["confirm"]);
+  await context.close();
 });
 
 test("a bare link gains a language prefix and still works", async ({ page }) => {

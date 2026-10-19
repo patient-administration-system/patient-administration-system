@@ -24,8 +24,10 @@ function stateFor(e: unknown): LinkState {
 }
 
 export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
-  // The address carries the token: never send it onward in a Referer, and never cache the page.
-  setHeaders({ "referrer-policy": "no-referrer", "cache-control": "no-store" });
+  // The address carries the token: never send it to another site in a Referer, and never cache the page. It is
+  // `same-origin`, not `no-referrer`: with `no-referrer` the browser sends `Origin: null` on a plain form post,
+  // which SvelteKit refuses as cross-site, so a tap before the page finished loading (or with scripts off) failed.
+  setHeaders({ "referrer-policy": "same-origin", "cache-control": "no-store" });
   if (!TOKEN.test(params.token)) return { state: "invalid" as LinkState, startsAt: null, timeZone: "UTC" };
   try {
     const info = await replyLinkInfo(fetch, params.token);
