@@ -511,6 +511,18 @@ impl InboundService {
             received_at: Some(now),
         };
         let result = self.writeback.apply(req, ctx).await?;
+        if result.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) {
+            let when = result
+                .appointment
+                .as_ref()
+                .map(|a| messages::when(a.start_datetime, lang, tz))
+                .unwrap_or_default();
+            return Ok(done(
+                "needs_staff",
+                messages::text(lang, Kind::HeldForCall, &when, help),
+                appointment_id,
+            ));
+        }
         if result.status == ReplyStatus::Rejected {
             return Ok(done(
                 "rejected",

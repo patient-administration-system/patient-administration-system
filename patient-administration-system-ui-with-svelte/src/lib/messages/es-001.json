@@ -121,6 +121,7 @@
   "link.done.cancelled": "Su cita está cancelada. Gracias por avisarnos.",
   "link.done.reschedule_requested": "Gracias. Nos pondremos en contacto con usted para encontrar una nueva hora. Su cita se mantiene hasta entonces.",
   "link.done.rejected": "Lo sentimos, no hemos podido cambiarlo. Por favor, llámenos.",
+  "link.done.held_for_call": "Su cita no se ha cancelado. Como es importante, alguien le llamará primero.",
   "link.done.help": "Para hablar con alguien, llame al número que figura en su carta de cita.",
   "link.rebook.title": "Elija una nueva hora",
   "link.rebook.body": "Elija la hora que prefiera. Su cita no cambia hasta que elija.",

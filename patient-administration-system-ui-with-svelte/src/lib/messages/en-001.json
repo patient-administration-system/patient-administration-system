@@ -136,6 +136,7 @@
   "link.done.cancelled": "Your appointment is cancelled. Thank you for letting us know.",
   "link.done.reschedule_requested": "Thank you. We will contact you to find a new time. Your appointment stays until then.",
   "link.done.rejected": "Sorry, we could not change that. Please call us.",
+  "link.done.held_for_call": "Your appointment has not been cancelled. Because it is important, someone will phone you first.",
   "link.done.help": "To talk to someone, please call the number on your appointment letter.",
   "link.rebook.title": "Choose a new time",
   "link.rebook.body": "Pick the time you would like. Your appointment stays as it is until you choose.",

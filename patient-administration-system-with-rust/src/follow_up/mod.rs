@@ -38,6 +38,26 @@ fn due_after() -> Duration {
     Duration::hours(h)
 }
 
+/// Is the appointment's service one a clinician has listed for human follow-up?
+pub(crate) async fn service_is_listed<C: ConnectionTrait>(
+    conn: &C,
+    slot_id: Option<Uuid>,
+) -> Result<bool> {
+    let Some(slot_id) = slot_id else {
+        return Ok(false);
+    };
+    Ok(conn
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT 1 AS ok FROM slots sl JOIN schedules sc ON sc.id = sl.schedule_id \
+             JOIN follow_up_policies p ON p.service_type = sc.service_type WHERE sl.id = $1",
+            [slot_id.into()],
+        ))
+        .await
+        .map_err(Error::Database)?
+        .is_some())
+}
+
 /// Called inside the no-show transaction. Creates the task when the appointment's service is listed; a
 /// second call for the same appointment does nothing.
 pub(crate) async fn on_no_show<C: ConnectionTrait>(

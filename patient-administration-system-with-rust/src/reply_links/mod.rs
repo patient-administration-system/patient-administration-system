@@ -86,7 +86,7 @@ pub struct LinkOption {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LinkOutcome {
-    /// `confirmed`, `cancelled`, `rebook_options`, `rebooked`, `reschedule_requested`, `needs_confirmation`,
+    /// `confirmed`, `cancelled`, `rebook_options`, `rebooked`, `held_for_call`, `reschedule_requested`, `needs_confirmation`,
     /// `help` or `rejected`.
     pub status: &'static str,
     pub language: &'static str,
@@ -359,6 +359,12 @@ impl ReplyLinks {
                     "cancelled"
                 };
                 Ok(out(status, messages::text(lang, kind, &when, help)))
+            }
+            Ok(r) if r.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) => {
+                Ok(out(
+                    "held_for_call",
+                    messages::text(lang, Kind::HeldForCall, &when, help),
+                ))
             }
             Ok(_) => Ok(out(
                 "rejected",

@@ -67,6 +67,7 @@ pub enum Kind {
     Confirmed,
     Cancelled,
     Rebooked,
+    HeldForCall,
     NeedsStaff,
     Unknown,
     Help,
@@ -85,6 +86,8 @@ pub fn text(lang: Lang, kind: Kind, when: &str, help_line: Option<&str>) -> Stri
         (Lang::Cy, Kind::Cancelled) => format!("Mae eich apwyntiad ar {when} wedi'i ganslo. Diolch am roi gwybod i ni."),
         (Lang::En, Kind::Rebooked) => format!("Thank you, your appointment has moved to {when}."),
         (Lang::Cy, Kind::Rebooked) => format!("Diolch, mae eich apwyntiad wedi symud i {when}."),
+        (Lang::En, Kind::HeldForCall) => format!("Your appointment on {when} has not been cancelled. Because it is important, someone will phone you first."),
+        (Lang::Cy, Kind::HeldForCall) => format!("Nid yw eich apwyntiad ar {when} wedi'i ganslo. Gan ei fod yn bwysig, bydd rhywun yn eich ffonio yn gyntaf."),
         (Lang::En, Kind::NeedsStaff) => format!("We will contact you to find a new time. Your appointment on {when} stays until then."),
         (Lang::Cy, Kind::NeedsStaff) => format!("Byddwn yn cysylltu â chi i ddod o hyd i amser newydd. Mae eich apwyntiad ar {when} yn aros tan hynny."),
         (Lang::En, Kind::Unknown) => "Sorry, we did not understand. Reply Y to confirm, N to cancel or R to change your appointment. Reply HELP for help.".into(),
@@ -103,7 +106,12 @@ pub fn text(lang: Lang, kind: Kind, when: &str, help_line: Option<&str>) -> Stri
     match (help_line, kind) {
         (
             Some(h),
-            Kind::Help | Kind::Unknown | Kind::NoOpenReminder | Kind::Failed | Kind::NeedsStaff,
+            Kind::Help
+            | Kind::Unknown
+            | Kind::NoOpenReminder
+            | Kind::Failed
+            | Kind::NeedsStaff
+            | Kind::HeldForCall,
         ) if !h.trim().is_empty() => {
             format!("{base} {}", h.trim())
         }

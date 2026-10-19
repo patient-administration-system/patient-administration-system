@@ -29,7 +29,7 @@
 
 <h1>{t("link.title")}</h1>
 
-{#if result === "confirmed" || result === "cancelled" || result === "reschedule_requested" || result === "rejected"}
+{#if result === "confirmed" || result === "cancelled" || result === "reschedule_requested" || result === "held_for_call" || result === "rejected"}
   <!-- What just happened wins over the link's new "used" state, which the reload after the tap reports. -->
   <p role="status">{t(`link.done.${result}`)}</p>
 {:else if result === "rebooked"}

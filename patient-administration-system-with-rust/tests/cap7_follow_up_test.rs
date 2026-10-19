@@ -357,3 +357,101 @@ async fn the_http_endpoints_list_policies_and_close_tasks() {
     .await;
     assert_eq!(st, StatusCode::CONFLICT);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_patients_cancel_on_a_listed_service_is_held_for_a_person_to_phone_first() {
+    use patient_administration_system::models::appointment::AppointmentStatus;
+    use patient_administration_system::models::schedule::SlotStatus;
+    use patient_administration_system::reply_links::{self, LinkAction};
+    use patient_administration_system::writeback::{
+        HELD_FOR_STAFF, ReplyAction, ReplyRequest, ReplyStatus,
+    };
+    let w = world().await;
+    w.list().await;
+    let person = Uuid::new_v4();
+    let a = w.book(person).await;
+    let req = ReplyRequest {
+        message_id: format!("m-{}", Uuid::new_v4()),
+        action: ReplyAction::Cancel,
+        appointment_id: a.id,
+        person_id: person,
+        channel: Some("sms".into()),
+        barrier_code: None,
+        new_slot_id: None,
+        modality: None,
+        received_at: None,
+    };
+    let r = w.s.writeback.apply(req, &sys()).await.unwrap();
+    assert_eq!(r.status, ReplyStatus::Rejected);
+    assert_eq!(r.reject_reason.as_deref(), Some(HELD_FOR_STAFF));
+    let now = patient_administration_system::db::repositories::appointment::AppointmentRepository::find_by_id(&w.s.db, a.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(now.status, AppointmentStatus::Booked, "not cancelled");
+    let slot = patient_administration_system::db::repositories::slot::SlotRepository::find_by_id(
+        &w.s.db,
+        a.slot_id.unwrap(),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(slot.status, SlotStatus::Busy, "the slot is not released");
+    let calls = w.s.ladder.open_calls(500).await.unwrap();
+    assert!(
+        calls
+            .iter()
+            .any(|c| c["appointment_id"] == a.id.to_string() && c["reason"] == "urgent_pathway"),
+        "a person is asked to phone"
+    );
+
+    // The same through a reply link: the second, confirmed tap is held too, and says so.
+    let b = w.book(Uuid::new_v4()).await;
+    let t = reply_links::mint(&w.s.db, b.id, b.person_id, b.start_datetime)
+        .await
+        .unwrap();
+    let o =
+        w.s.reply_links
+            .act(&t, LinkAction::Cancel, true, &sys())
+            .await
+            .unwrap();
+    assert_eq!(o.status, "held_for_call");
+    assert!(
+        o.message.contains("someone will phone you"),
+        "{}",
+        o.message
+    );
+
+    // A clinician's own cancel is not held.
+    w.s.scheduling
+        .cancel(
+            a.id,
+            patient_administration_system::models::appointment::CancellationReason::ProviderRequest,
+            &sys(),
+        )
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_cancel_on_an_unlisted_service_goes_through() {
+    use patient_administration_system::writeback::{ReplyAction, ReplyRequest, ReplyStatus};
+    let w = world().await;
+    let person = Uuid::new_v4();
+    let a = w.book(person).await;
+    let req = ReplyRequest {
+        message_id: format!("m-{}", Uuid::new_v4()),
+        action: ReplyAction::Cancel,
+        appointment_id: a.id,
+        person_id: person,
+        channel: Some("sms".into()),
+        barrier_code: None,
+        new_slot_id: None,
+        modality: None,
+        received_at: None,
+    };
+    let r = w.s.writeback.apply(req, &sys()).await.unwrap();
+    assert_eq!(r.status, ReplyStatus::Applied);
+}

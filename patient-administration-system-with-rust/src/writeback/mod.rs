@@ -38,6 +38,9 @@ use crate::{Error, Result};
 pub const MAX_BATCH: usize = 1000;
 const MAX_MESSAGE_ID: usize = 200;
 
+/// The reject reason for a cancel held for a person to phone first (urgent or cancer pathways).
+pub const HELD_FOR_STAFF: &str = "held_for_staff";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReplyAction {
@@ -450,6 +453,20 @@ impl WriteBackService {
                         format!("not_cancellable:{:?}", appt.status).to_lowercase(),
                         Some(appt),
                     ));
+                }
+                // On a service a clinician has listed (urgent or cancer pathways), a patient's own cancel
+                // is not applied: the slot is kept and a person phones first (CAP-7, FR-58).
+                if crate::follow_up::service_is_listed(txn, appt.slot_id).await? {
+                    txn.execute(Statement::from_sql_and_values(
+                        DbBackend::Postgres,
+                        "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
+                         VALUES ($1,$2,$3,'urgent_pathway', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",
+                        [Uuid::new_v4().into(), appt.id.into(), appt.person_id.into()],
+                    ))
+                    .await
+                    .map_err(Error::Database)?;
+                    Self::audit(txn, &appt, "cancel_held", req, ctx).await?;
+                    return Ok(Decision::rejected(HELD_FOR_STAFF, Some(appt)));
                 }
                 let a = SchedulingService::cancel_tx(
                     txn,

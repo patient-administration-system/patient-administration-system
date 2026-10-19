@@ -130,6 +130,7 @@ export type ReplyLinkStatus =
   | "cancelled"
   | "rebook_options"
   | "rebooked"
+  | "held_for_call"
   | "reschedule_requested"
   | "needs_confirmation"
   | "help"

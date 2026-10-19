@@ -109,6 +109,15 @@ test("if the chosen time has just gone, the patient is told and can ask again", 
   await expect(page.getByRole("button", { name: "I need a different time" })).toBeVisible();
 });
 
+test("on an urgent pathway a cancel is held: the patient is told someone will phone first", async ({ page, request }) => {
+  const t = "dddd" + randomBytes(30).toString("hex").slice(0, 60);
+  await page.goto(`/en-001/r/${t}`);
+  await page.getByRole("button", { name: "Cancel my appointment" }).click();
+  await page.getByRole("button", { name: "Yes, cancel my appointment" }).click();
+  await expect(page.getByText(/has not been cancelled.*someone will phone you first/)).toBeVisible();
+  expect(await acts(request, t)).toEqual(["cancel-held"]);
+});
+
 test("the page reads in Welsh and Arabic, the latter right to left", async ({ page }) => {
   const t = token();
   await page.goto(`/cy-001/r/${t}`);

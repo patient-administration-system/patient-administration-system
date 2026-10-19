@@ -121,6 +121,7 @@
   "link.done.cancelled": "Mae eich apwyntiad wedi'i ganslo. Diolch am roi gwybod i ni.",
   "link.done.reschedule_requested": "Diolch. Byddwn yn cysylltu â chi i ddod o hyd i amser newydd. Mae eich apwyntiad yn aros tan hynny.",
   "link.done.rejected": "Mae'n ddrwg gennym, ni allem newid hynny. Ffoniwch ni, os gwelwch yn dda.",
+  "link.done.held_for_call": "Nid yw eich apwyntiad wedi'i ganslo. Gan ei fod yn bwysig, bydd rhywun yn eich ffonio yn gyntaf.",
   "link.done.help": "I siarad â rhywun, ffoniwch y rhif ar eich llythyr apwyntiad.",
   "link.rebook.title": "Dewiswch amser newydd",
   "link.rebook.body": "Dewiswch yr amser yr hoffech. Mae eich apwyntiad yn aros fel y mae nes i chi ddewis.",

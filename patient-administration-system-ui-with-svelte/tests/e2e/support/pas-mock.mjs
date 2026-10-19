@@ -119,6 +119,12 @@ http
         acts.push({ token, action: `rebook:${body.slot_id}` });
         return res.end(envelope({ status: "rebooked", starts_at: "2026-11-10T14:00:00Z", time_zone: "Europe/London" }));
       }
+      // CAP-7: a token starting "dddd" is on an urgent pathway, so a confirmed cancel is held for a phone call.
+      if (action === "cancel" && body.confirmed && token.startsWith("dddd")) {
+        links.set(token, action);
+        acts.push({ token, action: "cancel-held" });
+        return res.end(envelope({ status: "held_for_call" }));
+      }
       links.set(token, action);
       acts.push({ token, action });
       const status = { confirm: "confirmed", cancel: "cancelled", reschedule: "reschedule_requested" }[action];
