@@ -70,6 +70,7 @@ fn text(from: &str, body: &str) -> InboundText {
         from: from.into(),
         body: body.into(),
         carrier: Some("test".into()),
+        channel: None,
         received_at: None,
     }
 }

@@ -103,3 +103,99 @@ pub async fn stale_profiles(
         Err(e) => error_to_response(e),
     }
 }
+
+#[derive(Deserialize)]
+pub struct OptOutBody {
+    /// `sms`, `whatsapp`, `apple_messages` or `email`.
+    pub channel: String,
+}
+
+const OPTOUT_CHANNELS: [&str; 4] = ["sms", "whatsapp", "apple_messages", "email"];
+
+fn check_channel(c: &str) -> Result<(), Error> {
+    if OPTOUT_CHANNELS.contains(&c) {
+        Ok(())
+    } else {
+        Err(Error::validation(
+            "channel must be sms, whatsapp, apple_messages or email",
+        ))
+    }
+}
+
+/// `GET /api/patients/{id}/channel-optouts`: the channels this patient has asked us not to use.
+pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+    let rows = state
+        .db
+        .query_all(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT channel, opted_out_at, source FROM message_optouts WHERE subject = $1 AND resumed_at IS NULL ORDER BY channel",
+            [crate::communication::consent::person_subject(id).into()],
+        ))
+        .await;
+    match rows {
+        Ok(rows) => {
+            let list: Vec<Value> = rows
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "channel": r.try_get::<String>("", "channel").unwrap_or_default(),
+                        "opted_out_at": r.try_get::<chrono::DateTime<chrono::Utc>>("", "opted_out_at").ok(),
+                        "source": r.try_get::<String>("", "source").unwrap_or_default(),
+                    })
+                })
+                .collect();
+            ok(Value::Array(list))
+        }
+        Err(e) => error_to_response(Error::Database(e)),
+    }
+}
+
+/// `POST /api/patients/{id}/channel-optouts`: staff record that the patient asked us to stop using a
+/// channel (said on the phone, written, or through the portal). Takes effect at once.
+pub async fn add_optout(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(body): Json<OptOutBody>,
+) -> HandlerResult {
+    if let Err(e) = check_channel(&body.channel) {
+        return error_to_response(e);
+    }
+    let ctx = audit_ctx(&headers);
+    match crate::communication::consent::record_optout(
+        &state.db,
+        &crate::communication::consent::person_subject(id),
+        &body.channel,
+        "staff",
+        ctx.user_id.as_deref(),
+    )
+    .await
+    {
+        Ok(()) => ok(serde_json::json!({ "channel": body.channel, "opted_out": true })),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `DELETE /api/patients/{id}/channel-optouts/{channel}`: the patient asked to hear from us again.
+pub async fn remove_optout(
+    State(state): State<AppState>,
+    Path((id, channel)): Path<(Uuid, String)>,
+) -> HandlerResult {
+    if let Err(e) = check_channel(&channel) {
+        return error_to_response(e);
+    }
+    match crate::communication::consent::resume(
+        &state.db,
+        &crate::communication::consent::person_subject(id),
+        &channel,
+    )
+    .await
+    {
+        Ok(true) => ok(serde_json::json!({ "channel": channel, "opted_out": false })),
+        Ok(false) => error_to_response(Error::not_found(
+            "that patient has not opted out of that channel",
+        )),
+        Err(e) => error_to_response(e),
+    }
+}

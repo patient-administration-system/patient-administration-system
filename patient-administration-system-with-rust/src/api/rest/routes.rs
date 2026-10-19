@@ -155,6 +155,14 @@ pub fn router(state: AppState) -> Router {
             post(handlers_contact::verify_mobile),
         )
         .route(
+            "/api/patients/{id}/channel-optouts",
+            get(handlers_contact::list_optouts).post(handlers_contact::add_optout),
+        )
+        .route(
+            "/api/patients/{id}/channel-optouts/{channel}",
+            axum::routing::delete(handlers_contact::remove_optout),
+        )
+        .route(
             "/api/communication-profiles/stale",
             get(handlers_contact::stale_profiles),
         )

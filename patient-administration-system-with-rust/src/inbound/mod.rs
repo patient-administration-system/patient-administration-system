@@ -14,8 +14,8 @@
 //! - It never acts for a number shared by two patients, or one it cannot match: those, and every
 //!   reschedule request, go on a staff list. Replying would tell a stranger something about a patient.
 //! - A reschedule reply never cancels anything: the appointment stands until a person moves it.
-//! - STOP is always recorded, even from an unknown or shared number. PILOT-7 turns it into an opt-out;
-//!   until then nothing sends automatically (tasks.md NOT-3), so no message is sent to someone who said STOP.
+//! - STOP is always acted on, even from an unknown or shared number: it opts the number (and the person,
+//!   if known) out of that channel (`communication::consent`), and START lifts it.
 //!
 //! Every inbound text is kept in `inbound_texts`, which is also the idempotency key for the carrier's id.
 
@@ -52,6 +52,10 @@ pub struct InboundText {
     pub body: String,
     #[serde(default)]
     pub carrier: Option<String>,
+    /// The channel it arrived on: `sms` (the default), `whatsapp` or `apple_messages`. A STOP stops
+    /// that channel.
+    #[serde(default)]
+    pub channel: Option<String>,
     #[serde(default)]
     pub received_at: Option<DateTime<Utc>>,
 }
@@ -112,6 +116,7 @@ fn intent_str(i: Intent) -> &'static str {
         Intent::Cancel => "cancel",
         Intent::Reschedule => "reschedule",
         Intent::Stop => "stop",
+        Intent::Start => "start",
         Intent::Help => "help",
         Intent::Choice(_) => "choice",
         Intent::Unknown => "unknown",
@@ -153,7 +158,23 @@ impl InboundService {
             .received_at
             .map_or_else(Utc::now, |t| t.min(Utc::now()));
         let intent = parser::parse(&text.body);
-        let d = self.decide(&message_id, &from, intent, now, ctx).await?;
+        let channel = match text
+            .channel
+            .as_deref()
+            .map(str::trim)
+            .filter(|c| !c.is_empty())
+        {
+            None => "sms",
+            Some(c @ ("sms" | "whatsapp" | "apple_messages")) => c,
+            Some(_) => {
+                return Err(Error::validation(
+                    "channel must be sms, whatsapp or apple_messages",
+                ));
+            }
+        };
+        let d = self
+            .decide(&message_id, &from, intent, channel, now, ctx)
+            .await?;
 
         let body: String = text.body.chars().take(MAX_BODY).collect();
         let inserted = self
@@ -305,6 +326,7 @@ impl InboundService {
         message_id: &str,
         from: &str,
         intent: Intent,
+        _channel: &str,
         now: DateTime<Utc>,
         ctx: &UserContext,
     ) -> Result<Decision> {
@@ -336,8 +358,33 @@ impl InboundService {
             None => None,
         };
 
-        // STOP is honoured whoever sends it.
+        // START lifts a STOP, for the number and (when we know who) the person.
+        if intent == Intent::Start {
+            use crate::communication::consent as c;
+            for ch in c::TEXT_CHANNELS {
+                c::resume(&self.db, &c::address_subject(from), ch).await?;
+                if let Some(p) = single {
+                    c::resume(&self.db, &c::person_subject(p), ch).await?;
+                }
+            }
+            let reply = match lang {
+                Some(l) => messages::text(l, Kind::Started, "", help),
+                None => messages::bilingual(Kind::Started),
+            };
+            return Ok(blank(intent, "start", single, Some(reply), lang));
+        }
+        // STOP is honoured whoever sends it, against the number and (when we know who) the person.
         if intent == Intent::Stop {
+            use crate::communication::consent as c;
+            // "Stop texting me" means every text-style channel, whichever one the word arrived on.
+            for ch in c::TEXT_CHANNELS {
+                c::record_optout(&self.db, &c::address_subject(from), ch, "reply_stop", None)
+                    .await?;
+                if let Some(p) = single {
+                    c::record_optout(&self.db, &c::person_subject(p), ch, "reply_stop", None)
+                        .await?;
+                }
+            }
             let reply = match lang {
                 Some(l) => messages::text(l, Kind::Stop, "", help),
                 None => messages::bilingual(Kind::Stop),

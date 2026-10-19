@@ -5,17 +5,17 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 <!-- status:begin -->
 | Measure | Count |
 |---|---|
-| Rust test functions (server, front-end, migrations) | 537 |
-| of which `#[ignore]`d (need PostgreSQL) | 85 |
-| Server route registrations | 148 |
-| Migrations | 13 |
+| Rust test functions (server, front-end, migrations) | 551 |
+| of which `#[ignore]`d (need PostgreSQL) | 92 |
+| Server route registrations | 150 |
+| Migrations | 14 |
 | UI page routes | 8 |
 | UI unit test files | 9 |
 | UI browser spec files | 6 |
 | UI locale catalogues | 10 |
-| Functional requirements | 48 |
+| Functional requirements | 52 |
 | Non-functional requirements | 16 |
 | Requirements marked not yet tested or not yet built | 12 |
-| Tasks done | 36 |
-| Tasks open | 50 |
+| Tasks done | 37 |
+| Tasks open | 49 |
 <!-- status:end -->

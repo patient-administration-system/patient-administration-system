@@ -70,6 +70,7 @@ pub enum Kind {
     Unknown,
     Help,
     Stop,
+    Started,
     NoOpenReminder,
     Failed,
 }
@@ -89,6 +90,8 @@ pub fn text(lang: Lang, kind: Kind, when: &str, help_line: Option<&str>) -> Stri
         (Lang::Cy, Kind::Help) => "Atebwch IE i gadarnhau, NA i ganslo, NEWID i newid, neu STOPIO i atal negeseuon.".into(),
         (Lang::En, Kind::Stop) => "You will get no more text messages from us. Your appointments are not affected.".into(),
         (Lang::Cy, Kind::Stop) => "Ni chewch ragor o negeseuon testun gennym. Nid yw eich apwyntiadau'n cael eu heffeithio.".into(),
+        (Lang::En, Kind::Started) => "You will get text messages from us again. Reply STOP at any time to stop them.".into(),
+        (Lang::Cy, Kind::Started) => "Byddwch yn cael negeseuon testun gennym eto. Atebwch STOPIO unrhyw bryd i'w hatal.".into(),
         (Lang::En, Kind::NoOpenReminder) => "We cannot find an appointment to update. Please call us.".into(),
         (Lang::Cy, Kind::NoOpenReminder) => "Ni allwn ddod o hyd i apwyntiad i'w ddiweddaru. Ffoniwch ni, os gwelwch yn dda.".into(),
         (Lang::En, Kind::Failed) => "Sorry, we could not update that. Please call us.".into(),
@@ -163,6 +166,7 @@ mod tests {
             Kind::Unknown,
             Kind::Help,
             Kind::Stop,
+            Kind::Started,
             Kind::NoOpenReminder,
             Kind::Failed,
         ] {

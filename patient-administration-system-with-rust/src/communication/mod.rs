@@ -19,6 +19,7 @@
 //!    upstream JSON, dispatches via [`SmsProvider::send`], and flips
 //!    status accordingly.
 
+pub mod consent;
 pub mod reminders;
 pub mod sender;
 pub mod sms;
@@ -189,6 +190,19 @@ impl CommunicationService {
             user_agent: ctx.user_agent.clone(),
         };
         let person = person_client.get(person_id, &upstream_ctx).await?;
+
+        // 1b. Never send to someone who has opted out of this channel (PILOT-7). This is the choke
+        //     point every send passes through, so no caller can skip it.
+        let person_json = serde_json::to_value(&person).unwrap_or_default();
+        let address = self
+            .resolve_recipient(channel, person_id, &person_json)
+            .await?;
+        if consent::is_opted_out(&self.db, person_id, channel, address.as_deref()).await? {
+            return Err(Error::conflict(format!(
+                "the recipient has opted out of {} messages",
+                channel_label(channel)
+            )));
+        }
 
         // 2. Load template.
         let template = LetterRepository::find_template_by_id(&self.db, template_id)

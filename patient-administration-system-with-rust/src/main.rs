@@ -250,6 +250,9 @@ async fn main() -> Result<()> {
             patient_administration_system::communication::reminders::ReminderService::new(
                 db.clone(),
                 state.communication.clone(),
+            )
+            .with_quiet_hours(
+                patient_administration_system::communication::consent::QuietHours::from_env()?,
             );
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(std::time::Duration::from_secs(300));

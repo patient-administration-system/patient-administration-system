@@ -23,6 +23,7 @@ Development: `podman compose -f podman/compose.yml up -d` (ports overridable wit
 | `DATABASE_URL` | API, operator pages | Connection string |
 | `PAS_PASETO_KEYS_URL` / `PAS_PASETO_KEYS_JSON`, `PAS_PASETO_ISSUER`, `PAS_PASETO_AUDIENCE` | API | Per-user authentication: PASETO v4.public keys (JWKS-style), expected issuer and audience. Keys re-fetched every `PAS_PASETO_KEYS_REFRESH_SECS` (default 300) |
 | `PAS_CARRIER_SECRETS` | API | One signing secret per message carrier: `twilio=<16+ chars>,whatsapp=<old>|<new>`. A carrier signs `timestamp.body` with HMAC-SHA256 (`X-Carrier-Id`, `X-Carrier-Timestamp`, `X-Carrier-Signature: sha256=<hex>`); it can reach `/api/write-back/*` only. To rotate, list both secrets with `|`, move the carrier over, then drop the old one |
+| `PAS_QUIET_HOURS` | API | Window when text-style reminders wait (clinic time), default `21:00-08:00`; `off` disables. See `governance/messaging-rules.md` |
 | `PAS_TIMEZONE`, `PAS_HELP_LINE` | API | Clinic time zone for times in reply texts (default Europe/London) and an optional sentence appended where a person can help ("Call 01234 567890.") |
 | `PAS_REQUIRE_AUTH` | API | `true` refuses to start without per-user auth. Set it in every real deployment |
 | `PAS_ALLOW_LEGACY_API_TOKEN` | API | `true` keeps the shared token working alongside per-user tokens (migration only) |

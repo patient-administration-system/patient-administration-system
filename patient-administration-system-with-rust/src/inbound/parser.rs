@@ -16,6 +16,8 @@ pub enum Intent {
     Reschedule,
     /// Opt out of messages (PILOT-7 acts on this).
     Stop,
+    /// Resume messages after a STOP.
+    Start,
     Help,
     /// A bare number: the answer to an "which appointment?" question.
     Choice(u8),
@@ -113,6 +115,7 @@ const STOP: &[&str] = &[
     "diwedd",
     "dad danysgrifio",
 ];
+const START: &[&str] = &["start", "unstop", "resume", "dechrau", "ailddechrau"];
 const HELP: &[&str] = &["help", "info", "cymorth", "?"];
 /// Words that may follow a keyword without changing its meaning.
 const POLITE: &[&str] = &[
@@ -159,6 +162,9 @@ pub fn parse(text: &str) -> Intent {
     }
     if matches(STOP, &s) {
         return Intent::Stop;
+    }
+    if matches(START, &s) {
+        return Intent::Start;
     }
     if matches(HELP, &s) {
         return Intent::Help;
@@ -274,6 +280,14 @@ mod tests {
         assert_eq!(parse("0"), Intent::Unknown);
         assert_eq!(parse("10"), Intent::Unknown);
         assert_eq!(parse("1 2"), Intent::Unknown);
+    }
+
+    #[test]
+    fn test_start_resumes_messages_in_either_language() {
+        all(
+            &["START", "start.", "Unstop", "dechrau", "Ailddechrau"],
+            Intent::Start,
+        );
     }
 
     #[test]

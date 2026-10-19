@@ -319,3 +319,10 @@ inbound_texts,pending_intent,none,"Not personal data (structure, status, timesta
 inbound_texts,reply_text,free-text,May contain personal data copied from the record it describes,audit-or-message
 inbound_texts,handled_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 inbound_texts,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_optouts,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_optouts,subject,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
+message_optouts,channel,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_optouts,opted_out_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_optouts,resumed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_optouts,source,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_optouts,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record

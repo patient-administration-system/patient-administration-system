@@ -37,16 +37,32 @@ pub struct ReminderReport {
     pub sent: usize,
     pub skipped_already_reminded: usize,
     pub skipped_no_channel: usize,
+    /// Held back because it is quiet hours; they are sent on a later scan, not dropped.
+    pub deferred_quiet_hours: usize,
+    /// Left unsent because the patient has opted out of every channel that could reach them.
+    pub skipped_opted_out: usize,
 }
 
 pub struct ReminderService {
     db: DatabaseConnection,
     communication: Arc<CommunicationService>,
+    quiet_hours: Option<super::consent::QuietHours>,
 }
 
 impl ReminderService {
     pub fn new(db: DatabaseConnection, communication: Arc<CommunicationService>) -> Self {
-        Self { db, communication }
+        Self {
+            db,
+            communication,
+            quiet_hours: None,
+        }
+    }
+
+    /// Hold text-style channels back during these hours (clinic time, `PAS_TIMEZONE`). The server sets
+    /// it from `PAS_QUIET_HOURS`; tests that do not care leave it off.
+    pub fn with_quiet_hours(mut self, q: Option<super::consent::QuietHours>) -> Self {
+        self.quiet_hours = q;
+        self
     }
 
     /// Insert the default template when no active one exists. Admins edit it
@@ -103,6 +119,8 @@ impl ReminderService {
                 }
             });
             let mut sent = false;
+            let mut deferred = false;
+            let mut opted_out = false;
             let preferred = crate::contact::preferred_channel(&self.db, a.person_id)
                 .await?
                 .and_then(|c| crate::db::repositories::letter::delivery_channel_from_str(&c).ok());
@@ -113,17 +131,32 @@ impl ReminderService {
                 // Check the contact point first: generating a letter persists it
                 // even when nothing can be delivered, and a stray pending letter
                 // would block a later reminder.
-                match self
+                let address = match self
                     .communication
                     .recipient(a.person_id, *channel, &ctx)
                     .await
                 {
-                    Ok(Some(_)) => {}
+                    Ok(Some(addr)) => addr,
                     Ok(None) => continue,
                     Err(e) => {
                         tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "recipient lookup failed: {e}");
                         break;
                     }
+                };
+                if super::consent::is_opted_out(&self.db, a.person_id, *channel, Some(&address))
+                    .await?
+                {
+                    opted_out = true;
+                    continue;
+                }
+                // Overnight, wait for the morning rather than fall back to another channel or drop it.
+                if super::consent::is_intrusive(*channel)
+                    && self
+                        .quiet_hours
+                        .is_some_and(|q| q.contains(now, crate::inbound::messages::timezone()))
+                {
+                    deferred = true;
+                    break;
                 }
                 match self
                     .communication
@@ -152,6 +185,10 @@ impl ReminderService {
             }
             if sent {
                 report.sent += 1;
+            } else if deferred {
+                report.deferred_quiet_hours += 1;
+            } else if opted_out {
+                report.skipped_opted_out += 1;
             } else {
                 report.skipped_no_channel += 1;
             }
