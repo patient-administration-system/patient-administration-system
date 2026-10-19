@@ -13,6 +13,8 @@ pub enum ScheduleOwner {
     Practitioner(Uuid),
     Bed(Uuid),
     Room(Uuid),
+    /// A piece of equipment (a scanner, a treatment chair) that can only be in one use at a time.
+    Equipment(Uuid),
 }
 
 /// A schedule for a practitioner, bed, or room.

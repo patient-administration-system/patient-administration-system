@@ -438,3 +438,6 @@ slot_offers,expires_at,none,"Not personal data (structure, status, timestamps, p
 slot_offers,answered_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slot_offers,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slot_offers,message_sent,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,arrived_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,completed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,current_room,health,"Administrative care information (why, where, what service, outcome)",record

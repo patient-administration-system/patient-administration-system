@@ -354,6 +354,14 @@ pub fn router(state: AppState) -> Router {
             post(handlers_virtual::review),
         )
         .route(
+            "/api/appointments/{id}/location",
+            put(handlers_scheduling::move_to_room),
+        )
+        .route(
+            "/api/facility/in-facility",
+            get(handlers_scheduling::in_facility),
+        )
+        .route(
             "/api/appointments/{id}/barrier",
             put(handlers_scheduling::record_barrier),
         )
@@ -554,6 +562,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/letter-templates/{id}",
             get(handlers_letters::get_template).put(handlers_letters::update_template),
+        )
+        .route(
+            "/api/letters/preview",
+            post(handlers_letters::preview_letter),
         )
         .route(
             "/api/letters/generate",

@@ -14,6 +14,7 @@ pub(crate) mod owner_kind {
     pub const PRACTITIONER: &str = "practitioner";
     pub const BED: &str = "bed";
     pub const ROOM: &str = "room";
+    pub const EQUIPMENT: &str = "equipment";
 }
 
 impl ScheduleRepository {
@@ -90,6 +91,7 @@ fn owner_to_kind_and_id(owner: &ScheduleOwner) -> (&'static str, Uuid) {
         ScheduleOwner::Practitioner(id) => (owner_kind::PRACTITIONER, *id),
         ScheduleOwner::Bed(id) => (owner_kind::BED, *id),
         ScheduleOwner::Room(id) => (owner_kind::ROOM, *id),
+        ScheduleOwner::Equipment(id) => (owner_kind::EQUIPMENT, *id),
     }
 }
 
@@ -98,6 +100,7 @@ fn owner_from_kind_and_id(kind: &str, id: Uuid) -> Result<ScheduleOwner> {
         owner_kind::PRACTITIONER => Ok(ScheduleOwner::Practitioner(id)),
         owner_kind::BED => Ok(ScheduleOwner::Bed(id)),
         owner_kind::ROOM => Ok(ScheduleOwner::Room(id)),
+        owner_kind::EQUIPMENT => Ok(ScheduleOwner::Equipment(id)),
         other => Err(Error::internal(format!(
             "unknown schedule owner kind: {other}"
         ))),

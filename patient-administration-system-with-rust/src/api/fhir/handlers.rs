@@ -359,6 +359,7 @@ fn parse_schedule_owner(body: &Value) -> Result<ScheduleOwner, Error> {
             "Practitioner" => Ok(ScheduleOwner::Practitioner(id)),
             "Location" | "Bed" => Ok(ScheduleOwner::Bed(id)),
             "Room" => Ok(ScheduleOwner::Room(id)),
+            "Device" | "Equipment" => Ok(ScheduleOwner::Equipment(id)),
             other => Err(Error::validation(format!(
                 "Schedule.actor[0].reference kind {other:?} not supported"
             ))),

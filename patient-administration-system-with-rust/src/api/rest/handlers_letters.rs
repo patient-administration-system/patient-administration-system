@@ -186,6 +186,35 @@ pub async fn list_patient_letters(
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct PreviewLetterBody {
+    pub template_id: Uuid,
+    pub person_id: Uuid,
+    #[serde(default)]
+    pub extra: Value,
+}
+
+/// `POST /api/letters/preview` — render a letter as it would be sent, without storing or sending it. A
+/// missing template variable is a 400 that names it.
+pub async fn preview_letter(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<PreviewLetterBody>,
+) -> HandlerResult {
+    let ctx = audit_ctx(&user_context_from_headers(&headers));
+    match state
+        .communication
+        .preview_letter(body.template_id, body.person_id, body.extra, &ctx)
+        .await
+    {
+        Ok((subject, body, locale)) => ok(serde_json::json!({
+            "rendered_subject": subject, "rendered_body": body, "locale": locale,
+            "sms": crate::communication::sms_length::analyze(&body),
+        })),
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `POST /api/letters/generate` — render + persist a letter (proxies to
 /// `person-service` to fetch the person snapshot).
 pub async fn generate_letter(

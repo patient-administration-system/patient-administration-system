@@ -6,7 +6,11 @@ pub use series::{
     CreateSeriesInput, CreateSeriesResult, PreviewResult, SeriesService, SeriesWithOccurrences,
 };
 
-use sea_orm::{DatabaseConnection, DatabaseTransaction, TransactionTrait};
+use chrono::{DateTime, Utc};
+use sea_orm::{
+    ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, Statement,
+    TransactionTrait,
+};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -115,6 +119,48 @@ impl SchedulingService {
         Self::book_inner(txn, slot_id, person_id, EntryLink::None, ctx).await
     }
 
+    /// A room, clinician or piece of equipment cannot be in two places at once (CORE-3): refuse a booking
+    /// when a *different* schedule with the same owner already holds a busy slot overlapping this one. The
+    /// owner is locked for the transaction, so two bookings arriving together through two schedules cannot
+    /// both pass the check. (Overlapping slots within one schedule are that schedule's own business: a
+    /// schedule may deliberately offer several places at one time.)
+    async fn check_owner_free(
+        txn: &DatabaseTransaction,
+        slot: &crate::models::schedule::Slot,
+    ) -> Result<()> {
+        txn.execute(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT pg_advisory_xact_lock(hashtextextended(owner_kind || ':' || owner_id::text, 0)) \
+             FROM schedules WHERE id = $1",
+            [slot.schedule_id.into()],
+        ))
+        .await
+        .map_err(Error::Database)?;
+        let clash = txn
+            .query_one(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT 1 AS ok FROM slots s2 \
+                 JOIN schedules sc2 ON sc2.id = s2.schedule_id \
+                 JOIN schedules sc1 ON sc1.id = $1 \
+                 WHERE sc2.owner_kind = sc1.owner_kind AND sc2.owner_id = sc1.owner_id \
+                   AND sc2.id <> sc1.id AND s2.status = 'busy' \
+                   AND s2.start_datetime < $3 AND s2.end_datetime > $2 LIMIT 1",
+                [
+                    slot.schedule_id.into(),
+                    slot.start_datetime.into(),
+                    slot.end_datetime.into(),
+                ],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        if clash.is_some() {
+            return Err(Error::conflict(
+                "that room, clinician or equipment is already booked at that time",
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) async fn book_inner(
         txn: &DatabaseTransaction,
         slot_id: Uuid,
@@ -147,6 +193,7 @@ impl SchedulingService {
                 slot.status
             )));
         }
+        Self::check_owner_free(txn, &slot).await?;
         let overlapping = AppointmentRepository::find_overlapping_for_patient(
             txn,
             person_id,
@@ -579,6 +626,88 @@ impl SchedulingService {
             .map_err(unwrap_txn_err)
     }
 
+    /// Where the patient is now (CORE-4). Only for someone who has arrived and not yet been completed;
+    /// an empty room clears it. Audited with the room they came from.
+    pub async fn move_to_room(
+        &self,
+        appointment_id: Uuid,
+        room: Option<&str>,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
+        let room = match room.map(str::trim) {
+            Some("") | None => None,
+            Some(r) if r.chars().count() > 60 || r.chars().any(char::is_control) => {
+                return Err(Error::validation(
+                    "room must be 1 to 60 characters with no control characters",
+                ));
+            }
+            Some(r) => Some(r.to_string()),
+        };
+        let ctx = ctx.clone();
+        self.db
+            .transaction::<_, Appointment, Error>(|txn| {
+                Box::pin(async move {
+                    let mut appt = AppointmentRepository::find_by_id(txn, appointment_id)
+                        .await?
+                        .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
+                    if appt.status != AppointmentStatus::Arrived {
+                        return Err(Error::invalid_transition(format!(
+                            "appointment {appointment_id} is {:?}; only a patient who has arrived can be moved",
+                            appt.status
+                        )));
+                    }
+                    let from = appt.current_room.clone();
+                    appt.current_room = room.clone();
+                    appt.updated_at = chrono::Utc::now();
+                    let appt = AppointmentRepository::update(txn, &appt).await?;
+                    AuditLogRepository::log_with(
+                        txn,
+                        "appointment",
+                        appt.id,
+                        "moved",
+                        Some(serde_json::json!({ "room": from })),
+                        Some(serde_json::json!({ "room": room })),
+                        Some("moved_room"),
+                        None,
+                        &ctx,
+                    )
+                    .await?;
+                    Ok(appt)
+                })
+            })
+            .await
+            .map_err(unwrap_txn_err)
+    }
+
+    /// Everyone who has arrived and not yet been completed, longest waiting first, with the minutes
+    /// they have been in the facility (CORE-4).
+    pub async fn in_facility(&self) -> Result<Vec<serde_json::Value>> {
+        let rows = self
+            .db
+            .query_all(Statement::from_string(
+                DbBackend::Postgres,
+                "SELECT id, person_id, current_room, arrived_at, start_datetime, \
+                        (extract(epoch FROM (now() - arrived_at)) / 60)::bigint AS waiting_minutes \
+                 FROM appointments WHERE status = 'arrived' AND deleted_at IS NULL AND arrived_at IS NOT NULL \
+                 ORDER BY arrived_at"
+                    .to_string(),
+            ))
+            .await
+            .map_err(Error::Database)?;
+        rows.iter()
+            .map(|r| {
+                Ok(serde_json::json!({
+                    "appointment_id": r.try_get::<Uuid>("", "id").map_err(Error::Database)?,
+                    "person_id": r.try_get::<Uuid>("", "person_id").map_err(Error::Database)?,
+                    "room": r.try_get::<Option<String>>("", "current_room").map_err(Error::Database)?,
+                    "arrived_at": r.try_get::<DateTime<Utc>>("", "arrived_at").map_err(Error::Database)?,
+                    "appointment_start": r.try_get::<DateTime<Utc>>("", "start_datetime").map_err(Error::Database)?,
+                    "waiting_minutes": r.try_get::<i64>("", "waiting_minutes").map_err(Error::Database)?.max(0),
+                }))
+            })
+            .collect()
+    }
+
     pub async fn check_in(&self, appointment_id: Uuid, ctx: &UserContext) -> Result<Appointment> {
         self.transition(appointment_id, AppointmentStatus::Arrived, "check_in", ctx)
             .await
@@ -663,6 +792,12 @@ impl SchedulingService {
                         .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
                     appt.status = appt.status.try_transition_to(next)?;
                     appt.updated_at = chrono::Utc::now();
+                    // Stamp the time (CORE-4). Arriving or finishing is the first time it is recorded.
+                    match next {
+                        AppointmentStatus::Arrived => appt.arrived_at = Some(appt.updated_at),
+                        AppointmentStatus::Fulfilled => appt.completed_at = Some(appt.updated_at),
+                        _ => {}
+                    }
                     let appt = AppointmentRepository::update(txn, &appt).await?;
                     if next == AppointmentStatus::Fulfilled {
                         Self::sync_waitlist(txn, &appt, WaitlistStatus::Treated, &ctx_clone)

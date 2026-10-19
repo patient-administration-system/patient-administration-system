@@ -166,6 +166,72 @@ impl CommunicationService {
         self.sms_provider.clone()
     }
 
+    /// Render a template for a person snapshot: build the Tera context, check the required variables, render
+    /// the subject and body. Pure: it stores and sends nothing. `patient` is the historical variable name;
+    /// templates that used `{{ patient.name.family }}` keep working because the upstream Person JSON shape
+    /// preserves `name.family`.
+    fn render_template(
+        &self,
+        template: &crate::models::communication::LetterTemplate,
+        person_value: &serde_json::Value,
+        extra_context: &serde_json::Value,
+    ) -> Result<(String, String)> {
+        let mut tctx = tera::Context::new();
+        tctx.insert("patient", person_value);
+        // A link to the secure portal, for messages that must not carry the detail themselves
+        // ("You have a new message: {{ portal_url }}").
+        if let Some(base) = &self.portal_base_url {
+            tctx.insert("portal_url", &format!("{base}/my/messages"));
+        }
+        if let serde_json::Value::Object(map) = extra_context {
+            for (k, v) in map {
+                tctx.insert(k, v);
+            }
+        }
+        // Strict missing-variable check.
+        for var in &template.required_variables {
+            if tctx.get(var).is_none() {
+                return Err(Error::validation(format!(
+                    "missing required template variable: {var}"
+                )));
+            }
+        }
+        let body = tera::Tera::one_off(&template.body_tera, &tctx, false)
+            .map_err(|e| Error::render(format!("body: {e}")))?;
+        let subject = tera::Tera::one_off(&template.subject, &tctx, false)
+            .map_err(|e| Error::render(format!("subject: {e}")))?;
+        Ok((subject, body))
+    }
+
+    /// Show a letter as it would be sent, without storing, sending, or counting as a contact (CORE-5). It
+    /// fetches the person snapshot like a real send and renders the same way; it does not check opt-outs
+    /// (nothing is sent) and writes nothing, not even an audit row. A missing variable is reported.
+    pub async fn preview_letter(
+        &self,
+        template_id: Uuid,
+        person_id: Uuid,
+        extra_context: serde_json::Value,
+        ctx: &UserContext,
+    ) -> Result<(String, String, String)> {
+        let person_client = self
+            .person_client
+            .as_ref()
+            .ok_or_else(|| Error::upstream("CommunicationService not wired with a PersonClient"))?;
+        let upstream_ctx = UpstreamUserContext {
+            user_id: ctx.user_id.clone(),
+            user_ip: ctx.user_ip.clone(),
+            user_agent: ctx.user_agent.clone(),
+        };
+        let person = person_client.get(person_id, &upstream_ctx).await?;
+        let template = LetterRepository::find_template_by_id(&self.db, template_id)
+            .await?
+            .ok_or_else(|| Error::not_found(format!("letter template {template_id}")))?;
+        let person_value =
+            serde_json::to_value(&person).unwrap_or(serde_json::Value::Object(Default::default()));
+        let (subject, body) = self.render_template(&template, &person_value, &extra_context)?;
+        Ok((subject, body, template.locale))
+    }
+
     /// Render a letter template against the upstream person snapshot,
     /// persist the result, fire audit + outbox, and (for SMS channels)
     /// dispatch via the configured provider.
@@ -239,39 +305,11 @@ impl CommunicationService {
             .await?
             .ok_or_else(|| Error::not_found(format!("letter template {template_id}")))?;
 
-        // 3. Build the Tera context. `patient` is the historical variable
-        //    name; templates that used `{{ patient.name.family }}` keep
-        //    working because the upstream Person JSON shape preserves
-        //    `name.family`.
-        let mut tctx = tera::Context::new();
+        // 3. to 5. Render (the same code a preview uses, so a preview shows exactly what would be sent).
         let person_value =
             serde_json::to_value(&person).unwrap_or(serde_json::Value::Object(Default::default()));
-        tctx.insert("patient", &person_value);
-        // A link to the secure portal, for messages that must not carry the
-        // detail themselves ("You have a new message: {{ portal_url }}").
-        if let Some(base) = &self.portal_base_url {
-            tctx.insert("portal_url", &format!("{base}/my/messages"));
-        }
-        if let serde_json::Value::Object(map) = &extra_context {
-            for (k, v) in map {
-                tctx.insert(k, v);
-            }
-        }
-
-        // 4. Strict missing-variable check.
-        for var in &template.required_variables {
-            if tctx.get(var).is_none() {
-                return Err(Error::validation(format!(
-                    "missing required template variable: {var}"
-                )));
-            }
-        }
-
-        // 5. Render.
-        let rendered_body = tera::Tera::one_off(&template.body_tera, &tctx, false)
-            .map_err(|e| Error::render(format!("body: {e}")))?;
-        let rendered_subject = tera::Tera::one_off(&template.subject, &tctx, false)
-            .map_err(|e| Error::render(format!("subject: {e}")))?;
+        let (rendered_subject, rendered_body) =
+            self.render_template(&template, &person_value, &extra_context)?;
 
         let mut letter = GeneratedLetter::new(
             template_id,

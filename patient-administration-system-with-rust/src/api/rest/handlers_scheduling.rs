@@ -147,6 +147,40 @@ pub async fn cancel_appointment(
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RoomBody {
+    /// Where the patient is now; empty or absent clears it.
+    #[serde(default)]
+    pub room: Option<String>,
+}
+
+/// `PUT /api/appointments/{id}/location` — move a patient who has arrived to a room (CORE-4). Audited.
+pub async fn move_to_room(
+    State(state): State<AppState>,
+    Path(appointment_id): Path<Uuid>,
+    headers: HeaderMap,
+    Json(body): Json<RoomBody>,
+) -> HandlerResult {
+    let ctx = audit_ctx(&user_context_from_headers(&headers));
+    match state
+        .scheduling
+        .move_to_room(appointment_id, body.room.as_deref(), &ctx)
+        .await
+    {
+        Ok(a) => ok_value(serde_json::to_value(a).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `GET /api/facility/in-facility` — everyone who has arrived and not been completed, longest waiting first,
+/// with the minutes they have been here and where they are (CORE-4).
+pub async fn in_facility(State(state): State<AppState>) -> HandlerResult {
+    match state.scheduling.in_facility().await {
+        Ok(v) => ok_value(Value::Array(v)),
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `PUT /api/appointments/{id}/barrier` — record why a cancelled or missed appointment happened,
 /// typically after a welfare call (CAP-1).
 pub async fn record_barrier(

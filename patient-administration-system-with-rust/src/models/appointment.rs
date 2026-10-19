@@ -251,6 +251,15 @@ pub struct Appointment {
     pub conversion_barrier_code: Option<BarrierCode>,
     #[serde(default)]
     pub converted_at: Option<DateTime<Utc>>,
+    /// When the patient arrived (CORE-4). Stamped by check-in.
+    #[serde(default)]
+    pub arrived_at: Option<DateTime<Utc>>,
+    /// When the visit was completed (CORE-4). Stamped by complete.
+    #[serde(default)]
+    pub completed_at: Option<DateTime<Utc>>,
+    /// A short label for where the patient is now (CORE-4), set when a person moves them.
+    #[serde(default)]
+    pub current_room: Option<String>,
     /// Derived from status and notice; never stored, so it cannot disagree with them.
     #[serde(default)]
     pub release_class: Option<ReleaseClass>,
@@ -286,6 +295,9 @@ impl Appointment {
             conversion_state: None,
             conversion_barrier_code: None,
             converted_at: None,
+            arrived_at: None,
+            completed_at: None,
+            current_room: None,
             release_class: None,
             created_at: now,
             updated_at: now,
