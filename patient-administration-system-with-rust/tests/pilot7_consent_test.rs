@@ -187,7 +187,7 @@ async fn nothing_can_bypass_an_opt_out_not_even_a_direct_letter() {
             person,
             None,
             DeliveryChannel::Sms,
-            serde_json::json!({}),
+            serde_json::json!({ "appointment": { "when": "Tue 3 Nov 09:30", "start": "2026-11-03T09:30:00Z" } }),
             &ctx(),
         )
         .await
@@ -201,7 +201,7 @@ async fn nothing_can_bypass_an_opt_out_not_even_a_direct_letter() {
             person,
             None,
             DeliveryChannel::Email,
-            serde_json::json!({}),
+            serde_json::json!({ "appointment": { "when": "Tue 3 Nov 09:30", "start": "2026-11-03T09:30:00Z" } }),
             &ctx(),
         )
         .await;
