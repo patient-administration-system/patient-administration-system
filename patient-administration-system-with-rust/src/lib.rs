@@ -24,6 +24,7 @@
 #![cfg_attr(not(test), forbid(unsafe_code))]
 // Module declarations
 pub mod adt;
+pub mod analytics;
 pub mod api;
 pub mod billing;
 pub mod communication;

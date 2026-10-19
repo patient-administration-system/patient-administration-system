@@ -24,6 +24,7 @@ use super::AppState;
 use super::handlers;
 use super::handlers_admin;
 use super::handlers_adt;
+use super::handlers_analytics;
 use super::handlers_audit;
 use super::handlers_billing;
 use super::handlers_consent;
@@ -293,6 +294,14 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/appointments/{id}/transport",
             get(handlers_transport::booking),
+        )
+        .route(
+            "/api/analytics/appointment-outcomes",
+            get(handlers_analytics::outcomes),
+        )
+        .route(
+            "/api/analytics/demographics/{person_id}",
+            put(handlers_analytics::set_demographics),
         )
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))

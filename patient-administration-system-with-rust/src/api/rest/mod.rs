@@ -4,6 +4,7 @@ pub mod carrier_auth;
 pub mod handlers;
 pub mod handlers_admin;
 pub mod handlers_adt;
+pub mod handlers_analytics;
 pub mod handlers_audit;
 pub mod handlers_billing;
 pub mod handlers_consent;

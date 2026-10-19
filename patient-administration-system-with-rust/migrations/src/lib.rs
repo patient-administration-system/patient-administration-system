@@ -24,6 +24,7 @@ mod m20260615_000020_audit_reasons;
 mod m20260616_000021_support_flags;
 mod m20260617_000022_still_needed_checks;
 mod m20260618_000023_transport;
+mod m20260619_000024_person_demographics;
 
 pub struct Migrator;
 
@@ -54,6 +55,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260616_000021_support_flags::Migration),
             Box::new(m20260617_000022_still_needed_checks::Migration),
             Box::new(m20260618_000023_transport::Migration),
+            Box::new(m20260619_000024_person_demographics::Migration),
         ]
     }
 }
