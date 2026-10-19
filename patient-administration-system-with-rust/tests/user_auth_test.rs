@@ -120,6 +120,7 @@ fn app(auth: Arc<UserAuth>) -> Router {
         .route("/api/echo", get(echo).post(echo).put(echo).delete(echo))
         .route("/api/health", get(echo))
         .route("/api/write-back/replies", post(echo_body))
+        .route("/api/inbound-texts/open", get(echo))
         .route("/api/upstream/person-merged", post(echo))
         .route("/api/patients/import", post(echo));
     with_user_auth(r, auth)
@@ -703,6 +704,26 @@ async fn a_carrier_cannot_forge_replay_or_wander() {
         st,
         StatusCode::UNAUTHORIZED,
         "a carrier cannot reach other endpoints"
+    );
+    // Nor can it read the staff list of replies, or use any method but POST on its own endpoints.
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/inbound-texts/open")
+                .header("x-carrier-id", "twilio")
+                .header("x-carrier-timestamp", ts.to_string())
+                .header("x-carrier-signature", sign(SECRET.as_bytes(), ts, b""))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        r.status(),
+        StatusCode::UNAUTHORIZED,
+        "a carrier cannot read the staff list"
     );
     // A forged X-User-Id from the carrier is discarded in favour of its own id.
     let r = app

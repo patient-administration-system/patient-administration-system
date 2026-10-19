@@ -13,6 +13,7 @@ mod m20260604_000009_inbound_replies;
 mod m20260605_000010_standby_and_releases;
 mod m20260606_000011_communication_profiles;
 mod m20260607_000012_barrier_codes;
+mod m20260608_000013_inbound_texts;
 
 pub struct Migrator;
 
@@ -32,6 +33,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260605_000010_standby_and_releases::Migration),
             Box::new(m20260606_000011_communication_profiles::Migration),
             Box::new(m20260607_000012_barrier_codes::Migration),
+            Box::new(m20260608_000013_inbound_texts::Migration),
         ]
     }
 }

@@ -26,7 +26,7 @@
 //! | nothing | Trusted-caller mode, as before; the server logs a warning. |
 //!
 //! Message carriers posting replies to `/api/write-back/*` authenticate with their own signed credential
-//! instead (`PAS_CARRIER_SECRETS`, see [`super::carrier_auth`]); they can reach nothing else.
+//! instead (`PAS_CARRIER_SECRETS`, see [`super::carrier_auth`]); they can POST to the three write-back endpoints and nothing else.
 //!
 //! `PAS_REQUIRE_AUTH=true` makes the server **refuse to start** unless per-user (PASETO) auth is
 //! configured. Use it in every real deployment.
@@ -328,7 +328,16 @@ pub async fn user_auth_middleware(
     }
     // A carrier's signed reply (PILOT-3) is authenticated by its own HMAC credential, never by a bearer
     // token, and may reach the write-back API only.
-    if path.starts_with("/api/write-back/") && req.headers().contains_key(carrier_auth::ID_HEADER) {
+    if req.headers().contains_key(carrier_auth::ID_HEADER) {
+        // Only the three endpoints a carrier needs, and only by POST: a carrier must not read the
+        // staff list of replies or touch anything else.
+        if req.method() != Method::POST || !CARRIER_PATHS.contains(&path.as_str()) {
+            return refuse(
+                StatusCode::UNAUTHORIZED,
+                "UNAUTHORIZED",
+                "invalid or expired credentials",
+            );
+        }
         return carrier_request(&auth, req, next).await;
     }
     let principal = match auth.authenticate(req.headers()) {
@@ -361,6 +370,13 @@ pub async fn user_auth_middleware(
     }
     next.run(req).await
 }
+
+/// The only endpoints a message carrier may call.
+const CARRIER_PATHS: [&str; 3] = [
+    "/api/write-back/replies",
+    "/api/write-back/batch",
+    "/api/write-back/texts",
+];
 
 /// Largest body a carrier may send (a 1000-row CSV batch is well under this).
 const MAX_CARRIER_BODY: usize = 2 * 1024 * 1024;

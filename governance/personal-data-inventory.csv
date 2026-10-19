@@ -304,3 +304,18 @@ wards,capacity,none,"Not personal data (structure, status, timestamps, places, t
 wards,active,none,"Not personal data (structure, status, timestamps, places, templates)",record
 wards,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 wards,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,message_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,carrier,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,from_e164,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
+inbound_texts,body,free-text,May contain personal data copied from the record it describes,audit-or-message
+inbound_texts,received_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,person_id,identifier,Link a record to a person held by person-service,record
+inbound_texts,intent,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,outcome,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,candidates,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,pending_intent,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,reply_text,free-text,May contain personal data copied from the record it describes,audit-or-message
+inbound_texts,handled_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_texts,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

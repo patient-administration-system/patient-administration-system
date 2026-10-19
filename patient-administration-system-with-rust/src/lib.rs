@@ -32,6 +32,7 @@ pub mod contact;
 pub mod db;
 pub mod error;
 pub mod hl7v2;
+pub mod inbound;
 pub mod models;
 pub mod observability;
 pub mod privacy;

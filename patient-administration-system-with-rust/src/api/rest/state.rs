@@ -28,6 +28,7 @@ pub struct AppState {
     pub adt: Arc<AdtService>,
     pub scheduling: Arc<SchedulingService>,
     pub writeback: Arc<crate::writeback::WriteBackService>,
+    pub inbound: Arc<crate::inbound::InboundService>,
     pub standby: Arc<crate::standby::StandbyService>,
     pub contact: Arc<crate::contact::ContactService>,
     pub series: Arc<SeriesService>,
@@ -54,12 +55,17 @@ impl AppState {
     /// real auto-send.
     pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
         let scheduling = Arc::new(SchedulingService::new(db.clone(), publisher.clone()));
+        let writeback = Arc::new(crate::writeback::WriteBackService::new(
+            db.clone(),
+            scheduling.clone(),
+        ));
         Self {
             adt: Arc::new(AdtService::new(db.clone(), publisher.clone())),
-            writeback: Arc::new(crate::writeback::WriteBackService::new(
+            inbound: Arc::new(crate::inbound::InboundService::new(
                 db.clone(),
-                scheduling.clone(),
+                writeback.clone(),
             )),
+            writeback,
             contact: Arc::new(crate::contact::ContactService::new(db.clone())),
             standby: Arc::new(crate::standby::StandbyService::new(
                 db.clone(),

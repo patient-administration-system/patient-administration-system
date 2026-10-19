@@ -14,7 +14,10 @@ use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
+use crate::inbound::InboundText;
 use crate::writeback::{MAX_BATCH, ReplyRequest};
+use axum::extract::Path;
+use uuid::Uuid;
 
 fn audit_ctx(headers: &HeaderMap) -> RepoUserContext {
     let uc = user_context_from_headers(headers);
@@ -92,6 +95,36 @@ pub fn parse_csv(body: &[u8]) -> Result<Vec<ReplyRequest>, Error> {
         out.push(row.map_err(|e| Error::validation(format!("CSV row {}: {e}", i + 1)))?);
     }
     Ok(out)
+}
+
+/// `POST /api/write-back/texts`: a carrier hands over a raw inbound text (PILOT-4). The answer says what
+/// was done and the text to send back, or none (never to an unmatched or shared number).
+pub async fn post_text(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<InboundText>,
+) -> HandlerResult {
+    match state.inbound.handle(req, &audit_ctx(&headers)).await {
+        Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `GET /api/inbound-texts/open`: replies nobody could act on, for the booking team.
+pub async fn open_texts(State(state): State<AppState>) -> HandlerResult {
+    match state.inbound.staff_list(200).await {
+        Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `POST /api/inbound-texts/{id}/handled`: a person dealt with it.
+pub async fn text_handled(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
+    match state.inbound.mark_handled(id).await {
+        Ok(true) => ok(serde_json::json!({ "handled": true })),
+        Ok(false) => error_to_response(Error::not_found("no open inbound text with that id")),
+        Err(e) => error_to_response(e),
+    }
 }
 
 #[cfg(test)]

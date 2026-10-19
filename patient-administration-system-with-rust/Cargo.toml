@@ -60,6 +60,7 @@ base64 = "0.22"
 # Utilities
 uuid = { version = "1.26", features = ["v4", "v5", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
 thiserror = "2.0"
 dotenvy = "0.15"
 async-trait = "0.1"

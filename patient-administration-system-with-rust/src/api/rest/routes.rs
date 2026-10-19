@@ -185,6 +185,15 @@ pub fn router(state: AppState) -> Router {
             "/api/write-back/batch",
             post(handlers_writeback::post_batch),
         )
+        .route("/api/write-back/texts", post(handlers_writeback::post_text))
+        .route(
+            "/api/inbound-texts/open",
+            get(handlers_writeback::open_texts),
+        )
+        .route(
+            "/api/inbound-texts/{id}/handled",
+            post(handlers_writeback::text_handled),
+        )
         .route(
             "/api/appointments",
             get(handlers_scheduling::list_appointments),
