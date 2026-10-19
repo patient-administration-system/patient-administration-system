@@ -29,3 +29,15 @@ A patient who signs in to the portal is only an account until staff have checked
 2. Record it: `PUT /api/identity-proofings/{subject}` with `{"person_id": "<patient>", "method": "in_person", "proofed_by": "<your name>"}`, where `{subject}` is the account's id in the identity provider (Keycloak's user id).
 3. To cut an account off (a mistaken link, a safeguarding concern): `DELETE /api/identity-proofings/{subject}?revoked_by=<your name>`. The portal refuses it at once; the history is kept.
 4. To see who proofed an account and how: `GET /api/identity-proofings/{subject}`. Each proofing and revocation is also in the patient's audit trail.
+
+## Switching on the no-show probability (CAP-12)
+
+It is off, and the server will not turn it on for you. Read `governance/noshow-model.md` first.
+
+1. Run the audit on real data: `GET /api/noshow/fairness-audit?days=365`. Read it by deprivation quintile and language (the bands come from `PUT /api/analytics/demographics/{person_id}`; until an upstream job fills them every cell reads `unknown`).
+2. A named person records their fairness review: `POST /api/noshow/reviews` with `{"kind":"fairness","reviewer":"<name>","outcome":"approved","notes":"<what was looked at and why it is acceptable, 40+ characters>"}`.
+3. The clinical safety officer records theirs the same way with `"kind":"clinical_safety"`.
+4. Set `PAS_NOSHOW_SCORE=true` and restart. `GET /api/noshow/status` should say `active: true`.
+5. To stop: `POST /api/noshow/reviews` with `"outcome":"rejected"` switches it off at once, without a restart.
+
+Thresholds (`PAS_NOSHOW_MEDIUM`, `PAS_NOSHOW_HIGH`) and weights (`PAS_NOSHOW_WEIGHTS`, JSON) are configuration. A change to the weights is a new decision: re-run the audit and review again.

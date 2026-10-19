@@ -349,7 +349,9 @@ impl AnalyticsService {
             seen.push(*d);
         }
         let k = k.unwrap_or(0).max(Self::minimum_k());
-        let to = to.unwrap_or_else(Utc::now);
+        // Release times are stamped by the database's clock, which can be a little ahead of this server's, so
+        // the default end is a few minutes ahead of now rather than exactly now.
+        let to = to.unwrap_or_else(|| Utc::now() + chrono::Duration::minutes(5));
         let from = from.unwrap_or_else(|| to - chrono::Duration::days(90));
         let select: Vec<String> = group_by
             .iter()

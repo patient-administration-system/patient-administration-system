@@ -215,6 +215,26 @@ http
         ),
       );
     }
+    // CAP-12: the no-show support flag, for the first appointment only. `?off` is not needed: the mock is "on".
+    if (url.pathname === "/api/noshow/for-appointments") {
+      const wanted = (url.searchParams.get("ids") ?? "").split(",");
+      const items = wanted.includes("44444444-4444-4444-4444-444444444444")
+        ? [
+            {
+              appointment_id: "44444444-4444-4444-4444-444444444444",
+              probability_percent: 74,
+              band: "high",
+              sample_size: 4,
+              factors: [
+                { name: "base_rate", detail: "10%", effect_points: 10 },
+                { name: "past_visits", detail: "missed 3 of 4", effect_points: 62 },
+                { name: "lead_time", detail: "booked 14 days ahead", effect_points: 2 },
+              ],
+            },
+          ]
+        : [];
+      return res.end(envelope({ active: true, items }));
+    }
     if (url.pathname === "/api/appointments") {
       // Two appointments in the coming days, so the calendar and the schedule chart have content.
       const at = (days, hour) => {

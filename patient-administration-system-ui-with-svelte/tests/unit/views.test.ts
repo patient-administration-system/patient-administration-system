@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appointmentEvents,
+  noshowText,
   appointmentGantt,
   ganttRange,
   patientRows,
@@ -101,5 +102,58 @@ describe("personName / patientRows", () => {
     expect(patientRows([{ id: "x", name: "A B", birth_date: "1990-01-02" }])).toEqual([
       { id: "x", name: "A B", birthDate: "1990-01-02" },
     ]);
+  });
+});
+
+describe("the no-show support flag (CAP-12)", () => {
+  const catalogue: Record<string, string> = {
+    "noshow.band.high": "High",
+    "noshow.band.low": "Low",
+    "noshow.band.medium": "Medium",
+    "noshow.sample": "Based on {n} past visits",
+    "noshow.points": "{points} points",
+    "noshow.factor.past_visits": "Past visits",
+    "noshow.factor.lead_time": "Lead time",
+    "noshow.factor.age_band": "Age band",
+    "noshow.factor.day_and_time": "Day and time",
+    "noshow.factor.base_rate": "Base rate",
+  };
+  const tt = (k: string, v?: Record<string, string | number>) =>
+    (catalogue[k] ?? k).replace(/\{(\w+)\}/g, (_, n) => String(v?.[n] ?? ""));
+  const flag = {
+    appointment_id: "a",
+    probability_percent: 74,
+    band: "high" as const,
+    sample_size: 4,
+    factors: [
+      { name: "base_rate", effect_points: 10 },
+      { name: "past_visits", effect_points: 62 },
+      { name: "lead_time", effect_points: 2 },
+      { name: "age_band", effect_points: 0 },
+    ],
+  };
+
+  it("says the band in words and with a shape, never colour alone, with the reasons", () => {
+    const text = noshowText(flag, tt);
+    expect(text).toContain("▲ High, 74%.");
+    expect(text).toContain("Based on 4 past visits.");
+    expect(text).toContain("Past visits +62 points");
+    expect(text).toContain("Lead time +2 points");
+    expect(text, "a factor that did not move it is not listed").not.toContain("Age band");
+    expect(text, "the base rate is not a reason").not.toContain("Base rate");
+  });
+
+  it("uses a different shape for each band", () => {
+    const shapes = (["low", "medium", "high"] as const).map((band) => noshowText({ ...flag, band }, tt).split(" ")[0]);
+    expect(new Set(shapes).size).toBe(3);
+  });
+
+  it("adds a support value only to the appointment that has a flag, and leaves the others as they were", () => {
+    const rows = [appt("a", "2026-10-20T09:30:00Z", "booked"), appt("b", "2026-10-21T09:30:00Z", "booked")];
+    const [a, b] = appointmentEvents(rows, tt, [flag]);
+    expect(a.values?.support).toContain("High");
+    expect(b.values && "support" in b.values).toBe(false);
+    // With no flags at all the events are what they were before the score existed.
+    expect(appointmentEvents(rows, tt).every((e) => !(e.values && "support" in e.values))).toBe(true);
   });
 });

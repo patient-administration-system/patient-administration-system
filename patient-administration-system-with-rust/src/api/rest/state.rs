@@ -32,6 +32,7 @@ pub struct AppState {
     pub reply_links: Arc<crate::reply_links::ReplyLinks>,
     pub rebooking: Arc<crate::rebooking::RebookService>,
     pub analytics: Arc<crate::analytics::AnalyticsService>,
+    pub noshow: Arc<crate::noshow::NoShowService>,
     pub experiments: Arc<crate::experiments::ExperimentService>,
     pub identity: Arc<crate::identity::IdentityService>,
     pub receipts: Arc<crate::receipts::ReceiptService>,
@@ -93,6 +94,8 @@ impl AppState {
             communication.clone(),
         ));
         scheduling.set_backfill(backfill.clone());
+        let noshow = Arc::new(crate::noshow::NoShowService::new(db.clone()));
+        scheduling.set_noshow(noshow.clone());
         let rebooking = Arc::new(crate::rebooking::RebookService::new(
             db.clone(),
             scheduling.clone(),
@@ -106,6 +109,7 @@ impl AppState {
             )),
             rebooking,
             analytics: Arc::new(crate::analytics::AnalyticsService::new(db.clone())),
+            noshow,
             experiments: Arc::new(crate::experiments::ExperimentService::new(db.clone())),
             identity: Arc::new(crate::identity::IdentityService::new(db.clone())),
             receipts: Arc::new(crate::receipts::ReceiptService::new(db.clone())),

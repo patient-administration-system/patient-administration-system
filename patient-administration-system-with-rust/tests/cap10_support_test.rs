@@ -18,7 +18,7 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 /// Words that mean a column scores, ranks, penalises or suppresses contact.
-const FORBIDDEN: [&str; 12] = [
+const FORBIDDEN: [&str; 14] = [
     "score",
     "rank",
     "penal",
@@ -31,10 +31,16 @@ const FORBIDDEN: [&str; 12] = [
     "skip_contact",
     "contact_block",
     "demote",
+    // A probability or a risk figure about a patient is a score by another name (CAP-12).
+    "probab",
+    "risk",
 ];
 
 /// `(table.column, reason)` pairs that were allowed on purpose. Empty: nothing needs one yet.
-const ALLOWED: [(&str, &str); 0] = [];
+const ALLOWED: [(&str, &str); 1] = [(
+    "noshow_assessments.probability",
+    "CAP-12: the no-show probability shown to staff to prompt a supportive call. Support only, off until a fairness and a clinical safety review are approved by named people, and covered by the NFR-11 behaviour test (rebooking, standby and offers identical with and without it).",
+)];
 
 fn violates(column: &str) -> bool {
     let c = column.to_ascii_lowercase();
@@ -55,6 +61,8 @@ fn test_the_guard_recognises_what_it_is_meant_to_catch() {
         "deprioritised",
         "overbook_weight",
         "withhold_slot",
+        "noshow_probability",
+        "risk_band",
     ] {
         assert!(violates(bad), "{bad} should be caught");
     }

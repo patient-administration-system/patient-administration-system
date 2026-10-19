@@ -107,6 +107,26 @@ export interface PortalMessage {
 export const portalMessages = (f: FetchFn, personId: string) =>
   pas<PortalMessage[]>(f, `/api/patients/${encodeURIComponent(personId)}/letters?channel=portal`);
 
+// ---- No-show probability (CAP-12): support only, and off until people approve it --------------
+
+export interface NoShowFactor {
+  name: string;
+  detail: string;
+  effect_points: number;
+}
+
+export interface NoShowItem {
+  appointment_id: string;
+  probability_percent: number;
+  band: "low" | "medium" | "high";
+  factors: NoShowFactor[];
+  sample_size: number;
+}
+
+/** The stored assessments for these appointments. `active` is false while the score is switched off. */
+export const noshowFor = (f: FetchFn, ids: string[]) =>
+  pas<{ active: boolean; items: NoShowItem[] }>(f, `/api/noshow/for-appointments?ids=${ids.map(encodeURIComponent).join(",")}`);
+
 // ---- Identity proofing (DTAC-9) --------------------------------------------------------------
 
 /** Has staff recorded checking that this sign-in account is this patient? Only a clear yes is a yes. */

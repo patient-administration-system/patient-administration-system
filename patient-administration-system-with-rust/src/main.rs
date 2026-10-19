@@ -242,6 +242,25 @@ async fn main() -> Result<()> {
 
     // Appointment reminders: opt in with PAS_REMINDERS_ENABLED=true. Lead
     // time via PAS_REMINDER_LEAD_HOURS (default 24); scanned every 5 minutes.
+    // The no-show probability (CAP-12): an hourly pass that scores booked appointments still to come. A no-op
+    // unless PAS_NOSHOW_SCORE=true AND a fairness and a clinical safety review are approved; idempotent within a
+    // day. It only adds tasks for people to ring.
+    if patient_administration_system::noshow::NoShowService::switched_on() {
+        let noshow = state.noshow.clone();
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(3600));
+            loop {
+                tick.tick().await;
+                match noshow.recalculate_all().await {
+                    Ok(n) => {
+                        tracing::info!(target: "pas::noshow", assessed = n, "no-show pass complete")
+                    }
+                    Err(e) => tracing::info!(target: "pas::noshow", "no-show pass skipped: {e}"),
+                }
+            }
+        });
+    }
+
     // Backfill offers (PILOT-8): PAS_BACKFILL_OFFERS=true offers a released slot to the next patient on
     // standby, and every minute expires offers that ran out and moves on to the next patient.
     if patient_administration_system::backfill::enabled() {

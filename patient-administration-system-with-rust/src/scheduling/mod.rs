@@ -56,6 +56,8 @@ pub struct SchedulingService {
     /// The transport service (CAP-15), set after construction because it needs the person client. Shared
     /// by every clone of the `Arc<SchedulingService>`, so swapping it reaches all of them.
     transport: std::sync::RwLock<Option<Arc<crate::transport::TransportService>>>,
+    /// The no-show probability (CAP-12), set the same way. Only ever added support, and off unless approved.
+    noshow: std::sync::RwLock<Option<Arc<crate::noshow::NoShowService>>>,
     /// The backfill offers (PILOT-8), set the same way.
     backfill: std::sync::RwLock<Option<Arc<crate::backfill::BackfillService>>>,
 }
@@ -67,11 +69,24 @@ impl SchedulingService {
             publisher,
             transport: std::sync::RwLock::new(None),
             backfill: std::sync::RwLock::new(None),
+            noshow: std::sync::RwLock::new(None),
         }
     }
 
     pub fn set_transport(&self, t: Arc<crate::transport::TransportService>) {
         *self.transport.write().unwrap_or_else(|e| e.into_inner()) = Some(t);
+    }
+
+    /// A clone out of the lock, so the guard is never held across an await.
+    fn noshow(&self) -> Option<Arc<crate::noshow::NoShowService>> {
+        self.noshow
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
+    pub fn set_noshow(&self, n: Arc<crate::noshow::NoShowService>) {
+        *self.noshow.write().unwrap_or_else(|e| e.into_inner()) = Some(n);
     }
 
     pub fn set_backfill(&self, b: Arc<crate::backfill::BackfillService>) {
@@ -554,6 +569,13 @@ impl SchedulingService {
     }
 
     pub(crate) async fn publish_booked(&self, appt: &Appointment) {
+        // A new booking gets its no-show probability, if the score is switched on and approved (CAP-12). It
+        // only adds a task for a person; the booking is already made and nothing here can change it.
+        if crate::noshow::NoShowService::switched_on()
+            && let Some(n) = self.noshow()
+        {
+            let _ = n.assess(appt.id).await;
+        }
         let _ = self
             .publisher
             .publish(DomainEvent::new(

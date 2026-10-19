@@ -40,6 +40,7 @@ pub mod hl7v2;
 pub mod identity;
 pub mod inbound;
 pub mod models;
+pub mod noshow;
 pub mod observability;
 pub mod printing;
 pub mod privacy;

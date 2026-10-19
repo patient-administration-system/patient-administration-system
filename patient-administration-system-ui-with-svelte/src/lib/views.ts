@@ -26,17 +26,47 @@ export type Translate = (key: string, values?: Record<string, string | number>) 
 /** Catalogue key for an appointment status. */
 export const statusKey = (s: string): string => `status.${s}`;
 
-export function appointmentEvents(rows: AppointmentLike[], t: Translate): CalendarEvent[] {
-  return rows.map((a) => ({
-    id: a.id,
-    date: dayOf(a.start_datetime),
-    title: `${timeOf(a.start_datetime)} ${a.reason?.trim() || t("appointments.generic")}`,
-    done: a.status === "fulfilled",
-    values: {
-      time: `${timeOf(a.start_datetime)}–${timeOf(a.end_datetime)}`,
-      status: t(statusKey(a.status)),
-    },
-  }));
+/** The no-show support flag for one appointment, as the PAS sends it (CAP-12). */
+export interface NoShowLike {
+  appointment_id: string;
+  probability_percent: number;
+  band: "low" | "medium" | "high";
+  factors: { name: string; effect_points: number }[];
+  sample_size: number;
+}
+
+/** A shape and a word for each band, so the flag never depends on colour alone (WCAG 1.4.1). */
+const BAND_MARK = { low: "●", medium: "◆", high: "▲" } as const;
+
+/**
+ * The flag and the reasons for it, in words: `▲ High, 74%. Based on 4 past visits. Past visits +62 points; ...`.
+ * It is support for the front desk; nothing here changes the appointment.
+ */
+export function noshowText(n: NoShowLike, t: Translate): string {
+  const why = n.factors
+    .filter((f) => Math.abs(f.effect_points) >= 0.05 && f.name !== "base_rate")
+    .map((f) => `${t(`noshow.factor.${f.name}`)} ${f.effect_points > 0 ? "+" : ""}${t("noshow.points", { points: f.effect_points })}`);
+  return [`${BAND_MARK[n.band]} ${t(`noshow.band.${n.band}`)}, ${n.probability_percent}%.`, t("noshow.sample", { n: n.sample_size }) + ".", why.join("; ")]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export function appointmentEvents(rows: AppointmentLike[], t: Translate, noshow: NoShowLike[] = []): CalendarEvent[] {
+  const flags = new Map(noshow.map((n) => [n.appointment_id, n]));
+  return rows.map((a) => {
+    const flag = flags.get(a.id);
+    return {
+      id: a.id,
+      date: dayOf(a.start_datetime),
+      title: `${timeOf(a.start_datetime)} ${a.reason?.trim() || t("appointments.generic")}`,
+      done: a.status === "fulfilled",
+      values: {
+        time: `${timeOf(a.start_datetime)}–${timeOf(a.end_datetime)}`,
+        status: t(statusKey(a.status)),
+        ...(flag ? { support: noshowText(flag, t) } : {}),
+      },
+    };
+  });
 }
 
 /** One parent task per day, with each appointment as a one-day milestone beneath it. */

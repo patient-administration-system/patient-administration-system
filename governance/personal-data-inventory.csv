@@ -487,3 +487,17 @@ message_experiment_assignments,experiment_id,none,"Not personal data (structure,
 message_experiment_assignments,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 message_experiment_assignments,variant,none,"Not personal data (structure, status, timestamps, places, templates)",record
 message_experiment_assignments,assigned_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_assessments,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_assessments,probability,health,"A profiling estimate about a patient's likelihood to miss an appointment; support only, gated",record
+noshow_assessments,factors,health,"The reasons behind the estimate, including counts of past visits",record
+noshow_assessments,sample_size,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_assessments,model_version,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_assessments,computed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_assessments,computed_on,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_reviews,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_reviews,kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_reviews,reviewer,staff-identifier,Attribute work to a staff member held by worker-service,record
+noshow_reviews,outcome,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_reviews,notes,free-text,A reviewer's notes on the model; may name groups of patients but no individual,audit-or-message
+noshow_reviews,model_version,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_reviews,reviewed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

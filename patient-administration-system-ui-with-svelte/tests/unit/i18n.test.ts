@@ -18,7 +18,7 @@ const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
   "fr-001": [
     ...PROPER,
     "nav.patients", "col.date", "waitlist.service", "waitlist.patient", "patients.title",
-    "patients.gridLabel", "admin.message", "calendar.agenda",
+    "patients.gridLabel", "admin.message", "calendar.agenda", "noshow.points",
   ],
   "ar-001": PROPER,
   "hi-001": PROPER,

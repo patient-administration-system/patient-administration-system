@@ -18,6 +18,7 @@ pub mod handlers_hl7v2;
 pub mod handlers_identity;
 pub mod handlers_letters;
 pub mod handlers_links;
+pub mod handlers_noshow;
 pub mod handlers_offers;
 pub mod handlers_print;
 pub mod handlers_receipts;

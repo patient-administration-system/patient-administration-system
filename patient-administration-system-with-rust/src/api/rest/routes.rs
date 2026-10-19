@@ -38,6 +38,7 @@ use super::handlers_hl7v2;
 use super::handlers_identity;
 use super::handlers_letters;
 use super::handlers_links;
+use super::handlers_noshow;
 use super::handlers_offers;
 use super::handlers_print;
 use super::handlers_receipts;
@@ -392,6 +393,29 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/experiments/{id}/readout",
             get(handlers_experiments::readout),
+        )
+        .route("/api/noshow/status", get(handlers_noshow::status))
+        .route("/api/noshow/model-card", get(handlers_noshow::model_card))
+        .route("/api/noshow/reviews", post(handlers_noshow::record_review))
+        .route(
+            "/api/noshow/fairness-audit",
+            get(handlers_noshow::fairness_audit),
+        )
+        .route(
+            "/api/noshow/recalculate",
+            post(handlers_noshow::recalculate),
+        )
+        .route(
+            "/api/noshow/for-appointments",
+            get(handlers_noshow::for_appointments),
+        )
+        .route(
+            "/api/noshow/priority-list",
+            get(handlers_noshow::priority_list),
+        )
+        .route(
+            "/api/appointments/{id}/noshow",
+            get(handlers_noshow::for_appointment),
         )
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))
