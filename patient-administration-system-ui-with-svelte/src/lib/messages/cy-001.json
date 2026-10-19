@@ -131,5 +131,12 @@
   "link.used": "Mae'r ddolen hon wedi'i defnyddio eisoes. Os oes angen newid eich apwyntiad, ffoniwch ni.",
   "link.expired": "Mae'r ddolen hon wedi dod i ben. Os oes angen newid eich apwyntiad, ffoniwch ni.",
   "link.invalid": "Nid yw'r ddolen hon yn ddilys. Gwiriwch eich bod wedi agor y ddolen gyfan, neu ffoniwch ni.",
-  "link.unavailable": "Ni allwn ddangos y dudalen hon ar hyn o bryd. Rhowch gynnig arall arni ymhen ychydig funudau, neu ffoniwch ni."
+  "link.unavailable": "Ni allwn ddangos y dudalen hon ar hyn o bryd. Rhowch gynnig arall arni ymhen ychydig funudau, neu ffoniwch ni.",
+  "offer.title": "Mae apwyntiad ar gael",
+  "offer.body": "Mae apwyntiad ar gael ar {when}. Hoffech chi ei gael?",
+  "offer.accept": "Ydw, byddaf yn ei gymryd",
+  "offer.decline": "Na, dim diolch",
+  "offer.done.accepted": "Diolch. Eich apwyntiad yw {when}.",
+  "offer.done.declined": "Diolch am roi gwybod i ni.",
+  "offer.done.gone": "Mae'n ddrwg gennym, mae'r apwyntiad hwn newydd gael ei gymryd."
 }

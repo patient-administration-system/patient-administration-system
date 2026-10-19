@@ -131,5 +131,12 @@
   "link.used": "Dieser Link wurde bereits verwendet. Wenn Sie Ihren Termin ändern müssen, rufen Sie uns bitte an.",
   "link.expired": "Dieser Link ist abgelaufen. Wenn Sie Ihren Termin ändern müssen, rufen Sie uns bitte an.",
   "link.invalid": "Dieser Link ist ungültig. Bitte prüfen Sie, ob Sie den vollständigen Link geöffnet haben, oder rufen Sie uns an.",
-  "link.unavailable": "Wir können diese Seite gerade nicht anzeigen. Bitte versuchen Sie es in einigen Minuten erneut oder rufen Sie uns an."
+  "link.unavailable": "Wir können diese Seite gerade nicht anzeigen. Bitte versuchen Sie es in einigen Minuten erneut oder rufen Sie uns an.",
+  "offer.title": "Ein Termin ist frei geworden",
+  "offer.body": "Am {when} ist ein Termin frei. Möchten Sie ihn?",
+  "offer.accept": "Ja, ich nehme ihn",
+  "offer.decline": "Nein, danke",
+  "offer.done.accepted": "Danke. Ihr Termin ist am {when}.",
+  "offer.done.declined": "Danke für Ihre Rückmeldung.",
+  "offer.done.gone": "Leider wurde dieser Termin gerade vergeben."
 }

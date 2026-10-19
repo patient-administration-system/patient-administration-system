@@ -146,5 +146,12 @@
   "link.used": "This link has already been used. If you need to change your appointment, please call us.",
   "link.expired": "This link has expired. If you need to change your appointment, please call us.",
   "link.invalid": "This link is not valid. Please check you opened the whole link, or call us.",
-  "link.unavailable": "We cannot show this page just now. Please try again in a few minutes, or call us."
+  "link.unavailable": "We cannot show this page just now. Please try again in a few minutes, or call us.",
+  "offer.title": "An appointment has become free",
+  "offer.body": "An appointment is free on {when}. Would you like it?",
+  "offer.accept": "Yes, I will take it",
+  "offer.decline": "No, thank you",
+  "offer.done.accepted": "Thank you. Your appointment is on {when}.",
+  "offer.done.declined": "Thank you for letting us know.",
+  "offer.done.gone": "Sorry, this appointment has just been taken."
 }

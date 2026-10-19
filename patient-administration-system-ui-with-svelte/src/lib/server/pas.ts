@@ -155,3 +155,25 @@ export const replyLinkRebook = (f: FetchFn, token: string, slotId: string) =>
     `/api/reply-links/${encodeURIComponent(token)}/rebook`,
     { method: "POST", body: { slot_id: slotId } },
   );
+
+// ---- Backfill offers (PILOT-8) ---------------------------------------------------------------
+
+export interface OfferLinkInfo {
+  state: "open" | "used" | "expired" | "gone";
+  starts_at: string | null;
+  time_zone: string;
+  expires_at: string | null;
+  actions: string[];
+}
+
+/** Read-only: what the offer page may show. Opening a link never acts. */
+export const offerLinkInfo = (f: FetchFn, token: string) =>
+  pas<OfferLinkInfo>(f, `/api/offer-links/${encodeURIComponent(token)}`);
+
+/** A deliberate tap: `accept` books the slot, `decline` offers it to the next person. */
+export const offerLinkAct = (f: FetchFn, token: string, action: "accept" | "decline") =>
+  pas<{ status: "accepted" | "declined" | "gone"; starts_at: string | null; time_zone: string }>(
+    f,
+    `/api/offer-links/${encodeURIComponent(token)}/${action}`,
+    { method: "POST", body: {} },
+  );

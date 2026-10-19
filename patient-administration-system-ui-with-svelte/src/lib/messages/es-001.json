@@ -131,5 +131,12 @@
   "link.used": "Este enlace ya se ha utilizado. Si necesita cambiar su cita, llámenos.",
   "link.expired": "Este enlace ha caducado. Si necesita cambiar su cita, llámenos.",
   "link.invalid": "Este enlace no es válido. Compruebe que ha abierto el enlace completo o llámenos.",
-  "link.unavailable": "No podemos mostrar esta página ahora. Inténtelo de nuevo en unos minutos o llámenos."
+  "link.unavailable": "No podemos mostrar esta página ahora. Inténtelo de nuevo en unos minutos o llámenos.",
+  "offer.title": "Ha quedado libre una cita",
+  "offer.body": "Hay una cita libre el {when}. ¿La quiere?",
+  "offer.accept": "Sí, la tomo",
+  "offer.decline": "No, gracias",
+  "offer.done.accepted": "Gracias. Su cita es el {when}.",
+  "offer.done.declined": "Gracias por avisarnos.",
+  "offer.done.gone": "Lo sentimos, esta cita acaba de ser ocupada."
 }

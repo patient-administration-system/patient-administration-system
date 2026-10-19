@@ -22,7 +22,7 @@ function routes(dir = join(process.cwd(), "src/routes"), prefix = ""): string[] 
 // test fails. `/` only redirects, so it is audited through where it lands.
 const PUBLIC = ["/signin"];
 // The reply-link page needs a token in its address, so it is audited by its own tests below.
-const LINKS = ["/r/[token]"];
+const LINKS = ["/r/[token]", "/o/[token]"];
 const PATIENT = ["/my/appointments", "/my/messages"];
 // `/patients` shows its data grid only after a search, so audit it with one.
 const STAFF_AND_ADMIN = ["/appointments", "/waitlist", "/schedule", "/patients?q=ada", "/admin/reminders"];
@@ -53,6 +53,12 @@ const LINK_TOKEN = "a".repeat(64);
 for (const locale of ["en-001", "cy-001", "ar-001"]) {
   test(`reply-link page, ${locale}`, async ({ page }) => {
     await audit(page, `/r/${LINK_TOKEN}`, locale);
+  });
+}
+
+for (const locale of ["en-001", "cy-001", "ar-001"]) {
+  test(`offer-link page, ${locale}`, async ({ page }) => {
+    await audit(page, `/o/${"a".repeat(64)}`, locale);
   });
 }
 

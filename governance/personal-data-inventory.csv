@@ -426,3 +426,15 @@ person_demographics,age_band,health,"Administrative care information (why, where
 person_demographics,deprivation_quintile,health,"Administrative care information (why, where, what service, outcome)",record
 person_demographics,source,none,"Not personal data (structure, status, timestamps, places, templates)",record
 person_demographics,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,release_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,slot_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,standby_entry_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,person_id,identifier,Link a record to a person held by person-service,record
+slot_offers,token_hash,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,offered_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,expires_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,answered_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_offers,message_sent,none,"Not personal data (structure, status, timestamps, places, templates)",record

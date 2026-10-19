@@ -26,6 +26,7 @@
 pub mod adt;
 pub mod analytics;
 pub mod api;
+pub mod backfill;
 pub mod billing;
 pub mod communication;
 pub mod config;

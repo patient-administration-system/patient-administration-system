@@ -52,6 +52,8 @@ pub struct SchedulingService {
     /// The transport service (CAP-15), set after construction because it needs the person client. Shared
     /// by every clone of the `Arc<SchedulingService>`, so swapping it reaches all of them.
     transport: std::sync::RwLock<Option<Arc<crate::transport::TransportService>>>,
+    /// The backfill offers (PILOT-8), set the same way.
+    backfill: std::sync::RwLock<Option<Arc<crate::backfill::BackfillService>>>,
 }
 
 impl SchedulingService {
@@ -60,11 +62,23 @@ impl SchedulingService {
             db,
             publisher,
             transport: std::sync::RwLock::new(None),
+            backfill: std::sync::RwLock::new(None),
         }
     }
 
     pub fn set_transport(&self, t: Arc<crate::transport::TransportService>) {
         *self.transport.write().unwrap_or_else(|e| e.into_inner()) = Some(t);
+    }
+
+    pub fn set_backfill(&self, b: Arc<crate::backfill::BackfillService>) {
+        *self.backfill.write().unwrap_or_else(|e| e.into_inner()) = Some(b);
+    }
+
+    fn backfill(&self) -> Option<Arc<crate::backfill::BackfillService>> {
+        self.backfill
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     fn transport(&self) -> Option<Arc<crate::transport::TransportService>> {
@@ -503,6 +517,12 @@ impl SchedulingService {
     }
 
     pub(crate) async fn publish_cancelled(&self, appt: &Appointment) {
+        // The freed slot is offered to the next patient on standby, when offers are switched on (PILOT-8).
+        if let Some(b) = self.backfill()
+            && let Err(e) = b.on_cancelled(appt.id).await
+        {
+            tracing::warn!(target: "pas::backfill", "offer failed: {e}");
+        }
         // A cancelled (or moved) appointment no longer needs its ride (CAP-15).
         if let Some(t) = self.transport()
             && let Err(e) = t.on_cancelled(appt.id).await

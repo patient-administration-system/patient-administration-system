@@ -32,6 +32,7 @@ pub struct AppState {
     pub reply_links: Arc<crate::reply_links::ReplyLinks>,
     pub rebooking: Arc<crate::rebooking::RebookService>,
     pub analytics: Arc<crate::analytics::AnalyticsService>,
+    pub backfill: Arc<crate::backfill::BackfillService>,
     pub transport: Arc<crate::transport::TransportService>,
     pub waits: Arc<crate::waits::WaitsService>,
     pub support: Arc<crate::support::SupportService>,
@@ -76,6 +77,16 @@ impl AppState {
             Arc::new(crate::transport::LoggingTransportClient),
         ));
         scheduling.set_transport(transport.clone());
+        let standby = Arc::new(crate::standby::StandbyService::new(
+            db.clone(),
+            scheduling.clone(),
+        ));
+        let backfill = Arc::new(crate::backfill::BackfillService::new(
+            db.clone(),
+            standby.clone(),
+            communication.clone(),
+        ));
+        scheduling.set_backfill(backfill.clone());
         let rebooking = Arc::new(crate::rebooking::RebookService::new(
             db.clone(),
             scheduling.clone(),
@@ -105,10 +116,8 @@ impl AppState {
             )),
             writeback,
             contact: Arc::new(crate::contact::ContactService::new(db.clone())),
-            standby: Arc::new(crate::standby::StandbyService::new(
-                db.clone(),
-                scheduling.clone(),
-            )),
+            standby,
+            backfill,
             scheduling,
             series: Arc::new(SeriesService::new(db.clone(), publisher.clone())),
             waitlist: Arc::new(WaitlistService::new(db.clone(), publisher.clone())),
@@ -140,6 +149,7 @@ impl AppState {
                 .derive()
                 .with_person_client(client.clone()),
         );
+        self.communication_changed();
         self.transport = Arc::new(self.transport.with_person_client(client.clone()));
         self.scheduling.set_transport(self.transport.clone());
         self.person_client = Some(client);
@@ -157,6 +167,21 @@ impl AppState {
         self
     }
 
+    /// The backfill offers send through the communication service, so rebuild them when it changes.
+    fn rewire_backfill(mut self) -> Self {
+        self.communication_changed();
+        self
+    }
+
+    fn communication_changed(&mut self) {
+        self.backfill = Arc::new(
+            self.backfill
+                .derive()
+                .with_communication(self.communication.clone()),
+        );
+        self.scheduling.set_backfill(self.backfill.clone());
+    }
+
     /// Attach a [`WorkerClient`] for the v0.44.0 workforce proxy
     /// surface. Same Phase 1 caveat as
     /// [`Self::with_person_client`].
@@ -170,7 +195,7 @@ impl AppState {
     pub fn with_portal_base_url(mut self, url: &str) -> Self {
         let svc = self.communication.derive().with_portal_base_url(url);
         self.communication = Arc::new(svc);
-        self
+        self.rewire_backfill()
     }
 
     /// Wire a sender for Email, AppleMessages or WhatsApp.
@@ -181,7 +206,7 @@ impl AppState {
     ) -> Self {
         let svc = self.communication.derive().with_sender(channel, sender);
         self.communication = Arc::new(svc);
-        self
+        self.rewire_backfill()
     }
 
     /// Swap in a concrete [`SmsProvider`] for the [`CommunicationService`].
@@ -194,6 +219,6 @@ impl AppState {
         // preserving any previously-attached PersonClient.
         let svc = self.communication.derive().with_sms_provider(sms_provider);
         self.communication = Arc::new(svc);
-        self
+        self.rewire_backfill()
     }
 }

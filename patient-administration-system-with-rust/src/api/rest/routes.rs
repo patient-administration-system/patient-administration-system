@@ -36,6 +36,7 @@ use super::handlers_history;
 use super::handlers_hl7v2;
 use super::handlers_letters;
 use super::handlers_links;
+use super::handlers_offers;
 use super::handlers_resources;
 use super::handlers_scheduling;
 use super::handlers_series;
@@ -306,6 +307,19 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/analytics/demographics/{person_id}",
             put(handlers_analytics::set_demographics),
+        )
+        .route("/api/offer-links/{token}", get(handlers_offers::get_offer))
+        .route(
+            "/api/offer-links/{token}/{action}",
+            post(handlers_offers::post_offer_action),
+        )
+        .route(
+            "/api/slot-releases/{id}/offers",
+            get(handlers_offers::release_offers),
+        )
+        .route(
+            "/api/slot-releases/{id}/offer",
+            post(handlers_offers::offer_now),
         )
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))

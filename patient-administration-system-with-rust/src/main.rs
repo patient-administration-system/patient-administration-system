@@ -242,6 +242,25 @@ async fn main() -> Result<()> {
 
     // Appointment reminders: opt in with PAS_REMINDERS_ENABLED=true. Lead
     // time via PAS_REMINDER_LEAD_HOURS (default 24); scanned every 5 minutes.
+    // Backfill offers (PILOT-8): PAS_BACKFILL_OFFERS=true offers a released slot to the next patient on
+    // standby, and every minute expires offers that ran out and moves on to the next patient.
+    if patient_administration_system::backfill::enabled() {
+        let backfill = state.backfill.clone();
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
+            loop {
+                tick.tick().await;
+                match backfill.tick(chrono::Utc::now()).await {
+                    Ok(r) if r.expired > 0 => {
+                        tracing::info!(target: "pas::backfill", ?r, "offers moved on")
+                    }
+                    Ok(_) => {}
+                    Err(e) => tracing::warn!(target: "pas::backfill", "offer scan failed: {e}"),
+                }
+            }
+        });
+    }
+
     // The reminder ladder (CAP-13) replaces the single reminder: PAS_REMINDER_LADDER=true. Steps via
     // PAS_REMINDER_STEPS (default main=7d,second=4d,call=3d,final=24h).
     if std::env::var("PAS_REMINDER_LADDER").as_deref() == Ok("true") {

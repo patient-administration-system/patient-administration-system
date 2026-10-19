@@ -258,6 +258,14 @@ fn default_wording(name: &str, locale: &str) -> Option<(&'static str, &'static s
             "Nodyn atgoffa apwyntiad",
             "Helo {{ patient.name.given | default(value=\"\") }}, dyma nodyn i'ch atgoffa o'ch apwyntiad ar {{ appointment.when }}. Methu dod? Dywedwch wrthym nawr er mwyn i rywun arall gael y slot. Atebwch IE i gadarnhau, NA i ganslo neu NEWID i'w newid.{% if reply_url %} Neu tapiwch: {{ reply_url }}{% endif %}",
         )),
+        ("slot_offer", "en") => Some((
+            "An appointment has become free",
+            "Hello {{ patient.name.given | default(value=\"\") }}, an appointment has become free on {{ offer.when }}. You asked to be told. It is yours if you take it in the next {{ offer.minutes }} minutes: {{ offer_url }}",
+        )),
+        ("slot_offer", "cy") => Some((
+            "Mae apwyntiad ar gael",
+            "Helo {{ patient.name.given | default(value=\"\") }}, mae apwyntiad ar gael ar {{ offer.when }}. Gofynnoch i ni roi gwybod i chi. Eich un chi yw os byddwch yn ei gymryd yn y {{ offer.minutes }} munud nesaf: {{ offer_url }}",
+        )),
         ("appointment_reminder_second", "en") => Some((
             "Appointment reminder",
             "Hello {{ patient.name.given | default(value=\"\") }}, we have not heard back about your appointment on {{ appointment.when }}. Reply Y to confirm, N to cancel or R to change it.{% if reply_url %} Or tap: {{ reply_url }}{% endif %}",

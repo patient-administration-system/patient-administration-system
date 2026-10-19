@@ -131,5 +131,12 @@
   "link.used": "Ce lien a déjà été utilisé. Si vous devez modifier votre rendez-vous, veuillez nous appeler.",
   "link.expired": "Ce lien a expiré. Si vous devez modifier votre rendez-vous, veuillez nous appeler.",
   "link.invalid": "Ce lien n'est pas valide. Vérifiez que vous avez ouvert le lien en entier, ou appelez-nous.",
-  "link.unavailable": "Nous ne pouvons pas afficher cette page pour le moment. Réessayez dans quelques minutes ou appelez-nous."
+  "link.unavailable": "Nous ne pouvons pas afficher cette page pour le moment. Réessayez dans quelques minutes ou appelez-nous.",
+  "offer.title": "Un rendez-vous s'est libéré",
+  "offer.body": "Un rendez-vous est libre le {when}. Le souhaitez-vous ?",
+  "offer.accept": "Oui, je le prends",
+  "offer.decline": "Non, merci",
+  "offer.done.accepted": "Merci. Votre rendez-vous est le {when}.",
+  "offer.done.declined": "Merci de nous avoir prévenus.",
+  "offer.done.gone": "Désolé, ce rendez-vous vient d'être pris."
 }

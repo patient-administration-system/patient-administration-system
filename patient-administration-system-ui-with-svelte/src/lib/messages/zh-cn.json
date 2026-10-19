@@ -131,5 +131,12 @@
   "link.used": "此链接已被使用。如需更改预约，请致电我们。",
   "link.expired": "此链接已过期。如需更改预约，请致电我们。",
   "link.invalid": "此链接无效。请确认您打开了完整的链接，或致电我们。",
-  "link.unavailable": "我们暂时无法显示此页面。请几分钟后重试，或致电我们。"
+  "link.unavailable": "我们暂时无法显示此页面。请几分钟后重试，或致电我们。",
+  "offer.title": "有预约空出来了",
+  "offer.body": "{when} 有一个预约空出。您想要吗？",
+  "offer.accept": "是，我要",
+  "offer.decline": "不，谢谢",
+  "offer.done.accepted": "谢谢。您的预约时间是 {when}。",
+  "offer.done.declined": "谢谢您告知我们。",
+  "offer.done.gone": "抱歉，该预约刚刚被预订。"
 }

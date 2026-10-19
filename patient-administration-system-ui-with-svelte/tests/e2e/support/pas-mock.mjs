@@ -12,6 +12,7 @@ const actors = [];
 // Reply links (CAP-13): any 64-hex token is a fresh, open link until it is acted on once. `0`s is unknown and
 // `e`s is expired. Every action that really changes something is recorded at /__acts.
 const links = new Map();
+const offers = new Map();
 const acts = [];
 const ISSUER_URL = process.env.ISSUER_URL ?? null;
 const ISSUER = "authentication-service";
@@ -69,6 +70,33 @@ http
         res.statusCode = 401;
         return res.end(JSON.stringify({ success: false, error: { code: "UNAUTHORIZED", message: "invalid or expired token" } }));
       }
+    }
+    // PILOT-8: backfill offers. A token starting "eeee" is expired, "9999" lost the slot when accepted.
+    const offer = /^\/api\/offer-links\/([^/]+)(?:\/([a-z]+))?$/.exec(url.pathname);
+    if (offer) {
+      const [, token, action] = offer;
+      if (!/^[0-9a-f]{64}$/.test(token) || /^0+$/.test(token)) {
+        res.statusCode = 404;
+        return res.end(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "this link is not valid" } }));
+      }
+      const state = offers.get(token) ? "used" : token.startsWith("eeee") ? "expired" : "open";
+      if (req.method === "GET") {
+        return res.end(envelope({ state, starts_at: state === "open" ? "2026-11-05T14:00:00Z" : null, time_zone: "Europe/London", expires_at: null, actions: state === "open" ? ["accept", "decline"] : [] }));
+      }
+      if (state === "used") {
+        res.statusCode = 409;
+        return res.end(JSON.stringify({ success: false, error: { code: "CONFLICT", message: "this offer has already been answered" } }));
+      }
+      if (state === "expired") {
+        res.statusCode = 400;
+        return res.end(JSON.stringify({ success: false, error: { code: "VALIDATION", message: "this offer has expired" } }));
+      }
+      offers.set(token, action);
+      acts.push({ token, action: `offer-${action}` });
+      if (action === "accept" && token.startsWith("9999")) return res.end(envelope({ status: "gone", starts_at: null, time_zone: "Europe/London" }));
+      return res.end(
+        envelope(action === "accept" ? { status: "accepted", starts_at: "2026-11-05T14:00:00Z", time_zone: "Europe/London" } : { status: "declined", starts_at: null, time_zone: "Europe/London" }),
+      );
     }
     const link = /^\/api\/reply-links\/([^/]+)(?:\/([a-z]+))?$/.exec(url.pathname);
     if (link) {
