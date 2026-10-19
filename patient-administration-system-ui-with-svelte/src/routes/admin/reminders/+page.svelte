@@ -12,14 +12,14 @@
 <p>{t("admin.intro")}</p>
 <p>
   {t("admin.variables")}
-  <code>{"{{ patient.name.given }}"}</code>, <code>{"{{ appointment.start }}"}</code>,
+  <code>{"{{ patient.name.given }}"}</code>, <code>{"{{ appointment.when }}"}</code>, <code>{"{{ appointment.start }}"}</code>,
   <code>{"{{ appointment.reason }}"}</code>, <code>{"{{ portal_url }}"}</code>
 </p>
 
 {#each data.templates as t0 (t0.id)}
   <form method="POST" action="?/save" use:enhance>
     <fieldset>
-      <legend>{t0.name}</legend>
+      <legend>{t0.name} <span lang={t0.locale.split("-")[0]}>({t0.locale})</span></legend>
       {#if form?.id === t0.id && form?.messageKey}<p class="error" role="alert">{t(form.messageKey)}</p>{/if}
       {#if form?.id === t0.id && form?.saved}<p role="status">{t("admin.saved")}</p>{/if}
       <input type="hidden" name="id" value={t0.id} />

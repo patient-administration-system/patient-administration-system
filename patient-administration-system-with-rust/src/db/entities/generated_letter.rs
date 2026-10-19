@@ -16,6 +16,7 @@ pub struct Model {
     pub channel: String,
     pub status: String,
     pub sent_at: Option<DateTimeWithTimeZone>,
+    pub locale: Option<String>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

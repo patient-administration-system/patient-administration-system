@@ -326,3 +326,5 @@ message_optouts,opted_out_at,none,"Not personal data (structure, status, timesta
 message_optouts,resumed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 message_optouts,source,none,"Not personal data (structure, status, timestamps, places, templates)",record
 message_optouts,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+generated_letters,locale,none,"Not personal data (structure, status, timestamps, places, templates)",record
+letter_templates,locale,none,"Not personal data (structure, status, timestamps, places, templates)",record

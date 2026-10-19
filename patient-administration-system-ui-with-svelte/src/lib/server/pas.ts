@@ -75,6 +75,8 @@ export interface LetterTemplate {
   required_variables: string[];
   channels: string[];
   active: boolean;
+  /** The language of this variant, such as en-001 or cy-001. */
+  locale: string;
   created_at: string;
   updated_at: string;
 }

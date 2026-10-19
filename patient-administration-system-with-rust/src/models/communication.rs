@@ -52,8 +52,16 @@ pub struct LetterTemplate {
     pub required_variables: Vec<String>,
     pub channels: Vec<DeliveryChannel>,
     pub active: bool,
+    /// The language of this variant: `en-001`, `cy-001`. Templates with the same `name` are the
+    /// language variants of one message (see `communication::templates`).
+    #[serde(default = "default_locale")]
+    pub locale: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+fn default_locale() -> String {
+    "en-001".to_string()
 }
 
 impl LetterTemplate {
@@ -67,6 +75,7 @@ impl LetterTemplate {
             required_variables: Vec::new(),
             channels: vec![DeliveryChannel::Print],
             active: true,
+            locale: default_locale(),
             created_at: now,
             updated_at: now,
         }
@@ -84,6 +93,9 @@ pub struct GeneratedLetter {
     pub channel: DeliveryChannel,
     pub status: LetterStatus,
     pub sent_at: Option<DateTime<Utc>>,
+    /// Which language variant was used, so a patient's message can be shown in what they were sent.
+    #[serde(default)]
+    pub locale: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -107,6 +119,7 @@ impl GeneratedLetter {
             channel,
             status: LetterStatus::Pending,
             sent_at: None,
+            locale: None,
             created_at: now,
             updated_at: now,
         }

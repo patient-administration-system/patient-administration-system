@@ -65,32 +65,58 @@ impl ReminderService {
         self
     }
 
-    /// Insert the default template when no active one exists. Admins edit it
-    /// afterwards via `PUT /api/letter-templates/{id}`.
-    pub async fn ensure_default_template(&self) -> Result<LetterTemplate> {
-        if let Some(t) =
-            LetterRepository::find_active_template_by_name(&self.db, REMINDER_TEMPLATE_NAME).await?
-        {
-            return Ok(t);
+    /// Make sure the reminder has an active variant for every required language, adding the default
+    /// wording for any that is missing. Administrators edit them afterwards (`PUT
+    /// /api/letter-templates/{id}`); a variant they have written is never replaced.
+    pub async fn ensure_default_templates(&self) -> Result<Vec<LetterTemplate>> {
+        let required = super::templates::required_locales();
+        let mut present =
+            LetterRepository::list_active_by_name(&self.db, REMINDER_TEMPLATE_NAME).await?;
+        for locale in &required {
+            if present.iter().any(|t| &t.locale == locale) {
+                continue;
+            }
+            let Some((subject, body)) = default_wording(locale) else {
+                continue;
+            };
+            let mut t = LetterTemplate::new(
+                REMINDER_TEMPLATE_NAME.to_string(),
+                subject.to_string(),
+                body.to_string(),
+            );
+            t.locale = locale.clone();
+            t.channels = vec![
+                DeliveryChannel::WhatsApp,
+                DeliveryChannel::AppleMessages,
+                DeliveryChannel::Sms,
+                DeliveryChannel::Email,
+            ];
+            // A sibling's channels win, so the variants of one message always offer the same channels.
+            if let Some(first) = present.first() {
+                t.channels = first.channels.clone();
+            }
+            present.push(LetterRepository::create_template(&self.db, &t).await?);
         }
-        let mut t = LetterTemplate::new(
-            REMINDER_TEMPLATE_NAME.to_string(),
-            "Appointment reminder".to_string(),
-            "Hello {{ patient.name.given | default(value=\"\") }}, this is a reminder of your \
-             appointment on {{ appointment.start }}. Please contact us if you cannot attend."
-                .to_string(),
-        );
-        t.channels = vec![
-            DeliveryChannel::WhatsApp,
-            DeliveryChannel::AppleMessages,
-            DeliveryChannel::Sms,
-            DeliveryChannel::Email,
-        ];
-        LetterRepository::create_template(&self.db, &t).await
+        Ok(present)
+    }
+
+    /// The default-language variant (English unless `PAS_REQUIRED_LOCALES` says otherwise).
+    pub async fn ensure_default_template(&self) -> Result<LetterTemplate> {
+        let all = self.ensure_default_templates().await?;
+        let required = super::templates::required_locales();
+        super::templates::choose(&all, None, &required)
+            .cloned()
+            .ok_or_else(|| Error::internal("no reminder template could be created"))
     }
 
     pub async fn run_once(&self, now: DateTime<Utc>, lead: Duration) -> Result<ReminderReport> {
-        let template = self.ensure_default_template().await?;
+        let templates = self.ensure_default_templates().await?;
+        let required = super::templates::required_locales();
+        let ids: Vec<uuid::Uuid> = templates.iter().map(|t| t.id).collect();
+        let channels = templates
+            .first()
+            .map(|t| t.channels.clone())
+            .unwrap_or_default();
         let appointments =
             AppointmentRepository::list_booked_starting_between(&self.db, now, now + lead).await?;
         let mut report = ReminderReport {
@@ -99,22 +125,39 @@ impl ReminderService {
         };
         let ctx = UserContext::system();
         for a in appointments {
-            if LetterRepository::exists_for_appointment(&self.db, a.id, template.id).await? {
+            // Any language variant counts: the patient was reminded either way.
+            let mut already = false;
+            let mut failed = 0;
+            for id in &ids {
+                already |= LetterRepository::exists_for_appointment(&self.db, a.id, *id).await?;
+                failed +=
+                    LetterRepository::count_failed_for_appointment(&self.db, a.id, *id).await?;
+            }
+            if already {
                 report.skipped_already_reminded += 1;
                 continue;
             }
-            if LetterRepository::count_failed_for_appointment(&self.db, a.id, template.id).await?
-                >= MAX_FAILED_ATTEMPTS
-            {
+            if failed >= MAX_FAILED_ATTEMPTS {
                 tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "giving up after {MAX_FAILED_ATTEMPTS} failed attempts");
                 report.gave_up += 1;
                 continue;
             }
+            // The patient's language picks the variant; `when` reads in that language and the clinic's
+            // time zone, which is how they will read it (the RFC 3339 `start` stays for templates that want it).
+            let language = crate::contact::preferred_language(&self.db, a.person_id).await?;
+            let Some(template) =
+                super::templates::choose(&templates, language.as_deref(), &required)
+            else {
+                report.skipped_no_channel += 1;
+                continue;
+            };
+            let lang = crate::inbound::messages::Lang::from_preference(Some(&template.locale));
             let extra = serde_json::json!({
                 "appointment": {
                     "id": a.id,
                     "start": a.start_datetime.to_rfc3339(),
                     "end": a.end_datetime.to_rfc3339(),
+                    "when": crate::inbound::messages::when(a.start_datetime, lang, crate::inbound::messages::timezone()),
                     "reason": a.reason,
                 }
             });
@@ -124,7 +167,7 @@ impl ReminderService {
             let preferred = crate::contact::preferred_channel(&self.db, a.person_id)
                 .await?
                 .and_then(|c| crate::db::repositories::letter::delivery_channel_from_str(&c).ok());
-            for channel in &prefer_first(&template.channels, preferred) {
+            for channel in &prefer_first(&channels, preferred) {
                 if !self.communication.channel_ready(*channel) {
                     continue;
                 }
@@ -194,6 +237,22 @@ impl ReminderService {
             }
         }
         Ok(report)
+    }
+}
+
+/// The wording a missing variant starts with: `(subject, body)`. **The Welsh is a first draft and needs
+/// review by a fluent speaker before any pilot.** Both tell the patient how to reply (PILOT-4).
+fn default_wording(locale: &str) -> Option<(&'static str, &'static str)> {
+    match crate::communication::templates::primary(locale).as_str() {
+        "en" => Some((
+            "Appointment reminder",
+            "Hello {{ patient.name.given | default(value=\"\") }}, this is a reminder of your appointment on {{ appointment.when }}. Reply Y to confirm, N to cancel or R to change it.",
+        )),
+        "cy" => Some((
+            "Nodyn atgoffa apwyntiad",
+            "Helo {{ patient.name.given | default(value=\"\") }}, dyma nodyn i'ch atgoffa o'ch apwyntiad ar {{ appointment.when }}. Atebwch IE i gadarnhau, NA i ganslo neu NEWID i'w newid.",
+        )),
+        _ => None,
     }
 }
 

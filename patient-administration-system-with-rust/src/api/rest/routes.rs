@@ -193,6 +193,14 @@ pub fn router(state: AppState) -> Router {
             "/api/write-back/batch",
             post(handlers_writeback::post_batch),
         )
+        .route(
+            "/api/letter-template-groups",
+            post(handlers_letters::create_group),
+        )
+        .route(
+            "/api/letter-templates/check-sms",
+            post(handlers_letters::check_sms),
+        )
         .route("/api/write-back/texts", post(handlers_writeback::post_text))
         .route(
             "/api/inbound-texts/open",

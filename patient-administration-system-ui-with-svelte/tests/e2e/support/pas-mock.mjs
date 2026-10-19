@@ -131,6 +131,7 @@ http
             required_variables: [],
             channels: ["whatsapp", "sms"],
             active: true,
+            locale: "en-001",
             created_at: "2026-10-01T00:00:00Z",
             updated_at: "2026-10-01T00:00:00Z",
           },

@@ -12,7 +12,7 @@ use axum::{
 use chrono::{Duration, Utc};
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::communication::reminders::{
-    MAX_FAILED_ATTEMPTS, REMINDER_TEMPLATE_NAME, ReminderService,
+    MAX_FAILED_ATTEMPTS, ReminderService,
 };
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::letter::LetterRepository;
@@ -174,10 +174,7 @@ async fn when_every_channel_fails_the_reminder_gives_up_after_the_cap_instead_of
     );
     let last = svc.run_once(Utc::now(), Duration::hours(24)).await.unwrap();
     assert!(last.gave_up >= 1, "the report says it gave up");
-    let template = LetterRepository::find_active_template_by_name(&s.db, REMINDER_TEMPLATE_NAME)
-        .await
-        .unwrap()
-        .unwrap();
+    let template = svc.ensure_default_template().await.unwrap();
     assert!(
         LetterRepository::count_failed_for_appointment(&s.db, a.id, template.id)
             .await
@@ -264,11 +261,16 @@ async fn invalid_template_syntax_is_refused_on_create_and_on_update_and_nothing_
         app.clone(),
         "POST",
         "/api/letter-templates",
-        Some(template_json(
-            &name,
-            "Hello {{ patient.name.given }}",
-            "See you at {{ appointment.start }}",
-        )),
+        Some({
+            // Inactive: an active template needs every required language (CAP-9, tested elsewhere).
+            let mut t = template_json(
+                &name,
+                "Hello {{ patient.name.given }}",
+                "See you at {{ appointment.start }}",
+            );
+            t["active"] = serde_json::json!(false);
+            t
+        }),
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
@@ -297,6 +299,7 @@ async fn invalid_template_syntax_is_refused_on_create_and_on_update_and_nothing_
     // A valid edit goes through.
     let mut good = template_json(&name, "Hello", "New wording {{ patient.name.given }}");
     good["id"] = serde_json::json!(id);
+    good["active"] = serde_json::json!(false);
     let (st, _) = call(
         app,
         "PUT",

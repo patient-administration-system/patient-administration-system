@@ -23,6 +23,8 @@ pub mod consent;
 pub mod reminders;
 pub mod sender;
 pub mod sms;
+pub mod sms_length;
+pub mod templates;
 
 pub use sender::{LogMessageSender, MessageSender, SmsSender};
 pub use sms::{LogSmsProvider, NoopSmsProvider, SmsProvider};
@@ -251,6 +253,7 @@ impl CommunicationService {
             rendered_body,
         );
         letter.appointment_id = appointment_id;
+        letter.locale = Some(template.locale.clone());
 
         // 6. Persist + audit + outbox in one DB tx.
         let ctx_clone = ctx.clone();

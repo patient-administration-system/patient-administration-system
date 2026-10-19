@@ -14,6 +14,7 @@ use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
+use crate::communication::templates;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUserContext};
 use crate::db::repositories::letter::LetterRepository;
 use crate::models::communication::{DeliveryChannel, LetterTemplate};
@@ -49,6 +50,22 @@ pub async fn create_template(
 ) -> HandlerResult {
     if let Err(e) = crate::communication::validate_template_syntax(&body.subject, &body.body_tera) {
         return error_to_response(e);
+    }
+    if let Err(e) = templates::validate_locale(&body.locale) {
+        return error_to_response(e);
+    }
+    if body.active {
+        // An active template must come with every required language (CAP-9).
+        let locales =
+            match templates::active_locales_after(&state.db, &body.name, Some(&body)).await {
+                Ok(l) => l,
+                Err(e) => return error_to_response(e),
+            };
+        if let Err(e) =
+            templates::check_complete(&body.name, &locales, &templates::required_locales())
+        {
+            return error_to_response(e);
+        }
     }
     if body.id == Uuid::nil() {
         body.id = Uuid::new_v4();
@@ -86,6 +103,20 @@ pub async fn update_template(
     body.id = id;
     if let Err(e) = crate::communication::validate_template_syntax(&body.subject, &body.body_tera) {
         return error_to_response(e);
+    }
+    if let Err(e) = templates::validate_locale(&body.locale) {
+        return error_to_response(e);
+    }
+    // After this edit the group must still be empty of active variants or have every required language.
+    match templates::active_locales_after(&state.db, &body.name, Some(&body)).await {
+        Ok(locales) => {
+            if let Err(e) =
+                templates::check_complete(&body.name, &locales, &templates::required_locales())
+            {
+                return error_to_response(e);
+            }
+        }
+        Err(e) => return error_to_response(e),
     }
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let before = LetterRepository::find_template_by_id(&state.db, id).await;
@@ -236,5 +267,147 @@ pub async fn mark_failed(
             ok(serde_json::to_value(l).unwrap_or(Value::Null))
         }
         Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct VariantBody {
+    pub locale: String,
+    pub subject: String,
+    pub body_tera: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GroupBody {
+    pub name: String,
+    #[serde(default)]
+    pub channels: Vec<DeliveryChannel>,
+    #[serde(default)]
+    pub required_variables: Vec<String>,
+    pub variants: Vec<VariantBody>,
+}
+
+/// `POST /api/letter-template-groups`: create every language variant of one message together, or none.
+/// The set must cover every required language (`PAS_REQUIRED_LOCALES`, default English and Welsh). The
+/// answer shows, for each variant, how many text segments it costs: Welsh circumflex letters make a
+/// text cost more than twice as much, and the writer should see that before it goes out.
+pub async fn create_group(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<GroupBody>,
+) -> HandlerResult {
+    use sea_orm::TransactionTrait;
+    let name = body.name.trim().to_string();
+    if name.is_empty() || name.len() > 100 {
+        return error_to_response(Error::validation("name must be 1 to 100 characters"));
+    }
+    let required = templates::required_locales();
+    let mut seen: Vec<String> = Vec::new();
+    for v in &body.variants {
+        if let Err(e) = templates::validate_locale(&v.locale)
+            .and_then(|_| crate::communication::validate_template_syntax(&v.subject, &v.body_tera))
+        {
+            return error_to_response(e);
+        }
+        if seen.contains(&v.locale) {
+            return error_to_response(Error::validation(format!(
+                "locale {} is listed twice",
+                v.locale
+            )));
+        }
+        seen.push(v.locale.clone());
+    }
+    if let Err(e) = templates::check_complete(&name, &seen, &required) {
+        // An empty set is "complete" for an inactive group but is no group at all here.
+        return error_to_response(if seen.is_empty() {
+            Error::validation("variants must not be empty")
+        } else {
+            e
+        });
+    }
+    match LetterRepository::list_active_by_name(&state.db, &name).await {
+        Ok(existing) if !existing.is_empty() => {
+            return error_to_response(Error::conflict(format!(
+                "an active template named {name:?} already exists; edit its variants instead"
+            )));
+        }
+        Ok(_) => {}
+        Err(e) => return error_to_response(e),
+    }
+    let now = chrono::Utc::now();
+    let channels = if body.channels.is_empty() {
+        vec![DeliveryChannel::Print]
+    } else {
+        body.channels.clone()
+    };
+    let made: Vec<LetterTemplate> = body
+        .variants
+        .iter()
+        .map(|v| {
+            let mut t = LetterTemplate::new(name.clone(), v.subject.clone(), v.body_tera.clone());
+            t.locale = v.locale.clone();
+            t.channels = channels.clone();
+            t.required_variables = body.required_variables.clone();
+            t.created_at = now;
+            t.updated_at = now;
+            t
+        })
+        .collect();
+    let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let to_save = made.clone();
+    let saved = state
+        .db
+        .transaction::<_, Vec<LetterTemplate>, Error>(|txn| {
+            Box::pin(async move {
+                let mut out = Vec::new();
+                for t in &to_save {
+                    let s = LetterRepository::create_template(txn, t).await?;
+                    AuditLogRepository::log(
+                        txn,
+                        "letter_template",
+                        s.id,
+                        "create",
+                        None,
+                        Some(serde_json::to_value(&s).unwrap_or_default()),
+                        &ctx,
+                    )
+                    .await?;
+                    out.push(s);
+                }
+                Ok(out)
+            })
+        })
+        .await;
+    match saved {
+        Ok(rows) => {
+            let variants: Vec<Value> = rows
+                .iter()
+                .map(|t| serde_json::json!({ "template": t, "sms": templates::sample_sms(&t.body_tera, &t.locale) }))
+                .collect();
+            ok(serde_json::json!({ "name": name, "variants": variants }))
+        }
+        Err(sea_orm::TransactionError::Connection(c)) => error_to_response(Error::Database(c)),
+        Err(sea_orm::TransactionError::Transaction(e)) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CheckSmsBody {
+    pub body_tera: String,
+    #[serde(default)]
+    pub locale: Option<String>,
+}
+
+/// `POST /api/letter-templates/check-sms`: what a body would cost as a text, rendered with typical
+/// values, with the character that forced the longer encoding named.
+pub async fn check_sms(Json(b): Json<CheckSmsBody>) -> HandlerResult {
+    if let Err(e) = crate::communication::validate_template_syntax("", &b.body_tera) {
+        return error_to_response(e);
+    }
+    match templates::sample_sms(&b.body_tera, b.locale.as_deref().unwrap_or("en-001")) {
+        Some(len) => ok(serde_json::to_value(len).unwrap_or(Value::Null)),
+        None => error_to_response(Error::validation(
+            "the body does not render with typical values, so its length cannot be estimated",
+        )),
     }
 }

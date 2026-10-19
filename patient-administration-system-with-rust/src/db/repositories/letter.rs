@@ -45,6 +45,21 @@ impl LetterRepository {
         m.map(template_from_model).transpose()
     }
 
+    /// Every active variant of a template group, English first by name of locale.
+    pub async fn list_active_by_name<C: ConnectionTrait>(
+        conn: &C,
+        name: &str,
+    ) -> Result<Vec<LetterTemplate>> {
+        let rows = letter_template::Entity::find()
+            .filter(letter_template::Column::Name.eq(name))
+            .filter(letter_template::Column::Active.eq(true))
+            .order_by_asc(letter_template::Column::Locale)
+            .all(conn)
+            .await
+            .map_err(Error::Database)?;
+        rows.into_iter().map(template_from_model).collect()
+    }
+
     /// Replace the editable fields of a template (administrator edit).
     pub async fn update_template<C: ConnectionTrait>(
         conn: &C,
@@ -231,6 +246,7 @@ fn template_to_active_model(t: &LetterTemplate) -> Result<letter_template::Activ
         required_variables: Set(required),
         channels: Set(channels),
         active: Set(t.active),
+        locale: Set(t.locale.clone()),
         created_at: Set(t.created_at.fixed_offset()),
         updated_at: Set(t.updated_at.fixed_offset()),
     })
@@ -247,6 +263,7 @@ fn template_from_model(m: letter_template::Model) -> Result<LetterTemplate> {
         channels: serde_json::from_value(m.channels)
             .map_err(|e| Error::internal(format!("deserialize channels: {e}")))?,
         active: m.active,
+        locale: m.locale,
         created_at: m.created_at.with_timezone(&chrono::Utc),
         updated_at: m.updated_at.with_timezone(&chrono::Utc),
     })
@@ -263,6 +280,7 @@ fn letter_to_active_model(g: &GeneratedLetter) -> generated_letter::ActiveModel 
         channel: Set(delivery_channel_to_str(g.channel).to_string()),
         status: Set(letter_status_to_str(g.status).to_string()),
         sent_at: Set(g.sent_at.map(|t| t.fixed_offset())),
+        locale: Set(g.locale.clone()),
         created_at: Set(g.created_at.fixed_offset()),
         updated_at: Set(g.updated_at.fixed_offset()),
     }
@@ -279,6 +297,7 @@ fn letter_from_model(m: generated_letter::Model) -> Result<GeneratedLetter> {
         channel: delivery_channel_from_str(&m.channel)?,
         status: letter_status_from_str(&m.status)?,
         sent_at: m.sent_at.map(|t| t.with_timezone(&chrono::Utc)),
+        locale: m.locale,
         created_at: m.created_at.with_timezone(&chrono::Utc),
         updated_at: m.updated_at.with_timezone(&chrono::Utc),
     })
@@ -306,6 +325,7 @@ mod tests {
             required_variables: am.required_variables.clone().unwrap(),
             channels: am.channels.clone().unwrap(),
             active: am.active.clone().unwrap(),
+            locale: am.locale.clone().unwrap(),
             created_at: am.created_at.clone().unwrap(),
             updated_at: am.updated_at.clone().unwrap(),
         };

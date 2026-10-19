@@ -15,6 +15,7 @@ mod m20260606_000011_communication_profiles;
 mod m20260607_000012_barrier_codes;
 mod m20260608_000013_inbound_texts;
 mod m20260609_000014_message_optouts;
+mod m20260610_000015_template_locales;
 
 pub struct Migrator;
 
@@ -36,6 +37,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260607_000012_barrier_codes::Migration),
             Box::new(m20260608_000013_inbound_texts::Migration),
             Box::new(m20260609_000014_message_optouts::Migration),
+            Box::new(m20260610_000015_template_locales::Migration),
         ]
     }
 }

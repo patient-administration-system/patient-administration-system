@@ -4,9 +4,7 @@ mod common;
 
 use chrono::{Duration, Utc};
 use patient_administration_system::communication::LogMessageSender;
-use patient_administration_system::communication::reminders::{
-    REMINDER_TEMPLATE_NAME, ReminderService,
-};
+use patient_administration_system::communication::reminders::ReminderService;
 use patient_administration_system::db::entities::generated_letter;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::letter::LetterRepository;
@@ -93,11 +91,11 @@ async fn reminders_send_once_skip_unreachable_and_ignore_far_future() {
         "outside the lead window"
     );
 
-    let template =
-        LetterRepository::find_active_template_by_name(&state.db, REMINDER_TEMPLATE_NAME)
-            .await
-            .unwrap()
-            .expect("default template was created");
+    // The patient has no language preference, so the English variant is the one used.
+    let template = ReminderService::new(state.db.clone(), state.communication.clone())
+        .ensure_default_template()
+        .await
+        .unwrap();
     assert!(
         LetterRepository::exists_for_appointment(&state.db, soon.id, template.id)
             .await

@@ -16,6 +16,7 @@ const READ_ATTRS = new Set(["aria-label", "aria-description", "alt", "title", "p
 const TEMPLATE_ALLOW = new Set([
   "{{ patient.name.given }}",
   "{{ appointment.start }}",
+  "{{ appointment.when }}",
   "{{ appointment.reason }}",
   "{{ portal_url }}",
 ]);

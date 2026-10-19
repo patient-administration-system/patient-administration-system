@@ -14,6 +14,7 @@ pub struct Model {
     pub required_variables: serde_json::Value,
     pub channels: serde_json::Value,
     pub active: bool,
+    pub locale: String,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
