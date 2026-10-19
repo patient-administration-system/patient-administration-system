@@ -39,6 +39,7 @@ use super::handlers_resources;
 use super::handlers_scheduling;
 use super::handlers_series;
 use super::handlers_standby;
+use super::handlers_support;
 use super::handlers_virtual;
 use super::handlers_waitlist;
 use super::handlers_writeback;
@@ -258,6 +259,12 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/patients/{id}/contact-log",
             get(handlers_history::contact_log),
+        )
+        .route("/api/support-flags", post(handlers_support::add))
+        .route("/api/support-flags/open", get(handlers_support::open))
+        .route(
+            "/api/support-flags/{id}/resolve",
+            post(handlers_support::resolve),
         )
         .route("/api/follow-up-policies", get(handlers_followup::policies))
         .route(

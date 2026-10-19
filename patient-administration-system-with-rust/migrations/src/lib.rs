@@ -21,6 +21,7 @@ mod m20260612_000017_rebook_offers;
 mod m20260613_000018_virtual_visits;
 mod m20260614_000019_follow_up;
 mod m20260615_000020_audit_reasons;
+mod m20260616_000021_support_flags;
 
 pub struct Migrator;
 
@@ -48,6 +49,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260613_000018_virtual_visits::Migration),
             Box::new(m20260614_000019_follow_up::Migration),
             Box::new(m20260615_000020_audit_reasons::Migration),
+            Box::new(m20260616_000021_support_flags::Migration),
         ]
     }
 }

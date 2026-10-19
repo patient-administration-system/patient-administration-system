@@ -44,6 +44,7 @@ pub mod resources;
 pub mod scheduling;
 pub mod standby;
 pub mod streaming;
+pub mod support;
 pub mod token_issuer;
 pub mod upstream;
 pub mod validation;
