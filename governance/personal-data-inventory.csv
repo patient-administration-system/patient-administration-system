@@ -369,3 +369,15 @@ inbound_replies,modality,none,"Not personal data (structure, status, timestamps,
 virtual_ok_services,service_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
 virtual_ok_services,approved_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 virtual_ok_services,approved_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+follow_up_policies,service_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+follow_up_policies,approved_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+follow_up_policies,approved_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+follow_up_tasks,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+follow_up_tasks,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+follow_up_tasks,person_id,identifier,Link a record to a person held by person-service,record
+follow_up_tasks,service_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+follow_up_tasks,due_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+follow_up_tasks,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+follow_up_tasks,outcome,health,"Administrative care information (why, where, what service, outcome)",record
+follow_up_tasks,closed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+follow_up_tasks,closed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

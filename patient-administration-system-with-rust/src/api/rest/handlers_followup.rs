@@ -1,0 +1,98 @@
+//! REST handlers for human follow-up after a missed appointment (CAP-7).
+
+use axum::{
+    Json,
+    extract::{Path, Query, State},
+    http::{HeaderMap, StatusCode},
+};
+use serde::Deserialize;
+use serde_json::Value;
+use uuid::Uuid;
+
+use crate::api::ApiResponse;
+use crate::api::rest::AppState;
+use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::upstream_proxy::user_context_from_headers;
+use crate::db::repositories::audit::UserContext as RepoUserContext;
+
+fn ok(value: Value) -> HandlerResult {
+    (StatusCode::OK, Json(ApiResponse::ok(value)))
+}
+
+fn ctx(headers: &HeaderMap) -> RepoUserContext {
+    let uc = user_context_from_headers(headers);
+    RepoUserContext {
+        user_id: uc.user_id,
+        user_ip: uc.user_ip,
+        user_agent: uc.user_agent,
+    }
+}
+
+/// `GET /api/follow-up-policies`: the services whose misses always get a person's follow-up.
+pub async fn policies(State(state): State<AppState>) -> HandlerResult {
+    match state.follow_up.policies().await {
+        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApproveBody {
+    pub approved_by: String,
+}
+
+/// `PUT /api/follow-up-policies/{service_type}`: list a service. `approved_by` must name a clinician.
+pub async fn approve_policy(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(service_type): Path<String>,
+    Json(body): Json<ApproveBody>,
+) -> HandlerResult {
+    match state
+        .follow_up
+        .approve_policy(&service_type, &body.approved_by, &ctx(&headers))
+        .await
+    {
+        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OpenQuery {
+    pub limit: Option<i64>,
+}
+
+/// `GET /api/follow-up-tasks/open`: misses waiting for a person, most overdue first.
+pub async fn open_tasks(
+    State(state): State<AppState>,
+    Query(q): Query<OpenQuery>,
+) -> HandlerResult {
+    match state.follow_up.open_tasks(q.limit.unwrap_or(100)).await {
+        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CloseBody {
+    pub outcome: String,
+    pub closed_by: String,
+}
+
+/// `POST /api/follow-up-tasks/{id}/outcome`: a person records what happened, which closes the task.
+pub async fn close_task(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(body): Json<CloseBody>,
+) -> HandlerResult {
+    match state
+        .follow_up
+        .close_task(id, &body.outcome, &body.closed_by, &ctx(&headers))
+        .await
+    {
+        Ok(()) => ok(Value::Null),
+        Err(e) => error_to_response(e),
+    }
+}

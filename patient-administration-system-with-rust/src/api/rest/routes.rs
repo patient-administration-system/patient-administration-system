@@ -30,6 +30,7 @@ use super::handlers_consent;
 use super::handlers_contact;
 use super::handlers_coverage;
 use super::handlers_encounter;
+use super::handlers_followup;
 use super::handlers_hl7v2;
 use super::handlers_letters;
 use super::handlers_links;
@@ -248,6 +249,19 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/appointments/{id}/rebook",
             post(handlers_scheduling::rebook_appointment),
+        )
+        .route("/api/follow-up-policies", get(handlers_followup::policies))
+        .route(
+            "/api/follow-up-policies/{service_type}",
+            put(handlers_followup::approve_policy),
+        )
+        .route(
+            "/api/follow-up-tasks/open",
+            get(handlers_followup::open_tasks),
+        )
+        .route(
+            "/api/follow-up-tasks/{id}/outcome",
+            post(handlers_followup::close_task),
         )
         .route(
             "/api/virtual-ok-services",

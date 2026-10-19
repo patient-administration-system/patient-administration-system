@@ -541,6 +541,8 @@ impl SchedulingService {
                     if let Some(class) = appt.release_class {
                         crate::standby::record_release(txn, &appt, class).await?;
                     }
+                    // On a service a clinician has listed, a miss gets a person's follow-up (CAP-7).
+                    crate::follow_up::on_no_show(txn, &appt, &ctx_clone).await?;
                     AuditLogRepository::log(
                         txn,
                         "appointment",

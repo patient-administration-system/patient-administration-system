@@ -10,6 +10,7 @@ pub mod handlers_consent;
 pub mod handlers_contact;
 pub mod handlers_coverage;
 pub mod handlers_encounter;
+pub mod handlers_followup;
 pub mod handlers_hl7v2;
 pub mod handlers_letters;
 pub mod handlers_links;

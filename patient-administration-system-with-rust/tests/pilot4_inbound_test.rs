@@ -437,6 +437,14 @@ async fn a_message_id_cannot_be_reused_from_another_number_and_bad_input_is_refu
 async fn the_http_endpoint_takes_a_text_and_the_staff_list_is_readable() {
     let s = state().await;
     let num = fresh_number();
+    // The staff list shows the oldest waiting first and stops at 200, so a database that has collected
+    // test texts over many runs would push this test's text off the end. Close the old ones.
+    sea_orm::ConnectionTrait::execute_unprepared(
+        &s.db,
+        "UPDATE inbound_texts SET handled_at = now() WHERE handled_at IS NULL",
+    )
+    .await
+    .unwrap();
     let p = patient(&s, &num, None).await;
     let a = appointment(&s, p, 5, true).await;
     let app = patient_administration_system::api::rest::router(s.clone());
