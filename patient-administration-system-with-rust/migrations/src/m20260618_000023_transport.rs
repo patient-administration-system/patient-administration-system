@@ -52,8 +52,13 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        for t in ["transport_bookings", "transport_consents", "transport_eligibility"] {
-            db.execute_unprepared(&format!("DROP TABLE IF EXISTS {t}")).await?;
+        for t in [
+            "transport_bookings",
+            "transport_consents",
+            "transport_eligibility",
+        ] {
+            db.execute_unprepared(&format!("DROP TABLE IF EXISTS {t}"))
+                .await?;
         }
         Ok(())
     }

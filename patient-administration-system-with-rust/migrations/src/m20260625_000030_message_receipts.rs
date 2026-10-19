@@ -43,7 +43,8 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
         for t in ["contact_problem_resolutions", "message_receipts"] {
-            db.execute_unprepared(&format!("DROP TABLE IF EXISTS {t}")).await?;
+            db.execute_unprepared(&format!("DROP TABLE IF EXISTS {t}"))
+                .await?;
         }
         Ok(())
     }
