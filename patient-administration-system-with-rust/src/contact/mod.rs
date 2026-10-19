@@ -29,8 +29,14 @@ use crate::{Error, Result};
 /// deploying organisation sets its own with `?older_than_days=`.
 pub const DEFAULT_STALE_DAYS: i64 = 365;
 
-pub const ACCESSIBILITY_NEEDS: [&str; 4] =
-    ["easy_read", "large_print", "audio", "british_sign_language"];
+pub const ACCESSIBILITY_NEEDS: [&str; 5] = [
+    "easy_read",
+    "large_print",
+    "audio",
+    "british_sign_language",
+    // No digital message of any kind: letters only (CAS-10). Enforced where every message is generated.
+    "letter_only",
+];
 pub const CHANNELS: [&str; 6] = [
     "print",
     "email",
@@ -515,6 +521,20 @@ pub async fn preferred_channel<C: ConnectionTrait>(
             .ok()
             .flatten()
     }))
+}
+
+/// Has the patient said they can only be reached by letter (CAS-10)?
+pub async fn letter_only<C: ConnectionTrait>(conn: &C, person_id: Uuid) -> Result<bool> {
+    let row = conn
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT 1 AS ok FROM patient_communication_profiles \
+             WHERE person_id = $1 AND 'letter_only' = ANY(accessibility_needs)",
+            [person_id.into()],
+        ))
+        .await
+        .map_err(db_err)?;
+    Ok(row.is_some())
 }
 
 /// The patient's preferred language, if they set one.

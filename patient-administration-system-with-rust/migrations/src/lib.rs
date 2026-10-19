@@ -28,6 +28,9 @@ mod m20260619_000024_person_demographics;
 mod m20260620_000025_slot_offers;
 mod m20260621_000026_attendance;
 mod m20260622_000027_referral_management;
+mod m20260623_000028_print_queue;
+mod m20260624_000029_letter_only;
+mod m20260625_000030_message_receipts;
 
 pub struct Migrator;
 
@@ -62,6 +65,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260620_000025_slot_offers::Migration),
             Box::new(m20260621_000026_attendance::Migration),
             Box::new(m20260622_000027_referral_management::Migration),
+            Box::new(m20260623_000028_print_queue::Migration),
+            Box::new(m20260624_000029_letter_only::Migration),
+            Box::new(m20260625_000030_message_receipts::Migration),
         ]
     }
 }

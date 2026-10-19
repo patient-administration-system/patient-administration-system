@@ -179,6 +179,15 @@ async fn the_stale_list_has_missing_unverified_and_old_numbers_but_not_fresh_one
         Uuid::new_v4(),
         Uuid::new_v4(),
     );
+    // The stale list shows at most 1000, unverified profiles first, so a database that has collected test
+    // profiles over many runs would push this test's own off the end. Clear the others away first.
+    s.db.execute(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "DELETE FROM patient_communication_profiles WHERE mobile_verified_at IS NULL AND person_id <> ALL($1)",
+        [vec![fresh, unverified, old, nomobile].into()],
+    ))
+    .await
+    .unwrap();
     for (p, m) in [
         (fresh, Some("+447700900101")),
         (unverified, Some("+447700900102")),

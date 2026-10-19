@@ -1,0 +1,118 @@
+//! REST handlers for the postal letter print queue (NOT-7).
+
+use axum::{
+    Json,
+    extract::{Path, Query, State},
+    http::{HeaderMap, StatusCode, header},
+    response::{IntoResponse, Response},
+};
+use serde::Deserialize;
+use serde_json::Value;
+use uuid::Uuid;
+
+use crate::api::ApiResponse;
+use crate::api::rest::AppState;
+use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::upstream_proxy::user_context_from_headers;
+use crate::db::repositories::audit::UserContext as RepoUserContext;
+
+fn ctx(headers: &HeaderMap) -> RepoUserContext {
+    let uc = user_context_from_headers(headers);
+    RepoUserContext {
+        user_id: uc.user_id,
+        user_ip: uc.user_ip,
+        user_agent: uc.user_agent,
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct QueueQuery {
+    pub limit: Option<i64>,
+}
+
+/// `GET /api/print-queue`: letters waiting to be posted, oldest first, with the total waiting.
+pub async fn queue(State(state): State<AppState>, Query(q): Query<QueueQuery>) -> HandlerResult {
+    match state.printing.queue(q.limit.unwrap_or(100)).await {
+        Ok((total, items)) => (
+            StatusCode::OK,
+            Json(ApiResponse::ok(
+                serde_json::json!({ "waiting": total, "letters": items }),
+            )),
+        ),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExportBody {
+    pub created_by: String,
+    #[serde(default)]
+    pub limit: Option<i64>,
+    /// `csv` for the mail house's file; JSON otherwise.
+    #[serde(default)]
+    pub format: Option<String>,
+}
+
+/// `POST /api/print-batches`: make a batch of the oldest queued letters that have an address, and return the
+/// export (JSON, or CSV with `"format": "csv"`). The letters stay `pending` until the batch is marked sent.
+pub async fn export(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(b): Json<ExportBody>,
+) -> Response {
+    match state
+        .printing
+        .export_batch(
+            b.limit.unwrap_or(crate::printing::MAX_BATCH),
+            &b.created_by,
+            &ctx(&headers),
+        )
+        .await
+    {
+        Ok(batch) if b.format.as_deref() == Some("csv") => (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, "text/csv; charset=utf-8".to_string()),
+                (
+                    header::HeaderName::from_static("x-batch-id"),
+                    batch.batch_id.to_string(),
+                ),
+            ],
+            batch.to_csv(),
+        )
+            .into_response(),
+        Ok(batch) => (
+            StatusCode::OK,
+            Json(ApiResponse::ok(
+                serde_json::to_value(batch).unwrap_or(Value::Null),
+            )),
+        )
+            .into_response(),
+        Err(e) => error_to_response(e).into_response(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SentBody {
+    pub sent_by: String,
+}
+
+/// `POST /api/print-batches/{id}/sent`: the mail house has the batch. Flips exactly its letters to sent.
+pub async fn mark_sent(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(b): Json<SentBody>,
+) -> HandlerResult {
+    match state
+        .printing
+        .mark_sent(id, &b.sent_by, &ctx(&headers))
+        .await
+    {
+        Ok(n) => (
+            StatusCode::OK,
+            Json(ApiResponse::ok(serde_json::json!({ "letters_sent": n }))),
+        ),
+        Err(e) => error_to_response(e),
+    }
+}

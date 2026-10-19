@@ -338,7 +338,14 @@ async fn the_http_endpoint_works_and_refuses_unknown_dimensions() {
     let (st, body) = get("/api/analytics/refill-rates?group_by=specialty".into()).await;
     assert_eq!(st, StatusCode::OK, "{body}");
     assert!(body.contains(&a));
-    let (st, csv) = get("/api/analytics/refill-rates?group_by=specialty&format=csv".into()).await;
+    // An explicit end a little ahead, so a database clock a moment ahead of this one cannot hide the releases.
+    let to = (Utc::now() + Duration::hours(1))
+        .to_rfc3339()
+        .replace('+', "%2B");
+    let (st, csv) = get(format!(
+        "/api/analytics/refill-rates?group_by=specialty&format=csv&to={to}"
+    ))
+    .await;
     assert_eq!(st, StatusCode::OK);
     assert!(csv.starts_with("specialty,resolved,refilled,refill_rate,early_release_share\n"));
     assert!(csv.contains(&format!("{a},12,12,1.000,1.000")), "{csv}");

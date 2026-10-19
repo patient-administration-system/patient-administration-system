@@ -19,7 +19,7 @@ use crate::db::repositories::audit::UserContext;
 use crate::db::repositories::letter::LetterRepository;
 use crate::models::communication::{DeliveryChannel, LetterTemplate};
 use crate::{Error, Result};
-use sea_orm::DatabaseConnection;
+use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 
 /// Name administrators edit to change the reminder wording.
 pub const REMINDER_TEMPLATE_NAME: &str = "appointment_reminder";
@@ -41,12 +41,15 @@ pub struct ReminderReport {
     pub deferred_quiet_hours: usize,
     /// Left unsent because the patient has opted out of every channel that could reach them.
     pub skipped_opted_out: usize,
+    /// Failed before and not yet due for another try (NOT-4).
+    pub backing_off: usize,
 }
 
 pub struct ReminderService {
     db: DatabaseConnection,
     communication: Arc<CommunicationService>,
     quiet_hours: Option<super::consent::QuietHours>,
+    backoff: bool,
 }
 
 impl ReminderService {
@@ -55,7 +58,15 @@ impl ReminderService {
             db,
             communication,
             quiet_hours: None,
+            backoff: true,
         }
+    }
+
+    /// Retry failed reminders at once on every scan instead of backing off. For tests of the retry cap; the
+    /// server always backs off (see [`crate::receipts::retry_delay`]).
+    pub fn without_backoff(mut self) -> Self {
+        self.backoff = false;
+        self
     }
 
     /// Hold text-style channels back during these hours (clinic time, `PAS_TIMEZONE`). The server sets
@@ -142,6 +153,26 @@ impl ReminderService {
                 tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "giving up after {MAX_FAILED_ATTEMPTS} failed attempts");
                 report.gave_up += 1;
                 continue;
+            }
+            // A reminder that failed is tried again after a growing delay, not on every scan (NOT-4).
+            if self.backoff && failed > 0 {
+                let last: Option<DateTime<Utc>> = self
+                    .db
+                    .query_one(Statement::from_sql_and_values(
+                        DbBackend::Postgres,
+                        "SELECT max(updated_at) AS t FROM generated_letters \
+                         WHERE appointment_id = $1 AND status = 'failed' AND template_id = ANY($2)",
+                        [a.id.into(), ids.clone().into()],
+                    ))
+                    .await
+                    .map_err(crate::Error::Database)?
+                    .and_then(|r| r.try_get("", "t").ok());
+                if let Some(last) = last
+                    && now < last + crate::receipts::retry_delay(failed)
+                {
+                    report.backing_off += 1;
+                    continue;
+                }
             }
             // The patient's language picks the variant; `when` reads in that language and the clinic's
             // time zone, which is how they will read it (the RFC 3339 `start` stays for templates that want it).

@@ -156,7 +156,8 @@ async fn when_every_channel_fails_the_reminder_gives_up_after_the_cap_instead_of
         ("email", DeliveryChannel::Email, false),
     ])
     .await;
-    let svc = ReminderService::new(s.db.clone(), s.communication.clone());
+    // Without the back-off, so each scan tries again at once and the cap is reached quickly.
+    let svc = ReminderService::new(s.db.clone(), s.communication.clone()).without_backoff();
     for _ in 0..8 {
         svc.run_once(Utc::now(), Duration::hours(24)).await.unwrap();
     }
@@ -203,7 +204,7 @@ async fn call(
     let st = r.status();
     (
         st,
-        serde_json::from_slice(&to_bytes(r.into_body(), 4 << 20).await.unwrap())
+        serde_json::from_slice(&to_bytes(r.into_body(), 256 << 20).await.unwrap())
             .unwrap_or(serde_json::Value::Null),
     )
 }

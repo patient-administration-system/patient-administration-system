@@ -446,3 +446,23 @@ referrals,external_ref,identifier,Link a record to a person held by person-servi
 referrals,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
 referrals,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 appointments,referral_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_receipts,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_receipts,letter_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_receipts,event,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_receipts,carrier,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_receipts,receipt_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_receipts,detail,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_receipts,occurred_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_receipts,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+contact_problem_resolutions,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+contact_problem_resolutions,person_id,identifier,Link a record to a person held by person-service,record
+contact_problem_resolutions,resolved_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+contact_problem_resolutions,note,free-text,A short note a person wrote about fixing the contact details,audit-or-message
+contact_problem_resolutions,resolved_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+print_batches,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+print_batches,created_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+print_batches,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+print_batches,sent_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+print_batches,sent_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+print_batch_letters,batch_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+print_batch_letters,letter_id,none,"Not personal data (structure, status, timestamps, places, templates)",record

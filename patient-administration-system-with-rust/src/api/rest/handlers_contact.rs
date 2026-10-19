@@ -199,3 +199,25 @@ pub async fn remove_optout(
         Err(e) => error_to_response(e),
     }
 }
+
+#[derive(Debug, Deserialize)]
+pub struct NhsNumberBody {
+    pub value: String,
+}
+
+/// `POST /api/validate/nhs-number` (DTAC-8): check an NHS number's format and modulus-11 check digit. It says
+/// whether the number is well formed, not whether it is issued or belongs to anyone (that needs a PDS trace,
+/// see `governance/pds-decision.md`). Stores nothing.
+pub async fn validate_nhs_number(Json(b): Json<NhsNumberBody>) -> HandlerResult {
+    match crate::validation::validate_nhs_number(&b.value) {
+        Ok(n) => (
+            StatusCode::OK,
+            Json(ApiResponse::ok(serde_json::json!({
+                "valid": true,
+                "digits": n,
+                "formatted": crate::validation::format_nhs_number(&n),
+            }))),
+        ),
+        Err(e) => error_to_response(e),
+    }
+}

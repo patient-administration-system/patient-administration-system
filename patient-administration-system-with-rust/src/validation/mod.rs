@@ -86,3 +86,118 @@ pub fn normalize_phone(s: &str) -> String {
     }
     out
 }
+
+/// The FHIR identifier system for an NHS number.
+pub const NHS_NUMBER_SYSTEM: &str = "https://fhir.nhs.uk/Id/nhs-number";
+
+/// Check an NHS number (DTAC-8): ten digits whose last is the modulus-11 check digit of the first nine
+/// (weights 10 down to 2; `11 - (sum mod 11)`, where 11 becomes 0 and 10 makes the number invalid). Spaces and
+/// hyphens are allowed in the input. Returns the ten digits. It checks the number is well formed; it does not
+/// say the number is issued or belongs to this patient (that needs a PDS trace, which the PAS does not do:
+/// see `governance/pds-decision.md`).
+pub fn validate_nhs_number(raw: &str) -> Result<String> {
+    let digits: String = raw.chars().filter(|c| !matches!(c, ' ' | '-')).collect();
+    if digits.len() != 10 || !digits.chars().all(|c| c.is_ascii_digit()) {
+        return Err(Error::validation("an NHS number is ten digits"));
+    }
+    let d: Vec<u32> = digits.chars().filter_map(|c| c.to_digit(10)).collect();
+    let sum: u32 = d[..9].iter().zip((2..=10).rev()).map(|(x, w)| x * w).sum();
+    let check = match 11 - (sum % 11) {
+        11 => 0,
+        10 => return Err(Error::validation("that is not a valid NHS number")),
+        c => c,
+    };
+    if check != d[9] {
+        return Err(Error::validation(
+            "that is not a valid NHS number (the check digit does not match)",
+        ));
+    }
+    Ok(digits)
+}
+
+/// The NHS number written the usual way, `943 476 5919`. The input must already be valid.
+pub fn format_nhs_number(valid: &str) -> String {
+    format!("{} {} {}", &valid[..3], &valid[3..6], &valid[6..])
+}
+
+/// Refuse a person body whose `identifiers` carry an NHS number that fails the check (DTAC-8). Other
+/// identifiers, and bodies with none, pass untouched.
+pub fn check_person_identifiers(fields: &serde_json::Map<String, serde_json::Value>) -> Result<()> {
+    let Some(ids) = fields.get("identifiers").and_then(|v| v.as_array()) else {
+        return Ok(());
+    };
+    for id in ids {
+        if id.get("system").and_then(|v| v.as_str()) == Some(NHS_NUMBER_SYSTEM) {
+            let value = id.get("value").and_then(|v| v.as_str()).unwrap_or("");
+            validate_nhs_number(value)?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod nhs_number_tests {
+    use super::*;
+
+    #[test]
+    fn test_known_valid_numbers_pass_with_or_without_spaces() {
+        // 943 476 5919 is the example in the NHS number specification.
+        assert_eq!(validate_nhs_number("9434765919").unwrap(), "9434765919");
+        assert_eq!(validate_nhs_number("943 476 5919").unwrap(), "9434765919");
+        assert_eq!(validate_nhs_number("943-476-5919").unwrap(), "9434765919");
+        assert_eq!(format_nhs_number("9434765919"), "943 476 5919");
+    }
+
+    #[test]
+    fn test_a_wrong_check_digit_fails() {
+        for n in ["9434765918", "9434765910", "1234567890"] {
+            assert!(validate_nhs_number(n).is_err(), "{n}");
+        }
+    }
+
+    #[test]
+    fn test_a_check_of_eleven_is_zero_and_a_check_of_ten_is_invalid() {
+        // 0000000000: sum 0, 11 - 0 = 11 -> check 0.
+        assert!(validate_nhs_number("0000000000").is_ok());
+        // 9990000000-ish: find a number whose check would be 10 and see it refused whatever the last digit.
+        let mut found = false;
+        for n in 0..2000u32 {
+            let first9 = format!("{n:09}");
+            let d: Vec<u32> = first9.chars().map(|c| c.to_digit(10).unwrap()).collect();
+            let sum: u32 = d.iter().zip((2..=10).rev()).map(|(x, w)| x * w).sum();
+            if 11 - (sum % 11) == 10 {
+                found = true;
+                for last in 0..=9 {
+                    assert!(validate_nhs_number(&format!("{first9}{last}")).is_err());
+                }
+                break;
+            }
+        }
+        assert!(found);
+    }
+
+    #[test]
+    fn test_wrong_length_and_non_digits_fail() {
+        for n in [
+            "",
+            "943476591",
+            "94347659190",
+            "94347659l9",
+            "abcdefghij",
+            "943 476 591",
+        ] {
+            assert!(validate_nhs_number(n).is_err(), "{n}");
+        }
+    }
+
+    #[test]
+    fn test_only_the_nhs_system_is_checked_in_a_person_body() {
+        let bad = serde_json::json!({ "identifiers": [{ "system": NHS_NUMBER_SYSTEM, "value": "9434765918" }] });
+        assert!(check_person_identifiers(bad.as_object().unwrap()).is_err());
+        let good = serde_json::json!({ "identifiers": [{ "system": NHS_NUMBER_SYSTEM, "value": "943 476 5919" }] });
+        assert!(check_person_identifiers(good.as_object().unwrap()).is_ok());
+        let other = serde_json::json!({ "identifiers": [{ "system": "https://example.test/mrn", "value": "not an nhs number" }] });
+        assert!(check_person_identifiers(other.as_object().unwrap()).is_ok());
+        assert!(check_person_identifiers(&serde_json::Map::new()).is_ok());
+    }
+}

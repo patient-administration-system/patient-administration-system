@@ -757,3 +757,41 @@ async fn every_reminder_records_why_it_was_sent_and_the_history_shows_it() {
     );
     assert!(!serde_json::to_string(&log).unwrap().contains("Can't come"));
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_patient_who_prefers_whatsapp_and_welsh_gets_the_welsh_message_on_whatsapp_first() {
+    // NOT-6: channel and language are stored once and used on every channel.
+    let w = world().await;
+    w.s.contact
+        .put(
+            w.person,
+            patient_administration_system::contact::ProfileInput {
+                mobile: None,
+                alternate_name: None,
+                alternate_relationship: None,
+                alternate_phone: None,
+                alternate_email: None,
+                alternate_is_carer: false,
+                alternate_is_emergency: false,
+                preferred_channel: Some("whatsapp".into()),
+                preferred_language: Some("cy-001".into()),
+                accessibility_needs: vec![],
+            },
+            &UserContext::system(),
+        )
+        .await
+        .unwrap();
+    w.ladder().run_once(w.at(D7())).await.unwrap();
+    let log = w.log.lock().unwrap().clone();
+    let first = log
+        .iter()
+        .find(|(_, to, _)| *to == w.phone || *to == w.email)
+        .expect("a message was sent");
+    assert_eq!(first.0, "whatsapp", "the preferred channel goes first");
+    assert!(
+        first.2.contains("Helo") && first.2.contains("atgoffa"),
+        "and it is the Welsh wording: {}",
+        first.2
+    );
+}

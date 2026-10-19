@@ -32,6 +32,8 @@ pub struct AppState {
     pub reply_links: Arc<crate::reply_links::ReplyLinks>,
     pub rebooking: Arc<crate::rebooking::RebookService>,
     pub analytics: Arc<crate::analytics::AnalyticsService>,
+    pub receipts: Arc<crate::receipts::ReceiptService>,
+    pub printing: Arc<crate::printing::PrintService>,
     pub reports: Arc<crate::reports::ReportService>,
     pub referrals: Arc<crate::referrals::ReferralService>,
     pub backfill: Arc<crate::backfill::BackfillService>,
@@ -102,6 +104,8 @@ impl AppState {
             )),
             rebooking,
             analytics: Arc::new(crate::analytics::AnalyticsService::new(db.clone())),
+            receipts: Arc::new(crate::receipts::ReceiptService::new(db.clone())),
+            printing: Arc::new(crate::printing::PrintService::new(db.clone())),
             reports: Arc::new(crate::reports::ReportService::new(db.clone())),
             referrals: Arc::new(crate::referrals::ReferralService::new(
                 db.clone(),
@@ -157,6 +161,7 @@ impl AppState {
                 .with_person_client(client.clone()),
         );
         self.communication_changed();
+        self.printing = Arc::new(self.printing.with_person_client(client.clone()));
         self.transport = Arc::new(self.transport.with_person_client(client.clone()));
         self.scheduling.set_transport(self.transport.clone());
         self.person_client = Some(client);

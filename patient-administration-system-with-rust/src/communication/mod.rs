@@ -287,6 +287,16 @@ impl CommunicationService {
         };
         let person = person_client.get(person_id, &upstream_ctx).await?;
 
+        // 1a. A patient who can only be reached by letter is never sent a text, WhatsApp, email or portal
+        //     message (CAS-10). This is the choke point every message passes through.
+        if channel != DeliveryChannel::Print
+            && crate::contact::letter_only(&self.db, person_id).await?
+        {
+            return Err(Error::conflict(
+                "the recipient can only be contacted by letter",
+            ));
+        }
+
         // 1b. Never send to someone who has opted out of this channel (PILOT-7). This is the choke
         //     point every send passes through, so no caller can skip it.
         let person_json = serde_json::to_value(&person).unwrap_or_default();

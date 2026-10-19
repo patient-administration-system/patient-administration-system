@@ -37,6 +37,8 @@ use super::handlers_hl7v2;
 use super::handlers_letters;
 use super::handlers_links;
 use super::handlers_offers;
+use super::handlers_print;
+use super::handlers_receipts;
 use super::handlers_referrals;
 use super::handlers_reports;
 use super::handlers_resources;
@@ -340,6 +342,32 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/reports/clinic-activity",
             get(handlers_reports::clinic_activity),
+        )
+        .route("/api/print-queue", get(handlers_print::queue))
+        .route("/api/print-batches", post(handlers_print::export))
+        .route(
+            "/api/print-batches/{id}/sent",
+            post(handlers_print::mark_sent),
+        )
+        .route(
+            "/api/validate/nhs-number",
+            post(handlers_contact::validate_nhs_number),
+        )
+        .route(
+            "/api/write-back/receipts",
+            post(handlers_receipts::post_receipt),
+        )
+        .route(
+            "/api/letters/{id}/receipts",
+            get(handlers_receipts::letter_receipts),
+        )
+        .route(
+            "/api/contact-problems",
+            get(handlers_receipts::contact_problems),
+        )
+        .route(
+            "/api/contact-problems/{person_id}/resolve",
+            post(handlers_receipts::resolve_problem),
         )
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))
