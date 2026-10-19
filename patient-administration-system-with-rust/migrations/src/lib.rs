@@ -27,6 +27,7 @@ mod m20260618_000023_transport;
 mod m20260619_000024_person_demographics;
 mod m20260620_000025_slot_offers;
 mod m20260621_000026_attendance;
+mod m20260622_000027_referral_management;
 
 pub struct Migrator;
 
@@ -60,6 +61,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260619_000024_person_demographics::Migration),
             Box::new(m20260620_000025_slot_offers::Migration),
             Box::new(m20260621_000026_attendance::Migration),
+            Box::new(m20260622_000027_referral_management::Migration),
         ]
     }
 }

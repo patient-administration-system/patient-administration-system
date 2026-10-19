@@ -1,0 +1,61 @@
+//! REST handlers for activity and performance reporting (CORE-7).
+
+use axum::{
+    Json,
+    extract::{Query, State},
+    http::{StatusCode, header},
+    response::{IntoResponse, Response},
+};
+use chrono::{DateTime, Utc};
+use serde::Deserialize;
+use serde_json::Value;
+
+use crate::Error;
+use crate::api::ApiResponse;
+use crate::api::rest::AppState;
+use crate::api::rest::handlers::error_to_response;
+use crate::reports::GroupBy;
+
+#[derive(Debug, Deserialize)]
+pub struct ActivityQuery {
+    pub from: Option<DateTime<Utc>>,
+    pub to: Option<DateTime<Utc>>,
+    /// `day` (default) or `schedule`.
+    pub group_by: Option<String>,
+    /// `csv` for CSV; JSON otherwise.
+    pub format: Option<String>,
+}
+
+/// `GET /api/reports/clinic-activity`: appointments by outcome, utilization, lead time and waiting-time
+/// statistics, per day or per schedule. Counts reconcile; an empty range gives zeros. No identifiers.
+pub async fn clinic_activity(
+    State(state): State<AppState>,
+    Query(q): Query<ActivityQuery>,
+) -> Response {
+    let group = match q.group_by.as_deref() {
+        None => GroupBy::Day,
+        Some(g) => match GroupBy::parse(g) {
+            Some(g) => g,
+            None => {
+                return error_to_response(Error::validation("group_by must be day or schedule"))
+                    .into_response();
+            }
+        },
+    };
+    match state.reports.clinic_activity(q.from, q.to, group).await {
+        Ok(r) if q.format.as_deref() == Some("csv") => (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "text/csv; charset=utf-8")],
+            r.to_csv(),
+        )
+            .into_response(),
+        Ok(r) => (
+            StatusCode::OK,
+            Json(ApiResponse::ok(
+                serde_json::to_value(r).unwrap_or(Value::Null),
+            )),
+        )
+            .into_response(),
+        Err(e) => error_to_response(e).into_response(),
+    }
+}

@@ -441,3 +441,8 @@ slot_offers,message_sent,none,"Not personal data (structure, status, timestamps,
 appointments,arrived_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 appointments,completed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 appointments,current_room,health,"Administrative care information (why, where, what service, outcome)",record
+referrals,source,none,"Not personal data (structure, status, timestamps, places, templates)",record
+referrals,external_ref,identifier,Link a record to a person held by person-service; an e-RS UBRN identifies a referral about a person,record
+referrals,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+referrals,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,referral_id,none,"Not personal data (structure, status, timestamps, places, templates)",record

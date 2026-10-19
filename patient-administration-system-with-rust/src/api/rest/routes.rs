@@ -37,6 +37,8 @@ use super::handlers_hl7v2;
 use super::handlers_letters;
 use super::handlers_links;
 use super::handlers_offers;
+use super::handlers_referrals;
+use super::handlers_reports;
 use super::handlers_resources;
 use super::handlers_scheduling;
 use super::handlers_series;
@@ -320,6 +322,24 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/slot-releases/{id}/offer",
             post(handlers_offers::offer_now),
+        )
+        .route(
+            "/api/referrals",
+            post(handlers_referrals::create).get(handlers_referrals::list),
+        )
+        .route("/api/referrals/{id}", get(handlers_referrals::get))
+        .route(
+            "/api/referrals/{id}/book-first-available",
+            post(handlers_referrals::book_first_available),
+        )
+        .route(
+            "/api/referrals/{id}/waitlist",
+            post(handlers_referrals::waitlist),
+        )
+        .route("/api/referrals/{id}/close", post(handlers_referrals::close))
+        .route(
+            "/api/reports/clinic-activity",
+            get(handlers_reports::clinic_activity),
         )
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))
