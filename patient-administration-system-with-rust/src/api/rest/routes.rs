@@ -31,6 +31,7 @@ use super::handlers_contact;
 use super::handlers_coverage;
 use super::handlers_encounter;
 use super::handlers_followup;
+use super::handlers_history;
 use super::handlers_hl7v2;
 use super::handlers_letters;
 use super::handlers_links;
@@ -249,6 +250,14 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/appointments/{id}/rebook",
             post(handlers_scheduling::rebook_appointment),
+        )
+        .route(
+            "/api/appointments/{id}/history",
+            get(handlers_history::appointment_history),
+        )
+        .route(
+            "/api/patients/{id}/contact-log",
+            get(handlers_history::contact_log),
         )
         .route("/api/follow-up-policies", get(handlers_followup::policies))
         .route(

@@ -576,17 +576,24 @@ impl WriteBackService {
         req: &ReplyRequest,
         ctx: &UserContext,
     ) -> Result<()> {
-        AuditLogRepository::log(
+        let facts = serde_json::json!({
+            "message_id": req.message_id.trim(),
+            "channel": req.channel,
+            "action": action,
+        });
+        // The reason a patient gave when there is one, else what they asked for (CAP-6).
+        let reason = req
+            .barrier_code
+            .map_or_else(|| format!("patient_{action}"), |b| b.as_str().to_string());
+        AuditLogRepository::log_with(
             txn,
             "appointment",
             a.id,
             &format!("reply_{action}"),
             None,
-            Some(serde_json::json!({
-                "message_id": req.message_id.trim(),
-                "channel": req.channel,
-                "action": action,
-            })),
+            Some(facts.clone()),
+            Some(&reason),
+            Some(facts),
             ctx,
         )
         .await

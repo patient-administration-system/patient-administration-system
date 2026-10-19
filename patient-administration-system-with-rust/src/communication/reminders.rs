@@ -204,12 +204,14 @@ impl ReminderService {
                 }
                 match self
                     .communication
-                    .generate_letter(
+                    .generate_letter_for(
                         template.id,
                         a.person_id,
                         Some(a.id),
                         *channel,
                         extra.clone(),
+                        "reminder",
+                        Some(a.id.to_string()),
                         &ctx,
                     )
                     .await

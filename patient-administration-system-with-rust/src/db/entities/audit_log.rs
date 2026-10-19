@@ -16,6 +16,8 @@ pub struct Model {
     pub user_id: Option<String>,
     pub user_ip: Option<String>,
     pub user_agent: Option<String>,
+    pub reason_code: Option<String>,
+    pub context: Option<serde_json::Value>,
     pub at: DateTimeWithTimeZone,
 }
 

@@ -47,6 +47,33 @@ impl AuditLogRepository {
         new_value: Option<serde_json::Value>,
         ctx: &UserContext,
     ) -> Result<()> {
+        Self::log_with(
+            conn,
+            entity_type,
+            entity_id,
+            action,
+            old_value,
+            new_value,
+            None,
+            None,
+            ctx,
+        )
+        .await
+    }
+
+    /// [`Self::log`] with the reason for the change as a short code, and the facts around it (CAP-6).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn log_with<C: ConnectionTrait>(
+        conn: &C,
+        entity_type: &str,
+        entity_id: Uuid,
+        action: &str,
+        old_value: Option<serde_json::Value>,
+        new_value: Option<serde_json::Value>,
+        reason_code: Option<&str>,
+        context: Option<serde_json::Value>,
+        ctx: &UserContext,
+    ) -> Result<()> {
         let am = audit_log::ActiveModel {
             id: Set(Uuid::new_v4()),
             entity_type: Set(entity_type.to_string()),
@@ -57,6 +84,8 @@ impl AuditLogRepository {
             user_id: Set(ctx.user_id.clone()),
             user_ip: Set(ctx.user_ip.clone()),
             user_agent: Set(ctx.user_agent.clone()),
+            reason_code: Set(reason_code.map(String::from)),
+            context: Set(context),
             at: Set(chrono::Utc::now().fixed_offset()),
         };
         am.insert(conn).await.map_err(Error::Database)?;

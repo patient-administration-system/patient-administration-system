@@ -178,6 +178,33 @@ impl CommunicationService {
         extra_context: serde_json::Value,
         ctx: &UserContext,
     ) -> Result<GeneratedLetter> {
+        self.generate_letter_for(
+            template_id,
+            person_id,
+            appointment_id,
+            channel,
+            extra_context,
+            "manual",
+            None,
+            ctx,
+        )
+        .await
+    }
+
+    /// [`Self::generate_letter`] that records why the message is being sent (CAP-6): a short `trigger`
+    /// such as `reminder_ladder:main`, and the record it refers to.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn generate_letter_for(
+        &self,
+        template_id: Uuid,
+        person_id: Uuid,
+        appointment_id: Option<Uuid>,
+        channel: DeliveryChannel,
+        extra_context: serde_json::Value,
+        trigger: &str,
+        trigger_ref: Option<String>,
+        ctx: &UserContext,
+    ) -> Result<GeneratedLetter> {
         let person_client = self.person_client.as_ref().ok_or_else(|| {
             Error::upstream(
                 "CommunicationService not wired with a PersonClient; \
@@ -255,6 +282,8 @@ impl CommunicationService {
         );
         letter.appointment_id = appointment_id;
         letter.locale = Some(template.locale.clone());
+        letter.trigger = trigger.to_string();
+        letter.trigger_ref = trigger_ref;
 
         // 6. Persist + audit + outbox in one DB tx.
         let ctx_clone = ctx.clone();

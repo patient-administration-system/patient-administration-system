@@ -713,3 +713,47 @@ async fn the_http_endpoints_read_without_acting_and_act_on_post() {
         StatusCode::NOT_FOUND
     );
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn every_reminder_records_why_it_was_sent_and_the_history_shows_it() {
+    let w = world().await;
+    w.ladder().run_once(w.at(D7())).await.unwrap();
+    let rows =
+        w.s.db
+            .query_all(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT \"trigger\", trigger_ref FROM generated_letters WHERE appointment_id = $1",
+                [w.appt.id.into()],
+            ))
+            .await
+            .unwrap();
+    assert!(!rows.is_empty());
+    for r in &rows {
+        assert_eq!(
+            r.try_get::<String>("", "trigger").unwrap(),
+            "reminder_ladder:main"
+        );
+        assert_eq!(
+            r.try_get::<Option<String>>("", "trigger_ref").unwrap(),
+            Some(w.appt.id.to_string())
+        );
+    }
+    // The appointment's history lists the message with its trigger and the step in the log.
+    let h = w.s.history.appointment_history(w.appt.id).await.unwrap();
+    assert!(
+        h.iter()
+            .any(|e| e["kind"] == "message" && e["reason_code"] == "reminder_ladder:main")
+    );
+    assert!(
+        h.iter()
+            .any(|e| e["kind"] == "reminder_step" && e["action"] == "reminder_step_main")
+    );
+    // And the patient's contact log says the same, without the text of the message.
+    let log = w.s.history.contact_log(w.person, 50).await.unwrap();
+    assert!(
+        log.iter()
+            .any(|e| e["kind"] == "message" && e["reason_code"] == "reminder_ladder:main")
+    );
+    assert!(!serde_json::to_string(&log).unwrap().contains("Can't come"));
+}

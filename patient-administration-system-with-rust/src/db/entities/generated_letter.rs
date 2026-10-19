@@ -17,6 +17,8 @@ pub struct Model {
     pub status: String,
     pub sent_at: Option<DateTimeWithTimeZone>,
     pub locale: Option<String>,
+    pub trigger: String,
+    pub trigger_ref: Option<String>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

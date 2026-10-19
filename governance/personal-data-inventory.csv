@@ -381,3 +381,7 @@ follow_up_tasks,created_at,none,"Not personal data (structure, status, timestamp
 follow_up_tasks,outcome,health,"Administrative care information (why, where, what service, outcome)",record
 follow_up_tasks,closed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 follow_up_tasks,closed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+audit_log,reason_code,none,"Not personal data (structure, status, timestamps, places, templates)",record
+audit_log,context,free-text,May contain personal data copied from the record it describes,audit-or-message
+generated_letters,trigger,none,"Not personal data (structure, status, timestamps, places, templates)",record
+generated_letters,trigger_ref,none,"Not personal data (structure, status, timestamps, places, templates)",record

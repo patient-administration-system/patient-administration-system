@@ -184,13 +184,26 @@ impl SchedulingService {
         if let Some(class) = appt.release_class {
             crate::standby::record_release(txn, &appt, class).await?;
         }
-        AuditLogRepository::log(
+        // Why, as a code a report can group by: the barrier the patient gave, else who ended it (CAP-6).
+        let reason = match (details.legacy_reason, details.barrier_code) {
+            (Some(CancellationReason::Rescheduled), _) => "rescheduled".to_string(),
+            (_, Some(b)) => b.as_str().to_string(),
+            _ => format!("{}_cancelled", enum_name(&details.cancelled_by)),
+        };
+        AuditLogRepository::log_with(
             txn,
             "appointment",
             appt.id,
             "cancel",
             None,
             Some(serde_json::to_value(&appt).unwrap_or_default()),
+            Some(&reason),
+            Some(serde_json::json!({
+                "cancelled_by": details.cancelled_by,
+                "barrier_code": details.barrier_code,
+                "notice_days": appt.notice_days,
+                "release_class": appt.release_class,
+            })),
             ctx,
         )
         .await?;
@@ -543,13 +556,15 @@ impl SchedulingService {
                     }
                     // On a service a clinician has listed, a miss gets a person's follow-up (CAP-7).
                     crate::follow_up::on_no_show(txn, &appt, &ctx_clone).await?;
-                    AuditLogRepository::log(
+                    AuditLogRepository::log_with(
                         txn,
                         "appointment",
                         appt.id,
                         "no_show",
                         None,
                         None,
+                        Some("no_show"),
+                        Some(serde_json::json!({ "start": appt.start_datetime })),
                         &ctx_clone,
                     )
                     .await?;
@@ -626,6 +641,14 @@ impl SchedulingService {
             .map_err(unwrap_txn_err)?;
         Ok(appt)
     }
+}
+
+/// The snake_case wire name of a unit-variant enum.
+fn enum_name<T: serde::Serialize>(v: &T) -> String {
+    serde_json::to_value(v)
+        .ok()
+        .and_then(|j| j.as_str().map(String::from))
+        .unwrap_or_default()
 }
 
 fn unwrap_txn_err(e: sea_orm::TransactionError<Error>) -> Error {

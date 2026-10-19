@@ -281,6 +281,8 @@ fn letter_to_active_model(g: &GeneratedLetter) -> generated_letter::ActiveModel 
         status: Set(letter_status_to_str(g.status).to_string()),
         sent_at: Set(g.sent_at.map(|t| t.fixed_offset())),
         locale: Set(g.locale.clone()),
+        trigger: Set(g.trigger.clone()),
+        trigger_ref: Set(g.trigger_ref.clone()),
         created_at: Set(g.created_at.fixed_offset()),
         updated_at: Set(g.updated_at.fixed_offset()),
     }
@@ -298,6 +300,8 @@ fn letter_from_model(m: generated_letter::Model) -> Result<GeneratedLetter> {
         status: letter_status_from_str(&m.status)?,
         sent_at: m.sent_at.map(|t| t.with_timezone(&chrono::Utc)),
         locale: m.locale,
+        trigger: m.trigger,
+        trigger_ref: m.trigger_ref,
         created_at: m.created_at.with_timezone(&chrono::Utc),
         updated_at: m.updated_at.with_timezone(&chrono::Utc),
     })

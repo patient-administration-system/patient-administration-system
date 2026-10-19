@@ -411,12 +411,14 @@ impl LadderService {
             }
             match self
                 .communication
-                .generate_letter(
+                .generate_letter_for(
                     template.id,
                     a.person_id,
                     Some(a.id),
                     *channel,
                     extra.clone(),
+                    &format!("reminder_ladder:{}", step.as_str()),
+                    Some(a.id.to_string()),
                     &ctx,
                 )
                 .await

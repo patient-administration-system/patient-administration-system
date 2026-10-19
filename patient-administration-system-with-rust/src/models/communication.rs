@@ -96,8 +96,19 @@ pub struct GeneratedLetter {
     /// Which language variant was used, so a patient's message can be shown in what they were sent.
     #[serde(default)]
     pub locale: Option<String>,
+    /// Why this message was sent (CAP-6): `manual` (a person generated it), `reminder` or
+    /// `reminder_ladder:<step>`.
+    #[serde(default = "manual")]
+    pub trigger: String,
+    /// The record the trigger refers to, for example the appointment a reminder was for.
+    #[serde(default)]
+    pub trigger_ref: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+fn manual() -> String {
+    "manual".into()
 }
 
 impl GeneratedLetter {
@@ -120,6 +131,8 @@ impl GeneratedLetter {
             status: LetterStatus::Pending,
             sent_at: None,
             locale: None,
+            trigger: manual(),
+            trigger_ref: None,
             created_at: now,
             updated_at: now,
         }
