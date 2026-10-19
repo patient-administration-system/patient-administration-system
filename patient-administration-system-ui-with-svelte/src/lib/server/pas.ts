@@ -152,11 +152,17 @@ export const replyLinkInfo = (f: FetchFn, token: string) =>
   pas<ReplyLinkInfo>(f, `/api/reply-links/${encodeURIComponent(token)}`);
 
 /** A deliberate tap. The first `cancel` answers `needs_confirmation`; send it again with `confirmed`. */
-export const replyLinkAct = (f: FetchFn, token: string, action: string, confirmed = false) =>
-  pas<{ status: ReplyLinkStatus; options?: ReplyLinkOption[]; time_zone: string }>(
+export const replyLinkAct = (
+  f: FetchFn,
+  token: string,
+  action: string,
+  confirmed = false,
+  barrierCode?: string,
+) =>
+  pas<{ status: ReplyLinkStatus; options?: ReplyLinkOption[]; time_zone: string; signpost?: string }>(
     f,
     `/api/reply-links/${encodeURIComponent(token)}/${encodeURIComponent(action)}`,
-    { method: "POST", body: { confirmed } },
+    { method: "POST", body: barrierCode ? { confirmed, barrier_code: barrierCode } : { confirmed } },
   );
 
 /** The patient chose one of the times offered. Uses the link up; if the move is refused it is given back. */

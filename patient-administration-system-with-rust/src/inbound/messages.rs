@@ -119,6 +119,52 @@ pub fn text(lang: Lang, kind: Kind, when: &str, help_line: Option<&str>) -> Stri
     }
 }
 
+/// What to say to a patient who gave a reason for cancelling (CAS-2). Each points to real help and says plainly
+/// that cancelling will not affect their care. First-draft wording: a person who knows the service should
+/// review it (and the Welsh) before a pilot. `None` for a code with nothing useful to add.
+pub fn signpost(lang: Lang, code: crate::models::appointment::BarrierCode) -> Option<String> {
+    use crate::models::appointment::BarrierCode as B;
+    let (en, cy) = match code {
+        B::CannotTravel => (
+            "Travel is a common problem. Tell us, and we may be able to arrange transport or offer a phone or video appointment. Cancelling will not affect your care.",
+            "Mae teithio yn broblem gyffredin. Dywedwch wrthym, ac efallai y gallwn drefnu cludiant neu gynnig apwyntiad dros y ffôn neu fideo. Ni fydd canslo yn effeithio ar eich gofal.",
+        ),
+        B::Cost => (
+            "If cost is a worry, help with travel costs may be available. Tell us and we will point you to it. Cancelling will not affect your care.",
+            "Os yw cost yn bryder, efallai y bydd help gyda chostau teithio ar gael. Dywedwch wrthym a byddwn yn eich cyfeirio ato. Ni fydd canslo yn effeithio ar eich gofal.",
+        ),
+        B::Caring => (
+            "If you care for someone, tell us and we will look for a time that works. Cancelling will not affect your care.",
+            "Os ydych yn gofalu am rywun, dywedwch wrthym a byddwn yn chwilio am amser sy'n gweithio. Ni fydd canslo yn effeithio ar eich gofal.",
+        ),
+        B::Work => (
+            "We can look for a time outside your working hours. Cancelling will not affect your care.",
+            "Gallwn chwilio am amser y tu allan i'ch oriau gwaith. Ni fydd canslo yn effeithio ar eich gofal.",
+        ),
+        B::Unwell => (
+            "We are sorry you are unwell. We will help you rebook when you are better. Cancelling will not affect your care.",
+            "Mae'n ddrwg gennym eich bod yn sâl. Byddwn yn eich helpu i aildrefnu pan fyddwch yn well. Ni fydd canslo yn effeithio ar eich gofal.",
+        ),
+        B::Anxiety => (
+            "It is common to feel worried about an appointment. Tell us what would help and we can talk it through. Cancelling will not affect your care.",
+            "Mae'n gyffredin teimlo'n bryderus am apwyntiad. Dywedwch wrthym beth fyddai'n helpu a gallwn drafod. Ni fydd canslo yn effeithio ar eich gofal.",
+        ),
+        B::AccessNeed => (
+            "Tell us what would help you to communicate and we will arrange it. Cancelling will not affect your care.",
+            "Dywedwch wrthym beth fyddai'n eich helpu i gyfathrebu a byddwn yn ei drefnu. Ni fydd canslo yn effeithio ar eich gofal.",
+        ),
+        B::Other => (
+            "Thank you for telling us. Cancelling will not affect your care.",
+            "Diolch am ddweud wrthym. Ni fydd canslo yn effeithio ar eich gofal.",
+        ),
+        _ => return None,
+    };
+    Some(match lang {
+        Lang::En => en.to_string(),
+        Lang::Cy => cy.to_string(),
+    })
+}
+
 /// "Which appointment? Reply 1, 2 ..." with one line per candidate.
 pub fn ask(lang: Lang, times: &[String]) -> String {
     let head = match lang {

@@ -3,6 +3,7 @@
   import { page } from "$app/state";
   import type { ActionData, PageData } from "./$types";
   import { t, i18n } from "#lib/i18n.svelte.js";
+  import { REASONS } from "#lib/reasons.js";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -10,6 +11,7 @@
   const state = $derived(form && "state" in form && form.state ? form.state : data.state);
   const result = $derived(form && "result" in form ? form.result : null);
 
+  const signpost = $derived(form && "signpost" in form && form.signpost ? form.signpost : "");
   const retry = $derived(form && "retry" in form && form.retry === true);
   const options = $derived(form && "options" in form ? (form.options ?? []) : []);
 
@@ -32,6 +34,7 @@
 {#if result === "confirmed" || result === "cancelled" || result === "reschedule_requested" || result === "held_for_call" || result === "rejected"}
   <!-- What just happened wins over the link's new "used" state, which the reload after the tap reports. -->
   <p role="status">{t(`link.done.${result}`)}</p>
+  {#if result === "cancelled" && signpost}<p>{signpost}</p>{/if}
 {:else if result === "rebooked"}
   <p role="status">{t("link.done.rebooked", { when: movedTo })}</p>
 {:else if result === "rebook_options" && options.length > 0}
@@ -56,6 +59,12 @@
   <h2>{t("link.sure.title")}</h2>
   <p>{t("link.sure.body")}</p>
   <form method="POST" action="?/cancelSure" use:enhance>
+    <fieldset>
+      <legend>{t("link.why.title")}</legend>
+      {#each REASONS as r (r)}
+        <label><input type="radio" name="barrier" value={r} /> {t(`link.why.${r}`)}</label>
+      {/each}
+    </fieldset>
     <button class="button" type="submit">{t("link.sure.yes")}</button>
   </form>
   <p><a href={page.url.pathname}>{t("link.sure.no")}</a></p>

@@ -53,6 +53,26 @@ test("cancelling asks are-you-sure first; no keeps the appointment, yes cancels 
   expect(await acts(request, t)).toEqual(["cancel"]);
 });
 
+test("a cancelling patient may say why, is answered with help that fits, and can skip it", async ({ page, request }) => {
+  const t = token();
+  await page.goto(`/en-001/r/${t}`);
+  await page.getByRole("button", { name: "Cancel my appointment" }).click();
+  await expect(page.getByText("Can you tell us why?")).toBeVisible();
+  await page.getByLabel("I cannot get there").check();
+  await page.getByRole("button", { name: "Yes, cancel my appointment" }).click();
+  await expect(page.getByText(/Your appointment is cancelled/)).toBeVisible();
+  await expect(page.getByText("Help for cannot_travel. Cancelling will not affect your care.")).toBeVisible();
+  expect(await acts(request, t)).toEqual(["cancel:cannot_travel"]);
+
+  // Skipping the question still cancels, with no reason sent.
+  const t2 = token();
+  await page.goto(`/en-001/r/${t2}`);
+  await page.getByRole("button", { name: "Cancel my appointment" }).click();
+  await page.getByRole("button", { name: "Yes, cancel my appointment" }).click();
+  await expect(page.getByText(/Your appointment is cancelled/)).toBeVisible();
+  expect(await acts(request, t2)).toEqual(["cancel"]);
+});
+
 test("reschedule asks for a person, and help does not use the link up", async ({ page, request }) => {
   const t = token();
   await page.goto(`/en-001/r/${t}`);

@@ -5,6 +5,7 @@
 // so anything that acted on a GET would cancel appointments. Only a deliberate tap, which is a POST to one
 // of the actions below, confirms, cancels or asks to reschedule.
 import { fail } from "@sveltejs/kit";
+import { isReason } from "#lib/reasons.js";
 import type { Actions, PageServerLoad } from "./$types";
 import { PasError, replyLinkAct, replyLinkInfo, replyLinkRebook } from "#lib/server/pas.js";
 
@@ -34,12 +35,18 @@ export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
   }
 };
 
-async function act(token: string, action: string, confirmed: boolean, f: typeof fetch) {
+async function act(token: string, action: string, confirmed: boolean, f: typeof fetch, reason?: string) {
   if (!TOKEN.test(token)) return fail(404, { state: "invalid" as LinkState });
   try {
-    const r = await replyLinkAct(f, token, action, confirmed);
+    const r = await replyLinkAct(f, token, action, confirmed, reason);
     // Reschedule offers real times first (CAP-5); the link is not used up until one is chosen.
-    return { result: r.status, options: r.options ?? [], optionsZone: r.time_zone, startsAt: null as string | null };
+    return {
+      result: r.status,
+      options: r.options ?? [],
+      optionsZone: r.time_zone,
+      startsAt: null as string | null,
+      signpost: r.signpost ?? null,
+    };
   } catch (e) {
     return fail(e instanceof PasError && e.status < 500 ? e.status : 502, { state: stateFor(e) });
   }
@@ -70,7 +77,12 @@ export const actions: Actions = {
   confirm: ({ params, fetch }) => act(params.token, "confirm", false, fetch),
   // The first tap on Cancel only asks "Are you sure?" and changes nothing.
   cancel: ({ params, fetch }) => act(params.token, "cancel", false, fetch),
-  cancelSure: ({ params, fetch }) => act(params.token, "cancel", true, fetch),
+  // The reason is optional: asking why must never stand in the way of cancelling.
+  cancelSure: async ({ params, fetch, request }) => {
+    const raw = (await request.formData()).get("barrier");
+    const reason = isReason(raw) ? raw : undefined;
+    return act(params.token, "cancel", true, fetch, reason);
+  },
   reschedule: ({ params, fetch }) => act(params.token, "reschedule", false, fetch),
   help: ({ params, fetch }) => act(params.token, "help", false, fetch),
   rebook: async ({ params, fetch, request }) => rebook(params.token, (await request.formData()).get("slot_id"), fetch),

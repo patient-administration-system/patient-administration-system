@@ -474,3 +474,16 @@ identity_proofings,proofed_by,staff-identifier,Attribute work to a staff member 
 identity_proofings,proofed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 identity_proofings,revoked_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 identity_proofings,revoked_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+message_experiments,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_experiments,template_name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_experiments,started_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+message_experiments,started_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_experiments,stopped_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_experiments,stopped_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+message_experiment_variants,experiment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_experiment_variants,variant,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_experiment_variants,template_name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_experiment_assignments,experiment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_experiment_assignments,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_experiment_assignments,variant,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_experiment_assignments,assigned_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

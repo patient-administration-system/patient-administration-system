@@ -13,6 +13,19 @@ const actors = [];
 // `e`s is expired. Every action that really changes something is recorded at /__acts.
 const links = new Map();
 const offers = new Map();
+const DEFAULT_TEMPLATE = {
+  id: "22222222-2222-2222-2222-222222222222",
+  name: "appointment_reminder",
+  subject: "Appointment reminder",
+  body_tera: "Hello {{ patient.name.given }}",
+  required_variables: [],
+  channels: ["whatsapp", "sms"],
+  active: true,
+  locale: "en-001",
+  created_at: "2026-10-01T00:00:00Z",
+  updated_at: "2026-10-01T00:00:00Z",
+};
+let template = { ...DEFAULT_TEMPLATE };
 let proofing = true;
 const acts = [];
 const ISSUER_URL = process.env.ISSUER_URL ?? null;
@@ -61,6 +74,10 @@ http
     if (url.pathname === "/__health") return res.end("{}");
     if (url.pathname === "/__requests") return res.end(JSON.stringify(requests));
     if (url.pathname === "/__actors") return res.end(JSON.stringify(actors));
+    if (url.pathname === "/__templates/reset") {
+      template = { ...DEFAULT_TEMPLATE };
+      return res.end("{}");
+    }
     if (url.pathname === "/__proofing") {
       proofing = url.searchParams.get("on") !== "false";
       return res.end(JSON.stringify({ proofing }));
@@ -162,9 +179,11 @@ http
         return res.end(envelope({ status: "held_for_call" }));
       }
       links.set(token, action);
-      acts.push({ token, action });
+      acts.push({ token, action: action === "cancel" && body.barrier_code ? `cancel:${body.barrier_code}` : action });
       const status = { confirm: "confirmed", cancel: "cancelled", reschedule: "reschedule_requested" }[action];
-      return res.end(envelope({ status }));
+      // CAS-2: a reason given when cancelling is answered with help that fits it.
+      const signpost = action === "cancel" && body.barrier_code ? `Help for ${body.barrier_code}. Cancelling will not affect your care.` : undefined;
+      return res.end(envelope({ status, signpost }));
     }
     if (url.pathname === `/api/patients/${PATIENT}/appointments`) {
       return res.end(
@@ -221,23 +240,22 @@ http
     if (url.pathname === "/api/patients") {
       return res.end(envelope([{ id: PATIENT, name: { given: ["Ada"], family: "Lovelace" }, birth_date: "1815-12-10" }]));
     }
-    if (url.pathname === "/api/letter-templates") {
-      return res.end(
-        envelope([
-          {
-            id: "22222222-2222-2222-2222-222222222222",
-            name: "appointment_reminder",
-            subject: "Appointment reminder",
-            body_tera: "Hello {{ patient.name.given }}",
-            required_variables: [],
-            channels: ["whatsapp", "sms"],
-            active: true,
-            locale: "en-001",
-            created_at: "2026-10-01T00:00:00Z",
-            updated_at: "2026-10-01T00:00:00Z",
-          },
-        ]),
-      );
+    // REM-5: the template editor saves, so the mock keeps the one template it serves and applies a PUT to it.
+    if (url.pathname === "/api/letter-templates") return res.end(envelope([template]));
+    const tpl = /^\/api\/letter-templates\/([0-9a-f-]{36})$/.exec(url.pathname);
+    if (tpl && req.method === "PUT") {
+      const body = await new Promise((resolve) => {
+        let b = "";
+        req.on("data", (c) => (b += c));
+        req.on("end", () => resolve(b ? JSON.parse(b) : {}));
+      });
+      if (tpl[1] !== template.id) {
+        res.statusCode = 404;
+        return res.end(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "no such template" } }));
+      }
+      for (const k of ["subject", "body_tera", "channels", "active"]) if (k in body) template[k] = body[k];
+      template.updated_at = new Date().toISOString();
+      return res.end(envelope(template));
     }
     res.statusCode = 404;
     res.end(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "not found" } }));

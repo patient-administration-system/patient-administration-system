@@ -63,6 +63,28 @@ test("an account staff have not proofed reaches nothing in the patient portal", 
   }
 });
 
+test("an administrator edits a reminder template, saves it, and the change is there after a reload", async ({ page, request }) => {
+  await request.get(`${MOCK_URL}/__templates/reset`);
+  try {
+    await keycloakLogin(page, "admin");
+    await page.goto("/admin/reminders");
+    await page.getByLabel("Subject", { exact: true }).fill("Your clinic appointment");
+    await page.getByLabel("Message", { exact: true }).fill("Hello {{ patient.name.given }}, see you on {{ appointment.when }}.");
+    await page.getByLabel("Email").check();
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status")).toContainText(/saved/i);
+
+    // A reload reads it back from the API, not from the form the browser still holds.
+    await page.reload();
+    await expect(page.getByLabel("Subject")).toHaveValue("Your clinic appointment");
+    await expect(page.getByLabel("Message", { exact: true })).toHaveValue("Hello {{ patient.name.given }}, see you on {{ appointment.when }}.");
+    await expect(page.getByLabel("Email")).toBeChecked();
+    await expect(page.getByLabel("WhatsApp")).toBeChecked();
+  } finally {
+    await request.get(`${MOCK_URL}/__templates/reset`);
+  }
+});
+
 test("an administrator can open the reminder-template editor; a patient cannot", async ({ page }) => {
   await keycloakLogin(page, "admin");
   await page.goto("/admin/reminders");

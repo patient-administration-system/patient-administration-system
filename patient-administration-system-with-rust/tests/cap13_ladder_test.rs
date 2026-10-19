@@ -795,3 +795,130 @@ async fn a_patient_who_prefers_whatsapp_and_welsh_gets_the_welsh_message_on_what
         first.2
     );
 }
+
+// --- CAS-2: the barrier check ----------------------------------------------------------------------
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_reason_given_when_cancelling_is_recorded_and_answered_with_help_that_fits() {
+    use patient_administration_system::models::appointment::BarrierCode;
+    let w = world().await;
+    let t = link(&w).await;
+    let o =
+        w.s.reply_links
+            .act_with(
+                &t,
+                LinkAction::Cancel,
+                true,
+                Some(BarrierCode::CannotTravel),
+                &sys(),
+            )
+            .await
+            .unwrap();
+    assert_eq!(o.status, "cancelled");
+    let help = o.signpost.expect("a reason is answered with help");
+    assert!(
+        help.contains("Cancelling will not affect your care"),
+        "{help}"
+    );
+    assert!(
+        help.to_lowercase().contains("transport"),
+        "it fits the reason: {help}"
+    );
+    let a = AppointmentRepository::find_by_id(&w.s.db, w.appt.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        a.barrier_code,
+        Some(BarrierCode::CannotTravel),
+        "recorded as a coded reason"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_reason_is_never_required_and_the_welsh_patient_gets_welsh_help() {
+    use patient_administration_system::models::appointment::BarrierCode;
+    // No reason: the cancel works and there is no signpost.
+    let w = world().await;
+    let t = link(&w).await;
+    let o =
+        w.s.reply_links
+            .act(&t, LinkAction::Cancel, true, &sys())
+            .await
+            .unwrap();
+    assert_eq!((o.status, o.signpost), ("cancelled", None));
+    // The first, unconfirmed tap still only asks, reason or not.
+    let w2 = world().await;
+    let t2 = link(&w2).await;
+    let asked =
+        w2.s.reply_links
+            .act_with(
+                &t2,
+                LinkAction::Cancel,
+                false,
+                Some(BarrierCode::Work),
+                &sys(),
+            )
+            .await
+            .unwrap();
+    assert_eq!(asked.status, "needs_confirmation");
+    assert_eq!(w2.status().await, AppointmentStatus::Booked);
+
+    // A patient who prefers Welsh is answered in Welsh.
+    let w3 = world().await;
+    w3.s.contact
+        .put(
+            w3.person,
+            patient_administration_system::contact::ProfileInput {
+                preferred_language: Some("cy-001".into()),
+                ..Default::default()
+            },
+            &UserContext::system(),
+        )
+        .await
+        .unwrap();
+    let t3 = link(&w3).await;
+    let o3 =
+        w3.s.reply_links
+            .act_with(
+                &t3,
+                LinkAction::Cancel,
+                true,
+                Some(BarrierCode::Caring),
+                &sys(),
+            )
+            .await
+            .unwrap();
+    assert!(
+        o3.signpost
+            .unwrap()
+            .contains("Ni fydd canslo yn effeithio ar eich gofal")
+    );
+}
+
+#[test]
+fn test_every_reason_a_patient_can_pick_has_help_in_both_languages() {
+    use patient_administration_system::inbound::messages::{Lang, signpost};
+    use patient_administration_system::models::appointment::BarrierCode as B;
+    for code in [
+        B::CannotTravel,
+        B::Cost,
+        B::Caring,
+        B::Work,
+        B::Unwell,
+        B::Anxiety,
+        B::AccessNeed,
+        B::Other,
+    ] {
+        let en = signpost(Lang::En, code).unwrap_or_else(|| panic!("{code:?} has no English"));
+        let cy = signpost(Lang::Cy, code).unwrap_or_else(|| panic!("{code:?} has no Welsh"));
+        assert!(en.contains("will not affect your care"), "{code:?}: {en}");
+        assert!(
+            cy.contains("Ni fydd canslo yn effeithio ar eich gofal"),
+            "{code:?}: {cy}"
+        );
+        assert_ne!(en, cy);
+    }
+}

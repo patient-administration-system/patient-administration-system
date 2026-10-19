@@ -31,6 +31,7 @@ use super::handlers_consent;
 use super::handlers_contact;
 use super::handlers_coverage;
 use super::handlers_encounter;
+use super::handlers_experiments;
 use super::handlers_followup;
 use super::handlers_history;
 use super::handlers_hl7v2;
@@ -379,6 +380,18 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/identity-proofings/{subject}/check",
             get(handlers_identity::check),
+        )
+        .route(
+            "/api/experiments",
+            post(handlers_experiments::start).get(handlers_experiments::list),
+        )
+        .route(
+            "/api/experiments/{id}/stop",
+            post(handlers_experiments::stop),
+        )
+        .route(
+            "/api/experiments/{id}/readout",
+            get(handlers_experiments::readout),
         )
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))

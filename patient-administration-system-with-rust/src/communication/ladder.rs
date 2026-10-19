@@ -341,6 +341,9 @@ impl LadderService {
         first_channel: Option<DeliveryChannel>,
         now: DateTime<Utc>,
     ) -> Result<Delivery> {
+        // A running wording experiment may swap in another variant's template group for this appointment
+        // (CAS-7): deterministic, recorded, wording only. Without one this is `name` itself.
+        let name = &crate::experiments::resolve_name(&self.db, a.id, name).await?;
         let templates = self.reminders.ensure_templates_named(name).await?;
         let required = super::templates::required_locales();
         let language = crate::contact::preferred_language(&self.db, a.person_id).await?;

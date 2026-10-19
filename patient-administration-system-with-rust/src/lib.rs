@@ -33,6 +33,7 @@ pub mod config;
 pub mod contact;
 pub mod db;
 pub mod error;
+pub mod experiments;
 pub mod follow_up;
 pub mod history;
 pub mod hl7v2;

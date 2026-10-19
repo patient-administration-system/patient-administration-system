@@ -37,6 +37,9 @@ pub struct ActBody {
     /// The second step of Cancel.
     #[serde(default)]
     pub confirmed: bool,
+    /// With a confirmed cancel: why, if the patient said. Optional; never needed to cancel.
+    #[serde(default)]
+    pub barrier_code: Option<crate::models::appointment::BarrierCode>,
 }
 
 /// `POST /api/reply-links/{token}/{action}`: a deliberate tap. `action` is confirm, cancel, reschedule or
@@ -62,8 +65,12 @@ pub async fn post_link_action(
         user_ip: uc.user_ip,
         user_agent: uc.user_agent,
     };
-    let confirmed = body.map(|b| b.0.confirmed).unwrap_or(false);
-    match state.reply_links.act(&token, action, confirmed, &ctx).await {
+    let body = body.map(|b| b.0).unwrap_or_default();
+    match state
+        .reply_links
+        .act_with(&token, action, body.confirmed, body.barrier_code, &ctx)
+        .await
+    {
         Ok(o) => ok(serde_json::to_value(o).unwrap_or(Value::Null)),
         Err(e) => error_to_response(e),
     }

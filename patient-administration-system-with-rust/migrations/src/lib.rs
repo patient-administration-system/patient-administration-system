@@ -32,6 +32,7 @@ mod m20260623_000028_print_queue;
 mod m20260624_000029_letter_only;
 mod m20260625_000030_message_receipts;
 mod m20260626_000031_identity_proofing;
+mod m20260627_000032_message_experiments;
 
 pub struct Migrator;
 
@@ -70,6 +71,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260624_000029_letter_only::Migration),
             Box::new(m20260625_000030_message_receipts::Migration),
             Box::new(m20260626_000031_identity_proofing::Migration),
+            Box::new(m20260627_000032_message_experiments::Migration),
         ]
     }
 }

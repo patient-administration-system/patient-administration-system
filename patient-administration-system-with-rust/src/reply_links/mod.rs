@@ -94,6 +94,9 @@ pub struct LinkOutcome {
     /// For `rebook_options`: the times on offer. Choose one with `POST /api/reply-links/{token}/rebook`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<LinkOption>,
+    /// For a cancel that came with a reason (CAS-2): help that fits it, saying cancelling will not affect care.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signpost: Option<String>,
     /// For `rebooked`: when the appointment now starts, so a page can show it in its own language.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub starts_at: Option<DateTime<Utc>>,
@@ -232,6 +235,19 @@ impl ReplyLinks {
         confirmed: bool,
         ctx: &UserContext,
     ) -> Result<LinkOutcome> {
+        self.act_with(token, action, confirmed, None, ctx).await
+    }
+
+    /// [`Self::act`] where a cancelling patient may say why (CAS-2). The reason is recorded with the cancel
+    /// and answered with help that fits it. It is optional and never required to cancel.
+    pub async fn act_with(
+        &self,
+        token: &str,
+        action: LinkAction,
+        confirmed: bool,
+        barrier: Option<crate::models::appointment::BarrierCode>,
+        ctx: &UserContext,
+    ) -> Result<LinkOutcome> {
         let row = self.row(token).await?;
         let lang = self.lang(row.person_id).await?;
         let tz = messages::timezone();
@@ -241,6 +257,7 @@ impl ReplyLinks {
             language: lang.code(),
             message,
             options: vec![],
+            signpost: None,
             starts_at: None,
             time_zone: tz.name().to_string(),
         };
@@ -341,7 +358,11 @@ impl ReplyLinks {
             appointment_id: row.appointment_id,
             person_id: row.person_id,
             channel: Some("link".into()),
-            barrier_code: None,
+            barrier_code: if action == LinkAction::Cancel {
+                barrier
+            } else {
+                None
+            },
             new_slot_id: None,
             modality: None,
             received_at: None,
@@ -358,7 +379,11 @@ impl ReplyLinks {
                 } else {
                     "cancelled"
                 };
-                Ok(out(status, messages::text(lang, kind, &when, help)))
+                let mut o = out(status, messages::text(lang, kind, &when, help));
+                if action == LinkAction::Cancel {
+                    o.signpost = barrier.and_then(|b| messages::signpost(lang, b));
+                }
+                Ok(o)
             }
             Ok(r) if r.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) => {
                 Ok(out(
@@ -430,6 +455,7 @@ impl ReplyLinks {
                     None,
                 ),
                 options: vec![],
+                signpost: None,
                 starts_at: Some(new.start_datetime),
                 time_zone: tz.name().to_string(),
             }),
