@@ -29,7 +29,8 @@ export const statusKey = (s: string): string => `status.${s}`;
 /** The no-show support flag for one appointment, as the PAS sends it (CAP-12). */
 export interface NoShowLike {
   appointment_id: string;
-  probability_percent: number;
+  /** Absent until the weights are calibrated on real outcomes: staff then see the band and reasons only. */
+  probability_percent?: number;
   band: "low" | "medium" | "high";
   factors: { name: string; effect_points: number }[];
   sample_size: number;
@@ -39,14 +40,20 @@ export interface NoShowLike {
 const BAND_MARK = { low: "●", medium: "◆", high: "▲" } as const;
 
 /**
- * The flag and the reasons for it, in words: `▲ High, 74%. Based on 4 past visits. Past visits +62 points; ...`.
+ * The flag and the reasons for it, in words: `▲ High. Based on 4 past visits. Past visits; Lead time`; the percentage and point sizes appear only once calibrated.
  * It is support for the front desk; nothing here changes the appointment.
  */
 export function noshowText(n: NoShowLike, t: Translate): string {
   const why = n.factors
     .filter((f) => Math.abs(f.effect_points) >= 0.05 && f.name !== "base_rate")
-    .map((f) => `${t(`noshow.factor.${f.name}`)} ${f.effect_points > 0 ? "+" : ""}${t("noshow.points", { points: f.effect_points })}`);
-  return [`${BAND_MARK[n.band]} ${t(`noshow.band.${n.band}`)}, ${n.probability_percent}%.`, t("noshow.sample", { n: n.sample_size }) + ".", why.join("; ")]
+    .map((f) =>
+      // The point sizes are as uncalibrated as the percentage, so they travel with it: no number, no sizes.
+      n.probability_percent === undefined
+        ? t(`noshow.factor.${f.name}`)
+        : `${t(`noshow.factor.${f.name}`)} ${f.effect_points > 0 ? "+" : ""}${t("noshow.points", { points: f.effect_points })}`,
+    );
+  const head = `${BAND_MARK[n.band]} ${t(`noshow.band.${n.band}`)}`;
+  return [n.probability_percent === undefined ? `${head}.` : `${head}, ${n.probability_percent}%.`, t("noshow.sample", { n: n.sample_size }) + ".", why.join("; ")]
     .filter(Boolean)
     .join(" ");
 }

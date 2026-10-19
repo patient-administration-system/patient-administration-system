@@ -314,6 +314,14 @@ pub fn router(state: AppState) -> Router {
             get(handlers_analytics::refill_rates),
         )
         .route(
+            "/api/analytics/deprivation-lookup",
+            put(handlers_analytics::load_deprivation_lookup),
+        )
+        .route(
+            "/api/analytics/demographics/refresh",
+            post(handlers_analytics::refresh_demographics),
+        )
+        .route(
             "/api/analytics/demographics/{person_id}",
             put(handlers_analytics::set_demographics),
         )
@@ -397,6 +405,12 @@ pub fn router(state: AppState) -> Router {
             get(handlers_experiments::readout),
         )
         .route("/api/noshow/status", get(handlers_noshow::status))
+        .route("/api/noshow/rollout", get(handlers_noshow::rollout))
+        .route(
+            "/api/noshow/rollout/{service_type}",
+            put(handlers_noshow::set_stage),
+        )
+        .route("/api/noshow/evaluation", get(handlers_noshow::evaluation))
         .route("/api/noshow/model-card", get(handlers_noshow::model_card))
         .route("/api/noshow/reviews", post(handlers_noshow::record_review))
         .route(
@@ -457,6 +471,10 @@ pub fn router(state: AppState) -> Router {
             put(handlers_virtual::approve_service).delete(handlers_virtual::remove_service),
         )
         .route("/api/conversions/pending", get(handlers_virtual::pending))
+        .route(
+            "/api/appointments/{id}/video-failed",
+            post(handlers_virtual::video_failed),
+        )
         .route(
             "/api/appointments/{id}/conversion/{decision}",
             post(handlers_virtual::review),

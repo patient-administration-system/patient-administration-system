@@ -112,3 +112,20 @@ pub async fn review(
         Err(e) => error_to_response(e),
     }
 }
+
+/// `POST /api/appointments/{id}/video-failed`: the video visit did not connect. It becomes a phone
+/// consultation and a person is asked to ring the patient. Idempotent.
+pub async fn video_failed(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> HandlerResult {
+    match state
+        .virtual_visits
+        .fall_back_to_phone(id, &ctx(&headers))
+        .await
+    {
+        Ok(a) => ok(serde_json::to_value(a).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}

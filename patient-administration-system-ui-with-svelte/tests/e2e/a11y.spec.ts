@@ -25,7 +25,7 @@ const PUBLIC = ["/signin"];
 const LINKS = ["/r/[token]", "/o/[token]"];
 const PATIENT = ["/my/appointments", "/my/messages"];
 // `/patients` shows its data grid only after a search, so audit it with one.
-const STAFF_AND_ADMIN = ["/appointments", "/waitlist", "/schedule", "/patients?q=ada", "/admin/reminders"];
+const STAFF_AND_ADMIN = ["/appointments", "/waitlist", "/schedule", "/patients?q=ada", "/admin/reminders", "/history", "/waits"];
 
 async function audit(page: Page, path: string, locale = "en-001") {
   await page.goto(`/${locale}${path}`);

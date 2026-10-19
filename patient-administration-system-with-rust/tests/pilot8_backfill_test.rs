@@ -57,6 +57,10 @@ struct W {
 }
 
 async fn world(n_people: usize) -> W {
+    // These tests are about who is offered what, not when texts may be sent; without this they fail between
+    // 21:00 and 08:00 clinic time, when the default quiet hours hold every text back.
+    // SAFETY: tests that set environment variables run one at a time (`--test-threads=1`).
+    unsafe { std::env::set_var("PAS_QUIET_HOURS", "off") };
     let sent = Arc::new(Mutex::new(Vec::new()));
     let stub = Arc::new(StubPersonClient::new());
     let mut people = Vec::new();

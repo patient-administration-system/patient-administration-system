@@ -40,6 +40,8 @@ export function navFor(p: Principal | null | undefined): NavItem[] {
       { href: "/waitlist", key: "nav.waitlist" },
       { href: "/schedule", key: "nav.schedule" },
       { href: "/patients", key: "nav.patients" },
+      { href: "/history", key: "nav.history" },
+      { href: "/waits", key: "nav.waits" },
     ];
     if (isAdmin(p)) items.push({ href: "/admin/reminders", key: "nav.reminders" });
     return items;

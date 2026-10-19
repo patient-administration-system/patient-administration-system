@@ -60,7 +60,9 @@ async fn reset(s: &AppState) {
     for k in [
         "PAS_NOSHOW_SCORE",
         "PAS_NOSHOW_WEIGHTS",
-        "PAS_NOSHOW_HIGH",
+        "PAS_NOSHOW_CALL_CAPACITY",
+        "PAS_NOSHOW_CALL_HORIZON_DAYS",
+        "PAS_NOSHOW_SHOW_PERCENT",
         "PAS_NOSHOW_MEDIUM",
     ] {
         unset(k);
@@ -70,11 +72,25 @@ async fn reset(s: &AppState) {
     for sql in [
         "DELETE FROM staff_call_tasks WHERE reason = 'high_risk'",
         "DELETE FROM noshow_assessments",
+        "DELETE FROM noshow_rollout WHERE service_type = 'test-clinic'",
     ] {
         s.db.execute(Statement::from_string(DbBackend::Postgres, sql.to_string()))
             .await
             .unwrap();
     }
+}
+
+/// The shared test clinic is moved straight to live (the shadow-period rule has its own test).
+async fn go_live(s: &AppState) {
+    s.db.execute(Statement::from_string(
+        DbBackend::Postgres,
+        "INSERT INTO noshow_rollout (service_type, stage, changed_by, note, live_since) \
+         VALUES ('test-clinic','live','test','test',now()) \
+         ON CONFLICT (service_type) DO UPDATE SET stage='live', live_since=now()"
+            .to_string(),
+    ))
+    .await
+    .unwrap();
 }
 
 async fn booked(s: &AppState, person: Uuid, days: i64) -> Appointment {
@@ -228,9 +244,9 @@ async fn a_new_booking_gets_a_probability_with_its_factors_and_a_rerun_the_same_
         .unwrap();
     assert!(past.detail.contains("missed 3 of 4"), "{}", past.detail);
     assert!(
-        shown.probability_percent > 30.0,
+        shown.probability > 0.30,
         "three misses in four is not low: {}",
-        shown.probability_percent
+        shown.probability
     );
 
     // A rerun the same day returns the same assessment, not a new one.
@@ -259,7 +275,8 @@ async fn a_new_booking_gets_a_probability_with_its_factors_and_a_rerun_the_same_
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
-async fn changing_a_threshold_changes_the_band_without_recomputing() {
+async fn changing_a_threshold_changes_the_band_without_recomputing_and_the_percentage_is_hidden_until_calibrated()
+ {
     let s = state().await;
     reset(&s).await;
     set("PAS_NOSHOW_SCORE", "true");
@@ -270,80 +287,91 @@ async fn changing_a_threshold_changes_the_band_without_recomputing() {
     approve_both(&s).await;
     let a = booked(&s, Uuid::new_v4(), 30).await;
     let first = s.noshow.for_appointment(a.id).await.unwrap();
-    assert_eq!(first.probability_percent, 50.0);
+    assert_eq!(first.probability, 0.50);
     assert_eq!(
         serde_json::to_value(first.band).unwrap(),
         "medium",
-        "above 40, not above 70"
+        "above 40"
     );
-    set("PAS_NOSHOW_HIGH", "0.45");
-    set("PAS_NOSHOW_MEDIUM", "0.20");
+    // Staff are shown the band and the reasons, not a number the weights cannot yet justify.
+    assert_eq!(first.probability_percent, None);
+    assert!(
+        !serde_json::to_string(&first).unwrap().contains("probab"),
+        "the number is not in the response at all"
+    );
+    set("PAS_NOSHOW_MEDIUM", "0.60");
     let after = s.noshow.for_appointment(a.id).await.unwrap();
-    assert_eq!(serde_json::to_value(after.band).unwrap(), "high");
+    assert_eq!(serde_json::to_value(after.band).unwrap(), "low");
+    assert_eq!(after.computed_at, first.computed_at, "not recomputed");
+    // Only after calibration is someone to set the switch.
+    set("PAS_NOSHOW_SHOW_PERCENT", "true");
     assert_eq!(
-        after.computed_at, first.computed_at,
-        "the probability was not recomputed"
+        s.noshow
+            .for_appointment(a.id)
+            .await
+            .unwrap()
+            .probability_percent,
+        Some(50.0)
     );
     reset(&s).await;
 }
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
-async fn seventy_percent_is_not_on_the_priority_list_and_seventy_one_is_until_a_person_deals_with_it()
- {
+async fn the_call_list_is_the_top_few_matched_to_capacity_not_a_probability_cut_off() {
     let s = state().await;
     reset(&s).await;
     set("PAS_NOSHOW_SCORE", "true");
     approve_both(&s).await;
+    set("PAS_NOSHOW_CALL_CAPACITY", "2");
+    go_live(&s).await;
 
-    set(
-        "PAS_NOSHOW_WEIGHTS",
-        r#"{"base":0.70,"history":0,"lead":0,"age":{}}"#,
-    );
-    let at_threshold = booked(&s, Uuid::new_v4(), 30).await;
-    assert_eq!(
-        s.noshow
-            .for_appointment(at_threshold.id)
-            .await
-            .unwrap()
-            .probability_percent,
-        70.0
-    );
-
-    set(
-        "PAS_NOSHOW_WEIGHTS",
-        r#"{"base":0.71,"history":0,"lead":0,"age":{}}"#,
-    );
-    let above = booked(&s, Uuid::new_v4(), 31).await;
-    assert_eq!(
-        s.noshow
-            .for_appointment(above.id)
-            .await
-            .unwrap()
-            .probability_percent,
-        71.0
-    );
-
+    // Three in the coming week with different probabilities, and one far beyond the horizon.
+    let mut ids = Vec::new();
+    for (base, days) in [(0.30, 3), (0.50, 4), (0.80, 5), (0.95, 30)] {
+        set(
+            "PAS_NOSHOW_WEIGHTS",
+            &format!(r#"{{"base":{base},"history":0,"lead":0,"age":{{}}}}"#),
+        );
+        let a = booked(&s, Uuid::new_v4(), days).await;
+        s.noshow.for_appointment(a.id).await.unwrap();
+        ids.push(a.id.to_string());
+    }
+    assert_eq!(s.noshow.refresh_call_list().await.unwrap(), 2);
     let list = s.noshow.priority_list(500).await.unwrap();
-    let ids: Vec<String> = list
+    let listed: Vec<&str> = list
         .iter()
-        .map(|x| x["appointment_id"].as_str().unwrap().to_string())
+        .map(|x| x["appointment_id"].as_str().unwrap())
         .collect();
-    assert!(ids.contains(&above.id.to_string()), "71% is high");
-    assert!(
-        !ids.contains(&at_threshold.id.to_string()),
-        "exactly 70% is not above it"
+    assert_eq!(
+        listed,
+        vec![ids[2].as_str(), ids[1].as_str()],
+        "the top two, highest first"
     );
-    let item = list
-        .iter()
-        .find(|x| x["appointment_id"] == above.id.to_string())
-        .unwrap();
+    assert_eq!(
+        s.noshow.refresh_call_list().await.unwrap(),
+        0,
+        "idempotent, and at capacity"
+    );
+    let item = &list[0];
     assert!(
         item["factors"].as_array().unwrap().len() >= 4,
         "the list says why"
     );
+    assert!(
+        item.get("probability_percent").is_some_and(|v| v.is_null()),
+        "no number while uncalibrated"
+    );
+    // Listed means high; the third is low (0.30 is under the medium line), the far one is not on the list.
+    let band_of = |id: &str| {
+        let s = s.clone();
+        let id: Uuid = id.parse().unwrap();
+        async move { serde_json::to_value(s.noshow.for_appointment(id).await.unwrap().band).unwrap() }
+    };
+    assert_eq!(band_of(&ids[2]).await, "high");
+    assert_eq!(band_of(&ids[0]).await, "low");
 
-    // A person rings, records an outcome, and it leaves the list.
+    // A person rings and records an outcome: capacity frees and the next one is listed.
     let task: Uuid = item["task_id"].as_str().unwrap().parse().unwrap();
     assert!(
         s.ladder
@@ -351,12 +379,56 @@ async fn seventy_percent_is_not_on_the_priority_list_and_seventy_one_is_until_a_
             .await
             .unwrap()
     );
-    let after = s.noshow.priority_list(500).await.unwrap();
+    assert_eq!(s.noshow.refresh_call_list().await.unwrap(), 1);
+    let list = s.noshow.priority_list(500).await.unwrap();
     assert!(
-        after
-            .iter()
-            .all(|x| x["appointment_id"] != above.id.to_string())
+        list.iter().any(|x| x["appointment_id"] == ids[0].as_str()),
+        "{list:?}"
     );
+    assert!(
+        list.iter().all(|x| x["appointment_id"] != ids[3].as_str()),
+        "beyond the horizon"
+    );
+
+    // Zero capacity lists nobody.
+    set("PAS_NOSHOW_CALL_CAPACITY", "0");
+    s.db.execute(Statement::from_string(
+        DbBackend::Postgres,
+        "DELETE FROM staff_call_tasks WHERE reason = 'high_risk'".to_string(),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(s.noshow.refresh_call_list().await.unwrap(), 0);
+    reset(&s).await;
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
+async fn age_is_not_an_input_by_default_and_a_fairness_approval_must_justify_it_if_it_is() {
+    let s = state().await;
+    reset(&s).await;
+    let w = patient_administration_system::noshow::Weights::default();
+    assert!(w.age.is_empty(), "no age weights by default");
+    assert!(!s.noshow.status().await.unwrap().age_in_use);
+
+    set("PAS_NOSHOW_WEIGHTS", r#"{"age":{"16-24":0.03}}"#);
+    assert!(s.noshow.status().await.unwrap().age_in_use);
+    let e = s
+        .noshow
+        .record_review("fairness", "Dr A. Reviewer", "approved", NOTES, &sys())
+        .await
+        .unwrap_err();
+    assert!(e.to_string().contains("age"), "{e}");
+    s.noshow
+        .record_review(
+            "fairness",
+            "Dr A. Reviewer",
+            "approved",
+            "Reviewed the audit. Age bands add 3 points for 16-24 because the audit shows their miss rate is higher in this clinic; accepted.",
+            &sys(),
+        )
+        .await
+        .unwrap();
     reset(&s).await;
 }
 
@@ -450,14 +522,7 @@ async fn with_scores_present_rebooking_standby_and_offers_behave_exactly_as_with
     s.noshow.for_appointment(appt.id).await.unwrap();
     for p in &people {
         let a = booked(&s, *p, 60).await; // each standby patient has another booked appointment, scored high
-        assert!(
-            s.noshow
-                .for_appointment(a.id)
-                .await
-                .unwrap()
-                .probability_percent
-                > 70.0
-        );
+        assert!(s.noshow.for_appointment(a.id).await.unwrap().probability > 0.70);
     }
     s.db.execute(Statement::from_sql_and_values(
         DbBackend::Postgres,
@@ -670,11 +735,186 @@ async fn a_schedule_view_can_ask_for_many_stored_assessments_at_once_and_gets_no
 
     set("PAS_NOSHOW_SCORE", "true");
     approve_both(&s).await;
+    // A clinic in shadow mode shows staff nothing, though it records.
     s.noshow.for_appointment(a.id).await.unwrap();
+    let (active, items) = s.noshow.for_appointments(&[a.id, b.id]).await.unwrap();
+    assert!(active && items.is_empty(), "shadow: recorded, not shown");
+    assert!(s.noshow.for_staff(a.id).await.is_err());
+    go_live(&s).await;
+    assert!(s.noshow.for_staff(a.id).await.is_ok());
     // The second has not been reached by the daily pass, and asking does not score it.
     let (active, items) = s.noshow.for_appointments(&[a.id, b.id]).await.unwrap();
     assert!(active);
     assert_eq!(items.len(), 2.min(items.len()).max(1));
     assert!(items.iter().any(|x| x.appointment_id == a.id));
+    reset(&s).await;
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
+async fn a_clinic_goes_live_only_after_enough_shadow_data_by_a_named_person_and_can_go_back() {
+    let s = state().await;
+    reset(&s).await;
+    set("PAS_NOSHOW_SCORE", "true");
+    approve_both(&s).await;
+    set("PAS_NOSHOW_CALL_CAPACITY", "5");
+    let a = booked(&s, Uuid::new_v4(), 3).await;
+    s.noshow.for_appointment(a.id).await.unwrap();
+
+    // Everything starts in shadow: no call, nothing shown, and the clinic says so.
+    assert_eq!(
+        s.noshow.refresh_call_list().await.unwrap(),
+        0,
+        "shadow creates no calls"
+    );
+    let r = s.noshow.rollout().await.unwrap();
+    let mine = r
+        .iter()
+        .find(|x| x["service_type"] == "test-clinic")
+        .unwrap();
+    assert_eq!(
+        (mine["stage"].as_str(), mine["may_go_live"].as_bool()),
+        (Some("shadow"), Some(false))
+    );
+
+    // Too early: refused with the reason. A note and a name are needed too.
+    let why = "The first clinic, after the audit was read.";
+    let e = s
+        .noshow
+        .set_stage("test-clinic", "live", "Dr A", why, &sys())
+        .await
+        .unwrap_err();
+    assert!(e.to_string().contains("days of shadow data"), "{e}");
+    assert!(
+        s.noshow
+            .set_stage("test-clinic", "live", " ", why, &sys())
+            .await
+            .is_err()
+    );
+    assert!(
+        s.noshow
+            .set_stage("test-clinic", "live", "Dr A", "now", &sys())
+            .await
+            .is_err()
+    );
+    assert!(
+        s.noshow
+            .set_stage("test-clinic", "maybe", "Dr A", why, &sys())
+            .await
+            .is_err()
+    );
+
+    // After the shadow period it may go live, and then calls appear for that clinic only.
+    s.db.execute(Statement::from_string(
+        DbBackend::Postgres,
+        "UPDATE noshow_assessments SET computed_at = now() - interval '30 days'".to_string(),
+    ))
+    .await
+    .unwrap();
+    s.noshow
+        .set_stage("test-clinic", "live", "Dr A", why, &sys())
+        .await
+        .unwrap();
+    assert_eq!(s.noshow.refresh_call_list().await.unwrap(), 1);
+    assert!(s.noshow.for_staff(a.id).await.is_ok());
+
+    // It also needs the score to be active: a rejection stops going live as well as everything else.
+    s.noshow
+        .set_stage(
+            "test-clinic",
+            "shadow",
+            "Dr A",
+            "Back while we look at the audit.",
+            &sys(),
+        )
+        .await
+        .unwrap();
+    assert!(s.noshow.for_staff(a.id).await.is_err(), "back in shadow");
+    s.noshow
+        .record_review(
+            "fairness",
+            "Dr C",
+            "rejected",
+            "Not acceptable for quintile 5.",
+            &sys(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        s.noshow
+            .set_stage("test-clinic", "live", "Dr A", why, &sys())
+            .await
+            .is_err()
+    );
+    reset(&s).await;
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
+async fn the_evaluation_reports_calibration_and_before_after_against_clinics_still_in_shadow() {
+    use chrono::Duration;
+    let s = state().await;
+    reset(&s).await;
+    set("PAS_NOSHOW_SCORE", "true");
+    set(
+        "PAS_NOSHOW_WEIGHTS",
+        r#"{"base":0.30,"history":0,"lead":0,"age":{}}"#,
+    );
+    approve_both(&s).await;
+    go_live(&s).await;
+    s.db.execute(Statement::from_string(
+        DbBackend::Postgres,
+        "UPDATE noshow_rollout SET live_since = now() - interval '20 days' WHERE service_type = 'test-clinic'".to_string(),
+    ))
+    .await
+    .unwrap();
+    // 30 past appointments at the live clinic after it went live, 10 missed; scored at 0.30 beforehand.
+    let schedule = common::new_schedule(&s.db).await.id;
+    for i in 0..30 {
+        let slot = common::free_slot(&s.db, schedule, 40 + i).await;
+        let a = s
+            .scheduling
+            .book_slot(slot.id, Uuid::new_v4(), &sys())
+            .await
+            .unwrap();
+        s.noshow.for_appointment(a.id).await.unwrap();
+        let status = if i < 10 { "no_show" } else { "fulfilled" };
+        s.db.execute(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE appointments SET status = $2, start_datetime = now() - make_interval(days => $3::int) WHERE id = $1",
+            [a.id.into(), status.into(), (1 + (i % 15) as i32).into()],
+        ))
+        .await
+        .unwrap();
+    }
+    let _ = Duration::zero();
+    let v = s.noshow.evaluation(180, None).await.unwrap();
+    let cal: Vec<&serde_json::Value> = v["calibration"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["predicted_tenth"] == "3")
+        .collect();
+    assert_eq!(cal.len(), 1);
+    let c = cal[0];
+    assert!(
+        c["suppressed"] == false && c["appointments"].as_i64().unwrap() >= 30,
+        "{c}"
+    );
+    assert!((c["mean_predicted"].as_f64().unwrap() - 0.30).abs() < 0.01);
+    let clinic = v["clinics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["service_type"] == "test-clinic")
+        .unwrap();
+    assert!(
+        clinic["after"]["no_show_rate"].as_f64().is_some(),
+        "{clinic}"
+    );
+    assert!(clinic["live_since"].is_string());
+    // No identifier anywhere in the evaluation.
+    let text = v.to_string();
+    assert!(!text.contains("person_id") && !text.contains("appointment_id"));
     reset(&s).await;
 }

@@ -19,6 +19,15 @@ use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
 
+fn audit_ctx(headers: &HeaderMap) -> RepoUserContext {
+    let uc = user_context_from_headers(headers);
+    RepoUserContext {
+        user_id: uc.user_id,
+        user_ip: uc.user_ip,
+        user_agent: uc.user_agent,
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct OutcomesQuery {
     /// Comma-separated: specialty, language, age_band, deprivation_quintile, time_of_day, outcome, notice.
@@ -33,7 +42,11 @@ pub struct OutcomesQuery {
 
 /// `GET /api/analytics/appointment-outcomes`: counts of appointments by the chosen dimensions. No identifier
 /// appears anywhere in it, and cells under `k` are withheld (never shown as zero).
-pub async fn outcomes(State(state): State<AppState>, Query(q): Query<OutcomesQuery>) -> Response {
+pub async fn outcomes(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<OutcomesQuery>,
+) -> Response {
     let mut dims = Vec::new();
     for name in q
         .group_by
@@ -48,6 +61,17 @@ pub async fn outcomes(State(state): State<AppState>, Query(q): Query<OutcomesQue
                     .into_response();
             }
         }
+    }
+    if let Err(e) = state
+        .analytics
+        .charge_query(
+            "appointment-outcomes",
+            serde_json::json!({ "group_by": q.group_by, "from": q.from, "to": q.to, "k": q.k }),
+            &audit_ctx(&headers),
+        )
+        .await
+    {
+        return error_to_response(e).into_response();
     }
     match state.analytics.outcomes(&dims, q.from, q.to, q.k).await {
         Ok(r) if q.format.as_deref() == Some("csv") => (
@@ -89,7 +113,11 @@ pub struct RefillQuery {
 /// `GET /api/analytics/refill-rates`: how often released slots are refilled, by notice period, early-release
 /// share and the chosen splits (deprivation quintile, language, ...). Same rules as the outcomes feed: no
 /// identifier, cells under `k` withheld, and nothing in it feeds back into what any patient is offered.
-pub async fn refill_rates(State(state): State<AppState>, Query(q): Query<RefillQuery>) -> Response {
+pub async fn refill_rates(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<RefillQuery>,
+) -> Response {
     let mut dims = Vec::new();
     for name in q
         .group_by
@@ -104,6 +132,17 @@ pub async fn refill_rates(State(state): State<AppState>, Query(q): Query<RefillQ
                     .into_response();
             }
         }
+    }
+    if let Err(e) = state
+        .analytics
+        .charge_query(
+            "refill-rates",
+            serde_json::json!({ "group_by": q.group_by, "from": q.from, "to": q.to, "k": q.k }),
+            &audit_ctx(&headers),
+        )
+        .await
+    {
+        return error_to_response(e).into_response();
     }
     match state.analytics.refill_rates(&dims, q.from, q.to, q.k).await {
         Ok(r) if q.format.as_deref() == Some("csv") => (
@@ -148,6 +187,78 @@ pub async fn set_demographics(
         .await
     {
         Ok(()) => (StatusCode::OK, Json(ApiResponse::ok(Value::Null))),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LookupQuery {
+    /// Which dataset the file was built from, for example `WIMD 2019 + ONSPD Aug 2026`.
+    pub dataset: String,
+    pub loaded_by: String,
+}
+
+/// `PUT /api/analytics/deprivation-lookup?dataset=...&loaded_by=...`: the health board's postcode to quintile
+/// file as CSV (`postcode,quintile`). The PAS ships no data.
+pub async fn load_deprivation_lookup(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<LookupQuery>,
+    body: String,
+) -> HandlerResult {
+    let uc = user_context_from_headers(&headers);
+    let ctx = RepoUserContext {
+        user_id: uc.user_id,
+        user_ip: uc.user_ip,
+        user_agent: uc.user_agent,
+    };
+    match state
+        .analytics
+        .load_deprivation_lookup(&body, &q.dataset, &q.loaded_by, &ctx)
+        .await
+    {
+        Ok((loaded, rejected)) => (
+            StatusCode::OK,
+            Json(ApiResponse::ok(
+                serde_json::json!({ "loaded": loaded, "rejected": rejected }),
+            )),
+        ),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RefreshQuery {
+    pub limit: Option<i64>,
+}
+
+/// `POST /api/analytics/demographics/refresh?limit=`: fill the bands for people who have none, from the
+/// person record and the lookup. Idempotent; run it daily.
+pub async fn refresh_demographics(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<RefreshQuery>,
+) -> HandlerResult {
+    let Some(people) = state.person_client.clone() else {
+        return error_to_response(Error::upstream(
+            "the bands come from person-service, which is not configured",
+        ));
+    };
+    let uc = user_context_from_headers(&headers);
+    let ctx = RepoUserContext {
+        user_id: uc.user_id.clone(),
+        user_ip: uc.user_ip.clone(),
+        user_agent: uc.user_agent.clone(),
+    };
+    match state
+        .analytics
+        .refresh_demographics(people.as_ref(), q.limit.unwrap_or(500), &uc, &ctx)
+        .await
+    {
+        Ok(n) => (
+            StatusCode::OK,
+            Json(ApiResponse::ok(serde_json::json!({ "updated": n }))),
+        ),
         Err(e) => error_to_response(e),
     }
 }

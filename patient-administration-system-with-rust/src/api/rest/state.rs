@@ -110,7 +110,7 @@ impl AppState {
         Self {
             adt: Arc::new(AdtService::new(db.clone(), publisher.clone())),
             reply_links: reply_links.clone(),
-            rebooking,
+            rebooking: rebooking.clone(),
             analytics: Arc::new(crate::analytics::AnalyticsService::new(db.clone())),
             ivr: Arc::new(crate::ivr::IvrService::new(reply_links.clone())),
             whatsapp: Arc::new(crate::communication::whatsapp::WhatsAppService::new(
@@ -136,10 +136,10 @@ impl AppState {
                 db.clone(),
                 communication.clone(),
             )),
-            inbound: Arc::new(crate::inbound::InboundService::new(
-                db.clone(),
-                writeback.clone(),
-            )),
+            inbound: Arc::new(
+                crate::inbound::InboundService::new(db.clone(), writeback.clone())
+                    .with_rebooking(rebooking.clone()),
+            ),
             writeback,
             contact: Arc::new(crate::contact::ContactService::new(db.clone())),
             standby,

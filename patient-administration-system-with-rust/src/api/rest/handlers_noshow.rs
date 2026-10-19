@@ -91,7 +91,7 @@ pub async fn fairness_audit(
 
 /// `GET /api/appointments/{id}/noshow`: the probability, band and the factors behind it (409 while off).
 pub async fn for_appointment(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
-    match state.noshow.for_appointment(id).await {
+    match state.noshow.for_staff(id).await {
         Ok(s) => ok(serde_json::to_value(s).unwrap_or(Value::Null)),
         Err(e) => error_to_response(e),
     }
@@ -142,6 +142,58 @@ pub async fn priority_list(
 ) -> HandlerResult {
     match state.noshow.priority_list(q.limit.unwrap_or(100)).await {
         Ok(v) => ok(Value::Array(v)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `GET /api/noshow/rollout`: each clinic's stage and how long it has been recording in shadow.
+pub async fn rollout(State(state): State<AppState>) -> HandlerResult {
+    match state.noshow.rollout().await {
+        Ok(v) => ok(Value::Array(v)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StageBody {
+    /// `shadow` or `live`.
+    pub stage: String,
+    pub changed_by: String,
+    pub note: String,
+}
+
+/// `PUT /api/noshow/rollout/{service_type}`: a named person moves one clinic to live (after enough shadow
+/// data) or back to shadow.
+pub async fn set_stage(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(service_type): Path<String>,
+    Json(b): Json<StageBody>,
+) -> HandlerResult {
+    match state
+        .noshow
+        .set_stage(
+            &service_type,
+            &b.stage,
+            &b.changed_by,
+            &b.note,
+            &ctx(&headers),
+        )
+        .await
+    {
+        Ok(()) => ok(Value::Null),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `GET /api/noshow/evaluation`: calibration, and before/after at each live clinic against the ones still in
+/// shadow. Small cells withheld. Works while the score is off (and is empty then).
+pub async fn evaluation(
+    State(state): State<AppState>,
+    Query(q): Query<AuditQuery>,
+) -> HandlerResult {
+    match state.noshow.evaluation(q.days.unwrap_or(180), q.k).await {
+        Ok(v) => ok(v),
         Err(e) => error_to_response(e),
     }
 }

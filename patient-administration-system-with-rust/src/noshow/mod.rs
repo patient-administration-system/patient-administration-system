@@ -46,27 +46,48 @@ pub enum Band {
     High,
 }
 
-/// Low up to the medium threshold, medium above it, high above the high one (`> 0.70` is high, `0.70` is not).
-pub fn band(p: f64, medium: f64, high: f64) -> Band {
-    if p > high {
-        Band::High
-    } else if p > medium {
-        Band::Medium
-    } else {
-        Band::Low
-    }
+/// Low up to the medium threshold, medium above it (`> 0.40` is medium, `0.40` is not). **High is not a
+/// probability cut-off:** it means "on today's call list", which is the top few matched to the people
+/// available to phone (see [`NoShowService::refresh_call_list`]). A fixed high cut-off with a low base rate
+/// can only be reached by patients who have missed before, which would make the list a "missed before" list.
+pub fn band(p: f64, medium: f64) -> Band {
+    if p > medium { Band::Medium } else { Band::Low }
 }
 
-pub fn thresholds() -> (f64, f64) {
-    let get = |k: &str, d: f64| {
-        std::env::var(k)
-            .ok()
-            .and_then(|v| v.parse::<f64>().ok())
-            .filter(|v| (0.0..=1.0).contains(v))
-            .unwrap_or(d)
-    };
-    let (m, h) = (get("PAS_NOSHOW_MEDIUM", 0.40), get("PAS_NOSHOW_HIGH", 0.70));
-    if m < h { (m, h) } else { (0.40, 0.70) }
+fn env_i64(key: &str, default: i64, lo: i64, hi: i64) -> i64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse::<i64>().ok())
+        .map_or(default, |v| v.clamp(lo, hi))
+}
+
+/// How many people the clinic can phone in a day (`PAS_NOSHOW_CALL_CAPACITY`, default 10, at most 500).
+pub fn call_capacity() -> i64 {
+    env_i64("PAS_NOSHOW_CALL_CAPACITY", 10, 0, 500)
+}
+
+/// Days of shadow data a clinic needs before it may go live (`PAS_NOSHOW_SHADOW_MIN_DAYS`, default 28).
+pub fn shadow_min_days() -> i64 {
+    env_i64("PAS_NOSHOW_SHADOW_MIN_DAYS", 28, 0, 365)
+}
+
+/// How far ahead the call list looks (`PAS_NOSHOW_CALL_HORIZON_DAYS`, default 7).
+pub fn call_horizon_days() -> i64 {
+    env_i64("PAS_NOSHOW_CALL_HORIZON_DAYS", 7, 1, 60)
+}
+
+/// The percentage is hidden until someone sets this after calibrating the weights on real outcomes
+/// (`PAS_NOSHOW_SHOW_PERCENT=true`). Until then staff see the band word and the reasons only.
+pub fn percent_shown() -> bool {
+    std::env::var("PAS_NOSHOW_SHOW_PERCENT").as_deref() == Ok("true")
+}
+
+pub fn medium_threshold() -> f64 {
+    std::env::var("PAS_NOSHOW_MEDIUM")
+        .ok()
+        .and_then(|v| v.parse::<f64>().ok())
+        .filter(|v| (0.0..=1.0).contains(v))
+        .unwrap_or(0.40)
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -80,7 +101,7 @@ pub struct Weights {
     pub prior_visits: f64,
     /// Added at a lead time of 90 days or more (scaled linearly below it).
     pub lead: f64,
-    /// Added by age band. Bands may only raise the probability, so support goes where it is needed.
+    /// Added by age band. Empty by default. Bands may only raise the probability, so support goes where it is needed.
     pub age: BTreeMap<String, f64>,
     /// Added by day of week (Monday first) and by part of day (morning, afternoon, evening). Zero by default.
     pub weekday: [f64; 7],
@@ -94,10 +115,9 @@ impl Default for Weights {
             history: 0.9,
             prior_visits: 3.0,
             lead: 0.06,
-            age: [("16-24", 0.03), ("25-34", 0.02)]
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect(),
+            // Age is not an input by default. A deployment may add bands, but then the fairness reviewer
+            // must say why in the approval (see `record_review`).
+            age: BTreeMap::new(),
             weekday: [0.0; 7],
             period: [0.0; 3],
         }
@@ -214,13 +234,23 @@ pub struct Status {
     /// Why it is off, in words, when it is.
     pub reason: Option<String>,
     pub medium_threshold: f64,
-    pub high_threshold: f64,
+    pub call_capacity: i64,
+    pub call_horizon_days: i64,
+    /// Whether the percentage is shown to staff (off until calibrated).
+    pub percentage_shown: bool,
+    /// Whether any age weight is in use (then the fairness approval must justify it).
+    pub age_in_use: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Shown {
     pub appointment_id: Uuid,
-    pub probability_percent: f64,
+    /// For the server's own use (tests, the audit); never serialised.
+    #[serde(skip)]
+    pub probability: f64,
+    /// Present only once the weights are calibrated and `PAS_NOSHOW_SHOW_PERCENT=true`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub probability_percent: Option<f64>,
     pub band: Band,
     pub factors: Vec<Factor>,
     pub sample_size: i64,
@@ -288,7 +318,6 @@ impl NoShowService {
             }
             missing.join("; ")
         });
-        let (medium_threshold, high_threshold) = thresholds();
         Ok(Status {
             model_version: MODEL_VERSION,
             switched_on,
@@ -296,8 +325,11 @@ impl NoShowService {
             clinical_safety_approved: safety,
             active,
             reason,
-            medium_threshold,
-            high_threshold,
+            medium_threshold: medium_threshold(),
+            call_capacity: call_capacity(),
+            call_horizon_days: call_horizon_days(),
+            percentage_shown: percent_shown(),
+            age_in_use: Weights::from_env().age.values().any(|v| *v != 0.0),
         })
     }
 
@@ -339,6 +371,18 @@ impl NoShowService {
         if outcome == "approved" && notes.chars().count() < 40 {
             return Err(Error::validation(
                 "an approval needs notes (at least 40 characters) saying what was looked at and why it is acceptable",
+            ));
+        }
+        if outcome == "approved"
+            && kind == "fairness"
+            && Weights::from_env().age.values().any(|v| *v != 0.0)
+            && !notes
+                .to_lowercase()
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|w| w == "age" || w == "ages" || w == "aged")
+        {
+            return Err(Error::validation(
+                "age bands carry weight in this configuration: a fairness approval must say why using age is justified (the notes must discuss age)",
             ));
         }
         if notes.is_empty() || notes.chars().count() > 1000 {
@@ -452,20 +496,6 @@ impl NoShowService {
             ))
             .await
             .map_err(Error::Database)?;
-        let (_, high) = thresholds();
-        if a.probability > high {
-            // Support only: a task for a person to ring. It never touches the booking.
-            self.db
-                .execute(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
-                     SELECT $1, a.id, a.person_id, 'high_risk', a.start_datetime - interval '2 days' FROM appointments a \
-                     WHERE a.id = $2 AND a.status = 'booked' ON CONFLICT (appointment_id, reason) DO NOTHING",
-                    [Uuid::new_v4().into(), appointment_id.into()],
-                ))
-                .await
-                .map_err(Error::Database)?;
-        }
         let _ = person;
         self.stored(appointment_id)
             .await?
@@ -473,11 +503,13 @@ impl NoShowService {
     }
 
     async fn stored(&self, appointment_id: Uuid) -> Result<Option<Shown>> {
-        let (medium, high) = thresholds();
+        let medium = medium_threshold();
         self.db
             .query_one(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "SELECT probability, factors, sample_size, model_version, computed_at FROM noshow_assessments WHERE appointment_id = $1",
+                "SELECT probability, factors, sample_size, model_version, computed_at, \
+                   EXISTS (SELECT 1 FROM staff_call_tasks t WHERE t.appointment_id = noshow_assessments.appointment_id AND t.reason = 'high_risk') AS listed \
+                 FROM noshow_assessments WHERE appointment_id = $1",
                 [appointment_id.into()],
             ))
             .await
@@ -487,8 +519,13 @@ impl NoShowService {
                 let factors: serde_json::Value = r.try_get("", "factors").map_err(Error::Database)?;
                 Ok(Shown {
                     appointment_id,
-                    probability_percent: (p * 1000.0).round() / 10.0,
-                    band: band(p, medium, high),
+                    probability: p,
+                    probability_percent: percent_shown().then(|| (p * 1000.0).round() / 10.0),
+                    band: if r.try_get::<bool>("", "listed").map_err(Error::Database)? {
+                        Band::High
+                    } else {
+                        band(p, medium)
+                    },
                     factors: serde_json::from_value(factors).unwrap_or_default(),
                     sample_size: i64::from(r.try_get::<i32>("", "sample_size").map_err(Error::Database)?),
                     model_version: r.try_get("", "model_version").map_err(Error::Database)?,
@@ -505,8 +542,10 @@ impl NoShowService {
         if !self.status().await?.active || ids.is_empty() {
             return Ok((false, Vec::new()));
         }
+        let ids: Vec<Uuid> = ids.iter().take(500).copied().collect();
+        let visible = self.visible(&ids).await?;
         let mut out = Vec::new();
-        for id in ids.iter().take(500) {
+        for id in ids.iter().filter(|i| visible.contains(i)) {
             if let Some(s) = self.stored(*id).await? {
                 out.push(s);
             }
@@ -517,6 +556,257 @@ impl NoShowService {
     /// The assessment of a booked appointment, made now if it has none or is out of date.
     pub async fn for_appointment(&self, appointment_id: Uuid) -> Result<Shown> {
         self.assess(appointment_id).await
+    }
+
+    /// The same, for a person at the front desk: refused for a clinic still in shadow mode, where the
+    /// probability is recorded to be checked but not shown.
+    pub async fn for_staff(&self, appointment_id: Uuid) -> Result<Shown> {
+        self.require_active().await?;
+        if !self
+            .visible(&[appointment_id])
+            .await?
+            .contains(&appointment_id)
+        {
+            return Err(Error::conflict(
+                "this clinic is in shadow mode: the probability is being recorded and checked, not shown",
+            ));
+        }
+        self.assess(appointment_id).await
+    }
+
+    /// Which of these appointments belong to a clinic that is live.
+    async fn visible(&self, ids: &[Uuid]) -> Result<std::collections::HashSet<Uuid>> {
+        if ids.is_empty() {
+            return Ok(Default::default());
+        }
+        let rows = self
+            .db
+            .query_all(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT a.id FROM appointments a JOIN slots sl ON sl.id = a.slot_id \
+                 JOIN schedules sc ON sc.id = sl.schedule_id \
+                 JOIN noshow_rollout r ON r.service_type = sc.service_type AND r.stage = 'live' \
+                 WHERE a.id = ANY($1)",
+                [ids.to_vec().into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        rows.iter()
+            .map(|r| r.try_get::<Uuid>("", "id").map_err(Error::Database))
+            .collect()
+    }
+
+    /// Every clinic seen so far with its stage and how long it has been recording in shadow.
+    pub async fn rollout(&self) -> Result<Vec<serde_json::Value>> {
+        let rows = self
+            .db
+            .query_all(Statement::from_string(
+                DbBackend::Postgres,
+                "SELECT s.svc, COALESCE(r.stage, 'shadow') AS stage, r.changed_by, r.live_since, s.first_at, s.n \
+                 FROM (SELECT sc.service_type AS svc, min(n.computed_at) AS first_at, count(*) AS n \
+                       FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
+                       JOIN slots sl ON sl.id = a.slot_id JOIN schedules sc ON sc.id = sl.schedule_id GROUP BY 1) s \
+                 LEFT JOIN noshow_rollout r ON r.service_type = s.svc ORDER BY s.svc"
+                    .to_string(),
+            ))
+            .await
+            .map_err(Error::Database)?;
+        let min = shadow_min_days();
+        rows.iter()
+            .map(|r| {
+                let first: DateTime<Utc> = r.try_get("", "first_at").map_err(Error::Database)?;
+                let days = (Utc::now() - first).num_days();
+                Ok(serde_json::json!({
+                    "service_type": r.try_get::<String>("", "svc").map_err(Error::Database)?,
+                    "stage": r.try_get::<String>("", "stage").map_err(Error::Database)?,
+                    "changed_by": r.try_get::<Option<String>>("", "changed_by").map_err(Error::Database)?,
+                    "live_since": r.try_get::<Option<DateTime<Utc>>>("", "live_since").map_err(Error::Database)?,
+                    "assessments": r.try_get::<i64>("", "n").map_err(Error::Database)?,
+                    "days_in_shadow": days,
+                    "may_go_live": days >= min,
+                }))
+            })
+            .collect()
+    }
+
+    /// Move one clinic between shadow and live. Going live needs: the score active (both reviews), a named
+    /// person, a note saying why this clinic now, and at least [`shadow_min_days`] of shadow data for it,
+    /// so the first real use of the score at a clinic follows a period of checking it against what happened.
+    /// Going back to shadow is always allowed; calls already on the list stay for a person to clear.
+    pub async fn set_stage(
+        &self,
+        service_type: &str,
+        stage: &str,
+        changed_by: &str,
+        note: &str,
+        ctx: &UserContext,
+    ) -> Result<()> {
+        if !["shadow", "live"].contains(&stage) {
+            return Err(Error::validation("stage must be shadow or live"));
+        }
+        let (svc, by, note) = (service_type.trim(), changed_by.trim(), note.trim());
+        if svc.is_empty() || by.is_empty() {
+            return Err(Error::validation(
+                "name the clinic (service type) and the person making the change",
+            ));
+        }
+        if stage == "live" {
+            if note.chars().count() < 20 {
+                return Err(Error::validation(
+                    "going live needs a note (20 characters or more) saying why this clinic, now",
+                ));
+            }
+            self.require_active().await?;
+            let row = self
+                .db
+                .query_one(Statement::from_sql_and_values(
+                    DbBackend::Postgres,
+                    "SELECT min(n.computed_at) AS first_at FROM noshow_assessments n \
+                     JOIN appointments a ON a.id = n.appointment_id JOIN slots sl ON sl.id = a.slot_id \
+                     JOIN schedules sc ON sc.id = sl.schedule_id WHERE sc.service_type = $1",
+                    [svc.into()],
+                ))
+                .await
+                .map_err(Error::Database)?;
+            let first: Option<DateTime<Utc>> = row.and_then(|r| r.try_get("", "first_at").ok());
+            let days = first.map_or(0, |f| (Utc::now() - f).num_days());
+            if days < shadow_min_days() {
+                return Err(Error::conflict(format!(
+                    "{svc} has {days} days of shadow data; at least {} are needed before it goes live",
+                    shadow_min_days()
+                )));
+            }
+        }
+        self.db
+            .execute(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "INSERT INTO noshow_rollout (service_type, stage, changed_by, note, live_since) \
+                 VALUES ($1,$2,$3,$4, CASE WHEN $2 = 'live' THEN now() END) \
+                 ON CONFLICT (service_type) DO UPDATE SET stage = $2, changed_by = $3, note = $4, changed_at = now(), \
+                   live_since = CASE WHEN $2 = 'live' THEN COALESCE(noshow_rollout.live_since, now()) ELSE noshow_rollout.live_since END",
+                [svc.into(), stage.into(), by.into(), note.into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        AuditLogRepository::log_with(
+            &self.db,
+            "noshow_model",
+            Uuid::new_v5(&Uuid::NAMESPACE_OID, svc.as_bytes()),
+            &format!("rollout_{stage}"),
+            None,
+            Some(serde_json::json!({ "service_type": svc, "changed_by": by })),
+            Some(stage),
+            None,
+            ctx,
+        )
+        .await
+    }
+
+    /// Is it working? Two views, both with small cells withheld and no identifiers:
+    ///
+    /// - **calibration**: the stored probability (made before the visit, which shadow mode guarantees) against
+    ///   what happened, by tenth of predicted. This is what a person reads before setting
+    ///   `PAS_NOSHOW_SHOW_PERCENT`, and what shows whether the weights are any good.
+    /// - **clinics**: for each clinic, the no-show rate before and after it went live, next to the rate at the
+    ///   clinics still in shadow over the same period. The stepped rollout makes the not-yet-live clinics the
+    ///   comparison, so nobody is held back from support to make one. A difference that shows in the live
+    ///   clinics and not in the others is the evidence the score raises attendance; a drift in both is not.
+    pub async fn evaluation(&self, days: i64, k: Option<i64>) -> Result<serde_json::Value> {
+        let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
+        let days = days.clamp(7, 1825) as i32;
+        let r3 = |x: f64| (x * 1000.0).round() / 1000.0;
+        let rows = self
+            .db
+            .query_all(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT floor(n.probability * 10)::int AS tenth, count(*)::bigint AS n, avg(n.probability) AS predicted, \
+                   avg((a.status = 'no_show')::int) AS observed \
+                 FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
+                 WHERE a.status IN ('fulfilled','arrived','no_show') AND a.start_datetime > now() - make_interval(days => $1) \
+                 GROUP BY 1 ORDER BY 1",
+                [days.into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        let counts: Vec<(Vec<(String, String)>, i64)> = rows
+            .iter()
+            .map(|r| {
+                let t: i32 = r.try_get("", "tenth").unwrap_or(0);
+                Ok((
+                    vec![("tenth".to_string(), t.min(9).to_string())],
+                    r.try_get::<i64>("", "n").map_err(Error::Database)?,
+                ))
+            })
+            .collect::<Result<_>>()?;
+        let cells = suppress(counts, k);
+        let calibration: Vec<serde_json::Value> = rows
+            .iter()
+            .zip(cells)
+            .map(|(r, c)| {
+                let t = &c.dims[0].1;
+                if c.suppressed {
+                    serde_json::json!({ "predicted_tenth": t, "suppressed": true })
+                } else {
+                    let (p, o): (f64, f64) = (r.try_get("", "predicted").unwrap_or(0.0), r.try_get("", "observed").unwrap_or(0.0));
+                    serde_json::json!({ "predicted_tenth": t, "appointments": c.count, "mean_predicted": r3(p),
+                        "observed_no_show_rate": r3(o), "gap": r3(p - o), "suppressed": false })
+                }
+            })
+            .collect();
+
+        // Per clinic: before and after the go-live moment, and the same after-period at clinics still in shadow.
+        let clinic_rows = self
+            .db
+            .query_all(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "WITH o AS ( \
+                   SELECT COALESCE(sc.service_type,'unknown') AS svc, a.start_datetime AS at, (a.status = 'no_show') AS missed \
+                   FROM appointments a LEFT JOIN slots sl ON sl.id = a.slot_id LEFT JOIN schedules sc ON sc.id = sl.schedule_id \
+                   WHERE a.deleted_at IS NULL AND a.status IN ('fulfilled','arrived','no_show') \
+                     AND a.start_datetime > now() - make_interval(days => $1)) \
+                 SELECT r.service_type AS svc, r.live_since, \
+                   count(*) FILTER (WHERE o.at < r.live_since)::bigint AS before_n, \
+                   count(*) FILTER (WHERE o.at < r.live_since AND o.missed)::bigint AS before_missed, \
+                   count(*) FILTER (WHERE o.at >= r.live_since)::bigint AS after_n, \
+                   count(*) FILTER (WHERE o.at >= r.live_since AND o.missed)::bigint AS after_missed, \
+                   (SELECT count(*) FROM o o2 WHERE o2.at >= r.live_since AND NOT EXISTS \
+                      (SELECT 1 FROM noshow_rollout x WHERE x.service_type = o2.svc AND x.stage = 'live'))::bigint AS shadow_n, \
+                   (SELECT count(*) FROM o o2 WHERE o2.at >= r.live_since AND o2.missed AND NOT EXISTS \
+                      (SELECT 1 FROM noshow_rollout x WHERE x.service_type = o2.svc AND x.stage = 'live'))::bigint AS shadow_missed \
+                 FROM noshow_rollout r LEFT JOIN o ON o.svc = r.service_type \
+                 WHERE r.live_since IS NOT NULL GROUP BY r.service_type, r.live_since ORDER BY r.service_type",
+                [days.into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        let rate = |m: i64, n: i64, ok: bool| {
+            if ok && n > 0 {
+                serde_json::json!(r3(m as f64 / n as f64))
+            } else {
+                serde_json::Value::Null
+            }
+        };
+        let clinics: Vec<serde_json::Value> = clinic_rows
+            .iter()
+            .map(|r| {
+                let g = |c: &str| r.try_get::<i64>("", c).unwrap_or(0);
+                // A rate is shown only if every count behind it is at least k, so a hidden figure cannot be
+                // recovered from a published one.
+                let (bn, an, sn) = (g("before_n"), g("after_n"), g("shadow_n"));
+                serde_json::json!({
+                    "service_type": r.try_get::<String>("", "svc").unwrap_or_default(),
+                    "live_since": r.try_get::<DateTime<Utc>>("", "live_since").ok(),
+                    "before": { "no_show_rate": rate(g("before_missed"), bn, bn >= k), "appointments": (bn >= k).then_some(bn) },
+                    "after": { "no_show_rate": rate(g("after_missed"), an, an >= k), "appointments": (an >= k).then_some(an) },
+                    "same_period_clinics_still_in_shadow": { "no_show_rate": rate(g("shadow_missed"), sn, sn >= k), "appointments": (sn >= k).then_some(sn) },
+                })
+            })
+            .collect();
+        Ok(serde_json::json!({
+            "model_version": MODEL_VERSION, "days": days, "k": k,
+            "calibration": calibration, "clinics": clinics,
+            "how_to_read": "Calibration compares the probability recorded before each visit with what happened; read it before showing any percentage. Clinics compares the no-show rate before and after a clinic went live with the clinics still in shadow over the same period; a fall in the live clinics that is not matched in the others is the evidence the score helps. Nobody is withheld from support to make a comparison: the standard reminders apply everywhere and the score only adds calls.",
+        }))
     }
 
     /// The daily job: assess every booked appointment still to come. Idempotent within a day.
@@ -538,13 +828,41 @@ impl NoShowService {
             self.assess(id).await?;
             n += 1;
         }
+        self.refresh_call_list().await?;
         Ok(n)
     }
 
-    /// Booked appointments above the high threshold that nobody has dealt with, soonest first, with the factors.
+    /// Today's call list: the top few by probability among booked appointments in the next
+    /// [`call_horizon_days`], as many as the clinic can phone ([`call_capacity`]) less what is still open.
+    /// Matching the list to capacity, not to a probability cut-off, is deliberate (see [`band`]). It adds a task
+    /// for a person to ring; it never touches a booking. Idempotent: an appointment is listed once.
+    pub async fn refresh_call_list(&self) -> Result<u64> {
+        self.require_active().await?;
+        let r = self
+            .db
+            .execute(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
+                 SELECT gen_random_uuid(), a.id, a.person_id, 'high_risk', GREATEST(now(), a.start_datetime - interval '2 days') \
+                 FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
+                 JOIN slots sl ON sl.id = a.slot_id JOIN schedules sc ON sc.id = sl.schedule_id \
+                 JOIN noshow_rollout r ON r.service_type = sc.service_type AND r.stage = 'live' \
+                 WHERE a.status = 'booked' AND a.deleted_at IS NULL AND a.start_datetime > now() \
+                   AND a.start_datetime < now() + make_interval(days => $1::int) \
+                   AND NOT EXISTS (SELECT 1 FROM staff_call_tasks t WHERE t.appointment_id = a.id AND t.reason = 'high_risk') \
+                 ORDER BY n.probability DESC, a.start_datetime \
+                 LIMIT GREATEST(0, $2::bigint - (SELECT count(*) FROM staff_call_tasks WHERE reason = 'high_risk' AND handled_at IS NULL)) \
+                 ON CONFLICT (appointment_id, reason) DO NOTHING",
+                [(call_horizon_days() as i32).into(), call_capacity().into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        Ok(r.rows_affected())
+    }
+
+    /// The call list: booked appointments a person has not yet dealt with, highest first, with the factors.
     pub async fn priority_list(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
         self.require_active().await?;
-        let (_, high) = thresholds();
         let rows = self
             .db
             .query_all(Statement::from_sql_and_values(
@@ -552,9 +870,9 @@ impl NoShowService {
                 "SELECT n.appointment_id, n.probability, n.factors, n.sample_size, a.start_datetime, t.id AS task_id \
                  FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
                  JOIN staff_call_tasks t ON t.appointment_id = n.appointment_id AND t.reason = 'high_risk' \
-                 WHERE a.status = 'booked' AND a.start_datetime > now() AND t.handled_at IS NULL AND n.probability > $1 \
-                 ORDER BY a.start_datetime LIMIT $2",
-                [high.into(), limit.clamp(1, 500).into()],
+                 WHERE a.status = 'booked' AND a.start_datetime > now() AND t.handled_at IS NULL \
+                 ORDER BY n.probability DESC, a.start_datetime LIMIT $1",
+                [limit.clamp(1, 500).into()],
             ))
             .await
             .map_err(Error::Database)?;
@@ -564,7 +882,7 @@ impl NoShowService {
                 Ok(serde_json::json!({
                     "appointment_id": r.try_get::<Uuid>("", "appointment_id").map_err(Error::Database)?,
                     "task_id": r.try_get::<Uuid>("", "task_id").map_err(Error::Database)?,
-                    "probability_percent": (p * 1000.0).round() / 10.0,
+                    "probability_percent": percent_shown().then(|| (p * 1000.0).round() / 10.0),
                     "starts_at": r.try_get::<DateTime<Utc>>("", "start_datetime").map_err(Error::Database)?,
                     "sample_size": r.try_get::<i32>("", "sample_size").map_err(Error::Database)?,
                     "factors": r.try_get::<serde_json::Value>("", "factors").map_err(Error::Database)?,
@@ -599,7 +917,6 @@ impl NoShowService {
             ))
             .await
             .map_err(Error::Database)?;
-        let (_, high) = thresholds();
         let w = Weights::from_env();
         #[derive(Default)]
         struct Acc {
@@ -610,6 +927,8 @@ impl NoShowService {
         }
         let mut cells: BTreeMap<(String, String), Acc> = BTreeMap::new();
         let mut all = Acc::default();
+        // Pass 1: the model's probability for each past appointment, as it would have been.
+        let mut scored: Vec<(f64, bool, (String, String))> = Vec::new();
         for r in &rows {
             let g = Error::Database;
             let start: DateTime<Utc> = r.try_get("", "start_datetime").map_err(g)?;
@@ -628,18 +947,29 @@ impl NoShowService {
             )
             .probability;
             let missed = r.try_get::<String>("", "status").map_err(g)? == "no_show";
-            for acc in [
-                cells
-                    .entry((
-                        r.try_get("", "q").map_err(g)?,
-                        r.try_get("", "lang").map_err(g)?,
-                    ))
-                    .or_default(),
-                &mut all,
-            ] {
+            scored.push((
+                p,
+                missed,
+                (
+                    r.try_get("", "q").map_err(g)?,
+                    r.try_get("", "lang").map_err(g)?,
+                ),
+            ));
+        }
+        // The call list takes the top few, not everyone above a fixed probability, so the audit asks the same
+        // question: who would be in the top tenth of the period? (A tie at the cut-off is all in.)
+        let mut ps: Vec<f64> = scored.iter().map(|x| x.0).collect();
+        ps.sort_by(|a, b| b.total_cmp(a));
+        let cutoff = ps
+            .get(ps.len().div_ceil(10).saturating_sub(1))
+            .copied()
+            .unwrap_or(1.0);
+        // Pass 2: accumulate by group.
+        for (p, missed, key) in scored {
+            for acc in [cells.entry(key).or_default(), &mut all] {
                 acc.n += 1;
                 acc.predicted += p;
-                acc.high += i64::from(p > high);
+                acc.high += i64::from(p >= cutoff);
                 acc.missed += i64::from(missed);
             }
         }
@@ -672,32 +1002,33 @@ impl NoShowService {
                         "deprivation_quintile": key.0, "language": key.1, "appointments": a.n,
                         "mean_predicted": r3(predicted), "observed_no_show_rate": r3(observed),
                         "calibration_gap": r3(predicted - observed),
-                        "share_in_high_band": r3(a.high as f64 / a.n as f64), "suppressed": false,
+                        "share_in_top_tenth": r3(a.high as f64 / a.n as f64), "suppressed": false,
                     })
                 }
             })
             .collect();
         Ok(serde_json::json!({
-            "model_version": MODEL_VERSION, "days": days, "k": k, "high_threshold": high,
+            "model_version": MODEL_VERSION, "days": days, "k": k, "top_tenth_cutoff": r3(cutoff),
             "overall": if all.n == 0 { serde_json::Value::Null } else { serde_json::json!({
                 "appointments": all.n, "mean_predicted": r3(all.predicted / all.n as f64),
                 "observed_no_show_rate": r3(all.missed as f64 / all.n as f64),
-                "share_in_high_band": r3(all.high as f64 / all.n as f64) }) },
+                "share_in_top_tenth": r3(all.high as f64 / all.n as f64) }) },
             "cells": out,
-            "how_to_read": "calibration_gap is mean predicted minus observed no-show rate. A group with a much larger share in the high band than its observed rate supports, or a large gap of either sign, is a reason to reject the model or change its weights. Support only: this model never removes or reorders a slot.",
+            "how_to_read": "calibration_gap is mean predicted minus observed no-show rate. A group with a much larger share in the top tenth than its observed rate supports, or a large gap of either sign, is a reason to reject the model or change its weights. Support only: this model never removes or reorders a slot.",
         }))
     }
 
     /// A plain description of the model for a reviewer, with the live weights.
     pub fn model_card() -> serde_json::Value {
-        let (medium, high) = thresholds();
+        let medium = medium_threshold();
         serde_json::json!({
             "model_version": MODEL_VERSION,
             "kind": "transparent weighted sum (not trained, not a black box)",
             "purpose": "to tell staff which upcoming appointments may need a supportive phone call; it never changes a booking",
-            "factors": ["past completed visits missed (shrunk towards the base rate)", "lead time", "age band", "day of week and part of day (zero by default)"],
+            "factors": ["past completed visits missed (shrunk towards the base rate)", "lead time", "age band (zero by default: not an input unless a fairness reviewer justifies it)", "day of week and part of day (zero by default)"],
             "weights": serde_json::to_value(Weights::from_env_for_card()).unwrap_or_default(),
-            "thresholds": { "medium": medium, "high": high },
+            "bands": { "medium_above": medium, "high": "on today's call list: the top few by probability, as many as the clinic can phone (PAS_NOSHOW_CALL_CAPACITY, default 10) among appointments in the next PAS_NOSHOW_CALL_HORIZON_DAYS (7); not a probability cut-off" },
+            "percentage": "hidden from staff until the weights are calibrated on real outcomes and PAS_NOSHOW_SHOW_PERCENT=true; staff see the band word and the reasons",
             "never": ["remove, reorder away or withhold a slot", "overbook", "delay a contact", "act without a person deciding"],
             "gate": "off unless PAS_NOSHOW_SCORE=true and a named person has approved a fairness review and a clinical safety review of this version",
             "not_built": ["distance from the clinic", "clinic type", "weather or travel forecast"],
@@ -808,12 +1139,8 @@ mod tests {
                 "{band}"
             );
         }
-        assert!(
-            p(&Inputs {
-                age_band: Some("16-24".into()),
-                ..base()
-            }) > none
-        );
+        // Age is not an input by default: every band scores the same as no band.
+        assert!(Weights::default().age.is_empty());
         // The default weights contain no negative adjustment at all.
         let w = Weights::default();
         assert!(
@@ -923,20 +1250,10 @@ mod tests {
     }
 
     #[test]
-    fn test_the_band_boundaries_are_above_not_at_the_threshold() {
-        assert_eq!(
-            band(0.70, 0.40, 0.70),
-            Band::Medium,
-            "exactly 70% is not high"
-        );
-        assert_eq!(band(0.701, 0.40, 0.70), Band::High);
-        assert_eq!(
-            band(0.40, 0.40, 0.70),
-            Band::Low,
-            "exactly 40% is not medium"
-        );
-        assert_eq!(band(0.41, 0.40, 0.70), Band::Medium);
-        // Moving a threshold moves the band without recomputing anything.
-        assert_eq!(band(0.55, 0.40, 0.50), Band::High);
+    fn test_the_band_boundary_is_above_not_at_the_threshold() {
+        assert_eq!(band(0.40, 0.40), Band::Low, "exactly 40% is not medium");
+        assert_eq!(band(0.41, 0.40), Band::Medium);
+        // Moving the threshold moves the band without recomputing anything.
+        assert_eq!(band(0.30, 0.20), Band::Medium);
     }
 }

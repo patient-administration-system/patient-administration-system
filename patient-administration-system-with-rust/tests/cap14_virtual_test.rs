@@ -397,3 +397,96 @@ async fn the_http_endpoints_approve_review_and_list() {
             .unwrap();
     assert_eq!(r.reject_reason.as_deref(), Some("not_virtual_ok"));
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_video_visit_that_fails_falls_back_to_a_phone_call_once() {
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+    let w = world().await;
+    // An in-person appointment cannot "fall back".
+    assert!(
+        w.s.virtual_visits
+            .fall_back_to_phone(w.appt.id, &sys())
+            .await
+            .is_err()
+    );
+
+    approve(&w).await;
+    let r =
+        w.s.writeback
+            .apply(
+                convert(&w, &format!("v-{}", Uuid::new_v4()), Modality::Video),
+                &sys(),
+            )
+            .await
+            .unwrap();
+    assert_eq!(r.status, ReplyStatus::Applied);
+    assert_eq!(reload(&w).await.modality, Modality::Video);
+
+    let a =
+        w.s.virtual_visits
+            .fall_back_to_phone(w.appt.id, &sys())
+            .await
+            .unwrap();
+    assert_eq!(a.modality, Modality::Phone);
+    assert_eq!(
+        a.status,
+        AppointmentStatus::Booked,
+        "the appointment itself stands"
+    );
+    let tasks = |s: &AppState, id: Uuid| {
+        let db = s.db.clone();
+        async move {
+            db.query_one(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT count(*)::bigint AS n FROM staff_call_tasks WHERE appointment_id = $1 AND reason = 'video_failed' AND handled_at IS NULL",
+                [id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get::<i64>("", "n")
+            .unwrap()
+        }
+    };
+    assert_eq!(tasks(&w.s, w.appt.id).await, 1, "a person is asked to ring");
+    // A second report (the provider retries) changes nothing and adds no second task.
+    w.s.virtual_visits
+        .fall_back_to_phone(w.appt.id, &sys())
+        .await
+        .unwrap();
+    assert_eq!(tasks(&w.s, w.appt.id).await, 1);
+    assert!(
+        w.s.ladder
+            .open_calls(500)
+            .await
+            .unwrap()
+            .iter()
+            .any(|c| c["appointment_id"] == w.appt.id.to_string() && c["reason"] == "video_failed")
+    );
+
+    // Over HTTP.
+    let w2 = world().await;
+    approve(&w2).await;
+    w2.s.writeback
+        .apply(
+            convert(&w2, &format!("v-{}", Uuid::new_v4()), Modality::Video),
+            &sys(),
+        )
+        .await
+        .unwrap();
+    let app = patient_administration_system::api::rest::router(w2.s.clone());
+    let r = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/appointments/{}/video-failed", w2.appt.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    let _ = to_bytes(r.into_body(), 1 << 20).await;
+    assert_eq!(reload(&w2).await.modality, Modality::Phone);
+}

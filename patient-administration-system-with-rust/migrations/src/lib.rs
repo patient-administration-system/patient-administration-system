@@ -35,6 +35,10 @@ mod m20260626_000031_identity_proofing;
 mod m20260627_000032_message_experiments;
 mod m20260628_000033_noshow_assessments;
 mod m20260629_000034_whatsapp_rules;
+mod m20260630_000035_deprivation_lookup;
+mod m20260630_000036_noshow_rollout;
+mod m20260630_000037_inbound_rebook_choice;
+mod m20260630_000038_video_failed;
 
 pub struct Migrator;
 
@@ -76,6 +80,10 @@ impl MigratorTrait for Migrator {
             Box::new(m20260627_000032_message_experiments::Migration),
             Box::new(m20260628_000033_noshow_assessments::Migration),
             Box::new(m20260629_000034_whatsapp_rules::Migration),
+            Box::new(m20260630_000035_deprivation_lookup::Migration),
+            Box::new(m20260630_000036_noshow_rollout::Migration),
+            Box::new(m20260630_000037_inbound_rebook_choice::Migration),
+            Box::new(m20260630_000038_video_failed::Migration),
         ]
     }
 }

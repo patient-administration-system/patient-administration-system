@@ -222,7 +222,6 @@ http
         ? [
             {
               appointment_id: "44444444-4444-4444-4444-444444444444",
-              probability_percent: 74,
               band: "high",
               sample_size: 4,
               factors: [
@@ -248,6 +247,33 @@ http
           { id: "55555555-5555-5555-5555-555555555555", person_id: PATIENT, start_datetime: at(3, 14), end_datetime: at(3, 15), status: "booked", reason: null },
         ]),
       );
+    }
+    // CAP-6 and CAP-8 staff views.
+    const at = (days, hour) => {
+      const d = new Date(Date.now() + days * 86_400_000);
+      d.setUTCHours(hour, 0, 0, 0);
+      return d.toISOString();
+    };
+    if (url.pathname === `/api/appointments/44444444-4444-4444-4444-444444444444/history`) {
+      return res.end(
+        envelope([
+          { at: at(-2, 9), kind: "audit", action: "created", by: "clerk", reason_code: null, context: null },
+          { at: at(-1, 9), kind: "message", action: "reminder_ladder:t_minus_7", by: null, reason_code: null, context: null },
+          { at: at(-1, 10), kind: "reply", action: "confirm", by: "carrier:twilio", reason_code: "patient_confirmed", context: null },
+        ]),
+      );
+    }
+    if (url.pathname === `/api/patients/${PATIENT}/contact-log`) {
+      return res.end(envelope([{ at: at(-1, 9), kind: "message", action: "reminder", by: null, reason_code: null, context: null }]));
+    }
+    if (url.pathname === "/api/pathways/due-check") {
+      return res.end(
+        envelope([{ pathway_id: "88888888-8888-8888-8888-888888888888", person_id: PATIENT, target_service: "orthopaedics", weeks_waited: 31, last_check_at: null }]),
+      );
+    }
+    if (/^\/api\/pathways\/[0-9a-f-]+\/still-needed-checks$/.test(url.pathname) && req.method === "POST") {
+      acts.push({ token: url.pathname.split("/")[3], action: "still-needed-asked" });
+      return res.end(envelope({ id: "99999999-9999-9999-9999-999999999999" }));
     }
     if (url.pathname === "/api/waitlist") {
       return res.end(

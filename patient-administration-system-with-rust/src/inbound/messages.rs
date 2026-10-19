@@ -221,6 +221,26 @@ pub fn ivr_kept(lang: Lang) -> String {
     }
 }
 
+/// The times a "different time" reply is offered. The appointment stays until one is chosen.
+pub fn rebook_options(lang: Lang, whens: &[String]) -> String {
+    let (head, tail) = match lang {
+        Lang::En => (
+            "Other times we can offer. Reply with a number:",
+            "Your appointment stays as it is unless you choose one.",
+        ),
+        Lang::Cy => (
+            "Amserau eraill y gallwn eu cynnig. Atebwch gyda rhif:",
+            "Mae eich apwyntiad yn aros fel y mae oni fyddwch yn dewis un.",
+        ),
+    };
+    let list: Vec<String> = whens
+        .iter()
+        .enumerate()
+        .map(|(i, t)| format!("{} {}", i + 1, t))
+        .collect();
+    format!("{head} {}. {tail}", list.join(", "))
+}
+
 /// "Which appointment? Reply 1, 2 ..." with one line per candidate.
 pub fn ask(lang: Lang, times: &[String]) -> String {
     let head = match lang {

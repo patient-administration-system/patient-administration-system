@@ -122,7 +122,6 @@ describe("the no-show support flag (CAP-12)", () => {
     (catalogue[k] ?? k).replace(/\{(\w+)\}/g, (_, n) => String(v?.[n] ?? ""));
   const flag = {
     appointment_id: "a",
-    probability_percent: 74,
     band: "high" as const,
     sample_size: 4,
     factors: [
@@ -135,12 +134,19 @@ describe("the no-show support flag (CAP-12)", () => {
 
   it("says the band in words and with a shape, never colour alone, with the reasons", () => {
     const text = noshowText(flag, tt);
-    expect(text).toContain("▲ High, 74%.");
+    expect(text).toContain("▲ High.");
     expect(text).toContain("Based on 4 past visits.");
-    expect(text).toContain("Past visits +62 points");
-    expect(text).toContain("Lead time +2 points");
+    expect(text).toContain("Past visits");
+    expect(text).toContain("Lead time");
+    expect(text, "no number while the weights are uncalibrated").not.toMatch(/\d+%|points/);
     expect(text, "a factor that did not move it is not listed").not.toContain("Age band");
     expect(text, "the base rate is not a reason").not.toContain("Base rate");
+  });
+
+  it("shows the percentage and the point sizes only once the server sends them (calibrated)", () => {
+    const text = noshowText({ ...flag, probability_percent: 74 }, tt);
+    expect(text).toContain("▲ High, 74%.");
+    expect(text).toContain("Past visits +62 points");
   });
 
   it("uses a different shape for each band", () => {

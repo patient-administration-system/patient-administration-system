@@ -117,7 +117,7 @@ export interface NoShowFactor {
 
 export interface NoShowItem {
   appointment_id: string;
-  probability_percent: number;
+  probability_percent?: number;
   band: "low" | "medium" | "high";
   factors: NoShowFactor[];
   sample_size: number;
@@ -126,6 +126,39 @@ export interface NoShowItem {
 /** The stored assessments for these appointments. `active` is false while the score is switched off. */
 export const noshowFor = (f: FetchFn, ids: string[]) =>
   pas<{ active: boolean; items: NoShowItem[] }>(f, `/api/noshow/for-appointments?ids=${ids.map(encodeURIComponent).join(",")}`);
+
+// ---- History (CAP-6) and long waits (CAP-8) ---------------------------------------------------
+
+export interface HistoryRow {
+  at: string;
+  kind: string | null;
+  action: string | null;
+  by: string | null;
+  reason_code: string | null;
+}
+
+/** What happened to one appointment, oldest first. */
+export const appointmentHistory = (f: FetchFn, id: string) =>
+  pas<HistoryRow[]>(f, `/api/appointments/${encodeURIComponent(id)}/history`);
+
+/** Messages sent to one patient and texts received from them, newest first (never the text of a message). */
+export const contactLog = (f: FetchFn, id: string) =>
+  pas<HistoryRow[]>(f, `/api/patients/${encodeURIComponent(id)}/contact-log`);
+
+export interface DueCheck {
+  pathway_id: string;
+  person_id: string;
+  target_service: string;
+  weeks_waited: number;
+  last_check_at: string | null;
+}
+
+/** Long waiters nobody has asked recently whether they still need this, longest first. */
+export const dueChecks = (f: FetchFn) => pas<DueCheck[]>(f, "/api/pathways/due-check");
+
+/** A person asks a patient whether they still need this. Nothing is removed. */
+export const askStillNeeded = (f: FetchFn, pathwayId: string, askedBy: string) =>
+  pas<unknown>(f, `/api/pathways/${encodeURIComponent(pathwayId)}/still-needed-checks`, { method: "POST", body: { asked_by: askedBy } });
 
 // ---- Identity proofing (DTAC-9) --------------------------------------------------------------
 

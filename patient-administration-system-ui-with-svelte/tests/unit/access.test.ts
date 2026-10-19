@@ -33,6 +33,10 @@ describe("navFor", () => {
     expect(navFor({ roles: ["patient"] }).map((n) => n.href)).toEqual(["/my/appointments", "/my/messages"]);
     expect(navFor({ roles: ["patient"] }).map((n) => n.key)).toEqual(["nav.myAppointments", "nav.myMessages"]);
   });
+  it("gives staff the history and long-wait views, and patients neither", () => {
+    expect(navFor({ roles: ["staff"] }).map((n) => n.href)).toEqual(expect.arrayContaining(["/history", "/waits"]));
+    expect(navFor({ roles: ["patient"] }).map((n) => n.href)).not.toContain("/history");
+  });
   it("adds reminder templates for admins only", () => {
     expect(navFor({ roles: ["staff"] }).some((n) => n.href === "/admin/reminders")).toBe(false);
     expect(navFor({ roles: ["staff", "admin"] }).some((n) => n.href === "/admin/reminders")).toBe(true);

@@ -91,6 +91,9 @@ pub struct StaffItem {
 pub struct InboundService {
     db: DatabaseConnection,
     writeback: Arc<WriteBackService>,
+    /// When set, a "different time" reply is answered with real alternative times (CAP-5) instead of being
+    /// left for a person.
+    rebooking: Option<Arc<crate::rebooking::RebookService>>,
     default_country_code: Option<String>,
     help_line: Option<String>,
 }
@@ -128,6 +131,7 @@ impl InboundService {
         Self {
             db,
             writeback,
+            rebooking: None,
             default_country_code: std::env::var("PAS_DEFAULT_COUNTRY_CODE")
                 .ok()
                 .filter(|s| !s.is_empty()),
@@ -135,6 +139,11 @@ impl InboundService {
                 .ok()
                 .filter(|s| !s.trim().is_empty()),
         }
+    }
+
+    pub fn with_rebooking(mut self, rebooking: Arc<crate::rebooking::RebookService>) -> Self {
+        self.rebooking = Some(rebooking);
+        self
     }
 
     pub async fn handle(&self, text: InboundText, ctx: &UserContext) -> Result<InboundOutcome> {
@@ -412,6 +421,11 @@ impl InboundService {
         // Work out what is being asked of which appointment.
         let (action, target): (Intent, Option<Uuid>) = match intent {
             Intent::Choice(n) => match self.open_question(from, now).await? {
+                Some((ids, pending)) if pending == "rebook" => {
+                    return self
+                        .take_rebook_choice(person, &ids, n as usize, intent, lang, tz, help, ctx)
+                        .await;
+                }
                 Some((ids, pending)) if (1..=ids.len()).contains(&(n as usize)) => {
                     let a = match pending.as_str() {
                         "confirm" => Intent::Confirm,
@@ -483,7 +497,30 @@ impl InboundService {
         };
 
         if action == Intent::Reschedule {
-            // Never moves or cancels anything: a person finds the new time.
+            // Offer real alternatives when they exist. Nothing moves until the patient chooses one.
+            if let Some(rebook) = &self.rebooking
+                && let Ok(offer) = rebook.offer(appointment_id).await
+                && !offer.options.is_empty()
+            {
+                let whens: Vec<String> = offer
+                    .options
+                    .iter()
+                    .map(|o| messages::when(o.starts_at, lang, tz))
+                    .collect();
+                let mut ids = vec![appointment_id];
+                ids.extend(offer.options.iter().map(|o| o.slot_id));
+                return Ok(Decision {
+                    intent,
+                    outcome: "asked",
+                    person_id: Some(person),
+                    appointment_id: Some(appointment_id),
+                    candidates: Some(ids),
+                    pending_intent: Some("rebook"),
+                    reply_text: Some(messages::rebook_options(lang, &whens)),
+                    lang: Some(lang),
+                });
+            }
+            // Nothing to offer: a person finds the new time.
             let when = match AppointmentRepository::find_by_id(&self.db, appointment_id).await? {
                 Some(a) => messages::when(a.start_datetime, lang, tz),
                 None => String::new(),
@@ -545,6 +582,61 @@ impl InboundService {
             messages::text(lang, kind, &when, help),
             appointment_id,
         ))
+    }
+
+    /// The patient chose one of the times a "different time" reply offered. `ids` is the appointment followed
+    /// by the offered slots. A slot taken meanwhile, or an offer that has lapsed, is said plainly and the
+    /// appointment stays.
+    #[allow(clippy::too_many_arguments)]
+    async fn take_rebook_choice(
+        &self,
+        person: Uuid,
+        ids: &[Uuid],
+        n: usize,
+        intent: Intent,
+        lang: Lang,
+        tz: chrono_tz::Tz,
+        help: Option<&str>,
+        ctx: &UserContext,
+    ) -> Result<Decision> {
+        let appointment_id = ids.first().copied();
+        let mk = |outcome, reply: String| Decision {
+            intent,
+            outcome,
+            person_id: Some(person),
+            appointment_id,
+            candidates: None,
+            pending_intent: None,
+            reply_text: Some(reply),
+            lang: Some(lang),
+        };
+        let (Some(appt), Some(rebook), Some(slot)) = (
+            appointment_id,
+            &self.rebooking,
+            ids.get(n).filter(|_| n >= 1),
+        ) else {
+            return Ok(mk("unknown", messages::text(lang, Kind::Unknown, "", help)));
+        };
+        let chosen = async {
+            let offer_id = rebook
+                .standing_offer(appt)
+                .await?
+                .ok_or_else(|| Error::conflict("the offer has lapsed"))?;
+            rebook.choose(appt, offer_id, *slot, ctx).await
+        }
+        .await;
+        Ok(match chosen {
+            Ok((_, new)) => mk(
+                "applied",
+                messages::text(
+                    lang,
+                    Kind::Rebooked,
+                    &messages::when(new.start_datetime, lang, tz),
+                    help,
+                ),
+            ),
+            Err(_) => mk("rejected", messages::text(lang, Kind::Failed, "", help)),
+        })
     }
 
     /// Replies nobody could act on, oldest first, for the booking team.

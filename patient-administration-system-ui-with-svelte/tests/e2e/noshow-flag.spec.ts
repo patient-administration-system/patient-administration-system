@@ -11,11 +11,12 @@ test("a flagged appointment shows the band, the percentage and why, and the page
   await page.waitForLoadState("networkidle");
   // The agenda lists each appointment with its fields; only the flagged one carries the support flag.
   await page.getByRole("button", { name: "Agenda" }).click();
-  const flag = page.getByText(/▲ High, 74%\./);
+  const flag = page.getByText(/▲ High\. Based on 4 past visits/);
   await expect(flag).toBeVisible();
   await expect(page.getByText("Support flag")).toHaveCount(1);
   await expect(page.getByText(/Based on 4 past visits\./)).toBeVisible();
-  await expect(page.getByText(/Past visits \+62 points/)).toBeVisible();
+  await expect(page.getByText(/Past visits; Lead time/)).toBeVisible();
+  await expect(page.getByText(/%|points/)).toHaveCount(0);
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   expect(results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
 });

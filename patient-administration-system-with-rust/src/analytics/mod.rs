@@ -268,6 +268,62 @@ impl AnalyticsService {
         Self { db }
     }
 
+    /// Per-caller query budget for a day (`PAS_ANALYTICS_QUERY_BUDGET`, default 100).
+    ///
+    /// Suppression protects one answer. Someone who may ask many differently shaped questions can still
+    /// subtract one answer from another to recover a hidden cell (a window that differs by a week, a split that
+    /// adds a dimension). The PAS cannot make that impossible for a free-form feed, so it makes it **bounded and
+    /// visible**: every query is recorded in the audit log with its shape, and a caller who has used the
+    /// day's budget is refused until tomorrow. The rest of the defence is people: who is given the
+    /// feed, and the data-sharing terms they sign (`governance/analytics-differencing.md`).
+    pub fn query_budget() -> i64 {
+        std::env::var("PAS_ANALYTICS_QUERY_BUDGET")
+            .ok()
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(100)
+            .clamp(1, 10_000)
+    }
+
+    /// Record one query against the caller's daily budget, or refuse it. Anonymous callers share one budget.
+    pub async fn charge_query(
+        &self,
+        report: &str,
+        shape: serde_json::Value,
+        ctx: &UserContext,
+    ) -> Result<()> {
+        let who = ctx
+            .user_id
+            .clone()
+            .unwrap_or_else(|| "anonymous".to_string());
+        let used = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT count(*)::bigint AS n FROM audit_log WHERE action = 'analytics_query' \
+                 AND COALESCE(user_id, 'anonymous') = $1 AND at > now() - interval '24 hours'",
+                [who.clone().into()],
+            ))
+            .await
+            .map_err(Error::Database)?
+            .and_then(|r| r.try_get::<i64>("", "n").ok())
+            .unwrap_or(0);
+        if used >= Self::query_budget() {
+            return Err(Error::forbidden(
+                "the day's analytics query budget has been used; it renews 24 hours after each query",
+            ));
+        }
+        AuditLogRepository::log(
+            &self.db,
+            "analytics",
+            uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, report.as_bytes()),
+            "analytics_query",
+            None,
+            Some(shape),
+            ctx,
+        )
+        .await
+    }
+
     /// The smallest cell the feed will ever show: `PAS_ANALYTICS_K`, default 10, never below 5.
     pub fn minimum_k() -> i64 {
         std::env::var("PAS_ANALYTICS_K")
@@ -325,6 +381,156 @@ impl AnalyticsService {
             ctx,
         )
         .await
+    }
+
+    /// Load a postcode to quintile lookup the health board supplies, as CSV lines `postcode,quintile` (a header
+    /// line is allowed). Replaces any earlier row for the same postcode. Bad lines are counted and skipped,
+    /// never guessed at. The PAS ships no data of its own.
+    pub async fn load_deprivation_lookup(
+        &self,
+        csv: &str,
+        dataset: &str,
+        loaded_by: &str,
+        ctx: &UserContext,
+    ) -> Result<(u64, u64)> {
+        let (dataset, by) = (dataset.trim(), loaded_by.trim());
+        if dataset.is_empty() || by.is_empty() {
+            return Err(Error::validation(
+                "name the dataset (for example WIMD 2019 with the postcode file used) and who loaded it",
+            ));
+        }
+        let (mut loaded, mut rejected) = (0u64, 0u64);
+        let rows: Vec<(String, i16)> = csv
+            .lines()
+            .filter_map(|l| {
+                let mut it = l.split(',');
+                let (pc, q) = (it.next()?, it.next()?);
+                if it.next().is_some() {
+                    return None;
+                }
+                let pc = normalise_postcode(pc);
+                let q: i16 = q.trim().parse().ok()?;
+                ((1..=5).contains(&q) && is_postcode(&pc)).then_some((pc, q))
+            })
+            .collect();
+        let total = csv.lines().filter(|l| !l.trim().is_empty()).count() as u64;
+        for chunk in rows.chunks(1000) {
+            let mut sql = String::from(
+                "INSERT INTO deprivation_lookup (postcode, quintile, dataset, loaded_by) VALUES ",
+            );
+            let mut values: Vec<sea_orm::Value> = Vec::new();
+            for (i, (pc, q)) in chunk.iter().enumerate() {
+                if i > 0 {
+                    sql.push(',');
+                }
+                let b = values.len();
+                sql.push_str(&format!("(${},${},${},${})", b + 1, b + 2, b + 3, b + 4));
+                values.extend([pc.clone().into(), (*q).into(), dataset.into(), by.into()]);
+            }
+            sql.push_str(" ON CONFLICT (postcode) DO UPDATE SET quintile = EXCLUDED.quintile, dataset = EXCLUDED.dataset, loaded_by = EXCLUDED.loaded_by, loaded_at = now()");
+            self.db
+                .execute(Statement::from_sql_and_values(
+                    DbBackend::Postgres,
+                    sql,
+                    values,
+                ))
+                .await
+                .map_err(Error::Database)?;
+            loaded += chunk.len() as u64;
+        }
+        // A header line is not a rejection; anything else that did not parse is.
+        let header = csv
+            .lines()
+            .next()
+            .is_some_and(|l| l.to_lowercase().contains("postcode"));
+        rejected += total.saturating_sub(loaded + u64::from(header));
+        AuditLogRepository::log(
+            &self.db,
+            "deprivation_lookup",
+            uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, dataset.as_bytes()),
+            "deprivation_lookup_loaded",
+            None,
+            Some(serde_json::json!({ "dataset": dataset, "loaded_by": by, "loaded": loaded, "rejected": rejected })),
+            ctx,
+        )
+        .await?;
+        Ok((loaded, rejected))
+    }
+
+    /// Fill `person_demographics` for people who have appointments and no bands yet (or stale ones): the age
+    /// band from the date of birth and the quintile from the postcode, looked up in the board's own table.
+    /// Only the two coarse bands are kept; the date of birth and postcode are read, used and not stored.
+    /// A person with no usable date or no matching postcode gets the part that is known. Returns how many
+    /// people were updated.
+    pub async fn refresh_demographics(
+        &self,
+        people: &dyn crate::upstream::PersonClient,
+        limit: i64,
+        upstream_ctx: &crate::upstream::UserContext,
+        ctx: &UserContext,
+    ) -> Result<u64> {
+        let ids = self
+            .db
+            .query_all(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT a.person_id FROM appointments a \
+                 LEFT JOIN person_demographics d ON d.person_id = a.person_id \
+                 WHERE a.deleted_at IS NULL AND (d.person_id IS NULL OR d.updated_at < now() - interval '90 days') \
+                 GROUP BY a.person_id ORDER BY max(a.updated_at) DESC LIMIT $1",
+                [limit.clamp(1, 5000).into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        let mut n = 0;
+        for r in ids {
+            let id: uuid::Uuid = r.try_get("", "person_id").map_err(Error::Database)?;
+            // A person the upstream cannot return is skipped, not an error for the whole run.
+            let Ok(person) = people.get(id, upstream_ctx).await else {
+                continue;
+            };
+            let band = person
+                .data
+                .get("birth_date")
+                .or_else(|| person.data.get("birthDate"))
+                .and_then(|v| v.as_str())
+                .and_then(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())
+                .map(|d| age_band(d, Utc::now().date_naive()));
+            let postcode = person
+                .data
+                .get("addresses")
+                .and_then(|a| a.as_array())
+                .and_then(|a| a.first())
+                .and_then(|a| a.get("postal_code").or_else(|| a.get("postalCode")))
+                .and_then(|v| v.as_str())
+                .map(normalise_postcode);
+            let (quintile, dataset): (Option<i16>, Option<String>) = match postcode {
+                Some(pc) => self
+                    .db
+                    .query_one(Statement::from_sql_and_values(
+                        DbBackend::Postgres,
+                        "SELECT quintile, dataset FROM deprivation_lookup WHERE postcode = $1",
+                        [pc.into()],
+                    ))
+                    .await
+                    .map_err(Error::Database)?
+                    .map(|r| {
+                        (
+                            r.try_get("", "quintile").ok(),
+                            r.try_get("", "dataset").ok(),
+                        )
+                    })
+                    .unwrap_or((None, None)),
+                None => (None, None),
+            };
+            if band.is_none() && quintile.is_none() {
+                continue;
+            }
+            let source = format!("refresh:{}", dataset.as_deref().unwrap_or("age-only"));
+            self.set_demographics(id, band, quintile, &source, ctx)
+                .await?;
+            n += 1;
+        }
+        Ok(n)
     }
 
     /// Refill rate of released slots, split by the chosen dimensions (PILOT-10). Releases are counted by the
@@ -458,7 +664,7 @@ impl AnalyticsService {
             seen.push(*d);
         }
         let k = k.unwrap_or(0).max(Self::minimum_k());
-        let to = to.unwrap_or_else(Utc::now);
+        let to = to.unwrap_or_else(|| Utc::now() + chrono::Duration::minutes(5));
         let from = from.unwrap_or_else(|| to - chrono::Duration::days(90));
         let tz = crate::inbound::messages::timezone().name().to_string();
 
@@ -589,5 +795,71 @@ mod tests {
         let csv = r.to_csv();
         assert!(csv.contains("'=cmd,12"), "{csv}");
         assert!(csv.contains("\"a,b\",suppressed"), "{csv}");
+    }
+}
+
+/// Uppercase, no spaces: how postcodes are held in the lookup.
+pub fn normalise_postcode(p: &str) -> String {
+    p.chars()
+        .filter(|c| !c.is_whitespace())
+        .collect::<String>()
+        .to_uppercase()
+}
+
+/// A plausible UK postcode shape (5 to 7 letters and digits, a digit before the last three characters); the
+/// lookup is the authority on whether it exists.
+fn is_postcode(p: &str) -> bool {
+    (5..=7).contains(&p.len())
+        && p.chars().all(|c| c.is_ascii_alphanumeric())
+        && p.chars().rev().nth(2).is_some_and(|c| c.is_ascii_digit())
+}
+
+/// The coarse band for a date of birth on a given day (`0-15` ... `75+`).
+pub fn age_band(born: chrono::NaiveDate, today: chrono::NaiveDate) -> &'static str {
+    let mut y = today.years_since(born).unwrap_or(0);
+    if born > today {
+        y = 0;
+    }
+    match y {
+        0..=15 => "0-15",
+        16..=24 => "16-24",
+        25..=34 => "25-34",
+        35..=44 => "35-44",
+        45..=54 => "45-54",
+        55..=64 => "55-64",
+        65..=74 => "65-74",
+        _ => "75+",
+    }
+}
+
+#[cfg(test)]
+mod feed_tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    #[test]
+    fn test_age_bands_follow_the_birthday_not_the_year() {
+        let d = |y, m, dd| NaiveDate::from_ymd_opt(y, m, dd).unwrap();
+        let today = d(2026, 10, 19);
+        assert_eq!(age_band(d(2010, 10, 19), today), "16-24", "16 today");
+        assert_eq!(
+            age_band(d(2010, 10, 20), today),
+            "0-15",
+            "15 until tomorrow"
+        );
+        assert_eq!(age_band(d(1951, 10, 20), today), "65-74");
+        assert_eq!(age_band(d(1951, 10, 19), today), "75+");
+        assert_eq!(
+            age_band(d(2030, 1, 1), today),
+            "0-15",
+            "a future date is not a crash"
+        );
+    }
+
+    #[test]
+    fn test_postcodes_are_normalised_and_checked_for_shape() {
+        assert_eq!(normalise_postcode(" cf10 1ab "), "CF101AB");
+        assert!(is_postcode("CF101AB") && is_postcode("M11AE") && is_postcode("SA612AB"));
+        assert!(!is_postcode("") && !is_postcode("HELLO") && !is_postcode("CF10-1AB"));
     }
 }

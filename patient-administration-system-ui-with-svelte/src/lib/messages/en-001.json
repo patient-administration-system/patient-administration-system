@@ -5,7 +5,6 @@
   "app.language": "Language",
   "app.signIn": "Sign in",
   "app.signOut": "Sign out",
-
   "nav.appointments": "Appointments",
   "nav.waitlist": "Waitlist",
   "nav.schedule": "Schedule",
@@ -13,7 +12,6 @@
   "nav.reminders": "Reminder templates",
   "nav.myAppointments": "My appointments",
   "nav.myMessages": "My messages",
-
   "signin.title": "Sign in",
   "signin.intro": "Patients can sign in to see their appointments. Staff sign in to manage the hospital.",
   "signin.notConfigured": "Sign-in is not configured on this server (OIDC_ISSUER and OIDC_CLIENT_ID).",
@@ -21,19 +19,15 @@
   "signin.error.denied": "Sign-in was cancelled.",
   "signin.error.unavailable": "The sign-in service is not available right now.",
   "signin.error.idle": "You were signed out because you were away for a while.",
-
   "myAppointments.title": "My appointments",
   "myAppointments.empty": "You have no appointments.",
   "myAppointments.calendarLabel": "My appointments",
   "myAppointments.listHeading": "As a list",
-
   "myMessages.title": "My messages",
   "myMessages.empty": "You have no messages.",
-
   "appointments.title": "Appointments",
   "appointments.calendarLabel": "Appointments",
   "appointments.generic": "Appointment",
-
   "col.date": "Date",
   "col.time": "Time",
   "col.reason": "Reason",
@@ -41,14 +35,12 @@
   "col.name": "Name",
   "col.birthDate": "Date of birth",
   "col.patientId": "Patient id",
-
   "status.proposed": "Proposed",
   "status.booked": "Booked",
   "status.arrived": "Arrived",
   "status.fulfilled": "Completed",
   "status.cancelled": "Cancelled",
   "status.no_show": "Did not attend",
-
   "waitlist.title": "Waitlist",
   "waitlist.service": "Service",
   "waitlist.show": "Show",
@@ -59,23 +51,19 @@
   "waitlist.column.booked": "Booked",
   "waitlist.column.treated": "Treated",
   "waitlist.column.removed": "Removed",
-
   "priority.routine": "Routine",
   "priority.urgent": "Urgent",
   "priority.two_week_wait": "Two-week wait",
   "priority.emergency": "Emergency",
-
   "schedule.title": "Schedule",
   "schedule.heading": "Schedule: next four weeks",
   "schedule.empty": "No appointments are booked in the next four weeks.",
   "schedule.chartLabel": "Appointment schedule",
-
   "patients.title": "Patients",
   "patients.search": "Search by name or identifier",
   "patients.searchButton": "Search",
   "patients.none": "No patients match “{q}”.",
   "patients.gridLabel": "Patients",
-
   "admin.title": "Reminder templates",
   "admin.intro": "The message each patient receives. Channels are tried in the order listed until one reaches the patient.",
   "admin.variables": "Variables you can use:",
@@ -91,14 +79,12 @@
   "admin.error.channelRequired": "Choose at least one channel.",
   "admin.error.notFound": "Template not found.",
   "admin.error.rejected": "The server did not accept the change.",
-
   "channel.whatsapp": "WhatsApp",
   "channel.apple_messages": "Apple Messages",
   "channel.sms": "SMS",
   "channel.email": "Email",
   "channel.portal": "Secure portal",
   "channel.print": "Postal letter",
-
   "error.title": "Error {status}",
   "error.401": "Please sign in to continue.",
   "error.403": "You do not have access to this page.",
@@ -106,7 +92,6 @@
   "error.502": "A service this page depends on is not available.",
   "error.generic": "Something went wrong.",
   "error.back": "Back to the start",
-
   "calendar.day": "Day",
   "calendar.week": "Week",
   "calendar.fourWeeks": "Four weeks",
@@ -173,5 +158,31 @@
   "offer.decline": "No, thank you",
   "offer.done.accepted": "Thank you. Your appointment is on {when}.",
   "offer.done.declined": "Thank you for letting us know.",
-  "offer.done.gone": "Sorry, this appointment has just been taken."
+  "offer.done.gone": "Sorry, this appointment has just been taken.",
+  "nav.history": "History",
+  "nav.waits": "Long waits",
+  "history.title": "Appointment and message history",
+  "history.appointment": "Appointment id",
+  "history.patient": "Patient id",
+  "history.show": "Show",
+  "history.none": "Nothing is recorded.",
+  "history.invalid": "That is not a valid id.",
+  "history.captionAppointment": "What happened to this appointment, oldest first",
+  "history.captionContact": "Messages sent to this patient and texts received from them, newest first",
+  "history.col.when": "When",
+  "history.col.what": "What",
+  "history.col.by": "By",
+  "history.col.why": "Why",
+  "waits.title": "Long waits: still needed?",
+  "waits.intro": "Patients who have waited a long time and have not been asked recently whether they still need the appointment. Asking records that you asked. Nobody is removed from any list.",
+  "waits.none": "Nobody is due a check.",
+  "waits.caption": "Long waiters, longest first",
+  "waits.col.patient": "Patient",
+  "waits.col.service": "Service",
+  "waits.col.weeks": "Weeks waited",
+  "waits.col.last": "Last asked",
+  "waits.ask": "Ask if still needed",
+  "waits.never": "Never",
+  "waits.asked": "Recorded that you asked.",
+  "waits.error": "That could not be recorded."
 }

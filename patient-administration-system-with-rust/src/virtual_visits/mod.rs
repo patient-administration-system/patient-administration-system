@@ -14,8 +14,13 @@
 //! - It is idempotent by message id (the write-back guarantees that) and audited: the audit row names who or
 //!   what converted it.
 //!
+//! **If a video visit fails to connect** ([`VirtualVisitService::fall_back_to_phone`]), the appointment becomes a
+//! phone consultation and a call task (`video_failed`) is put on the staff list, so the patient is phoned
+//! rather than the visit lost. Whoever knows it failed (the provider's callback, the clinician or the front
+//! desk) calls the endpoint; it is idempotent.
+//!
 //! Not built here: the video-visit provider and its join link (an interface to NHS Attend Anywhere or the
-//! Wales equivalent), and the fallback to a phone call when a virtual visit fails to connect.
+//! Wales equivalent). Until one is connected nothing reports a failure by itself; a person does.
 
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
 use serde::Serialize;
@@ -246,6 +251,72 @@ impl VirtualVisitService {
                             "AppointmentConversionVetoed"
                         },
                         &serde_json::json!({ "appointment_id": a.id, "modality": a.modality.as_str() }),
+                    )
+                    .await?;
+                    Ok(a)
+                })
+            })
+            .await
+            .map_err(|e| match e {
+                sea_orm::TransactionError::Connection(c) => Error::Database(c),
+                sea_orm::TransactionError::Transaction(t) => t,
+            })
+    }
+
+    /// The video visit did not connect: make it a phone consultation and ask a person to ring the patient.
+    /// Only a video appointment that is still booked or arrived and has not ended can fall back. Idempotent:
+    /// a second report changes nothing and adds no second task.
+    pub async fn fall_back_to_phone(
+        &self,
+        appointment_id: Uuid,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
+        let ctx = ctx.clone();
+        self.db
+            .transaction::<_, Appointment, Error>(|txn| {
+                Box::pin(async move {
+                    let mut a = AppointmentRepository::find_by_id(txn, appointment_id)
+                        .await?
+                        .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
+                    if a.modality == Modality::Phone {
+                        return Ok(a);
+                    }
+                    if a.modality != Modality::Video {
+                        return Err(Error::conflict("only a video appointment can fall back to a phone call"));
+                    }
+                    if !matches!(
+                        a.status,
+                        crate::models::appointment::AppointmentStatus::Booked
+                            | crate::models::appointment::AppointmentStatus::Arrived
+                    ) || a.end_datetime <= chrono::Utc::now()
+                    {
+                        return Err(Error::conflict("that appointment is not one that is under way or still to come"));
+                    }
+                    a.modality = Modality::Phone;
+                    a.updated_at = chrono::Utc::now();
+                    let a = AppointmentRepository::update(txn, &a).await?;
+                    txn.execute(Statement::from_sql_and_values(
+                        DbBackend::Postgres,
+                        "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
+                         VALUES ($1,$2,$3,'video_failed', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",
+                        [Uuid::new_v4().into(), a.id.into(), a.person_id.into()],
+                    ))
+                    .await
+                    .map_err(Error::Database)?;
+                    AuditLogRepository::log(
+                        txn,
+                        "appointment",
+                        a.id,
+                        "video_fell_back_to_phone",
+                        Some(serde_json::json!({ "modality": "video" })),
+                        Some(serde_json::json!({ "modality": "phone" })),
+                        &ctx,
+                    )
+                    .await?;
+                    OutboxRepository::publish(
+                        txn,
+                        "AppointmentModalityChanged",
+                        &serde_json::json!({ "appointment_id": a.id, "modality": "phone", "reason": "video_failed" }),
                     )
                     .await?;
                     Ok(a)

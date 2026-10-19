@@ -32,7 +32,12 @@ async fn world() -> W {
     let d = 2000 + (Uuid::new_v4().as_u128() % 40_000) as i64;
     W {
         s,
-        centre: Utc::now() + Duration::days(d),
+        // Noon, so that the window (12 hours either side) is exactly one calendar day whatever the time now.
+        centre: (Utc::now() + Duration::days(d))
+            .date_naive()
+            .and_hms_opt(12, 0, 0)
+            .unwrap()
+            .and_utc(),
     }
 }
 

@@ -511,3 +511,14 @@ whatsapp_template_approvals,provider_template_id,none,"Not personal data (struct
 whatsapp_template_approvals,approved_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 whatsapp_template_approvals,approved_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 whatsapp_template_approvals,revoked_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+deprivation_lookup,postcode,none,"Not personal data (structure, status, timestamps, places, templates)",record
+deprivation_lookup,quintile,none,"Not personal data (structure, status, timestamps, places, templates)",record
+deprivation_lookup,dataset,none,"Not personal data (structure, status, timestamps, places, templates)",record
+deprivation_lookup,loaded_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+deprivation_lookup,loaded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+noshow_rollout,service_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_rollout,stage,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_rollout,changed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_rollout,live_since,none,"Not personal data (structure, status, timestamps, places, templates)",record
+noshow_rollout,changed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+noshow_rollout,note,free-text,A named person's reason for moving a clinic; no patient details,audit-or-message

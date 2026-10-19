@@ -40,4 +40,24 @@ It is off, and the server will not turn it on for you. Read `governance/noshow-m
 4. Set `PAS_NOSHOW_SCORE=true` and restart. `GET /api/noshow/status` should say `active: true`.
 5. To stop: `POST /api/noshow/reviews` with `"outcome":"rejected"` switches it off at once, without a restart.
 
-Thresholds (`PAS_NOSHOW_MEDIUM`, `PAS_NOSHOW_HIGH`) and weights (`PAS_NOSHOW_WEIGHTS`, JSON) are configuration. A change to the weights is a new decision: re-run the audit and review again.
+The medium line (`PAS_NOSHOW_MEDIUM`), the call list size (`PAS_NOSHOW_CALL_CAPACITY`, `PAS_NOSHOW_CALL_HORIZON_DAYS`), the percentage switch (`PAS_NOSHOW_SHOW_PERCENT`, leave off until calibrated) and weights (`PAS_NOSHOW_WEIGHTS`, JSON) are configuration. A change to the weights is a new decision: re-run the audit and review again.
+
+## Filling the equity bands (the measurement feed)
+
+1. Ask the analyst to build the CSV (`postcode,quintile`, 1 = most deprived) from the postcode file and the deprivation index the board is licensed to use. See `governance/deprivation-data-route.md`.
+2. `PUT /api/analytics/deprivation-lookup?dataset=<name and year>&loaded_by=<name>` with the CSV as the body.
+3. Run `POST /api/analytics/demographics/refresh?limit=500` daily (a cron job with the service credential). It fills age band and quintile for patients who have none.
+4. A fairness audit or equity split with mostly `unknown` cells is not evidence of fairness.
+
+## Moving the no-show score from shadow to live (one clinic at a time)
+
+`GET /api/noshow/rollout` lists each clinic, its stage and its days in shadow. Read `GET /api/noshow/evaluation` (calibration) and the fairness audit first. Then `PUT /api/noshow/rollout/{service_type}` with `{"stage":"live","changed_by":"<name>","note":"<why this clinic now, 20+ characters>"}`. To go back, send `"stage":"shadow"`. See `governance/noshow-evaluation.md`.
+
+## Analytics query budget
+
+`PAS_ANALYTICS_QUERY_BUDGET` (default 100 a day per caller). Audit rows `analytics_query` show each query's shape; look for the same report with a window shifted a day at a time.
+
+## When a video visit fails
+
+`POST /api/appointments/{id}/video-failed` (from the provider's callback, or by a clinician or the front desk). The appointment becomes a phone consultation and a `video_failed` call task appears on the staff call list.
+
