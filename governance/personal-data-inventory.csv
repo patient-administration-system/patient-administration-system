@@ -395,3 +395,11 @@ support_flags,created_at,none,"Not personal data (structure, status, timestamps,
 support_flags,resolved_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 support_flags,resolved_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 support_flags,outcome,health,"Administrative care information (why, where, what service, outcome)",record
+still_needed_checks,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+still_needed_checks,pathway_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+still_needed_checks,person_id,identifier,Link a record to a person held by person-service,record
+still_needed_checks,asked_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+still_needed_checks,asked_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+still_needed_checks,answer,health,"Administrative care information (why, where, what service, outcome)",record
+still_needed_checks,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+still_needed_checks,answered_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

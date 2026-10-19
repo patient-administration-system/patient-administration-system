@@ -50,6 +50,7 @@ pub mod upstream;
 pub mod validation;
 pub mod virtual_visits;
 pub mod waitlist;
+pub mod waits;
 pub mod writeback;
 
 // Re-exports

@@ -42,6 +42,7 @@ use super::handlers_standby;
 use super::handlers_support;
 use super::handlers_virtual;
 use super::handlers_waitlist;
+use super::handlers_waits;
 use super::handlers_writeback;
 use super::upstream_proxy;
 
@@ -259,6 +260,26 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/patients/{id}/contact-log",
             get(handlers_history::contact_log),
+        )
+        .route(
+            "/api/appointments/{id}/lead-time",
+            get(handlers_waits::lead_time),
+        )
+        .route(
+            "/api/patients/{id}/waits",
+            get(handlers_waits::patient_waits),
+        )
+        .route(
+            "/api/pathways/due-check",
+            get(handlers_waits::due_for_check),
+        )
+        .route(
+            "/api/pathways/{id}/still-needed-checks",
+            post(handlers_waits::ask),
+        )
+        .route(
+            "/api/still-needed-checks/{id}/answer",
+            post(handlers_waits::answer),
         )
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))

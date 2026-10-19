@@ -22,6 +22,7 @@ pub mod handlers_standby;
 pub mod handlers_support;
 pub mod handlers_virtual;
 pub mod handlers_waitlist;
+pub mod handlers_waits;
 pub mod handlers_writeback;
 pub mod rate_limit;
 pub mod routes;
