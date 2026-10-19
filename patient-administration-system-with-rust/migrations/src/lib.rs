@@ -34,6 +34,7 @@ mod m20260625_000030_message_receipts;
 mod m20260626_000031_identity_proofing;
 mod m20260627_000032_message_experiments;
 mod m20260628_000033_noshow_assessments;
+mod m20260629_000034_whatsapp_rules;
 
 pub struct Migrator;
 
@@ -74,6 +75,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260626_000031_identity_proofing::Migration),
             Box::new(m20260627_000032_message_experiments::Migration),
             Box::new(m20260628_000033_noshow_assessments::Migration),
+            Box::new(m20260629_000034_whatsapp_rules::Migration),
         ]
     }
 }

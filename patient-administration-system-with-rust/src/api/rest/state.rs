@@ -32,6 +32,8 @@ pub struct AppState {
     pub reply_links: Arc<crate::reply_links::ReplyLinks>,
     pub rebooking: Arc<crate::rebooking::RebookService>,
     pub analytics: Arc<crate::analytics::AnalyticsService>,
+    pub ivr: Arc<crate::ivr::IvrService>,
+    pub whatsapp: Arc<crate::communication::whatsapp::WhatsAppService>,
     pub noshow: Arc<crate::noshow::NoShowService>,
     pub experiments: Arc<crate::experiments::ExperimentService>,
     pub identity: Arc<crate::identity::IdentityService>,
@@ -100,15 +102,20 @@ impl AppState {
             db.clone(),
             scheduling.clone(),
         ));
+        let reply_links = Arc::new(crate::reply_links::ReplyLinks::new(
+            db.clone(),
+            writeback.clone(),
+            rebooking.clone(),
+        ));
         Self {
             adt: Arc::new(AdtService::new(db.clone(), publisher.clone())),
-            reply_links: Arc::new(crate::reply_links::ReplyLinks::new(
-                db.clone(),
-                writeback.clone(),
-                rebooking.clone(),
-            )),
+            reply_links: reply_links.clone(),
             rebooking,
             analytics: Arc::new(crate::analytics::AnalyticsService::new(db.clone())),
+            ivr: Arc::new(crate::ivr::IvrService::new(reply_links.clone())),
+            whatsapp: Arc::new(crate::communication::whatsapp::WhatsAppService::new(
+                db.clone(),
+            )),
             noshow,
             experiments: Arc::new(crate::experiments::ExperimentService::new(db.clone())),
             identity: Arc::new(crate::identity::IdentityService::new(db.clone())),

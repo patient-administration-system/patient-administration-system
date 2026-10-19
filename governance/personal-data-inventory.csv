@@ -501,3 +501,13 @@ noshow_reviews,outcome,none,"Not personal data (structure, status, timestamps, p
 noshow_reviews,notes,free-text,A reviewer's notes on the model; may name groups of patients but no individual,audit-or-message
 noshow_reviews,model_version,none,"Not personal data (structure, status, timestamps, places, templates)",record
 noshow_reviews,reviewed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+whatsapp_optins,person_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+whatsapp_optins,source,none,"Not personal data (structure, status, timestamps, places, templates)",record
+whatsapp_optins,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+whatsapp_optins,opted_in_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+whatsapp_optins,withdrawn_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+whatsapp_template_approvals,template_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+whatsapp_template_approvals,provider_template_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+whatsapp_template_approvals,approved_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+whatsapp_template_approvals,approved_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+whatsapp_template_approvals,revoked_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

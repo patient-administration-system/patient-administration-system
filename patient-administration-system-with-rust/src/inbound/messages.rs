@@ -165,6 +165,62 @@ pub fn signpost(lang: Lang, code: crate::models::appointment::BarrierCode) -> Op
     })
 }
 
+/// What a voice call says (CAP-13): short, in the patient's language, one choice per key. Spoken text has no
+/// links and no clinical detail.
+pub fn ivr_menu(lang: Lang, when: &str) -> String {
+    match lang {
+        Lang::En => format!(
+            "Your appointment is on {when}. Press 1 to confirm it. Press 2 to ask for a different time. Press 3 to cancel it. Press 9 to hear this again."
+        ),
+        Lang::Cy => format!(
+            "Mae eich apwyntiad ar {when}. Pwyswch 1 i'w gadarnhau. Pwyswch 2 i ofyn am amser gwahanol. Pwyswch 3 i'w ganslo. Pwyswch 9 i glywed hyn eto."
+        ),
+    }
+}
+
+pub fn ivr_retry(lang: Lang) -> String {
+    match lang {
+        Lang::En => "Sorry, that was not one of the choices.".into(),
+        Lang::Cy => "Mae'n ddrwg gennym, nid oedd hynny'n un o'r dewisiadau.".into(),
+    }
+}
+
+/// "Press 1 for ..., 2 for ..., or 0 to go back" over the offered times.
+pub fn ivr_times(lang: Lang, whens: &[String]) -> String {
+    let list: Vec<String> = whens
+        .iter()
+        .enumerate()
+        .map(|(i, w)| match lang {
+            Lang::En => format!("Press {} for {}", i + 1, w),
+            Lang::Cy => format!("Pwyswch {} am {}", i + 1, w),
+        })
+        .collect();
+    match lang {
+        Lang::En => format!("{}. Press 0 to go back.", list.join(". ")),
+        Lang::Cy => format!("{}. Pwyswch 0 i fynd yn ôl.", list.join(". ")),
+    }
+}
+
+pub fn ivr_cancel_sure(lang: Lang) -> String {
+    match lang {
+        Lang::En => format!(
+            "{} Press 1 to cancel the appointment. Press 2 to keep it.",
+            are_you_sure(lang)
+        ),
+        Lang::Cy => format!(
+            "{} Pwyswch 1 i ganslo'r apwyntiad. Pwyswch 2 i'w gadw.",
+            are_you_sure(lang)
+        ),
+    }
+}
+
+pub fn ivr_kept(lang: Lang) -> String {
+    match lang {
+        Lang::En => "Your appointment has not been changed.".into(),
+        Lang::Cy => "Nid yw eich apwyntiad wedi'i newid.".into(),
+    }
+}
+
 /// "Which appointment? Reply 1, 2 ..." with one line per candidate.
 pub fn ask(lang: Lang, times: &[String]) -> String {
     let head = match lang {

@@ -26,6 +26,7 @@ pub mod sender;
 pub mod sms;
 pub mod sms_length;
 pub mod templates;
+pub mod whatsapp;
 
 pub use sender::{LogMessageSender, MessageSender, SmsSender};
 pub use sms::{LogSmsProvider, NoopSmsProvider, SmsProvider};
@@ -318,6 +319,11 @@ impl CommunicationService {
                 "the recipient has opted out of {} messages",
                 channel_label(channel)
             )));
+        }
+
+        // 1c. WhatsApp needs the patient's opt-in and a provider-approved template (CAP-13), when the rule is on.
+        if channel == DeliveryChannel::WhatsApp {
+            whatsapp::check(&self.db, person_id, template_id).await?;
         }
 
         // 2. Load template.

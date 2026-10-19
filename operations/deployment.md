@@ -86,3 +86,8 @@ Point the API at `http://<issuer>:8195/keys.json` (`PAS_PASETO_KEYS_URL`), set `
 - **Rotation:** generate a new key under a new `kid`, publish both public keys (merge the two `keys.json` documents) until the longest token has expired, switch the issuer to the new key, then drop the old one. The API re-reads the keys every `PAS_PASETO_KEYS_REFRESH_SECS`.
 - **Per-person tokens** at the API (rather than the UI acting for people) need a full authentication service in place of this issuer. The API does not change: it only reads the key set.
 - **Development:** `sh scripts/dev-auth.sh` does all of the above with a throwaway key.
+
+## Voice keypad and WhatsApp (CAP-13)
+
+- Voice: the carrier calls `POST /api/write-back/ivr/menu` when a call connects and `/press` for each key, signed like the other carrier endpoints. The PAS does not place calls or speak.
+- WhatsApp: set `PAS_WHATSAPP_REQUIRE_OPTIN=true` **before** any WhatsApp carrier goes live. Record opt-ins (`PUT /api/patients/{id}/whatsapp-optin`) and provider approvals (`PUT /api/letter-templates/{id}/whatsapp-approval`) first.

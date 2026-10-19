@@ -39,6 +39,7 @@ pub mod history;
 pub mod hl7v2;
 pub mod identity;
 pub mod inbound;
+pub mod ivr;
 pub mod models;
 pub mod noshow;
 pub mod observability;

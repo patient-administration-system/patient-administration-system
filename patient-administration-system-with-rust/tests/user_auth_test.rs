@@ -120,6 +120,9 @@ fn app(auth: Arc<UserAuth>) -> Router {
         .route("/api/echo", get(echo).post(echo).put(echo).delete(echo))
         .route("/api/health", get(echo))
         .route("/api/write-back/replies", post(echo_body))
+        .route("/api/write-back/receipts", post(echo_body))
+        .route("/api/write-back/ivr/menu", post(echo_body))
+        .route("/api/write-back/ivr/press", post(echo_body))
         .route("/api/inbound-texts/open", get(echo))
         .route("/api/upstream/person-merged", post(echo))
         .route("/api/patients/import", post(echo));
@@ -640,6 +643,31 @@ async fn a_carrier_signed_reply_is_accepted_and_audited_under_the_carrier() {
         format!("carrier:twilio|{body}"),
         "the handler sees the intact body and the carrier identity, not anything the sender claimed"
     );
+}
+
+#[tokio::test]
+async fn a_carrier_may_post_receipts_and_voice_key_presses_too() {
+    use patient_administration_system::api::rest::carrier_auth::sign;
+    let app = carrier_app().await;
+    for path in [
+        "/api/write-back/receipts",
+        "/api/write-back/ivr/menu",
+        "/api/write-back/ivr/press",
+    ] {
+        let body = r#"{"token":"t","digit":"1"}"#;
+        let ts = now();
+        let (st, out) = carrier_post(
+            &app,
+            path,
+            "twilio",
+            ts,
+            &sign(SECRET.as_bytes(), ts, body.as_bytes()),
+            body,
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "{path}");
+        assert!(out.starts_with("carrier:twilio|"), "{path}: {out}");
+    }
 }
 
 #[tokio::test]

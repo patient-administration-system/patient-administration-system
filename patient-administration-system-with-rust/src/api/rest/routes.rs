@@ -36,6 +36,7 @@ use super::handlers_followup;
 use super::handlers_history;
 use super::handlers_hl7v2;
 use super::handlers_identity;
+use super::handlers_ivr;
 use super::handlers_letters;
 use super::handlers_links;
 use super::handlers_noshow;
@@ -53,6 +54,7 @@ use super::handlers_transport;
 use super::handlers_virtual;
 use super::handlers_waitlist;
 use super::handlers_waits;
+use super::handlers_whatsapp;
 use super::handlers_writeback;
 use super::upstream_proxy;
 
@@ -417,6 +419,16 @@ pub fn router(state: AppState) -> Router {
             "/api/appointments/{id}/noshow",
             get(handlers_noshow::for_appointment),
         )
+        .route(
+            "/api/patients/{id}/whatsapp-optin",
+            put(handlers_whatsapp::record_optin).delete(handlers_whatsapp::withdraw_optin),
+        )
+        .route(
+            "/api/letter-templates/{id}/whatsapp-approval",
+            put(handlers_whatsapp::approve_template).delete(handlers_whatsapp::revoke_template),
+        )
+        .route("/api/write-back/ivr/menu", post(handlers_ivr::menu))
+        .route("/api/write-back/ivr/press", post(handlers_ivr::press))
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))
         .route(

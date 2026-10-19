@@ -372,11 +372,13 @@ pub async fn user_auth_middleware(
 }
 
 /// The only endpoints a message carrier may call.
-const CARRIER_PATHS: [&str; 4] = [
+const CARRIER_PATHS: [&str; 6] = [
     "/api/write-back/replies",
     "/api/write-back/batch",
     "/api/write-back/texts",
     "/api/write-back/receipts",
+    "/api/write-back/ivr/menu",
+    "/api/write-back/ivr/press",
 ];
 
 /// Largest body a carrier may send (a 1000-row CSV batch is well under this).
