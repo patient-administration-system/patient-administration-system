@@ -37,6 +37,7 @@ use super::handlers_resources;
 use super::handlers_scheduling;
 use super::handlers_series;
 use super::handlers_standby;
+use super::handlers_virtual;
 use super::handlers_waitlist;
 use super::handlers_writeback;
 use super::upstream_proxy;
@@ -247,6 +248,19 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/appointments/{id}/rebook",
             post(handlers_scheduling::rebook_appointment),
+        )
+        .route(
+            "/api/virtual-ok-services",
+            get(handlers_virtual::list_services),
+        )
+        .route(
+            "/api/virtual-ok-services/{service_type}",
+            put(handlers_virtual::approve_service).delete(handlers_virtual::remove_service),
+        )
+        .route("/api/conversions/pending", get(handlers_virtual::pending))
+        .route(
+            "/api/appointments/{id}/conversion/{decision}",
+            post(handlers_virtual::review),
         )
         .route(
             "/api/appointments/{id}/barrier",

@@ -27,7 +27,9 @@ use uuid::Uuid;
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::db::repositories::outbox::OutboxRepository;
-use crate::models::appointment::{Appointment, AppointmentStatus, BarrierCode, CancelledBy};
+use crate::models::appointment::{
+    Appointment, AppointmentStatus, BarrierCode, CancelledBy, ConversionState, Modality,
+};
 use crate::scheduling::{CancelDetails, SchedulingService};
 use crate::streaming::DomainEvent;
 use crate::{Error, Result};
@@ -42,6 +44,7 @@ pub enum ReplyAction {
     Confirm,
     Cancel,
     Rebook,
+    Convert,
 }
 
 impl ReplyAction {
@@ -50,6 +53,7 @@ impl ReplyAction {
             ReplyAction::Confirm => "confirm",
             ReplyAction::Cancel => "cancel",
             ReplyAction::Rebook => "rebook",
+            ReplyAction::Convert => "convert",
         }
     }
 }
@@ -70,6 +74,9 @@ pub struct ReplyRequest {
     /// For `rebook`: the slot the patient chose.
     #[serde(default)]
     pub new_slot_id: Option<Uuid>,
+    /// For `convert`: `video` or `phone` (CAP-14).
+    #[serde(default)]
+    pub modality: Option<Modality>,
     #[serde(default)]
     pub received_at: Option<DateTime<Utc>>,
 }
@@ -153,15 +160,31 @@ impl WriteBackService {
             (ReplyAction::Rebook, None) => {
                 Err(Error::validation("a rebook reply must name new_slot_id"))
             }
-            (ReplyAction::Confirm | ReplyAction::Cancel, Some(_)) => Err(Error::validation(
-                "new_slot_id is only valid for a rebook reply",
-            )),
+            (ReplyAction::Confirm | ReplyAction::Cancel | ReplyAction::Convert, Some(_)) => Err(
+                Error::validation("new_slot_id is only valid for a rebook reply"),
+            ),
             _ => Ok(()),
         }?;
-        if req.barrier_code.is_some() && req.action != ReplyAction::Cancel {
+        if req.barrier_code.is_some()
+            && !matches!(req.action, ReplyAction::Cancel | ReplyAction::Convert)
+        {
             return Err(Error::validation(
-                "barrier_code is only valid for a cancel reply",
+                "barrier_code is only valid for a cancel or convert reply",
             ));
+        }
+        match (req.action, req.modality) {
+            (ReplyAction::Convert, Some(Modality::Video | Modality::Phone)) => {}
+            (ReplyAction::Convert, _) => {
+                return Err(Error::validation(
+                    "a convert reply must name modality video or phone",
+                ));
+            }
+            (_, Some(_)) => {
+                return Err(Error::validation(
+                    "modality is only valid for a convert reply",
+                ));
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -340,8 +363,8 @@ impl WriteBackService {
             DbBackend::Postgres,
             "INSERT INTO inbound_replies \
                (id, message_id, action, appointment_id, person_id, channel, barrier_code, new_slot_id, \
-                status, reject_reason, new_appointment_id, received_at) \
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+                status, reject_reason, new_appointment_id, received_at, modality) \
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
             [
                 Uuid::new_v4().into(),
                 req.message_id.trim().into(),
@@ -355,6 +378,7 @@ impl WriteBackService {
                 decision.reject_reason.clone().into(),
                 new_id.into(),
                 req.received_at.unwrap_or_else(Utc::now).into(),
+                req.modality.map(|m| m.as_str().to_string()).into(),
             ],
         ))
         .await
@@ -447,6 +471,60 @@ impl WriteBackService {
                     new_appointment: None,
                 })
             }
+            ReplyAction::Convert => {
+                let modality = req.modality.expect("validated");
+                if appt.status != AppointmentStatus::Booked {
+                    return Ok(Decision::rejected(
+                        format!("not_convertible:{:?}", appt.status).to_lowercase(),
+                        Some(appt),
+                    ));
+                }
+                if appt.start_datetime <= Utc::now() {
+                    return Ok(Decision::rejected("already_started", Some(appt)));
+                }
+                if appt.modality != Modality::InPerson
+                    && appt.conversion_state != Some(ConversionState::Vetoed)
+                {
+                    // Asking for the same thing twice is success; asking for something else is not.
+                    return Ok(if appt.modality == modality {
+                        Decision {
+                            status: ReplyStatus::Applied,
+                            reject_reason: None,
+                            appointment: Some(appt),
+                            new_appointment: None,
+                        }
+                    } else {
+                        Decision::rejected("already_converted", Some(appt))
+                    });
+                }
+                if !crate::virtual_visits::service_is_virtual_ok(txn, appt.slot_id).await? {
+                    return Ok(Decision::rejected("not_virtual_ok", Some(appt)));
+                }
+                let mut a = appt;
+                let now = Utc::now();
+                a.modality = modality;
+                a.conversion_state = Some(ConversionState::PendingReview);
+                a.conversion_barrier_code = req.barrier_code;
+                a.converted_at = Some(now);
+                a.updated_at = now;
+                let a = AppointmentRepository::update(txn, &a).await?;
+                Self::audit(txn, &a, "convert", req, ctx).await?;
+                OutboxRepository::publish(
+                    txn,
+                    "AppointmentConverted",
+                    &serde_json::json!({
+                        "appointment_id": a.id, "modality": modality.as_str(),
+                        "barrier_code": req.barrier_code,
+                    }),
+                )
+                .await?;
+                Ok(Decision {
+                    status: ReplyStatus::Applied,
+                    reject_reason: None,
+                    appointment: Some(a),
+                    new_appointment: None,
+                })
+            }
             ReplyAction::Rebook => {
                 let new_slot = req.new_slot_id.expect("validated");
                 match SchedulingService::rebook_tx(txn, appt.id, new_slot, ctx).await {
@@ -511,6 +589,7 @@ mod tests {
             channel: Some("whatsapp".into()),
             barrier_code: None,
             new_slot_id: None,
+            modality: None,
             received_at: None,
         }
     }

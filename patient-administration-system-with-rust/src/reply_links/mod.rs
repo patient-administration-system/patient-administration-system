@@ -343,6 +343,7 @@ impl ReplyLinks {
             channel: Some("link".into()),
             barrier_code: None,
             new_slot_id: None,
+            modality: None,
             received_at: None,
         };
         match self.writeback.apply(req, ctx).await {

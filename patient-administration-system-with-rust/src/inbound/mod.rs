@@ -507,6 +507,7 @@ impl InboundService {
             channel: Some("sms".into()),
             barrier_code: None,
             new_slot_id: None,
+            modality: None,
             received_at: Some(now),
         };
         let result = self.writeback.apply(req, ctx).await?;

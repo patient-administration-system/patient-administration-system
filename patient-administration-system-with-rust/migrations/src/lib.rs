@@ -18,6 +18,7 @@ mod m20260609_000014_message_optouts;
 mod m20260610_000015_template_locales;
 mod m20260611_000016_reminder_ladder;
 mod m20260612_000017_rebook_offers;
+mod m20260613_000018_virtual_visits;
 
 pub struct Migrator;
 
@@ -42,6 +43,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260610_000015_template_locales::Migration),
             Box::new(m20260611_000016_reminder_ladder::Migration),
             Box::new(m20260612_000017_rebook_offers::Migration),
+            Box::new(m20260613_000018_virtual_visits::Migration),
         ]
     }
 }

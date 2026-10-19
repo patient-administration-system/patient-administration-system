@@ -45,6 +45,7 @@ pub mod streaming;
 pub mod token_issuer;
 pub mod upstream;
 pub mod validation;
+pub mod virtual_visits;
 pub mod waitlist;
 pub mod writeback;
 

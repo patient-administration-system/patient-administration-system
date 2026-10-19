@@ -361,3 +361,11 @@ rebook_offers,expires_at,none,"Not personal data (structure, status, timestamps,
 rebook_offers,chosen_slot_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 rebook_offers,chosen_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 rebook_offers,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,modality,health,"Administrative care information (why, where, what service, outcome)",record
+appointments,conversion_state,none,"Not personal data (structure, status, timestamps, places, templates)",record
+appointments,conversion_barrier_code,health,"Administrative care information (why, where, what service, outcome)",record
+appointments,converted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+inbound_replies,modality,none,"Not personal data (structure, status, timestamps, places, templates)",record
+virtual_ok_services,service_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+virtual_ok_services,approved_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+virtual_ok_services,approved_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

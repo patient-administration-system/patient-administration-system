@@ -31,6 +31,7 @@ pub struct AppState {
     pub inbound: Arc<crate::inbound::InboundService>,
     pub reply_links: Arc<crate::reply_links::ReplyLinks>,
     pub rebooking: Arc<crate::rebooking::RebookService>,
+    pub virtual_visits: Arc<crate::virtual_visits::VirtualVisitService>,
     /// Used for the staff call list; the scheduler in `main` builds its own from the environment.
     pub ladder: Arc<crate::communication::ladder::LadderService>,
     pub standby: Arc<crate::standby::StandbyService>,
@@ -76,6 +77,7 @@ impl AppState {
                 rebooking.clone(),
             )),
             rebooking,
+            virtual_visits: Arc::new(crate::virtual_visits::VirtualVisitService::new(db.clone())),
             ladder: Arc::new(crate::communication::ladder::LadderService::new(
                 db.clone(),
                 communication.clone(),

@@ -61,6 +61,36 @@ pub enum CancellationReason {
     Other,
 }
 
+/// How the appointment is held (CAP-14).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Modality {
+    #[default]
+    InPerson,
+    Video,
+    Phone,
+}
+
+impl Modality {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::InPerson => "in_person",
+            Self::Video => "video",
+            Self::Phone => "phone",
+        }
+    }
+}
+
+/// Where a conversion to a video or phone consultation stands (CAP-14). A clinician can veto before
+/// the slot is confirmed as virtual; a veto restores `in_person`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConversionState {
+    PendingReview,
+    Confirmed,
+    Vetoed,
+}
+
 /// Who ended an appointment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -210,6 +240,17 @@ pub struct Appointment {
     /// When the patient confirmed they are coming (CAP-2).
     #[serde(default)]
     pub confirmed_at: Option<DateTime<Utc>>,
+    /// How it is held (CAP-14). `in_person` unless converted.
+    #[serde(default)]
+    pub modality: Modality,
+    /// Set once a patient has asked for a video or phone consultation (CAP-14).
+    #[serde(default)]
+    pub conversion_state: Option<ConversionState>,
+    /// The barrier behind a conversion request (CAP-14), apart from any cancellation barrier.
+    #[serde(default)]
+    pub conversion_barrier_code: Option<BarrierCode>,
+    #[serde(default)]
+    pub converted_at: Option<DateTime<Utc>>,
     /// Derived from status and notice; never stored, so it cannot disagree with them.
     #[serde(default)]
     pub release_class: Option<ReleaseClass>,
@@ -241,6 +282,10 @@ impl Appointment {
             barrier_code: None,
             notice_days: None,
             confirmed_at: None,
+            modality: Modality::InPerson,
+            conversion_state: None,
+            conversion_barrier_code: None,
+            converted_at: None,
             release_class: None,
             created_at: now,
             updated_at: now,

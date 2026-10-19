@@ -55,6 +55,7 @@ fn reply(w: &World, id: &str, action: ReplyAction) -> ReplyRequest {
         channel: Some("whatsapp".into()),
         barrier_code: None,
         new_slot_id: None,
+        modality: None,
         received_at: None,
     }
 }

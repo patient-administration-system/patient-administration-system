@@ -293,6 +293,10 @@ fn to_active_model(a: &Appointment) -> appointment::ActiveModel {
         barrier_code: Set(a.barrier_code.map(|b| enum_str(&b))),
         notice_days: Set(a.notice_days),
         confirmed_at: Set(a.confirmed_at.map(|t| t.fixed_offset())),
+        modality: Set(enum_str(&a.modality)),
+        conversion_state: Set(a.conversion_state.map(|c| enum_str(&c))),
+        conversion_barrier_code: Set(a.conversion_barrier_code.map(|b| enum_str(&b))),
+        converted_at: Set(a.converted_at.map(|t| t.fixed_offset())),
         deleted_at: Set(None),
         created_at: Set(a.created_at.fixed_offset()),
         updated_at: Set(a.updated_at.fixed_offset()),
@@ -321,6 +325,18 @@ fn from_model(m: appointment::Model) -> Result<Appointment> {
         barrier_code: m.barrier_code.as_deref().map(from_enum_str).transpose()?,
         notice_days: m.notice_days,
         confirmed_at: m.confirmed_at.map(|t| t.with_timezone(&chrono::Utc)),
+        modality: from_enum_str(&m.modality)?,
+        conversion_state: m
+            .conversion_state
+            .as_deref()
+            .map(from_enum_str)
+            .transpose()?,
+        conversion_barrier_code: m
+            .conversion_barrier_code
+            .as_deref()
+            .map(from_enum_str)
+            .transpose()?,
+        converted_at: m.converted_at.map(|t| t.with_timezone(&chrono::Utc)),
         // Derived on read, never stored, so it cannot disagree with status and notice.
         release_class: classify_release(appointment_status_from_str(&m.status)?, m.notice_days),
         created_at: m.created_at.with_timezone(&chrono::Utc),
@@ -357,6 +373,10 @@ mod tests {
             barrier_code: am.barrier_code.clone().unwrap(),
             notice_days: am.notice_days.clone().unwrap(),
             confirmed_at: am.confirmed_at.clone().unwrap(),
+            modality: am.modality.clone().unwrap(),
+            conversion_state: am.conversion_state.clone().unwrap(),
+            conversion_barrier_code: am.conversion_barrier_code.clone().unwrap(),
+            converted_at: am.converted_at.clone().unwrap(),
             deleted_at: am.deleted_at.clone().unwrap(),
             created_at: am.created_at.clone().unwrap(),
             updated_at: am.updated_at.clone().unwrap(),
@@ -403,6 +423,10 @@ mod tests {
             barrier_code: Some("cannot_travel".into()),
             notice_days: Some(5),
             confirmed_at: None,
+            modality: "in_person".into(),
+            conversion_state: None,
+            conversion_barrier_code: None,
+            converted_at: None,
             deleted_at: None,
             created_at: am.created_at.clone().unwrap(),
             updated_at: am.updated_at.clone().unwrap(),

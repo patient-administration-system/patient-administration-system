@@ -1,0 +1,114 @@
+//! REST handlers for video and phone consultations (CAP-14): the approved-services list and the
+//! clinician's review of a conversion.
+
+use axum::{
+    Json,
+    extract::{Path, Query, State},
+    http::{HeaderMap, StatusCode},
+};
+use serde::Deserialize;
+use serde_json::Value;
+use uuid::Uuid;
+
+use crate::Error;
+use crate::api::ApiResponse;
+use crate::api::rest::AppState;
+use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::upstream_proxy::user_context_from_headers;
+use crate::db::repositories::audit::UserContext as RepoUserContext;
+use crate::virtual_visits::Review;
+
+fn ok(value: Value) -> HandlerResult {
+    (StatusCode::OK, Json(ApiResponse::ok(value)))
+}
+
+fn ctx(headers: &HeaderMap) -> RepoUserContext {
+    let uc = user_context_from_headers(headers);
+    RepoUserContext {
+        user_id: uc.user_id,
+        user_ip: uc.user_ip,
+        user_agent: uc.user_agent,
+    }
+}
+
+/// `GET /api/virtual-ok-services`: the services a clinician has approved for conversion.
+pub async fn list_services(State(state): State<AppState>) -> HandlerResult {
+    match state.virtual_visits.list_services().await {
+        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApproveBody {
+    pub approved_by: String,
+}
+
+/// `PUT /api/virtual-ok-services/{service_type}`: approve a service. `approved_by` must name a person.
+pub async fn approve_service(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(service_type): Path<String>,
+    Json(body): Json<ApproveBody>,
+) -> HandlerResult {
+    match state
+        .virtual_visits
+        .approve_service(&service_type, &body.approved_by, &ctx(&headers))
+        .await
+    {
+        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `DELETE /api/virtual-ok-services/{service_type}`: stop accepting conversions for a service. Existing
+/// conversions stand until reviewed.
+pub async fn remove_service(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(service_type): Path<String>,
+) -> HandlerResult {
+    match state
+        .virtual_visits
+        .remove_service(&service_type, &ctx(&headers))
+        .await
+    {
+        Ok(()) => ok(Value::Null),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PendingQuery {
+    pub limit: Option<u64>,
+}
+
+/// `GET /api/conversions/pending`: conversions waiting for a clinician, soonest appointment first.
+pub async fn pending(
+    State(state): State<AppState>,
+    Query(q): Query<PendingQuery>,
+) -> HandlerResult {
+    match state.virtual_visits.pending(q.limit.unwrap_or(100)).await {
+        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `POST /api/appointments/{id}/conversion/{decision}`: `confirm` or `veto` (a veto restores in-person).
+pub async fn review(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((id, decision)): Path<(Uuid, String)>,
+) -> HandlerResult {
+    let Some(decision) = Review::parse(&decision) else {
+        return error_to_response(Error::validation("decision must be confirm or veto"));
+    };
+    match state
+        .virtual_visits
+        .review(id, decision, &ctx(&headers))
+        .await
+    {
+        Ok(a) => ok(serde_json::to_value(a).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}

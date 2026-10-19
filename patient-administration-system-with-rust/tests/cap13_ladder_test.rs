@@ -285,6 +285,7 @@ async fn a_patient_who_confirmed_is_not_chased_but_still_gets_the_final_nudge() 
                 channel: Some("sms".into()),
                 barrier_code: None,
                 new_slot_id: None,
+                modality: None,
                 received_at: None,
             },
             &UserContext::system(),
