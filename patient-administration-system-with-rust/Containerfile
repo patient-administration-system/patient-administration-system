@@ -36,7 +36,7 @@ COPY templates ./templates
 COPY migrations ./migrations
 RUN cargo build --release --bin patient-administration-system --bin pas-token-issuer
 
-FROM docker.io/library/debian:bookworm-slim AS runtime
+FROM docker.io/library/debian:trixie-slim AS runtime
 # Provenance labels. The release workflow passes the version it verified against the tag, the server crate's
 # version and the changelog (scripts/release-notes.sh), and checks the built image carries it.
 ARG VERSION=unknown

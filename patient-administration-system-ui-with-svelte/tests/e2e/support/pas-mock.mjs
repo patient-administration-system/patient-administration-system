@@ -65,6 +65,8 @@ async function verify(header) {
     return null;
   }
 }
+let chaos = "off";
+let chaosState = 1;
 const envelope = (data) => JSON.stringify({ success: true, data });
 
 http
@@ -83,7 +85,37 @@ http
       return res.end(JSON.stringify({ proofing }));
     }
     if (url.pathname === "/__acts") return res.end(JSON.stringify(acts));
+    // Chaos: make the API misbehave on purpose (see tests/e2e/chaos.spec.ts). `random` picks a fault per request
+    // from a seeded generator, so a failing run can be repeated with the same seed.
+    if (url.pathname === "/__chaos") {
+      chaos = url.searchParams.get("mode") ?? "off";
+      chaosState = Number(url.searchParams.get("seed") ?? 1) || 1;
+      return res.end(JSON.stringify({ chaos }));
+    }
     requests.push(url.pathname + url.search);
+    if (chaos !== "off" && url.pathname.startsWith("/api/")) {
+      const modes = ["500", "garbage", "html", "empty", "wrongshape", "null", "off"];
+      let mode = chaos;
+      if (chaos === "random") {
+        chaosState ^= chaosState << 13;
+        chaosState ^= chaosState >>> 17;
+        chaosState ^= chaosState << 5;
+        mode = modes[Math.abs(chaosState) % modes.length];
+      }
+      const leak = "panicked at src/db/repositories/appointment.rs:212 password=hunter2 SqlxError(PgDatabaseError)";
+      if (mode === "500") {
+        res.statusCode = 500;
+        return res.end(JSON.stringify({ success: false, error: { code: "INTERNAL", message: leak } }));
+      }
+      if (mode === "garbage") return res.end("not json {{ " + leak);
+      if (mode === "html") {
+        res.setHeader("content-type", "text/html");
+        return res.end("<html><body>502 Bad Gateway " + leak + "</body></html>");
+      }
+      if (mode === "empty") return res.end("");
+      if (mode === "wrongshape") return res.end(JSON.stringify({ success: true, data: "surprise", leak }));
+      if (mode === "null") return res.end(JSON.stringify({ success: true, data: null }));
+    }
     if (ISSUER_URL) {
       const claims = await verify(req.headers.authorization);
       const isService = claims?.attrs?.svc?.includes("true") ?? false;

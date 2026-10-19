@@ -6,8 +6,9 @@
 
 #![cfg_attr(not(test), forbid(unsafe_code))]
 use chrono::{Duration, Utc};
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use patient_administration_system::models::TimeRange;
+use std::hint::black_box;
 
 fn make_ranges(count: usize) -> Vec<TimeRange> {
     let mut ranges = Vec::with_capacity(count);

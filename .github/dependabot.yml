@@ -6,6 +6,17 @@ updates:
     groups:
       rust-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # Held back on purpose (tasks.md DEP-2): SeaORM 2 and Loco 1.x together broke 20 tests in a trial and
+      # cleared no further advisory; Tera 2 changes template syntax that clinicians write letters in.
+      - dependency-name: sea-orm
+        update-types: [version-update:semver-major]
+      - dependency-name: sea-orm-migration
+        update-types: [version-update:semver-major]
+      - dependency-name: loco-rs
+        update-types: [version-update:semver-major]
+      - dependency-name: tera
+        update-types: [version-update:semver-major]
   - package-ecosystem: npm
     directory: /patient-administration-system-ui-with-svelte
     schedule: { interval: weekly }

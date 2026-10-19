@@ -22,12 +22,11 @@
 
 use crate::Result;
 use crate::config::Config;
-use opentelemetry::KeyValue;
 use opentelemetry::global;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::{Protocol, WithExportConfig};
 use opentelemetry_sdk::Resource;
-use opentelemetry_sdk::trace::TracerProvider;
+use opentelemetry_sdk::trace::SdkTracerProvider;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, fmt};
@@ -111,12 +110,11 @@ where
         .with_protocol(Protocol::HttpBinary)
         .build()
         .map_err(|e| format!("build OTLP exporter: {e}"))?;
-    let resource = Resource::new(vec![KeyValue::new(
-        "service.name",
-        service_name.to_string(),
-    )]);
-    let provider = TracerProvider::builder()
-        .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
+    let resource = Resource::builder()
+        .with_service_name(service_name.to_string())
+        .build();
+    let provider = SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
         .with_resource(resource)
         .build();
     let tracer = provider.tracer(service_name.to_string());

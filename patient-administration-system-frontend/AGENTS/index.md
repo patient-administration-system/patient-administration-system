@@ -1,6 +1,6 @@
 # AGENTS Directory Index
 
-Detailed reference documentation for `patient-administration-system-frontend` (Loco-rs UI, **v0.1.0**, paired with PAS Axum v0.43.0).
+Detailed reference documentation for `patient-administration-system-frontend` (Loco-rs UI, **v0.2.0**, paired with PAS Axum v0.44.0).
 
 ## Files
 
@@ -15,7 +15,7 @@ Detailed reference documentation for `patient-administration-system-frontend` (L
 
 - [../AGENTS.md](../AGENTS.md) — project-level orientation for agents
 - [../README.md](../README.md) — public-facing README with the route table + CSRF design
-- [../CHANGELOG.md](../CHANGELOG.md) — per-release changelog (currently v0.1.0)
+- [../CHANGELOG.md](../CHANGELOG.md) — per-release changelog (currently v0.2.0)
 - [../spec.md](../spec.md) — comprehensive specification-driven-development document
 - [../../README.md](../../README.md) — workspace-level README
 - [../../CHANGELOG.md](../../CHANGELOG.md) — workspace-level changelog

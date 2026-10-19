@@ -306,6 +306,10 @@ async fn a_small_cell_is_withheld_whole_and_no_identifier_appears() {
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn the_http_endpoint_works_and_refuses_unknown_dimensions() {
+    // These tests ask as an anonymous caller, and a development database keeps every earlier run's queries on
+    // the record; the daily budget has its own test (`cap11_feed_test.rs`).
+    // SAFETY: only ever raises a limit, so racing another test in this binary is harmless.
+    unsafe { std::env::set_var("PAS_ANALYTICS_QUERY_BUDGET", "100000") };
     let s = common::build_state(&common::database_url().unwrap()).await;
     let a = format!("a{}", short());
     let rs = releases(&s, &a, 12, 5).await;

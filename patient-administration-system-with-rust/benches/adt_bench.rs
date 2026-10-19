@@ -4,8 +4,9 @@
 //! regressions in `BedStatus::try_transition_to`.
 
 #![cfg_attr(not(test), forbid(unsafe_code))]
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use patient_administration_system::models::facility::BedStatus;
+use std::hint::black_box;
 
 fn bench_bed_transitions(c: &mut Criterion) {
     c.bench_function("bed_status_full_cycle", |b| {

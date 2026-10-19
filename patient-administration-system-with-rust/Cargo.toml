@@ -11,12 +11,12 @@ categories = ["science", "database"]
 
 [dependencies]
 # Async Runtime
-tokio = { version = "1.53", features = ["full"] }
+tokio = { version = "1.54", features = ["full"] }
 
 # Web Framework & HTTP
 axum = { version = "0.8", features = ["macros"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["cors", "trace", "compression-full"] }
+tower-http = { version = "0.7", features = ["cors", "trace", "compression-full"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -43,10 +43,10 @@ utoipa-swagger-ui = { version = "10.0", features = ["axum"] }
 # (HTTP/protobuf transport via reqwest, no tonic). Wired in v0.7.0.
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-opentelemetry = "0.27"
-opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.27", default-features = false, features = ["http-proto", "reqwest-client"] }
-tracing-opentelemetry = "0.28"
+opentelemetry = "0.33.1"
+opentelemetry_sdk = { version = "0.33.1", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["http-proto", "reqwest-client"] }
+tracing-opentelemetry = "0.34"
 
 # Offline PASETO v4.public verification of per-user bearer tokens from the authentication-service
 # (DTAC-4). `fetch` adds Verifier::from_paseto_keys_url for the boot-time key fetch.
@@ -55,10 +55,10 @@ authentication-verifier = { version = "0.9.1", default-features = false, feature
 # Sign PASETO v4.public tokens: the issuing half (`token_issuer`, `pas-token-issuer`).
 ed25519-dalek = "3.0.0"
 rusty_paseto = { version = "0.10.1", default-features = false, features = ["v4_public", "serde_json"] }
-base64 = "0.22"
+base64 = "0.23"
 
 # Utilities
-uuid = { version = "1.26", features = ["v4", "v5", "serde"] }
+uuid = { version = "1.28", features = ["v4", "v5", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
 thiserror = "2.0"
@@ -72,9 +72,9 @@ rust_decimal = { version = "1.43", features = ["serde-with-str"] }
 # `opentelemetry-otlp` with the `reqwest-client` feature; promoting it to a
 # direct dep adds zero compile cost. `sha2` + `hmac` are already pulled in
 # transitively by sqlx (via rsa/jsonwebtoken); promoting them costs nothing.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-sha2 = "0.10"
-hmac = "0.12"
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "query", "form"] }
+sha2 = "0.11"
+hmac = "0.13"
 
 [dev-dependencies]
 # Testing
@@ -87,14 +87,14 @@ tempfile = "3.27"
 # publisher — re-declaring them here makes them resolvable from
 # integration-test binaries (which don't see the lib's production deps
 # by default).
-hmac = "0.12"
-sha2 = "0.10"
+hmac = "0.13"
+sha2 = "0.11"
 
 # Integration tests
 migration = { path = "migrations", version = "0.1.0", package = "patient-administration-system-migrations" }
 
 # Benchmarking
-criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
+criterion = { version = "0.8", features = ["html_reports", "async_tokio"] }
 
 [[bin]]
 name = "patient-administration-system"

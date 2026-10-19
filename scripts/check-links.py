@@ -7,6 +7,7 @@ mailto and other schemes are not fetched.
 
     python3 scripts/check-links.py            # exit 1 if any link is broken
 """
+import os
 import re
 import sys
 import unicodedata
@@ -41,9 +42,13 @@ def anchors(path: Path) -> set:
 
 
 def markdown_files():
-    for p in ROOT.rglob("*.md"):
-        if not (set(p.relative_to(ROOT).parts) & SKIP_DIRS):
-            yield p
+    # Walk the tree ourselves so build output (`target/`, `node_modules/`) is never entered: a build running at
+    # the same time can delete files mid-walk, and `rglob` would fail on them.
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for name in filenames:
+            if name.endswith(".md"):
+                yield Path(dirpath) / name
 
 
 def main() -> int:

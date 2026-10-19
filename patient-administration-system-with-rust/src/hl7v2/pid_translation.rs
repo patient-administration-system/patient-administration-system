@@ -106,7 +106,7 @@ pub fn pid_to_person_create(pid: &Segment) -> PersonCreate {
 
     // PID-7: birth_date (YYYYMMDD → YYYY-MM-DD).
     let bd = pid.field(7).trim();
-    if bd.len() >= 8 {
+    if bd.len() >= 8 && bd.is_ascii() {
         let (y, m, d) = (&bd[0..4], &bd[4..6], &bd[6..8]);
         if y.chars().all(|c| c.is_ascii_digit())
             && m.chars().all(|c| c.is_ascii_digit())
@@ -271,7 +271,7 @@ pub fn parse_ft1(ft1: &Segment) -> crate::Result<Ft1> {
 pub fn parse_hl7_datetime(raw: &str) -> Option<chrono::DateTime<chrono::Utc>> {
     use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
     let s = raw.split(['+', '-']).next().unwrap_or("");
-    if s.is_empty() {
+    if s.is_empty() || !s.is_ascii() {
         return None;
     }
     let (date, time) = match s.len() {
@@ -429,7 +429,7 @@ pub fn parse_mfe_stf(mfe: &Segment, stf: &Segment) -> crate::Result<StaffItem> {
     };
     let birth_date = {
         let raw = stf.field(6).trim();
-        if raw.len() >= 8 {
+        if raw.len() >= 8 && raw.is_ascii() {
             let (y, m, d) = (&raw[0..4], &raw[4..6], &raw[6..8]);
             if y.chars().all(|c| c.is_ascii_digit())
                 && m.chars().all(|c| c.is_ascii_digit())
@@ -693,5 +693,17 @@ mod tests {
     fn test_pv1_class_missing_defaults_outpatient() {
         let pv1 = seg("PV1", &["1"]);
         assert_eq!(pv1_class_or_outpatient(&pv1), "Outpatient");
+    }
+
+    #[test]
+    fn test_multibyte_dates_are_not_dates_and_do_not_panic() {
+        // Found by the chaos monkey: byte slicing a date field that holds a multi-byte character.
+        assert!(parse_hl7_datetime("💥🔥ñ").is_none());
+        assert!(parse_hl7_datetime("2026💥1020").is_none());
+        let pid = seg(
+            "PID",
+            &["1", "", "MRN1", "", "Name^Given", "", "💥🔥ñ💥🔥ñ"],
+        );
+        let _ = pid_to_person_create(&pid);
     }
 }

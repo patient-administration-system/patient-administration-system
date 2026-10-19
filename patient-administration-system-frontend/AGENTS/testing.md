@@ -80,7 +80,7 @@ async fn dashboard_renders() {
 Run from the workspace root:
 
 ```bash
-cargo test --workspace --lib                            # 497 PAS + 9 frontend = 506
+cargo test --workspace --lib                            # API unit tests plus the front-end's 9 csrf tests
 cargo clippy --workspace --all-targets -- -D warnings   # zero warnings
 cargo fmt --check --all                                 # formatting clean
 cargo build --workspace --all-targets                   # zero errors

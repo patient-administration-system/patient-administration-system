@@ -5,8 +5,9 @@
 
 #![cfg_attr(not(test), forbid(unsafe_code))]
 use chrono::{Duration, Utc};
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use patient_administration_system::models::rtt::{RTTClockEvent, compute_active_weeks};
+use std::hint::black_box;
 use uuid::Uuid;
 
 fn make_events(count: usize) -> Vec<RTTClockEvent> {

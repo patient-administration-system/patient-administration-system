@@ -82,7 +82,13 @@ pub fn parse_batch(raw: &str) -> Result<Batch> {
                 "HL7v2 batch: segment too short: {s:?}"
             )));
         }
-        let name = &s[..3];
+        // Byte slicing below needs a character boundary: a segment that starts with a multi-byte character
+        // is not a valid HL7 segment name anyway.
+        let Some(name) = s.get(..3) else {
+            return Err(Error::validation(
+                "HL7v2 batch: a segment must start with a three-character name",
+            ));
+        };
         match name {
             "FHS" => {
                 if fhs.is_some() {
@@ -233,8 +239,8 @@ fn parse_body_segment(name: &str, s: &str) -> Result<Segment> {
 /// Infallible at this layer — the BTS/FTS body is always a free-form
 /// pipe-separated list and we don't enforce the count.
 fn parse_plain_segment(s: &str) -> Segment {
-    let name = s[..3].to_string();
-    let rest = &s[3..];
+    let name = s.get(..3).unwrap_or(s).to_string();
+    let rest = s.get(3..).unwrap_or("");
     let body = rest.strip_prefix(FIELD_SEP).unwrap_or("");
     Segment {
         name,
@@ -415,5 +421,20 @@ BTS|0\r";
         ));
         assert!(!looks_like_batch("garbage"));
         assert!(!looks_like_batch(""));
+    }
+
+    #[test]
+    fn test_multibyte_text_where_a_segment_name_should_be_is_an_error_not_a_panic() {
+        // Found by the chaos monkey: slicing the first three bytes split a character.
+        for raw in [
+            "💥🔥ñ\rMSH|^~\\&|",
+            "FHS|^~\\&|\r💥",
+            "ñ",
+            "\u{202e}rtl",
+            "BHS|^~\\&|\rBT💥",
+        ] {
+            let _ = parse_batch(raw); // must return, Ok or Err
+        }
+        assert!(parse_batch("💥🔥ñ").is_err());
     }
 }

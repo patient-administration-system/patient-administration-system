@@ -22,11 +22,11 @@ axum = { version = "0.8", default-features = false }
 # Cookie-based CSRF token storage for the write-flow forms (`csrf` module).
 # Pinned to the same minor as the `axum-extra` that Loco 0.14.1 brings via
 # axum 0.8, so a single `CookieJar` type flows through every handler.
-axum-extra = { version = "0.10", features = ["cookie"] }
+axum-extra = { version = "0.12", features = ["cookie"] }
 
 # Async runtime. Loco re-exports tokio but pinning a matching minor here
 # keeps `#[tokio::main]` ergonomic in `src/main.rs`.
-tokio = { version = "1.53", features = ["full"] }
+tokio = { version = "1.54", features = ["full"] }
 
 # Database — same as the PAS Axum app so the two share schemas + migrations.
 sea-orm = { version = "1.1", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "with-json"] }
@@ -42,17 +42,17 @@ serde_json = "1.0"
 # Outbound HTTP — the front-end can also call the PAS REST API when it
 # wants behavior that lives in the PAS service layer rather than read
 # straight from the DB.
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "query", "form"] }
 
 # Utilities.
-uuid = { version = "1.26", features = ["v4", "serde"] }
+uuid = { version = "1.28", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2.0"
 async-trait = "0.1"
 
 [dev-dependencies]
 loco-rs = { version = "0.14", features = ["testing"] }
-serial_test = "3.5"
+serial_test = "4.0"
 
 [[bin]]
 name = "patient-administration-system-frontend"

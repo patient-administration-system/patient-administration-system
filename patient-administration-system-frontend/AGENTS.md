@@ -58,8 +58,8 @@ This crate is one of three workspace members rooted at `..`:
 
 | Crate | Role | Port |
 |---|---|---|
-| `patient-administration-system` | System of record. REST + FHIR R5 + HL7 v2 (HTTP + MLLP). v0.43.0. | 8080 |
+| `patient-administration-system` | System of record. REST + FHIR R5 + HL7 v2 (HTTP + MLLP). v0.44.0. | 8080 |
 | `patient-administration-system-migrations` | sea-orm migration crate, shared by both apps; CLI is `pas-migrate`. | n/a |
-| `patient-administration-system-frontend` (this crate) | Loco-rs read-mostly UI. Tera + HTMX + Lily Design System. v0.1.0. | 5150 |
+| `patient-administration-system-frontend` (this crate) | Loco-rs read-mostly UI. Tera + HTMX + Lily Design System. v0.2.0. | 5150 |
 
 Run workspace gates from the workspace root: `cargo build --workspace`, `cargo test --workspace --lib`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check --all`.

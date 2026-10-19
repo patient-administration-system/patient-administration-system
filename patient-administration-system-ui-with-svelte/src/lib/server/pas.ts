@@ -48,8 +48,20 @@ export async function pas<T>(
   } catch {
     /* not JSON: fall through to the status check */
   }
-  if (!res.ok) throw new PasError(res.status, env.error?.message ?? `the PAS API answered ${res.status}`);
+  if (!res.ok) {
+    // What the PAS said stays in the server log. It never travels into an error page: it can hold anything
+    // (a database message, a path), and the page shows its own translated text for the status instead.
+    console.error(`[pas] ${init.method ?? "GET"} ${path.split("?")[0]} answered ${res.status}: ${env.error?.message ?? text.slice(0, 200)}`);
+    throw new PasError(res.status, `the PAS API answered ${res.status}`);
+  }
   return (env.data ?? (env as unknown)) as T;
+}
+
+/** A list endpoint: anything but an array is a broken answer (502), not something for a page to trip over. */
+export async function pasArray<T>(fetchFn: FetchFn, path: string, init: { method?: string; body?: unknown } = {}): Promise<T[]> {
+  const data = await pas<unknown>(fetchFn, path, init);
+  if (!Array.isArray(data)) throw new PasError(502, "the PAS API answered with an unexpected shape");
+  return data as T[];
 }
 
 export interface Appointment {
@@ -62,10 +74,10 @@ export interface Appointment {
 }
 
 export const patientAppointments = (f: FetchFn, personId: string) =>
-  pas<Appointment[]>(f, `/api/patients/${encodeURIComponent(personId)}/appointments`);
+  pasArray<Appointment>(f, `/api/patients/${encodeURIComponent(personId)}/appointments`);
 
 export const appointmentsBetween = (f: FetchFn, from: string, to: string) =>
-  pas<Appointment[]>(f, `/api/appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+  pasArray<Appointment>(f, `/api/appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
 
 export interface LetterTemplate {
   id: string;
@@ -81,7 +93,7 @@ export interface LetterTemplate {
   updated_at: string;
 }
 
-export const letterTemplates = (f: FetchFn) => pas<LetterTemplate[]>(f, "/api/letter-templates");
+export const letterTemplates = (f: FetchFn) => pasArray<LetterTemplate>(f, "/api/letter-templates");
 
 export const updateLetterTemplate = (f: FetchFn, t: LetterTemplate) =>
   pas<LetterTemplate>(f, `/api/letter-templates/${encodeURIComponent(t.id)}`, { method: "PUT", body: t });
@@ -94,7 +106,7 @@ export interface WaitlistEntry {
   status: string;
 }
 
-export const waitlist = (f: FetchFn) => pas<WaitlistEntry[]>(f, "/api/waitlist");
+export const waitlist = (f: FetchFn) => pasArray<WaitlistEntry>(f, "/api/waitlist");
 
 export interface PortalMessage {
   id: string;
@@ -105,7 +117,7 @@ export interface PortalMessage {
 
 /** Messages delivered to one patient's secure portal inbox, newest first. */
 export const portalMessages = (f: FetchFn, personId: string) =>
-  pas<PortalMessage[]>(f, `/api/patients/${encodeURIComponent(personId)}/letters?channel=portal`);
+  pasArray<PortalMessage>(f, `/api/patients/${encodeURIComponent(personId)}/letters?channel=portal`);
 
 // ---- No-show probability (CAP-12): support only, and off until people approve it --------------
 
@@ -139,11 +151,11 @@ export interface HistoryRow {
 
 /** What happened to one appointment, oldest first. */
 export const appointmentHistory = (f: FetchFn, id: string) =>
-  pas<HistoryRow[]>(f, `/api/appointments/${encodeURIComponent(id)}/history`);
+  pasArray<HistoryRow>(f, `/api/appointments/${encodeURIComponent(id)}/history`);
 
 /** Messages sent to one patient and texts received from them, newest first (never the text of a message). */
 export const contactLog = (f: FetchFn, id: string) =>
-  pas<HistoryRow[]>(f, `/api/patients/${encodeURIComponent(id)}/contact-log`);
+  pasArray<HistoryRow>(f, `/api/patients/${encodeURIComponent(id)}/contact-log`);
 
 export interface DueCheck {
   pathway_id: string;
@@ -154,7 +166,7 @@ export interface DueCheck {
 }
 
 /** Long waiters nobody has asked recently whether they still need this, longest first. */
-export const dueChecks = (f: FetchFn) => pas<DueCheck[]>(f, "/api/pathways/due-check");
+export const dueChecks = (f: FetchFn) => pasArray<DueCheck>(f, "/api/pathways/due-check");
 
 /** A person asks a patient whether they still need this. Nothing is removed. */
 export const askStillNeeded = (f: FetchFn, pathwayId: string, askedBy: string) =>

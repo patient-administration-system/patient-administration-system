@@ -511,7 +511,7 @@ const EVENT_ID_HEADER: &str = "x-upstream-event-id";
 /// Verify HMAC-SHA256 signature `sha256=<hex>` over `body` keyed by `secret`.
 /// Constant-time comparison via the `hmac::Mac::verify_slice` path.
 fn verify_hmac(secret: &[u8], body: &[u8], header_value: &str) -> Result<(), Error> {
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     use sha2::Sha256;
     let provided_hex = header_value
         .strip_prefix("sha256=")
@@ -884,7 +884,7 @@ mod tests {
 
     #[test]
     fn test_verify_hmac_accepts_correct_signature() {
-        use hmac::{Hmac, Mac};
+        use hmac::{Hmac, KeyInit, Mac};
         use sha2::Sha256;
         let secret = b"my-secret";
         let body = b"hello world";
@@ -903,7 +903,7 @@ mod tests {
 
     #[test]
     fn test_verify_hmac_rejects_wrong_secret() {
-        use hmac::{Hmac, Mac};
+        use hmac::{Hmac, KeyInit, Mac};
         use sha2::Sha256;
         let mut mac = <Hmac<Sha256>>::new_from_slice(b"other").unwrap();
         mac.update(b"hello world");

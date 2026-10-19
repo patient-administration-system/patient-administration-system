@@ -185,7 +185,8 @@ async fn several_reminded_appointments_are_asked_about_and_the_number_completes_
         q.starts_with("Which appointment?")
             && q.contains("1 ")
             && q.contains("2 ")
-            && !q.contains("3 "),
+            // Not ", 3 ": a date such as "23 Oct" also contains "3 ", so only a list item counts.
+            && !q.contains(", 3 "),
         "{q}"
     );
     assert_eq!(

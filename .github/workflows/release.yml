@@ -28,21 +28,21 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Fails unless the tag, the server crate's version and a CHANGELOG entry all agree.
       - id: v
         run: |
           version="${{ inputs.version || github.ref_name }}"
           echo "version=${version#v}" >> "$GITHUB_OUTPUT"
       - run: scripts/release-notes.sh "${{ steps.v.outputs.version }}" > release-notes.md
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: release-notes, path: release-notes.md }
 
   deny:
     name: Dependencies (cargo deny)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
         with: { command: check, arguments: --all-features }
 
@@ -50,16 +50,16 @@ jobs:
     name: SBOMs (CycloneDX)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
       - run: cargo install cargo-cyclonedx --locked && cargo cyclonedx --format json
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with: { version: 12.10.1 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 26 }
       - run: pnpm install --frozen-lockfile && pnpm sbom --sbom-format cyclonedx --lockfile-only --out ../sbom-ui.cdx.json
         working-directory: patient-administration-system-ui-with-svelte
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sboms
           path: |
@@ -76,16 +76,16 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - if: github.event_name == 'push'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: server
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: patient-administration-system-with-rust
           file: patient-administration-system-with-rust/Containerfile
@@ -99,7 +99,7 @@ jobs:
             REVISION=${{ github.sha }}
             SOURCE=${{ github.server_url }}/${{ github.repository }}
       - if: github.event_name == 'push'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ghcr.io/${{ github.repository }}/server
           subject-digest: ${{ steps.server.outputs.digest }}
@@ -112,7 +112,7 @@ jobs:
           got="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")"
           [ "$got" = "${{ needs.verify.outputs.version }}" ] || { echo "image label $got != ${{ needs.verify.outputs.version }}" >&2; exit 1; }
       - id: ui
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: patient-administration-system-ui-with-svelte
           file: patient-administration-system-ui-with-svelte/Containerfile
@@ -126,7 +126,7 @@ jobs:
             REVISION=${{ github.sha }}
             SOURCE=${{ github.server_url }}/${{ github.repository }}
       - if: github.event_name == 'push'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ghcr.io/${{ github.repository }}/ui
           subject-digest: ${{ steps.ui.outputs.digest }}
@@ -146,9 +146,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: release-notes }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: sboms }
       - uses: softprops/action-gh-release@v2
         with:

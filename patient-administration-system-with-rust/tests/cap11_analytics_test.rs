@@ -29,16 +29,34 @@ struct W {
 
 async fn world() -> W {
     let s = common::build_state(&common::database_url().unwrap()).await;
-    let d = 2000 + (Uuid::new_v4().as_u128() % 40_000) as i64;
-    W {
-        s,
+    // A day nobody has used. Appointments are never deleted, so on a development database the days of earlier
+    // runs pile up, and a random day eventually lands on one of them and adds its appointments to this test's
+    // counts. Look for an empty day instead of hoping.
+    for _ in 0..200 {
+        let d = 2000 + (Uuid::new_v4().as_u128() % 40_000) as i64;
         // Noon, so that the window (12 hours either side) is exactly one calendar day whatever the time now.
-        centre: (Utc::now() + Duration::days(d))
+        let centre = (Utc::now() + Duration::days(d))
             .date_naive()
             .and_hms_opt(12, 0, 0)
             .unwrap()
-            .and_utc(),
+            .and_utc();
+        let used: i64 = s
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT count(*) AS n FROM appointments WHERE start_datetime >= $1 AND start_datetime < $2",
+                [(centre - Duration::hours(13)).into(), (centre + Duration::hours(13)).into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get("", "n")
+            .unwrap();
+        if used == 0 {
+            return W { s, centre };
+        }
     }
+    panic!("no unused day found in 200 tries");
 }
 
 impl W {
@@ -275,7 +293,8 @@ async fn age_band_deprivation_time_of_day_and_unknown_are_dimensions() {
     assert_eq!(
         unknown.count,
         Some(11),
-        "people with no bands are counted as unknown, so totals reconcile"
+        "people with no bands are counted as unknown, so totals reconcile: {:?}",
+        r.cells
     );
     assert_eq!(r.total, 23);
 
@@ -334,6 +353,10 @@ async fn outcome_and_notice_split_cancellations_misses_and_the_rest() {
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn the_http_endpoint_gives_json_and_csv_and_refuses_bad_input() {
+    // These tests ask as an anonymous caller, and a development database keeps every earlier run's queries on
+    // the record; the daily budget has its own test (`cap11_feed_test.rs`).
+    // SAFETY: only ever raises a limit, so racing another test in this binary is harmless.
+    unsafe { std::env::set_var("PAS_ANALYTICS_QUERY_BUDGET", "100000") };
     let w = world().await;
     let a = format!("a{}", short());
     w.book(&a, 12, 9).await;

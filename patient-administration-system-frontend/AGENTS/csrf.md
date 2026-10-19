@@ -75,8 +75,8 @@ The length-mismatch early-return leaks the length, but the token length is a con
 
 - **Dev**: leave `PAS_COOKIE_SECURE` unset. Plaintext-HTTP localhost works.
 - **Production**: set `PAS_COOKIE_SECURE=1`. The cookie will not be sent over plaintext HTTP, which prevents accidental leakage if a misconfigured proxy serves the form over HTTP.
-- **Cookie rotation**: not implemented in v0.1.0. The token is stable for the lifetime of the cookie (browser-controlled; no server-side expiry header is set). A logout / rotate flow would simply `Set-Cookie: pas_csrf=; Max-Age=0`.
-- **Session binding**: not implemented in v0.1.0 (no sessions exist). When sessions land, bind the CSRF token to the session id (e.g. derive `HMAC(session_id, "csrf")`) so a stolen cookie alone is not enough.
+- **Cookie rotation**: not implemented (still true at v0.2.0). The token is stable for the lifetime of the cookie (browser-controlled; no server-side expiry header is set). A logout / rotate flow would simply `Set-Cookie: pas_csrf=; Max-Age=0`.
+- **Session binding**: not implemented (no sessions exist). When sessions land, bind the CSRF token to the session id (e.g. derive `HMAC(session_id, "csrf")`) so a stolen cookie alone is not enough.
 
 ## Tests
 

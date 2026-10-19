@@ -1,16 +1,16 @@
 # Plan
 
-Research and reasoning behind [`tasks.md`](tasks.md). Tasks are the commitments; this file is where ideas are weighed. Written 2026-10-18.
+Research and reasoning behind [`tasks.md`](tasks.md). Tasks are the commitments; this file is where ideas are weighed. Written 2026-10-18; section 1 brought up to date 2026-10-20 (the research in the later sections is as it was written).
 
 ## 1. Where the monorepo stands
 
-| Part | What it is | State |
+| Part | What it is | State (2026-10-20) |
 |---|---|---|
-| `patient-administration-system-with-rust` | Axum 0.8 + SeaORM + Postgres 18 server: ADT, appointments, waitlist and RTT, wards and beds, letters, billing, consent, audit, outbox, FHIR R5, HL7 v2, reminders. Identity (patients, workers) is delegated to upstream `person-service` and `worker-service` | Builds, clippy clean, 400+ tests passing against a real database |
-| `patient-administration-system-frontend` | Loco 0.14 server-rendered operator pages (Tera + HTMX) | Could not start until 2026-10-18 (BUG-2); now passes its smoke tests |
-| `patient-administration-system-ui-with-svelte` | SvelteKit 3 backend-for-frontend: Keycloak sign-in, patient and staff pages, admin template editor | New. Checked against real Keycloak and a mock API |
-| `podman/` | PostgreSQL 18 and Keycloak 26 for development | Working; ports overridable |
-| `docs/…/digital-technology-assessment-criteria/2.0` | NHS DTAC v2.0 self-assessment | Says the product would not pass today |
+| `patient-administration-system-with-rust` | Axum 0.8 + SeaORM 1.1 + Postgres 18 server: ADT, appointments, waitlist and RTT, wards and beds, letters, billing, consent, audit, outbox, FHIR R5, HL7 v2, the reminder ladder, replies, links, offers, virtual visits, transport requests, analytics, the no-show score. Identity and workforce are delegated over HTTP | Built; database tests run in CI and on a fresh database; chaos tests; 38 migrations. The no-show score is off until named people approve it |
+| `patient-administration-system-frontend` | Loco 0.14 server-rendered operator pages (Tera + HTMX) | Starts and passes its smoke tests; parallel to the SvelteKit UI |
+| `patient-administration-system-ui-with-svelte` | SvelteKit 3 backend-for-frontend: Keycloak sign-in with one-time codes for staff, patient and staff pages, template editor, history and long-wait views | Built; 10 locales; axe, keyboard, reflow, text-spacing and chaos browser tests |
+| `podman/` | PostgreSQL 18, Keycloak 26.8 and Redis 8 for development | Working; ports overridable |
+| `docs/…/digital-technology-assessment-criteria/2.0` | NHS DTAC v2.0 self-assessment | Still says the product would not pass today: the gaps left are people and contracts (see `tasks.md`) |
 
 **The most useful discovery of this round is a pattern, not a bug.** Four separate defects (BUG-1, BUG-2, BUG-3, BUG-5) had been invisible because the database tests skip silently when `DATABASE_URL` is unset, and `cargo test` therefore looked green. Making those tests impossible to skip in CI (REF-1, REF-3) is worth more than any single fix.
 

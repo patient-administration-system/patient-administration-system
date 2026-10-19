@@ -3,11 +3,25 @@
 Workspace-level release history. Each entry coordinates the state of
 the member crates at a point in time. For per-crate detail, see:
 
-- [`patient-administration-system-rust-crate/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md)
+- [`patient-administration-system-with-rust/CHANGELOG.md`](patient-administration-system-with-rust/CHANGELOG.md)
 - [`patient-administration-system-frontend/CHANGELOG.md`](patient-administration-system-frontend/CHANGELOG.md)
 - [`patient-administration-system-ui-with-svelte/CHANGELOG.md`](patient-administration-system-ui-with-svelte/CHANGELOG.md)
 
-## Unreleased (2026-10-18)
+## Unreleased (2026-10-20)
+
+Nothing here is released or published; no version was bumped. Counts and requirement numbers are in `spec/14-implementation-status.md` and `spec/06-functional-requirements.md`.
+
+- **New, patients and replies:** reminder ladder with escalation to a person (CAP-13); reply links and offer links with single-use tokens; replies by text, link or voice keypad; "R" replies offer real alternative times (CAP-5); reasons on cancel with fitting help (CAS-2); urgent-pathway cancels held for a person (CAP-7); virtual visits with a phone fallback when video fails (CAP-14); WhatsApp opt-in and approved-template rules (CAP-13).
+- **New, flow and waits:** standby offers for released slots (PILOT-8); rebooking options (CAP-5); wait-time and lead-time data and "still needed?" checks (CAP-8); referrals, printing, receipts with back-off, identity proofing, transport requests behind a provider interface.
+- **New, measurement:** privacy-safe analytics feed with secondary suppression and a per-caller query budget (CAP-11); refill-rate report (PILOT-10); wording experiments (CAS-7); a postcode-to-deprivation lookup and a job that fills age band and quintile; audit trail and reason codes (CAP-6).
+- **New, no-show score (CAP-12, CAS-5), off by default:** transparent weighted sum, gated by named fairness and clinical-safety reviews; age is not an input by default; staff see a band and reasons, not a percentage, until calibrated; the call list is a daily top-N matched to call capacity; every clinic starts in shadow and goes live one at a time, with a built-in before/after evaluation. `governance/noshow-model.md`, `governance/noshow-evaluation.md`.
+- **New, UI:** staff views for appointment history and long waits (CAP-6, CAP-8); support flag on the agenda; MFA for staff (DTAC-5); keyboard, reflow and text-spacing checks (DTAC-12); ten locales.
+- **New, testing:** chaos tests (hostile input to every route, a failing carrier under the ladder, a booking race, a misbehaving API under the UI), seeded and repeatable (`governance/chaos-testing.md`).
+- **Fixed:** a panic on multi-byte text in HL7 batches and dates; the API's error text reaching the browser; pages that fell over on a wrong-shaped answer; three tests that failed only at certain times of day or on certain dates.
+- **Changed, dependencies:** `sha2` 0.11 and `hmac` 0.13, `tower-http` 0.7, OpenTelemetry 0.33 stack with `tracing-opentelemetry` 0.34, `reqwest` 0.13 (feature `rustls`), `base64` 0.23, `criterion` 0.8, `tokio` 1.54, `uuid` 1.28, `serial_test` 4, `axum-extra` 0.12; GitHub Actions to current majors; Keycloak 26.8, Redis 8, Debian trixie runtime image. **Held back on purpose:** SeaORM 2 and Loco 1.x (a trial broke 20 tests and cleared no further advisories; DEP-2), Tera 2 (a template-syntax risk for user-written letters), TypeScript 7.
+- **Docs:** `AGENTS.md` and `CLAUDE.md` at the root; README rewritten for the current state; `governance/` notes for the data route, evaluation design, differencing, NEPTS criteria and chaos testing.
+
+## 2026-10-18
 
 - **New:** `patient-administration-system-ui-with-svelte` (SvelteKit 3 / Svelte 5; Keycloak sign-in; patient appointments and messages; staff calendar, waitlist kanban, schedule gantt, patient grid; admin reminder-template editor).
 - **New:** appointment reminders and patient notifications by postal letter, email, SMS, WhatsApp, Apple Messages and the secure portal. Only log-only senders exist; no carrier is integrated yet (see `tasks.md` NOT-3).

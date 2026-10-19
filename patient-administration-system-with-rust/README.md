@@ -571,7 +571,7 @@ The single migration `m20260520_000001_init.rs` creates 29 tables. To keep the v
 
 ## Testing
 
-**Unit tests:** 497 passing (`cargo test --lib`). Coverage spans:
+**Unit tests:** about 460 (`cargo test --lib`; live counts in `spec/14-implementation-status.md`). Coverage spans:
 
 - Domain models — state-machine transitions, serde round-trip, factory methods.
 - DB repositories — CRUD and aggregate loading via SeaORM mock connections.
@@ -625,14 +625,14 @@ Run with `cargo bench` or e.g. `cargo bench -- adt`.
 
 ```bash
 cargo test --lib                                          # 365 tests
-cargo test                                                # add the 53 integration tests (most need DATABASE_URL; 8 don't)
+cargo test                                                # add the integration tests (most need DATABASE_URL and `--ignored`)
 cargo clippy --workspace --all-targets -- -D warnings     # zero warnings
 cargo fmt --check --all                                   # formatting clean
 ```
 
 ## Status
 
-**Version:** v0.43.0 — library + `patient-administration-system` binary + `pas-seed` binary + `pas-migrate` binary. See [`CHANGELOG.md`](CHANGELOG.md) for the per-release summary.
+**Version:** v0.44.0 — library + `patient-administration-system` binary + `pas-seed` binary + `pas-migrate` binary. See [`CHANGELOG.md`](CHANGELOG.md) for the per-release summary.
 
 **Implemented:**
 
@@ -647,7 +647,7 @@ cargo fmt --check --all                                   # formatting clean
 - Bearer-token auth (opt-in via `API_TOKEN`), configurable CORS, compression, request tracing. **Per-IP rate-limit** (v0.12, default 600 req/min with 60-burst, `/api/health` exempt; tunable via `PAS_RATE_LIMIT_RPM` / `PAS_RATE_LIMIT_BURST`).
 - Background outbox dispatcher polling every 2s, forwarding to the configured `EventPublisher`. Bounded retry budget (`PAS_OUTBOX_MAX_RETRIES`, default 10); rows that exceed it move to `outbox_dead_letters` and can be replayed via `POST /api/admin/outbox/dead-letters/{id}/replay`. Built-in publishers: HL7 v2 MLLP outbound (v0.4), HTTP webhook with HMAC-SHA256 signing (v0.14), in-memory; combine via `CompositePublisher` when more than one is configured.
 - Ops dashboard at `GET /dashboard` (Tera + HTMX live-refresh + Lily Design System markup); a parallel Loco-rs front-end sibling crate `patient-administration-system-frontend` (port `:5150`, v0.1.0) also serves it plus patient pages and three write flows that proxy back through this API.
-- **497 unit tests** + **24 integration test binaries** (62 test functions); clean `cargo fmt --check --all`, clean `cargo clippy --workspace --all-targets -- -D warnings`.
+- Unit tests plus database integration tests (counts: `spec/14-implementation-status.md`); clean `cargo fmt --check --all`, clean `cargo clippy --workspace --all-targets -- -D warnings`.
 - Lean dependency tree (v0.3.1 audit removed 15 unused deps; v0.3.4 removed two unused dev-deps).
 
 **Deferred to later phases:**
