@@ -76,6 +76,53 @@ pub struct DemographicsBody {
     pub source: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RefillQuery {
+    /// Comma-separated: notice_band, release_class, specialty, language, age_band, deprivation_quintile.
+    pub group_by: String,
+    pub from: Option<DateTime<Utc>>,
+    pub to: Option<DateTime<Utc>>,
+    pub k: Option<i64>,
+    pub format: Option<String>,
+}
+
+/// `GET /api/analytics/refill-rates`: how often released slots are refilled, by notice period, early-release
+/// share and the chosen splits (deprivation quintile, language, ...). Same rules as the outcomes feed: no
+/// identifier, cells under `k` withheld, and nothing in it feeds back into what any patient is offered.
+pub async fn refill_rates(State(state): State<AppState>, Query(q): Query<RefillQuery>) -> Response {
+    let mut dims = Vec::new();
+    for name in q
+        .group_by
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        match crate::analytics::RefillDim::parse(name) {
+            Some(d) => dims.push(d),
+            None => {
+                return error_to_response(Error::validation(format!("unknown dimension {name}")))
+                    .into_response();
+            }
+        }
+    }
+    match state.analytics.refill_rates(&dims, q.from, q.to, q.k).await {
+        Ok(r) if q.format.as_deref() == Some("csv") => (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "text/csv; charset=utf-8")],
+            r.to_csv(),
+        )
+            .into_response(),
+        Ok(r) => (
+            StatusCode::OK,
+            Json(ApiResponse::ok(
+                serde_json::to_value(r).unwrap_or(Value::Null),
+            )),
+        )
+            .into_response(),
+        Err(e) => error_to_response(e).into_response(),
+    }
+}
+
 /// `PUT /api/analytics/demographics/{person_id}`: an upstream job pushes the patient's coarse bands.
 pub async fn set_demographics(
     State(state): State<AppState>,

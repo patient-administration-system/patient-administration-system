@@ -157,6 +157,108 @@ pub fn suppress(rows: Vec<(Vec<(String, String)>, i64)>, k: i64) -> Vec<Cell> {
     cells
 }
 
+/// Dimensions for the refill-rate report (PILOT-10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefillDim {
+    NoticeBand,
+    ReleaseClass,
+    Specialty,
+    Language,
+    AgeBand,
+    DeprivationQuintile,
+}
+
+impl RefillDim {
+    pub fn parse(s: &str) -> Option<Self> {
+        Some(match s {
+            "notice_band" => Self::NoticeBand,
+            "release_class" => Self::ReleaseClass,
+            "specialty" => Self::Specialty,
+            "language" => Self::Language,
+            "age_band" => Self::AgeBand,
+            "deprivation_quintile" => Self::DeprivationQuintile,
+            _ => return None,
+        })
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::NoticeBand => "notice_band",
+            Self::ReleaseClass => "release_class",
+            Self::Specialty => "specialty",
+            Self::Language => "language",
+            Self::AgeBand => "age_band",
+            Self::DeprivationQuintile => "deprivation_quintile",
+        }
+    }
+
+    /// A fixed expression per variant, never built from input. `r` is the release, `cp` the communication
+    /// profile and `d` the demographic bands of the patient who gave the slot up.
+    fn sql(self) -> &'static str {
+        match self {
+            Self::NoticeBand => {
+                "CASE WHEN r.notice_days IS NULL THEN 'silent_miss' WHEN r.notice_days = 0 THEN '0_days' \
+                      WHEN r.notice_days < 3 THEN '1_2_days' WHEN r.notice_days < 7 THEN '3_6_days' ELSE '7_plus_days' END"
+            }
+            Self::ReleaseClass => "r.release_class",
+            Self::Specialty => "COALESCE(r.service_type, 'unknown')",
+            Self::Language => "COALESCE(cp.preferred_language, 'unknown')",
+            Self::AgeBand => "COALESCE(d.age_band, 'unknown')",
+            Self::DeprivationQuintile => "COALESCE(d.deprivation_quintile::text, 'unknown')",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RefillCell {
+    pub dims: Vec<(String, String)>,
+    /// Releases whose outcome is known: refilled, or the slot's time has passed unfilled.
+    pub resolved: Option<i64>,
+    pub refilled: Option<i64>,
+    /// `refilled / resolved`, to three places.
+    pub refill_rate: Option<f64>,
+    /// The share of those releases that were early (three or more days' notice).
+    pub early_release_share: Option<f64>,
+    pub suppressed: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RefillReport {
+    pub group_by: Vec<String>,
+    pub k: i64,
+    pub from: DateTime<Utc>,
+    pub to: DateTime<Utc>,
+    pub total_resolved: i64,
+    pub overall_refill_rate: Option<f64>,
+    pub suppressed_cells: usize,
+    pub cells: Vec<RefillCell>,
+}
+
+impl RefillReport {
+    pub fn to_csv(&self) -> String {
+        let mut head: Vec<&str> = self.group_by.iter().map(String::as_str).collect();
+        head.extend(["resolved", "refilled", "refill_rate", "early_release_share"]);
+        let mut out = head.join(",") + "\n";
+        let num = |v: Option<f64>| v.map_or("suppressed".to_string(), |x| format!("{x:.3}"));
+        let int = |v: Option<i64>| v.map_or("suppressed".to_string(), |x| x.to_string());
+        for c in &self.cells {
+            let mut row: Vec<String> = c.dims.iter().map(|(_, v)| csv_field(v)).collect();
+            row.extend([
+                int(c.resolved),
+                int(c.refilled),
+                num(c.refill_rate),
+                num(c.early_release_share),
+            ]);
+            out.push_str(&(row.join(",") + "\n"));
+        }
+        out
+    }
+}
+
+fn rate(n: i64, of: i64) -> Option<f64> {
+    (of > 0).then(|| ((n as f64 / of as f64) * 1000.0).round() / 1000.0)
+}
+
 pub struct AnalyticsService {
     db: DatabaseConnection,
 }
@@ -223,6 +325,117 @@ impl AnalyticsService {
             ctx,
         )
         .await
+    }
+
+    /// Refill rate of released slots, split by the chosen dimensions (PILOT-10). Releases are counted by the
+    /// day they were released; only those with a known outcome count (refilled, or the slot's time passed
+    /// unfilled), so a slot still open for next week does not look like a failure. A cell under `k`
+    /// resolved releases is withheld whole, and the same secondary suppression as [`Self::outcomes`] applies.
+    pub async fn refill_rates(
+        &self,
+        group_by: &[RefillDim],
+        from: Option<DateTime<Utc>>,
+        to: Option<DateTime<Utc>>,
+        k: Option<i64>,
+    ) -> Result<RefillReport> {
+        if group_by.is_empty() || group_by.len() > 4 {
+            return Err(Error::validation("group_by takes one to four dimensions"));
+        }
+        let mut seen = Vec::new();
+        for d in group_by {
+            if seen.contains(d) {
+                return Err(Error::validation("a dimension may be named once"));
+            }
+            seen.push(*d);
+        }
+        let k = k.unwrap_or(0).max(Self::minimum_k());
+        let to = to.unwrap_or_else(Utc::now);
+        let from = from.unwrap_or_else(|| to - chrono::Duration::days(90));
+        let select: Vec<String> = group_by
+            .iter()
+            .enumerate()
+            .map(|(i, d)| format!("{} AS d{i}", d.sql()))
+            .collect();
+        let group: Vec<String> = (1..=group_by.len()).map(|i| i.to_string()).collect();
+        let sql = format!(
+            "SELECT {sel}, count(*)::bigint AS n, \
+                    count(*) FILTER (WHERE r.status = 'refilled')::bigint AS refilled, \
+                    count(*) FILTER (WHERE r.release_class = 'early_release')::bigint AS early \
+             FROM slot_releases r \
+             LEFT JOIN appointments a ON a.id = r.appointment_id \
+             LEFT JOIN patient_communication_profiles cp ON cp.person_id = a.person_id \
+             LEFT JOIN person_demographics d ON d.person_id = a.person_id \
+             WHERE r.released_at >= $1 AND r.released_at < $2 \
+               AND (r.status = 'refilled' OR r.start_datetime <= now()) \
+             GROUP BY {grp} ORDER BY {grp}",
+            sel = select.join(", "),
+            grp = group.join(", "),
+        );
+        let rows = self
+            .db
+            .query_all(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [from.into(), to.into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        let mut data = Vec::new();
+        let mut extra = Vec::new();
+        let (mut total, mut total_refilled) = (0, 0);
+        for r in &rows {
+            let dims = group_by
+                .iter()
+                .enumerate()
+                .map(|(i, d)| {
+                    Ok((
+                        d.name().to_string(),
+                        r.try_get::<String>("", &format!("d{i}"))
+                            .map_err(Error::Database)?,
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let n: i64 = r.try_get("", "n").map_err(Error::Database)?;
+            let refilled: i64 = r.try_get("", "refilled").map_err(Error::Database)?;
+            let early: i64 = r.try_get("", "early").map_err(Error::Database)?;
+            total += n;
+            total_refilled += refilled;
+            data.push((dims, n));
+            extra.push((refilled, early));
+        }
+        let flags = suppress(data, k);
+        let cells: Vec<RefillCell> = flags
+            .into_iter()
+            .zip(extra)
+            .map(|(c, (refilled, early))| match c.count {
+                Some(n) => RefillCell {
+                    dims: c.dims,
+                    resolved: Some(n),
+                    refilled: Some(refilled),
+                    refill_rate: rate(refilled, n),
+                    early_release_share: rate(early, n),
+                    suppressed: false,
+                },
+                None => RefillCell {
+                    dims: c.dims,
+                    resolved: None,
+                    refilled: None,
+                    refill_rate: None,
+                    early_release_share: None,
+                    suppressed: true,
+                },
+            })
+            .collect();
+        Ok(RefillReport {
+            group_by: group_by.iter().map(|d| d.name().to_string()).collect(),
+            k,
+            from,
+            to,
+            total_resolved: total,
+            overall_refill_rate: rate(total_refilled, total),
+            suppressed_cells: cells.iter().filter(|c| c.suppressed).count(),
+            cells,
+        })
     }
 
     pub async fn outcomes(

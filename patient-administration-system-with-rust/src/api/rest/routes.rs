@@ -300,6 +300,10 @@ pub fn router(state: AppState) -> Router {
             get(handlers_analytics::outcomes),
         )
         .route(
+            "/api/analytics/refill-rates",
+            get(handlers_analytics::refill_rates),
+        )
+        .route(
             "/api/analytics/demographics/{person_id}",
             put(handlers_analytics::set_demographics),
         )

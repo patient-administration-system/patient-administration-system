@@ -125,7 +125,7 @@ Ten items, from a review of what is still missing before a pilot of two-way mess
 | PILOT-7 | Consent, STOP and quiet hours before carriers; then delivery receipts and bounces feeding contact hygiene | NOT-5, NOT-4, then NOT-3 | **consent, STOP and quiet hours done** (`governance/messaging-rules.md`); receipts and bounces (NOT-4) still open |
 | PILOT-8 | Close the backfill loop: a time-limited offer when `SlotReleased` fires, accepted by reply, expired offers move to the next person (still ordered by time on standby only) | CAP-3 | open |
 | PILOT-9 | Follow-up after a miss: urgent services always get a person's follow-up; a welfare contact within 48 hours, never a discharge letter | CAP-7, CAS-8 | open |
-| PILOT-10 | Measurement: refill rate by notice period and early-release share, split by deprivation quintile and language, **before** any risk score | CAP-11, CORE-7 | open |
+| PILOT-10 | Measurement: refill rate by notice period and early-release share, split by deprivation quintile and language, **before** any risk score | CAP-11, CORE-7 | **built** (`GET /api/analytics/refill-rates`, FR-92 to FR-95, `tests/pilot10_refill_test.rs`; same privacy rules as CAP-11). **Still needed before CAP-12:** the deprivation and age bands filled by an upstream job (`person_demographics` is empty until then, so today every cell reads `unknown`), a baseline of real data over a few months, and a person to read it and decide whether a gap needs action. The report is the gate; reading it is not automated |
 
 Also open from earlier lists: CAP-12, CAP-13, CORE-1, CORE-3, CORE-4, CORE-5.
 
