@@ -106,3 +106,33 @@ export interface PortalMessage {
 /** Messages delivered to one patient's secure portal inbox, newest first. */
 export const portalMessages = (f: FetchFn, personId: string) =>
   pas<PortalMessage[]>(f, `/api/patients/${encodeURIComponent(personId)}/letters?channel=portal`);
+
+// ---- Reply links (CAP-13) --------------------------------------------------------------------
+
+export interface ReplyLinkInfo {
+  state: "open" | "used" | "expired";
+  language: string;
+  when: string;
+  starts_at: string | null;
+  time_zone: string;
+  actions: string[];
+}
+
+export type ReplyLinkStatus =
+  | "confirmed"
+  | "cancelled"
+  | "reschedule_requested"
+  | "needs_confirmation"
+  | "help"
+  | "rejected";
+
+/** Read-only: what the link page may show. Opening a link never acts. */
+export const replyLinkInfo = (f: FetchFn, token: string) =>
+  pas<ReplyLinkInfo>(f, `/api/reply-links/${encodeURIComponent(token)}`);
+
+/** A deliberate tap. The first `cancel` answers `needs_confirmation`; send it again with `confirmed`. */
+export const replyLinkAct = (f: FetchFn, token: string, action: string, confirmed = false) =>
+  pas<{ status: ReplyLinkStatus }>(f, `/api/reply-links/${encodeURIComponent(token)}/${encodeURIComponent(action)}`, {
+    method: "POST",
+    body: { confirmed },
+  });

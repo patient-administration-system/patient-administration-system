@@ -65,7 +65,12 @@ pub struct LinkInfo {
     /// `open`, `used` or `expired`.
     pub state: &'static str,
     pub language: &'static str,
+    /// The time in the patient's registered language, for a plain-text surface.
     pub when: String,
+    /// The start instant and the clinic's time zone, so a page can format it in whatever language it is
+    /// shown in (the registered language is only English or Welsh).
+    pub starts_at: Option<DateTime<Utc>>,
+    pub time_zone: String,
     pub actions: Vec<&'static str>,
 }
 
@@ -169,6 +174,7 @@ impl ReplyLinks {
         let row = self.row(token).await?;
         let lang = self.lang(row.person_id).await?;
         let appt = AppointmentRepository::find_by_id(&self.db, row.appointment_id).await?;
+        let starts_at = appt.as_ref().map(|a| a.start_datetime);
         let when = appt
             .map(|a| messages::when(a.start_datetime, lang, messages::timezone()))
             .unwrap_or_default();
@@ -188,6 +194,8 @@ impl ReplyLinks {
             state,
             language: lang.code(),
             when,
+            starts_at,
+            time_zone: messages::timezone().name().to_string(),
             actions,
         })
     }

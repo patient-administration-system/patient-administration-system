@@ -9,6 +9,10 @@ const PATIENT = "00000000-0000-0000-0000-000000000000";
 const requests = [];
 // Who each request claimed to act for, and whether its token was genuine (see `verify`).
 const actors = [];
+// Reply links (CAP-13): any 64-hex token is a fresh, open link until it is acted on once. `0`s is unknown and
+// `e`s is expired. Every action that really changes something is recorded at /__acts.
+const links = new Map();
+const acts = [];
 const ISSUER_URL = process.env.ISSUER_URL ?? null;
 const ISSUER = "authentication-service";
 const AUDIENCE = "patient-administration-system";
@@ -55,6 +59,7 @@ http
     if (url.pathname === "/__health") return res.end("{}");
     if (url.pathname === "/__requests") return res.end(JSON.stringify(requests));
     if (url.pathname === "/__actors") return res.end(JSON.stringify(actors));
+    if (url.pathname === "/__acts") return res.end(JSON.stringify(acts));
     requests.push(url.pathname + url.search);
     if (ISSUER_URL) {
       const claims = await verify(req.headers.authorization);
@@ -64,6 +69,38 @@ http
         res.statusCode = 401;
         return res.end(JSON.stringify({ success: false, error: { code: "UNAUTHORIZED", message: "invalid or expired token" } }));
       }
+    }
+    const link = /^\/api\/reply-links\/([^/]+)(?:\/([a-z]+))?$/.exec(url.pathname);
+    if (link) {
+      const [, token, action] = link;
+      const unknown = !/^[0-9a-f]{64}$/.test(token) || /^0+$/.test(token);
+      if (unknown) {
+        res.statusCode = 404;
+        return res.end(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "this link is not valid" } }));
+      }
+      const expired = /^e+$/.test(token);
+      const state = links.get(token) ? "used" : expired ? "expired" : "open";
+      const startsAt = "2026-11-03T09:30:00Z";
+      if (req.method === "GET") {
+        return res.end(envelope({ state, language: "en", when: "Tue 3 Nov 09:30", starts_at: startsAt, time_zone: "Europe/London", actions: state === "open" ? ["confirm", "cancel", "reschedule", "help"] : [] }));
+      }
+      const body = await new Promise((resolve) => {
+        let b = "";
+        req.on("data", (c) => (b += c));
+        req.on("end", () => resolve(b ? JSON.parse(b) : {}));
+      });
+      const send = (code, error, message) => {
+        res.statusCode = code;
+        return res.end(JSON.stringify({ success: false, error: { code: error, message } }));
+      };
+      if (state === "used") return send(409, "CONFLICT", "this link has already been used");
+      if (state === "expired") return send(400, "VALIDATION", "this link has expired");
+      if (action === "help") return res.end(envelope({ status: "help" }));
+      if (action === "cancel" && !body.confirmed) return res.end(envelope({ status: "needs_confirmation" }));
+      links.set(token, action);
+      acts.push({ token, action });
+      const status = { confirm: "confirmed", cancel: "cancelled", reschedule: "reschedule_requested" }[action];
+      return res.end(envelope({ status }));
     }
     if (url.pathname === `/api/patients/${PATIENT}/appointments`) {
       return res.end(

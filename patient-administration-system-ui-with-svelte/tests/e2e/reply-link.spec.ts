@@ -1,0 +1,101 @@
+// CAP-13: the page behind a link in a reminder message. It is public (the patient is not signed in), and
+// the properties that matter are about what a *visit* does:
+//  - opening it, however often, changes nothing (scanners and previews follow links);
+//  - only a deliberate tap acts, and Cancel asks twice;
+//  - a link works once;
+//  - it is readable in any language and leaks nothing onward.
+import { randomBytes } from "node:crypto";
+import { expect, test } from "@playwright/test";
+import { MOCK_URL } from "./support/ports";
+
+const token = () => randomBytes(32).toString("hex");
+const acts = async (request: import("@playwright/test").APIRequestContext, t: string) =>
+  ((await (await request.get(`${MOCK_URL}/__acts`)).json()) as { token: string; action: string }[])
+    .filter((a) => a.token === t)
+    .map((a) => a.action);
+
+test("opening a link shows the appointment and four choices, and changes nothing", async ({ page, request }) => {
+  const t = token();
+  for (let i = 0; i < 3; i++) await page.goto(`/en-001/r/${t}`); // a scanner, a preview, a curious thumb
+  await expect(page.getByRole("heading", { name: "Your appointment" })).toBeVisible();
+  await expect(page.getByText(/Your appointment is on .*2026/)).toBeVisible();
+  for (const name of ["Confirm that I am coming", "I need a different time", "Cancel my appointment", "I need help"]) {
+    await expect(page.getByRole("button", { name })).toBeVisible();
+  }
+  expect(await acts(request, t), "a GET must never act").toEqual([]);
+});
+
+test("confirming works once and then the link is used up", async ({ page, request }) => {
+  const t = token();
+  await page.goto(`/en-001/r/${t}`);
+  await page.getByRole("button", { name: "Confirm that I am coming" }).click();
+  await expect(page.getByText("Your appointment is confirmed.")).toBeVisible();
+  expect(await acts(request, t)).toEqual(["confirm"]);
+  await page.goto(`/en-001/r/${t}`);
+  await expect(page.getByText(/already been used/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel my appointment" })).toHaveCount(0);
+});
+
+test("cancelling asks are-you-sure first; no keeps the appointment, yes cancels it", async ({ page, request }) => {
+  const t = token();
+  await page.goto(`/en-001/r/${t}`);
+  await page.getByRole("button", { name: "Cancel my appointment" }).click();
+  await expect(page.getByRole("heading", { name: "Are you sure?" })).toBeVisible();
+  expect(await acts(request, t), "the first tap changed nothing").toEqual([]);
+
+  await page.getByRole("link", { name: "No, keep my appointment" }).click();
+  await expect(page.getByRole("button", { name: "Confirm that I am coming" })).toBeVisible();
+  expect(await acts(request, t)).toEqual([]);
+
+  await page.getByRole("button", { name: "Cancel my appointment" }).click();
+  await page.getByRole("button", { name: "Yes, cancel my appointment" }).click();
+  await expect(page.getByText(/Your appointment is cancelled/)).toBeVisible();
+  expect(await acts(request, t)).toEqual(["cancel"]);
+});
+
+test("reschedule asks for a person, and help does not use the link up", async ({ page, request }) => {
+  const t = token();
+  await page.goto(`/en-001/r/${t}`);
+  await page.getByRole("button", { name: "I need help" }).click();
+  await expect(page.getByText(/call the number on your appointment letter/)).toBeVisible();
+  expect(await acts(request, t)).toEqual([]);
+  await page.goto(`/en-001/r/${t}`);
+  await page.getByRole("button", { name: "I need a different time" }).click();
+  await expect(page.getByText(/We will contact you to find a new time/)).toBeVisible();
+  expect(await acts(request, t)).toEqual(["reschedule"]);
+});
+
+test("an invalid, malformed or expired link says so plainly", async ({ page }) => {
+  await page.goto(`/en-001/r/${"0".repeat(64)}`);
+  await expect(page.getByText(/This link is not valid/)).toBeVisible();
+  await page.goto("/en-001/r/not-a-token");
+  await expect(page.getByText(/This link is not valid/)).toBeVisible();
+  await page.goto(`/en-001/r/${"e".repeat(64)}`);
+  await expect(page.getByText(/This link has expired/)).toBeVisible();
+});
+
+test("the page reads in Welsh and Arabic, the latter right to left", async ({ page }) => {
+  const t = token();
+  await page.goto(`/cy-001/r/${t}`);
+  await expect(page.getByRole("heading", { name: "Eich apwyntiad" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Canslo fy apwyntiad" })).toBeVisible();
+  await page.goto(`/ar-001/r/${t}`);
+  await expect(page.getByRole("heading", { name: "موعدك" })).toBeVisible();
+  expect(await page.locator("html").getAttribute("dir")).toBe("rtl");
+});
+
+test("the page is not cached, does not leak the address onward, and is not indexed", async ({ request, page }) => {
+  const t = token();
+  const res = await request.get(`/en-001/r/${t}`);
+  expect(res.headers()["cache-control"]).toContain("no-store");
+  expect(res.headers()["referrer-policy"]).toBe("no-referrer");
+  await page.goto(`/en-001/r/${t}`);
+  expect(await page.locator('meta[name="robots"]').getAttribute("content")).toBe("noindex");
+});
+
+test("a bare link gains a language prefix and still works", async ({ page }) => {
+  const t = token();
+  await page.goto(`/r/${t}`);
+  await expect(page).toHaveURL(new RegExp(`/[a-z]{2,3}-[a-z0-9]{2,3}/r/${t}$`));
+  await expect(page.getByRole("button", { name: /.+/ }).first()).toBeVisible();
+});

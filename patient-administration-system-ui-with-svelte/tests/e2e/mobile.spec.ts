@@ -23,3 +23,10 @@ test("signed-in pages fit a phone", async ({ page }) => {
     await noHorizontalScroll(page, path);
   }
 });
+
+test("the reply-link page fits a phone, in left-to-right and right-to-left", async ({ page }) => {
+  for (const l of ["en-001", "ar-001"]) {
+    await page.goto(`/${l}/r/${"c".repeat(64)}`);
+    await noHorizontalScroll(page, `${l} reply link`);
+  }
+});

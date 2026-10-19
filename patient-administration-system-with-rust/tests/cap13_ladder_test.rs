@@ -442,6 +442,16 @@ async fn opening_a_link_changes_nothing_and_only_a_tap_confirms_once() {
         assert_eq!(i.state, "open");
         assert_eq!(i.actions, vec!["confirm", "cancel", "reschedule", "help"]);
         assert!(!i.when.is_empty());
+        assert_eq!(
+            i.starts_at,
+            Some(w.appt.start_datetime),
+            "the page formats the time itself"
+        );
+        assert!(
+            i.time_zone.contains('/'),
+            "an IANA zone such as Europe/London: {}",
+            i.time_zone
+        );
     }
     assert_eq!(w.status().await, AppointmentStatus::Booked);
     assert!(

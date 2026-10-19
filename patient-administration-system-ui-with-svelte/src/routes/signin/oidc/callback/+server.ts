@@ -70,7 +70,8 @@ export const GET: RequestHandler = async ({ url, cookies, fetch, locals }) => {
       claims,
     });
   } catch (e) {
-    fail(e instanceof OidcError ? e.code : "unexpected");
+    // The code and the reason ("id_token: expired") help an operator; neither holds a secret.
+    fail(e instanceof OidcError ? `${e.code}: ${e.message}` : "unexpected");
   }
 
   cookies.set(OIDC_COOKIE, session!.id, { ...OIDC_COOKIE_OPTIONS, maxAge: oidcOptions().sessionSeconds });
