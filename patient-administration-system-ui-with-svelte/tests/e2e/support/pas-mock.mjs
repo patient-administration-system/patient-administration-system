@@ -97,6 +97,28 @@ http
       if (state === "expired") return send(400, "VALIDATION", "this link has expired");
       if (action === "help") return res.end(envelope({ status: "help" }));
       if (action === "cancel" && !body.confirmed) return res.end(envelope({ status: "needs_confirmation" }));
+      // CAP-5: a token starting "aaaa" has two real times to offer; Reschedule only lists them, and the
+      // link is used up by choosing one. A token starting "bbbb" lets the choice fail as if the slot had just gone.
+      const offered = token.startsWith("aaaa") || token.startsWith("bbbb");
+      if (action === "reschedule" && offered) {
+        acts.push({ token, action: "reschedule-offered" });
+        return res.end(
+          envelope({
+            status: "rebook_options",
+            time_zone: "Europe/London",
+            options: [
+              { slot_id: "11111111-1111-4111-8111-111111111111", starts_at: "2026-11-10T14:00:00Z", when: "Tue 10 Nov 14:00" },
+              { slot_id: "22222222-2222-4222-8222-222222222222", starts_at: "2026-11-11T09:00:00Z", when: "Wed 11 Nov 09:00" },
+            ],
+          }),
+        );
+      }
+      if (action === "rebook") {
+        if (token.startsWith("bbbb")) return send(409, "CONFLICT", "slot 1 is no longer free");
+        links.set(token, "rebook");
+        acts.push({ token, action: `rebook:${body.slot_id}` });
+        return res.end(envelope({ status: "rebooked", starts_at: "2026-11-10T14:00:00Z", time_zone: "Europe/London" }));
+      }
       links.set(token, action);
       acts.push({ token, action });
       const status = { confirm: "confirmed", cancel: "cancelled", reschedule: "reschedule_requested" }[action];

@@ -353,3 +353,11 @@ reply_tokens,expires_at,none,"Not personal data (structure, status, timestamps, 
 reply_tokens,consumed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 reply_tokens,consumed_action,none,"Not personal data (structure, status, timestamps, places, templates)",record
 reply_tokens,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rebook_offers,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rebook_offers,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rebook_offers,person_id,identifier,Link a record to a person held by person-service,record
+rebook_offers,slot_ids,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rebook_offers,expires_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rebook_offers,chosen_slot_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rebook_offers,chosen_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+rebook_offers,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

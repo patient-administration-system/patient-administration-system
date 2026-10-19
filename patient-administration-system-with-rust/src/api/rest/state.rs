@@ -30,6 +30,7 @@ pub struct AppState {
     pub writeback: Arc<crate::writeback::WriteBackService>,
     pub inbound: Arc<crate::inbound::InboundService>,
     pub reply_links: Arc<crate::reply_links::ReplyLinks>,
+    pub rebooking: Arc<crate::rebooking::RebookService>,
     /// Used for the staff call list; the scheduler in `main` builds its own from the environment.
     pub ladder: Arc<crate::communication::ladder::LadderService>,
     pub standby: Arc<crate::standby::StandbyService>,
@@ -63,12 +64,18 @@ impl AppState {
             scheduling.clone(),
         ));
         let communication = Arc::new(CommunicationService::new(db.clone(), publisher.clone()));
+        let rebooking = Arc::new(crate::rebooking::RebookService::new(
+            db.clone(),
+            scheduling.clone(),
+        ));
         Self {
             adt: Arc::new(AdtService::new(db.clone(), publisher.clone())),
             reply_links: Arc::new(crate::reply_links::ReplyLinks::new(
                 db.clone(),
                 writeback.clone(),
+                rebooking.clone(),
             )),
+            rebooking,
             ladder: Arc::new(crate::communication::ladder::LadderService::new(
                 db.clone(),
                 communication.clone(),

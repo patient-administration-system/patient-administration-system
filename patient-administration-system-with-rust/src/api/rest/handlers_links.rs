@@ -69,6 +69,33 @@ pub async fn post_link_action(
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ChooseBody {
+    pub slot_id: Uuid,
+}
+
+/// `POST /api/reply-links/{token}/rebook`: the patient chose one of the times offered after Reschedule.
+pub async fn post_link_rebook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(token): Path<String>,
+    Json(body): Json<ChooseBody>,
+) -> HandlerResult {
+    let uc = user_context_from_headers(&headers);
+    let ctx = RepoUserContext {
+        user_id: Some(format!(
+            "reply-link:{}",
+            &crate::reply_links::hash(&token)[..12]
+        )),
+        user_ip: uc.user_ip,
+        user_agent: uc.user_agent,
+    };
+    match state.reply_links.choose(&token, body.slot_id, &ctx).await {
+        Ok(o) => ok(serde_json::to_value(o).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `GET /api/staff-call-tasks/open`: patients a person should phone (silent at the second touch, or asked
 /// to reschedule), soonest appointment first.
 pub async fn open_calls(State(state): State<AppState>) -> HandlerResult {

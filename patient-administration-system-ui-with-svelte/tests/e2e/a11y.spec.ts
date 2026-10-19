@@ -64,6 +64,16 @@ test("reply-link page, the are-you-sure step", async ({ page }) => {
   expect(results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
 });
 
+for (const locale of ["en-001", "cy-001", "ar-001"]) {
+  test(`reply-link page, the choose-a-new-time step, ${locale}`, async ({ page }) => {
+    await page.goto(`/${locale}/r/${"a".repeat(64)}`);
+    await page.locator('form[action="?/reschedule"] button').click();
+    await expect(page.locator('form[action="?/rebook"] button').first()).toBeVisible();
+    const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+    expect(results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
+  });
+}
+
 test("patient pages", async ({ page }) => {
   await keycloakLogin(page, "patient");
   for (const r of PATIENT) await audit(page, r);

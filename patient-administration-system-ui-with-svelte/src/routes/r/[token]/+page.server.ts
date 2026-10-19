@@ -6,7 +6,7 @@
 // of the actions below, confirms, cancels or asks to reschedule.
 import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
-import { PasError, replyLinkAct, replyLinkInfo } from "#lib/server/pas.js";
+import { PasError, replyLinkAct, replyLinkInfo, replyLinkRebook } from "#lib/server/pas.js";
 
 /** What the page is showing. Each is a catalogue key suffix (`link.<state>`). */
 export type LinkState = "open" | "used" | "expired" | "invalid" | "unavailable";
@@ -38,9 +38,31 @@ async function act(token: string, action: string, confirmed: boolean, f: typeof 
   if (!TOKEN.test(token)) return fail(404, { state: "invalid" as LinkState });
   try {
     const r = await replyLinkAct(f, token, action, confirmed);
-    return { result: r.status };
+    // Reschedule offers real times first (CAP-5); the link is not used up until one is chosen.
+    return { result: r.status, options: r.options ?? [], optionsZone: r.time_zone, startsAt: null as string | null };
   } catch (e) {
     return fail(e instanceof PasError && e.status < 500 ? e.status : 502, { state: stateFor(e) });
+  }
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+// Choosing a time. If it is refused (usually because someone else just took it) the API gives the link
+// back, so the patient can ask for other times: say so rather than call the link used.
+async function rebook(token: string, slotId: unknown, f: typeof fetch) {
+  if (!TOKEN.test(token)) return fail(404, { state: "invalid" as LinkState });
+  if (typeof slotId !== "string" || !UUID.test(slotId)) return fail(400, { state: "open" as LinkState, retry: true });
+  try {
+    const r = await replyLinkRebook(f, token, slotId);
+    return { result: r.status, options: [], optionsZone: r.time_zone, startsAt: r.starts_at ?? null };
+  } catch (e) {
+    try {
+      const info = await replyLinkInfo(f, token);
+      if (info.state === "open") return fail(409, { state: "open" as LinkState, retry: true });
+      return fail(409, { state: info.state as LinkState });
+    } catch {
+      return fail(e instanceof PasError && e.status < 500 ? e.status : 502, { state: stateFor(e) });
+    }
   }
 }
 
@@ -51,4 +73,5 @@ export const actions: Actions = {
   cancelSure: ({ params, fetch }) => act(params.token, "cancel", true, fetch),
   reschedule: ({ params, fetch }) => act(params.token, "reschedule", false, fetch),
   help: ({ params, fetch }) => act(params.token, "help", false, fetch),
+  rebook: async ({ params, fetch, request }) => rebook(params.token, (await request.formData()).get("slot_id"), fetch),
 };

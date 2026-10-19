@@ -10,13 +10,15 @@
   const state = $derived(form && "state" in form && form.state ? form.state : data.state);
   const result = $derived(form && "result" in form ? form.result : null);
 
-  // The time reads in the language of the page and the clinic's time zone, as a patient expects it.
-  const when = $derived(
-    data.startsAt
-      ? new Intl.DateTimeFormat(i18n.locale, { dateStyle: "full", timeStyle: "short", timeZone: data.timeZone }).format(
-          new Date(data.startsAt),
-        )
-      : "",
+  const retry = $derived(form && "retry" in form && form.retry === true);
+  const options = $derived(form && "options" in form ? (form.options ?? []) : []);
+
+  // Times read in the language of the page and the clinic's time zone, as a patient expects them.
+  const format = (iso: string, timeZone: string) =>
+    new Intl.DateTimeFormat(i18n.locale, { dateStyle: "full", timeStyle: "short", timeZone }).format(new Date(iso));
+  const when = $derived(data.startsAt ? format(data.startsAt, data.timeZone) : "");
+  const movedTo = $derived(
+    form && "startsAt" in form && form.startsAt ? format(form.startsAt, data.timeZone) : "",
   );
 </script>
 
@@ -30,6 +32,22 @@
 {#if result === "confirmed" || result === "cancelled" || result === "reschedule_requested" || result === "rejected"}
   <!-- What just happened wins over the link's new "used" state, which the reload after the tap reports. -->
   <p role="status">{t(`link.done.${result}`)}</p>
+{:else if result === "rebooked"}
+  <p role="status">{t("link.done.rebooked", { when: movedTo })}</p>
+{:else if result === "rebook_options" && options.length > 0}
+  <h2>{t("link.rebook.title")}</h2>
+  <p>{t("link.rebook.body")}</p>
+  <ul class="times">
+    {#each options as o (o.slot_id)}
+      <li>
+        <form method="POST" action="?/rebook" use:enhance>
+          <input type="hidden" name="slot_id" value={o.slot_id} />
+          <button class="button" type="submit">{format(o.starts_at, data.timeZone)}</button>
+        </form>
+      </li>
+    {/each}
+  </ul>
+  <p><a href={page.url.pathname}>{t("link.rebook.keep")}</a></p>
 {:else if result === "help"}
   <p role="status">{t("link.done.help")}</p>
 {:else if state !== "open"}
@@ -42,6 +60,7 @@
   </form>
   <p><a href={page.url.pathname}>{t("link.sure.no")}</a></p>
 {:else}
+  {#if retry}<p role="status">{t("link.rebook.taken")}</p>{/if}
   {#if when}<p>{t("link.when", { when })}</p>{/if}
   <p>{t("link.question")}</p>
   <div class="actions">
@@ -59,6 +78,15 @@
     gap: 0.75rem;
     max-width: 24rem;
   }
+  .times {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 24rem;
+  }
+  .times button,
   .actions button {
     width: 100%;
   }

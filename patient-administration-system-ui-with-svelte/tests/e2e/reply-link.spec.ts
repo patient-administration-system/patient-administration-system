@@ -74,6 +74,41 @@ test("an invalid, malformed or expired link says so plainly", async ({ page }) =
   await expect(page.getByText(/This link has expired/)).toBeVisible();
 });
 
+const offeredToken = (prefix: string) => prefix + randomBytes(30).toString("hex").slice(0, 60);
+
+test("reschedule offers real times; looking does not use the link; choosing one books it once", async ({ page, request }) => {
+  const t = offeredToken("aaaa");
+  await page.goto(`/en-001/r/${t}`);
+  await page.getByRole("button", { name: "I need a different time" }).click();
+  await expect(page.getByRole("heading", { name: "Choose a new time" })).toBeVisible();
+  // Two times, formatted in the page's language and the clinic's zone (14:00 UTC in November is 2 pm in London).
+  await expect(page.getByRole("button", { name: /10 November 2026 at 2:00 pm/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /11 November 2026 at 9:00 am/ })).toBeVisible();
+  expect(await acts(request, t), "looking at times is not acting").toEqual(["reschedule-offered"]);
+
+  // Going back leaves everything as it was.
+  await page.getByRole("link", { name: "Keep my appointment as it is" }).click();
+  await expect(page.getByRole("button", { name: "Confirm that I am coming" })).toBeVisible();
+
+  await page.getByRole("button", { name: "I need a different time" }).click();
+  await page.getByRole("button", { name: /10 November 2026 at 2:00 pm/ }).click();
+  await expect(page.getByText(/Your appointment has moved to .*10 November 2026/)).toBeVisible();
+  expect((await acts(request, t)).filter((a) => a.startsWith("rebook"))).toEqual([
+    "rebook:11111111-1111-4111-8111-111111111111",
+  ]);
+  await page.goto(`/en-001/r/${t}`);
+  await expect(page.getByText(/already been used/)).toBeVisible();
+});
+
+test("if the chosen time has just gone, the patient is told and can ask again", async ({ page }) => {
+  const t = offeredToken("bbbb");
+  await page.goto(`/en-001/r/${t}`);
+  await page.getByRole("button", { name: "I need a different time" }).click();
+  await page.getByRole("button", { name: /10 November 2026 at 2:00 pm/ }).click();
+  await expect(page.getByText(/that time has just been taken/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "I need a different time" })).toBeVisible();
+});
+
 test("the page reads in Welsh and Arabic, the latter right to left", async ({ page }) => {
   const t = token();
   await page.goto(`/cy-001/r/${t}`);

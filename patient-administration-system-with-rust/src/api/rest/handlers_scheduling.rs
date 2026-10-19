@@ -204,3 +204,42 @@ pub async fn mark_no_show(
         Err(e) => error_to_response(e),
     }
 }
+
+/// `GET /api/appointments/{id}/rebook-options` — two or three real alternative slots for this
+/// appointment (CAP-5). Asking again while the offer stands returns the same offer. `options` is empty
+/// when there is nothing to offer; hand the patient to a person then.
+pub async fn rebook_options(
+    State(state): State<AppState>,
+    Path(appointment_id): Path<Uuid>,
+) -> HandlerResult {
+    match state.rebooking.offer(appointment_id).await {
+        Ok(o) => ok_value(serde_json::to_value(o).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RebookBody {
+    pub offer_id: Uuid,
+    pub slot_id: Uuid,
+}
+
+/// `POST /api/appointments/{id}/rebook` — take one of the offered times. A slot that was not in the
+/// offer is refused (400), a used offer is 409. The old appointment is released as `rescheduled` and the
+/// new one booked in one transaction.
+pub async fn rebook_appointment(
+    State(state): State<AppState>,
+    Path(appointment_id): Path<Uuid>,
+    headers: HeaderMap,
+    Json(body): Json<RebookBody>,
+) -> HandlerResult {
+    let ctx = audit_ctx(&user_context_from_headers(&headers));
+    match state
+        .rebooking
+        .choose(appointment_id, body.offer_id, body.slot_id, &ctx)
+        .await
+    {
+        Ok((old, new)) => ok_value(serde_json::json!({ "old": old, "new": new })),
+        Err(e) => error_to_response(e),
+    }
+}

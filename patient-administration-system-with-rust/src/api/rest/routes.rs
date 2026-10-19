@@ -196,6 +196,10 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/reply-links/{token}", get(handlers_links::get_link))
         .route(
+            "/api/reply-links/{token}/rebook",
+            post(handlers_links::post_link_rebook),
+        )
+        .route(
             "/api/reply-links/{token}/{action}",
             post(handlers_links::post_link_action),
         )
@@ -235,6 +239,14 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/appointments/{id}/cancel",
             post(handlers_scheduling::cancel_appointment),
+        )
+        .route(
+            "/api/appointments/{id}/rebook-options",
+            get(handlers_scheduling::rebook_options),
+        )
+        .route(
+            "/api/appointments/{id}/rebook",
+            post(handlers_scheduling::rebook_appointment),
         )
         .route(
             "/api/appointments/{id}/barrier",

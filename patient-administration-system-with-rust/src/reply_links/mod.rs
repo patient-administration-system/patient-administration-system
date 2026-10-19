@@ -28,6 +28,7 @@ use uuid::Uuid;
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::audit::UserContext;
 use crate::inbound::messages::{self, Kind, Lang};
+use crate::rebooking::RebookService;
 use crate::writeback::{ReplyAction, ReplyRequest, ReplyStatus, WriteBackService};
 use crate::{Error, Result};
 
@@ -74,17 +75,35 @@ pub struct LinkInfo {
     pub actions: Vec<&'static str>,
 }
 
+/// One alternative time offered after Reschedule (CAP-5).
+#[derive(Debug, Clone, Serialize)]
+pub struct LinkOption {
+    pub slot_id: Uuid,
+    pub starts_at: DateTime<Utc>,
+    /// The time in the patient's registered language, for a plain-text surface.
+    pub when: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct LinkOutcome {
-    /// `confirmed`, `cancelled`, `reschedule_requested`, `needs_confirmation`, `help` or `rejected`.
+    /// `confirmed`, `cancelled`, `rebook_options`, `rebooked`, `reschedule_requested`, `needs_confirmation`,
+    /// `help` or `rejected`.
     pub status: &'static str,
     pub language: &'static str,
     pub message: String,
+    /// For `rebook_options`: the times on offer. Choose one with `POST /api/reply-links/{token}/rebook`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<LinkOption>,
+    /// For `rebooked`: when the appointment now starts, so a page can show it in its own language.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub starts_at: Option<DateTime<Utc>>,
+    pub time_zone: String,
 }
 
 pub struct ReplyLinks {
     db: DatabaseConnection,
     writeback: Arc<WriteBackService>,
+    rebook: Arc<RebookService>,
     help_line: Option<String>,
 }
 
@@ -127,10 +146,15 @@ struct Row {
 }
 
 impl ReplyLinks {
-    pub fn new(db: DatabaseConnection, writeback: Arc<WriteBackService>) -> Self {
+    pub fn new(
+        db: DatabaseConnection,
+        writeback: Arc<WriteBackService>,
+        rebook: Arc<RebookService>,
+    ) -> Self {
         Self {
             db,
             writeback,
+            rebook,
             help_line: std::env::var("PAS_HELP_LINE")
                 .ok()
                 .filter(|s| !s.trim().is_empty()),
@@ -216,6 +240,9 @@ impl ReplyLinks {
             status,
             language: lang.code(),
             message,
+            options: vec![],
+            starts_at: None,
+            time_zone: tz.name().to_string(),
         };
 
         if row.consumed {
@@ -232,6 +259,26 @@ impl ReplyLinks {
                 return Ok(out("needs_confirmation", messages::are_you_sure(lang)));
             }
             _ => {}
+        }
+
+        // Reschedule first offers real alternative times (CAP-5). Offering is not acting: the link is not
+        // used up and the appointment stands, so the patient can look, go back, or choose. If there is
+        // nothing to offer, a person takes over (below).
+        if action == LinkAction::Reschedule
+            && let Ok(offer) = self.rebook.offer(row.appointment_id).await
+            && !offer.options.is_empty()
+        {
+            let mut o = out("rebook_options", String::new());
+            o.options = offer
+                .options
+                .iter()
+                .map(|s| LinkOption {
+                    slot_id: s.slot_id,
+                    starts_at: s.starts_at,
+                    when: messages::when(s.starts_at, lang, tz),
+                })
+                .collect();
+            return Ok(o);
         }
 
         // Claim the link atomically; whoever fails to claim it was too late.
@@ -318,6 +365,76 @@ impl ReplyLinks {
             )),
             Err(e) => {
                 release().await;
+                Err(e)
+            }
+        }
+    }
+    /// The patient chose one of the offered times. The link is used up by this tap, atomically, and given
+    /// back if the move is refused (for example the slot was just taken), so the patient can pick again.
+    pub async fn choose(
+        &self,
+        token: &str,
+        slot_id: Uuid,
+        ctx: &UserContext,
+    ) -> Result<LinkOutcome> {
+        let row = self.row(token).await?;
+        let lang = self.lang(row.person_id).await?;
+        let tz = messages::timezone();
+        if row.consumed {
+            return Err(Error::conflict("this link has already been used"));
+        }
+        if row.expires_at <= Utc::now() {
+            return Err(Error::validation("this link has expired"));
+        }
+        let offer_id = self
+            .rebook
+            .standing_offer(row.appointment_id)
+            .await?
+            .ok_or_else(|| {
+                Error::conflict("there are no times on offer; ask for other times again")
+            })?;
+
+        let hash = hash(token);
+        let claimed = self
+            .db
+            .execute(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "UPDATE reply_tokens SET consumed_at = now(), consumed_action = 'rebook' \
+                 WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()",
+                [hash.clone().into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        if claimed.rows_affected() == 0 {
+            return Err(Error::conflict("this link has already been used"));
+        }
+        match self
+            .rebook
+            .choose(row.appointment_id, offer_id, slot_id, ctx)
+            .await
+        {
+            Ok((_, new)) => Ok(LinkOutcome {
+                status: "rebooked",
+                language: lang.code(),
+                message: messages::text(
+                    lang,
+                    Kind::Rebooked,
+                    &messages::when(new.start_datetime, lang, tz),
+                    None,
+                ),
+                options: vec![],
+                starts_at: Some(new.start_datetime),
+                time_zone: tz.name().to_string(),
+            }),
+            Err(e) => {
+                let _ = self
+                    .db
+                    .execute(Statement::from_sql_and_values(
+                        DbBackend::Postgres,
+                        "UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
+                        [hash.into()],
+                    ))
+                    .await;
                 Err(e)
             }
         }

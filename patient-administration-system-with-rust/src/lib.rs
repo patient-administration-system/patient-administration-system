@@ -36,6 +36,7 @@ pub mod inbound;
 pub mod models;
 pub mod observability;
 pub mod privacy;
+pub mod rebooking;
 pub mod reply_links;
 pub mod resources;
 pub mod scheduling;

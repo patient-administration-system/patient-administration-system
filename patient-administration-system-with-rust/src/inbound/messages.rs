@@ -66,6 +66,7 @@ pub fn when(at: DateTime<Utc>, lang: Lang, tz: Tz) -> String {
 pub enum Kind {
     Confirmed,
     Cancelled,
+    Rebooked,
     NeedsStaff,
     Unknown,
     Help,
@@ -82,6 +83,8 @@ pub fn text(lang: Lang, kind: Kind, when: &str, help_line: Option<&str>) -> Stri
         (Lang::Cy, Kind::Confirmed) => format!("Diolch, mae eich apwyntiad ar {when} wedi'i gadarnhau."),
         (Lang::En, Kind::Cancelled) => format!("Your appointment on {when} is cancelled. Thank you for letting us know."),
         (Lang::Cy, Kind::Cancelled) => format!("Mae eich apwyntiad ar {when} wedi'i ganslo. Diolch am roi gwybod i ni."),
+        (Lang::En, Kind::Rebooked) => format!("Thank you, your appointment has moved to {when}."),
+        (Lang::Cy, Kind::Rebooked) => format!("Diolch, mae eich apwyntiad wedi symud i {when}."),
         (Lang::En, Kind::NeedsStaff) => format!("We will contact you to find a new time. Your appointment on {when} stays until then."),
         (Lang::Cy, Kind::NeedsStaff) => format!("Byddwn yn cysylltu â chi i ddod o hyd i amser newydd. Mae eich apwyntiad ar {when} yn aros tan hynny."),
         (Lang::En, Kind::Unknown) => "Sorry, we did not understand. Reply Y to confirm, N to cancel or R to change your appointment. Reply HELP for help.".into(),

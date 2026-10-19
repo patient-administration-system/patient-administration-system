@@ -118,9 +118,18 @@ export interface ReplyLinkInfo {
   actions: string[];
 }
 
+/** One alternative time offered after Reschedule (CAP-5). */
+export interface ReplyLinkOption {
+  slot_id: string;
+  starts_at: string;
+  when: string;
+}
+
 export type ReplyLinkStatus =
   | "confirmed"
   | "cancelled"
+  | "rebook_options"
+  | "rebooked"
   | "reschedule_requested"
   | "needs_confirmation"
   | "help"
@@ -132,7 +141,16 @@ export const replyLinkInfo = (f: FetchFn, token: string) =>
 
 /** A deliberate tap. The first `cancel` answers `needs_confirmation`; send it again with `confirmed`. */
 export const replyLinkAct = (f: FetchFn, token: string, action: string, confirmed = false) =>
-  pas<{ status: ReplyLinkStatus }>(f, `/api/reply-links/${encodeURIComponent(token)}/${encodeURIComponent(action)}`, {
-    method: "POST",
-    body: { confirmed },
-  });
+  pas<{ status: ReplyLinkStatus; options?: ReplyLinkOption[]; time_zone: string }>(
+    f,
+    `/api/reply-links/${encodeURIComponent(token)}/${encodeURIComponent(action)}`,
+    { method: "POST", body: { confirmed } },
+  );
+
+/** The patient chose one of the times offered. Uses the link up; if the move is refused it is given back. */
+export const replyLinkRebook = (f: FetchFn, token: string, slotId: string) =>
+  pas<{ status: ReplyLinkStatus; starts_at?: string; time_zone: string }>(
+    f,
+    `/api/reply-links/${encodeURIComponent(token)}/rebook`,
+    { method: "POST", body: { slot_id: slotId } },
+  );
