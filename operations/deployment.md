@@ -53,6 +53,18 @@ Both images carry the standard OCI labels `org.opencontainers.image.version`, `.
     podman build --format docker -f Containerfile --build-arg VERSION=0.45.0 --build-arg REVISION=$(git rev-parse HEAD) -t pas-server .
     podman inspect pas-server --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
 
+## Applying a change to the development realm
+
+Keycloak imports `podman/keycloak/pas-realm.json` only when the realm does not exist. To apply an edit to a running development stack, delete the realm and create it again from the file:
+
+    TOKEN=$(curl -s -d client_id=admin-cli -d username=admin -d password=admin -d grant_type=password \
+      http://localhost:8190/realms/master/protocol/openid-connect/token | jq -r .access_token)
+    curl -X DELETE -H "Authorization: Bearer $TOKEN" http://localhost:8190/admin/realms/pas
+    curl -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+      --data @podman/keycloak/pas-realm.json http://localhost:8190/admin/realms
+
+Staff and administrators need a one-time code at sign-in (`governance/mfa-plan.md`).
+
 ## Not ready for production
 
 See [`../governance/production-readiness.md`](../governance/production-readiness.md). Notably: API authentication, MFA, patient identity proofing, consent for messaging, and several documents.

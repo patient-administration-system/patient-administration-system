@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { keycloakLogin } from "./support/login";
+import { ADMIN_TOTP_SECRET, totp } from "./support/totp";
 import { MOCK_URL } from "./support/ports";
 
 test("signed-out visitors are sent to sign in, then back where they were going", async ({ page }) => {
@@ -46,6 +47,39 @@ test("a patient signs in and sees only their own appointments", async ({ page, r
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.goto("/my/appointments");
   await expect(page).toHaveURL(/\/signin/);
+});
+
+test("staff and administrators must give a one-time code as well as a password; patients are not asked (DTAC-5)", async ({ page }) => {
+  // A password alone does not sign an administrator in: the next step asks for a code, and a wrong one is refused.
+  await page.goto("/en-001/signin");
+  await page.locator('a[href^="/signin/oidc"]').click();
+  await page.locator("#username").fill("admin");
+  await page.locator("#password").fill("admin");
+  await page.locator("#kc-login").click();
+  await expect(page.locator("#otp")).toBeVisible();
+  const right = totp(ADMIN_TOTP_SECRET);
+  await page.locator("#otp").fill(right === "000000" ? "111111" : "000000");
+  await page.locator("#kc-login").click();
+  // Refused: still on the identity provider's page, asking for the code, and no session on the UI.
+  await expect(page).toHaveURL(/\/realms\/pas\//);
+  await expect(page.locator("#otp")).toBeVisible();
+  const refused = await page.goto("/admin/reminders");
+  expect(refused?.url()).toMatch(/signin/);
+
+  // The right code signs in.
+  await keycloakLogin(page, "admin");
+  await page.goto("/admin/reminders");
+  await expect(page.getByRole("heading", { name: "Reminder templates" })).toBeVisible();
+});
+
+test("a patient is signed in by password alone", async ({ page }) => {
+  await page.goto("/en-001/signin");
+  await page.locator('a[href^="/signin/oidc"]').click();
+  await page.locator("#username").fill("patient");
+  await page.locator("#password").fill("patient");
+  await page.locator("#kc-login").click();
+  await expect(page).toHaveURL(/\/my\/appointments|\/en-001/);
+  await expect(page.locator("#otp")).toHaveCount(0);
 });
 
 test("an account staff have not proofed reaches nothing in the patient portal", async ({ page, request }) => {

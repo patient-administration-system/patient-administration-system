@@ -113,6 +113,12 @@
           "type": "password",
           "value": "admin",
           "temporary": false
+        },
+        {
+          "type": "otp",
+          "userLabel": "seeded test authenticator",
+          "secretData": "{\"value\": \"JBSWY3DPEHPK3PXP\"}",
+          "credentialData": "{\"subType\": \"totp\", \"digits\": 6, \"period\": 30, \"algorithm\": \"HmacSHA1\", \"secretEncoding\": \"BASE32\"}"
         }
       ],
       "realmRoles": [
@@ -122,5 +128,99 @@
       "firstName": "Ada",
       "lastName": "Admin"
     }
-  ]
+  ],
+  "browserFlow": "browser-mfa",
+  "authenticationFlows": [
+    {
+      "alias": "browser-mfa",
+      "description": "Browser sign-in. Staff and administrators must also give a one-time code (DTAC-5).",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false,
+          "authenticator": "auth-cookie"
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "ALTERNATIVE",
+          "priority": 30,
+          "autheticatorFlow": true,
+          "userSetupAllowed": false,
+          "flowAlias": "browser-mfa forms"
+        }
+      ]
+    },
+    {
+      "alias": "browser-mfa forms",
+      "description": "Username and password, then a one-time code for staff and administrators.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false,
+          "authenticator": "auth-username-password-form"
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
+          "priority": 20,
+          "autheticatorFlow": true,
+          "userSetupAllowed": false,
+          "flowAlias": "browser-mfa one-time code for staff"
+        }
+      ]
+    },
+    {
+      "alias": "browser-mfa one-time code for staff",
+      "description": "Only when the user holds the staff role (administrators hold it too).",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false,
+          "authenticator": "conditional-user-role",
+          "authenticatorConfig": "has-staff-role"
+        },
+        {
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false,
+          "authenticator": "auth-otp-form"
+        }
+      ]
+    }
+  ],
+  "authenticatorConfig": [
+    {
+      "alias": "has-staff-role",
+      "config": {
+        "condUserRole": "staff",
+        "negate": "false"
+      }
+    }
+  ],
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyCodeReusable": true
 }
