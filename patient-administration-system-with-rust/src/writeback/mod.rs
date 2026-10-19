@@ -325,6 +325,7 @@ impl WriteBackService {
             self.scheduling.publish_booked(a).await;
         }
         if let Some(id) = post.confirmed {
+            self.scheduling.after_confirmed(id).await;
             let _ = self
                 .scheduling
                 .publish_event(DomainEvent::new(

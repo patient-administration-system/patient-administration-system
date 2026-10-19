@@ -49,11 +49,39 @@ pub struct CancelDetails {
 pub struct SchedulingService {
     db: DatabaseConnection,
     publisher: Arc<dyn EventPublisher>,
+    /// The transport service (CAP-15), set after construction because it needs the person client. Shared
+    /// by every clone of the `Arc<SchedulingService>`, so swapping it reaches all of them.
+    transport: std::sync::RwLock<Option<Arc<crate::transport::TransportService>>>,
 }
 
 impl SchedulingService {
     pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
-        Self { db, publisher }
+        Self {
+            db,
+            publisher,
+            transport: std::sync::RwLock::new(None),
+        }
+    }
+
+    pub fn set_transport(&self, t: Arc<crate::transport::TransportService>) {
+        *self.transport.write().unwrap_or_else(|e| e.into_inner()) = Some(t);
+    }
+
+    fn transport(&self) -> Option<Arc<crate::transport::TransportService>> {
+        self.transport
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
+    /// After an appointment has been confirmed: request a ride if the patient is eligible and has
+    /// consented (CAP-15). Best effort: the confirmation stands whatever happens.
+    pub(crate) async fn after_confirmed(&self, appointment_id: Uuid) {
+        if let Some(t) = self.transport()
+            && let Err(e) = t.on_confirmed(appointment_id).await
+        {
+            tracing::warn!(target: "pas::transport", "transport request failed: {e}");
+        }
     }
 
     // --- transaction-level building blocks -------------------------------------------------
@@ -475,6 +503,12 @@ impl SchedulingService {
     }
 
     pub(crate) async fn publish_cancelled(&self, appt: &Appointment) {
+        // A cancelled (or moved) appointment no longer needs its ride (CAP-15).
+        if let Some(t) = self.transport()
+            && let Err(e) = t.on_cancelled(appt.id).await
+        {
+            tracing::warn!(target: "pas::transport", "transport cancel failed: {e}");
+        }
         let _ = self
             .publisher
             .publish(DomainEvent::new(

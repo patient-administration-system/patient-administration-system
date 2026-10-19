@@ -403,3 +403,21 @@ still_needed_checks,asked_at,none,"Not personal data (structure, status, timesta
 still_needed_checks,answer,health,"Administrative care information (why, where, what service, outcome)",record
 still_needed_checks,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 still_needed_checks,answered_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_eligibility,person_id,identifier,Link a record to a person held by person-service,record
+transport_eligibility,eligible_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+transport_eligibility,basis,health,"Administrative care information (why, where, what service, outcome)",record
+transport_eligibility,recorded_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_consents,person_id,identifier,Link a record to a person held by person-service,record
+transport_consents,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+transport_consents,basis,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_consents,recorded_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_bookings,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_bookings,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_bookings,person_id,identifier,Link a record to a person held by person-service,record
+transport_bookings,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_bookings,provider_ref,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_bookings,window_start,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_bookings,window_end,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_bookings,last_error,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_bookings,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+transport_bookings,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

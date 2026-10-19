@@ -20,6 +20,7 @@ pub mod handlers_scheduling;
 pub mod handlers_series;
 pub mod handlers_standby;
 pub mod handlers_support;
+pub mod handlers_transport;
 pub mod handlers_virtual;
 pub mod handlers_waitlist;
 pub mod handlers_waits;

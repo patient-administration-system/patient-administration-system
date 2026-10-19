@@ -46,6 +46,7 @@ pub mod standby;
 pub mod streaming;
 pub mod support;
 pub mod token_issuer;
+pub mod transport;
 pub mod upstream;
 pub mod validation;
 pub mod virtual_visits;

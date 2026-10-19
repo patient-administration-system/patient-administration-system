@@ -31,6 +31,7 @@ pub struct AppState {
     pub inbound: Arc<crate::inbound::InboundService>,
     pub reply_links: Arc<crate::reply_links::ReplyLinks>,
     pub rebooking: Arc<crate::rebooking::RebookService>,
+    pub transport: Arc<crate::transport::TransportService>,
     pub waits: Arc<crate::waits::WaitsService>,
     pub support: Arc<crate::support::SupportService>,
     pub history: Arc<crate::history::HistoryService>,
@@ -69,6 +70,11 @@ impl AppState {
             scheduling.clone(),
         ));
         let communication = Arc::new(CommunicationService::new(db.clone(), publisher.clone()));
+        let transport = Arc::new(crate::transport::TransportService::new(
+            db.clone(),
+            Arc::new(crate::transport::LoggingTransportClient),
+        ));
+        scheduling.set_transport(transport.clone());
         let rebooking = Arc::new(crate::rebooking::RebookService::new(
             db.clone(),
             scheduling.clone(),
@@ -81,6 +87,7 @@ impl AppState {
                 rebooking.clone(),
             )),
             rebooking,
+            transport,
             waits: Arc::new(crate::waits::WaitsService::new(db.clone())),
             support: Arc::new(crate::support::SupportService::new(db.clone())),
             history: Arc::new(crate::history::HistoryService::new(db.clone())),
@@ -131,7 +138,20 @@ impl AppState {
                 .derive()
                 .with_person_client(client.clone()),
         );
+        self.transport = Arc::new(self.transport.with_person_client(client.clone()));
+        self.scheduling.set_transport(self.transport.clone());
         self.person_client = Some(client);
+        self
+    }
+
+    /// Swap in a transport provider (CAP-15). `main.rs` will call this once a provider is chosen; tests
+    /// install a recording one.
+    pub fn with_transport_client(
+        mut self,
+        client: Arc<dyn crate::transport::TransportClient>,
+    ) -> Self {
+        self.transport = Arc::new(self.transport.with_client(client));
+        self.scheduling.set_transport(self.transport.clone());
         self
     }
 

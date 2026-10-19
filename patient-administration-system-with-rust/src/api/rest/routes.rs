@@ -40,6 +40,7 @@ use super::handlers_scheduling;
 use super::handlers_series;
 use super::handlers_standby;
 use super::handlers_support;
+use super::handlers_transport;
 use super::handlers_virtual;
 use super::handlers_waitlist;
 use super::handlers_waits;
@@ -280,6 +281,18 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/still-needed-checks/{id}/answer",
             post(handlers_waits::answer),
+        )
+        .route(
+            "/api/patients/{id}/transport-eligibility",
+            put(handlers_transport::set_eligible).delete(handlers_transport::withdraw_eligible),
+        )
+        .route(
+            "/api/patients/{id}/transport-consent",
+            put(handlers_transport::record_consent).delete(handlers_transport::withdraw_consent),
+        )
+        .route(
+            "/api/appointments/{id}/transport",
+            get(handlers_transport::booking),
         )
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))
