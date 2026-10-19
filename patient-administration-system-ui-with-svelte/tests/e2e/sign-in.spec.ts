@@ -48,6 +48,21 @@ test("a patient signs in and sees only their own appointments", async ({ page, r
   await expect(page).toHaveURL(/\/signin/);
 });
 
+test("an account staff have not proofed reaches nothing in the patient portal", async ({ page, request }) => {
+  await request.get(`${MOCK_URL}/__proofing?on=false`);
+  try {
+    await keycloakLogin(page, "patient", "/en-001/my/appointments");
+    const res = await page.goto("/my/appointments");
+    expect(res?.status()).toBe(403);
+    await expect(page.getByRole("heading", { name: /403/ })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Knee review" })).toHaveCount(0);
+    const res2 = await page.goto("/my/messages");
+    expect(res2?.status()).toBe(403);
+  } finally {
+    await request.get(`${MOCK_URL}/__proofing?on=true`);
+  }
+});
+
 test("an administrator can open the reminder-template editor; a patient cannot", async ({ page }) => {
   await keycloakLogin(page, "admin");
   await page.goto("/admin/reminders");

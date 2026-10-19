@@ -350,6 +350,49 @@ pub fn lead_from_hours(hours: Option<&str>) -> Result<Duration> {
 
 #[cfg(test)]
 mod tests {
+    /// CAS-1: every patient-facing message the server writes by default exists as an English and a Welsh pair,
+    /// both of which render to something a patient can read. A new message name that has only one language
+    /// fails here, which is the pair check in CI.
+    #[test]
+    fn test_every_default_message_exists_in_both_languages_and_stays_in_one_sms_family() {
+        for name in [
+            REMINDER_TEMPLATE_NAME,
+            "appointment_reminder_second",
+            "appointment_reminder_final",
+            "slot_offer",
+        ] {
+            let en =
+                default_wording(name, "en-001").unwrap_or_else(|| panic!("{name} has no English"));
+            let cy =
+                default_wording(name, "cy-001").unwrap_or_else(|| panic!("{name} has no Welsh"));
+            assert_ne!(
+                en.1, cy.1,
+                "{name}: the Welsh must not be the English copied"
+            );
+            for (lang, (subject, body)) in [("en", en), ("cy", cy)] {
+                assert!(
+                    !subject.trim().is_empty() && !body.trim().is_empty(),
+                    "{name}/{lang} is empty"
+                );
+                // The same variables in both, so a Welsh message cannot drop the link or the time.
+                for var in [
+                    "reply_url",
+                    "offer_url",
+                    "appointment.when",
+                    "offer.when",
+                    "offer.minutes",
+                ] {
+                    assert_eq!(
+                        en.1.contains(var),
+                        cy.1.contains(var),
+                        "{name}: {var} is in one language and not the other"
+                    );
+                }
+                let _ = lang;
+            }
+        }
+    }
+
     use super::*;
 
     #[test]

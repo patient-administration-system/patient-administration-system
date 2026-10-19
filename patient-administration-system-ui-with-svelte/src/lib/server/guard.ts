@@ -5,6 +5,7 @@ import { error, redirect } from "@sveltejs/kit";
 import type { OidcSession } from "./oidc-session";
 import { isAdmin, isStaff, patientScope } from "../access";
 import { localizePath, type Locale } from "../locales";
+import { identityProofed, type FetchFn } from "./pas";
 
 type Locals = { oidc: OidcSession | null; locale: Locale };
 
@@ -26,6 +27,27 @@ export function requireAdmin(locals: Locals, returnTo: string): OidcSession {
   const s = signedIn(locals, returnTo);
   if (!isAdmin(s.user)) error(403, "Administrator access is required");
   return s;
+}
+
+/**
+ * A patient session whose account staff have proofed as that patient (DTAC-9). The person id still comes from
+ * the verified token, but the account reaches nothing until the PAS says staff recorded checking who it
+ * belongs to, and that it is this patient. Anything but a clear yes is a no: a fault in the check refuses.
+ */
+export async function requireProofedPatient(
+  locals: Locals,
+  fetch: FetchFn,
+  returnTo: string,
+): Promise<{ session: OidcSession; personId: string }> {
+  const scope = requirePatient(locals, returnTo);
+  let proofed = false;
+  try {
+    proofed = await identityProofed(fetch, scope.session.user.sub, scope.personId);
+  } catch {
+    proofed = false;
+  }
+  if (!proofed) error(403, "Your account has not been checked by our staff yet. Please contact the surgery or clinic.");
+  return scope;
 }
 
 /** A patient session, plus the one person id it may read. */

@@ -20,3 +20,12 @@
 ## Who to tell
 
 A patient-safety incident follows the deploying organisation's incident process and the Clinical Safety Officer. A suspected vulnerability follows [`../SECURITY.md`](../SECURITY.md).
+
+## Proofing a patient's portal account (DTAC-9)
+
+A patient who signs in to the portal is only an account until staff have checked who they are. Until a staff member records it, every `/my/*` page answers 403, whatever `person_id` the identity provider carries.
+
+1. Check the patient's identity by your organisation's procedure (in person, a video ID check, a postal code).
+2. Record it: `PUT /api/identity-proofings/{subject}` with `{"person_id": "<patient>", "method": "in_person", "proofed_by": "<your name>"}`, where `{subject}` is the account's id in the identity provider (Keycloak's user id).
+3. To cut an account off (a mistaken link, a safeguarding concern): `DELETE /api/identity-proofings/{subject}?revoked_by=<your name>`. The portal refuses it at once; the history is kept.
+4. To see who proofed an account and how: `GET /api/identity-proofings/{subject}`. Each proofing and revocation is also in the patient's audit trail.

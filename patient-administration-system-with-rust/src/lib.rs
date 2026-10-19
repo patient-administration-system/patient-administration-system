@@ -36,6 +36,7 @@ pub mod error;
 pub mod follow_up;
 pub mod history;
 pub mod hl7v2;
+pub mod identity;
 pub mod inbound;
 pub mod models;
 pub mod observability;

@@ -244,6 +244,16 @@ impl CommunicationService {
         extra_context: serde_json::Value,
         ctx: &UserContext,
     ) -> Result<GeneratedLetter> {
+        // Everything the PAS sends is a service message. One that says it is marketing needs the patient's
+        // active marketing consent first (DTAC-7, `governance/messaging-rules.md`).
+        if extra_context.get("purpose").and_then(|p| p.as_str()) == Some("marketing") {
+            crate::privacy::consent::require_consent(
+                &self.db,
+                person_id,
+                crate::models::consent::ConsentType::Marketing,
+            )
+            .await?;
+        }
         self.generate_letter_for(
             template_id,
             person_id,

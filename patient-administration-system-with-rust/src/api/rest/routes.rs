@@ -34,6 +34,7 @@ use super::handlers_encounter;
 use super::handlers_followup;
 use super::handlers_history;
 use super::handlers_hl7v2;
+use super::handlers_identity;
 use super::handlers_letters;
 use super::handlers_links;
 use super::handlers_offers;
@@ -368,6 +369,16 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/contact-problems/{person_id}/resolve",
             post(handlers_receipts::resolve_problem),
+        )
+        .route(
+            "/api/identity-proofings/{subject}",
+            put(handlers_identity::record)
+                .get(handlers_identity::get)
+                .delete(handlers_identity::revoke),
+        )
+        .route(
+            "/api/identity-proofings/{subject}/check",
+            get(handlers_identity::check),
         )
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))

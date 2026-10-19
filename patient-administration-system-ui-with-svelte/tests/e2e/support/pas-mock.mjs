@@ -13,6 +13,7 @@ const actors = [];
 // `e`s is expired. Every action that really changes something is recorded at /__acts.
 const links = new Map();
 const offers = new Map();
+let proofing = true;
 const acts = [];
 const ISSUER_URL = process.env.ISSUER_URL ?? null;
 const ISSUER = "authentication-service";
@@ -60,6 +61,10 @@ http
     if (url.pathname === "/__health") return res.end("{}");
     if (url.pathname === "/__requests") return res.end(JSON.stringify(requests));
     if (url.pathname === "/__actors") return res.end(JSON.stringify(actors));
+    if (url.pathname === "/__proofing") {
+      proofing = url.searchParams.get("on") !== "false";
+      return res.end(JSON.stringify({ proofing }));
+    }
     if (url.pathname === "/__acts") return res.end(JSON.stringify(acts));
     requests.push(url.pathname + url.search);
     if (ISSUER_URL) {
@@ -98,6 +103,9 @@ http
         envelope(action === "accept" ? { status: "accepted", starts_at: "2026-11-05T14:00:00Z", time_zone: "Europe/London" } : { status: "declined", starts_at: null, time_zone: "Europe/London" }),
       );
     }
+    // DTAC-9: has staff proofed this account as this patient? On unless a test turns it off.
+    const proof = /^\/api\/identity-proofings\/([^/]+)\/check$/.exec(url.pathname);
+    if (proof) return res.end(envelope({ proofed: proofing }));
     const link = /^\/api\/reply-links\/([^/]+)(?:\/([a-z]+))?$/.exec(url.pathname);
     if (link) {
       const [, token, action] = link;

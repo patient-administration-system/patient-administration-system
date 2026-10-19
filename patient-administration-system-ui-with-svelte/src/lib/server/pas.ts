@@ -3,7 +3,7 @@
 
 import { PAS_API_URL, serviceToken } from "./config";
 
-type FetchFn = typeof fetch;
+export type FetchFn = typeof fetch;
 
 export class PasError extends Error {
   constructor(
@@ -106,6 +106,17 @@ export interface PortalMessage {
 /** Messages delivered to one patient's secure portal inbox, newest first. */
 export const portalMessages = (f: FetchFn, personId: string) =>
   pas<PortalMessage[]>(f, `/api/patients/${encodeURIComponent(personId)}/letters?channel=portal`);
+
+// ---- Identity proofing (DTAC-9) --------------------------------------------------------------
+
+/** Has staff recorded checking that this sign-in account is this patient? Only a clear yes is a yes. */
+export const identityProofed = async (f: FetchFn, subject: string, personId: string): Promise<boolean> =>
+  (
+    await pas<{ proofed: boolean }>(
+      f,
+      `/api/identity-proofings/${encodeURIComponent(subject)}/check?person_id=${encodeURIComponent(personId)}`,
+    )
+  ).proofed === true;
 
 // ---- Reply links (CAP-13) --------------------------------------------------------------------
 

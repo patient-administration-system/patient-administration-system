@@ -14,6 +14,7 @@ pub mod handlers_encounter;
 pub mod handlers_followup;
 pub mod handlers_history;
 pub mod handlers_hl7v2;
+pub mod handlers_identity;
 pub mod handlers_letters;
 pub mod handlers_links;
 pub mod handlers_offers;

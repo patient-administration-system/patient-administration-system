@@ -23,6 +23,10 @@ pub enum Error {
     #[error("Conflict: {0}")]
     Conflict(String),
 
+    /// The caller may not do this: a consent it needs is not there (DTAC-7). Maps to 403.
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
+
     #[error("Search error: {0}")]
     Search(String),
 
@@ -52,6 +56,11 @@ pub enum Error {
 }
 
 impl Error {
+    /// Build a `Forbidden` error.
+    pub fn forbidden(msg: impl Into<String>) -> Self {
+        Error::Forbidden(msg.into())
+    }
+
     /// Build a `NotFound` error.
     pub fn not_found(msg: impl Into<String>) -> Self {
         Error::NotFound(msg.into())

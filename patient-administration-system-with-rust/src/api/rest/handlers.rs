@@ -31,6 +31,7 @@ pub fn error_to_response(err: Error) -> HandlerResult {
         Error::Validation(_) => (StatusCode::BAD_REQUEST, "VALIDATION"),
         Error::InvalidStateTransition(_) => (StatusCode::CONFLICT, "INVALID_STATE_TRANSITION"),
         Error::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT"),
+        Error::Forbidden(_) => (StatusCode::FORBIDDEN, "FORBIDDEN"),
         Error::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "DATABASE"),
         Error::Search(_) => (StatusCode::INTERNAL_SERVER_ERROR, "SEARCH"),
         Error::Streaming(_) => (StatusCode::INTERNAL_SERVER_ERROR, "STREAMING"),

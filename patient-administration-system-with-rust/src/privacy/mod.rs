@@ -13,6 +13,8 @@
 //! string helpers used by code that still touches free-form telecom
 //! values inside PAS-owned tables.
 
+pub mod consent;
+
 use crate::models::{ContactPoint, ContactPointSystem};
 
 /// Mask all but the last `keep_tail` characters of `value` with `*`.
