@@ -1,9 +1,19 @@
 # Pushing a tag vX.Y.Z builds and publishes a release. Nothing is published by a pull request.
+#
+# A dry run builds everything and publishes nothing: run it by hand (Actions -> Release -> Run workflow) with
+# the version to try. It checks the tag, crate and changelog agree, builds both images with their labels,
+# makes the SBOMs, and stops: no image is pushed, nothing is attested, no release is created.
 name: Release
 
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to rehearse, without the v (it must match the server crate and have a CHANGELOG entry)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,9 +30,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # Fails unless the tag, the server crate's version and a CHANGELOG entry all agree.
-      - run: scripts/release-notes.sh "${GITHUB_REF_NAME#v}" > release-notes.md
       - id: v
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          version="${{ inputs.version || github.ref_name }}"
+          echo "version=${version#v}" >> "$GITHUB_OUTPUT"
+      - run: scripts/release-notes.sh "${{ steps.v.outputs.version }}" > release-notes.md
       - uses: actions/upload-artifact@v4
         with: { name: release-notes, path: release-notes.md }
 
@@ -66,7 +78,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - if: github.event_name == 'push'
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -76,23 +89,26 @@ jobs:
         with:
           context: patient-administration-system-with-rust
           file: patient-administration-system-with-rust/Containerfile
-          push: true
-          provenance: mode=max
-          sbom: true
-          tags: ghcr.io/${{ github.repository }}/server:${{ github.ref_name }}
+          push: ${{ github.event_name == 'push' }}
+          load: ${{ github.event_name != 'push' }}
+          provenance: ${{ github.event_name == 'push' && 'mode=max' || 'false' }}
+          sbom: ${{ github.event_name == 'push' }}
+          tags: ghcr.io/${{ github.repository }}/server:v${{ needs.verify.outputs.version }}
           build-args: |
             VERSION=${{ needs.verify.outputs.version }}
             REVISION=${{ github.sha }}
             SOURCE=${{ github.server_url }}/${{ github.repository }}
-      - uses: actions/attest-build-provenance@v2
+      - if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@v2
         with:
           subject-name: ghcr.io/${{ github.repository }}/server
           subject-digest: ${{ steps.server.outputs.digest }}
           push-to-registry: true
       - name: The server image carries the verified version
         run: |
-          image="ghcr.io/${{ github.repository }}/server:${{ github.ref_name }}"
-          docker pull "$image" >/dev/null
+          image="ghcr.io/${{ github.repository }}/server:v${{ needs.verify.outputs.version }}"
+          # A real release pulls what it pushed; a dry run built it locally.
+          if [ "${{ github.event_name }}" = push ]; then docker pull "$image" >/dev/null; fi
           got="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")"
           [ "$got" = "${{ needs.verify.outputs.version }}" ] || { echo "image label $got != ${{ needs.verify.outputs.version }}" >&2; exit 1; }
       - id: ui
@@ -100,28 +116,31 @@ jobs:
         with:
           context: patient-administration-system-ui-with-svelte
           file: patient-administration-system-ui-with-svelte/Containerfile
-          push: true
-          provenance: mode=max
-          sbom: true
-          tags: ghcr.io/${{ github.repository }}/ui:${{ github.ref_name }}
+          push: ${{ github.event_name == 'push' }}
+          load: ${{ github.event_name != 'push' }}
+          provenance: ${{ github.event_name == 'push' && 'mode=max' || 'false' }}
+          sbom: ${{ github.event_name == 'push' }}
+          tags: ghcr.io/${{ github.repository }}/ui:v${{ needs.verify.outputs.version }}
           build-args: |
             VERSION=${{ needs.verify.outputs.version }}
             REVISION=${{ github.sha }}
             SOURCE=${{ github.server_url }}/${{ github.repository }}
-      - uses: actions/attest-build-provenance@v2
+      - if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@v2
         with:
           subject-name: ghcr.io/${{ github.repository }}/ui
           subject-digest: ${{ steps.ui.outputs.digest }}
           push-to-registry: true
       - name: The UI image carries the verified version
         run: |
-          image="ghcr.io/${{ github.repository }}/ui:${{ github.ref_name }}"
-          docker pull "$image" >/dev/null
+          image="ghcr.io/${{ github.repository }}/ui:v${{ needs.verify.outputs.version }}"
+          if [ "${{ github.event_name }}" = push ]; then docker pull "$image" >/dev/null; fi
           got="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")"
           [ "$got" = "${{ needs.verify.outputs.version }}" ] || { echo "image label $got != ${{ needs.verify.outputs.version }}" >&2; exit 1; }
 
   release:
     name: GitHub release
+    if: github.event_name == 'push'
     needs: [verify, deny, sbom, images]
     runs-on: ubuntu-24.04
     permissions:
