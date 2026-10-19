@@ -181,7 +181,7 @@ Checked against the code, not assumed. **Exists:** booking, cancelling and resch
 
 ### Dependencies
 
-- [ ] **DEP-2 (L), `loco-rs` 1.x with `sea-orm` 2.** Clears the `quick-xml` advisories (through Loco's `opendal`). Also: `utoipa-swagger-ui` build-time `zip` (3 advisories; needs `zip` 9), `rsa` (no upstream fix). **Acceptance:** `cargo audit` reports no vulnerabilities, or each remaining one is listed with a reason in `deny.toml` (REF-2).
+- [ ] **DEP-2 (L), `loco-rs` 1.x with `sea-orm` 2.** Clears the `quick-xml` advisories (through Loco's `opendal`). Also: `utoipa-swagger-ui` build-time `zip` (3 advisories; needs `zip` 9), `rsa` (no upstream fix). **Acceptance:** `cargo audit` reports no vulnerabilities, or each remaining one is listed with a reason in `deny.toml` (REF-2). **Trial 2026-10-19 (discarded):** bumping to sea-orm 2.0 and loco-rs 1.2 compiles after mechanical changes (`execute`/`query_one`/`query_all` taking a raw `Statement` become `*_raw`; `.max(0)` on an integer column field becomes `Ord::max`), and clears `quick-xml`, but `zip` (3) and `rsa` remain (they are already reasoned in `deny.toml`) and 20 tests failed (cap11 analytics, pilot8 backfill, the frontend dashboard smoke tests) and were not investigated. Not worth doing until the `zip` fix is reachable or a security need arises.
 
 ### Conventions adopted from the reference monorepo
 
