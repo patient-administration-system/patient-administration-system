@@ -55,7 +55,7 @@ jobs:
       - run: cargo install cargo-cyclonedx --locked && cargo cyclonedx --format json
       - uses: pnpm/action-setup@v4
         with: { version: 12.10.1 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 26 }
       - run: pnpm install --frozen-lockfile && pnpm sbom --sbom-format cyclonedx --lockfile-only --out ../sbom-ui.cdx.json
         working-directory: patient-administration-system-ui-with-svelte
