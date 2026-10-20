@@ -5,6 +5,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.45.0] — 2026-10-20
+
+Everything built since 0.44.0: reminder ladder and reply channels (text, link, voice keypad, WhatsApp rules), standby and rebooking, waits and referrals, privacy-safe analytics, the no-show score (off by default, gated by named reviews, shadow rollout by clinic), per-user PASETO authentication, chaos tests, and dependency updates. The workspace entry in the root `CHANGELOG.md` has the full list; `spec/14-implementation-status.md` has the counts.
+
 ### Added
 - Appointment reminders: `communication::reminders::ReminderService`, a background scan (`PAS_REMINDERS_ENABLED`, `PAS_REMINDER_LEAD_HOURS`), and an administrator-editable `appointment_reminder` template.
 - Delivery channels `apple_messages`, `whatsapp` and `portal`, a generic `MessageSender` per channel (`PAS_EMAIL_PROVIDER`, `PAS_WHATSAPP_PROVIDER`, `PAS_APPLE_MESSAGES_PROVIDER`: `log` or off), and the `{{ portal_url }}` template variable (`PAS_PORTAL_URL`).
