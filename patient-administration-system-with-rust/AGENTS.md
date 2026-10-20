@@ -71,7 +71,7 @@ This crate is one of three workspace members rooted at `..`:
 
 | Crate / Service                                | Role                                                              | Port  |
 |------------------------------------------------|-------------------------------------------------------------------|-------|
-| `patient-administration-system` (this one)     | Workflow service. REST + FHIR R5 + HL7 v2 (HTTP + MLLP). Proxies identity + workforce to upstream services. | 8080 |
+| `patient-administration-system` (this one)     | Workflow service. REST + FHIR R5 (the `fhir` crate) + HL7 v2 (the `er7` crate; HTTP + MLLP). Proxies identity + workforce to upstream services. | 8080 |
 | `patient-administration-system-migrations`     | sea-orm migration crate, shared by both PAS apps; CLI is `pas-migrate`. | n/a |
 | `patient-administration-system-frontend`       | Loco-rs read-mostly UI. Tera + HTMX + Lily Design System.         | 5150  |
 | `person-service` *(HTTP dep, external)*   | Person identity, demographics, search, match, merge, FHIR R5 Person. | 5180 |

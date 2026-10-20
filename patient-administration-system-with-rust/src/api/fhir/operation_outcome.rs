@@ -1,53 +1,45 @@
-//! FHIR `OperationOutcome` error envelope.
+//! FHIR `OperationOutcome` error envelope, built with the `fhir` crate's typed R5 resource.
 //!
-//! Used by FHIR handlers to report errors in a way clinical clients expect.
-//! This is intentionally a tiny subset of the FHIR R5 `OperationOutcome` —
-//! `severity`, `code`, and a free-text `diagnostics` per issue.
+//! Used by FHIR handlers to report errors in a way clinical clients expect: one issue with a severity, a
+//! code and a free-text `diagnostics`. The value is a [`fhir::r5::resources::Resource`], so it serialises with its
+//! `resourceType` like any other resource.
 
-use serde::{Deserialize, Serialize};
+use fhir::r5::resources::Resource;
+use serde_json::json;
 
-/// FHIR R5 `OperationOutcome` resource (minimal subset).
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct OperationOutcome {
-    #[serde(rename = "resourceType")]
-    pub resource_type: String,
-    pub issue: Vec<Issue>,
+/// What a handler returns for an error: an `OperationOutcome` resource.
+pub type OperationOutcome = Resource;
+
+/// Build an error-severity `OperationOutcome` with one issue.
+pub fn error(code: &str, diagnostics: impl Into<String>) -> OperationOutcome {
+    outcome(code, Some(diagnostics.into()))
 }
 
-/// A single issue within an `OperationOutcome`.
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct Issue {
-    /// `"error" | "warning" | "information"`.
-    pub severity: String,
-    /// FHIR issue code, e.g. `"invalid"`, `"not-found"`, `"exception"`.
-    pub code: String,
-    /// Human-readable description.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub diagnostics: Option<String>,
+/// Convenience for `code = "not-found"` errors.
+pub fn not_found(diagnostics: impl Into<String>) -> OperationOutcome {
+    error("not-found", diagnostics)
 }
 
-impl OperationOutcome {
-    /// Build an error-severity `OperationOutcome` with one issue.
-    pub fn error(code: &str, diagnostics: impl Into<String>) -> Self {
-        Self {
-            resource_type: "OperationOutcome".into(),
-            issue: vec![Issue {
-                severity: "error".into(),
-                code: code.into(),
-                diagnostics: Some(diagnostics.into()),
-            }],
-        }
-    }
+/// Convenience for `code = "exception"` errors.
+pub fn exception(diagnostics: impl Into<String>) -> OperationOutcome {
+    error("exception", diagnostics)
+}
 
-    /// Convenience for `code = "not-found"` errors.
-    pub fn not_found(diagnostics: impl Into<String>) -> Self {
-        Self::error("not-found", diagnostics)
+fn outcome(code: &str, diagnostics: Option<String>) -> OperationOutcome {
+    let mut issue = json!({ "severity": "error", "code": code });
+    if let Some(d) = diagnostics {
+        issue["diagnostics"] = json!(d);
     }
-
-    /// Convenience for `code = "exception"` errors.
-    pub fn exception(diagnostics: impl Into<String>) -> Self {
-        Self::error("exception", diagnostics)
-    }
+    let shape = json!({ "resourceType": "OperationOutcome", "issue": [issue] });
+    // Codes outside the FHIR value set are kept as written, so this shape always reads back; the fallback is
+    // the same shape with a code that is certainly in the set.
+    serde_json::from_value(shape).unwrap_or_else(|_| {
+        serde_json::from_value(json!({
+            "resourceType": "OperationOutcome",
+            "issue": [{ "severity": "error", "code": "exception" }]
+        }))
+        .expect("a constant OperationOutcome reads as a Resource")
+    })
 }
 
 #[cfg(test)]
@@ -56,20 +48,25 @@ mod tests {
 
     #[test]
     fn test_operation_outcome_error_shape() {
-        let oo = OperationOutcome::error("invalid", "bad UUID");
-        assert_eq!(oo.resource_type, "OperationOutcome");
-        assert_eq!(oo.issue.len(), 1);
-        assert_eq!(oo.issue[0].severity, "error");
-        assert_eq!(oo.issue[0].code, "invalid");
-        assert_eq!(oo.issue[0].diagnostics.as_deref(), Some("bad UUID"));
+        let v = serde_json::to_value(error("invalid", "bad UUID")).expect("serialize");
+        assert_eq!(v["resourceType"], "OperationOutcome");
+        assert_eq!(v["issue"].as_array().map(Vec::len), Some(1));
+        assert_eq!(v["issue"][0]["severity"], "error");
+        assert_eq!(v["issue"][0]["code"], "invalid");
+        assert_eq!(v["issue"][0]["diagnostics"], "bad UUID");
     }
 
     #[test]
     fn test_operation_outcome_serializes_resource_type() {
-        let oo = OperationOutcome::not_found("patient missing");
-        let json = serde_json::to_string(&oo).expect("serialize");
+        let json = serde_json::to_string(&not_found("patient missing")).expect("serialize");
         assert!(json.contains("\"resourceType\":\"OperationOutcome\""));
         assert!(json.contains("\"code\":\"not-found\""));
         assert!(json.contains("\"diagnostics\":\"patient missing\""));
+    }
+
+    #[test]
+    fn test_a_code_outside_the_value_set_is_kept() {
+        let v = serde_json::to_value(error("made-up", "x")).expect("serialize");
+        assert_eq!(v["issue"][0]["code"], "made-up");
     }
 }

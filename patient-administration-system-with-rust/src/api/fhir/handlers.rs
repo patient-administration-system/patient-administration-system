@@ -29,7 +29,7 @@ use crate::api::rest::AppState;
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::upstream::{PersonClient, PersonCreate, WorkerClient, WorkerCreate};
 
-use super::operation_outcome::OperationOutcome;
+use super::operation_outcome::{self, OperationOutcome};
 
 type FhirResult = Result<Json<Value>, (StatusCode, Json<OperationOutcome>)>;
 
@@ -42,7 +42,10 @@ fn error_to_response(err: Error) -> (StatusCode, Json<OperationOutcome>) {
         Error::Upstream(_) => (StatusCode::SERVICE_UNAVAILABLE, "transient"),
         _ => (StatusCode::INTERNAL_SERVER_ERROR, "exception"),
     };
-    (status, Json(OperationOutcome::error(code, err.to_string())))
+    (
+        status,
+        Json(operation_outcome::error(code, err.to_string())),
+    )
 }
 
 fn need_person_client(state: &AppState) -> Result<&dyn PersonClient, Error> {
@@ -225,7 +228,7 @@ pub async fn get_encounter(State(state): State<AppState>, Path(id): Path<Uuid>) 
         ))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
-            Json(OperationOutcome::not_found(format!("Encounter/{id}"))),
+            Json(operation_outcome::not_found(format!("Encounter/{id}"))),
         )),
         Err(e) => Err(error_to_response(e)),
     }
@@ -239,7 +242,7 @@ pub async fn get_appointment(State(state): State<AppState>, Path(id): Path<Uuid>
         ))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
-            Json(OperationOutcome::not_found(format!("Appointment/{id}"))),
+            Json(operation_outcome::not_found(format!("Appointment/{id}"))),
         )),
         Err(e) => Err(error_to_response(e)),
     }
@@ -253,7 +256,7 @@ pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -
         ))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
-            Json(OperationOutcome::not_found(format!("Coverage/{id}"))),
+            Json(operation_outcome::not_found(format!("Coverage/{id}"))),
         )),
         Err(e) => Err(error_to_response(e)),
     }
@@ -267,7 +270,7 @@ pub async fn get_schedule(State(state): State<AppState>, Path(id): Path<Uuid>) -
         ))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
-            Json(OperationOutcome::not_found(format!("Schedule/{id}"))),
+            Json(operation_outcome::not_found(format!("Schedule/{id}"))),
         )),
         Err(e) => Err(error_to_response(e)),
     }
@@ -281,7 +284,7 @@ pub async fn get_slot(State(state): State<AppState>, Path(id): Path<Uuid>) -> Fh
         ))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
-            Json(OperationOutcome::not_found(format!("Slot/{id}"))),
+            Json(operation_outcome::not_found(format!("Slot/{id}"))),
         )),
         Err(e) => Err(error_to_response(e)),
     }
@@ -296,7 +299,7 @@ pub async fn get_location(State(state): State<AppState>, Path(id): Path<Uuid>) -
         ))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
-            Json(OperationOutcome::not_found(format!("Location/{id}"))),
+            Json(operation_outcome::not_found(format!("Location/{id}"))),
         )),
         Err(e) => Err(error_to_response(e)),
     }
@@ -324,7 +327,7 @@ fn upstream_stub(resource: &str) -> (StatusCode, Json<OperationOutcome>) {
     ));
     (
         StatusCode::SERVICE_UNAVAILABLE,
-        Json(OperationOutcome::error("not-supported", err.to_string())),
+        Json(operation_outcome::error("not-supported", err.to_string())),
     )
 }
 
@@ -338,18 +341,29 @@ pub async fn create_appointment() -> FhirResult {
 
 // ── Schedule writes ──────────────────────────────────────────────────────
 
+/// Read one element of a FHIR-shaped body as its typed R5 datatype, so a malformed one is refused with
+/// the reason. Elements, not whole resources: a PUT may carry only the fields it changes.
+fn fhir_element<T: serde::de::DeserializeOwned>(value: &Value, what: &str) -> Result<T, Error> {
+    serde_json::from_value(value.clone()).map_err(|e| Error::validation(format!("{what}: {e}")))
+}
+
 fn parse_schedule_owner(body: &Value) -> Result<ScheduleOwner, Error> {
     // FHIR Schedule.actor[0].reference is the canonical owner pointer.
     // We accept either:
     //   { "actor": [{ "reference": "Practitioner/<uuid>" }] }
     //   { "owner": { "kind": "Practitioner", "id": "<uuid>" } }   (PAS native)
-    if let Some(actor_ref) = body
-        .get("actor")
-        .and_then(|v| v.as_array())
-        .and_then(|a| a.first())
-        .and_then(|e| e.get("reference"))
-        .and_then(|v| v.as_str())
-    {
+    if body.get("actor").is_some() {
+        let actor: fhir::r5::types::Reference = body
+            .get("actor")
+            .and_then(|a| a.as_array())
+            .and_then(|a| a.first())
+            .ok_or_else(|| Error::validation("Schedule.actor[0] is required"))
+            .and_then(|v| fhir_element(v, "Schedule.actor[0]"))?;
+        let actor_ref = actor
+            .reference
+            .as_ref()
+            .map(|r| r.0.as_str())
+            .ok_or_else(|| Error::validation("Schedule.actor[0].reference is required"))?;
         let (kind, id_str) = actor_ref
             .split_once('/')
             .ok_or_else(|| Error::validation(format!("invalid actor reference {actor_ref:?}")))?;
@@ -394,17 +408,21 @@ fn parse_service_type(body: &Value) -> String {
     if let Some(s) = body.get("service_type").and_then(|v| v.as_str()) {
         return s.to_string();
     }
-    body.get("serviceType")
+    if let Some(first) = body
+        .get("serviceType")
         .and_then(|v| v.as_array())
         .and_then(|a| a.first())
-        .and_then(|e| e.get("concept"))
-        .and_then(|c| c.get("coding"))
-        .and_then(|v| v.as_array())
-        .and_then(|a| a.first())
-        .and_then(|c| c.get("code"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("general")
-        .to_string()
+        && let Ok(service) =
+            fhir_element::<fhir::r5::types::CodeableReference>(first, "Schedule.serviceType[0]")
+        && let Some(code) = service
+            .concept
+            .as_ref()
+            .and_then(|c| c.coding.first())
+            .and_then(|c| c.code.as_ref())
+    {
+        return code.0.clone();
+    }
+    "general".to_string()
 }
 
 pub async fn create_schedule(State(state): State<AppState>, Json(body): Json<Value>) -> FhirResult {
@@ -431,7 +449,7 @@ pub async fn update_schedule(
         .ok_or_else(|| {
             (
                 StatusCode::NOT_FOUND,
-                Json(OperationOutcome::not_found(format!("Schedule/{id}"))),
+                Json(operation_outcome::not_found(format!("Schedule/{id}"))),
             )
         })?;
     if body.get("actor").is_some() || body.get("owner").is_some() {
@@ -468,7 +486,8 @@ pub async fn delete_schedule(
 fn parse_slot_status(body: &Value) -> Result<Option<SlotStatus>, Error> {
     // FHIR Slot.status: "free" | "busy" | "busy-unavailable" |
     // "busy-tentative" | "entered-in-error". PAS supports the first two
-    // and maps "busy-unavailable" → BlockedOut.
+    // and maps "busy-unavailable" → BlockedOut. The value is checked against the FHIR Slot
+    // status codes by the `fhir` crate; the PAS-native spellings are accepted as well.
     let Some(s) = body.get("status").and_then(|v| v.as_str()) else {
         return Ok(None);
     };
@@ -490,6 +509,7 @@ fn parse_dt(body: &Value, key: &str) -> Result<chrono::DateTime<chrono::Utc>, Er
         .get(key)
         .and_then(|v| v.as_str())
         .ok_or_else(|| Error::validation(format!("Slot.{key} is required")))?;
+    // FHIR `instant`: RFC 3339 with a mandatory offset.
     chrono::DateTime::parse_from_rfc3339(raw)
         .map(|d| d.with_timezone(&chrono::Utc))
         .map_err(|e| Error::validation(format!("Slot.{key} {raw:?}: {e}")))
@@ -502,10 +522,14 @@ fn parse_schedule_ref(body: &Value) -> Result<Uuid, Error> {
         return Uuid::parse_str(s)
             .map_err(|e| Error::validation(format!("schedule_id {s:?}: {e}")));
     }
-    let reference = body
+    let schedule: fhir::r5::types::Reference = body
         .get("schedule")
-        .and_then(|v| v.get("reference"))
-        .and_then(|v| v.as_str())
+        .ok_or_else(|| Error::validation("Slot.schedule.reference is required"))
+        .and_then(|v| fhir_element(v, "Slot.schedule"))?;
+    let reference = schedule
+        .reference
+        .as_ref()
+        .map(|r| r.0.as_str())
         .ok_or_else(|| Error::validation("Slot.schedule.reference is required"))?;
     let id_str = reference.strip_prefix("Schedule/").ok_or_else(|| {
         Error::validation(format!(
@@ -543,7 +567,7 @@ pub async fn update_slot(
         .ok_or_else(|| {
             (
                 StatusCode::NOT_FOUND,
-                Json(OperationOutcome::not_found(format!("Slot/{id}"))),
+                Json(operation_outcome::not_found(format!("Slot/{id}"))),
             )
         })?;
     if body.get("start").is_some() {
@@ -593,7 +617,7 @@ pub async fn post_bundle(State(_state): State<AppState>, Json(body): Json<Value>
     if entries.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(OperationOutcome::error(
+            Json(operation_outcome::error(
                 "invalid",
                 "Bundle.entry is required and must be non-empty",
             )),
@@ -658,7 +682,7 @@ pub async fn post_bundle(State(_state): State<AppState>, Json(body): Json<Value>
     if any_rejected {
         Err((
             http_status,
-            Json(OperationOutcome::error(
+            Json(operation_outcome::error(
                 "invalid",
                 "Bundle contained entries that cannot be processed; see entry.response.outcome for details",
             )),

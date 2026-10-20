@@ -5,6 +5,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- HL7 v2 messages are the `er7` crate's `Message` and `Segment`: parsing, escaping and rendering come from `er7` (our own types and parser are gone). `hl7v2::SegmentRead` reads a field's wire text (`raw(n)`, `component_text(n, c)`); `hl7v2::segment` and `hl7v2::message` build segments for the encoders. Escaping now also protects a segment from a carriage return or line feed in a value.
+- FHIR: errors are the `fhir` crate's typed R5 `OperationOutcome` (`api::fhir::operation_outcome::{error, not_found, exception}`), and the Schedule and Slot handlers read FHIR references and service types as typed R5 elements (the PAS-native request shapes still work).
+
 ## [0.45.1] — 2026-10-20
 
 ### Fixed

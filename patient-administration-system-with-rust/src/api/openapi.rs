@@ -9,7 +9,6 @@
 
 use utoipa::OpenApi;
 
-use crate::api::fhir::operation_outcome::{Issue, OperationOutcome};
 use crate::api::fhir::resources::{
     FhirBundleRequest, FhirBundleResponse, FhirBundleWriteEntry, FhirWriteBundle,
 };
@@ -25,8 +24,6 @@ use crate::api::fhir::resources::{
         (name = "Health", description = "Health + readiness checks.")
     ),
     components(schemas(
-        OperationOutcome,
-        Issue,
         FhirBundleRequest,
         FhirBundleResponse,
         FhirBundleWriteEntry,
