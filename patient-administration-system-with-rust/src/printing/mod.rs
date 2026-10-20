@@ -186,6 +186,16 @@ impl PrintService {
             .db
             .transaction::<_, (Vec<ExportRow>, usize), Error>(|txn| {
                 Box::pin(async move {
+                    // Exports take turns. Without this, a second export whose snapshot predates the first one's
+                    // commit can lock the same letters (the lock is gone by then) and trip the unique constraint
+                    // on `print_batch_letters`. The lock is held until this transaction ends, and the query below
+                    // takes its snapshot after it.
+                    txn.execute(Statement::from_string(
+                        DbBackend::Postgres,
+                        "SELECT pg_advisory_xact_lock(7011)".to_string(),
+                    ))
+                    .await
+                    .map_err(Error::Database)?;
                     txn.execute(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "INSERT INTO print_batches (id, created_by) VALUES ($1,$2)",
