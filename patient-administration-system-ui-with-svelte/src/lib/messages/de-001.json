@@ -219,5 +219,21 @@
   "tol.metric.invoice_collection_rate": "Eingezogene Rechnungsbeträge",
   "tol.unit.weeks": "Wochen",
   "tol.unit.days": "Tage",
-  "tol.none": "Es gibt keine Kennzahlen."
+  "tol.none": "Es gibt keine Kennzahlen.",
+  "tol.by_service": "Nach Fachabteilung",
+  "tol.by_ward": "Nach Station",
+  "tol.by.intro": "Jede Fachabteilung und jede Station wird nach ihrer eigenen Toleranz beurteilt, wenn eine festgelegt wurde, sonst nach der Toleranz des gesamten Dienstes.",
+  "tol.col.service": "Fachabteilung",
+  "tol.col.ward": "Station",
+  "tol.col.where": "Wo",
+  "tol.scope.all": "Gesamter Dienst",
+  "tol.scope.ward": "Station {name}",
+  "tol.alerts.title": "Warnungen",
+  "tol.alerts.intro": "Ein Messwert, der seine rote Grenze überschreitet, löst eine Warnung aus. Sie schließt sich von selbst, sobald der Messwert nicht mehr rot ist. Eine Warnung zu bestätigen heißt, dass sich jemand darum kümmert; sie wird dadurch nicht geschlossen.",
+  "tol.alerts.none": "Keine offenen Warnungen.",
+  "tol.alerts.raised": "Ausgelöst",
+  "tol.alerts.ack": "Bestätigen",
+  "tol.alerts.ackedBy": "Bestätigt von",
+  "tol.alerts.done": "Warnung bestätigt.",
+  "tol.alerts.error": "Die Warnung konnte nicht bestätigt werden."
 }

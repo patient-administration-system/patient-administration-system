@@ -408,6 +408,15 @@ pub fn router(state: AppState) -> Router {
         .route("/api/tolerances", get(handlers_tolerance::list))
         .route("/api/tolerances/status", get(handlers_tolerance::status))
         .route(
+            "/api/tolerances/evaluate",
+            post(handlers_tolerance::evaluate),
+        )
+        .route("/api/tolerance-alerts", get(handlers_tolerance::alerts))
+        .route(
+            "/api/tolerance-alerts/{id}/acknowledge",
+            post(handlers_tolerance::acknowledge),
+        )
+        .route(
             "/api/tolerances/{metric}",
             put(handlers_tolerance::set).delete(handlers_tolerance::reset),
         )

@@ -13,4 +13,4 @@
 11. What are the current Welsh Ambulance Service NEPTS criteria and booking route, and who may request transport for a patient? (`governance/nepts-criteria.md`)
 12. Who may use the analytics feed, under what data-sharing terms, and should the open feed be replaced by a fixed monthly publication? (`governance/analytics-differencing.md`)
 13. Should a failed reminder send be retried within its step's window, rather than left to the next step and the call to a person? (`governance/chaos-testing.md`)
-14. Who sets the tolerances (target, tolerance, limit) for waits, lead time, missed appointments, slot use, bed occupancy and money collected, and should they differ by service or ward? The built-in defaults are starting points only. (TOL-1)
+14. Who sets the tolerances (target, tolerance, limit) for waits, lead time, missed appointments, slot use, bed occupancy and money collected, and who owns the alerts (who is told when a measure turns red)? A service or ward can now have its own tolerance, but nobody has chosen the real numbers; the built-in defaults are starting points only. (TOL-1)

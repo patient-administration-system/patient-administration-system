@@ -219,5 +219,21 @@
   "tol.metric.invoice_collection_rate": "已开票并收回的款项",
   "tol.unit.weeks": "周",
   "tol.unit.days": "天",
-  "tol.none": "没有指标。"
+  "tol.none": "没有指标。",
+  "tol.by_service": "按服务",
+  "tol.by_ward": "按病区",
+  "tol.by.intro": "已设置容差的服务或病区按其自身容差判断，否则按整个服务的容差判断。",
+  "tol.col.service": "服务",
+  "tol.col.ward": "病区",
+  "tol.col.where": "位置",
+  "tol.scope.all": "整个服务",
+  "tol.scope.ward": "病区 {name}",
+  "tol.alerts.title": "警报",
+  "tol.alerts.intro": "某项指标超过红色上限时会产生一条警报。该指标不再为红色时，警报会自动关闭。确认警报表示有人正在处理；这不会关闭警报。",
+  "tol.alerts.none": "没有未关闭的警报。",
+  "tol.alerts.raised": "产生时间",
+  "tol.alerts.ack": "确认",
+  "tol.alerts.ackedBy": "确认人",
+  "tol.alerts.done": "警报已确认。",
+  "tol.alerts.error": "无法确认该警报。"
 }

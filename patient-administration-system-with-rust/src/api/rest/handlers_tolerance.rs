@@ -13,7 +13,7 @@ use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
-use crate::tolerance::Limits;
+use crate::tolerance::{Limits, Scope};
 
 fn ok(value: Value) -> HandlerResult {
     (StatusCode::OK, Json(ApiResponse::ok(value)))
@@ -46,6 +46,10 @@ pub struct SetBody {
     pub set_by: String,
     #[serde(default)]
     pub note: String,
+    /// Set for one service only (the service type). Leave out both `service` and `ward` for the whole service.
+    pub service: Option<String>,
+    /// Set for one ward only (the ward code).
+    pub ward: Option<String>,
 }
 
 /// `PUT /api/tolerances/{metric}`: a named person sets a measure's tiers.
@@ -60,9 +64,13 @@ pub async fn set(
         tolerance: b.tolerance,
         escalate_beyond: b.escalate_beyond,
     };
+    let scope = match Scope::from_parts(b.service.as_deref(), b.ward.as_deref()) {
+        Ok(s) => s,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .tolerance
-        .set(&metric, limits, &b.set_by, &b.note, &ctx(&headers))
+        .set(&metric, &scope, limits, &b.set_by, &b.note, &ctx(&headers))
         .await
     {
         Ok(()) => ok(Value::Null),
@@ -70,13 +78,25 @@ pub async fn set(
     }
 }
 
-/// `DELETE /api/tolerances/{metric}`: back to the built-in default.
+#[derive(Debug, Deserialize)]
+pub struct ScopeQuery {
+    pub service: Option<String>,
+    pub ward: Option<String>,
+}
+
+/// `DELETE /api/tolerances/{metric}?service=&ward=`: take away what was set. The whole service goes back to
+/// the built-in default; a service or ward goes back to the whole service's limits.
 pub async fn reset(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(metric): Path<String>,
+    Query(q): Query<ScopeQuery>,
 ) -> HandlerResult {
-    match state.tolerance.reset(&metric, &ctx(&headers)).await {
+    let scope = match Scope::from_parts(q.service.as_deref(), q.ward.as_deref()) {
+        Ok(s) => s,
+        Err(e) => return error_to_response(e),
+    };
+    match state.tolerance.reset(&metric, &scope, &ctx(&headers)).await {
         Ok(()) => ok(Value::Null),
         Err(e) => error_to_response(e),
     }
@@ -91,6 +111,56 @@ pub struct StatusQuery {
 pub async fn status(State(state): State<AppState>, Query(q): Query<StatusQuery>) -> HandlerResult {
     match state.tolerance.status(q.days.unwrap_or(30)).await {
         Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `POST /api/tolerances/evaluate?days=30`: check every measure now. A red one opens an alert (once) and a
+/// recovered one closes its alert. The server also does this on a timer (`PAS_TOLERANCE_CHECK_MINUTES`).
+pub async fn evaluate(
+    State(state): State<AppState>,
+    Query(q): Query<StatusQuery>,
+) -> HandlerResult {
+    match state.tolerance.evaluate(q.days.unwrap_or(30)).await {
+        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AlertsQuery {
+    /// `true` for the alerts still open; the default is all of them.
+    pub open: Option<bool>,
+}
+
+/// `GET /api/tolerance-alerts?open=true`: alerts, newest first.
+pub async fn alerts(State(state): State<AppState>, Query(q): Query<AlertsQuery>) -> HandlerResult {
+    match state.tolerance.alerts(q.open.unwrap_or(false)).await {
+        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AckBody {
+    pub acknowledged_by: String,
+    #[serde(default)]
+    pub note: String,
+}
+
+/// `POST /api/tolerance-alerts/{id}/acknowledge`: a named person says they are on it.
+pub async fn acknowledge(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<uuid::Uuid>,
+    Json(b): Json<AckBody>,
+) -> HandlerResult {
+    match state
+        .tolerance
+        .acknowledge(id, &b.acknowledged_by, &b.note, &ctx(&headers))
+        .await
+    {
+        Ok(()) => ok(Value::Null),
         Err(e) => error_to_response(e),
     }
 }

@@ -28,6 +28,7 @@ const DEFAULT_TEMPLATE = {
 let template = { ...DEFAULT_TEMPLATE };
 let proofing = true;
 const acts = [];
+const acked = new Set();
 const ISSUER_URL = process.env.ISSUER_URL ?? null;
 const ISSUER = "authentication-service";
 const AUDIENCE = "patient-administration-system";
@@ -314,8 +315,27 @@ http
             reading("bed_occupancy", "resources", "share", "either", 0.85, 0.05, 0.1, null, "no_data", 0),
             reading("invoice_collection_rate", "money", "share", "lower_is_worse", 0.95, 0.03, 0.1, 0.9, "amber", 52),
           ],
+          by_service: [
+            { ...reading("did_not_attend_rate", "resources", "share", "higher_is_worse", 0.08, 0.02, 0.06, 0.21, "red", 80), scope_kind: "service", scope_key: "cardiology", customised: true },
+            { ...reading("slot_utilisation", "resources", "share", "lower_is_worse", 0.85, 0.05, 0.15, 0.9, "green", 60), scope_kind: "service", scope_key: "cardiology" },
+          ],
+          by_ward: [
+            { ...reading("bed_occupancy", "resources", "share", "either", 1, 0, 0.1, 1, "green", 28), scope_kind: "ward", scope_key: "W7", customised: true },
+          ],
         }),
       );
+    }
+    if (url.pathname === "/api/tolerance-alerts") {
+      return res.end(
+        envelope([
+          { id: "aaaaaaaa-0000-4000-8000-00000000000a", metric: "did_not_attend_rate", scope_kind: "service", scope_key: "cardiology", value: 0.21, target: 0.08, tolerance: 0.02, escalate_beyond: 0.06, unit: "share", raised_at: new Date().toISOString(), acknowledged_by: acked.has("aaaaaaaa-0000-4000-8000-00000000000a") ? "Admin User" : null, acknowledged_at: null },
+        ]),
+      );
+    }
+    if (/^\/api\/tolerance-alerts\/[0-9a-f-]+\/acknowledge$/.test(url.pathname) && req.method === "POST") {
+      acked.add(url.pathname.split("/")[3]);
+      acts.push({ token: url.pathname.split("/")[3], action: "tolerance-alert-acknowledged" });
+      return res.end(envelope(null));
     }
     if (url.pathname === "/api/pathways/due-check") {
       return res.end(

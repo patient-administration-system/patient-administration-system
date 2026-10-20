@@ -243,6 +243,35 @@ async fn main() -> Result<()> {
         .await;
     });
 
+    // Tolerance alerts: every PAS_TOLERANCE_CHECK_MINUTES (default 60; 0 turns it off) check each measure and
+    // open an alert for any that is red. It reads only; nothing here acts on a patient.
+    let tolerance_minutes: u64 = std::env::var("PAS_TOLERANCE_CHECK_MINUTES")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(60);
+    if tolerance_minutes > 0 {
+        let tolerance = state.tolerance.clone();
+        tokio::spawn(async move {
+            let mut tick =
+                tokio::time::interval(std::time::Duration::from_secs(tolerance_minutes * 60));
+            loop {
+                tick.tick().await;
+                match tolerance.evaluate(30).await {
+                    Ok(e) => tracing::info!(
+                        target: "pas::tolerance",
+                        raised = e.raised,
+                        cleared = e.cleared,
+                        open = e.open,
+                        "tolerance check complete"
+                    ),
+                    Err(e) => {
+                        tracing::warn!(target: "pas::tolerance", "tolerance check failed: {e}")
+                    }
+                }
+            }
+        });
+    }
+
     // Appointment reminders: opt in with PAS_REMINDERS_ENABLED=true. Lead
     // time via PAS_REMINDER_LEAD_HOURS (default 24); scanned every 5 minutes.
     // The no-show probability (CAP-12): an hourly pass that scores booked appointments still to come. A no-op

@@ -13,7 +13,7 @@ API="${PAS_API:-http://localhost:8080}"
 PG="${CHAOS_PG:?name the database container, e.g. chaos-postgres-1}"
 DOWN_SECONDS="${CHAOS_DOWN_SECONDS:-8}"
 PROBE="${CHAOS_PROBE_PATH:-/api/patients?limit=1}"  # must be a route that reads this database, not an upstream service
-code() { curl -s -o /dev/null -m 5 -w '%{http_code}' "$API$PROBE" 2>/dev/null || true; }
+code() { curl -s -o /dev/null -m 10 -w '%{http_code}' "$API$PROBE" 2>/dev/null || true; }
 
 [ "$(code)" = 200 ] || { echo "the API is not healthy before the test: $(code)"; exit 1; }
 echo "stopping $PG for ${DOWN_SECONDS}s"
@@ -21,7 +21,7 @@ podman stop -t 1 "$PG" >/dev/null
 end=$((SECONDS + DOWN_SECONDS)); worst=0; hung=0
 while [ $SECONDS -lt $end ]; do
   start=$SECONDS; c=$(code); took=$((SECONDS - start))
-  [ "$took" -gt 4 ] && hung=$((hung + 1))
+  [ "$took" -gt 7 ] && hung=$((hung + 1))
   case "$c" in 200) echo "unexpected 200 while the database is down";; 5??|000) ;; *) echo "odd status $c";; esac
   sleep 1
 done

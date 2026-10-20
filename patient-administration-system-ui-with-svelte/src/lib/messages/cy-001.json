@@ -219,5 +219,21 @@
   "tol.metric.invoice_collection_rate": "Arian a anfonebwyd a gasglwyd",
   "tol.unit.weeks": "wythnos",
   "tol.unit.days": "diwrnod",
-  "tol.none": "Nid oes unrhyw fesurau."
+  "tol.none": "Nid oes unrhyw fesurau.",
+  "tol.by_service": "Yn ôl gwasanaeth",
+  "tol.by_ward": "Yn ôl ward",
+  "tol.by.intro": "Caiff pob gwasanaeth a phob ward ei farnu yn ôl ei oddefiant ei hun os yw un wedi'i osod, ac yn ôl goddefiant y gwasanaeth cyfan fel arall.",
+  "tol.col.service": "Gwasanaeth",
+  "tol.col.ward": "Ward",
+  "tol.col.where": "Ble",
+  "tol.scope.all": "Y gwasanaeth cyfan",
+  "tol.scope.ward": "Ward {name}",
+  "tol.alerts.title": "Rhybuddion",
+  "tol.alerts.intro": "Mae mesur sy'n mynd heibio i'w derfyn coch yn agor rhybudd. Mae'n cau ei hun pan nad yw'r mesur yn goch mwyach. Mae cydnabod rhybudd yn dweud bod rhywun yn edrych arno; nid yw'n ei gau.",
+  "tol.alerts.none": "Dim rhybuddion agored.",
+  "tol.alerts.raised": "Codwyd",
+  "tol.alerts.ack": "Cydnabod",
+  "tol.alerts.ackedBy": "Cydnabuwyd gan",
+  "tol.alerts.done": "Cydnabuwyd y rhybudd.",
+  "tol.alerts.error": "Nid oedd modd cydnabod y rhybudd."
 }

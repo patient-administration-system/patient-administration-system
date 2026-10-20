@@ -9,6 +9,7 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
+- **New, tolerances per service or ward, and alerts:** a tolerance can be set for one service or one ward; a measure that turns red opens one alert (event `ToleranceAlertRaised`) that closes when it recovers, and a named person can acknowledge it (TOL-1; `tasks.md`).
 - **New, tolerances:** how much time, money and resources may vary from target, in red, amber and green, with a staff page `/tolerances` (TOL-1; `tasks.md`).
 
 ## Release 0.45.0 (2026-10-20)

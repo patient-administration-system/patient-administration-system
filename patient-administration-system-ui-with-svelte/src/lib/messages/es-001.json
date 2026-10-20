@@ -219,5 +219,21 @@
   "tol.metric.invoice_collection_rate": "Dinero facturado cobrado",
   "tol.unit.weeks": "semanas",
   "tol.unit.days": "días",
-  "tol.none": "No hay medidas."
+  "tol.none": "No hay medidas.",
+  "tol.by_service": "Por servicio",
+  "tol.by_ward": "Por planta",
+  "tol.by.intro": "Cada servicio y cada planta se juzga por su propia tolerancia si se ha fijado una, y por la tolerancia del servicio completo en caso contrario.",
+  "tol.col.service": "Servicio",
+  "tol.col.ward": "Planta",
+  "tol.col.where": "Dónde",
+  "tol.scope.all": "Servicio completo",
+  "tol.scope.ward": "Planta {name}",
+  "tol.alerts.title": "Alertas",
+  "tol.alerts.intro": "Una medida que supera su límite rojo abre una alerta. Se cierra sola cuando la medida deja de estar en rojo. Reconocer una alerta indica que alguien la está atendiendo; no la cierra.",
+  "tol.alerts.none": "No hay alertas abiertas.",
+  "tol.alerts.raised": "Generada",
+  "tol.alerts.ack": "Reconocer",
+  "tol.alerts.ackedBy": "Reconocida por",
+  "tol.alerts.done": "Alerta reconocida.",
+  "tol.alerts.error": "No se pudo reconocer la alerta."
 }

@@ -219,5 +219,21 @@
   "tol.metric.invoice_collection_rate": "Invoiced money collected",
   "tol.unit.weeks": "weeks",
   "tol.unit.days": "days",
-  "tol.none": "There are no measures."
+  "tol.none": "There are no measures.",
+  "tol.by_service": "By service",
+  "tol.by_ward": "By ward",
+  "tol.by.intro": "Each service and ward is judged by its own tolerance when one has been set, and by the whole service's tolerance otherwise.",
+  "tol.col.service": "Service",
+  "tol.col.ward": "Ward",
+  "tol.col.where": "Where",
+  "tol.scope.all": "Whole service",
+  "tol.scope.ward": "Ward {name}",
+  "tol.alerts.title": "Alerts",
+  "tol.alerts.intro": "A measure that goes past its red limit opens an alert. It closes by itself when the measure is no longer red. Acknowledging an alert says someone is looking at it; it does not close it.",
+  "tol.alerts.none": "No open alerts.",
+  "tol.alerts.raised": "Raised",
+  "tol.alerts.ack": "Acknowledge",
+  "tol.alerts.ackedBy": "Acknowledged by",
+  "tol.alerts.done": "Alert acknowledged.",
+  "tol.alerts.error": "The alert could not be acknowledged."
 }

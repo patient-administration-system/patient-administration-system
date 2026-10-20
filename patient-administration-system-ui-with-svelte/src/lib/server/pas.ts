@@ -182,6 +182,9 @@ export interface ToleranceReading {
   label: string;
   unit: "weeks" | "days" | "share";
   direction: "higher_is_worse" | "lower_is_worse" | "either";
+  /** What the reading is about: the whole service, one service (by its type), or one ward (by its code). */
+  scope_kind: "all" | "service" | "ward";
+  scope_key: string;
   target: number;
   tolerance: number;
   escalate_beyond: number;
@@ -197,7 +200,34 @@ export interface ToleranceStatus {
   to: string;
   overall: Rag;
   readings: ToleranceReading[];
+  by_service: ToleranceReading[];
+  by_ward: ToleranceReading[];
 }
+
+/** A measure that went past its red limit. Open until the measure is no longer red. */
+export interface ToleranceAlert {
+  id: string;
+  metric: string;
+  scope_kind: "all" | "service" | "ward";
+  scope_key: string;
+  value: number;
+  target: number;
+  tolerance: number;
+  escalate_beyond: number;
+  unit: "weeks" | "days" | "share" | null;
+  raised_at: string;
+  acknowledged_by: string | null;
+  acknowledged_at: string | null;
+}
+
+export const toleranceAlerts = (f: FetchFn) => pasArray<ToleranceAlert>(f, "/api/tolerance-alerts?open=true");
+
+/** A named person says they are looking at an open alert. */
+export const acknowledgeToleranceAlert = (f: FetchFn, id: string, by: string) =>
+  pas<null>(f, `/api/tolerance-alerts/${encodeURIComponent(id)}/acknowledge`, {
+    method: "POST",
+    body: { acknowledged_by: by },
+  });
 
 /** Each measure against its target and tolerances, and the worst tier overall. */
 export const toleranceStatus = (f: FetchFn, days: number) =>

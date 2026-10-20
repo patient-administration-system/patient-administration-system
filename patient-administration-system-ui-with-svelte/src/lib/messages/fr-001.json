@@ -219,5 +219,21 @@
   "tol.metric.invoice_collection_rate": "Argent facturé encaissé",
   "tol.unit.weeks": "semaines",
   "tol.unit.days": "jours",
-  "tol.none": "Il n'y a aucun indicateur."
+  "tol.none": "Il n'y a aucun indicateur.",
+  "tol.by_service": "Par service",
+  "tol.by_ward": "Par unité",
+  "tol.by.intro": "Chaque service et chaque unité est jugé selon sa propre tolérance lorsqu'elle a été définie, et selon la tolérance de l'ensemble du service sinon.",
+  "tol.col.service": "Service",
+  "tol.col.ward": "Unité",
+  "tol.col.where": "Où",
+  "tol.scope.all": "Ensemble du service",
+  "tol.scope.ward": "Unité {name}",
+  "tol.alerts.title": "Alertes",
+  "tol.alerts.intro": "Une mesure qui dépasse sa limite rouge ouvre une alerte. Elle se ferme d'elle-même lorsque la mesure n'est plus rouge. Prendre en compte une alerte indique que quelqu'un s'en occupe ; cela ne la ferme pas.",
+  "tol.alerts.none": "Aucune alerte ouverte.",
+  "tol.alerts.raised": "Déclenchée",
+  "tol.alerts.ack": "Prendre en compte",
+  "tol.alerts.ackedBy": "Prise en compte par",
+  "tol.alerts.done": "Alerte prise en compte.",
+  "tol.alerts.error": "L'alerte n'a pas pu être prise en compte."
 }

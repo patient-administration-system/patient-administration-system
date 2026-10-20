@@ -529,3 +529,19 @@ tolerances,escalate_beyond,none,"Not personal data (structure, status, timestamp
 tolerances,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerances,set_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 tolerances,note,free-text,A named person's reason for a tolerance; no patient details,audit-or-message
+tolerances,scope_kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerances,scope_key,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,metric,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,scope_kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,scope_key,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,value,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,target,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,tolerance,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,escalate_beyond,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,raised_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,last_seen_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,cleared_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,acknowledged_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerance_alerts,acknowledged_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+tolerance_alerts,note,free-text,A named person's note on an alert; no patient details,audit-or-message

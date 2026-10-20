@@ -11,15 +11,18 @@
 //!
 //! Measures cover time (waits, lead time), money (invoices collected) and resources (slot use, bed
 //! occupancy, missed appointments). The built-in defaults are starting points and a named person changes
-//! them (`PUT /api/tolerances/{metric}`); every change is audited. Nothing here acts on a patient: it is a
+//! them (`PUT /api/tolerances/{metric}`); every change is audited. A tolerance can also be set for one service
+//! or one ward, and where none is set the whole service's applies. When a measure goes red an alert opens (one
+//! per measure and scope, and a `ToleranceAlertRaised` event); it closes when the measure is no longer red. Nothing here acts on a patient: it is a
 //! view for managers, and no score or rank of a person takes part (NFR-11).
 
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
 use serde::Serialize;
 use uuid::Uuid;
 
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
+use crate::db::repositories::outbox::OutboxRepository;
 use crate::reports::{GroupBy, ReportService};
 use crate::{Error, Result};
 
@@ -86,6 +89,83 @@ pub fn classify(value: f64, limits: Limits, direction: Direction) -> Rag {
     }
 }
 
+/// What a tolerance applies to. `All` is the whole service; the others narrow it to one service or ward.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScopeKind {
+    All,
+    /// One service, by its service type (the schedule's `service_type`, the pathway's target service).
+    Service,
+    /// One ward, by its code.
+    Ward,
+}
+
+impl ScopeKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ScopeKind::All => "all",
+            ScopeKind::Service => "service",
+            ScopeKind::Ward => "ward",
+        }
+    }
+
+    fn parse(s: &str) -> Option<Self> {
+        match s {
+            "all" => Some(ScopeKind::All),
+            "service" => Some(ScopeKind::Service),
+            "ward" => Some(ScopeKind::Ward),
+            _ => None,
+        }
+    }
+}
+
+/// What a tolerance or a reading is about.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Scope {
+    pub kind: ScopeKind,
+    /// Empty for `All`.
+    pub key: String,
+}
+
+impl Scope {
+    pub fn all() -> Self {
+        Scope {
+            kind: ScopeKind::All,
+            key: String::new(),
+        }
+    }
+
+    /// A scope from the optional `service` and `ward` of a request. Naming both is an error.
+    pub fn from_parts(service: Option<&str>, ward: Option<&str>) -> Result<Self> {
+        fn clean(v: Option<&str>) -> Option<&str> {
+            v.map(str::trim).filter(|v| !v.is_empty())
+        }
+        match (clean(service), clean(ward)) {
+            (None, None) => Ok(Scope::all()),
+            (Some(s), None) => Ok(Scope {
+                kind: ScopeKind::Service,
+                key: s.to_string(),
+            }),
+            (None, Some(w)) => Ok(Scope {
+                kind: ScopeKind::Ward,
+                key: w.to_string(),
+            }),
+            (Some(_), Some(_)) => Err(Error::validation(
+                "a tolerance is for one service or one ward, not both",
+            )),
+        }
+    }
+
+    fn uuid(&self, metric: &str) -> Uuid {
+        let name = if self.kind == ScopeKind::All {
+            metric.to_string()
+        } else {
+            format!("{metric}|{}|{}", self.kind.as_str(), self.key)
+        };
+        Uuid::new_v5(&Uuid::NAMESPACE_OID, name.as_bytes())
+    }
+}
+
 /// One measure the system can read, with its built-in defaults.
 #[derive(Debug, Clone, Copy)]
 pub struct Metric {
@@ -97,6 +177,9 @@ pub struct Metric {
     pub unit: &'static str,
     pub direction: Direction,
     pub default: Limits,
+    /// What this measure can also be judged by, besides the whole service: `Service`, `Ward`, or `All` when
+    /// it can only be read for the whole service.
+    pub narrows_to: ScopeKind,
 }
 
 const fn limits(target: f64, tolerance: f64, escalate_beyond: f64) -> Limits {
@@ -116,6 +199,7 @@ pub const METRICS: [Metric; 6] = [
         unit: "weeks",
         direction: Direction::HigherIsWorse,
         default: limits(18.0, 2.0, 8.0),
+        narrows_to: ScopeKind::Service,
     },
     Metric {
         key: "lead_time_median_days",
@@ -124,6 +208,7 @@ pub const METRICS: [Metric; 6] = [
         unit: "days",
         direction: Direction::HigherIsWorse,
         default: limits(14.0, 7.0, 21.0),
+        narrows_to: ScopeKind::Service,
     },
     Metric {
         key: "did_not_attend_rate",
@@ -132,6 +217,7 @@ pub const METRICS: [Metric; 6] = [
         unit: "share",
         direction: Direction::HigherIsWorse,
         default: limits(0.08, 0.02, 0.06),
+        narrows_to: ScopeKind::Service,
     },
     Metric {
         key: "slot_utilisation",
@@ -140,6 +226,7 @@ pub const METRICS: [Metric; 6] = [
         unit: "share",
         direction: Direction::LowerIsWorse,
         default: limits(0.85, 0.05, 0.15),
+        narrows_to: ScopeKind::Service,
     },
     Metric {
         key: "bed_occupancy",
@@ -148,6 +235,7 @@ pub const METRICS: [Metric; 6] = [
         unit: "share",
         direction: Direction::Either,
         default: limits(0.85, 0.05, 0.10),
+        narrows_to: ScopeKind::Ward,
     },
     Metric {
         key: "invoice_collection_rate",
@@ -156,6 +244,7 @@ pub const METRICS: [Metric; 6] = [
         unit: "share",
         direction: Direction::LowerIsWorse,
         default: limits(0.95, 0.03, 0.10),
+        narrows_to: ScopeKind::All,
     },
 ];
 
@@ -171,6 +260,8 @@ pub struct Setting {
     pub label: &'static str,
     pub unit: &'static str,
     pub direction: Direction,
+    pub scope_kind: ScopeKind,
+    pub scope_key: String,
     #[serde(flatten)]
     pub limits: Limits,
     /// False while the built-in default applies.
@@ -188,6 +279,8 @@ pub struct Reading {
     pub label: &'static str,
     pub unit: &'static str,
     pub direction: Direction,
+    pub scope_kind: ScopeKind,
+    pub scope_key: String,
     #[serde(flatten)]
     pub limits: Limits,
     pub value: Option<f64>,
@@ -196,6 +289,7 @@ pub struct Reading {
     pub rag: Rag,
     /// How many things the value is based on (appointments, pathways, slots, beds, invoices).
     pub sample: i64,
+    /// True when this scope, or this measure, has limits a person set; false while a default applies.
     pub customised: bool,
 }
 
@@ -203,9 +297,49 @@ pub struct Reading {
 pub struct Status {
     pub from: DateTime<Utc>,
     pub to: DateTime<Utc>,
-    /// The worst tier among measures that have data; `no_data` when none do.
+    /// The worst tier among every reading that has data; `no_data` when none do.
     pub overall: Rag,
+    /// Each measure for the whole service.
     pub readings: Vec<Reading>,
+    /// The measures that can be read for one service, for each service that has data (or its own tolerance).
+    pub by_service: Vec<Reading>,
+    /// Bed occupancy for each ward.
+    pub by_ward: Vec<Reading>,
+}
+
+/// An alert: a measure that went past its escalate-beyond limit. One stays open while the measure stays red.
+#[derive(Debug, Clone, Serialize)]
+pub struct Alert {
+    pub id: Uuid,
+    pub metric: String,
+    pub label: Option<&'static str>,
+    pub unit: Option<&'static str>,
+    pub scope_kind: String,
+    pub scope_key: String,
+    pub value: f64,
+    pub target: f64,
+    pub tolerance: f64,
+    pub escalate_beyond: f64,
+    pub raised_at: DateTime<Utc>,
+    pub last_seen_at: DateTime<Utc>,
+    /// Set when the measure is no longer red.
+    pub cleared_at: Option<DateTime<Utc>>,
+    pub acknowledged_by: Option<String>,
+    pub acknowledged_at: Option<DateTime<Utc>>,
+    pub note: String,
+}
+
+/// What one check did.
+#[derive(Debug, Clone, Serialize)]
+pub struct Evaluation {
+    /// Readings looked at.
+    pub checked: usize,
+    /// New alerts.
+    pub raised: usize,
+    /// Alerts closed because the measure is no longer red.
+    pub cleared: usize,
+    /// Alerts open now.
+    pub open: i64,
 }
 
 pub struct ToleranceService {
@@ -231,6 +365,50 @@ fn check(limits: Limits) -> Result<()> {
     Ok(())
 }
 
+/// A scope fits a measure when it is the whole service, or the narrowing the measure allows.
+fn check_scope(m: &Metric, scope: &Scope) -> Result<()> {
+    if scope.kind == ScopeKind::All {
+        return Ok(());
+    }
+    if m.narrows_to != scope.kind {
+        return Err(Error::validation(match m.narrows_to {
+            ScopeKind::All => format!("{} is read for the whole service only", m.key),
+            ScopeKind::Service => format!("{} is read per service, not per ward", m.key),
+            ScopeKind::Ward => format!("{} is read per ward, not per service", m.key),
+        }));
+    }
+    if scope.key.len() > 120 {
+        return Err(Error::validation("the service or ward name is too long"));
+    }
+    Ok(())
+}
+
+/// A stored tolerance row.
+struct Row {
+    scope: Scope,
+    metric: String,
+    limits: Limits,
+    set_by: Option<String>,
+    note: Option<String>,
+    updated_at: Option<DateTime<Utc>>,
+}
+
+/// One value to put in a tier.
+struct Measure {
+    m: &'static Metric,
+    scope: Scope,
+    value: Option<f64>,
+    sample: i64,
+}
+
+fn rounded(v: f64) -> f64 {
+    (v * 1000.0).round() / 1000.0
+}
+
+fn share(part: i64, of: i64) -> Option<f64> {
+    (of > 0).then(|| part as f64 / of as f64)
+}
+
 impl ToleranceService {
     pub fn new(db: DatabaseConnection) -> Self {
         Self {
@@ -239,68 +417,98 @@ impl ToleranceService {
         }
     }
 
-    /// Every measure with the settings that apply: the default, or what a named person set.
-    pub async fn settings(&self) -> Result<Vec<Setting>> {
+    async fn rows(&self) -> Result<Vec<Row>> {
         let rows = self
             .db
             .query_all(Statement::from_string(
                 DbBackend::Postgres,
-                "SELECT metric, target, tolerance, escalate_beyond, set_by, note, updated_at FROM tolerances"
+                "SELECT metric, scope_kind, scope_key, target, tolerance, escalate_beyond, set_by, note, updated_at \
+                 FROM tolerances ORDER BY metric, scope_kind, scope_key"
                     .to_string(),
             ))
             .await
             .map_err(Error::Database)?;
         let g = Error::Database;
         let mut out = Vec::new();
-        for m in METRICS {
-            let found = rows
-                .iter()
-                .find(|r| r.try_get::<String>("", "metric").is_ok_and(|k| k == m.key));
-            let setting = match found {
-                Some(r) => Setting {
-                    metric: m.key,
-                    kind: m.kind,
-                    label: m.label,
-                    unit: m.unit,
-                    direction: m.direction,
-                    limits: Limits {
-                        target: r.try_get("", "target").map_err(g)?,
-                        tolerance: r.try_get("", "tolerance").map_err(g)?,
-                        escalate_beyond: r.try_get("", "escalate_beyond").map_err(g)?,
-                    },
-                    customised: true,
-                    set_by: r.try_get("", "set_by").ok(),
-                    note: r.try_get("", "note").ok(),
-                    updated_at: r.try_get("", "updated_at").ok(),
-                },
-                None => Setting {
-                    metric: m.key,
-                    kind: m.kind,
-                    label: m.label,
-                    unit: m.unit,
-                    direction: m.direction,
-                    limits: m.default,
-                    customised: false,
-                    set_by: None,
-                    note: None,
-                    updated_at: None,
-                },
+        for r in &rows {
+            let kind: String = r.try_get("", "scope_kind").map_err(g)?;
+            let Some(kind) = ScopeKind::parse(&kind) else {
+                continue;
             };
-            out.push(setting);
+            out.push(Row {
+                scope: Scope {
+                    kind,
+                    key: r.try_get("", "scope_key").map_err(g)?,
+                },
+                metric: r.try_get("", "metric").map_err(g)?,
+                limits: Limits {
+                    target: r.try_get("", "target").map_err(g)?,
+                    tolerance: r.try_get("", "tolerance").map_err(g)?,
+                    escalate_beyond: r.try_get("", "escalate_beyond").map_err(g)?,
+                },
+                set_by: r.try_get("", "set_by").ok(),
+                note: r.try_get("", "note").ok(),
+                updated_at: r.try_get("", "updated_at").ok(),
+            });
         }
         Ok(out)
     }
 
-    /// A named person sets a measure's target, tolerance and limit. Audited.
+    /// The limits that apply to a measure in a scope: the scope's own, else the whole service's, else the
+    /// built-in default. The flag says whether a person set the one used.
+    fn resolve(rows: &[Row], m: &Metric, scope: &Scope) -> (Limits, bool) {
+        let find = |s: &Scope| rows.iter().find(|r| r.metric == m.key && &r.scope == s);
+        find(scope)
+            .or_else(|| find(&Scope::all()))
+            .map_or((m.default, false), |r| (r.limits, true))
+    }
+
+    /// Every measure with the settings that apply to the whole service, then each setting a person made for
+    /// one service or ward.
+    pub async fn settings(&self) -> Result<Vec<Setting>> {
+        let rows = self.rows().await?;
+        let make = |m: &Metric, row: Option<&Row>, scope: Scope| Setting {
+            metric: m.key,
+            kind: m.kind,
+            label: m.label,
+            unit: m.unit,
+            direction: m.direction,
+            scope_kind: scope.kind,
+            scope_key: scope.key,
+            limits: row.map_or(m.default, |r| r.limits),
+            customised: row.is_some(),
+            set_by: row.and_then(|r| r.set_by.clone()),
+            note: row.and_then(|r| r.note.clone()),
+            updated_at: row.and_then(|r| r.updated_at),
+        };
+        let mut out = Vec::new();
+        for m in METRICS {
+            let whole = rows
+                .iter()
+                .find(|r| r.metric == m.key && r.scope.kind == ScopeKind::All);
+            out.push(make(&m, whole, Scope::all()));
+        }
+        for r in rows.iter().filter(|r| r.scope.kind != ScopeKind::All) {
+            if let Some(m) = metric(&r.metric) {
+                out.push(make(m, Some(r), r.scope.clone()));
+            }
+        }
+        Ok(out)
+    }
+
+    /// A named person sets a measure's target, tolerance and limit, for the whole service or for one service
+    /// or ward. Audited.
     pub async fn set(
         &self,
         key: &str,
+        scope: &Scope,
         limits: Limits,
         set_by: &str,
         note: &str,
         ctx: &UserContext,
     ) -> Result<()> {
         let m = metric(key).ok_or_else(|| Error::not_found(format!("no such measure: {key}")))?;
+        check_scope(m, scope)?;
         let by = set_by.trim();
         if by.is_empty() {
             return Err(Error::validation(
@@ -309,20 +517,22 @@ impl ToleranceService {
         }
         check(limits)?;
         let before = self
-            .settings()
+            .rows()
             .await?
             .into_iter()
-            .find(|s| s.metric == m.key)
-            .map(|s| s.limits);
+            .find(|r| r.metric == m.key && &r.scope == scope)
+            .map(|r| r.limits);
         self.db
             .execute(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "INSERT INTO tolerances (metric, target, tolerance, escalate_beyond, set_by, note) \
-                 VALUES ($1,$2,$3,$4,$5,$6) \
-                 ON CONFLICT (metric) DO UPDATE SET target = $2, tolerance = $3, escalate_beyond = $4, \
-                   set_by = $5, note = $6, updated_at = now()",
+                "INSERT INTO tolerances (metric, scope_kind, scope_key, target, tolerance, escalate_beyond, set_by, note) \
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8) \
+                 ON CONFLICT (metric, scope_kind, scope_key) DO UPDATE SET target = $4, tolerance = $5, \
+                   escalate_beyond = $6, set_by = $7, note = $8, updated_at = now()",
                 [
                     m.key.into(),
+                    scope.kind.as_str().into(),
+                    scope.key.clone().into(),
                     limits.target.into(),
                     limits.tolerance.into(),
                     limits.escalate_beyond.into(),
@@ -335,7 +545,7 @@ impl ToleranceService {
         AuditLogRepository::log(
             &self.db,
             "tolerance",
-            Uuid::new_v5(&Uuid::NAMESPACE_OID, m.key.as_bytes()),
+            scope.uuid(m.key),
             "set",
             before.and_then(|l| serde_json::to_value(l).ok()),
             serde_json::to_value(limits).ok(),
@@ -344,21 +554,27 @@ impl ToleranceService {
         .await
     }
 
-    /// Put a measure back to its built-in default. Audited.
-    pub async fn reset(&self, key: &str, ctx: &UserContext) -> Result<()> {
+    /// Take away what a person set: the scope goes back to the whole service's limits, and the whole service
+    /// back to the built-in default. Audited.
+    pub async fn reset(&self, key: &str, scope: &Scope, ctx: &UserContext) -> Result<()> {
         let m = metric(key).ok_or_else(|| Error::not_found(format!("no such measure: {key}")))?;
+        check_scope(m, scope)?;
         self.db
             .execute(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "DELETE FROM tolerances WHERE metric = $1",
-                [m.key.into()],
+                "DELETE FROM tolerances WHERE metric = $1 AND scope_kind = $2 AND scope_key = $3",
+                [
+                    m.key.into(),
+                    scope.kind.as_str().into(),
+                    scope.key.clone().into(),
+                ],
             ))
             .await
             .map_err(Error::Database)?;
         AuditLogRepository::log(
             &self.db,
             "tolerance",
-            Uuid::new_v5(&Uuid::NAMESPACE_OID, m.key.as_bytes()),
+            scope.uuid(m.key),
             "reset",
             None,
             serde_json::to_value(m.default).ok(),
@@ -367,7 +583,8 @@ impl ToleranceService {
         .await
     }
 
-    /// Read every measure over the last `days` days (waits are as of now) and put it in its tier.
+    /// Read every measure over the last `days` days (waits are as of now), for the whole service and then for
+    /// each service and ward, and put each in its tier.
     pub async fn status(&self, days: i64) -> Result<Status> {
         let days = days.clamp(1, 365);
         let to = Utc::now();
@@ -381,57 +598,98 @@ impl ToleranceService {
         let (beds, occupied) = self.bed_counts().await?;
         let (invoiced, collected, invoices) = self.money(from, to).await?;
 
-        // (value, sample) per measure; None when there is nothing to measure.
-        let measured = |key: &str| -> (Option<f64>, i64) {
-            match key {
-                "wait_p90_weeks" => (
-                    (report.open_pathway_weeks.n > 0).then_some(report.open_pathway_weeks.p90),
-                    report.open_pathway_weeks.n,
-                ),
-                "lead_time_median_days" => (
-                    (report.lead_time_days.n > 0).then_some(report.lead_time_days.median),
-                    report.lead_time_days.n,
-                ),
-                "did_not_attend_rate" => (
-                    (attended + missed > 0).then(|| missed as f64 / (attended + missed) as f64),
-                    attended + missed,
-                ),
-                "slot_utilisation" => (
-                    (report.total_slots > 0).then_some(report.utilization),
-                    report.total_slots,
-                ),
-                "bed_occupancy" => ((beds > 0).then(|| occupied as f64 / beds as f64), beds),
-                "invoice_collection_rate" => (
-                    (invoiced > 0.0).then(|| (collected / invoiced).min(1.0)),
-                    invoices,
-                ),
-                _ => (None, 0),
+        let mut measures = Vec::new();
+        let mut whole = |key: &str, value: Option<f64>, sample: i64| {
+            if let Some(m) = metric(key) {
+                measures.push(Measure {
+                    m,
+                    scope: Scope::all(),
+                    value,
+                    sample,
+                });
             }
         };
+        whole(
+            "wait_p90_weeks",
+            (report.open_pathway_weeks.n > 0).then_some(report.open_pathway_weeks.p90),
+            report.open_pathway_weeks.n,
+        );
+        whole(
+            "lead_time_median_days",
+            (report.lead_time_days.n > 0).then_some(report.lead_time_days.median),
+            report.lead_time_days.n,
+        );
+        whole(
+            "did_not_attend_rate",
+            share(missed, attended + missed),
+            attended + missed,
+        );
+        whole(
+            "slot_utilisation",
+            (report.total_slots > 0).then_some(report.utilization),
+            report.total_slots,
+        );
+        whole("bed_occupancy", share(occupied, beds), beds);
+        whole(
+            "invoice_collection_rate",
+            (invoiced > 0.0).then(|| (collected / invoiced).min(1.0)),
+            invoices,
+        );
+        measures.extend(self.service_measures(from, to, &report).await?);
+        measures.extend(self.ward_measures().await?);
 
-        let settings = self.settings().await?;
-        let mut readings = Vec::new();
-        for s in settings {
-            let (value, sample) = measured(s.metric);
-            let rag = value.map_or(Rag::NoData, |v| classify(v, s.limits, s.direction));
-            readings.push(Reading {
-                metric: s.metric,
-                kind: s.kind,
-                label: s.label,
-                unit: s.unit,
-                direction: s.direction,
-                limits: s.limits,
-                value: value.map(|v| (v * 1000.0).round() / 1000.0),
-                adverse_drift: value.map(|v| {
-                    (adverse_drift(v, s.limits.target, s.direction) * 1000.0).round() / 1000.0
-                }),
-                rag,
-                sample,
-                customised: s.customised,
-            });
+        let rows = self.rows().await?;
+        // A scope someone gave its own tolerance is always shown, even with nothing to measure yet.
+        for r in rows.iter().filter(|r| r.scope.kind != ScopeKind::All) {
+            let Some(m) = metric(&r.metric) else { continue };
+            if !measures
+                .iter()
+                .any(|x| x.m.key == m.key && x.scope == r.scope)
+            {
+                measures.push(Measure {
+                    m,
+                    scope: r.scope.clone(),
+                    value: None,
+                    sample: 0,
+                });
+            }
         }
+        let mut readings = Vec::new();
+        let mut by_service = Vec::new();
+        let mut by_ward = Vec::new();
+        for x in measures {
+            let (limits, customised) = Self::resolve(&rows, x.m, &x.scope);
+            let reading = Reading {
+                metric: x.m.key,
+                kind: x.m.kind,
+                label: x.m.label,
+                unit: x.m.unit,
+                direction: x.m.direction,
+                scope_kind: x.scope.kind,
+                scope_key: x.scope.key.clone(),
+                limits,
+                value: x.value.map(rounded),
+                adverse_drift: x
+                    .value
+                    .map(|v| rounded(adverse_drift(v, limits.target, x.m.direction))),
+                rag: x
+                    .value
+                    .map_or(Rag::NoData, |v| classify(v, limits, x.m.direction)),
+                sample: x.sample,
+                customised,
+            };
+            match x.scope.kind {
+                ScopeKind::All => readings.push(reading),
+                ScopeKind::Service => by_service.push(reading),
+                ScopeKind::Ward => by_ward.push(reading),
+            }
+        }
+        by_service.sort_by(|a, b| (&a.scope_key, a.metric).cmp(&(&b.scope_key, b.metric)));
+        by_ward.sort_by(|a, b| (&a.scope_key, a.metric).cmp(&(&b.scope_key, b.metric)));
         let overall = readings
             .iter()
+            .chain(&by_service)
+            .chain(&by_ward)
             .map(|r| r.rag)
             .max_by_key(|r| r.rank())
             .unwrap_or(Rag::NoData);
@@ -440,7 +698,136 @@ impl ToleranceService {
             to,
             overall,
             readings,
+            by_service,
+            by_ward,
         })
+    }
+
+    /// The four service-level measures for each service that has appointments, slots or open pathways.
+    async fn service_measures(
+        &self,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+        report: &crate::reports::Report,
+    ) -> Result<Vec<Measure>> {
+        let g = Error::Database;
+        let q = |sql: &str| {
+            Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql.to_string(),
+                [from.into(), to.into()],
+            )
+        };
+        let visits = self
+            .db
+            .query_all(q(
+                "SELECT sch.service_type AS svc, \
+                   count(*) FILTER (WHERE a.status IN ('arrived','fulfilled'))::bigint AS attended, \
+                   count(*) FILTER (WHERE a.status = 'no_show')::bigint AS missed, \
+                   array_agg(floor(greatest(0, extract(epoch FROM (a.start_datetime - a.created_at)) / 86400))::float8) AS leads \
+                 FROM appointments a JOIN slots sl ON sl.id = a.slot_id JOIN schedules sch ON sch.id = sl.schedule_id \
+                 WHERE a.deleted_at IS NULL AND sch.service_type IS NOT NULL \
+                   AND a.start_datetime >= $1 AND a.start_datetime < $2 GROUP BY 1",
+            ))
+            .await
+            .map_err(Error::Database)?;
+        let slots = self
+            .db
+            .query_all(q(
+                "SELECT sch.service_type AS svc, count(*)::bigint AS slots, \
+                   count(*) FILTER (WHERE sl.status = 'busy')::bigint AS busy \
+                 FROM slots sl JOIN schedules sch ON sch.id = sl.schedule_id \
+                 WHERE sch.service_type IS NOT NULL AND sl.start_datetime >= $1 AND sl.start_datetime < $2 GROUP BY 1",
+            ))
+            .await
+            .map_err(Error::Database)?;
+
+        use std::collections::BTreeMap;
+        #[derive(Default)]
+        struct Acc {
+            attended: i64,
+            missed: i64,
+            leads: Vec<f64>,
+            slots: i64,
+            busy: i64,
+            waits: Vec<f64>,
+        }
+        let mut by: BTreeMap<String, Acc> = BTreeMap::new();
+        for r in &visits {
+            let acc = by.entry(r.try_get("", "svc").map_err(g)?).or_default();
+            acc.attended = r.try_get("", "attended").map_err(g)?;
+            acc.missed = r.try_get("", "missed").map_err(g)?;
+            acc.leads = r.try_get("", "leads").map_err(g)?;
+        }
+        for r in &slots {
+            let acc = by.entry(r.try_get("", "svc").map_err(g)?).or_default();
+            acc.slots = r.try_get("", "slots").map_err(g)?;
+            acc.busy = r.try_get("", "busy").map_err(g)?;
+        }
+        for (svc, weeks) in &report.pathway_weeks {
+            by.entry(svc.clone()).or_default().waits.push(*weeks);
+        }
+
+        let mut out = Vec::new();
+        for (svc, acc) in by {
+            let scope = Scope {
+                kind: ScopeKind::Service,
+                key: svc,
+            };
+            let mut add = |key: &str, value: Option<f64>, sample: i64| {
+                if let (Some(m), true) = (metric(key), sample > 0) {
+                    out.push(Measure {
+                        m,
+                        scope: scope.clone(),
+                        value,
+                        sample,
+                    });
+                }
+            };
+            let waits = crate::reports::stats(acc.waits);
+            add("wait_p90_weeks", Some(waits.p90), waits.n);
+            let leads = crate::reports::stats(acc.leads);
+            add("lead_time_median_days", Some(leads.median), leads.n);
+            add(
+                "did_not_attend_rate",
+                share(acc.missed, acc.attended + acc.missed),
+                acc.attended + acc.missed,
+            );
+            add("slot_utilisation", share(acc.busy, acc.slots), acc.slots);
+        }
+        Ok(out)
+    }
+
+    async fn ward_measures(&self) -> Result<Vec<Measure>> {
+        let rows = self
+            .db
+            .query_all(Statement::from_string(
+                DbBackend::Postgres,
+                "SELECT w.code AS ward, count(*)::bigint AS beds, \
+                   count(*) FILTER (WHERE b.status = 'occupied')::bigint AS occupied \
+                 FROM beds b JOIN rooms r ON r.id = b.room_id JOIN wards w ON w.id = r.ward_id GROUP BY w.code"
+                    .to_string(),
+            ))
+            .await
+            .map_err(Error::Database)?;
+        let Some(m) = metric("bed_occupancy") else {
+            return Ok(Vec::new());
+        };
+        let mut out = Vec::new();
+        for r in &rows {
+            let beds: i64 = r.try_get("", "beds").map_err(Error::Database)?;
+            let occupied: i64 = r.try_get("", "occupied").map_err(Error::Database)?;
+            out.push(Measure {
+                m,
+                scope: Scope {
+                    kind: ScopeKind::Ward,
+                    key: r.try_get("", "ward").map_err(Error::Database)?,
+                },
+                value: share(occupied, beds),
+                sample: beds,
+            });
+        }
+        Ok(out)
     }
 
     async fn bed_counts(&self) -> Result<(i64, i64)> {
@@ -485,6 +872,220 @@ impl ToleranceService {
             r.try_get("", "collected").map_err(Error::Database)?,
             r.try_get("", "n").map_err(Error::Database)?,
         ))
+    }
+
+    /// Check every reading and keep the alerts true to it: a measure that is red has one open alert (and the
+    /// `ToleranceAlertRaised` event is published once, when it opens); an alert closes when its measure is
+    /// amber or green. A measure with no data leaves its alert as it is, because nothing says it recovered.
+    pub async fn evaluate(&self, days: i64) -> Result<Evaluation> {
+        let status = self.status(days).await?;
+        let readings: Vec<&Reading> = status
+            .readings
+            .iter()
+            .chain(&status.by_service)
+            .chain(&status.by_ward)
+            .collect();
+        let (mut raised, mut cleared) = (0, 0);
+        for r in &readings {
+            match (r.rag, r.value) {
+                (Rag::Red, Some(value)) => {
+                    if self.open_or_raise(r, value).await? {
+                        raised += 1;
+                    }
+                }
+                (Rag::Green | Rag::Amber, _) => {
+                    let n = self
+                        .db
+                        .execute(Statement::from_sql_and_values(
+                            DbBackend::Postgres,
+                            "UPDATE tolerance_alerts SET cleared_at = now() \
+                             WHERE metric = $1 AND scope_kind = $2 AND scope_key = $3 AND cleared_at IS NULL",
+                            [
+                                r.metric.into(),
+                                r.scope_kind.as_str().into(),
+                                r.scope_key.clone().into(),
+                            ],
+                        ))
+                        .await
+                        .map_err(Error::Database)?
+                        .rows_affected();
+                    cleared += n as usize;
+                }
+                _ => {}
+            }
+        }
+        let open = self
+            .db
+            .query_one(Statement::from_string(
+                DbBackend::Postgres,
+                "SELECT count(*)::bigint AS n FROM tolerance_alerts WHERE cleared_at IS NULL"
+                    .to_string(),
+            ))
+            .await
+            .map_err(Error::Database)?
+            .and_then(|r| r.try_get::<i64>("", "n").ok())
+            .unwrap_or(0);
+        Ok(Evaluation {
+            checked: readings.len(),
+            raised,
+            cleared,
+            open,
+        })
+    }
+
+    /// Open an alert for a red reading, or note that it is still red. True when a new alert opened.
+    async fn open_or_raise(&self, r: &Reading, value: f64) -> Result<bool> {
+        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let id = Uuid::new_v4();
+        let inserted = txn
+            .execute(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "INSERT INTO tolerance_alerts (id, metric, scope_kind, scope_key, value, target, tolerance, escalate_beyond) \
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING",
+                [
+                    id.into(),
+                    r.metric.into(),
+                    r.scope_kind.as_str().into(),
+                    r.scope_key.clone().into(),
+                    value.into(),
+                    r.limits.target.into(),
+                    r.limits.tolerance.into(),
+                    r.limits.escalate_beyond.into(),
+                ],
+            ))
+            .await
+            .map_err(Error::Database)?
+            .rows_affected()
+            == 1;
+        if inserted {
+            OutboxRepository::publish(
+                &txn,
+                "ToleranceAlertRaised",
+                &serde_json::json!({
+                    "alert_id": id,
+                    "metric": r.metric,
+                    "scope_kind": r.scope_kind,
+                    "scope_key": r.scope_key,
+                    "value": value,
+                    "target": r.limits.target,
+                    "escalate_beyond": r.limits.escalate_beyond,
+                }),
+            )
+            .await?;
+        } else {
+            txn.execute(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "UPDATE tolerance_alerts SET last_seen_at = now(), value = $4 \
+                 WHERE metric = $1 AND scope_kind = $2 AND scope_key = $3 AND cleared_at IS NULL",
+                [
+                    r.metric.into(),
+                    r.scope_kind.as_str().into(),
+                    r.scope_key.clone().into(),
+                    value.into(),
+                ],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        }
+        txn.commit().await.map_err(Error::Database)?;
+        Ok(inserted)
+    }
+
+    /// Alerts, newest first: the open ones, or every one (up to 200).
+    pub async fn alerts(&self, open_only: bool) -> Result<Vec<Alert>> {
+        let rows = self
+            .db
+            .query_all(Statement::from_string(
+                DbBackend::Postgres,
+                format!(
+                    "SELECT id, metric, scope_kind, scope_key, value, target, tolerance, escalate_beyond, raised_at, \
+                            last_seen_at, cleared_at, acknowledged_by, acknowledged_at, note \
+                     FROM tolerance_alerts {} ORDER BY raised_at DESC LIMIT 200",
+                    if open_only { "WHERE cleared_at IS NULL" } else { "" }
+                ),
+            ))
+            .await
+            .map_err(Error::Database)?;
+        let g = Error::Database;
+        let mut out = Vec::new();
+        for r in &rows {
+            let key: String = r.try_get("", "metric").map_err(g)?;
+            let m = metric(&key);
+            out.push(Alert {
+                id: r.try_get("", "id").map_err(g)?,
+                label: m.map(|m| m.label),
+                unit: m.map(|m| m.unit),
+                metric: key,
+                scope_kind: r.try_get("", "scope_kind").map_err(g)?,
+                scope_key: r.try_get("", "scope_key").map_err(g)?,
+                value: r.try_get("", "value").map_err(g)?,
+                target: r.try_get("", "target").map_err(g)?,
+                tolerance: r.try_get("", "tolerance").map_err(g)?,
+                escalate_beyond: r.try_get("", "escalate_beyond").map_err(g)?,
+                raised_at: r.try_get("", "raised_at").map_err(g)?,
+                last_seen_at: r.try_get("", "last_seen_at").map_err(g)?,
+                cleared_at: r.try_get("", "cleared_at").map_err(g)?,
+                acknowledged_by: r.try_get("", "acknowledged_by").map_err(g)?,
+                acknowledged_at: r.try_get("", "acknowledged_at").map_err(g)?,
+                note: r.try_get("", "note").map_err(g)?,
+            });
+        }
+        Ok(out)
+    }
+
+    /// A named person says they are looking at an open alert. It stays open until the measure is no longer red.
+    /// Once; audited.
+    pub async fn acknowledge(
+        &self,
+        id: Uuid,
+        by: &str,
+        note: &str,
+        ctx: &UserContext,
+    ) -> Result<()> {
+        let by = by.trim();
+        if by.is_empty() {
+            return Err(Error::validation(
+                "name the person acknowledging the alert (acknowledged_by)",
+            ));
+        }
+        let n = self
+            .db
+            .execute(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "UPDATE tolerance_alerts SET acknowledged_by = $2, acknowledged_at = now(), note = $3 \
+                 WHERE id = $1 AND cleared_at IS NULL AND acknowledged_by IS NULL",
+                [id.into(), by.into(), note.trim().into()],
+            ))
+            .await
+            .map_err(Error::Database)?
+            .rows_affected();
+        if n == 0 {
+            let exists = self
+                .db
+                .query_one(Statement::from_sql_and_values(
+                    DbBackend::Postgres,
+                    "SELECT 1 AS x FROM tolerance_alerts WHERE id = $1",
+                    [id.into()],
+                ))
+                .await
+                .map_err(Error::Database)?
+                .is_some();
+            return Err(if exists {
+                Error::conflict("the alert is closed or already acknowledged")
+            } else {
+                Error::not_found("no such alert")
+            });
+        }
+        AuditLogRepository::log(
+            &self.db,
+            "tolerance_alert",
+            id,
+            "acknowledge",
+            None,
+            Some(serde_json::json!({ "acknowledged_by": by })),
+            ctx,
+        )
+        .await
     }
 }
 
@@ -556,6 +1157,52 @@ mod tests {
             assert!(keys.insert(m.key), "duplicate {}", m.key);
             assert!(metric(m.key).is_some());
         }
+    }
+
+    #[test]
+    fn a_scope_is_the_whole_service_one_service_or_one_ward() {
+        assert_eq!(Scope::from_parts(None, None).unwrap(), Scope::all());
+        assert_eq!(
+            Scope::from_parts(Some(" "), Some("")).unwrap(),
+            Scope::all()
+        );
+        let s = Scope::from_parts(Some(" cardiology "), None).unwrap();
+        assert_eq!((s.kind, s.key.as_str()), (ScopeKind::Service, "cardiology"));
+        let w = Scope::from_parts(None, Some("W1")).unwrap();
+        assert_eq!(w.kind, ScopeKind::Ward);
+        assert!(Scope::from_parts(Some("a"), Some("b")).is_err());
+    }
+
+    #[test]
+    fn a_measure_narrows_only_the_way_it_is_read() {
+        let svc = Scope::from_parts(Some("x"), None).unwrap();
+        let ward = Scope::from_parts(None, Some("x")).unwrap();
+        let get = |k| metric(k).unwrap();
+        assert!(check_scope(get("wait_p90_weeks"), &svc).is_ok());
+        assert!(check_scope(get("wait_p90_weeks"), &ward).is_err());
+        assert!(check_scope(get("bed_occupancy"), &ward).is_ok());
+        assert!(check_scope(get("bed_occupancy"), &svc).is_err());
+        assert!(check_scope(get("invoice_collection_rate"), &svc).is_err());
+        for m in METRICS {
+            assert!(check_scope(&m, &Scope::all()).is_ok(), "{}", m.key);
+        }
+    }
+
+    #[test]
+    fn scopes_do_not_share_an_audit_id() {
+        let a = Scope::all().uuid("slot_utilisation");
+        let s = Scope::from_parts(Some("x"), None)
+            .unwrap()
+            .uuid("slot_utilisation");
+        let t = Scope::from_parts(Some("y"), None)
+            .unwrap()
+            .uuid("slot_utilisation");
+        assert!(a != s && s != t);
+        assert_eq!(
+            a,
+            Uuid::new_v5(&Uuid::NAMESPACE_OID, b"slot_utilisation"),
+            "unchanged for the whole service"
+        );
     }
 
     #[test]

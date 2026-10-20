@@ -82,6 +82,10 @@ pub struct Report {
     /// Weeks waited on the pathways open now (not limited to the range).
     pub open_pathway_weeks: Stats,
     pub breaching_pathways: i64,
+    /// Weeks waited on each open pathway with the service it waits for. Not serialised: it is for the
+    /// tolerances, which judge each service on its own.
+    #[serde(skip)]
+    pub pathway_weeks: Vec<(String, f64)>,
 }
 
 impl Report {
@@ -305,12 +309,14 @@ impl ReportService {
             .db
             .query_all(Statement::from_string(
                 DbBackend::Postgres,
-                "SELECT id FROM rtt_pathways WHERE stopped_at IS NULL LIMIT 20000".to_string(),
+                "SELECT id, target_service FROM rtt_pathways WHERE stopped_at IS NULL LIMIT 20000"
+                    .to_string(),
             ))
             .await
             .map_err(Error::Database)?;
         let now = Utc::now();
         let mut weeks = Vec::new();
+        let mut by_service = Vec::new();
         let mut breaching = 0;
         for p in &paths {
             let id: uuid::Uuid = p.try_get("", "id").map_err(g)?;
@@ -322,6 +328,10 @@ impl ReportService {
                 breaching += 1;
             }
             weeks.push(f64::from(w));
+            by_service.push((
+                p.try_get::<String>("", "target_service").map_err(g)?,
+                f64::from(w),
+            ));
         }
         Ok(Report {
             from,
@@ -335,6 +345,7 @@ impl ReportService {
             lead_time_days: stats(lead_days),
             open_pathway_weeks: stats(weeks),
             breaching_pathways: breaching,
+            pathway_weeks: by_service,
         })
     }
 }
