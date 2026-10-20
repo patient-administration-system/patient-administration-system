@@ -84,7 +84,7 @@ async fn set_needs(s: &AppState, person: Uuid, needs: &[&str]) {
                 alternate_is_emergency: false,
                 preferred_channel: None,
                 preferred_language: None,
-                accessibility_needs: needs.iter().map(|n| n.to_string()).collect(),
+                accessibility_needs: needs.iter().map(std::string::ToString::to_string).collect(),
             },
             &sys(),
         )

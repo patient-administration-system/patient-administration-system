@@ -272,8 +272,12 @@ pub fn encode_batch_ack(
     per_message_acks: &[String],
 ) -> String {
     let now = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
-    let mut out =
-        String::with_capacity(256 + per_message_acks.iter().map(|s| s.len()).sum::<usize>());
+    let mut out = String::with_capacity(
+        256 + per_message_acks
+            .iter()
+            .map(std::string::String::len)
+            .sum::<usize>(),
+    );
     out.push_str(&format!(
         "BHS|^~\\&|{sending_app}|FAC|{receiving_app}|FAC|{now}||{batch_control_id}|P|2.5\r"
     ));

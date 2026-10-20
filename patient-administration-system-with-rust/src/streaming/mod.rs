@@ -239,7 +239,7 @@ mod tests {
             .expect_err("Fluvio stub must fail");
         match err {
             crate::Error::Streaming(msg) => {
-                assert!(msg.contains("not implemented"), "msg: {msg}")
+                assert!(msg.contains("not implemented"), "msg: {msg}");
             }
             other => panic!("expected Streaming, got {other:?}"),
         }

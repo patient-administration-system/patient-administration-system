@@ -88,7 +88,7 @@ pub fn pickup_address(person: &crate::upstream::Person) -> Option<String> {
     let mut parts: Vec<String> = Vec::new();
     match a.get("line") {
         Some(serde_json::Value::Array(l)) => {
-            parts.extend(l.iter().filter_map(|v| v.as_str()).map(String::from))
+            parts.extend(l.iter().filter_map(|v| v.as_str()).map(String::from));
         }
         Some(serde_json::Value::String(s)) => parts.push(s.clone()),
         _ => {}

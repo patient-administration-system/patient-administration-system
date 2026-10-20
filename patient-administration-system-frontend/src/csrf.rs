@@ -116,7 +116,8 @@ mod tests {
         let (token, jar) = ensure_token(jar);
         assert_eq!(token.len(), 32, "uuid simple format is 32 hex chars");
         assert_eq!(
-            jar.get(COOKIE_NAME).map(|c| c.value()),
+            jar.get(COOKIE_NAME)
+                .map(loco_rs::prelude::cookie::Cookie::value),
             Some(token.as_str())
         );
     }

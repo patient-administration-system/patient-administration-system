@@ -25,8 +25,7 @@ impl AppointmentStatus {
     pub fn try_transition_to(self, next: AppointmentStatus) -> Result<AppointmentStatus> {
         if self == next {
             return Err(Error::invalid_transition(format!(
-                "AppointmentStatus already {:?}",
-                self
+                "AppointmentStatus already {self:?}"
             )));
         }
         let ok = matches!(
@@ -43,8 +42,7 @@ impl AppointmentStatus {
             Ok(next)
         } else {
             Err(Error::invalid_transition(format!(
-                "Cannot transition AppointmentStatus from {:?} to {:?}",
-                self, next
+                "Cannot transition AppointmentStatus from {self:?} to {next:?}"
             )))
         }
     }
@@ -355,8 +353,7 @@ mod tests {
             let result = AppointmentStatus::Cancelled.try_transition_to(next);
             assert!(
                 result.is_err(),
-                "Cancelled should not transition to {:?}",
-                next
+                "Cancelled should not transition to {next:?}"
             );
         }
     }
@@ -374,8 +371,7 @@ mod tests {
             let result = AppointmentStatus::Fulfilled.try_transition_to(next);
             assert!(
                 result.is_err(),
-                "Fulfilled should not transition to {:?}",
-                next
+                "Fulfilled should not transition to {next:?}"
             );
         }
     }
@@ -391,11 +387,7 @@ mod tests {
             AppointmentStatus::NoShow,
         ] {
             let result = AppointmentStatus::NoShow.try_transition_to(next);
-            assert!(
-                result.is_err(),
-                "NoShow should not transition to {:?}",
-                next
-            );
+            assert!(result.is_err(), "NoShow should not transition to {next:?}");
         }
     }
 

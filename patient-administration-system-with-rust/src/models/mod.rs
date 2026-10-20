@@ -104,8 +104,7 @@ impl Iso4217 {
         }
         if !code.chars().all(|c| c.is_ascii_uppercase()) {
             return Err(Error::validation(format!(
-                "ISO 4217 code must be uppercase ASCII letters, got {:?}",
-                code
+                "ISO 4217 code must be uppercase ASCII letters, got {code:?}"
             )));
         }
         Ok(Self(code.to_string()))

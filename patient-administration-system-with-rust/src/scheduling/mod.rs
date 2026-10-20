@@ -74,36 +74,45 @@ impl SchedulingService {
     }
 
     pub fn set_transport(&self, t: Arc<crate::transport::TransportService>) {
-        *self.transport.write().unwrap_or_else(|e| e.into_inner()) = Some(t);
+        *self
+            .transport
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(t);
     }
 
     /// A clone out of the lock, so the guard is never held across an await.
     fn noshow(&self) -> Option<Arc<crate::noshow::NoShowService>> {
         self.noshow
             .read()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
     }
 
     pub fn set_noshow(&self, n: Arc<crate::noshow::NoShowService>) {
-        *self.noshow.write().unwrap_or_else(|e| e.into_inner()) = Some(n);
+        *self
+            .noshow
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(n);
     }
 
     pub fn set_backfill(&self, b: Arc<crate::backfill::BackfillService>) {
-        *self.backfill.write().unwrap_or_else(|e| e.into_inner()) = Some(b);
+        *self
+            .backfill
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(b);
     }
 
     fn backfill(&self) -> Option<Arc<crate::backfill::BackfillService>> {
         self.backfill
             .read()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
     }
 
     fn transport(&self) -> Option<Arc<crate::transport::TransportService>> {
         self.transport
             .read()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
     }
 

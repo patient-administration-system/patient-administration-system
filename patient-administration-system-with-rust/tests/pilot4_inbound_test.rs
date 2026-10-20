@@ -413,7 +413,7 @@ async fn a_message_id_cannot_be_reused_from_another_number_and_bad_input_is_refu
     );
     for bad in [
         InboundText {
-            message_id: "".into(),
+            message_id: String::new(),
             ..text(&a, "y")
         },
         InboundText {

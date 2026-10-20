@@ -555,7 +555,10 @@ mod tests {
     fn seg(name: &str, fields: &[&str]) -> Segment {
         Segment {
             name: name.to_string(),
-            fields: fields.iter().map(|s| s.to_string()).collect(),
+            fields: fields
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
         }
     }
 

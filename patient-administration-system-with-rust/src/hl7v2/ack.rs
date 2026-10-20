@@ -47,7 +47,7 @@ pub fn ack(
             receiving_app.into(),
             "FAC".into(),
             now,
-            "".into(),
+            String::new(),
             "ACK".into(),
             message_control_id.into(),
             "P".into(),

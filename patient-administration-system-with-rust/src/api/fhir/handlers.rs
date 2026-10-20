@@ -440,7 +440,7 @@ pub async fn update_schedule(
     if body.get("service_type").is_some() || body.get("serviceType").is_some() {
         existing.service_type = parse_service_type(&body);
     }
-    if let Some(active) = body.get("active").and_then(|v| v.as_bool()) {
+    if let Some(active) = body.get("active").and_then(sea_orm::JsonValue::as_bool) {
         existing.active = active;
     }
     existing.updated_at = chrono::Utc::now();

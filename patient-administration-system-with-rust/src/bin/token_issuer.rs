@@ -63,16 +63,16 @@ impl Args {
                 .map_err(|_| "--ttl is whole seconds".to_string())?;
         }
         if let Some(v) = self.one("--iss") {
-            spec.issuer = v
+            spec.issuer = v;
         }
         if let Some(v) = self.one("--aud") {
-            spec.audience = v
+            spec.audience = v;
         }
         if let Some(v) = self.one("--name") {
-            spec.name = v
+            spec.name = v;
         }
         if let Some(v) = self.one("--email") {
-            spec.email = v
+            spec.email = v;
         }
         Ok(spec)
     }

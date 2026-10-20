@@ -50,7 +50,7 @@ pub fn user_context_from_headers(headers: &HeaderMap) -> UserContext {
         headers
             .get(name)
             .and_then(|v| v.to_str().ok())
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
     };
     UserContext {
         user_id: take("x-user-id"),

@@ -39,7 +39,10 @@ async fn setup(
         body.into(),
     );
     t.channels = vec![DeliveryChannel::Sms];
-    t.required_variables = required.iter().map(|r| r.to_string()).collect();
+    t.required_variables = required
+        .iter()
+        .map(std::string::ToString::to_string)
+        .collect();
     let t = LetterRepository::create_template(&s.db, &t).await.unwrap();
     (s, person, t.id)
 }

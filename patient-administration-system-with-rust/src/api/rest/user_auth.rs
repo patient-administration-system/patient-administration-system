@@ -463,7 +463,7 @@ pub fn spawn_key_refresh(auth: Arc<UserAuth>, every: Duration) {
                     }
                 }
                 Err(e) => {
-                    tracing::warn!(target: "pas::auth", "key refresh failed, keeping the current keys: {e}")
+                    tracing::warn!(target: "pas::auth", "key refresh failed, keeping the current keys: {e}");
                 }
             }
         }

@@ -57,8 +57,7 @@ impl SlotStatus {
     pub fn try_transition_to(self, next: SlotStatus) -> Result<SlotStatus> {
         if self == next {
             return Err(Error::invalid_transition(format!(
-                "SlotStatus already {:?}",
-                self
+                "SlotStatus already {self:?}"
             )));
         }
         match (self, next) {
@@ -67,8 +66,7 @@ impl SlotStatus {
             | (SlotStatus::Busy, SlotStatus::Free)
             | (SlotStatus::BlockedOut, SlotStatus::Free) => Ok(next),
             _ => Err(Error::invalid_transition(format!(
-                "Cannot transition SlotStatus from {:?} to {:?}",
-                self, next
+                "Cannot transition SlotStatus from {self:?} to {next:?}"
             ))),
         }
     }

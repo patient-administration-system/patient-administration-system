@@ -65,7 +65,7 @@ pub struct RateLimitConfig {
 impl RateLimitConfig {
     /// Refill rate in tokens per second.
     fn refill_per_second(&self) -> f64 {
-        self.requests_per_minute as f64 / 60.0
+        f64::from(self.requests_per_minute) / 60.0
     }
 }
 
@@ -82,7 +82,7 @@ struct Bucket {
 impl Bucket {
     fn new(capacity: u32) -> Self {
         Self {
-            tokens: capacity as f64,
+            tokens: f64::from(capacity),
             last_refill: Instant::now(),
         }
     }
@@ -93,7 +93,7 @@ impl Bucket {
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_refill).as_secs_f64();
         self.last_refill = now;
-        self.tokens = (self.tokens + elapsed * refill_per_second).min(capacity as f64);
+        self.tokens = (self.tokens + elapsed * refill_per_second).min(f64::from(capacity));
         self.tokens
     }
 
@@ -135,7 +135,10 @@ impl RateLimiter {
     /// touch. Returns `Ok(())` on allow, `Err(retry_after_seconds)` on
     /// deny.
     fn try_consume(&self, ip: IpAddr) -> Result<(), u64> {
-        let mut map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut map = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Cheap cleanup: only when the map has grown past the soft cap.
         if map.len() > MAX_BUCKETS {
             let now = Instant::now();

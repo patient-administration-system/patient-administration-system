@@ -1204,7 +1204,7 @@ pub async fn schedule_book(
         );
     };
     let duration = sch.duration_minutes.unwrap_or(30);
-    let end = start + chrono::Duration::minutes(duration as i64);
+    let end = start + chrono::Duration::minutes(i64::from(duration));
 
     let person_id = r.person_id;
     let audit_clone = r.audit.clone();
@@ -1294,7 +1294,7 @@ pub async fn schedule_reschedule(
         );
     };
     let duration = sch.duration_minutes.unwrap_or(30);
-    let end = start + chrono::Duration::minutes(duration as i64);
+    let end = start + chrono::Duration::minutes(i64::from(duration));
     use crate::db::repositories::appointment::AppointmentRepository;
     let existing = match AppointmentRepository::find_by_id(&state.db, filler).await {
         Ok(Some(a)) => a,

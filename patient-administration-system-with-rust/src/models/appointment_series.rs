@@ -219,7 +219,7 @@ pub fn compute_occurrences(
                         "expanded recurrence exceeds MAX_OCCURRENCES ({MAX_OCCURRENCES})"
                     )));
                 }
-                cursor = cursor + Days::new(interval as u64);
+                cursor = cursor + Days::new(u64::from(interval));
             }
         }
         Frequency::Weekly => {
@@ -229,13 +229,13 @@ pub fn compute_occurrences(
             // implementation; perf is fine at MAX_OCCURRENCES bound.
             let mut day_cursor = start;
             let start_week_offset: i64 =
-                start.date_naive().iso_week().week() as i64 + (start.year() as i64) * 53; // monotonic week index proxy
+                i64::from(start.date_naive().iso_week().week()) + i64::from(start.year()) * 53; // monotonic week index proxy
             while target(out.len()) && within_until(day_cursor) {
-                let this_week_offset: i64 = day_cursor.date_naive().iso_week().week() as i64
-                    + (day_cursor.year() as i64) * 53;
+                let this_week_offset: i64 = i64::from(day_cursor.date_naive().iso_week().week())
+                    + i64::from(day_cursor.year()) * 53;
                 let weeks_since_start = this_week_offset - start_week_offset;
                 if weeks_since_start >= 0
-                    && weeks_since_start % interval as i64 == 0
+                    && weeks_since_start % i64::from(interval) == 0
                     && weekly_days.contains(&day_cursor.weekday())
                     && day_cursor >= start
                 {
@@ -251,7 +251,7 @@ pub fn compute_occurrences(
                 // interval at worst. For interval=1, daily-by-week, this
                 // is 1400 iterations; tiny.
                 if (day_cursor - start).num_days()
-                    > (MAX_OCCURRENCES as i64) * 7 * (interval as i64)
+                    > i64::from(MAX_OCCURRENCES) * 7 * i64::from(interval)
                 {
                     break;
                 }

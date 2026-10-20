@@ -50,7 +50,10 @@ async fn main() -> Result<()> {
             cfg.pas_webhook_secret.is_some(),
             cfg.pas_webhook_timeout_secs
         );
-        let secret = cfg.pas_webhook_secret.clone().map(|s| s.into_bytes());
+        let secret = cfg
+            .pas_webhook_secret
+            .clone()
+            .map(std::string::String::into_bytes);
         let timeout = std::time::Duration::from_secs(cfg.pas_webhook_timeout_secs);
         let webhook = patient_administration_system::streaming::WebhookEventPublisher::new(
             url, secret, timeout,
@@ -253,7 +256,7 @@ async fn main() -> Result<()> {
                 tick.tick().await;
                 match noshow.recalculate_all().await {
                     Ok(n) => {
-                        tracing::info!(target: "pas::noshow", assessed = n, "no-show pass complete")
+                        tracing::info!(target: "pas::noshow", assessed = n, "no-show pass complete");
                     }
                     Err(e) => tracing::info!(target: "pas::noshow", "no-show pass skipped: {e}"),
                 }
@@ -271,7 +274,7 @@ async fn main() -> Result<()> {
                 tick.tick().await;
                 match backfill.tick(chrono::Utc::now()).await {
                     Ok(r) if r.expired > 0 => {
-                        tracing::info!(target: "pas::backfill", ?r, "offers moved on")
+                        tracing::info!(target: "pas::backfill", ?r, "offers moved on");
                     }
                     Ok(_) => {}
                     Err(e) => tracing::warn!(target: "pas::backfill", "offer scan failed: {e}"),

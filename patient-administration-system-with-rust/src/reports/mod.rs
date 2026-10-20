@@ -135,7 +135,7 @@ pub fn stats(mut v: Vec<f64>) -> Stats {
     if v.is_empty() {
         return Stats::default();
     }
-    v.sort_by(|a, b| a.total_cmp(b));
+    v.sort_by(f64::total_cmp);
     let n = v.len();
     let at = |p: f64| v[(((p * n as f64).ceil() as usize).max(1) - 1).min(n - 1)];
     let round = |x: f64| (x * 100.0).round() / 100.0;

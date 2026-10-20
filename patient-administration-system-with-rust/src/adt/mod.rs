@@ -175,7 +175,7 @@ impl AdtService {
         ctx: &UserContext,
     ) -> Result<Encounter> {
         let ctx_clone = ctx.clone();
-        let source_owned = source.map(|s| s.to_string());
+        let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
             .transaction::<_, Encounter, Error>(|txn| {
@@ -253,7 +253,7 @@ impl AdtService {
         ctx: &UserContext,
     ) -> Result<Encounter> {
         let ctx_clone = ctx.clone();
-        let source_owned = source.map(|s| s.to_string());
+        let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
             .transaction::<_, Encounter, Error>(|txn| {
@@ -382,7 +382,7 @@ impl AdtService {
         event_type: &'static str,
     ) -> Result<Encounter> {
         let ctx_clone = ctx.clone();
-        let source_owned = source.map(|s| s.to_string());
+        let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
             .transaction::<_, Encounter, Error>(|txn| {
@@ -555,7 +555,7 @@ impl AdtService {
         ctx: &UserContext,
     ) -> Result<AdmissionResult> {
         let ctx_clone = ctx.clone();
-        let source_owned = source.map(|s| s.to_string());
+        let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
             .transaction::<_, AdmissionResult, Error>(|txn| {
@@ -667,7 +667,7 @@ impl AdtService {
         ctx: &UserContext,
     ) -> Result<Encounter> {
         let ctx_clone = ctx.clone();
-        let source_owned = source.map(|s| s.to_string());
+        let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
             .transaction::<_, Encounter, Error>(|txn| {
@@ -761,7 +761,7 @@ impl AdtService {
         ctx: &UserContext,
     ) -> Result<Admission> {
         let ctx_clone = ctx.clone();
-        let source_owned = source.map(|s| s.to_string());
+        let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
             .transaction::<_, Admission, Error>(|txn| {
@@ -901,7 +901,7 @@ impl AdtService {
         ctx: &UserContext,
     ) -> Result<Admission> {
         let ctx_clone = ctx.clone();
-        let reason_owned = reason.map(|s| s.to_string());
+        let reason_owned = reason.map(std::string::ToString::to_string);
         let res = self
             .db
             .transaction::<_, Admission, Error>(|txn| {

@@ -318,7 +318,7 @@ mod tests {
         ] {
             let mut inv = Invoice::new(Uuid::new_v4(), usd());
             inv.status = status;
-            assert!(inv.finalize().is_err(), "should fail from {:?}", status);
+            assert!(inv.finalize().is_err(), "should fail from {status:?}");
         }
     }
 

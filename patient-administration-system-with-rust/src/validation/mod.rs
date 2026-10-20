@@ -46,7 +46,7 @@ pub fn validate_contact_point(c: &ContactPoint) -> Result<()> {
             }
         }
         ContactPointSystem::Phone | ContactPointSystem::Sms | ContactPointSystem::Fax => {
-            let digits = c.value.chars().filter(|x| x.is_ascii_digit()).count();
+            let digits = c.value.chars().filter(char::is_ascii_digit).count();
             if !(7..=15).contains(&digits) {
                 return Err(Error::validation(format!(
                     "phone digits out of range: {}",
@@ -81,7 +81,7 @@ pub fn normalize_phone(s: &str) -> String {
     if s.trim_start().starts_with('+') {
         out.push('+');
     }
-    for c in s.chars().filter(|c| c.is_ascii_digit()) {
+    for c in s.chars().filter(char::is_ascii_digit) {
         out.push(c);
     }
     out

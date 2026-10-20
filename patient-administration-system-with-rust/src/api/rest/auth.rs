@@ -48,7 +48,7 @@ pub async fn require_bearer(
         .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
-        .map(|s| s.trim());
+        .map(str::trim);
     match supplied {
         Some(t) if t == state.0.expected => next.run(req).await,
         _ => (

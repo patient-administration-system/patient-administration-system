@@ -359,7 +359,8 @@ async fn the_call_list_is_the_top_few_matched_to_capacity_not_a_probability_cut_
         "the list says why"
     );
     assert!(
-        item.get("probability_percent").is_some_and(|v| v.is_null()),
+        item.get("probability_percent")
+            .is_some_and(sea_orm::JsonValue::is_null),
         "no number while uncalibrated"
     );
     // Listed means high; the third is low (0.30 is under the medium line), the far one is not on the list.

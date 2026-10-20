@@ -477,7 +477,10 @@ mod tests {
         let w = c.create(make_worker_create(), &ctx()).await.unwrap();
         let got = c.get(w.id, &ctx()).await.unwrap();
         assert_eq!(got.id, w.id);
-        assert_eq!(got.data.get("active").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            got.data.get("active").and_then(sea_orm::JsonValue::as_bool),
+            Some(true)
+        );
     }
 
     #[tokio::test]

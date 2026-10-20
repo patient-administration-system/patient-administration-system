@@ -156,8 +156,8 @@ pub async fn list_active_pathways(db: &DatabaseConnection) -> Result<Vec<Pathway
     // Worst breaches first (largest excess over threshold), then by raw
     // weeks waiting, then alphabetical on service.
     rows.sort_by(|a, b| {
-        let a_excess = a.weeks_waiting as i64 - a.breach_weeks as i64;
-        let b_excess = b.weeks_waiting as i64 - b.breach_weeks as i64;
+        let a_excess = i64::from(a.weeks_waiting) - i64::from(a.breach_weeks);
+        let b_excess = i64::from(b.weeks_waiting) - i64::from(b.breach_weeks);
         b_excess
             .cmp(&a_excess)
             .then_with(|| b.weeks_waiting.cmp(&a.weeks_waiting))
