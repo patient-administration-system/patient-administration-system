@@ -65,6 +65,9 @@ jobs:
         with:
           command: check
           arguments: --all-features
+      # An unused dependency still costs build time and attack surface.
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - run: cargo install cargo-machete --locked && cargo machete
 
   ui:
     name: UI (check, unit tests, build)
