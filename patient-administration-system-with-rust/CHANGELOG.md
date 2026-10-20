@@ -5,6 +5,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- A request waited up to 8 seconds for a database connection while the database was down; the pool now gives up after 3 seconds, so an outage is a quick 503 (found by `scripts/chaos-podman.sh`).
+
 ## [0.47.0] — 2026-10-20
 
 ### Added

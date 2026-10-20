@@ -6,13 +6,14 @@
 # DESTRUCTIVE to whatever runs in the named containers. Use a throwaway stack
 # (PAS_PG_PORT=5543 podman compose -p chaos -f podman/compose.yml up -d), never a shared one.
 #
-#   CHAOS_I_UNDERSTAND=yes PAS_API=http://localhost:8080 CHAOS_PG=chaos-postgres-1 scripts/chaos-podman.sh
+#   CHAOS_I_UNDERSTAND=yes CHAOS_PROBE_PATH=/api/tolerances PAS_API=http://localhost:8080 CHAOS_PG=chaos-postgres-1 scripts/chaos-podman.sh
 set -euo pipefail
 [ "${CHAOS_I_UNDERSTAND:-}" = yes ] || { echo "Set CHAOS_I_UNDERSTAND=yes (this stops containers)."; exit 2; }
 API="${PAS_API:-http://localhost:8080}"
 PG="${CHAOS_PG:?name the database container, e.g. chaos-postgres-1}"
 DOWN_SECONDS="${CHAOS_DOWN_SECONDS:-8}"
-code() { curl -s -o /dev/null -m 5 -w '%{http_code}' "$API/api/patients?limit=1" || echo 000; }
+PROBE="${CHAOS_PROBE_PATH:-/api/patients?limit=1}"  # must be a route that reads this database, not an upstream service
+code() { curl -s -o /dev/null -m 5 -w '%{http_code}' "$API$PROBE" 2>/dev/null || true; }
 
 [ "$(code)" = 200 ] || { echo "the API is not healthy before the test: $(code)"; exit 1; }
 echo "stopping $PG for ${DOWN_SECONDS}s"
