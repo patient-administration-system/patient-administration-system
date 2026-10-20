@@ -8,7 +8,7 @@ The v0.3.1 dep audit removed 15 unused direct deps (`loco-rs`, `fluvio`, `tonic`
 
 | Component            | Technology                                  | Purpose                                  |
 | -------------------- | ------------------------------------------- | ---------------------------------------- |
-| **Language**         | Rust 1.93+, 2024 Edition                    | Systems programming, performance, safety |
+| **Language**         | Rust 1.99.1 (pinned in `rust-toolchain.toml`), 2024 Edition                    | Systems programming, performance, safety |
 | **Async Runtime**    | Tokio (`full`)                              | Asynchronous I/O and concurrency         |
 | **Web Framework**    | Axum 0.7 (`macros`)                         | HTTP server and routing                  |
 | **HTTP middleware**  | tower (`util`), tower-http (`cors`, `trace`, `compression-full`) | CORS / trace / compression / `ServiceExt::oneshot` |

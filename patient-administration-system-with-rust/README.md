@@ -2,7 +2,7 @@
 
 A production-grade Rust crate implementing a hospital Patient Administration System — the foundational, non-clinical system of record for healthcare workflow.
 
-[![Rust](https://img.shields.io/badge/rust-1.93%2B-orange.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-1.99.1-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
 ## Overview
@@ -32,7 +32,7 @@ This crate is the v0.1 tier: a compiling, tested library + binary covering the h
 
 ### Prerequisites
 
-- Rust 1.93+
+- Rust 1.99.1, the version pinned in `rust-toolchain.toml` (the 2024 edition and let-chains need at least 1.88)
 - PostgreSQL 18+
 - Podman (optional, recommended for local Postgres)
 
@@ -95,7 +95,7 @@ Mirrors `Cargo.toml` exactly. The v0.3.1 dep audit removed 15 unused direct deps
 
 | Component            | Technology                                  | Purpose                                  |
 | -------------------- | ------------------------------------------- | ---------------------------------------- |
-| **Language**         | Rust 1.93+, 2024 Edition                    | Systems programming, performance, safety |
+| **Language**         | Rust 1.99.1 (pinned in `rust-toolchain.toml`), 2024 Edition                    | Systems programming, performance, safety |
 | **Async Runtime**    | Tokio (`full`)                              | Asynchronous I/O and concurrency         |
 | **Web Framework**    | Axum 0.7 (`macros`)                         | HTTP server and routing                  |
 | **HTTP middleware**  | tower (`util`), tower-http (`cors`, `trace`, `compression-full`) | CORS / trace / compression / oneshot |
