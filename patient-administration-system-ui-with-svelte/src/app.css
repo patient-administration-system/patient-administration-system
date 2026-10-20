@@ -39,3 +39,11 @@ details.languages a { color: inherit; }
 .calendar-view-switcher-button,
 .calendar-view-switcher button,
 [class*="calendar-"] button { min-block-size: 2rem; min-inline-size: 2rem; }
+
+/* Red / amber / green tiers. Each carries a mark and a word as well as a colour, and sets its own
+   foreground and background so the contrast does not depend on the theme. */
+.rag { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 1rem; border: 2px solid currentColor; font-weight: 600; white-space: nowrap; }
+.rag-green { background: #d7f0dc; color: #0b3d1b; }
+.rag-amber { background: #ffecb3; color: #5a3b00; }
+.rag-red { background: #fbd5d5; color: #6d0b0b; }
+.rag-no_data { background: #e8ecee; color: #2b3338; border-style: dashed; }

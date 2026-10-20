@@ -522,3 +522,10 @@ noshow_rollout,changed_at,none,"Not personal data (structure, status, timestamps
 noshow_rollout,live_since,none,"Not personal data (structure, status, timestamps, places, templates)",record
 noshow_rollout,changed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 noshow_rollout,note,free-text,A named person's reason for moving a clinic; no patient details,audit-or-message
+tolerances,metric,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerances,target,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerances,tolerance,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerances,escalate_beyond,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerances,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+tolerances,set_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+tolerances,note,free-text,A named person's reason for a tolerance; no patient details,audit-or-message

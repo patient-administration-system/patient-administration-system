@@ -5,6 +5,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Tolerances (TOL-1): `GET /api/tolerances`, `PUT`/`DELETE /api/tolerances/{metric}`, `GET /api/tolerances/status`. Six measures across time, money and resources, each with a target, a tolerance and an escalate-beyond limit, put in green, amber or red (or no data); a named person changes them, audited. Migration 39.
+
 ## [0.46.0] — 2026-10-20
 
 ### Changed

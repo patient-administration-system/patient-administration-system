@@ -12,8 +12,8 @@ const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1
 const PROPER = ["channel.whatsapp", "channel.apple_messages", "channel.sms", "calendar.exportCsv", "calendar.exportExcel"];
 const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
   "cy-001": [...PROPER, "calendar.agenda"],
-  "de-001": [...PROPER, "col.status", "col.name", "waitlist.patient", "priority.routine", "calendar.agenda", "waits.col.patient"],
-  "de-de": [...PROPER, "col.status", "col.name", "waitlist.patient", "priority.routine", "calendar.agenda", "waits.col.patient"],
+  "de-001": [...PROPER, "col.status", "col.name", "waitlist.patient", "priority.routine", "calendar.agenda", "waits.col.patient", "tol.col.status"],
+  "de-de": [...PROPER, "col.status", "col.name", "waitlist.patient", "priority.routine", "calendar.agenda", "waits.col.patient", "tol.col.status"],
   "es-001": [...PROPER, "error.title", "calendar.agenda"],
   "fr-001": [
     ...PROPER,

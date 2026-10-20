@@ -172,6 +172,37 @@ export const dueChecks = (f: FetchFn) => pasArray<DueCheck>(f, "/api/pathways/du
 export const askStillNeeded = (f: FetchFn, pathwayId: string, askedBy: string) =>
   pas<unknown>(f, `/api/pathways/${encodeURIComponent(pathwayId)}/still-needed-checks`, { method: "POST", body: { asked_by: askedBy } });
 
+// ---- Tolerances (red / amber / green) --------------------------------------------------------
+
+export type Rag = "green" | "amber" | "red" | "no_data";
+
+export interface ToleranceReading {
+  metric: string;
+  kind: "time" | "money" | "resources";
+  label: string;
+  unit: "weeks" | "days" | "share";
+  direction: "higher_is_worse" | "lower_is_worse" | "either";
+  target: number;
+  tolerance: number;
+  escalate_beyond: number;
+  value: number | null;
+  adverse_drift: number | null;
+  rag: Rag;
+  sample: number;
+  customised: boolean;
+}
+
+export interface ToleranceStatus {
+  from: string;
+  to: string;
+  overall: Rag;
+  readings: ToleranceReading[];
+}
+
+/** Each measure against its target and tolerances, and the worst tier overall. */
+export const toleranceStatus = (f: FetchFn, days: number) =>
+  pas<ToleranceStatus>(f, `/api/tolerances/status?days=${encodeURIComponent(String(days))}`);
+
 // ---- Identity proofing (DTAC-9) --------------------------------------------------------------
 
 /** Has staff recorded checking that this sign-in account is this patient? Only a clear yes is a yes. */

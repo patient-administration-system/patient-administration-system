@@ -164,3 +164,21 @@ export function patientRows(rows: PersonLike[]): Record<string, unknown>[] {
     birthDate: p.birth_date ?? p.date_of_birth ?? "",
   }));
 }
+
+// ---- Tolerances ------------------------------------------------------------------------------
+
+/** A mark for each tier, so the tier is never carried by colour alone. */
+export const RAG_MARK: Record<string, string> = { green: "✓", amber: "!", red: "✕", no_data: "–" };
+
+/** The tiers a page may be asked to show; anything else is treated as no data. */
+export const ragOf = (r: string): "green" | "amber" | "red" | "no_data" =>
+  r === "green" || r === "amber" || r === "red" ? r : "no_data";
+
+/** A tolerance amount as text: a share as a percentage, weeks and days as a number with a unit key. */
+export function toleranceAmount(value: number, unit: string, locale: string): { text: string; unitKey: string | null } {
+  if (unit === "share") {
+    return { text: new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(value), unitKey: null };
+  }
+  const text = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value);
+  return { text, unitKey: unit === "weeks" || unit === "days" ? `tol.unit.${unit}` : null };
+}

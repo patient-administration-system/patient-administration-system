@@ -1,0 +1,68 @@
+<script lang="ts">
+  import type { PageData } from "./$types";
+  import { i18n, t } from "#lib/i18n.svelte.js";
+  import { RAG_MARK, ragOf, toleranceAmount } from "#lib/views.js";
+
+  let { data }: { data: PageData } = $props();
+  const amount = (v: number, unit: string) => {
+    const a = toleranceAmount(v, unit, i18n.locale);
+    return a.unitKey ? `${a.text} ${t(a.unitKey)}` : a.text;
+  };
+  const overall = $derived(ragOf(data.status.overall));
+</script>
+
+<svelte:head><title>{t("tol.title")} – {t("app.name")}</title></svelte:head>
+<h1>{t("tol.title")}</h1>
+<p>{t("tol.intro")}</p>
+
+<nav aria-label={t("tol.window")}>
+  <strong>{t("tol.window")}:</strong>
+  {#each data.windows as w (w)}
+    {#if w === data.days}
+      <span aria-current="page">{t(`tol.window.${w}`)}</span>
+    {:else}
+      <a href="?days={w}">{t(`tol.window.${w}`)}</a>
+    {/if}
+  {/each}
+</nav>
+
+<p>
+  {t("tol.overall")}:
+  <span class="rag rag-{overall}" data-testid="overall"><span aria-hidden="true">{RAG_MARK[overall]}</span> {t(`tol.rag.${overall}`)}</span>
+</p>
+
+{#if data.status.readings.length === 0}
+  <p>{t("tol.none")}</p>
+{:else}
+  <table>
+    <caption>{t("tol.caption")}</caption>
+    <thead>
+      <tr>
+        <th scope="col">{t("tol.col.measure")}</th>
+        <th scope="col">{t("tol.col.status")}</th>
+        <th scope="col">{t("tol.col.now")}</th>
+        <th scope="col">{t("tol.col.target")}</th>
+        <th scope="col">{t("tol.col.green")}</th>
+        <th scope="col">{t("tol.col.red")}</th>
+        <th scope="col">{t("tol.col.sample")}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {#each data.status.readings as r (r.metric)}
+        {@const rag = ragOf(r.rag)}
+        <tr data-metric={r.metric}>
+          <th scope="row">
+            {t(`tol.metric.${r.metric}`)}
+            <br /><small>{t(`tol.kind.${r.kind}`)} · {t(`tol.dir.${r.direction}`)}</small>
+          </th>
+          <td><span class="rag rag-{rag}"><span aria-hidden="true">{RAG_MARK[rag]}</span> {t(`tol.rag.${rag}`)}</span></td>
+          <td>{r.value === null ? "–" : amount(r.value, r.unit)}</td>
+          <td>{amount(r.target, r.unit)}</td>
+          <td>{amount(r.tolerance, r.unit)}</td>
+          <td>{amount(r.escalate_beyond, r.unit)}</td>
+          <td>{r.sample}</td>
+        </tr>
+      {/each}
+    </tbody>
+  </table>
+{/if}

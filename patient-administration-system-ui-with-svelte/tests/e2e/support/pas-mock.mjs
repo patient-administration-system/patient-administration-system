@@ -298,6 +298,25 @@ http
     if (url.pathname === `/api/patients/${PATIENT}/contact-log`) {
       return res.end(envelope([{ at: at(-1, 9), kind: "message", action: "reminder", by: null, reason_code: null, context: null }]));
     }
+    if (url.pathname === "/api/tolerances/status") {
+      const reading = (metric, kind, unit, direction, target, tolerance, escalate_beyond, value, rag, sample) => ({
+        metric, kind, label: metric, unit, direction, target, tolerance, escalate_beyond, value,
+        adverse_drift: value === null ? null : Math.abs(value - target), rag, sample, customised: false,
+      });
+      return res.end(
+        envelope({
+          from: new Date(Date.now() - 30 * 864e5).toISOString(), to: new Date().toISOString(), overall: "red",
+          readings: [
+            reading("wait_p90_weeks", "time", "weeks", "higher_is_worse", 18, 2, 8, 19, "amber", 120),
+            reading("lead_time_median_days", "time", "days", "higher_is_worse", 14, 7, 21, 9, "green", 300),
+            reading("did_not_attend_rate", "resources", "share", "higher_is_worse", 0.08, 0.02, 0.06, 0.19, "red", 410),
+            reading("slot_utilisation", "resources", "share", "lower_is_worse", 0.85, 0.05, 0.15, 0.83, "green", 900),
+            reading("bed_occupancy", "resources", "share", "either", 0.85, 0.05, 0.1, null, "no_data", 0),
+            reading("invoice_collection_rate", "money", "share", "lower_is_worse", 0.95, 0.03, 0.1, 0.9, "amber", 52),
+          ],
+        }),
+      );
+    }
     if (url.pathname === "/api/pathways/due-check") {
       return res.end(
         envelope([{ pathway_id: "88888888-8888-8888-8888-888888888888", person_id: PATIENT, target_service: "orthopaedics", weeks_waited: 31, last_check_at: null }]),

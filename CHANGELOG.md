@@ -7,6 +7,10 @@ the member crates at a point in time. For per-crate detail, see:
 - [`patient-administration-system-frontend/CHANGELOG.md`](patient-administration-system-frontend/CHANGELOG.md)
 - [`patient-administration-system-ui-with-svelte/CHANGELOG.md`](patient-administration-system-ui-with-svelte/CHANGELOG.md)
 
+## Unreleased
+
+- **New, tolerances:** how much time, money and resources may vary from target, in red, amber and green, with a staff page `/tolerances` (TOL-1; `tasks.md`).
+
 ## Release 0.45.0 (2026-10-20)
 
 Server crate 0.45.0 (published to crates.io 2026-10-20; 0.46.0 follows with the `er7` and `fhir` crates, see the crate changelog), tag `v0.45.0`. Published to crates.io 2026-10-20: `patient-administration-system-migrations` 0.1.0 (now publishable) and `patient-administration-system` 0.45.0. Counts and requirement numbers are in `spec/14-implementation-status.md` and `spec/06-functional-requirements.md`.

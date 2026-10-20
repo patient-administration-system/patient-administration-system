@@ -39,6 +39,7 @@ mod m20260630_000035_deprivation_lookup;
 mod m20260630_000036_noshow_rollout;
 mod m20260630_000037_inbound_rebook_choice;
 mod m20260630_000038_video_failed;
+mod m20260701_000039_tolerances;
 
 pub struct Migrator;
 
@@ -84,6 +85,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260630_000036_noshow_rollout::Migration),
             Box::new(m20260630_000037_inbound_rebook_choice::Migration),
             Box::new(m20260630_000038_video_failed::Migration),
+            Box::new(m20260701_000039_tolerances::Migration),
         ]
     }
 }

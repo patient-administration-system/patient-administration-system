@@ -50,6 +50,7 @@ use super::handlers_scheduling;
 use super::handlers_series;
 use super::handlers_standby;
 use super::handlers_support;
+use super::handlers_tolerance;
 use super::handlers_transport;
 use super::handlers_virtual;
 use super::handlers_waitlist;
@@ -403,6 +404,12 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/experiments/{id}/readout",
             get(handlers_experiments::readout),
+        )
+        .route("/api/tolerances", get(handlers_tolerance::list))
+        .route("/api/tolerances/status", get(handlers_tolerance::status))
+        .route(
+            "/api/tolerances/{metric}",
+            put(handlers_tolerance::set).delete(handlers_tolerance::reset),
         )
         .route("/api/noshow/status", get(handlers_noshow::status))
         .route("/api/noshow/rollout", get(handlers_noshow::rollout))
