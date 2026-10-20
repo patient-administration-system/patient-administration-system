@@ -1,7 +1,8 @@
-//! HL7 v2 message parsing, encoding, and mapping to PAS domain types.
+//! HL7 v2 message parsing, encoding, and mapping to PAS domain types. The message model, parsing,
+//! escaping and rendering are the `er7` crate's; this module adds the PAS mappings and the transport
+//! around it (MLLP, batches, the listener).
 //!
-//! v0.3 first cut: pipe-delimited ADT messages with the standard delimiter
-//! set `|^~\&`. Supported segments: `MSH`, `EVN`, `PID`, `PV1`. Supported
+//! Pipe-delimited messages with the standard delimiter set `|^~\&`. Supported segments: `MSH`, `EVN`, `PID`, `PV1`. Supported
 //! message types for round-trip mapping: `ADT^A01` (admit), `ADT^A03`
 //! (discharge), `ADT^A28` (add person info). Other message types parse to
 //! the generic [`Message`] structure but are not mapped to domain objects.
@@ -23,7 +24,7 @@
 //! - Repetitions separated by `~`.
 //!
 //! Field numbering follows the HL7 convention: `PID-5` is the *fifth* field of
-//! the segment, which means `segment.field(5)` returns it. For MSH, field 1
+//! the segment, which means `segment.raw(5)` returns it. For MSH, field 1
 //! is the field separator itself; field 2 is the encoding characters
 //! (`^~\&`).
 
@@ -51,64 +52,67 @@ pub use parser::parse_message;
 // HL7 v2 wire format directly. ADT/SIU/DFT/MFN encoders are rebuilt as
 // proxy-handler-local helpers in Phase 3.
 
-use serde::{Deserialize, Serialize};
+/// The message model is the `er7` crate's.
+pub use er7::{Message, Segment, Separators};
 
-/// Standard HL7 delimiter set. Custom delimiters are out of scope — every
-/// message this module produces uses `|^~\&`.
-pub const FIELD_SEP: char = '|';
-pub const COMPONENT_SEP: char = '^';
-pub const REPETITION_SEP: char = '~';
-pub const ESCAPE_CHAR: char = '\\';
-pub const SUBCOMPONENT_SEP: char = '&';
-
-/// One parsed HL7 v2 segment.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Segment {
-    /// Three-letter segment name, e.g. `"MSH"`, `"PID"`.
-    pub name: String,
-    /// Raw field strings, including any embedded `^` / `~` / `&`. For the
-    /// `MSH` segment, `fields[0]` is the field separator itself (`"|"`) and
-    /// `fields[1]` is the encoding characters (`"^~\&"`), so `field(n)`
-    /// matches HL7's 1-indexed numbering for every `n`.
-    pub fields: Vec<String>,
+/// Read a segment's fields as the wire text, the way the mapping code wants them (still escaped, with its
+/// `^`, `~` and `&`). Index 1 is the first field, as HL7 numbers them; anything absent is `""`.
+pub trait SegmentRead {
+    /// The whole text of field `n`.
+    fn raw(&self, n: usize) -> String;
+    /// The text of component `c` of field `n`.
+    fn component_text(&self, n: usize, c: usize) -> String;
 }
 
-impl Segment {
-    /// Read field N (1-indexed, HL7-style). Returns `""` if the field is
-    /// missing or beyond the end of the segment.
-    pub fn field(&self, n: usize) -> &str {
-        if n == 0 {
-            return "";
+impl SegmentRead for Segment {
+    fn raw(&self, n: usize) -> String {
+        let separators = Separators::default();
+        n.checked_sub(1)
+            .and_then(|i| self.fields.get(i))
+            .map(|f| f.to_er7(&separators))
+            .unwrap_or_default()
+    }
+
+    fn component_text(&self, n: usize, c: usize) -> String {
+        let separators = Separators::default();
+        self.component(n, c)
+            .map(|x| x.to_er7(&separators))
+            .unwrap_or_default()
+    }
+}
+
+/// Build a segment from its fields' wire text. For `MSH` pass the fields in HL7 order, so the first is the
+/// field separator and the second the encoding characters.
+pub fn segment(name: &str, fields: Vec<String>) -> Segment {
+    let separators = Separators::default();
+    let mut text = name.to_string();
+    if name == "MSH" && fields.len() >= 2 {
+        text.push_str(&fields[0]);
+        text.push_str(&fields[1]);
+        for f in &fields[2..] {
+            text.push('|');
+            text.push_str(f);
         }
-        // Field 1 = fields[0] (the segment-name field is dropped on parse).
-        self.fields.get(n - 1).map(String::as_str).unwrap_or("")
-    }
-
-    /// Read component C (1-indexed) of field N (1-indexed). Returns `""` if
-    /// either index is out of range.
-    pub fn component(&self, field_n: usize, component_c: usize) -> &str {
-        if component_c == 0 {
-            return "";
+    } else {
+        for f in &fields {
+            text.push('|');
+            text.push_str(f);
         }
-        let f = self.field(field_n);
-        f.split(COMPONENT_SEP).nth(component_c - 1).unwrap_or("")
     }
+    er7::parse_with(&text, separators)
+        .segments
+        .into_iter()
+        .next()
+        .unwrap_or(Segment {
+            name: name.to_string(),
+            fields: Vec::new(),
+        })
 }
 
-/// A parsed HL7 v2 message.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Message {
-    pub segments: Vec<Segment>,
-}
-
-impl Message {
-    /// Find the first segment with the given three-letter name.
-    pub fn segment(&self, name: &str) -> Option<&Segment> {
-        self.segments.iter().find(|s| s.name == name)
-    }
-
-    /// Iterator over every segment with the given name.
-    pub fn all_segments<'a>(&'a self, name: &'a str) -> impl Iterator<Item = &'a Segment> + 'a {
-        self.segments.iter().filter(move |s| s.name == name)
+/// A message of the given segments with the standard delimiters.
+pub fn message(segments: Vec<Segment>) -> Message {
+    Message {
+        separators: Separators::default(),
+        segments,
     }
 }

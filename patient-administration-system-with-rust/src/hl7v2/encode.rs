@@ -18,7 +18,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use super::{Message, Segment, encode_message};
+use super::{Segment, encode_message, message, segment};
 use crate::models::appointment::AppointmentStatus;
 use crate::models::encounter::{Encounter, EncounterClass, EncounterStatus};
 use crate::models::facility::Bed;
@@ -45,9 +45,9 @@ pub fn build_msh(
     control_id: &str,
     now: DateTime<Utc>,
 ) -> Segment {
-    Segment {
-        name: "MSH".into(),
-        fields: vec![
+    segment(
+        "MSH",
+        vec![
             "|".into(),
             ENCODING_CHARS.into(),
             sender.into(),
@@ -61,15 +61,12 @@ pub fn build_msh(
             PROCESSING_ID.into(),
             VERSION_ID.into(),
         ],
-    }
+    )
 }
 
 /// EVN segment. `recorded` is the event-recording timestamp.
 pub fn build_evn(trigger: &str, recorded: DateTime<Utc>) -> Segment {
-    Segment {
-        name: "EVN".into(),
-        fields: vec![trigger.into(), fmt_ts(recorded)],
-    }
+    segment("EVN", vec![trigger.into(), fmt_ts(recorded)])
 }
 
 /// Build a minimal PID for a hydrated upstream Person. Reads
@@ -109,9 +106,9 @@ pub fn build_pid(person: &crate::upstream::Person) -> Segment {
         (Some(f), None, _) => f.to_string(),
         _ => String::new(),
     };
-    Segment {
-        name: "PID".into(),
-        fields: vec![
+    segment(
+        "PID",
+        vec![
             "1".into(),
             String::new(),
             pid3,
@@ -126,7 +123,7 @@ pub fn build_pid(person: &crate::upstream::Person) -> Segment {
             String::new(),
             phone,
         ],
-    }
+    )
 }
 
 /// Build PV1 for an encounter + optional bed assignment.
@@ -176,10 +173,7 @@ pub fn build_pv1(enc: &Encounter, bed: Option<&Bed>) -> Segment {
         }
         fields.push(fmt_ts(enc.period_start));
     }
-    Segment {
-        name: "PV1".into(),
-        fields,
-    }
+    segment("PV1", fields)
 }
 
 /// SCH segment for an appointment. Populates SCH-1 (placer appt id),
@@ -195,9 +189,9 @@ pub fn build_sch(appt: &crate::models::appointment::Appointment) -> Segment {
         appt_status_to_str(appt.status),
     );
     let status = appt_status_to_str(appt.status).to_string();
-    Segment {
-        name: "SCH".into(),
-        fields: vec![
+    segment(
+        "SCH",
+        vec![
             appt_id.clone(),
             appt_id,
             String::new(),
@@ -224,41 +218,35 @@ pub fn build_sch(appt: &crate::models::appointment::Appointment) -> Segment {
             String::new(),
             status,
         ],
-    }
+    )
 }
 
 /// AIS segment — referenced service. Carries the appointment uuid in
 /// AIS-3.
 pub fn build_ais(appt: &crate::models::appointment::Appointment) -> Segment {
-    Segment {
-        name: "AIS".into(),
-        fields: vec![
+    segment(
+        "AIS",
+        vec![
             "1".into(),
             "A".into(), // action = Add
             appt.id.to_string(),
             fmt_ts(appt.start_datetime),
         ],
-    }
+    )
 }
 
 /// AIL segment — appointment location. Populates AIL-3 with the bed
 /// code if a bed is supplied (rare for appointments) else leaves blank.
 pub fn build_ail(bed: Option<&Bed>) -> Segment {
     let loc = bed.map(|b| b.code.clone()).unwrap_or_default();
-    Segment {
-        name: "AIL".into(),
-        fields: vec!["1".into(), "A".into(), loc],
-    }
+    segment("AIL", vec!["1".into(), "A".into(), loc])
 }
 
 /// AIP segment — appointment personnel. Carries the worker uuid in
 /// AIP-3 when known.
 pub fn build_aip(worker_id: Option<Uuid>) -> Segment {
     let id = worker_id.map(|i| i.to_string()).unwrap_or_default();
-    Segment {
-        name: "AIP".into(),
-        fields: vec!["1".into(), "A".into(), id],
-    }
+    segment("AIP", vec!["1".into(), "A".into(), id])
 }
 
 /// Frame-level metadata shared by every `encode_*` entry point.
@@ -291,9 +279,7 @@ pub fn encode_adt(
     let evn = build_evn(ctx.trigger, ctx.now);
     let pid = build_pid(person);
     let pv1 = build_pv1(enc, bed);
-    encode_message(&Message {
-        segments: vec![msh, evn, pid, pv1],
-    })
+    encode_message(&message(vec![msh, evn, pid, pv1]))
 }
 
 /// Encode a SIU message: MSH + SCH + PID + AIS + AIL + AIP.
@@ -316,9 +302,7 @@ pub fn encode_siu(
     let ais = build_ais(appt);
     let ail = build_ail(bed);
     let aip = build_aip(appt.worker_id);
-    encode_message(&Message {
-        segments: vec![msh, sch, pid, ais, ail, aip],
-    })
+    encode_message(&message(vec![msh, sch, pid, ais, ail, aip]))
 }
 
 fn name_components(
@@ -480,7 +464,7 @@ mod tests {
             "OUT-1",
             at(2026, 5, 31, 12, 0, 0),
         );
-        let wire = encode_message(&Message { segments: vec![s] });
+        let wire = encode_message(&message(vec![s]));
         assert!(
             wire.starts_with("MSH|^~\\&|PAS|FAC|EMR|FAC|20260531120000||ADT^A01|OUT-1|P|2.5\r")
         );
@@ -489,7 +473,7 @@ mod tests {
     #[test]
     fn test_build_evn_shape() {
         let s = build_evn("A01", at(2026, 5, 31, 12, 0, 0));
-        let wire = encode_message(&Message { segments: vec![s] });
+        let wire = encode_message(&message(vec![s]));
         assert!(wire.starts_with("EVN|A01|20260531120000"));
     }
 
@@ -497,7 +481,7 @@ mod tests {
     fn test_build_pid_renders_known_fields() {
         let p = sample_person();
         let s = build_pid(&p);
-        let wire = encode_message(&Message { segments: vec![s] });
+        let wire = encode_message(&message(vec![s]));
         assert!(wire.contains("|MRN-99^^^FAC^MR|"));
         assert!(wire.contains("|Doe^Jane^M|"));
         assert!(wire.contains("|19900115|F|"));
@@ -512,7 +496,7 @@ mod tests {
             data: serde_json::Map::new(),
         };
         let s = build_pid(&p);
-        let wire = encode_message(&Message { segments: vec![s] });
+        let wire = encode_message(&message(vec![s]));
         // Just confirm encoding doesn't panic and the segment exists.
         assert!(wire.starts_with("PID|1|"));
     }
@@ -522,7 +506,7 @@ mod tests {
         let enc = Encounter::new(Uuid::new_v4(), EncounterClass::Inpatient);
         let bed = Bed::new(Uuid::new_v4(), "Bed 1".into(), "B-101".into());
         let s = build_pv1(&enc, Some(&bed));
-        let wire = encode_message(&Message { segments: vec![s] });
+        let wire = encode_message(&message(vec![s]));
         assert!(wire.starts_with("PV1|1|I|^^B-101|"));
     }
 

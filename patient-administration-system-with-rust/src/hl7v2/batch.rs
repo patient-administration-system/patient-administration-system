@@ -22,9 +22,7 @@
 //! are *not* supported — every `BHS` after the first returns
 //! `Error::Validation`.
 
-use super::{
-    COMPONENT_SEP, ESCAPE_CHAR, FIELD_SEP, Message, REPETITION_SEP, SUBCOMPONENT_SEP, Segment,
-};
+use super::{Message, Segment, Separators};
 use crate::{Error, Result};
 
 /// Hard cap on how many `MSH` messages one batch may contain. Anything
@@ -46,60 +44,50 @@ pub struct Batch {
     pub fts: Option<Segment>,
 }
 
-/// Parse one batch transmission. Recognises `FHS`/`BHS`/`MSH`/`BTS`/`FTS`
-/// segment headers; everything else is treated as a body segment that
-/// attaches to the current `MSH` message. Multiple `MSH` headers split
-/// the body into successive messages.
+/// Parse one batch transmission. The segments are read by the `er7` crate; this walks them, recognising
+/// `FHS`/`BHS`/`MSH`/`BTS`/`FTS`. Everything else is a body segment that attaches to the current `MSH`
+/// message, and each further `MSH` starts the next message.
 ///
 /// Errors:
 /// - empty input or no `MSH`/`BHS`/`FHS` → `Error::Validation`.
-/// - non-standard delimiters on any header segment → `Error::Validation`.
+/// - non-standard delimiters → `Error::Validation`.
 /// - more than one `BHS` (multi-batch files) → `Error::Validation`.
 /// - more than `MAX_BATCH_MESSAGES` messages → `Error::Validation`.
 pub fn parse_batch(raw: &str) -> Result<Batch> {
-    let normalized = raw.replace("\r\n", "\r").replace('\n', "\r");
-    let segment_strs: Vec<&str> = normalized
-        .split('\r')
-        .map(str::trim_end)
-        .filter(|s| !s.is_empty())
-        .collect();
-    if segment_strs.is_empty() {
-        return Err(Error::validation("HL7v2 batch: empty input"));
+    let parsed = er7::parse(raw).map_err(|e| Error::validation(format!("HL7v2 batch: {e}")))?;
+    if parsed.separators != Separators::default() {
+        return Err(Error::validation(format!(
+            "HL7v2 batch: encoding characters must be \"^~\\&\", got {:?}",
+            parsed.separators.encoding_characters()
+        )));
     }
 
-    let mut fhs: Option<Segment> = None;
-    let mut bhs: Option<Segment> = None;
-    let mut bts: Option<Segment> = None;
-    let mut fts: Option<Segment> = None;
+    let mut fhs = None;
+    let mut bhs = None;
+    let mut bts = None;
+    let mut fts = None;
     let mut messages: Vec<Message> = Vec::new();
-    // Segments accumulated for the current in-flight message. Flushed when
-    // we hit the next MSH, BTS, FTS, BHS, or end of input.
+    // Segments of the message being read. Flushed at the next MSH, BTS, FTS, BHS or the end.
     let mut current: Option<Vec<Segment>> = None;
-
-    for s in segment_strs {
-        if s.len() < 3 {
-            return Err(Error::validation(format!(
-                "HL7v2 batch: segment too short: {s:?}"
-            )));
+    let flush = |current: &mut Option<Vec<Segment>>, messages: &mut Vec<Message>| {
+        if let Some(segments) = current.take() {
+            messages.push(Message {
+                separators: Separators::default(),
+                segments,
+            });
         }
-        // Byte slicing below needs a character boundary: a segment that starts with a multi-byte character
-        // is not a valid HL7 segment name anyway.
-        let Some(name) = s.get(..3) else {
-            return Err(Error::validation(
-                "HL7v2 batch: a segment must start with a three-character name",
-            ));
-        };
-        match name {
+    };
+
+    for seg in parsed.segments {
+        match seg.name.as_str() {
             "FHS" => {
                 if fhs.is_some() {
                     return Err(Error::validation(
                         "HL7v2 batch: more than one FHS segment is not supported",
                     ));
                 }
-                if let Some(prev) = current.take() {
-                    messages.push(Message { segments: prev });
-                }
-                fhs = Some(parse_header_segment("FHS", s)?);
+                flush(&mut current, &mut messages);
+                fhs = Some(seg);
             }
             "BHS" => {
                 if bhs.is_some() {
@@ -108,53 +96,37 @@ pub fn parse_batch(raw: &str) -> Result<Batch> {
                          (multi-batch files not implemented)",
                     ));
                 }
-                if let Some(prev) = current.take() {
-                    messages.push(Message { segments: prev });
-                }
-                bhs = Some(parse_header_segment("BHS", s)?);
+                flush(&mut current, &mut messages);
+                bhs = Some(seg);
             }
             "MSH" => {
-                if let Some(prev) = current.take() {
-                    messages.push(Message { segments: prev });
-                    if messages.len() > MAX_BATCH_MESSAGES {
-                        return Err(Error::validation(format!(
-                            "HL7v2 batch: more than {MAX_BATCH_MESSAGES} messages",
-                        )));
-                    }
+                flush(&mut current, &mut messages);
+                if messages.len() > MAX_BATCH_MESSAGES {
+                    return Err(Error::validation(format!(
+                        "HL7v2 batch: more than {MAX_BATCH_MESSAGES} messages",
+                    )));
                 }
-                current = Some(vec![parse_header_segment("MSH", s)?]);
+                current = Some(vec![seg]);
             }
             "BTS" => {
-                if let Some(prev) = current.take() {
-                    messages.push(Message { segments: prev });
-                }
-                bts = Some(parse_plain_segment(s));
+                flush(&mut current, &mut messages);
+                bts = Some(seg);
             }
             "FTS" => {
-                if let Some(prev) = current.take() {
-                    messages.push(Message { segments: prev });
-                }
-                fts = Some(parse_plain_segment(s));
+                flush(&mut current, &mut messages);
+                fts = Some(seg);
             }
-            _ => {
-                // Ordinary body segment (EVN, PID, PV1, ...). Must belong to a
-                // current MSH.
-                let body = parse_body_segment(name, s)?;
-                match current.as_mut() {
-                    Some(segs) => segs.push(body),
-                    None => {
-                        return Err(Error::validation(format!(
-                            "HL7v2 batch: segment {name:?} appears before any MSH"
-                        )));
-                    }
+            name => match current.as_mut() {
+                Some(segs) => segs.push(seg),
+                None => {
+                    return Err(Error::validation(format!(
+                        "HL7v2 batch: segment {name:?} appears before any MSH"
+                    )));
                 }
-            }
+            },
         }
     }
-
-    if let Some(prev) = current.take() {
-        messages.push(Message { segments: prev });
-    }
+    flush(&mut current, &mut messages);
     if messages.len() > MAX_BATCH_MESSAGES {
         return Err(Error::validation(format!(
             "HL7v2 batch: more than {MAX_BATCH_MESSAGES} messages",
@@ -172,80 +144,6 @@ pub fn parse_batch(raw: &str) -> Result<Batch> {
         bts,
         fts,
     })
-}
-
-/// Parse a header segment (MSH, FHS, or BHS). They share the same shape:
-/// 3-letter name, field separator, encoding characters, then 1-indexed
-/// fields. The standard delimiter set is required.
-fn parse_header_segment(expected_name: &str, s: &str) -> Result<Segment> {
-    if s.len() < 8 {
-        return Err(Error::validation(format!(
-            "HL7v2 batch: {expected_name} segment is too short"
-        )));
-    }
-    let bytes = s.as_bytes();
-    if bytes[3] as char != FIELD_SEP {
-        return Err(Error::validation(format!(
-            "HL7v2 batch: {expected_name} field separator must be '|' (got {:?})",
-            bytes[3] as char
-        )));
-    }
-    let encoding = &s[4..8];
-    let mut chars = encoding.chars();
-    let c1 = chars.next().unwrap_or_default();
-    let c2 = chars.next().unwrap_or_default();
-    let c3 = chars.next().unwrap_or_default();
-    let c4 = chars.next().unwrap_or_default();
-    if (c1, c2, c3, c4) != (COMPONENT_SEP, REPETITION_SEP, ESCAPE_CHAR, SUBCOMPONENT_SEP) {
-        return Err(Error::validation(format!(
-            "HL7v2 batch: {expected_name} encoding characters must be \"^~\\&\", got {encoding:?}"
-        )));
-    }
-    // Same layout as parser::parse_message for MSH: fields[0] = "|",
-    // fields[1] = encoding chars, fields[2..] = the rest.
-    let after_encoding = &s[8..];
-    let rest = after_encoding
-        .strip_prefix(FIELD_SEP)
-        .unwrap_or(after_encoding);
-    let mut fields = vec![FIELD_SEP.to_string(), encoding.to_string()];
-    fields.extend(rest.split(FIELD_SEP).map(String::from));
-    Ok(Segment {
-        name: expected_name.to_string(),
-        fields,
-    })
-}
-
-/// Parse a non-header body segment (EVN, PID, PV1, ...). Same shape as in
-/// `parser::parse_message`.
-fn parse_body_segment(name: &str, s: &str) -> Result<Segment> {
-    let rest = &s[3..];
-    let body = if rest.is_empty() {
-        ""
-    } else if rest.starts_with(FIELD_SEP) {
-        &rest[1..]
-    } else {
-        return Err(Error::validation(format!(
-            "HL7v2 batch: segment {name:?} not followed by field separator"
-        )));
-    };
-    Ok(Segment {
-        name: name.to_string(),
-        fields: body.split(FIELD_SEP).map(String::from).collect(),
-    })
-}
-
-/// Parse a "plain" trailer segment (BTS, FTS). These don't carry encoding
-/// characters; their one practical field is the count of contained items.
-/// Infallible at this layer — the BTS/FTS body is always a free-form
-/// pipe-separated list and we don't enforce the count.
-fn parse_plain_segment(s: &str) -> Segment {
-    let name = s.get(..3).unwrap_or(s).to_string();
-    let rest = s.get(3..).unwrap_or("");
-    let body = rest.strip_prefix(FIELD_SEP).unwrap_or("");
-    Segment {
-        name,
-        fields: body.split(FIELD_SEP).map(String::from).collect(),
-    }
 }
 
 /// Build a batch ACK envelope. Wraps the per-message ACK bodies inside
@@ -301,6 +199,7 @@ pub fn looks_like_batch(payload: &str) -> bool {
 mod tests {
     use super::*;
     use crate::hl7v2::AckCode;
+    use crate::hl7v2::SegmentRead;
     use crate::hl7v2::ack;
 
     const A28: &str = "MSH|^~\\&|EMR|FAC|PAS|FAC|20260523120000||ADT^A28|MSG-1|P|2.5\r\
@@ -329,15 +228,15 @@ PID|1||MRN-2^^^FAC^MR||Jones^Mary||19850515|F\r";
         assert_eq!(b.messages.len(), 2);
         assert_eq!(b.messages[0].segments[0].name, "MSH");
         assert_eq!(
-            b.messages[0].segment("PID").unwrap().component(3, 1),
+            b.messages[0].segment("PID").unwrap().component_text(3, 1),
             "MRN-1"
         );
         assert_eq!(
-            b.messages[1].segment("PID").unwrap().component(3, 1),
+            b.messages[1].segment("PID").unwrap().component_text(3, 1),
             "MRN-2"
         );
         let bts = b.bts.as_ref().unwrap();
-        assert_eq!(bts.field(1), "2");
+        assert_eq!(bts.raw(1), "2");
     }
 
     #[test]

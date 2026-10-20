@@ -41,6 +41,7 @@ use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUser
 use crate::db::repositories::bed::BedRepository;
 use crate::db::repositories::encounter::EncounterRepository;
 use crate::db::repositories::outbox::OutboxRepository;
+use crate::hl7v2::SegmentRead;
 use crate::hl7v2::ack::{AckCode, ack};
 use crate::hl7v2::batch::{encode_batch_ack, parse_batch};
 use crate::hl7v2::encoder::encode_message;
@@ -111,8 +112,8 @@ struct MshHeader {
 fn msh_header(msg: &crate::hl7v2::Message) -> MshHeader {
     let msh = msg.segment("MSH");
     MshHeader {
-        sender: msh.map(|s| s.field(3).to_string()).unwrap_or_default(),
-        control_id: msh.map(|s| s.field(10).to_string()).unwrap_or_default(),
+        sender: msh.map(|s| s.raw(3).to_string()).unwrap_or_default(),
+        control_id: msh.map(|s| s.raw(10).to_string()).unwrap_or_default(),
     }
 }
 
@@ -1055,7 +1056,7 @@ pub async fn dft(
         Ok(r) => r,
         Err(ack_resp) => return ack_resp,
     };
-    let ft1_segs: Vec<_> = r.message.all_segments("FT1").collect();
+    let ft1_segs: Vec<_> = r.message.segments_named("FT1").collect();
     if ft1_segs.is_empty() {
         return ae(&r.sender, &r.control_id, "no FT1 segments");
     }
@@ -1497,7 +1498,7 @@ pub async fn mfn_staff(
         Some(s) => s,
         None => return ae(&h.sender, &h.control_id, "MFI segment missing"),
     };
-    let file_id = mfi.field(1).trim().to_ascii_uppercase();
+    let file_id = mfi.raw(1).trim().to_ascii_uppercase();
     if file_id != "PRA" {
         return ae(
             &h.sender,
@@ -1662,7 +1663,7 @@ pub async fn mfn_location(
         Some(s) => s,
         None => return ae(&h.sender, &h.control_id, "MFI segment missing"),
     };
-    let file_id = mfi.field(1).trim().to_ascii_uppercase();
+    let file_id = mfi.raw(1).trim().to_ascii_uppercase();
     if file_id != "LOC" {
         return ae(
             &h.sender,
@@ -1824,7 +1825,7 @@ async fn dispatch_inner_to_ack_body(
     let msh = msg.segment("MSH");
     let (code, event) = match msh {
         Some(s) => {
-            let field = s.field(9);
+            let field = s.raw(9);
             let mut parts = field.split('^');
             (
                 parts.next().unwrap_or("").to_string(),
@@ -1886,12 +1887,12 @@ pub async fn batch(
     let batch_id = parsed
         .bhs
         .as_ref()
-        .map(|s| s.field(11).to_string())
+        .map(|s| s.raw(11).to_string())
         .unwrap_or_default();
     let sender = parsed
         .bhs
         .as_ref()
-        .map(|s| s.field(3).to_string())
+        .map(|s| s.raw(3).to_string())
         .unwrap_or_default();
     let mut per_message: Vec<String> = Vec::with_capacity(parsed.messages.len());
     for inner in &parsed.messages {

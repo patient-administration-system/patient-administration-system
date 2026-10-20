@@ -26,68 +26,31 @@
 //! still the literal wire bytes between delimiters. Callers in
 //! [`crate::hl7v2::mapping`] apply the escapes when crossing the boundary.
 
-use super::{COMPONENT_SEP, ESCAPE_CHAR, FIELD_SEP, REPETITION_SEP, SUBCOMPONENT_SEP};
+use er7::Separators;
 
-/// Escape every reserved HL7 v2 delimiter character in `value`. The
-/// escape-character backslash itself must be escaped *first* so that newly
-/// introduced backslashes from the other replacements aren't re-escaped.
+/// Escape every reserved HL7 v2 delimiter in `value`, and a carriage return or line feed (which would
+/// otherwise end the segment), so the value cannot change the structure of the message. Done by the `er7` crate.
 pub fn escape_value(value: &str) -> String {
-    let mut out = String::with_capacity(value.len());
-    for ch in value.chars() {
-        match ch {
-            // \E\ must come first conceptually; here we just emit it for
-            // every literal backslash we see in the input.
-            c if c == ESCAPE_CHAR => out.push_str("\\E\\"),
-            c if c == FIELD_SEP => out.push_str("\\F\\"),
-            c if c == COMPONENT_SEP => out.push_str("\\S\\"),
-            c if c == SUBCOMPONENT_SEP => out.push_str("\\T\\"),
-            c if c == REPETITION_SEP => out.push_str("\\R\\"),
-            other => out.push(other),
-        }
-    }
-    out
+    er7::escape::escape(value, &Separators::default()).into_owned()
 }
 
-/// Inverse of [`escape_value`]. Unknown escape sequences (`\X\` where `X`
-/// is not one of `F S T R E`) are passed through verbatim — this matches
-/// the de-facto behavior of most v2 parsers and avoids silently dropping
-/// vendor extensions like `\H\` / `\N\` / hex `\Xnn...\`.
+/// Inverse of [`escape_value`]. Sequences that stand for a character decode (`\F\ \S\ \T\ \R\ \E\` and hex
+/// `\Xnn\`); every other sequence (`\H\`, `\N\`, an unterminated one) is kept as written so vendor extensions are
+/// not lost. Done by the `er7` crate.
 pub fn unescape_value(value: &str) -> String {
-    let bytes = value.as_bytes();
-    let mut out = String::with_capacity(value.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'\\' && i + 2 < bytes.len() && bytes[i + 2] == b'\\' {
-            let code = bytes[i + 1];
-            let replacement = match code {
-                b'F' => Some(FIELD_SEP),
-                b'S' => Some(COMPONENT_SEP),
-                b'T' => Some(SUBCOMPONENT_SEP),
-                b'R' => Some(REPETITION_SEP),
-                b'E' => Some(ESCAPE_CHAR),
-                _ => None,
-            };
-            if let Some(c) = replacement {
-                out.push(c);
-                i += 3;
-                continue;
-            }
-            // Unknown escape — emit the sequence as-is and advance.
-            out.push('\\');
-            out.push(code as char);
-            out.push('\\');
-            i += 3;
-            continue;
-        }
-        out.push(bytes[i] as char);
-        i += 1;
-    }
-    out
+    er7::escape::unescape(value, &Separators::default()).into_owned()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_escape_protects_the_segment_from_line_breaks() {
+        let e = escape_value("line\r\nnext");
+        assert!(!e.contains('\r') && !e.contains('\n'));
+        assert_eq!(unescape_value(&e), "line\r\nnext");
+    }
 
     #[test]
     fn test_escape_preserves_normal_strings() {

@@ -4,7 +4,7 @@
 
 use chrono::Utc;
 
-use super::{Message, Segment, encode_message};
+use super::{encode_message, message, segment};
 
 /// MSA-1 acknowledgement code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,9 +37,9 @@ pub fn ack(
     diagnostics: Option<&str>,
 ) -> String {
     let now = Utc::now().format("%Y%m%d%H%M%S").to_string();
-    let msh = Segment {
-        name: "MSH".into(),
-        fields: vec![
+    let msh = segment(
+        "MSH",
+        vec![
             "|".into(),
             "^~\\&".into(),
             sending_app.into(),
@@ -53,18 +53,13 @@ pub fn ack(
             "P".into(),
             "2.5".into(),
         ],
-    };
+    );
     let mut msa_fields = vec![code.as_str().into(), message_control_id.into()];
     if let Some(d) = diagnostics {
         msa_fields.push(d.into());
     }
-    let msa = Segment {
-        name: "MSA".into(),
-        fields: msa_fields,
-    };
-    encode_message(&Message {
-        segments: vec![msh, msa],
-    })
+    let msa = segment("MSA", msa_fields);
+    encode_message(&message(vec![msh, msa]))
 }
 
 #[cfg(test)]

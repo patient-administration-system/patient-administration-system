@@ -38,7 +38,7 @@ use crate::db::repositories::bed::BedRepository;
 use crate::db::repositories::encounter::EncounterRepository;
 use crate::hl7v2::encode::{EncodeContext, encode_adt, encode_siu};
 use crate::hl7v2::mllp;
-use crate::hl7v2::parse_message;
+use crate::hl7v2::{SegmentRead, parse_message};
 use crate::streaming::{DomainEvent, EventPublisher};
 use crate::upstream::{PersonClient, UserContext, WorkerClient};
 use crate::{Error, Result};
@@ -110,12 +110,12 @@ impl Hl7v2MllpPublisher {
         let msa = msg
             .segment("MSA")
             .ok_or_else(|| Error::Streaming("ACK missing MSA segment".to_string()))?;
-        let code = msa.field(1);
-        match code {
+        let code = msa.raw(1);
+        match code.as_str() {
             "AA" => Ok(()),
             "AE" | "AR" => Err(Error::Streaming(format!(
                 "peer rejected with {code}: {}",
-                msa.field(3)
+                msa.raw(3)
             ))),
             other => Err(Error::Streaming(format!("unknown ACK code {other:?}"))),
         }

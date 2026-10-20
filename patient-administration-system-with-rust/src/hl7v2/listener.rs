@@ -13,7 +13,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream};
 use tower::ServiceExt;
 
-use crate::hl7v2::{Message, mllp, parse_message};
+use crate::hl7v2::{Message, SegmentRead, mllp, parse_message};
 use crate::{Error, Result};
 
 /// Local replacement for the deleted `mapping::message_type` helper.
@@ -24,7 +24,7 @@ fn message_type(msg: &Message) -> (String, String) {
         Some(s) => s,
         None => return (String::new(), String::new()),
     };
-    let field = msh.field(9);
+    let field = msh.raw(9);
     let mut parts = field.split('^');
     let code = parts.next().unwrap_or("").to_string();
     let event = parts.next().unwrap_or("").to_string();

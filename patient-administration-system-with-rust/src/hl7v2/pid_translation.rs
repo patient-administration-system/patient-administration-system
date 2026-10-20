@@ -28,14 +28,14 @@
 
 use serde_json::{Map, Value, json};
 
-use crate::hl7v2::Segment;
 use crate::hl7v2::escape::unescape_value;
+use crate::hl7v2::{Segment, SegmentRead};
 use crate::upstream::PersonCreate;
 
 /// Extract the PID-3.1 MRN value from a PID segment, if present.
 /// Returns `None` when PID-3 is empty or has no first component.
 pub fn extract_mrn_from_pid(pid: &Segment) -> Option<String> {
-    let raw = pid.field(3);
+    let raw = pid.raw(3);
     if raw.is_empty() {
         return None;
     }
@@ -65,7 +65,7 @@ pub fn pid_to_person_create(pid: &Segment) -> PersonCreate {
     }
 
     // PID-5: name.
-    let name_raw = pid.field(5);
+    let name_raw = pid.raw(5);
     if !name_raw.is_empty() {
         let mut parts = name_raw.split('^');
         let family = unescape_value(parts.next().unwrap_or("").trim());
@@ -105,7 +105,8 @@ pub fn pid_to_person_create(pid: &Segment) -> PersonCreate {
     }
 
     // PID-7: birth_date (YYYYMMDD → YYYY-MM-DD).
-    let bd = pid.field(7).trim();
+    let bd_text = pid.raw(7);
+    let bd = bd_text.trim();
     if bd.len() >= 8 && bd.is_ascii() {
         let (y, m, d) = (&bd[0..4], &bd[4..6], &bd[6..8]);
         if y.chars().all(|c| c.is_ascii_digit())
@@ -120,7 +121,8 @@ pub fn pid_to_person_create(pid: &Segment) -> PersonCreate {
     }
 
     // PID-8: sex.
-    let sex = pid.field(8).trim();
+    let sex_text = pid.raw(8);
+    let sex = sex_text.trim();
     if !sex.is_empty() {
         let gender = match sex.to_ascii_uppercase().as_str() {
             "M" => "male",
@@ -133,7 +135,7 @@ pub fn pid_to_person_create(pid: &Segment) -> PersonCreate {
     }
 
     // PID-11: address (single).
-    let addr_raw = pid.field(11);
+    let addr_raw = pid.raw(11);
     if !addr_raw.is_empty() {
         let mut parts = addr_raw.split('^');
         let line1 = unescape_value(parts.next().unwrap_or("").trim());
@@ -170,7 +172,8 @@ pub fn pid_to_person_create(pid: &Segment) -> PersonCreate {
     }
 
     // PID-13: telecom (single phone, first repetition).
-    let phone_raw = pid.field(13).split('~').next().unwrap_or("").trim();
+    let phone_raw_text = pid.raw(13);
+    let phone_raw = phone_raw_text.split('~').next().unwrap_or("").trim();
     if !phone_raw.is_empty() {
         let value = unescape_value(phone_raw);
         let cp = json!({ "system": "phone", "value": value });
@@ -185,7 +188,7 @@ pub fn pid_to_person_create(pid: &Segment) -> PersonCreate {
 /// PID-3; we only care about the first component of the first
 /// repetition.
 pub fn extract_mrn_from_mrg(mrg: &Segment) -> Option<String> {
-    let raw = mrg.field(1);
+    let raw = mrg.raw(1);
     if raw.is_empty() {
         return None;
     }
@@ -219,12 +222,14 @@ pub struct Ft1 {
 /// (mostly for diagnostics — "FT1[2]-11.1 ..."). Returns
 /// `Err(Error::Validation)` when a required field is missing.
 pub fn parse_ft1(ft1: &Segment) -> crate::Result<Ft1> {
-    let set_id = ft1.field(1).trim().parse::<u32>().unwrap_or(0);
-    let posted_at = parse_hl7_datetime(ft1.field(4).trim());
-    let transaction_type = ft1.field(6).trim().to_string();
+    let set_id_text = ft1.raw(1);
+    let set_id = set_id_text.trim().parse::<u32>().unwrap_or(0);
+    let posted_at = parse_hl7_datetime(ft1.raw(4).trim());
+    let transaction_type_text = ft1.raw(6);
+    let transaction_type = transaction_type_text.trim().to_string();
     // FT1-7 is composite; 7.1 is the code.
     let code = ft1
-        .field(7)
+        .raw(7)
         .split('^')
         .next()
         .unwrap_or("")
@@ -235,13 +240,14 @@ pub fn parse_ft1(ft1: &Segment) -> crate::Result<Ft1> {
             "FT1[{set_id}]-7.1 (transaction code) is required"
         )));
     }
-    let description = ft1.field(8).trim().to_string();
+    let description_text = ft1.raw(8);
+    let description = description_text.trim().to_string();
     if description.is_empty() {
         return Err(crate::Error::validation(format!(
             "FT1[{set_id}]-8 (description) is required"
         )));
     }
-    let amount_field = ft1.field(11);
+    let amount_field = ft1.raw(11);
     let mut amt_parts = amount_field.split('^');
     let amount = amt_parts.next().unwrap_or("").trim().to_string();
     let currency = amt_parts.next().unwrap_or("").trim().to_string();
@@ -326,7 +332,8 @@ pub struct Sch {
 
 pub fn parse_sch(sch: &Segment) -> Sch {
     let placer = {
-        let raw = sch.field(1).trim();
+        let raw_text = sch.raw(1);
+        let raw = raw_text.trim();
         if raw.is_empty() {
             None
         } else {
@@ -334,7 +341,8 @@ pub fn parse_sch(sch: &Segment) -> Sch {
         }
     };
     let filler = {
-        let raw = sch.field(2).trim();
+        let raw_text = sch.raw(2);
+        let raw = raw_text.trim();
         if raw.is_empty() {
             None
         } else {
@@ -342,7 +350,8 @@ pub fn parse_sch(sch: &Segment) -> Sch {
         }
     };
     let reason = {
-        let raw = sch.field(7).trim();
+        let raw_text = sch.raw(7);
+        let raw = raw_text.trim();
         if raw.is_empty() {
             None
         } else {
@@ -350,15 +359,17 @@ pub fn parse_sch(sch: &Segment) -> Sch {
         }
     };
     let duration_minutes = {
-        let value: Option<u32> = sch.field(9).trim().parse().ok();
-        let units = sch.field(10).trim();
+        let value_text = sch.raw(9);
+        let value: Option<u32> = value_text.trim().parse().ok();
+        let units_text = sch.raw(10);
+        let units = units_text.trim();
         value.map(|v| match units.to_ascii_lowercase().as_str() {
             "h" | "hr" | "hours" => v * 60,
             "d" | "day" | "days" => v * 60 * 24,
             _ => v, // default minutes
         })
     };
-    let start = parse_hl7_datetime(sch.field(11).trim());
+    let start = parse_hl7_datetime(sch.raw(11).trim());
     Sch {
         placer_id: placer,
         filler_id: filler,
@@ -386,18 +397,21 @@ pub struct StaffItem {
 }
 
 pub fn parse_mfe_stf(mfe: &Segment, stf: &Segment) -> crate::Result<StaffItem> {
-    let event_code = mfe.field(1).trim().to_ascii_uppercase();
+    let event_code_text = mfe.raw(1);
+    let event_code = event_code_text.trim().to_ascii_uppercase();
     if !matches!(event_code.as_str(), "MAD" | "MUP" | "MDL") {
         return Err(crate::Error::validation(format!(
             "MFE-1 must be MAD/MUP/MDL, got {event_code:?}"
         )));
     }
     let staff_id = {
-        let raw = mfe.field(4).trim();
+        let raw_text = mfe.raw(4);
+        let raw = raw_text.trim();
         if !raw.is_empty() {
             unescape_value(raw)
         } else {
-            let alt = stf.field(1).trim();
+            let alt_text = stf.raw(1);
+            let alt = alt_text.trim();
             if alt.is_empty() {
                 return Err(crate::Error::validation(
                     "MFE-4 or STF-1 (staff id) is required",
@@ -406,7 +420,7 @@ pub fn parse_mfe_stf(mfe: &Segment, stf: &Segment) -> crate::Result<StaffItem> {
             unescape_value(alt)
         }
     };
-    let name_raw = stf.field(3);
+    let name_raw = stf.raw(3);
     let mut parts = name_raw.split('^');
     let family = unescape_value(parts.next().unwrap_or("").trim());
     let given = unescape_value(parts.next().unwrap_or("").trim());
@@ -417,7 +431,8 @@ pub fn parse_mfe_stf(mfe: &Segment, stf: &Segment) -> crate::Result<StaffItem> {
         Some(middle_raw)
     };
     let gender = {
-        let raw = stf.field(5).trim().to_ascii_uppercase();
+        let raw_text = stf.raw(5);
+        let raw = raw_text.trim().to_ascii_uppercase();
         match raw.as_str() {
             "M" => Some("male".to_string()),
             "F" => Some("female".to_string()),
@@ -428,7 +443,8 @@ pub fn parse_mfe_stf(mfe: &Segment, stf: &Segment) -> crate::Result<StaffItem> {
         }
     };
     let birth_date = {
-        let raw = stf.field(6).trim();
+        let raw_text = stf.raw(6);
+        let raw = raw_text.trim();
         if raw.len() >= 8 && raw.is_ascii() {
             let (y, m, d) = (&raw[0..4], &raw[4..6], &raw[6..8]);
             if y.chars().all(|c| c.is_ascii_digit())
@@ -444,7 +460,7 @@ pub fn parse_mfe_stf(mfe: &Segment, stf: &Segment) -> crate::Result<StaffItem> {
         }
     };
     let active = matches!(
-        stf.field(7).trim().to_ascii_uppercase().as_str(),
+        stf.raw(7).trim().to_ascii_uppercase().as_str(),
         "I" | "INACTIVE"
     )
     .not();
@@ -485,13 +501,14 @@ pub struct LocationItem {
 }
 
 pub fn parse_mfe_loc(mfe: &Segment, loc: &Segment) -> crate::Result<LocationItem> {
-    let event_code = mfe.field(1).trim().to_ascii_uppercase();
+    let event_code_text = mfe.raw(1);
+    let event_code = event_code_text.trim().to_ascii_uppercase();
     if !matches!(event_code.as_str(), "MAD" | "MUP" | "MDL") {
         return Err(crate::Error::validation(format!(
             "MFE-1 must be MAD/MUP/MDL, got {event_code:?}"
         )));
     }
-    let raw = loc.field(1);
+    let raw = loc.raw(1);
     let mut parts = raw.split('^');
     let _ward = parts.next().unwrap_or("");
     let room_raw = parts.next().unwrap_or("").trim();
@@ -506,7 +523,8 @@ pub fn parse_mfe_loc(mfe: &Segment, loc: &Segment) -> crate::Result<LocationItem
         Some(unescape_value(room_raw))
     };
     let bed_name = {
-        let raw = loc.field(2).trim();
+        let raw_text = loc.raw(2);
+        let raw = raw_text.trim();
         if raw.is_empty() {
             None
         } else {
@@ -525,7 +543,8 @@ pub fn parse_mfe_loc(mfe: &Segment, loc: &Segment) -> crate::Result<LocationItem
 /// missing) → Outpatient. Used by ADT^A04 register-outpatient to
 /// pick the encounter class.
 pub fn pv1_class_or_outpatient(pv1: &Segment) -> &'static str {
-    let raw = pv1.field(2).trim();
+    let raw_text = pv1.raw(2);
+    let raw = raw_text.trim();
     if raw.eq_ignore_ascii_case("E") {
         "Emergency"
     } else {
@@ -536,7 +555,7 @@ pub fn pv1_class_or_outpatient(pv1: &Segment) -> &'static str {
 /// Extract the PV1-3.3 bed code (3rd component of PV1-3, the
 /// Assigned Patient Location field). Returns `None` when missing.
 pub fn extract_bed_code_from_pv1(pv1: &Segment) -> Option<String> {
-    let raw = pv1.field(3);
+    let raw = pv1.raw(3);
     if raw.is_empty() {
         return None;
     }
@@ -553,13 +572,7 @@ mod tests {
     use super::*;
 
     fn seg(name: &str, fields: &[&str]) -> Segment {
-        Segment {
-            name: name.to_string(),
-            fields: fields
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect(),
-        }
+        crate::hl7v2::segment(name, fields.iter().map(|f| (*f).to_string()).collect())
     }
 
     #[test]

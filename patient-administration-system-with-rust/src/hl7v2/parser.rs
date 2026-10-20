@@ -1,107 +1,36 @@
 //! HL7 v2 message parser (pipe-delimited, standard delimiters only).
 
-use super::{
-    COMPONENT_SEP, ESCAPE_CHAR, FIELD_SEP, Message, REPETITION_SEP, SUBCOMPONENT_SEP, Segment,
-};
+use super::Message;
 use crate::{Error, Result};
 
 /// Parse a v2 message string into a structured [`Message`].
 ///
-/// Tolerates `\r`, `\n`, and `\r\n` as segment terminators. Requires the
-/// first segment to be `MSH` with standard delimiters `|^~\&`. Returns a
-/// [`Error::Validation`] error on any structural problem.
+/// The structure is read by the `er7` crate, which accepts `\r`, `\n` and `\r\n` as segment terminators.
+/// This layer adds two rules of its own: the first segment must be `MSH`, and the delimiters must be the
+/// standard `|^~\&`. Anything else is an [`Error::Validation`]. Each field keeps its wire text (still escaped),
+/// and for `MSH`, field 1 is the separator and field 2 the encoding characters, as HL7 numbers them.
 pub fn parse_message(raw: &str) -> Result<Message> {
-    let normalized = raw.replace("\r\n", "\r").replace('\n', "\r");
-    let mut segment_strs: Vec<&str> = normalized
-        .split('\r')
-        .map(str::trim_end)
-        .filter(|s| !s.is_empty())
-        .collect();
-
-    let first = segment_strs
-        .first()
-        .copied()
-        .ok_or_else(|| Error::validation("HL7v2: empty message"))?;
-    if !first.starts_with("MSH") {
+    let parsed = er7::parse(raw).map_err(|e| Error::validation(format!("HL7v2: {e}")))?;
+    let first = parsed.segments.first().map(|s| s.name.as_str());
+    if first != Some("MSH") {
         return Err(Error::validation(format!(
             "HL7v2: first segment must be MSH, got {:?}",
-            first.chars().take(3).collect::<String>()
+            first.unwrap_or_default()
         )));
     }
-    if first.len() < 8 {
-        return Err(Error::validation("HL7v2: MSH segment is too short"));
-    }
-    // Verify standard delimiters: MSH-1 is the byte right after "MSH" (field
-    // separator); MSH-2 is the next four characters (encoding chars).
-    let bytes = first.as_bytes();
-    if bytes[3] as char != FIELD_SEP {
+    if parsed.separators != er7::Separators::default() {
         return Err(Error::validation(format!(
-            "HL7v2: field separator must be '|' (got {:?})",
-            bytes[3] as char
+            "HL7v2: encoding characters must be \"^~\\&\", got {:?}",
+            parsed.separators.encoding_characters()
         )));
     }
-    let encoding = &first[4..8];
-    let mut chars = encoding.chars();
-    let c1 = chars.next().unwrap_or_default();
-    let c2 = chars.next().unwrap_or_default();
-    let c3 = chars.next().unwrap_or_default();
-    let c4 = chars.next().unwrap_or_default();
-    if (c1, c2, c3, c4) != (COMPONENT_SEP, REPETITION_SEP, ESCAPE_CHAR, SUBCOMPONENT_SEP) {
-        return Err(Error::validation(format!(
-            "HL7v2: encoding characters must be \"^~\\&\", got {encoding:?}"
-        )));
-    }
-
-    // Build the MSH segment specially. HL7 convention:
-    //   MSH-1 = the field separator itself ("|").
-    //   MSH-2 = the encoding characters ("^~\&").
-    // So `fields[0]` holds the field separator and `fields[1]` holds the
-    // encoding characters; `field(n)` then matches the HL7 1-indexed
-    // numbering for every n.
-    let mut segments = Vec::with_capacity(segment_strs.len());
-    let after_encoding = &first[8..]; // starts with "|<MSH-3>|<MSH-4>|..."
-    let rest = after_encoding
-        .strip_prefix(FIELD_SEP)
-        .unwrap_or(after_encoding);
-    let mut msh_fields = vec![FIELD_SEP.to_string(), encoding.to_string()];
-    msh_fields.extend(rest.split(FIELD_SEP).map(String::from));
-    segments.push(Segment {
-        name: "MSH".into(),
-        fields: msh_fields,
-    });
-
-    // Parse remaining segments uniformly.
-    segment_strs.remove(0);
-    for s in segment_strs {
-        if s.len() < 3 {
-            return Err(Error::validation(format!(
-                "HL7v2: segment too short: {s:?}"
-            )));
-        }
-        let (name, rest) = s.split_at(3);
-        // The 4th char must be the field separator (or the segment must end).
-        let body = if rest.is_empty() {
-            ""
-        } else if rest.starts_with(FIELD_SEP) {
-            &rest[1..]
-        } else {
-            return Err(Error::validation(format!(
-                "HL7v2: segment {name:?} not followed by field separator"
-            )));
-        };
-        let fields: Vec<String> = body.split(FIELD_SEP).map(String::from).collect();
-        segments.push(Segment {
-            name: name.to_string(),
-            fields,
-        });
-    }
-
-    Ok(Message { segments })
+    Ok(parsed)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hl7v2::SegmentRead;
 
     const A01: &str = "MSH|^~\\&|SENDAPP|FAC|RECVAPP|FAC|20260523120000||ADT^A01|MSG001|P|2.5\r\
 EVN|A01|20260523120000\r\
@@ -120,41 +49,41 @@ PV1|1|I|WARD1^ROOM1^BED1|||||||||||||||VISIT001\r";
         let m = parse_message(A01).expect("parse");
         let msh = m.segment("MSH").expect("MSH");
         // MSH-2 is the encoding characters.
-        assert_eq!(msh.field(2), "^~\\&");
+        assert_eq!(msh.raw(2), "^~\\&");
         // MSH-3 is the sending app.
-        assert_eq!(msh.field(3), "SENDAPP");
+        assert_eq!(msh.raw(3), "SENDAPP");
         // MSH-9 is the message type.
-        assert_eq!(msh.field(9), "ADT^A01");
-        assert_eq!(msh.component(9, 1), "ADT");
-        assert_eq!(msh.component(9, 2), "A01");
+        assert_eq!(msh.raw(9), "ADT^A01");
+        assert_eq!(msh.component_text(9, 1), "ADT");
+        assert_eq!(msh.component_text(9, 2), "A01");
     }
 
     #[test]
     fn test_parse_pid_components() {
         let m = parse_message(A01).expect("parse");
         let pid = m.segment("PID").expect("PID");
-        assert_eq!(pid.field(1), "1");
-        assert_eq!(pid.field(3), "MRN-001^^^FAC^MR");
-        assert_eq!(pid.component(3, 1), "MRN-001");
-        assert_eq!(pid.component(3, 5), "MR");
-        assert_eq!(pid.field(5), "Doe^Jane^Marie");
-        assert_eq!(pid.component(5, 1), "Doe");
-        assert_eq!(pid.component(5, 2), "Jane");
-        assert_eq!(pid.component(5, 3), "Marie");
-        assert_eq!(pid.field(7), "19900115");
-        assert_eq!(pid.field(8), "F");
-        assert_eq!(pid.component(11, 3), "Springfield");
-        assert_eq!(pid.field(13), "(555)555-0100");
+        assert_eq!(pid.raw(1), "1");
+        assert_eq!(pid.raw(3), "MRN-001^^^FAC^MR");
+        assert_eq!(pid.component_text(3, 1), "MRN-001");
+        assert_eq!(pid.component_text(3, 5), "MR");
+        assert_eq!(pid.raw(5), "Doe^Jane^Marie");
+        assert_eq!(pid.component_text(5, 1), "Doe");
+        assert_eq!(pid.component_text(5, 2), "Jane");
+        assert_eq!(pid.component_text(5, 3), "Marie");
+        assert_eq!(pid.raw(7), "19900115");
+        assert_eq!(pid.raw(8), "F");
+        assert_eq!(pid.component_text(11, 3), "Springfield");
+        assert_eq!(pid.raw(13), "(555)555-0100");
     }
 
     #[test]
     fn test_parse_pv1_class_and_location() {
         let m = parse_message(A01).expect("parse");
         let pv1 = m.segment("PV1").expect("PV1");
-        assert_eq!(pv1.field(2), "I");
-        assert_eq!(pv1.component(3, 1), "WARD1");
-        assert_eq!(pv1.component(3, 2), "ROOM1");
-        assert_eq!(pv1.component(3, 3), "BED1");
+        assert_eq!(pv1.raw(2), "I");
+        assert_eq!(pv1.component_text(3, 1), "WARD1");
+        assert_eq!(pv1.component_text(3, 2), "ROOM1");
+        assert_eq!(pv1.component_text(3, 3), "BED1");
     }
 
     #[test]

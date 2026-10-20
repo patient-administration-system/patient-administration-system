@@ -10,6 +10,7 @@ keywords = ["healthcare", "pas", "fhir", "hl7", "admin"]
 categories = ["science", "database"]
 
 [dependencies]
+er7 = "0.2.2"
 # Async Runtime
 tokio = { version = "1.54", features = ["full"] }
 

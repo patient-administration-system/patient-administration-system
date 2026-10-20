@@ -1,50 +1,15 @@
 //! HL7 v2 message encoder (pipe-delimited, standard delimiters only).
 
-use super::{FIELD_SEP, Message, Segment};
+use super::Message;
+use er7::RenderOptions;
 
-/// Encode a parsed [`Message`] back to a wire string.
-///
-/// Segments are joined by `\r` (the HL7 convention). For the MSH segment,
-/// `fields[0]` is rendered as the encoding-characters block (`^~\&`) and
-/// the canonical field separator `|` is emitted right after `MSH`.
-///
-/// The output is byte-identical to the input for messages that were parsed
-/// by this module's [`crate::hl7v2::parser::parse_message`] when callers
-/// haven't mutated the message — see the round-trip test in this module.
+/// Encode a [`Message`] to a wire string: segments joined by `\r`, with a trailing `\r` (the HL7 convention).
+/// Rendering is the `er7` crate's, which keeps what was parsed byte for byte.
 pub fn encode_message(m: &Message) -> String {
-    let mut parts = Vec::with_capacity(m.segments.len());
-    for seg in &m.segments {
-        parts.push(encode_segment(seg));
-    }
-    let mut out = parts.join("\r");
-    out.push('\r');
-    out
-}
-
-fn encode_segment(seg: &Segment) -> String {
-    if seg.name == "MSH" {
-        // fields[0] = the field separator itself (typically "|").
-        // fields[1] = the encoding characters (typically "^~\&").
-        let sep = seg.fields.first().map(String::as_str).unwrap_or("|");
-        let encoding = seg.fields.get(1).map(String::as_str).unwrap_or("^~\\&");
-        let rest: Vec<&str> = seg.fields.iter().skip(2).map(String::as_str).collect();
-        let mut out = String::with_capacity(64);
-        out.push_str("MSH");
-        out.push_str(sep);
-        out.push_str(encoding);
-        for f in &rest {
-            out.push_str(sep);
-            out.push_str(f);
-        }
-        out
-    } else {
-        let mut out = String::with_capacity(64);
-        out.push_str(&seg.name);
-        out.push(FIELD_SEP);
-        let joined: Vec<&str> = seg.fields.iter().map(String::as_str).collect();
-        out.push_str(&joined.join(&FIELD_SEP.to_string()));
-        out
-    }
+    m.to_er7_with(RenderOptions {
+        trailing_terminator: true,
+        ..RenderOptions::default()
+    })
 }
 
 #[cfg(test)]
