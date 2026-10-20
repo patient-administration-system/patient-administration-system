@@ -5,14 +5,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.46.0] — 2026-10-20
+
 ### Changed
 - HL7 v2 messages are the `er7` crate's `Message` and `Segment`: parsing, escaping and rendering come from `er7` (our own types and parser are gone). `hl7v2::SegmentRead` reads a field's wire text (`raw(n)`, `component_text(n, c)`); `hl7v2::segment` and `hl7v2::message` build segments for the encoders. Escaping now also protects a segment from a carriage return or line feed in a value.
 - FHIR: errors are the `fhir` crate's typed R5 `OperationOutcome` (`api::fhir::operation_outcome::{error, not_found, exception}`), and the Schedule and Slot handlers read FHIR references and service types as typed R5 elements (the PAS-native request shapes still work).
 
-## [0.45.1] — 2026-10-20
-
 ### Fixed
-- Documentation only: the README and technology notes said Rust 1.93+; the pinned toolchain is 1.99.1. The `repository` URL in both crates points at the current location. No code changed.
+- Two print exports at once could pick the same letter and fail on the unique constraint; exports now take turns (advisory lock).
+- Documentation: the README and technology notes said Rust 1.93+; the pinned toolchain is 1.99.1. The `repository` URL in both crates points at the current location.
+
+### Removed
+- Unused dependencies `quick-xml`, `tantivy` and `sea-orm-migration` from the server crate.
 
 ## [0.45.0] — 2026-10-20
 

@@ -9,7 +9,7 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Release 0.45.0 (2026-10-20)
 
-Server crate 0.45.0 (0.45.1 is a documentation-only republish to crates.io), tag `v0.45.0`. Published to crates.io 2026-10-20: `patient-administration-system-migrations` 0.1.0 (now publishable) and `patient-administration-system` 0.45.0. Counts and requirement numbers are in `spec/14-implementation-status.md` and `spec/06-functional-requirements.md`.
+Server crate 0.45.0 (published to crates.io 2026-10-20; 0.46.0 follows with the `er7` and `fhir` crates, see the crate changelog), tag `v0.45.0`. Published to crates.io 2026-10-20: `patient-administration-system-migrations` 0.1.0 (now publishable) and `patient-administration-system` 0.45.0. Counts and requirement numbers are in `spec/14-implementation-status.md` and `spec/06-functional-requirements.md`.
 
 - **New, patients and replies:** reminder ladder with escalation to a person (CAP-13); reply links and offer links with single-use tokens; replies by text, link or voice keypad; "R" replies offer real alternative times (CAP-5); reasons on cancel with fitting help (CAS-2); urgent-pathway cancels held for a person (CAP-7); virtual visits with a phone fallback when video fails (CAP-14); WhatsApp opt-in and approved-template rules (CAP-13).
 - **New, flow and waits:** standby offers for released slots (PILOT-8); rebooking options (CAP-5); wait-time and lead-time data and "still needed?" checks (CAP-8); referrals, printing, receipts with back-off, identity proofing, transport requests behind a provider interface.
