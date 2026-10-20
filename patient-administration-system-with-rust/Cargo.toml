@@ -1,6 +1,6 @@
 [package]
 name = "patient-administration-system"
-version = "0.46.0"
+version = "0.47.0"
 edition = "2024"
 authors = ["joel@joelparkerhenderson.com"]
 description = "Patient Administration System (PAS) - A hospital patient administration system covering ADT, scheduling, waitlists, resources, communications, and billing"
