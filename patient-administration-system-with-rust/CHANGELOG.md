@@ -5,6 +5,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.45.1] — 2026-10-20
+
+### Fixed
+- Documentation only: the README and technology notes said Rust 1.93+; the pinned toolchain is 1.99.1. The `repository` URL in both crates points at the current location. No code changed.
+
 ## [0.45.0] — 2026-10-20
 
 Everything built since 0.44.0: reminder ladder and reply channels (text, link, voice keypad, WhatsApp rules), standby and rebooking, waits and referrals, privacy-safe analytics, the no-show score (off by default, gated by named reviews, shadow rollout by clinic), per-user PASETO authentication, chaos tests, and dependency updates. The workspace entry in the root `CHANGELOG.md` has the full list; `spec/14-implementation-status.md` has the counts.

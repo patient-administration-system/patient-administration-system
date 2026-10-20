@@ -3362,7 +3362,7 @@ dependencies = [
 
 [[package]]
 name = "patient-administration-system"
-version = "0.45.0"
+version = "0.45.1"
 dependencies = [
  "assertables",
  "async-trait",
