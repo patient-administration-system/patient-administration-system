@@ -41,7 +41,7 @@ pub fn error_to_response(err: Error) -> HandlerResult {
         Error::Upstream(_) => (StatusCode::SERVICE_UNAVAILABLE, "UPSTREAM_UNAVAILABLE"),
         Error::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL"),
     };
-    (status, Json(ApiResponse::err(code, err.to_string())))
+    (status, Json(ApiResponse::err(code, err.client_message())))
 }
 
 fn ok_response(value: Value) -> HandlerResult {

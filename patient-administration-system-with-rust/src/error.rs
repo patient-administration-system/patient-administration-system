@@ -100,4 +100,91 @@ impl Error {
     pub fn upstream(msg: impl Into<String>) -> Self {
         Error::Upstream(msg.into())
     }
+
+    /// The text that may leave the process in an API or HL7 reply.
+    ///
+    /// Errors whose text is written for the caller (not found, validation,
+    /// conflict, forbidden, FHIR, state transition) pass through. The rest
+    /// carry text from libraries and other services (SQL, constraint and
+    /// table names, URLs): those are logged in full with a short reference
+    /// and the caller gets generic text and the reference.
+    pub fn client_message(&self) -> String {
+        let what = match self {
+            Error::NotFound(_)
+            | Error::Validation(_)
+            | Error::InvalidStateTransition(_)
+            | Error::Conflict(_)
+            | Error::Forbidden(_)
+            | Error::Fhir(_) => return self.to_string(),
+            Error::Database(_) => "Database error",
+            Error::Search(_) => "Search error",
+            Error::Streaming(_) => "Streaming error",
+            Error::Render(_) => "Render error",
+            Error::Config(_) => "Configuration error",
+            Error::Upstream(_) => "Upstream service error",
+            Error::Internal(_) => "Internal error",
+        };
+        let reference = uuid::Uuid::new_v4().simple().to_string()[..8].to_string();
+        tracing::error!(%reference, error = %self, "error text withheld from the caller");
+        format!("{what} (reference {reference})")
+    }
+}
+
+/// [`Error::client_message`] for any error a handler might hold: a
+/// `crate::Error` is sanitised, any other error (such as an HL7 parse
+/// error, which only describes the caller's own message) is shown as is.
+pub fn client_text<E: std::fmt::Display + 'static>(e: &E) -> String {
+    match (e as &dyn std::any::Any).downcast_ref::<Error>() {
+        Some(err) => err.client_message(),
+        None => e.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod client_message_tests {
+    use super::*;
+
+    #[test]
+    fn database_text_never_reaches_the_caller() {
+        let e = Error::Database(sea_orm::DbErr::Custom(
+            "relation \"patients\" does not exist; constraint uq_x".into(),
+        ));
+        let text = e.client_message();
+        assert!(!text.contains("relation") && !text.contains("patients") && !text.contains("uq_x"));
+        assert!(text.starts_with("Database error (reference "), "{text}");
+    }
+
+    #[test]
+    fn internal_config_and_upstream_text_is_withheld() {
+        for e in [
+            Error::internal("secret path /srv/x"),
+            Error::config("PAS_SECRET missing"),
+            Error::upstream("http://person-service:5180/api/persons failed"),
+        ] {
+            let text = e.client_message();
+            assert!(
+                !text.contains("/srv") && !text.contains("PAS_SECRET") && !text.contains("5180"),
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn messages_written_for_the_caller_pass_through() {
+        assert_eq!(
+            Error::validation("name is required").client_message(),
+            "Validation error: name is required"
+        );
+        assert_eq!(
+            Error::not_found("appointment").client_message(),
+            "Not found: appointment"
+        );
+    }
+
+    #[test]
+    fn client_text_sanitises_a_crate_error_and_shows_other_errors() {
+        let e = Error::Database(sea_orm::DbErr::Custom("relation \"x\"".into()));
+        assert!(!client_text(&e).contains("relation"));
+        assert_eq!(client_text(&"bad segment"), "bad segment".to_string());
+    }
 }

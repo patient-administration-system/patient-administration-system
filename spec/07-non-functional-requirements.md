@@ -16,8 +16,9 @@
 | NFR-12 | The personal-data inventory MUST list every column that holds personal data. | `patient-administration-system-with-rust/tests/personal_data_inventory.rs` |
 | NFR-13 | Messages on open channels (SMS, WhatsApp, email) SHOULD carry no clinical detail and SHOULD link to the portal instead. | **Not yet tested** (a convention for template authors) |
 | NFR-14 | Secrets MUST come from the environment and MUST NOT be logged. | **Not yet tested** |
-| NFR-15 | No message MAY be sent on a channel the patient has opted out of, or outside quiet hours. | **Not yet built** (tasks.md NOT-5) |
+| NFR-15 | No message MAY be sent on a channel the patient has opted out of, or outside quiet hours. | `tests/pilot7_consent_test.rs`, `tests/cap13_ladder_test.rs` |
 
 `ui/` abbreviates `patient-administration-system-ui-with-svelte/`.
 | NFR-16 | When per-user authentication is on, the audit user id MUST be the verified token subject; a client-supplied `X-User-Id` MUST be discarded, and `X-On-Behalf-Of` MUST be honoured only from an authenticated service. | `tests/user_auth_test.rs`, `tests/token_issuer_test.rs`, `ui/tests/unit/acting-as.test.ts`, `ui/tests/e2e/sign-in.spec.ts` |
-| NFR-17 | The REST API MUST be versioned with an `Accept-Version` request header on the one `/api` path, and MUST NOT put a version in the path (no `/api/v1`, `/api/v2`). A request without the header MUST get the current version; an unsupported version MUST be refused with 406. | Not built: today there is one unversioned `/api`, so nothing breaks; the header is read once a second version exists |
+| NFR-17 | The REST API MUST be versioned with an `Accept-Version` request header on the one `/api` path, and MUST NOT put a version in the path (no `/api/v1`, `/api/v2`). A request without the header MUST get the current version; an unsupported version MUST be refused with 406. | **Not yet built:** today there is one unversioned `/api`, so nothing breaks; the header is read once a second version exists |
+| NFR-18 | Text that comes from a database, a library, a configuration value or another service MUST NOT reach an API or HL7 reply. Those errors are logged in full with a short reference, and the caller gets generic text and the reference. | `error::client_message_tests` (unit), `tests/chaos_api_test.rs` |

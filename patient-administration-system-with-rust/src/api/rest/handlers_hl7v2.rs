@@ -41,6 +41,7 @@ use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUser
 use crate::db::repositories::bed::BedRepository;
 use crate::db::repositories::encounter::EncounterRepository;
 use crate::db::repositories::outbox::OutboxRepository;
+use crate::error::client_text;
 use crate::hl7v2::SegmentRead;
 use crate::hl7v2::ack::{AckCode, ack};
 use crate::hl7v2::batch::{encode_batch_ack, parse_batch};
@@ -224,7 +225,7 @@ pub async fn add_person(
             };
             aa(&h.sender, &h.control_id, Some(&diag))
         }
-        Err(e) => ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => ae(&h.sender, &h.control_id, &client_text(&e)),
     }
 }
 
@@ -263,7 +264,7 @@ pub async fn admit(
     let ctx = upstream_ctx(&audit);
     let (person_id, _) = match dedup_or_create_person(client, pid, &ctx).await {
         Ok(r) => r,
-        Err(e) => return ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
     };
     let bed = match BedRepository::find_by_code(&state.db, &bed_code).await {
         Ok(Some(b)) => b,
@@ -274,7 +275,7 @@ pub async fn admit(
                 &format!("bed code {bed_code:?} not found"),
             );
         }
-        Err(e) => return ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
     };
     match state.adt.admit(person_id, bed.id, &audit).await {
         Ok(result) => aa(
@@ -285,7 +286,7 @@ pub async fn admit(
                 bed.id, result.admission.id
             )),
         ),
-        Err(e) => ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => ae(&h.sender, &h.control_id, &client_text(&e)),
     }
 }
 
@@ -330,7 +331,7 @@ pub async fn transfer(
     let ctx = upstream_ctx(&audit);
     let (person_id, _) = match dedup_or_create_person(client, pid, &ctx).await {
         Ok(r) => r,
-        Err(e) => return ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
     };
     let admission = match AdmissionRepository::find_open_for_patient(&state.db, person_id).await {
         Ok(Some(a)) => a,
@@ -341,7 +342,7 @@ pub async fn transfer(
                 &format!("no open admission for person {person_id}"),
             );
         }
-        Err(e) => return ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
     };
     let bed = match BedRepository::find_by_code(&state.db, &bed_code).await {
         Ok(Some(b)) => b,
@@ -352,7 +353,7 @@ pub async fn transfer(
                 &format!("bed code {bed_code:?} not found"),
             );
         }
-        Err(e) => return ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
     };
     match state.adt.transfer(admission.id, bed.id, &audit).await {
         Ok(_) => aa(
@@ -363,7 +364,7 @@ pub async fn transfer(
                 admission.id, bed.id
             )),
         ),
-        Err(e) => ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => ae(&h.sender, &h.control_id, &client_text(&e)),
     }
 }
 
@@ -394,7 +395,7 @@ pub async fn discharge(
     let ctx = upstream_ctx(&audit);
     let (person_id, _) = match dedup_or_create_person(client, pid, &ctx).await {
         Ok(r) => r,
-        Err(e) => return ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
     };
     let admission = match AdmissionRepository::find_open_for_patient(&state.db, person_id).await {
         Ok(Some(a)) => a,
@@ -405,7 +406,7 @@ pub async fn discharge(
                 &format!("no open admission for person {person_id}"),
             );
         }
-        Err(e) => return ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
     };
     match state.adt.discharge(admission.id, &audit).await {
         Ok(_) => aa(
@@ -416,7 +417,7 @@ pub async fn discharge(
                 admission.id
             )),
         ),
-        Err(e) => ae(&h.sender, &h.control_id, &e.to_string()),
+        Err(e) => ae(&h.sender, &h.control_id, &client_text(&e)),
     }
 }
 
@@ -447,7 +448,7 @@ async fn resolve_person_or_ack(
     let up = upstream_ctx(&audit);
     let (person_id, _created) = dedup_or_create_person(client, &pid, &up)
         .await
-        .map_err(|e| ae(&h.sender, &h.control_id, &e.to_string()))?;
+        .map_err(|e| ae(&h.sender, &h.control_id, &client_text(&e)))?;
     Ok(ResolvedHeader {
         message: msg,
         sender: h.sender,
@@ -534,11 +535,13 @@ pub async fn register(
                 e.id, r.person_id, class_str
             )),
         ),
-        Err(sea_orm::TransactionError::Connection(c)) => {
-            ae(&r.sender, &r.control_id, &c.to_string())
-        }
+        Err(sea_orm::TransactionError::Connection(c)) => ae(
+            &r.sender,
+            &r.control_id,
+            &crate::Error::Database(c).client_message(),
+        ),
         Err(sea_orm::TransactionError::Transaction(t)) => {
-            ae(&r.sender, &r.control_id, &t.to_string())
+            ae(&r.sender, &r.control_id, &client_text(&t))
         }
     }
 }
@@ -567,7 +570,7 @@ pub async fn pre_admit(
                 &format!("bed code {bed_code:?} not found"),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     match state
         .adt
@@ -582,7 +585,7 @@ pub async fn pre_admit(
                 r.person_id, e.id, bed.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -610,7 +613,7 @@ pub async fn cancel_pre_admit(
                 &format!("bed code {bed_code:?} not found"),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     match state
         .adt
@@ -625,7 +628,7 @@ pub async fn cancel_pre_admit(
                 r.person_id, e.id, bed.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -653,7 +656,7 @@ pub async fn change_to_inpatient(
                 &format!("bed code {bed_code:?} not found"),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     match state
         .adt
@@ -668,7 +671,7 @@ pub async fn change_to_inpatient(
                 r.person_id, result.encounter.id, bed.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -692,7 +695,7 @@ pub async fn change_to_outpatient(
                 &format!("no open admission for person {}", r.person_id),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     match state
         .adt
@@ -707,7 +710,7 @@ pub async fn change_to_outpatient(
                 r.person_id, e.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -738,7 +741,7 @@ pub async fn update(
             &r.control_id,
             Some(&format!("updated person={}", r.person_id)),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -762,7 +765,7 @@ pub async fn cancel_admit(
                 &format!("no open admission for person {}", r.person_id),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     match state
         .adt
@@ -777,7 +780,7 @@ pub async fn cancel_admit(
                 admission.id, r.person_id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -801,7 +804,7 @@ pub async fn cancel_transfer(
                 &format!("no open admission for person {}", r.person_id),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     match state
         .adt
@@ -813,7 +816,7 @@ pub async fn cancel_transfer(
             &r.control_id,
             Some(&format!("reverted transfer on admission={}", admission.id)),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -840,7 +843,7 @@ pub async fn cancel_discharge(
                     &format!("no discharged admission found for person {}", r.person_id),
                 );
             }
-            Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+            Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
         };
     let admission_id = admission.id;
     match state.adt.cancel_discharge(admission_id, &r.audit).await {
@@ -852,7 +855,7 @@ pub async fn cancel_discharge(
                 r.person_id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -876,7 +879,7 @@ pub async fn leave_start(
                 &format!("no open admission for person {}", r.person_id),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     match state
         .adt
@@ -891,7 +894,7 @@ pub async fn leave_start(
                 admission.id, e.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -915,7 +918,7 @@ pub async fn leave_end(
                 &format!("no open admission for person {}", r.person_id),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     match state
         .adt
@@ -930,7 +933,7 @@ pub async fn leave_end(
                 admission.id, e.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -958,7 +961,7 @@ pub async fn delete_patient(
             &r.control_id,
             Some(&format!("deleted person={}", r.person_id)),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -996,7 +999,7 @@ pub async fn merge(
     // from).
     let hits = match client.search(&source_mrn, 20, &r.upstream).await {
         Ok(h) => h,
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     let source_id = match hits
         .iter()
@@ -1041,7 +1044,7 @@ pub async fn merge(
                 r.person_id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -1065,7 +1068,7 @@ pub async fn dft(
     for seg in &ft1_segs {
         let ft1 = match parse_ft1(seg) {
             Ok(f) => f,
-            Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+            Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
         };
         if !matches!(ft1.transaction_type.as_str(), "CG" | "") {
             return ae(
@@ -1096,7 +1099,7 @@ pub async fn dft(
     let currency_code = shared_currency.expect("at least one FT1");
     let currency = match Iso4217::new(&currency_code) {
         Ok(c) => c,
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
 
     let person_id = r.person_id;
@@ -1173,11 +1176,13 @@ pub async fn dft(
             };
             aa(&r.sender, &r.control_id, Some(&diag))
         }
-        Err(sea_orm::TransactionError::Connection(c)) => {
-            ae(&r.sender, &r.control_id, &c.to_string())
-        }
+        Err(sea_orm::TransactionError::Connection(c)) => ae(
+            &r.sender,
+            &r.control_id,
+            &crate::Error::Database(c).client_message(),
+        ),
         Err(sea_orm::TransactionError::Transaction(t)) => {
-            ae(&r.sender, &r.control_id, &t.to_string())
+            ae(&r.sender, &r.control_id, &client_text(&t))
         }
     }
 }
@@ -1256,11 +1261,13 @@ pub async fn schedule_book(
             &r.control_id,
             Some(&format!("filler={} person={person_id}", a.id)),
         ),
-        Err(sea_orm::TransactionError::Connection(c)) => {
-            ae(&r.sender, &r.control_id, &c.to_string())
-        }
+        Err(sea_orm::TransactionError::Connection(c)) => ae(
+            &r.sender,
+            &r.control_id,
+            &crate::Error::Database(c).client_message(),
+        ),
         Err(sea_orm::TransactionError::Transaction(t)) => {
-            ae(&r.sender, &r.control_id, &t.to_string())
+            ae(&r.sender, &r.control_id, &client_text(&t))
         }
     }
 }
@@ -1306,7 +1313,7 @@ pub async fn schedule_reschedule(
                 &format!("filler {filler} not found"),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     if matches!(
         existing.status,
@@ -1328,7 +1335,7 @@ pub async fn schedule_reschedule(
     .await
     {
         Ok(c) => c,
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     if !conflicts.is_empty() {
         return ae(
@@ -1343,7 +1350,7 @@ pub async fn schedule_reschedule(
     updated.updated_at = chrono::Utc::now();
     let saved = match AppointmentRepository::update(&state.db, &updated).await {
         Ok(a) => a,
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     let _ = AuditLogRepository::log(
         &state.db,
@@ -1400,7 +1407,7 @@ pub async fn schedule_modify(
                 &format!("filler {filler} not found"),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     if matches!(
         existing.status,
@@ -1417,7 +1424,7 @@ pub async fn schedule_modify(
     updated.updated_at = chrono::Utc::now();
     let saved = match AppointmentRepository::update(&state.db, &updated).await {
         Ok(a) => a,
-        Err(e) => return ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
     let _ = AuditLogRepository::log(
         &state.db,
@@ -1474,7 +1481,7 @@ pub async fn schedule_cancel(
             &r.control_id,
             Some(&format!("cancelled filler={filler}")),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.to_string()),
+        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
     }
 }
 
@@ -1524,7 +1531,7 @@ pub async fn mfn_staff(
                 if let Some(mfe) = current_mfe.take() {
                     match parse_mfe_stf(mfe, seg) {
                         Ok(it) => items.push(it),
-                        Err(e) => return ae(&h.sender, &h.control_id, &e.to_string()),
+                        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
                     }
                 } else {
                     return ae(&h.sender, &h.control_id, "STF without preceding MFE");
@@ -1540,7 +1547,13 @@ pub async fn mfn_staff(
     for item in &items {
         let hits = match client.search(&item.staff_id, 20, &up).await {
             Ok(h) => h,
-            Err(e) => return ae(&h.sender, &h.control_id, &format!("upstream search: {e}")),
+            Err(e) => {
+                return ae(
+                    &h.sender,
+                    &h.control_id,
+                    &format!("upstream search: {}", client_text(&e)),
+                );
+            }
         };
         let existing = hits
             .into_iter()
@@ -1556,7 +1569,11 @@ pub async fn mfn_staff(
                     );
                 }
                 if let Err(e) = client.create(body, &up).await {
-                    return ae(&h.sender, &h.control_id, &format!("upstream create: {e}"));
+                    return ae(
+                        &h.sender,
+                        &h.control_id,
+                        &format!("upstream create: {}", client_text(&e)),
+                    );
                 }
                 applied += 1;
             }
@@ -1569,7 +1586,11 @@ pub async fn mfn_staff(
                     );
                 };
                 if let Err(e) = client.update(w.id, body, &up).await {
-                    return ae(&h.sender, &h.control_id, &format!("upstream update: {e}"));
+                    return ae(
+                        &h.sender,
+                        &h.control_id,
+                        &format!("upstream update: {}", client_text(&e)),
+                    );
                 }
                 applied += 1;
             }
@@ -1582,7 +1603,11 @@ pub async fn mfn_staff(
                     );
                 };
                 if let Err(e) = client.delete(w.id, &up).await {
-                    return ae(&h.sender, &h.control_id, &format!("upstream delete: {e}"));
+                    return ae(
+                        &h.sender,
+                        &h.control_id,
+                        &format!("upstream delete: {}", client_text(&e)),
+                    );
                 }
                 applied += 1;
             }
@@ -1681,7 +1706,7 @@ pub async fn mfn_location(
                 if let Some(mfe) = current_mfe.take() {
                     match parse_mfe_loc(mfe, seg) {
                         Ok(it) => items.push(it),
-                        Err(e) => return ae(&h.sender, &h.control_id, &e.to_string()),
+                        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
                     }
                 } else {
                     return ae(&h.sender, &h.control_id, "LOC without preceding MFE");
@@ -1805,11 +1830,13 @@ pub async fn mfn_location(
             &h.control_id,
             Some(&format!("location_records_applied={n}")),
         ),
-        Err(sea_orm::TransactionError::Connection(c)) => {
-            ae(&h.sender, &h.control_id, &c.to_string())
-        }
+        Err(sea_orm::TransactionError::Connection(c)) => ae(
+            &h.sender,
+            &h.control_id,
+            &crate::Error::Database(c).client_message(),
+        ),
         Err(sea_orm::TransactionError::Transaction(t)) => {
-            ae(&h.sender, &h.control_id, &t.to_string())
+            ae(&h.sender, &h.control_id, &client_text(&t))
         }
     }
 }

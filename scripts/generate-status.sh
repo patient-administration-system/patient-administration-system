@@ -27,7 +27,28 @@ tasks_done=$(grep -cE '^- \[x\]' tasks.md || true)
 tasks_open=$(grep -cE '^- \[ \]' tasks.md || true)
 frs=$(grep -cE '^\| FR-[0-9]+ ' spec/06-functional-requirements.md || true)
 nfrs=$(grep -cE '^\| NFR-[0-9]+ ' spec/07-non-functional-requirements.md || true)
-untested=$(cat spec/06-functional-requirements.md spec/07-non-functional-requirements.md | grep -cE '\*\*Not yet (tested|built)\*\*' || true)
+untested=$(cat spec/06-functional-requirements.md spec/07-non-functional-requirements.md | grep -ciE '\*\*Not (yet )?(tested|built)\*\*|\| Not (yet )?(tested|built)\b' || true)
+
+# A row that says "not built (tasks.md X)" must cite at least one task that is still open;
+# if every task it cites is ticked, the row is stale (QUAL-5).
+python3 - <<'PY' || exit 1
+import re, sys
+tasks = open("tasks.md", encoding="utf-8").read()
+ticked = set(re.findall(r"^- \[x\] \*\*([A-Z]+-\d+)", tasks, re.M))
+opened = set(re.findall(r"^- \[ \] \*\*([A-Z]+-\d+)", tasks, re.M))
+bad = []
+for f in ("spec/06-functional-requirements.md", "spec/07-non-functional-requirements.md"):
+    for line in open(f, encoding="utf-8"):
+        m = re.match(r"\| ((?:N?FR)-\d+) \|.*\*\*Not yet built\*\*[^|]*tasks\.md ([^)]*)\)", line)
+        if not m:
+            continue
+        ids = re.findall(r"[A-Z]+-\d+", m.group(2))
+        if ids and not any(i in opened for i in ids) and all(i in ticked for i in ids):
+            bad.append(f"{m.group(1)} cites only ticked tasks: {', '.join(ids)}")
+if bad:
+    print("stale 'not yet built' rows:\n  " + "\n  ".join(bad), file=sys.stderr)
+    sys.exit(1)
+PY
 
 block=$(cat <<BLOCK
 | Measure | Count |
