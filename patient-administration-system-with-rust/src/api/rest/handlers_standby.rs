@@ -3,32 +3,17 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{ok, ok_json};
 use crate::standby::{CandidateFilter, StandbyInput};
-
-fn audit_ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 /// `POST /api/standby`: put a patient on standby for a service (or update their tags).
 #[utoipa::path(
@@ -46,8 +31,8 @@ pub async fn add_standby(
     headers: HeaderMap,
     Json(input): Json<StandbyInput>,
 ) -> HandlerResult {
-    match state.standby.add(input, &audit_ctx(&headers)).await {
-        Ok(e) => ok(serde_json::to_value(e).unwrap_or(Value::Null)),
+    match state.standby.add(input, &request_audit_ctx(&headers)).await {
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -73,7 +58,7 @@ pub async fn list_standby(
     Query(q): Query<ListStandbyQuery>,
 ) -> HandlerResult {
     match state.standby.list(q.service_type.as_deref()).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -95,7 +80,11 @@ pub async fn remove_standby(
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> HandlerResult {
-    match state.standby.deactivate(id, &audit_ctx(&headers)).await {
+    match state
+        .standby
+        .deactivate(id, &request_audit_ctx(&headers))
+        .await
+    {
         Ok(()) => ok(Value::Null),
         Err(e) => error_to_response(e),
     }
@@ -126,10 +115,10 @@ pub async fn book_from_standby(
 ) -> HandlerResult {
     match state
         .standby
-        .book_from_standby(id, body.slot_id, &audit_ctx(&headers))
+        .book_from_standby(id, body.slot_id, &request_audit_ctx(&headers))
         .await
     {
-        Ok(a) => ok(serde_json::to_value(a).unwrap_or(Value::Null)),
+        Ok(a) => ok_json(a),
         Err(e) => error_to_response(e),
     }
 }
@@ -187,7 +176,7 @@ pub async fn release_candidates(
     Query(filter): Query<CandidateFilter>,
 ) -> HandlerResult {
     match state.standby.candidates(id, &filter).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }

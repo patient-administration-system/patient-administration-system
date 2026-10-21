@@ -429,7 +429,8 @@ impl WorkerClient for StubWorkerClient {
 
     async fn export(&self, id: Uuid, ctx: &UserContext) -> Result<serde_json::Value> {
         let w = self.get(id, ctx).await?;
-        Ok(serde_json::to_value(w).unwrap_or(serde_json::Value::Null))
+        serde_json::to_value(w)
+            .map_err(|e| Error::internal(format!("export could not be serialized: {e}")))
     }
 
     async fn audit(

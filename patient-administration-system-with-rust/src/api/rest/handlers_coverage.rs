@@ -6,32 +6,19 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUserContext};
+use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::coverage::CoverageRepository;
 use crate::db::repositories::outbox::OutboxRepository;
 use crate::models::coverage::{Coverage, CoverageStatus};
-
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 /// `POST /api/coverages` — create a coverage. Body is the full Coverage
 /// JSON (client may omit id + timestamps; server fills them).
@@ -74,7 +61,7 @@ pub async fn create_coverage(
                 &serde_json::json!({ "coverage_id": c.id, "person_id": c.person_id }),
             )
             .await;
-            ok(serde_json::to_value(c).unwrap_or(Value::Null))
+            ok_json(c)
         }
         Err(e) => error_to_response(e),
     }
@@ -94,7 +81,7 @@ pub async fn create_coverage(
 )]
 pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match CoverageRepository::find_by_id(&state.db, id).await {
-        Ok(Some(c)) => ok(serde_json::to_value(c).unwrap_or(Value::Null)),
+        Ok(Some(c)) => ok_json(c),
         Ok(None) => error_to_response(Error::not_found(format!("coverage {id}"))),
         Err(e) => error_to_response(e),
     }
@@ -133,7 +120,7 @@ pub async fn update_coverage(
                 &ctx,
             )
             .await;
-            ok(serde_json::to_value(c).unwrap_or(Value::Null))
+            ok_json(c)
         }
         Err(e) => error_to_response(e),
     }
@@ -175,7 +162,7 @@ pub async fn delete_coverage(
                 &serde_json::json!({ "coverage_id": id }),
             )
             .await;
-            ok(serde_json::to_value(c).unwrap_or(Value::Null))
+            ok_json(c)
         }
         Err(e) => error_to_response(e),
     }
@@ -198,7 +185,7 @@ pub async fn list_coverages_for_person(
     Path(person_id): Path<Uuid>,
 ) -> HandlerResult {
     match CoverageRepository::list_by_patient(&state.db, person_id).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -220,7 +207,7 @@ pub async fn list_coverages_for_account(
     Path(account_id): Path<Uuid>,
 ) -> HandlerResult {
     match CoverageRepository::list_by_account(&state.db, account_id).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }

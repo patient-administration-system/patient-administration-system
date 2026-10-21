@@ -107,10 +107,7 @@ impl IdentityService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })
+            .map_err(Error::from)
     }
 
     /// Withdraw the proofing of an account: the portal refuses it from now on.

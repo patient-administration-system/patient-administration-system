@@ -8,17 +8,16 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
 
 #[derive(Debug, Deserialize)]
 pub struct BookBody {
@@ -41,18 +40,6 @@ pub struct CancelBody {
 #[derive(Debug, Deserialize)]
 pub struct BarrierBody {
     pub barrier_code: crate::models::appointment::BarrierCode,
-}
-
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok_value(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -87,7 +74,7 @@ pub async fn list_appointments(
     )
     .await
     {
-        Ok(rows) => ok_value(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -115,7 +102,7 @@ pub async fn list_patient_appointments(
     {
         Ok(mut rows) => {
             rows.sort_by_key(|a| a.start_datetime);
-            ok_value(serde_json::to_value(rows).unwrap_or(Value::Null))
+            ok_json(rows)
         }
         Err(e) => error_to_response(e),
     }
@@ -146,7 +133,7 @@ pub async fn book_slot(
         .book_slot(slot_id, body.person_id, &ctx)
         .await
     {
-        Ok(appt) => ok_value(serde_json::to_value(appt).unwrap_or(Value::Null)),
+        Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }
 }
@@ -185,7 +172,7 @@ pub async fn cancel_appointment(
         .cancel_with(appointment_id, details, &ctx)
         .await
     {
-        Ok(appt) => ok_value(serde_json::to_value(appt).unwrap_or(Value::Null)),
+        Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }
 }
@@ -221,7 +208,7 @@ pub async fn move_to_room(
         .move_to_room(appointment_id, body.room.as_deref(), &ctx)
         .await
     {
-        Ok(a) => ok_value(serde_json::to_value(a).unwrap_or(Value::Null)),
+        Ok(a) => ok_json(a),
         Err(e) => error_to_response(e),
     }
 }
@@ -240,7 +227,7 @@ pub async fn move_to_room(
 )]
 pub async fn in_facility(State(state): State<AppState>) -> HandlerResult {
     match state.scheduling.in_facility().await {
-        Ok(v) => ok_value(Value::Array(v)),
+        Ok(v) => ok(Value::Array(v)),
         Err(e) => error_to_response(e),
     }
 }
@@ -270,7 +257,7 @@ pub async fn record_barrier(
         .record_barrier(appointment_id, body.barrier_code, &ctx)
         .await
     {
-        Ok(appt) => ok_value(serde_json::to_value(appt).unwrap_or(Value::Null)),
+        Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }
 }
@@ -294,7 +281,7 @@ pub async fn check_in_appointment(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.scheduling.check_in(appointment_id, &ctx).await {
-        Ok(appt) => ok_value(serde_json::to_value(appt).unwrap_or(Value::Null)),
+        Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }
 }
@@ -318,7 +305,7 @@ pub async fn complete_appointment(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.scheduling.complete(appointment_id, &ctx).await {
-        Ok(appt) => ok_value(serde_json::to_value(appt).unwrap_or(Value::Null)),
+        Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }
 }
@@ -342,7 +329,7 @@ pub async fn mark_no_show(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.scheduling.mark_no_show(appointment_id, &ctx).await {
-        Ok(appt) => ok_value(serde_json::to_value(appt).unwrap_or(Value::Null)),
+        Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }
 }
@@ -366,7 +353,7 @@ pub async fn rebook_options(
     Path(appointment_id): Path<Uuid>,
 ) -> HandlerResult {
     match state.rebooking.offer(appointment_id).await {
-        Ok(o) => ok_value(serde_json::to_value(o).unwrap_or(Value::Null)),
+        Ok(o) => ok_json(o),
         Err(e) => error_to_response(e),
     }
 }
@@ -403,7 +390,7 @@ pub async fn rebook_appointment(
         .choose(appointment_id, body.offer_id, body.slot_id, &ctx)
         .await
     {
-        Ok((old, new)) => ok_value(serde_json::json!({ "old": old, "new": new })),
+        Ok((old, new)) => ok(serde_json::json!({ "old": old, "new": new })),
         Err(e) => error_to_response(e),
     }
 }

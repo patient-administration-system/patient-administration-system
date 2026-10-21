@@ -3,30 +3,15 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
-
-fn ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{ok, ok_json};
 
 /// `GET /api/follow-up-policies`: the services whose misses always get a person's follow-up.
 #[utoipa::path(
@@ -41,7 +26,7 @@ fn ctx(headers: &HeaderMap) -> RepoUserContext {
 )]
 pub async fn policies(State(state): State<AppState>) -> HandlerResult {
     match state.follow_up.policies().await {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -71,10 +56,14 @@ pub async fn approve_policy(
 ) -> HandlerResult {
     match state
         .follow_up
-        .approve_policy(&service_type, &body.approved_by, &ctx(&headers))
+        .approve_policy(
+            &service_type,
+            &body.approved_by,
+            &request_audit_ctx(&headers),
+        )
         .await
     {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -100,7 +89,7 @@ pub async fn open_tasks(
     Query(q): Query<OpenQuery>,
 ) -> HandlerResult {
     match state.follow_up.open_tasks(q.limit.unwrap_or(100)).await {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -131,7 +120,12 @@ pub async fn close_task(
 ) -> HandlerResult {
     match state
         .follow_up
-        .close_task(id, &body.outcome, &body.closed_by, &ctx(&headers))
+        .close_task(
+            id,
+            &body.outcome,
+            &body.closed_by,
+            &request_audit_ctx(&headers),
+        )
         .await
     {
         Ok(()) => ok(Value::Null),

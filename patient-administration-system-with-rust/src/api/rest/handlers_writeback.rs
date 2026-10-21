@@ -4,33 +4,17 @@ use axum::{
     Json,
     body::Bytes,
     extract::State,
-    http::{HeaderMap, StatusCode, header},
+    http::{HeaderMap, header},
 };
-use serde_json::Value;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{ok, ok_json};
 use crate::inbound::InboundText;
 use crate::writeback::{MAX_BATCH, ReplyRequest};
 use axum::extract::Path;
 use uuid::Uuid;
-
-fn audit_ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 /// `POST /api/write-back/replies`: apply one reply. A reply that cannot be applied for a
 /// deterministic reason is still `200` with `status: "rejected"` and a `reject_reason`: the sender
@@ -50,8 +34,12 @@ pub async fn post_reply(
     headers: HeaderMap,
     Json(req): Json<ReplyRequest>,
 ) -> HandlerResult {
-    match state.writeback.apply(req, &audit_ctx(&headers)).await {
-        Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+    match state
+        .writeback
+        .apply(req, &request_audit_ctx(&headers))
+        .await
+    {
+        Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),
     }
 }
@@ -91,10 +79,10 @@ pub async fn post_batch(
     };
     match state
         .writeback
-        .apply_batch(reqs, &audit_ctx(&headers))
+        .apply_batch(reqs, &request_audit_ctx(&headers))
         .await
     {
-        Ok(items) => ok(serde_json::to_value(items).unwrap_or(Value::Null)),
+        Ok(items) => ok_json(items),
         Err(e) => error_to_response(e),
     }
 }
@@ -134,8 +122,12 @@ pub async fn post_text(
     headers: HeaderMap,
     Json(req): Json<InboundText>,
 ) -> HandlerResult {
-    match state.inbound.handle(req, &audit_ctx(&headers)).await {
-        Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+    match state
+        .inbound
+        .handle(req, &request_audit_ctx(&headers))
+        .await
+    {
+        Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),
     }
 }
@@ -153,7 +145,7 @@ pub async fn post_text(
 )]
 pub async fn open_texts(State(state): State<AppState>) -> HandlerResult {
     match state.inbound.staff_list(200).await {
-        Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+        Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),
     }
 }

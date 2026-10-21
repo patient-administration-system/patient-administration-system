@@ -4,30 +4,15 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
-
-fn ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{ok, ok_json};
 
 #[derive(Debug, Deserialize)]
 pub struct EligibleBody {
@@ -55,7 +40,7 @@ pub async fn set_eligible(
 ) -> HandlerResult {
     match state
         .transport
-        .set_eligible(id, &b.eligible_by, &b.basis, &ctx(&headers))
+        .set_eligible(id, &b.eligible_by, &b.basis, &request_audit_ctx(&headers))
         .await
     {
         Ok(()) => ok(Value::Null),
@@ -80,7 +65,11 @@ pub async fn withdraw_eligible(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> HandlerResult {
-    match state.transport.withdraw_eligible(id, &ctx(&headers)).await {
+    match state
+        .transport
+        .withdraw_eligible(id, &request_audit_ctx(&headers))
+        .await
+    {
         Ok(()) => ok(Value::Null),
         Err(e) => error_to_response(e),
     }
@@ -114,7 +103,7 @@ pub async fn record_consent(
 ) -> HandlerResult {
     match state
         .transport
-        .record_consent(id, &b.recorded_by, &b.basis, &ctx(&headers))
+        .record_consent(id, &b.recorded_by, &b.basis, &request_audit_ctx(&headers))
         .await
     {
         Ok(()) => ok(Value::Null),
@@ -139,7 +128,11 @@ pub async fn withdraw_consent(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> HandlerResult {
-    match state.transport.withdraw_consent(id, &ctx(&headers)).await {
+    match state
+        .transport
+        .withdraw_consent(id, &request_audit_ctx(&headers))
+        .await
+    {
         Ok(()) => ok(Value::Null),
         Err(e) => error_to_response(e),
     }
@@ -159,7 +152,7 @@ pub async fn withdraw_consent(
 )]
 pub async fn booking(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.transport.booking_for(id).await {
-        Ok(b) => ok(serde_json::to_value(b).unwrap_or(Value::Null)),
+        Ok(b) => ok_json(b),
         Err(e) => error_to_response(e),
     }
 }

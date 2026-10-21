@@ -314,10 +314,7 @@ impl WriteBackService {
                 Box::pin(async move { Self::decide_and_record(txn, &request, &ctx).await })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
         if let Some(a) = &post.cancelled {
             self.scheduling.publish_cancelled(a).await;
         }

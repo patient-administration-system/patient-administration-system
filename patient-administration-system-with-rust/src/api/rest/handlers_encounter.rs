@@ -3,36 +3,23 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUserContext};
+use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::encounter::EncounterRepository;
 use crate::models::encounter::EncounterStatus;
 
 #[derive(Debug, Deserialize)]
 pub struct SetStatusBody {
     pub status: EncounterStatus,
-}
-
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
 }
 
 /// `GET /api/encounters/:id`.
@@ -49,7 +36,7 @@ fn ok(value: Value) -> HandlerResult {
 )]
 pub async fn get_encounter(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match EncounterRepository::find_by_id(&state.db, id).await {
-        Ok(Some(e)) => ok(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(Some(e)) => ok_json(e),
         Ok(None) => error_to_response(Error::not_found(format!("encounter {id}"))),
         Err(e) => error_to_response(e),
     }
@@ -72,7 +59,7 @@ pub async fn list_encounters_for_person(
     Path(person_id): Path<Uuid>,
 ) -> HandlerResult {
     match EncounterRepository::list_by_patient(&state.db, person_id).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -108,7 +95,7 @@ pub async fn set_status(
                 &ctx,
             )
             .await;
-            ok(serde_json::to_value(e).unwrap_or(Value::Null))
+            ok_json(e)
         }
         Err(e) => error_to_response(e),
     }
@@ -146,7 +133,7 @@ pub async fn cancel_encounter(
                 &ctx,
             )
             .await;
-            ok(serde_json::to_value(e).unwrap_or(Value::Null))
+            ok_json(e)
         }
         Err(e) => error_to_response(e),
     }

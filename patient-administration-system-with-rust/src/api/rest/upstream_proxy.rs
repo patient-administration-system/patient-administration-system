@@ -36,6 +36,7 @@ use crate::Error;
 use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{ok, ok_json};
 use crate::upstream::{
     MergeOutcome, PersonClient, PersonCreate, UserContext, WorkerClient, WorkerCreate,
 };
@@ -60,10 +61,6 @@ pub fn user_context_from_headers(headers: &HeaderMap) -> UserContext {
 }
 
 // ─── Shared helpers ─────────────────────────────────────────────────────
-
-fn ok_value(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 fn need_person_client(state: &AppState) -> Result<&dyn PersonClient, Error> {
     state
@@ -128,7 +125,7 @@ pub async fn create_patient(
         return error_to_response(e);
     }
     match client.create(create, &ctx).await {
-        Ok(person) => ok_value(serde_json::to_value(person).unwrap_or(Value::Null)),
+        Ok(person) => ok_json(person),
         Err(e) => error_to_response(e),
     }
 }
@@ -156,7 +153,7 @@ pub async fn get_patient(
     };
     let ctx = user_context_from_headers(&headers);
     match client.get(id, &ctx).await {
-        Ok(person) => ok_value(serde_json::to_value(person).unwrap_or(Value::Null)),
+        Ok(person) => ok_json(person),
         Err(e) => error_to_response(e),
     }
 }
@@ -198,7 +195,7 @@ pub async fn update_patient(
         return error_to_response(e);
     }
     match client.update(id, update, &ctx).await {
-        Ok(person) => ok_value(serde_json::to_value(person).unwrap_or(Value::Null)),
+        Ok(person) => ok_json(person),
         Err(e) => error_to_response(e),
     }
 }
@@ -226,7 +223,7 @@ pub async fn delete_patient(
     };
     let ctx = user_context_from_headers(&headers);
     match client.delete(id, &ctx).await {
-        Ok(()) => ok_value(Value::Null),
+        Ok(()) => ok(Value::Null),
         Err(e) => error_to_response(e),
     }
 }
@@ -254,7 +251,7 @@ pub async fn search_patients(
     let ctx = user_context_from_headers(&headers);
     let query = q.q.unwrap_or_default();
     match client.search(&query, q.limit, &ctx).await {
-        Ok(persons) => ok_value(serde_json::to_value(persons).unwrap_or(Value::Null)),
+        Ok(persons) => ok_json(persons),
         Err(e) => error_to_response(e),
     }
 }
@@ -282,7 +279,7 @@ pub async fn masked_patient(
     };
     let ctx = user_context_from_headers(&headers);
     match client.masked(id, &ctx).await {
-        Ok(person) => ok_value(serde_json::to_value(person).unwrap_or(Value::Null)),
+        Ok(person) => ok_json(person),
         Err(e) => error_to_response(e),
     }
 }
@@ -313,7 +310,7 @@ pub async fn export_patient(
     // additionally join PAS-owned related rows (encounters, appointments,
     // billing, consents) keyed by person_id.
     match client.export(id, &ctx).await {
-        Ok(value) => ok_value(value),
+        Ok(value) => ok(value),
         Err(e) => error_to_response(e),
     }
 }
@@ -345,7 +342,7 @@ pub async fn audit_patient(
     // PAS-owned audit_log entries (admit/discharge/charge/letter/etc.)
     // time-sorted with the upstream entries.
     match client.audit(id, q.limit, &ctx).await {
-        Ok(entries) => ok_value(serde_json::to_value(entries).unwrap_or(Value::Null)),
+        Ok(entries) => ok_json(entries),
         Err(e) => error_to_response(e),
     }
 }
@@ -485,7 +482,7 @@ pub async fn import_patients(
         .unwrap_or("application/json")
         .to_string();
     match client.bulk_import(&content_type, body.to_vec(), &ctx).await {
-        Ok(value) => ok_value(value),
+        Ok(value) => ok(value),
         Err(e) => error_to_response(e),
     }
 }
@@ -524,7 +521,7 @@ pub async fn create_practitioner(
         },
     };
     match client.create(create, &ctx).await {
-        Ok(worker) => ok_value(serde_json::to_value(worker).unwrap_or(Value::Null)),
+        Ok(worker) => ok_json(worker),
         Err(e) => error_to_response(e),
     }
 }
@@ -552,7 +549,7 @@ pub async fn get_practitioner(
     };
     let ctx = user_context_from_headers(&headers);
     match client.get(id, &ctx).await {
-        Ok(worker) => ok_value(serde_json::to_value(worker).unwrap_or(Value::Null)),
+        Ok(worker) => ok_json(worker),
         Err(e) => error_to_response(e),
     }
 }
@@ -591,7 +588,7 @@ pub async fn update_practitioner(
         },
     };
     match client.update(id, update, &ctx).await {
-        Ok(worker) => ok_value(serde_json::to_value(worker).unwrap_or(Value::Null)),
+        Ok(worker) => ok_json(worker),
         Err(e) => error_to_response(e),
     }
 }
@@ -619,7 +616,7 @@ pub async fn delete_practitioner(
     };
     let ctx = user_context_from_headers(&headers);
     match client.delete(id, &ctx).await {
-        Ok(()) => ok_value(Value::Null),
+        Ok(()) => ok(Value::Null),
         Err(e) => error_to_response(e),
     }
 }
@@ -647,7 +644,7 @@ pub async fn search_practitioners(
     let ctx = user_context_from_headers(&headers);
     let query = q.q.unwrap_or_default();
     match client.search(&query, q.limit, &ctx).await {
-        Ok(workers) => ok_value(serde_json::to_value(workers).unwrap_or(Value::Null)),
+        Ok(workers) => ok_json(workers),
         Err(e) => error_to_response(e),
     }
 }
@@ -675,7 +672,7 @@ pub async fn masked_practitioner(
     };
     let ctx = user_context_from_headers(&headers);
     match client.masked(id, &ctx).await {
-        Ok(worker) => ok_value(serde_json::to_value(worker).unwrap_or(Value::Null)),
+        Ok(worker) => ok_json(worker),
         Err(e) => error_to_response(e),
     }
 }
@@ -703,7 +700,7 @@ pub async fn export_practitioner(
     };
     let ctx = user_context_from_headers(&headers);
     match client.export(id, &ctx).await {
-        Ok(value) => ok_value(value),
+        Ok(value) => ok(value),
         Err(e) => error_to_response(e),
     }
 }
@@ -732,7 +729,7 @@ pub async fn audit_practitioner(
     };
     let ctx = user_context_from_headers(&headers);
     match client.audit(id, q.limit, &ctx).await {
-        Ok(entries) => ok_value(serde_json::to_value(entries).unwrap_or(Value::Null)),
+        Ok(entries) => ok_json(entries),
         Err(e) => error_to_response(e),
     }
 }
@@ -855,10 +852,7 @@ async fn propagate_person_merge(
         })
     })
     .await
-    .map_err(|e| match e {
-        sea_orm::TransactionError::Connection(c) => Error::Database(c),
-        sea_orm::TransactionError::Transaction(t) => t,
-    })
+    .map_err(Error::from)
 }
 
 async fn propagate_worker_merge(
@@ -907,10 +901,7 @@ async fn propagate_worker_merge(
         })
     })
     .await
-    .map_err(|e| match e {
-        sea_orm::TransactionError::Connection(c) => Error::Database(c),
-        sea_orm::TransactionError::Transaction(t) => t,
-    })
+    .map_err(Error::from)
 }
 
 /// `POST /api/upstream/person-merged` — receive a merge notification from
@@ -983,7 +974,7 @@ pub async fn person_merged_webhook(
     };
     if !is_new {
         // Replay — ACK 200 but skip side-effects.
-        return ok_value(serde_json::json!({
+        return ok(serde_json::json!({
             "event_id": event_id,
             "applied": false,
             "reason": "duplicate"
@@ -1003,7 +994,7 @@ pub async fn person_merged_webhook(
     if let Err(e) = propagate_person_merge(&state.db, &outcome, &audit_ctx).await {
         return error_to_response(e);
     }
-    ok_value(serde_json::json!({
+    ok(serde_json::json!({
         "event_id": event_id,
         "applied": true,
         "source_id": body.source_id,
@@ -1071,7 +1062,7 @@ pub async fn worker_merged_webhook(
         Err(e) => return error_to_response(e),
     };
     if !is_new {
-        return ok_value(serde_json::json!({
+        return ok(serde_json::json!({
             "event_id": event_id,
             "applied": false,
             "reason": "duplicate"
@@ -1089,7 +1080,7 @@ pub async fn worker_merged_webhook(
     if let Err(e) = propagate_worker_merge(&state.db, &outcome, &audit_ctx).await {
         return error_to_response(e);
     }
-    ok_value(serde_json::json!({
+    ok(serde_json::json!({
         "event_id": event_id,
         "applied": true,
         "source_id": body.source_id,

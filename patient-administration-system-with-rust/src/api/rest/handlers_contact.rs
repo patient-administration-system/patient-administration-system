@@ -12,23 +12,9 @@ use uuid::Uuid;
 use crate::Error;
 use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{ok, ok_json};
 use crate::contact::{DEFAULT_STALE_DAYS, ProfileInput};
-use crate::db::repositories::audit::UserContext as RepoUserContext;
-
-fn audit_ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 /// `GET /api/patients/{id}/communication-profile`: how to reach this patient well. Includes a
 /// `fhir` Patient fragment for systems that speak FHIR.
@@ -45,7 +31,7 @@ fn ok(value: Value) -> HandlerResult {
 )]
 pub async fn get_profile(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.contact.get(id).await {
-        Ok(Some(p)) => ok(serde_json::to_value(p).unwrap_or(Value::Null)),
+        Ok(Some(p)) => ok_json(p),
         Ok(None) => error_to_response(Error::not_found(format!(
             "no communication profile for patient {id}"
         ))),
@@ -72,8 +58,12 @@ pub async fn put_profile(
     headers: HeaderMap,
     Json(input): Json<ProfileInput>,
 ) -> HandlerResult {
-    match state.contact.put(id, input, &audit_ctx(&headers)).await {
-        Ok(p) => ok(serde_json::to_value(p).unwrap_or(Value::Null)),
+    match state
+        .contact
+        .put(id, input, &request_audit_ctx(&headers))
+        .await
+    {
+        Ok(p) => ok_json(p),
         Err(e) => error_to_response(e),
     }
 }
@@ -104,10 +94,10 @@ pub async fn verify_mobile(
 ) -> HandlerResult {
     match state
         .contact
-        .verify_mobile(id, &body.method, &audit_ctx(&headers))
+        .verify_mobile(id, &body.method, &request_audit_ctx(&headers))
         .await
     {
-        Ok(p) => ok(serde_json::to_value(p).unwrap_or(Value::Null)),
+        Ok(p) => ok_json(p),
         Err(e) => error_to_response(e),
     }
 }
@@ -142,7 +132,7 @@ pub async fn stale_profiles(
         )
         .await
     {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -227,7 +217,7 @@ pub async fn add_optout(
     if let Err(e) = check_channel(&body.channel) {
         return error_to_response(e);
     }
-    let ctx = audit_ctx(&headers);
+    let ctx = request_audit_ctx(&headers);
     match crate::communication::consent::record_optout(
         &state.db,
         &crate::communication::consent::person_subject(id),

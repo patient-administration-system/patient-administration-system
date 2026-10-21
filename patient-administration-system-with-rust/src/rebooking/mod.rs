@@ -337,10 +337,7 @@ impl RebookService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(d) => Error::Database(d),
-                sea_orm::TransactionError::Transaction(e) => e,
-            })?;
+            .map_err(Error::from)?;
         self.scheduling.publish_cancelled(&old).await;
         self.scheduling.publish_booked(&new).await;
         Ok((old, new))

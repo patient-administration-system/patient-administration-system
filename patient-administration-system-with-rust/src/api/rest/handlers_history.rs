@@ -1,21 +1,13 @@
 //! REST handlers for explaining a change or a contact (CAP-6). Read-only.
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::StatusCode,
-};
+use axum::extract::{Path, Query, State};
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
+use crate::api::rest::handlers::ok;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 /// `GET /api/appointments/{id}/history`: who did what to this appointment, when and why, with the messages
 /// sent about it and the patient's replies, oldest first.

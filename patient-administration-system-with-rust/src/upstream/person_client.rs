@@ -529,7 +529,8 @@ impl PersonClient for StubPersonClient {
 
     async fn export(&self, id: Uuid, ctx: &UserContext) -> Result<serde_json::Value> {
         let p = self.get(id, ctx).await?;
-        Ok(serde_json::to_value(p).unwrap_or(serde_json::Value::Null))
+        serde_json::to_value(p)
+            .map_err(|e| Error::internal(format!("export could not be serialized: {e}")))
     }
 
     async fn audit(
@@ -555,11 +556,12 @@ impl PersonClient for StubPersonClient {
         // assert the round-trip without depending on upstream format.
         match format {
             "json" => {
-                let arr = serde_json::Value::Array(
-                    rows.iter()
-                        .map(|p| serde_json::to_value(p).unwrap_or(serde_json::Value::Null))
-                        .collect(),
-                );
+                let items = rows
+                    .iter()
+                    .map(serde_json::to_value)
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map_err(|e| Error::internal(format!("export could not be serialized: {e}")))?;
+                let arr = serde_json::Value::Array(items);
                 let body = serde_json::to_vec(&arr).unwrap_or_default();
                 Ok(("application/json".into(), body))
             }

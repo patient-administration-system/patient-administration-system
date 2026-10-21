@@ -15,18 +15,9 @@ use crate::Error;
 use crate::analytics::Dim;
 use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
-
-fn audit_ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct OutcomesQuery {
@@ -77,7 +68,7 @@ pub async fn outcomes(
         .charge_query(
             "appointment-outcomes",
             serde_json::json!({ "group_by": q.group_by, "from": q.from, "to": q.to, "k": q.k }),
-            &audit_ctx(&headers),
+            &request_audit_ctx(&headers),
         )
         .await
     {
@@ -90,13 +81,7 @@ pub async fn outcomes(
             r.to_csv(),
         )
             .into_response(),
-        Ok(r) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(
-                serde_json::to_value(r).unwrap_or(Value::Null),
-            )),
-        )
-            .into_response(),
+        Ok(r) => ok_json(r).into_response(),
         Err(e) => error_to_response(e).into_response(),
     }
 }
@@ -158,7 +143,7 @@ pub async fn refill_rates(
         .charge_query(
             "refill-rates",
             serde_json::json!({ "group_by": q.group_by, "from": q.from, "to": q.to, "k": q.k }),
-            &audit_ctx(&headers),
+            &request_audit_ctx(&headers),
         )
         .await
     {
@@ -171,13 +156,7 @@ pub async fn refill_rates(
             r.to_csv(),
         )
             .into_response(),
-        Ok(r) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(
-                serde_json::to_value(r).unwrap_or(Value::Null),
-            )),
-        )
-            .into_response(),
+        Ok(r) => ok_json(r).into_response(),
         Err(e) => error_to_response(e).into_response(),
     }
 }

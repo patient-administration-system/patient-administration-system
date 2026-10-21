@@ -130,6 +130,16 @@ impl Error {
     }
 }
 
+impl From<sea_orm::TransactionError<Error>> for Error {
+    /// A failed transaction is either the connection (a database error) or the error the closure returned.
+    fn from(e: sea_orm::TransactionError<Error>) -> Self {
+        match e {
+            sea_orm::TransactionError::Connection(c) => Error::Database(c),
+            sea_orm::TransactionError::Transaction(t) => t,
+        }
+    }
+}
+
 /// [`Error::client_message`] for any error a handler might hold: a
 /// `crate::Error` is sanitised, any other error (such as an HL7 parse
 /// error, which only describes the caller's own message) is shown as is.

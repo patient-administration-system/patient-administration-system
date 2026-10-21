@@ -3,34 +3,20 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use rust_decimal::Decimal;
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::billing::PostChargeInput;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
 use crate::models::billing::PaymentMethod;
 use crate::models::{Iso4217, Money};
-
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 /// Body shape for money fields on the wire — keeps the amount as a
 /// string-encoded decimal so JSON-number imprecision can never bite.
@@ -112,7 +98,7 @@ pub async fn open_account(
         .open_account(body.person_id, currency, &ctx)
         .await
     {
-        Ok(a) => ok(serde_json::to_value(a).unwrap_or(Value::Null)),
+        Ok(a) => ok_json(a),
         Err(e) => error_to_response(e),
     }
 }
@@ -147,7 +133,7 @@ pub async fn post_charge(
         appointment_id: body.appointment_id,
     };
     match state.billing.post_charge(input, &ctx).await {
-        Ok(c) => ok(serde_json::to_value(c).unwrap_or(Value::Null)),
+        Ok(c) => ok_json(c),
         Err(e) => error_to_response(e),
     }
 }
@@ -174,7 +160,7 @@ pub async fn finalize_invoice(
         .finalize_invoice(body.account_id, body.charge_ids, &ctx)
         .await
     {
-        Ok(inv) => ok(serde_json::to_value(inv).unwrap_or(Value::Null)),
+        Ok(inv) => ok_json(inv),
         Err(e) => error_to_response(e),
     }
 }
@@ -205,7 +191,7 @@ pub async fn post_payment(
         .post_payment(body.invoice_id, amount, body.method, body.reference, &ctx)
         .await
     {
-        Ok(p) => ok(serde_json::to_value(p).unwrap_or(Value::Null)),
+        Ok(p) => ok_json(p),
         Err(e) => error_to_response(e),
     }
 }
@@ -229,7 +215,7 @@ pub async fn close_account(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.billing.close_account(account_id, &ctx).await {
-        Ok(a) => ok(serde_json::to_value(a).unwrap_or(Value::Null)),
+        Ok(a) => ok_json(a),
         Err(e) => error_to_response(e),
     }
 }

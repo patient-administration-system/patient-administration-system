@@ -4,23 +4,18 @@
 //! The token is the only thing in the URL and carries no personal data. A GET only reads.
 
 use axum::{
-    Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 /// `GET /api/offer-links/{token}`: what the page may show. Read-only.
 #[utoipa::path(
@@ -36,7 +31,7 @@ fn ok(value: Value) -> HandlerResult {
 )]
 pub async fn get_offer(State(state): State<AppState>, Path(token): Path<String>) -> HandlerResult {
     match state.backfill.info(&token).await {
-        Ok(i) => ok(serde_json::to_value(i).unwrap_or(Value::Null)),
+        Ok(i) => ok_json(i),
         Err(e) => error_to_response(e),
     }
 }
@@ -74,7 +69,7 @@ pub async fn post_offer_action(
         _ => Err(Error::validation("action must be accept or decline")),
     };
     match r {
-        Ok(o) => ok(serde_json::to_value(o).unwrap_or(Value::Null)),
+        Ok(o) => ok_json(o),
         Err(e) => error_to_response(e),
     }
 }

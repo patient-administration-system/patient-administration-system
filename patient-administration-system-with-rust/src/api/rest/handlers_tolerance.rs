@@ -3,30 +3,15 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{ok, ok_json};
 use crate::tolerance::{Limits, Scope};
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
-
-fn ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
 
 /// `GET /api/tolerances`: every measure with its target, tolerance and limit, and whether a person changed it.
 #[utoipa::path(
@@ -41,7 +26,7 @@ fn ctx(headers: &HeaderMap) -> RepoUserContext {
 )]
 pub async fn list(State(state): State<AppState>) -> HandlerResult {
     match state.tolerance.settings().await {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -91,7 +76,14 @@ pub async fn set(
     };
     match state
         .tolerance
-        .set(&metric, &scope, limits, &b.set_by, &b.note, &ctx(&headers))
+        .set(
+            &metric,
+            &scope,
+            limits,
+            &b.set_by,
+            &b.note,
+            &request_audit_ctx(&headers),
+        )
         .await
     {
         Ok(()) => ok(Value::Null),
@@ -128,7 +120,11 @@ pub async fn reset(
         Ok(s) => s,
         Err(e) => return error_to_response(e),
     };
-    match state.tolerance.reset(&metric, &scope, &ctx(&headers)).await {
+    match state
+        .tolerance
+        .reset(&metric, &scope, &request_audit_ctx(&headers))
+        .await
+    {
         Ok(()) => ok(Value::Null),
         Err(e) => error_to_response(e),
     }
@@ -152,7 +148,7 @@ pub struct StatusQuery {
 )]
 pub async fn status(State(state): State<AppState>, Query(q): Query<StatusQuery>) -> HandlerResult {
     match state.tolerance.status(q.days.unwrap_or(30)).await {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -174,7 +170,7 @@ pub async fn evaluate(
     Query(q): Query<StatusQuery>,
 ) -> HandlerResult {
     match state.tolerance.evaluate(q.days.unwrap_or(30)).await {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -198,7 +194,7 @@ pub struct AlertsQuery {
 )]
 pub async fn alerts(State(state): State<AppState>, Query(q): Query<AlertsQuery>) -> HandlerResult {
     match state.tolerance.alerts(q.open.unwrap_or(false)).await {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -230,7 +226,12 @@ pub async fn acknowledge(
 ) -> HandlerResult {
     match state
         .tolerance
-        .acknowledge(id, &b.acknowledged_by, &b.note, &ctx(&headers))
+        .acknowledge(
+            id,
+            &b.acknowledged_by,
+            &b.note,
+            &request_audit_ctx(&headers),
+        )
         .await
     {
         Ok(()) => ok(Value::Null),

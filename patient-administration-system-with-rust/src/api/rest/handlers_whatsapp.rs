@@ -11,21 +11,10 @@ use uuid::Uuid;
 
 use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 
 fn ok() -> HandlerResult {
     (StatusCode::OK, Json(ApiResponse::ok(Value::Null)))
-}
-
-fn ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,7 +44,7 @@ pub async fn record_optin(
 ) -> HandlerResult {
     match state
         .whatsapp
-        .record_optin(id, &b.source, &b.recorded_by, &ctx(&headers))
+        .record_optin(id, &b.source, &b.recorded_by, &request_audit_ctx(&headers))
         .await
     {
         Ok(()) => ok(),
@@ -80,7 +69,11 @@ pub async fn withdraw_optin(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> HandlerResult {
-    match state.whatsapp.withdraw_optin(id, &ctx(&headers)).await {
+    match state
+        .whatsapp
+        .withdraw_optin(id, &request_audit_ctx(&headers))
+        .await
+    {
         Ok(()) => ok(),
         Err(e) => error_to_response(e),
     }
@@ -112,7 +105,12 @@ pub async fn approve_template(
 ) -> HandlerResult {
     match state
         .whatsapp
-        .approve_template(id, &b.provider_template_id, &b.approved_by, &ctx(&headers))
+        .approve_template(
+            id,
+            &b.provider_template_id,
+            &b.approved_by,
+            &request_audit_ctx(&headers),
+        )
         .await
     {
         Ok(()) => ok(),
@@ -137,7 +135,11 @@ pub async fn revoke_template(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> HandlerResult {
-    match state.whatsapp.revoke_template(id, &ctx(&headers)).await {
+    match state
+        .whatsapp
+        .revoke_template(id, &request_audit_ctx(&headers))
+        .await
+    {
         Ok(()) => ok(),
         Err(e) => error_to_response(e),
     }

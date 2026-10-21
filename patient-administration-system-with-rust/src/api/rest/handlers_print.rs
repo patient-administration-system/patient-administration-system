@@ -7,23 +7,11 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
-
-fn ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 
 #[derive(Debug, Deserialize)]
 pub struct QueueQuery {
@@ -85,7 +73,7 @@ pub async fn export(
         .export_batch(
             b.limit.unwrap_or(crate::printing::MAX_BATCH),
             &b.created_by,
-            &ctx(&headers),
+            &request_audit_ctx(&headers),
         )
         .await
     {
@@ -101,13 +89,7 @@ pub async fn export(
             batch.to_csv(),
         )
             .into_response(),
-        Ok(batch) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(
-                serde_json::to_value(batch).unwrap_or(Value::Null),
-            )),
-        )
-            .into_response(),
+        Ok(batch) => ok_json(batch).into_response(),
         Err(e) => error_to_response(e).into_response(),
     }
 }
@@ -137,7 +119,7 @@ pub async fn mark_sent(
 ) -> HandlerResult {
     match state
         .printing
-        .mark_sent(id, &b.sent_by, &ctx(&headers))
+        .mark_sent(id, &b.sent_by, &request_audit_ctx(&headers))
         .await
     {
         Ok(n) => (

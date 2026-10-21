@@ -3,30 +3,15 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
-
-fn ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{ok, ok_json};
 
 /// `GET /api/appointments/{id}/lead-time`: booking to visit, in whole days.
 #[utoipa::path(
@@ -42,7 +27,7 @@ fn ctx(headers: &HeaderMap) -> RepoUserContext {
 )]
 pub async fn lead_time(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.waits.lead_time(id).await {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -61,7 +46,7 @@ pub async fn lead_time(State(state): State<AppState>, Path(id): Path<Uuid>) -> H
 )]
 pub async fn patient_waits(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.waits.patient_waits(id).await {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -89,15 +74,23 @@ pub async fn due_for_check(
     Query(q): Query<DueQuery>,
 ) -> HandlerResult {
     match state.waits.due_for_check(q.weeks, q.repeat_days).await {
-        Ok(v) => ok(Value::Array(
-            v.into_iter()
-                .map(|(person_id, p)| {
-                    let mut j = serde_json::to_value(p).unwrap_or(Value::Null);
-                    j["person_id"] = serde_json::json!(person_id);
-                    j
-                })
-                .collect(),
-        )),
+        Ok(v) => {
+            let mut rows = Vec::with_capacity(v.len());
+            for (person_id, p) in v {
+                match serde_json::to_value(p) {
+                    Ok(mut j) => {
+                        j["person_id"] = serde_json::json!(person_id);
+                        rows.push(j);
+                    }
+                    Err(e) => {
+                        return error_to_response(crate::Error::internal(format!(
+                            "response could not be serialized: {e}"
+                        )));
+                    }
+                }
+            }
+            ok(Value::Array(rows))
+        }
         Err(e) => error_to_response(e),
     }
 }
@@ -125,7 +118,11 @@ pub async fn ask(
     Path(id): Path<Uuid>,
     Json(b): Json<AskBody>,
 ) -> HandlerResult {
-    match state.waits.ask(id, &b.asked_by, &ctx(&headers)).await {
+    match state
+        .waits
+        .ask(id, &b.asked_by, &request_audit_ctx(&headers))
+        .await
+    {
         Ok(check) => ok(serde_json::json!({ "id": check })),
         Err(e) => error_to_response(e),
     }
@@ -157,7 +154,7 @@ pub async fn answer(
 ) -> HandlerResult {
     match state
         .waits
-        .answer(id, &b.answer, &b.recorded_by, &ctx(&headers))
+        .answer(id, &b.answer, &b.recorded_by, &request_audit_ctx(&headers))
         .await
     {
         Ok(()) => ok(Value::Null),

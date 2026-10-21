@@ -10,16 +10,16 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUserContext};
 use crate::db::repositories::bed::BedRepository;
@@ -29,18 +29,6 @@ use crate::models::facility::{Bed, BedStatus, Facility, Room, Ward};
 #[derive(Debug, Deserialize)]
 pub struct SetBedStatusBody {
     pub status: BedStatus,
-}
-
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok_value(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
 }
 
 /// `GET /api/wards/:id/occupancy` — counts of beds by status.
@@ -60,7 +48,7 @@ pub async fn ward_occupancy(
     Path(ward_id): Path<Uuid>,
 ) -> HandlerResult {
     match state.resources.ward_occupancy(ward_id).await {
-        Ok(occ) => ok_value(serde_json::to_value(occ).unwrap_or(Value::Null)),
+        Ok(occ) => ok_json(occ),
         Err(e) => error_to_response(e),
     }
 }
@@ -90,7 +78,7 @@ pub async fn set_bed_status(
         .set_bed_status(bed_id, body.status, &ctx)
         .await
     {
-        Ok(bed) => ok_value(serde_json::to_value(bed).unwrap_or(Value::Null)),
+        Ok(bed) => ok_json(bed),
         Err(e) => error_to_response(e),
     }
 }
@@ -112,7 +100,7 @@ pub async fn list_beds_by_ward(
     Path(ward_id): Path<Uuid>,
 ) -> HandlerResult {
     match BedRepository::list_by_ward(&state.db, ward_id).await {
-        Ok(beds) => ok_value(serde_json::to_value(beds).unwrap_or(Value::Null)),
+        Ok(beds) => ok_json(beds),
         Err(e) => error_to_response(e),
     }
 }
@@ -131,7 +119,7 @@ pub async fn list_beds_by_ward(
 )]
 pub async fn get_bed(State(state): State<AppState>, Path(bed_id): Path<Uuid>) -> HandlerResult {
     match BedRepository::find_by_id(&state.db, bed_id).await {
-        Ok(Some(bed)) => ok_value(serde_json::to_value(bed).unwrap_or(Value::Null)),
+        Ok(Some(bed)) => ok_json(bed),
         Ok(None) => error_to_response(Error::not_found(format!("bed {bed_id}"))),
         Err(e) => error_to_response(e),
     }
@@ -181,7 +169,7 @@ pub async fn create_facility(
                 &ctx,
             )
             .await;
-            ok_value(serde_json::to_value(f).unwrap_or(Value::Null))
+            ok_json(f)
         }
         Err(e) => error_to_response(e),
     }
@@ -201,7 +189,7 @@ pub async fn create_facility(
 )]
 pub async fn get_facility(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match FacilityRepository::find_by_id(&state.db, id).await {
-        Ok(Some(f)) => ok_value(serde_json::to_value(f).unwrap_or(Value::Null)),
+        Ok(Some(f)) => ok_json(f),
         Ok(None) => error_to_response(Error::not_found(format!("facility {id}"))),
         Err(e) => error_to_response(e),
     }
@@ -220,7 +208,7 @@ pub async fn get_facility(State(state): State<AppState>, Path(id): Path<Uuid>) -
 )]
 pub async fn list_facilities(State(state): State<AppState>) -> HandlerResult {
     match FacilityRepository::list(&state.db).await {
-        Ok(rows) => ok_value(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -257,7 +245,7 @@ pub async fn create_ward(
                 &ctx,
             )
             .await;
-            ok_value(serde_json::to_value(w).unwrap_or(Value::Null))
+            ok_json(w)
         }
         Err(e) => error_to_response(e),
     }
@@ -277,7 +265,7 @@ pub async fn create_ward(
 )]
 pub async fn get_ward(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match WardRepository::find_by_id(&state.db, id).await {
-        Ok(Some(w)) => ok_value(serde_json::to_value(w).unwrap_or(Value::Null)),
+        Ok(Some(w)) => ok_json(w),
         Ok(None) => error_to_response(Error::not_found(format!("ward {id}"))),
         Err(e) => error_to_response(e),
     }
@@ -300,7 +288,7 @@ pub async fn list_wards_by_facility(
     Path(facility_id): Path<Uuid>,
 ) -> HandlerResult {
     match WardRepository::list_by_facility(&state.db, facility_id).await {
-        Ok(rows) => ok_value(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -337,7 +325,7 @@ pub async fn create_room(
                 &ctx,
             )
             .await;
-            ok_value(serde_json::to_value(r).unwrap_or(Value::Null))
+            ok_json(r)
         }
         Err(e) => error_to_response(e),
     }
@@ -357,7 +345,7 @@ pub async fn create_room(
 )]
 pub async fn get_room(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match RoomRepository::find_by_id(&state.db, id).await {
-        Ok(Some(r)) => ok_value(serde_json::to_value(r).unwrap_or(Value::Null)),
+        Ok(Some(r)) => ok_json(r),
         Ok(None) => error_to_response(Error::not_found(format!("room {id}"))),
         Err(e) => error_to_response(e),
     }
@@ -380,7 +368,7 @@ pub async fn list_rooms_by_ward(
     Path(ward_id): Path<Uuid>,
 ) -> HandlerResult {
     match RoomRepository::list_by_ward(&state.db, ward_id).await {
-        Ok(rows) => ok_value(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -417,7 +405,7 @@ pub async fn create_bed(
                 &ctx,
             )
             .await;
-            ok_value(serde_json::to_value(b).unwrap_or(Value::Null))
+            ok_json(b)
         }
         Err(e) => error_to_response(e),
     }

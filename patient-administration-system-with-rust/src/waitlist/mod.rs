@@ -65,7 +65,7 @@ impl WaitlistService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         let _ = self
             .publisher
             .publish(DomainEvent::new(
@@ -108,7 +108,7 @@ impl WaitlistService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         Ok(res)
     }
 
@@ -163,7 +163,7 @@ impl RttService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         let _ = self
             .publisher
             .publish(DomainEvent::new(
@@ -274,7 +274,7 @@ impl RttService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         let _ = self
             .publisher
             .publish(DomainEvent::new(
@@ -296,13 +296,6 @@ impl RttService {
             .ok_or_else(|| Error::not_found(format!("rtt_pathway {pathway_id}")))?;
         let events = RttRepository::list_events_for_pathway(&self.db, pathway_id).await?;
         Ok(pathway.is_breaching(&events, chrono::Utc::now()))
-    }
-}
-
-fn unwrap_txn_err(e: sea_orm::TransactionError<Error>) -> Error {
-    match e {
-        sea_orm::TransactionError::Connection(c) => Error::Database(c),
-        sea_orm::TransactionError::Transaction(t) => t,
     }
 }
 

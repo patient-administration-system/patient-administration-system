@@ -481,7 +481,7 @@ impl SchedulingService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         self.publish_booked(&appt).await;
         Ok(appt)
     }
@@ -499,7 +499,7 @@ impl SchedulingService {
                 Box::pin(async move { Self::book_tx(txn, slot_id, person_id, &ctx).await })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         self.publish_booked(&appt).await;
         Ok(appt)
     }
@@ -545,7 +545,7 @@ impl SchedulingService {
                 Box::pin(async move { Self::cancel_tx(txn, appointment_id, details, &ctx).await })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         self.publish_cancelled(&appt).await;
         Ok(appt)
     }
@@ -566,7 +566,7 @@ impl SchedulingService {
                 )
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         self.publish_cancelled(&old).await;
         self.publish_booked(&new).await;
         Ok((old, new))
@@ -654,7 +654,7 @@ impl SchedulingService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)
+            .map_err(Error::from)
     }
 
     /// Where the patient is now (CORE-4). Only for someone who has arrived and not yet been completed;
@@ -707,7 +707,7 @@ impl SchedulingService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)
+            .map_err(Error::from)
     }
 
     /// Everyone who has arrived and not yet been completed, longest waiting first, with the minutes
@@ -792,7 +792,7 @@ impl SchedulingService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         Ok(appt)
     }
 
@@ -858,7 +858,7 @@ impl SchedulingService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         Ok(appt)
     }
 }
@@ -869,13 +869,6 @@ fn enum_name<T: serde::Serialize>(v: &T) -> String {
         .ok()
         .and_then(|j| j.as_str().map(String::from))
         .unwrap_or_default()
-}
-
-fn unwrap_txn_err(e: sea_orm::TransactionError<Error>) -> Error {
-    match e {
-        sea_orm::TransactionError::Connection(c) => Error::Database(c),
-        sea_orm::TransactionError::Transaction(t) => t,
-    }
 }
 
 #[cfg(test)]

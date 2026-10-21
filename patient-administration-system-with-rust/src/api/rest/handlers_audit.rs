@@ -1,16 +1,11 @@
 //! REST handlers for audit query.
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::StatusCode,
-};
+use axum::extract::{Path, Query, State};
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
+use crate::api::rest::handlers::ok_json;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::db::repositories::audit::AuditLogRepository;
 
@@ -34,10 +29,6 @@ fn default_limit() -> u64 {
 
 const MAX_LIMIT: u64 = 500;
 
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
-
 /// `GET /api/audit/recent?limit=N`.
 #[utoipa::path(
     get,
@@ -55,7 +46,7 @@ pub async fn list_recent(
 ) -> HandlerResult {
     let limit = q.limit.min(MAX_LIMIT);
     match AuditLogRepository::list_recent(&state.db, limit).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -77,7 +68,7 @@ pub async fn list_for_entity(
 ) -> HandlerResult {
     let limit = q.limit.min(MAX_LIMIT);
     match AuditLogRepository::list_for_entity(&state.db, &q.entity_type, q.entity_id, limit).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -105,7 +96,7 @@ pub async fn list_local_for_person(
 ) -> HandlerResult {
     let limit = q.limit.min(MAX_LIMIT);
     match AuditLogRepository::list_for_entity(&state.db, "patient", person_id, limit).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }

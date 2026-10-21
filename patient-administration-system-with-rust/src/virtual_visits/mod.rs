@@ -257,10 +257,7 @@ impl VirtualVisitService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })
+            .map_err(Error::from)
     }
 
     /// The video visit did not connect: make it a phone consultation and ask a person to ring the patient.
@@ -323,9 +320,6 @@ impl VirtualVisitService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })
+            .map_err(Error::from)
     }
 }

@@ -35,7 +35,7 @@ use axum::{
 use sea_orm::TransactionTrait;
 
 use crate::api::rest::AppState;
-use crate::api::rest::upstream_proxy::user_context_from_headers;
+use crate::api::rest::handlers::request_audit_ctx;
 use crate::db::repositories::admission::AdmissionRepository;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUserContext};
 use crate::db::repositories::bed::BedRepository;
@@ -123,15 +123,6 @@ fn upstream_ctx(uc: &RepoUserContext) -> UpstreamUserContext {
         user_id: uc.user_id.clone(),
         user_ip: uc.user_ip.clone(),
         user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn audit_ctx_from_headers(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
     }
 }
 
@@ -236,7 +227,7 @@ pub async fn add_person(
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
         );
     };
-    let ctx = upstream_ctx(&audit_ctx_from_headers(&headers));
+    let ctx = upstream_ctx(&request_audit_ctx(&headers));
     match dedup_or_create_person(client, pid, &ctx).await {
         Ok((id, created)) => {
             let diag = if created {
@@ -292,7 +283,7 @@ pub async fn admit(
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
         );
     };
-    let audit = audit_ctx_from_headers(&headers);
+    let audit = request_audit_ctx(&headers);
     let ctx = upstream_ctx(&audit);
     let (person_id, _) = match dedup_or_create_person(client, pid, &ctx).await {
         Ok(r) => r,
@@ -370,7 +361,7 @@ pub async fn transfer(
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
         );
     };
-    let audit = audit_ctx_from_headers(&headers);
+    let audit = request_audit_ctx(&headers);
     let ctx = upstream_ctx(&audit);
     let (person_id, _) = match dedup_or_create_person(client, pid, &ctx).await {
         Ok(r) => r,
@@ -445,7 +436,7 @@ pub async fn discharge(
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
         );
     };
-    let audit = audit_ctx_from_headers(&headers);
+    let audit = request_audit_ctx(&headers);
     let ctx = upstream_ctx(&audit);
     let (person_id, _) = match dedup_or_create_person(client, pid, &ctx).await {
         Ok(r) => r,
@@ -498,7 +489,7 @@ async fn resolve_person_or_ack(
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
         )
     })?;
-    let audit = audit_ctx_from_headers(headers);
+    let audit = request_audit_ctx(headers);
     let up = upstream_ctx(&audit);
     let (person_id, _created) = dedup_or_create_person(client, &pid, &up)
         .await
@@ -600,14 +591,11 @@ pub async fn register(
                 e.id, r.person_id, class_str
             )),
         ),
-        Err(sea_orm::TransactionError::Connection(c)) => ae(
+        Err(e) => ae(
             &r.sender,
             &r.control_id,
-            &crate::Error::Database(c).client_message(),
+            &crate::Error::from(e).client_message(),
         ),
-        Err(sea_orm::TransactionError::Transaction(t)) => {
-            ae(&r.sender, &r.control_id, &client_text(&t))
-        }
     }
 }
 
@@ -1384,14 +1372,11 @@ pub async fn dft(
             };
             aa(&r.sender, &r.control_id, Some(&diag))
         }
-        Err(sea_orm::TransactionError::Connection(c)) => ae(
+        Err(e) => ae(
             &r.sender,
             &r.control_id,
-            &crate::Error::Database(c).client_message(),
+            &crate::Error::from(e).client_message(),
         ),
-        Err(sea_orm::TransactionError::Transaction(t)) => {
-            ae(&r.sender, &r.control_id, &client_text(&t))
-        }
     }
 }
 
@@ -1480,14 +1465,11 @@ pub async fn schedule_book(
             &r.control_id,
             Some(&format!("filler={} person={person_id}", a.id)),
         ),
-        Err(sea_orm::TransactionError::Connection(c)) => ae(
+        Err(e) => ae(
             &r.sender,
             &r.control_id,
-            &crate::Error::Database(c).client_message(),
+            &crate::Error::from(e).client_message(),
         ),
-        Err(sea_orm::TransactionError::Transaction(t)) => {
-            ae(&r.sender, &r.control_id, &client_text(&t))
-        }
     }
 }
 
@@ -1783,7 +1765,7 @@ pub async fn mfn_staff(
             "WORKER_SERVICE_URL unset; cannot apply staff master file",
         );
     };
-    let audit = audit_ctx_from_headers(&headers);
+    let audit = request_audit_ctx(&headers);
     let up = upstream_ctx(&audit);
     let mut items: Vec<crate::hl7v2::pid_translation::StaffItem> = Vec::new();
     let mut current_mfe: Option<&crate::hl7v2::Segment> = None;
@@ -1970,7 +1952,7 @@ pub async fn mfn_location(
             &format!("MFI-1 file id {file_id:?} not supported (LOC only)"),
         );
     }
-    let audit = audit_ctx_from_headers(&headers);
+    let audit = request_audit_ctx(&headers);
     let mut items: Vec<crate::hl7v2::pid_translation::LocationItem> = Vec::new();
     let mut current_mfe: Option<&crate::hl7v2::Segment> = None;
     for seg in &msg.segments {
@@ -2104,14 +2086,11 @@ pub async fn mfn_location(
             &h.control_id,
             Some(&format!("location_records_applied={n}")),
         ),
-        Err(sea_orm::TransactionError::Connection(c)) => ae(
+        Err(e) => ae(
             &h.sender,
             &h.control_id,
-            &crate::Error::Database(c).client_message(),
+            &crate::Error::from(e).client_message(),
         ),
-        Err(sea_orm::TransactionError::Transaction(t)) => {
-            ae(&h.sender, &h.control_id, &client_text(&t))
-        }
     }
 }
 

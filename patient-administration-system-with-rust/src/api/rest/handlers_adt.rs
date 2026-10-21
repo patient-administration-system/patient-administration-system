@@ -13,17 +13,15 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
 
 #[derive(Debug, Deserialize)]
 pub struct AdmitBody {
@@ -34,18 +32,6 @@ pub struct AdmitBody {
 #[derive(Debug, Deserialize)]
 pub struct TransferBody {
     pub new_bed_id: Uuid,
-}
-
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok_value(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
 }
 
 /// `POST /api/admissions` — admit a person to a bed. Body:
@@ -67,7 +53,7 @@ pub async fn admit(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.adt.admit(body.person_id, body.bed_id, &ctx).await {
-        Ok(result) => ok_value(serde_json::to_value(result).unwrap_or(Value::Null)),
+        Ok(result) => ok_json(result),
         Err(e) => error_to_response(e),
     }
 }
@@ -97,7 +83,7 @@ pub async fn transfer(
         .transfer(admission_id, body.new_bed_id, &ctx)
         .await
     {
-        Ok(transfer) => ok_value(serde_json::to_value(transfer).unwrap_or(Value::Null)),
+        Ok(transfer) => ok_json(transfer),
         Err(e) => error_to_response(e),
     }
 }
@@ -122,7 +108,7 @@ pub async fn discharge(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.adt.discharge(admission_id, &ctx).await {
-        Ok(discharge) => ok_value(serde_json::to_value(discharge).unwrap_or(Value::Null)),
+        Ok(discharge) => ok_json(discharge),
         Err(e) => error_to_response(e),
     }
 }
@@ -147,7 +133,7 @@ pub async fn cancel_admit(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.adt.cancel_admission(admission_id, None, &ctx).await {
-        Ok(adm) => ok_value(serde_json::to_value(adm).unwrap_or(Value::Null)),
+        Ok(adm) => ok_json(adm),
         Err(e) => error_to_response(e),
     }
 }
@@ -172,7 +158,7 @@ pub async fn cancel_discharge(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.adt.cancel_discharge(admission_id, &ctx).await {
-        Ok(_) => ok_value(serde_json::json!({ "admission_id": admission_id, "reinstated": true })),
+        Ok(_) => ok(serde_json::json!({ "admission_id": admission_id, "reinstated": true })),
         Err(e) => error_to_response(e),
     }
 }
@@ -197,7 +183,7 @@ pub async fn cancel_transfer(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.adt.cancel_transfer(admission_id, None, &ctx).await {
-        Ok(_) => ok_value(serde_json::json!({ "admission_id": admission_id, "reverted": true })),
+        Ok(_) => ok(serde_json::json!({ "admission_id": admission_id, "reverted": true })),
         Err(e) => error_to_response(e),
     }
 }
@@ -225,7 +211,7 @@ pub async fn pre_admit(
         .pre_admit(body.person_id, body.bed_id, None, &ctx)
         .await
     {
-        Ok(e) => ok_value(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -253,7 +239,7 @@ pub async fn cancel_pre_admit(
         .cancel_pre_admit(body.person_id, body.bed_id, None, &ctx)
         .await
     {
-        Ok(e) => ok_value(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -278,7 +264,7 @@ pub async fn leave_start(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.adt.start_leave(admission_id, None, &ctx).await {
-        Ok(e) => ok_value(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -303,7 +289,7 @@ pub async fn leave_end(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.adt.end_leave(admission_id, None, &ctx).await {
-        Ok(e) => ok_value(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -332,7 +318,7 @@ pub async fn change_to_inpatient(
         .change_to_inpatient(body.person_id, body.bed_id, None, &ctx)
         .await
     {
-        Ok(e) => ok_value(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -361,7 +347,7 @@ pub async fn change_to_outpatient(
         .change_to_outpatient(admission_id, None, &ctx)
         .await
     {
-        Ok(e) => ok_value(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }

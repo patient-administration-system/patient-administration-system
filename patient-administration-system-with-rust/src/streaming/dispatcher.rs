@@ -99,10 +99,7 @@ pub async fn tick(
                         })
                     })
                     .await
-                    .map_err(|e| match e {
-                        sea_orm::TransactionError::Connection(c) => crate::Error::Database(c),
-                        sea_orm::TransactionError::Transaction(t) => t,
-                    })?;
+                    .map_err(crate::Error::from)?;
                 } else {
                     tracing::warn!(
                         "outbox publish failed for id={} (retry {}/{}): {err_str}",

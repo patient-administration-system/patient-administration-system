@@ -3,33 +3,17 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{ok, ok_json};
 use crate::models::waitlist::Priority;
 use crate::referrals::NewReferral;
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
-
-fn ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct CreateBody {
@@ -77,7 +61,7 @@ pub async fn create(
                 referring_worker_id: b.referring_worker_id,
                 received_at: b.received_at,
             },
-            &ctx(&headers),
+            &request_audit_ctx(&headers),
         )
         .await
     {
@@ -114,7 +98,7 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> 
         )
         .await
     {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -133,7 +117,7 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> 
 )]
 pub async fn get(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.referrals.get(id).await {
-        Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+        Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),
     }
 }
@@ -158,10 +142,10 @@ pub async fn book_first_available(
 ) -> HandlerResult {
     match state
         .referrals
-        .book_first_available(id, &ctx(&headers))
+        .book_first_available(id, &request_audit_ctx(&headers))
         .await
     {
-        Ok(b) => ok(serde_json::to_value(b).unwrap_or(Value::Null)),
+        Ok(b) => ok_json(b),
         Err(e) => error_to_response(e),
     }
 }
@@ -191,8 +175,12 @@ pub async fn waitlist(
     body: Option<Json<WaitlistBody>>,
 ) -> HandlerResult {
     let p = body.and_then(|b| b.0.priority).unwrap_or(Priority::Routine);
-    match state.referrals.waitlist(id, p, &ctx(&headers)).await {
-        Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+    match state
+        .referrals
+        .waitlist(id, p, &request_audit_ctx(&headers))
+        .await
+    {
+        Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),
     }
 }
@@ -224,10 +212,10 @@ pub async fn close(
     let reason = body.and_then(|b| b.0.reason);
     match state
         .referrals
-        .close(id, reason.as_deref(), &ctx(&headers))
+        .close(id, reason.as_deref(), &request_audit_ctx(&headers))
         .await
     {
-        Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+        Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),
     }
 }

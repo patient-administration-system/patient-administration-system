@@ -1,17 +1,11 @@
 //! REST handlers for voice reminders with keypad options (CAP-13). Called by the telephony carrier, with the
 //! same signed credential as the other write-back endpoints.
 
-use axum::{
-    Json,
-    extract::State,
-    http::{HeaderMap, StatusCode},
-};
+use axum::{Json, extract::State, http::HeaderMap};
 use serde::Deserialize;
-use serde_json::Value;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
 
@@ -34,12 +28,7 @@ pub struct MenuBody {
 )]
 pub async fn menu(State(state): State<AppState>, Json(b): Json<MenuBody>) -> HandlerResult {
     match state.ivr.menu(&b.token).await {
-        Ok(r) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(
-                serde_json::to_value(r).unwrap_or(Value::Null),
-            )),
-        ),
+        Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),
     }
 }
@@ -81,12 +70,7 @@ pub async fn press(
         user_agent: uc.user_agent,
     };
     match state.ivr.press(&b.token, &b.state, d, &ctx).await {
-        Ok(r) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(
-                serde_json::to_value(r).unwrap_or(Value::Null),
-            )),
-        ),
+        Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),
     }
 }

@@ -132,10 +132,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
 
         // Best-effort publish after commit. The outbox row is the durable
         // record; this is a convenience for in-process consumers.
@@ -216,10 +213,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
 
         let _ = self
             .publisher
@@ -312,10 +306,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
 
         let mut in_mem = serde_json::json!({
             "encounter_id": res.id,
@@ -419,10 +410,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
         let mut in_mem = serde_json::json!({
             "admission_id": admission_id,
             "encounter_id": res.id,
@@ -512,10 +500,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
 
         let _ = self
             .publisher
@@ -625,10 +610,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
         let mut in_mem = serde_json::json!({
             "encounter_id": res.encounter.id,
             "admission_id": res.admission.id,
@@ -719,10 +701,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
         let mut in_mem = serde_json::json!({
             "encounter_id": res.id,
             "person_id": res.person_id,
@@ -865,10 +844,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
 
         let mut in_mem = serde_json::json!({
             "admission_id": admission_id,
@@ -961,10 +937,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
 
         let mut in_mem = serde_json::json!({
             "admission_id": admission_id,
@@ -1092,10 +1065,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
 
         let _ = self
             .publisher
@@ -1169,10 +1139,7 @@ impl AdtService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
 
         let _ = self
             .publisher

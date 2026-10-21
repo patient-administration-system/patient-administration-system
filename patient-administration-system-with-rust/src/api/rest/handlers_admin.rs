@@ -1,21 +1,19 @@
 //! REST handlers for operational admin: outbox diagnostics + DLQ.
 
 use axum::{
-    Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use sea_orm::TransactionTrait;
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUserContext};
+use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::outbox::{DeadLetterRepository, OutboxRepository};
 
 #[derive(Debug, Deserialize)]
@@ -29,18 +27,6 @@ fn default_limit() -> u64 {
 }
 
 const MAX_LIMIT: u64 = 500;
-
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 /// `GET /api/admin/outbox/unpublished?limit=N`.
 #[utoipa::path(
@@ -59,7 +45,7 @@ pub async fn list_unpublished_outbox(
 ) -> HandlerResult {
     let limit = q.limit.min(MAX_LIMIT);
     match OutboxRepository::fetch_unpublished(&state.db, limit).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -81,7 +67,7 @@ pub async fn list_dead_letters(
 ) -> HandlerResult {
     let limit = q.limit.min(MAX_LIMIT);
     match DeadLetterRepository::list(&state.db, limit).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -132,7 +118,6 @@ pub async fn replay_dead_letter(
             "dead_letter_id": dl_id,
             "new_outbox_id": new_id,
         })),
-        Err(sea_orm::TransactionError::Connection(c)) => error_to_response(Error::Database(c)),
-        Err(sea_orm::TransactionError::Transaction(t)) => error_to_response(t),
+        Err(e) => error_to_response(Error::from(e)),
     }
 }

@@ -6,23 +6,19 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
 use crate::reply_links::LinkAction;
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 /// `GET /api/reply-links/{token}`: what the page may show. Read-only: opening a link never acts.
 #[utoipa::path(
@@ -38,7 +34,7 @@ fn ok(value: Value) -> HandlerResult {
 )]
 pub async fn get_link(State(state): State<AppState>, Path(token): Path<String>) -> HandlerResult {
     match state.reply_links.info(&token).await {
-        Ok(i) => ok(serde_json::to_value(i).unwrap_or(Value::Null)),
+        Ok(i) => ok_json(i),
         Err(e) => error_to_response(e),
     }
 }
@@ -93,7 +89,7 @@ pub async fn post_link_action(
         .act_with(&token, action, body.confirmed, body.barrier_code, &ctx)
         .await
     {
-        Ok(o) => ok(serde_json::to_value(o).unwrap_or(Value::Null)),
+        Ok(o) => ok_json(o),
         Err(e) => error_to_response(e),
     }
 }
@@ -131,7 +127,7 @@ pub async fn post_link_rebook(
         user_agent: uc.user_agent,
     };
     match state.reply_links.choose(&token, body.slot_id, &ctx).await {
-        Ok(o) => ok(serde_json::to_value(o).unwrap_or(Value::Null)),
+        Ok(o) => ok_json(o),
         Err(e) => error_to_response(e),
     }
 }

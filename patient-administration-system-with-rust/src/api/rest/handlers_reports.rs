@@ -1,19 +1,16 @@
 //! REST handlers for activity and performance reporting (CORE-7).
 
 use axum::{
-    Json,
     extract::{Query, State},
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use serde_json::Value;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::error_to_response;
+use crate::api::rest::handlers::{error_to_response, ok_json};
 use crate::reports::GroupBy;
 
 #[derive(Debug, Deserialize)]
@@ -59,13 +56,7 @@ pub async fn clinic_activity(
             r.to_csv(),
         )
             .into_response(),
-        Ok(r) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(
-                serde_json::to_value(r).unwrap_or(Value::Null),
-            )),
-        )
-            .into_response(),
+        Ok(r) => ok_json(r).into_response(),
         Err(e) => error_to_response(e).into_response(),
     }
 }

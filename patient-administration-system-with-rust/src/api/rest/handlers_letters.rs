@@ -3,19 +3,19 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::communication::templates;
-use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUserContext};
+use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::letter::LetterRepository;
 use crate::models::communication::{DeliveryChannel, LetterTemplate};
 
@@ -28,18 +28,6 @@ pub struct GenerateLetterBody {
     pub appointment_id: Option<Uuid>,
     #[serde(default)]
     pub extra: Value,
-}
-
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
 }
 
 /// `POST /api/letter-templates` — create a template.
@@ -95,7 +83,7 @@ pub async fn create_template(
                 &ctx,
             )
             .await;
-            ok(serde_json::to_value(t).unwrap_or(Value::Null))
+            ok_json(t)
         }
         Err(e) => error_to_response(e),
     }
@@ -156,7 +144,7 @@ pub async fn update_template(
                 &ctx,
             )
             .await;
-            ok(serde_json::to_value(t).unwrap_or(Value::Null))
+            ok_json(t)
         }
         Err(e) => error_to_response(e),
     }
@@ -176,7 +164,7 @@ pub async fn update_template(
 )]
 pub async fn get_template(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match LetterRepository::find_template_by_id(&state.db, id).await {
-        Ok(Some(t)) => ok(serde_json::to_value(t).unwrap_or(Value::Null)),
+        Ok(Some(t)) => ok_json(t),
         Ok(None) => error_to_response(Error::not_found(format!("letter template {id}"))),
         Err(e) => error_to_response(e),
     }
@@ -195,7 +183,7 @@ pub async fn get_template(State(state): State<AppState>, Path(id): Path<Uuid>) -
 )]
 pub async fn list_templates(State(state): State<AppState>) -> HandlerResult {
     match LetterRepository::list_active_templates(&state.db).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -234,7 +222,7 @@ pub async fn list_patient_letters(
         },
     };
     match LetterRepository::list_for_person(&state.db, person_id, channel).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -308,7 +296,7 @@ pub async fn generate_letter(
         )
         .await
     {
-        Ok(l) => ok(serde_json::to_value(l).unwrap_or(Value::Null)),
+        Ok(l) => ok_json(l),
         Err(e) => error_to_response(e),
     }
 }
@@ -327,7 +315,7 @@ pub async fn generate_letter(
 )]
 pub async fn get_letter(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match LetterRepository::find_generated_letter_by_id(&state.db, id).await {
-        Ok(Some(l)) => ok(serde_json::to_value(l).unwrap_or(Value::Null)),
+        Ok(Some(l)) => ok_json(l),
         Ok(None) => error_to_response(Error::not_found(format!("generated letter {id}"))),
         Err(e) => error_to_response(e),
     }
@@ -363,7 +351,7 @@ pub async fn mark_sent(
                 &ctx,
             )
             .await;
-            ok(serde_json::to_value(l).unwrap_or(Value::Null))
+            ok_json(l)
         }
         Err(e) => error_to_response(e),
     }
@@ -399,7 +387,7 @@ pub async fn mark_failed(
                 &ctx,
             )
             .await;
-            ok(serde_json::to_value(l).unwrap_or(Value::Null))
+            ok_json(l)
         }
         Err(e) => error_to_response(e),
     }
@@ -531,8 +519,7 @@ pub async fn create_group(
                 .collect();
             ok(serde_json::json!({ "name": name, "variants": variants }))
         }
-        Err(sea_orm::TransactionError::Connection(c)) => error_to_response(Error::Database(c)),
-        Err(sea_orm::TransactionError::Transaction(e)) => error_to_response(e),
+        Err(e) => error_to_response(Error::from(e)),
     }
 }
 
@@ -560,7 +547,7 @@ pub async fn check_sms(Json(b): Json<CheckSmsBody>) -> HandlerResult {
         return error_to_response(e);
     }
     match templates::sample_sms(&b.body_tera, b.locale.as_deref().unwrap_or("en-001")) {
-        Some(len) => ok(serde_json::to_value(len).unwrap_or(Value::Null)),
+        Some(len) => ok_json(len),
         None => error_to_response(Error::validation(
             "the body does not render with typical values, so its length cannot be estimated",
         )),

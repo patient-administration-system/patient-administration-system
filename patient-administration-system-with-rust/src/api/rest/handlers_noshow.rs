@@ -3,30 +3,15 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
-
-fn ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{ok, ok_json};
 
 /// `GET /api/noshow/status`: whether it is on, and if not, exactly why.
 #[utoipa::path(
@@ -41,7 +26,7 @@ fn ctx(headers: &HeaderMap) -> RepoUserContext {
 )]
 pub async fn status(State(state): State<AppState>) -> HandlerResult {
     match state.noshow.status().await {
-        Ok(s) => ok(serde_json::to_value(s).unwrap_or(Value::Null)),
+        Ok(s) => ok_json(s),
         Err(e) => error_to_response(e),
     }
 }
@@ -89,7 +74,13 @@ pub async fn record_review(
 ) -> HandlerResult {
     match state
         .noshow
-        .record_review(&b.kind, &b.reviewer, &b.outcome, &b.notes, &ctx(&headers))
+        .record_review(
+            &b.kind,
+            &b.reviewer,
+            &b.outcome,
+            &b.notes,
+            &request_audit_ctx(&headers),
+        )
         .await
     {
         Ok(()) => ok(Value::Null),
@@ -143,7 +134,7 @@ pub async fn fairness_audit(
 )]
 pub async fn for_appointment(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.noshow.for_staff(id).await {
-        Ok(s) => ok(serde_json::to_value(s).unwrap_or(Value::Null)),
+        Ok(s) => ok_json(s),
         Err(e) => error_to_response(e),
     }
 }
@@ -279,7 +270,7 @@ pub async fn set_stage(
             &b.stage,
             &b.changed_by,
             &b.note,
-            &ctx(&headers),
+            &request_audit_ctx(&headers),
         )
         .await
     {

@@ -300,10 +300,7 @@ impl ReferralService {
                 })
             })
             .await
-            .map_err(|e| match e {
-                sea_orm::TransactionError::Connection(c) => Error::Database(c),
-                sea_orm::TransactionError::Transaction(t) => t,
-            })?;
+            .map_err(Error::from)?;
         let appt = AppointmentRepository::find_by_id(&self.db, appt.id)
             .await?
             .ok_or_else(|| Error::internal("booked appointment vanished"))?;

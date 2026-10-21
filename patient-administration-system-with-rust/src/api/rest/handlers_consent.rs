@@ -3,30 +3,17 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
-use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUserContext};
+use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::consent::ConsentRepository;
 use crate::models::consent::Consent;
-
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
 
 /// `POST /api/patients/:id/consents` — record a consent.
 #[utoipa::path(
@@ -65,7 +52,7 @@ pub async fn create_consent(
                 &ctx,
             )
             .await;
-            ok(serde_json::to_value(c).unwrap_or(Value::Null))
+            ok_json(c)
         }
         Err(e) => error_to_response(e),
     }
@@ -88,7 +75,7 @@ pub async fn list_consents_for_person(
     Path(person_id): Path<Uuid>,
 ) -> HandlerResult {
     match ConsentRepository::list_for_patient(&state.db, person_id).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -123,7 +110,7 @@ pub async fn revoke_consent(
                 &ctx,
             )
             .await;
-            ok(serde_json::to_value(c).unwrap_or(Value::Null))
+            ok_json(c)
         }
         Err(e) => error_to_response(e),
     }

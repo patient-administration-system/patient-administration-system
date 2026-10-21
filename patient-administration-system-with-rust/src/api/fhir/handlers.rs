@@ -34,6 +34,25 @@ use super::operation_outcome::{self, OperationOutcome};
 type FhirResult = Result<Json<Value>, (StatusCode, Json<OperationOutcome>)>;
 
 /// Map any [`Error`] to a status + OperationOutcome.
+/// A resource as JSON. One that cannot be serialized is a logged `500`, never a silent `null`.
+fn json_of<T: serde::Serialize>(value: T) -> FhirResult {
+    serde_json::to_value(value).map(Json).map_err(|e| {
+        error_to_response(Error::internal(format!(
+            "response could not be serialized: {e}"
+        )))
+    })
+}
+
+/// A resource wrapped as FHIR (`wrap_fhir`); one that cannot be serialized is a logged `500`.
+fn fhir_of<T: serde::Serialize>(kind: &str, value: T) -> FhirResult {
+    match serde_json::to_value(value) {
+        Ok(v) => Ok(Json(wrap_fhir(kind, v))),
+        Err(e) => Err(error_to_response(Error::internal(format!(
+            "response could not be serialized: {e}"
+        )))),
+    }
+}
+
 fn error_to_response(err: Error) -> (StatusCode, Json<OperationOutcome>) {
     let (status, code) = match &err {
         Error::NotFound(_) => (StatusCode::NOT_FOUND, "not-found"),
@@ -92,7 +111,7 @@ pub async fn get_patient(
     let client = need_person_client(&state).map_err(error_to_response)?;
     let ctx = user_context_from_headers(&headers);
     let person = client.get(id, &ctx).await.map_err(error_to_response)?;
-    Ok(Json(serde_json::to_value(person).unwrap_or(Value::Null)))
+    json_of(person)
 }
 
 #[utoipa::path(
@@ -118,7 +137,7 @@ pub async fn create_patient(
         .create(PersonCreate { fields }, &ctx)
         .await
         .map_err(error_to_response)?;
-    Ok(Json(serde_json::to_value(person).unwrap_or(Value::Null)))
+    json_of(person)
 }
 
 #[utoipa::path(
@@ -146,7 +165,7 @@ pub async fn update_patient(
         .update(id, PersonCreate { fields }, &ctx)
         .await
         .map_err(error_to_response)?;
-    Ok(Json(serde_json::to_value(person).unwrap_or(Value::Null)))
+    json_of(person)
 }
 
 #[utoipa::path(
@@ -219,7 +238,7 @@ pub async fn get_practitioner(
     let client = need_worker_client(&state).map_err(error_to_response)?;
     let ctx = user_context_from_headers(&headers);
     let worker = client.get(id, &ctx).await.map_err(error_to_response)?;
-    Ok(Json(serde_json::to_value(worker).unwrap_or(Value::Null)))
+    json_of(worker)
 }
 
 #[utoipa::path(
@@ -245,7 +264,7 @@ pub async fn create_practitioner(
         .create(WorkerCreate { fields }, &ctx)
         .await
         .map_err(error_to_response)?;
-    Ok(Json(serde_json::to_value(worker).unwrap_or(Value::Null)))
+    json_of(worker)
 }
 
 #[utoipa::path(
@@ -273,7 +292,7 @@ pub async fn update_practitioner(
         .update(id, WorkerCreate { fields }, &ctx)
         .await
         .map_err(error_to_response)?;
-    Ok(Json(serde_json::to_value(worker).unwrap_or(Value::Null)))
+    json_of(worker)
 }
 
 #[utoipa::path(
@@ -339,10 +358,7 @@ fn wrap_fhir(resource_type: &str, mut value: Value) -> Value {
 )]
 pub async fn get_encounter(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match EncounterRepository::find_by_id(&state.db, id).await {
-        Ok(Some(e)) => Ok(Json(wrap_fhir(
-            "Encounter",
-            serde_json::to_value(e).unwrap_or(Value::Null),
-        ))),
+        Ok(Some(e)) => fhir_of("Encounter", e),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Encounter/{id}"))),
@@ -365,10 +381,7 @@ pub async fn get_encounter(State(state): State<AppState>, Path(id): Path<Uuid>) 
 )]
 pub async fn get_appointment(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match AppointmentRepository::find_by_id(&state.db, id).await {
-        Ok(Some(a)) => Ok(Json(wrap_fhir(
-            "Appointment",
-            serde_json::to_value(a).unwrap_or(Value::Null),
-        ))),
+        Ok(Some(a)) => fhir_of("Appointment", a),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Appointment/{id}"))),
@@ -391,10 +404,7 @@ pub async fn get_appointment(State(state): State<AppState>, Path(id): Path<Uuid>
 )]
 pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match CoverageRepository::find_by_id(&state.db, id).await {
-        Ok(Some(c)) => Ok(Json(wrap_fhir(
-            "Coverage",
-            serde_json::to_value(c).unwrap_or(Value::Null),
-        ))),
+        Ok(Some(c)) => fhir_of("Coverage", c),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Coverage/{id}"))),
@@ -417,10 +427,7 @@ pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -
 )]
 pub async fn get_schedule(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match ScheduleRepository::find_by_id(&state.db, id).await {
-        Ok(Some(s)) => Ok(Json(wrap_fhir(
-            "Schedule",
-            serde_json::to_value(s).unwrap_or(Value::Null),
-        ))),
+        Ok(Some(s)) => fhir_of("Schedule", s),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Schedule/{id}"))),
@@ -443,10 +450,7 @@ pub async fn get_schedule(State(state): State<AppState>, Path(id): Path<Uuid>) -
 )]
 pub async fn get_slot(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match SlotRepository::find_by_id(&state.db, id).await {
-        Ok(Some(s)) => Ok(Json(wrap_fhir(
-            "Slot",
-            serde_json::to_value(s).unwrap_or(Value::Null),
-        ))),
+        Ok(Some(s)) => fhir_of("Slot", s),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Slot/{id}"))),
@@ -469,10 +473,7 @@ pub async fn get_slot(State(state): State<AppState>, Path(id): Path<Uuid>) -> Fh
 )]
 pub async fn get_location(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match BedRepository::find_by_id(&state.db, id).await {
-        Ok(Some(b)) => Ok(Json(wrap_fhir(
-            "Location",
-            serde_json::to_value(b).unwrap_or(Value::Null),
-        ))),
+        Ok(Some(b)) => fhir_of("Location", b),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Location/{id}"))),
@@ -641,10 +642,7 @@ pub async fn create_schedule(State(state): State<AppState>, Json(body): Json<Val
     let saved = ScheduleRepository::create(&state.db, &sched)
         .await
         .map_err(error_to_response)?;
-    Ok(Json(wrap_fhir(
-        "Schedule",
-        serde_json::to_value(saved).unwrap_or(Value::Null),
-    )))
+    fhir_of("Schedule", saved)
 }
 
 #[utoipa::path(
@@ -686,10 +684,7 @@ pub async fn update_schedule(
     let saved = ScheduleRepository::update(&state.db, &existing)
         .await
         .map_err(error_to_response)?;
-    Ok(Json(wrap_fhir(
-        "Schedule",
-        serde_json::to_value(saved).unwrap_or(Value::Null),
-    )))
+    fhir_of("Schedule", saved)
 }
 
 #[utoipa::path(
@@ -794,10 +789,7 @@ pub async fn create_slot(State(state): State<AppState>, Json(body): Json<Value>)
     let saved = SlotRepository::create(&state.db, &slot)
         .await
         .map_err(error_to_response)?;
-    Ok(Json(wrap_fhir(
-        "Slot",
-        serde_json::to_value(saved).unwrap_or(Value::Null),
-    )))
+    fhir_of("Slot", saved)
 }
 
 #[utoipa::path(
@@ -839,10 +831,7 @@ pub async fn update_slot(
     let saved = SlotRepository::update(&state.db, &existing)
         .await
         .map_err(error_to_response)?;
-    Ok(Json(wrap_fhir(
-        "Slot",
-        serde_json::to_value(saved).unwrap_or(Value::Null),
-    )))
+    fhir_of("Slot", saved)
 }
 
 #[utoipa::path(

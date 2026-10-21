@@ -3,17 +3,15 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
 use crate::models::appointment::CancellationReason;
 use crate::models::appointment_series::RecurrenceRule;
 use crate::scheduling::series::CreateSeriesInput;
@@ -45,18 +43,6 @@ impl From<CreateSeriesBody> for CreateSeriesInput {
     }
 }
 
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
-
 /// `POST /api/appointment-series` — create a recurring appointment plan
 /// and materialize its occurrences (atomically). Body: `CreateSeriesInput`.
 #[utoipa::path(
@@ -76,7 +62,7 @@ pub async fn create_series(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.series.create(body.into(), &ctx).await {
-        Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+        Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),
     }
 }
@@ -105,7 +91,7 @@ pub async fn cancel_series(
         .cancel(series_id, CancellationReason::PatientRequest, &ctx)
         .await
     {
-        Ok(s) => ok(serde_json::to_value(s).unwrap_or(Value::Null)),
+        Ok(s) => ok_json(s),
         Err(e) => error_to_response(e),
     }
 }
@@ -127,7 +113,7 @@ pub async fn get_series(
     Path(series_id): Path<Uuid>,
 ) -> HandlerResult {
     match state.series.get_with_occurrences(series_id).await {
-        Ok(Some(r)) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+        Ok(Some(r)) => ok_json(r),
         Ok(None) => error_to_response(Error::not_found(format!("appointment_series {series_id}"))),
         Err(e) => error_to_response(e),
     }
@@ -150,7 +136,7 @@ pub async fn list_series_for_person(
     Path(person_id): Path<Uuid>,
 ) -> HandlerResult {
     match state.series.list_by_patient(person_id).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }

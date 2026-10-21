@@ -202,7 +202,7 @@ impl SeriesService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
 
         let _ = self
             .publisher
@@ -297,7 +297,7 @@ impl SeriesService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
 
         let _ = self
             .publisher
@@ -329,13 +329,6 @@ impl SeriesService {
     /// List every series belonging to a patient, newest-first.
     pub async fn list_by_patient(&self, person_id: Uuid) -> Result<Vec<AppointmentSeries>> {
         AppointmentSeriesRepository::list_by_patient(&self.db, person_id).await
-    }
-}
-
-fn unwrap_txn_err(e: sea_orm::TransactionError<Error>) -> Error {
-    match e {
-        sea_orm::TransactionError::Connection(c) => Error::Database(c),
-        sea_orm::TransactionError::Transaction(t) => t,
     }
 }
 

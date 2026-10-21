@@ -3,17 +3,15 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
 use crate::models::waitlist::Priority;
 
 #[derive(Debug, Deserialize)]
@@ -39,18 +37,6 @@ pub struct RttStartBody {
 #[derive(Debug, Deserialize)]
 pub struct RttReasonBody {
     pub reason: String,
-}
-
-fn audit_ctx(uc: &crate::upstream::UserContext) -> RepoUserContext {
-    RepoUserContext {
-        user_id: uc.user_id.clone(),
-        user_ip: uc.user_ip.clone(),
-        user_agent: uc.user_agent.clone(),
-    }
-}
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
 }
 
 // ─── Waitlist ──────────────────────────────────────────────────────────
@@ -83,7 +69,7 @@ pub async fn add_to_waitlist(
         )
         .await
     {
-        Ok(e) => ok(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -107,7 +93,7 @@ pub async fn remove_from_waitlist(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.waitlist.remove(entry_id, &ctx).await {
-        Ok(e) => ok(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -128,7 +114,7 @@ pub async fn list_waitlist(
     Query(q): Query<ListByServiceQuery>,
 ) -> HandlerResult {
     match state.waitlist.list_by_service(&q.service).await {
-        Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
+        Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -164,7 +150,7 @@ pub async fn book_from_waitlist(
         .book_for_entry(entry_id, body.slot_id, &ctx)
         .await
     {
-        Ok(a) => ok(serde_json::to_value(a).unwrap_or(Value::Null)),
+        Ok(a) => ok_json(a),
         Err(e) => error_to_response(e),
     }
 }
@@ -193,7 +179,7 @@ pub async fn rtt_start(
         .start(body.person_id, body.target_service, &ctx)
         .await
     {
-        Ok(p) => ok(serde_json::to_value(p).unwrap_or(Value::Null)),
+        Ok(p) => ok_json(p),
         Err(e) => error_to_response(e),
     }
 }
@@ -218,7 +204,7 @@ pub async fn rtt_pause(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.rtt.pause(pathway_id, body.reason, &ctx).await {
-        Ok(e) => ok(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -242,7 +228,7 @@ pub async fn rtt_resume(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.rtt.resume(pathway_id, &ctx).await {
-        Ok(e) => ok(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -267,7 +253,7 @@ pub async fn rtt_stop(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.rtt.stop(pathway_id, body.reason, &ctx).await {
-        Ok(e) => ok(serde_json::to_value(e).unwrap_or(Value::Null)),
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }

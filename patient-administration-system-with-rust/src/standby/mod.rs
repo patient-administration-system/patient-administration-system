@@ -270,7 +270,7 @@ impl StandbyService {
                 })
             })
             .await
-            .map_err(unwrap)
+            .map_err(Error::from)
     }
 
     pub async fn list(&self, service_type: Option<&str>) -> Result<Vec<StandbyEntry>> {
@@ -307,7 +307,7 @@ impl StandbyService {
                 })
             })
             .await
-            .map_err(unwrap)
+            .map_err(Error::from)
     }
 
     /// Book a released (or any free) slot for a patient on standby, and take them off the list, in
@@ -358,7 +358,7 @@ impl StandbyService {
                 })
             })
             .await
-            .map_err(unwrap)?;
+            .map_err(Error::from)?;
         self.scheduling.publish_booked(&appt).await;
         Ok(appt)
     }
@@ -463,13 +463,6 @@ impl StandbyService {
         .all(&self.db)
         .await
         .map_err(db_err)
-    }
-}
-
-fn unwrap(e: sea_orm::TransactionError<Error>) -> Error {
-    match e {
-        sea_orm::TransactionError::Connection(c) => Error::Database(c),
-        sea_orm::TransactionError::Transaction(t) => t,
     }
 }
 

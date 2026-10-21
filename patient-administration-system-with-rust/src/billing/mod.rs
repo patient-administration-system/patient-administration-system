@@ -77,7 +77,7 @@ impl BillingService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         let _ = self
             .publisher
             .publish(DomainEvent::new(
@@ -109,7 +109,7 @@ impl BillingService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         Ok(res)
     }
 
@@ -153,7 +153,7 @@ impl BillingService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         Ok(res)
     }
 
@@ -209,7 +209,7 @@ impl BillingService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         Ok(res)
     }
 
@@ -267,15 +267,8 @@ impl BillingService {
                 })
             })
             .await
-            .map_err(unwrap_txn_err)?;
+            .map_err(Error::from)?;
         Ok(res)
-    }
-}
-
-fn unwrap_txn_err(e: sea_orm::TransactionError<Error>) -> Error {
-    match e {
-        sea_orm::TransactionError::Connection(c) => Error::Database(c),
-        sea_orm::TransactionError::Transaction(t) => t,
     }
 }
 

@@ -3,30 +3,15 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::upstream_proxy::user_context_from_headers;
-use crate::db::repositories::audit::UserContext as RepoUserContext;
-
-fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
-}
-
-fn ctx(headers: &HeaderMap) -> RepoUserContext {
-    let uc = user_context_from_headers(headers);
-    RepoUserContext {
-        user_id: uc.user_id,
-        user_ip: uc.user_ip,
-        user_agent: uc.user_agent,
-    }
-}
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{ok, ok_json};
 
 #[derive(Debug, Deserialize)]
 pub struct AddBody {
@@ -63,7 +48,7 @@ pub async fn add(
             b.appointment_id,
             b.reason_code.as_deref(),
             &b.created_by,
-            &ctx(&headers),
+            &request_audit_ctx(&headers),
         )
         .await
     {
@@ -90,7 +75,7 @@ pub struct OpenQuery {
 )]
 pub async fn open(State(state): State<AppState>, Query(q): Query<OpenQuery>) -> HandlerResult {
     match state.support.open(q.limit.unwrap_or(100)).await {
-        Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -121,7 +106,7 @@ pub async fn resolve(
 ) -> HandlerResult {
     match state
         .support
-        .resolve(id, &b.outcome, &b.resolved_by, &ctx(&headers))
+        .resolve(id, &b.outcome, &b.resolved_by, &request_audit_ctx(&headers))
         .await
     {
         Ok(()) => ok(Value::Null),

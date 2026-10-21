@@ -44,8 +44,36 @@ pub fn error_to_response(err: Error) -> HandlerResult {
     (status, Json(ApiResponse::err(code, err.client_message())))
 }
 
-fn ok_response(value: Value) -> HandlerResult {
+/// `200` with `value` in the `ApiResponse` envelope.
+pub fn ok(value: Value) -> HandlerResult {
     (StatusCode::OK, Json(ApiResponse::ok(value)))
+}
+
+/// `200` with `value` serialized into the envelope. A value that cannot be serialized is a logged `500`,
+/// never a silent `null` (QUAL-27).
+pub fn ok_json<T: serde::Serialize>(value: T) -> HandlerResult {
+    match serde_json::to_value(value) {
+        Ok(v) => ok(v),
+        Err(e) => error_to_response(Error::internal(format!(
+            "response could not be serialized: {e}"
+        ))),
+    }
+}
+
+/// The audit context of a request, from its headers.
+pub fn request_audit_ctx(
+    headers: &axum::http::HeaderMap,
+) -> crate::db::repositories::audit::UserContext {
+    audit_ctx(&crate::api::rest::upstream_proxy::user_context_from_headers(headers))
+}
+
+/// The audit context of a request: who, from where, with what client.
+pub fn audit_ctx(uc: &crate::upstream::UserContext) -> crate::db::repositories::audit::UserContext {
+    crate::db::repositories::audit::UserContext {
+        user_id: uc.user_id.clone(),
+        user_ip: uc.user_ip.clone(),
+        user_agent: uc.user_agent.clone(),
+    }
 }
 
 /// Phase 2 catch-all: every non-health route returns 503 + UPSTREAM_UNAVAILABLE.
@@ -74,7 +102,7 @@ pub async fn health(State(state): State<AppState>) -> HandlerResult {
     let db_ok = state.db.ping().await.map(|_| true).unwrap_or(false);
     let status = if db_ok { "ok" } else { "degraded" };
     let database = if db_ok { "ok" } else { "unreachable" };
-    ok_response(serde_json::json!({
+    ok(serde_json::json!({
         "status": status,
         "database": database
     }))
@@ -96,4 +124,34 @@ pub fn api_error_stub() -> ApiError {
 // signatures + bodies.
 pub async fn stub_any() -> HandlerResult {
     upstream_stub("REST")
+}
+
+#[cfg(test)]
+mod serialization_tests {
+    use super::*;
+
+    struct Unserializable;
+
+    impl serde::Serialize for Unserializable {
+        fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+            Err(serde::ser::Error::custom("secret detail"))
+        }
+    }
+
+    /// QUAL-27: a value that cannot be serialized is a 500 with generic text, never a `200` carrying `null`.
+    #[test]
+    fn an_unserializable_value_is_a_500_not_a_null_200() {
+        let (status, Json(body)) = ok_json(Unserializable);
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        let text = serde_json::to_string(&body).unwrap();
+        assert!(!text.contains("secret detail"), "{text}");
+        assert!(text.contains("INTERNAL"), "{text}");
+    }
+
+    #[test]
+    fn a_serializable_value_is_a_200() {
+        let (status, Json(body)) = ok_json(serde_json::json!({ "a": 1 }));
+        assert_eq!(status, StatusCode::OK);
+        assert!(serde_json::to_string(&body).unwrap().contains("\"a\":1"));
+    }
 }
