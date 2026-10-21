@@ -306,10 +306,12 @@ async fn main() -> Result<()> {
     // standby, and every minute expires offers that ran out and moves on to the next patient.
     if patient_administration_system::backfill::enabled() {
         let backfill = state.backfill.clone();
+        let clock = state.clock.clone();
         jobs.spawn("backfill", std::time::Duration::from_secs(60), move || {
             let backfill = backfill.clone();
+            let clock = clock.clone();
             async move {
-                match backfill.tick(chrono::Utc::now()).await {
+                match backfill.tick(clock.now()).await {
                     Ok(r) if r.expired > 0 => {
                         tracing::info!(target: "pas::backfill", ?r, "offers moved on");
                     }
@@ -328,10 +330,12 @@ async fn main() -> Result<()> {
             state.communication.clone(),
         )?;
         let ladder = std::sync::Arc::new(ladder);
+        let clock = state.clock.clone();
         jobs.spawn("ladder", std::time::Duration::from_secs(300), move || {
             let ladder = ladder.clone();
+            let clock = clock.clone();
             async move {
-                match ladder.run_once(chrono::Utc::now()).await {
+                match ladder.run_once(clock.now()).await {
                     Ok(r) => tracing::info!(target: "pas::ladder", ?r, "ladder scan complete"),
                     Err(e) => tracing::warn!(target: "pas::ladder", "ladder scan failed: {e}"),
                 }
@@ -350,13 +354,15 @@ async fn main() -> Result<()> {
                 patient_administration_system::communication::consent::QuietHours::from_env()?,
             );
         let reminders = std::sync::Arc::new(reminders);
+        let clock = state.clock.clone();
         jobs.spawn(
             "reminders",
             std::time::Duration::from_secs(300),
             move || {
                 let reminders = reminders.clone();
+                let clock = clock.clone();
                 async move {
-                    match reminders.run_once(chrono::Utc::now(), lead).await {
+                    match reminders.run_once(clock.now(), lead).await {
                         Ok(r) => {
                             tracing::info!(target: "pas::reminders", ?r, "reminder scan complete")
                         }

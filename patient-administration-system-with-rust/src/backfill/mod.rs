@@ -85,6 +85,8 @@ pub struct TickReport {
 
 pub struct BackfillService {
     db: DatabaseConnection,
+    /// Swappable so a test can fix the time (QUAL-25); read and released at once, never held across `.await`.
+    clock: std::sync::RwLock<crate::clock::SharedClock>,
     standby: Arc<StandbyService>,
     communication: Arc<CommunicationService>,
     link_base: Option<String>,
@@ -100,6 +102,16 @@ struct Row {
 }
 
 impl BackfillService {
+    /// Use this clock from now on (tests: a fixed time; production keeps the system clock).
+    pub fn set_clock(&self, clock: crate::clock::SharedClock) {
+        *self.clock.write().unwrap_or_else(|p| p.into_inner()) = clock;
+    }
+
+    fn now(&self) -> DateTime<Utc> {
+        let clock = self.clock.read().unwrap_or_else(|p| p.into_inner()).clone();
+        clock.now()
+    }
+
     pub fn new(
         db: DatabaseConnection,
         standby: Arc<StandbyService>,
@@ -107,6 +119,7 @@ impl BackfillService {
     ) -> Self {
         Self {
             db,
+            clock: std::sync::RwLock::new(crate::clock::system()),
             standby,
             communication,
             link_base: std::env::var("PAS_LINK_BASE_URL")
@@ -121,8 +134,10 @@ impl BackfillService {
     }
 
     pub fn derive(&self) -> Self {
+        let clock = self.clock.read().unwrap_or_else(|p| p.into_inner()).clone();
         Self {
             db: self.db.clone(),
+            clock: std::sync::RwLock::new(clock),
             standby: self.standby.clone(),
             communication: self.communication.clone(),
             link_base: self.link_base.clone(),
@@ -198,7 +213,7 @@ impl BackfillService {
         let status: String = rel.try_get("", "status").map_err(Error::Database)?;
         let start: DateTime<Utc> = rel.try_get("", "start_datetime").map_err(Error::Database)?;
         let slot_id: Uuid = rel.try_get("", "slot_id").map_err(Error::Database)?;
-        let now = Utc::now();
+        let now = self.now();
         if status != "open" || start <= now {
             return Ok(None);
         }
@@ -303,7 +318,7 @@ impl BackfillService {
         let extra = serde_json::json!({
             "offer": {
                 "when": messages::when(start, lang, messages::timezone()),
-                "minutes": (offer.expires_at - Utc::now()).num_minutes().max(1),
+                "minutes": (offer.expires_at - self.now()).num_minutes().max(1),
             },
             "offer_url": format!("{base}/o/{token}"),
         });
@@ -317,7 +332,7 @@ impl BackfillService {
                 continue;
             }
             if consent::is_intrusive(channel)
-                && quiet.is_some_and(|q| q.contains(Utc::now(), messages::timezone()))
+                && quiet.is_some_and(|q| q.contains(self.now(), messages::timezone()))
             {
                 // A short-lived offer is not worth waking anyone for; it runs out and the next is tried.
                 continue;
@@ -423,7 +438,7 @@ impl BackfillService {
         let start = self.slot_start(row.slot_id).await?;
         let tz = messages::timezone().name().to_string();
         let state = match row.status.as_str() {
-            "open" if row.expires_at <= Utc::now() => "expired",
+            "open" if row.expires_at <= self.now() => "expired",
             "open" => "open",
             "missed" => "gone",
             "expired" => "expired",
@@ -451,7 +466,7 @@ impl BackfillService {
         if row.status != "open" {
             return Err(Error::conflict("this offer has already been answered"));
         }
-        if row.expires_at <= Utc::now() {
+        if row.expires_at <= self.now() {
             return Err(Error::validation("this offer has expired"));
         }
         let claimed = self

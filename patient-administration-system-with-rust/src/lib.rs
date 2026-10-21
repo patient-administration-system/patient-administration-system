@@ -28,6 +28,7 @@ pub mod analytics;
 pub mod api;
 pub mod backfill;
 pub mod billing;
+pub mod clock;
 pub mod communication;
 pub mod config;
 pub mod contact;

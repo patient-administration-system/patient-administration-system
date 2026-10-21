@@ -67,6 +67,8 @@ pub struct AppState {
     /// HTTP client to `worker-service`. Same Phase 1 / Phase 5 caveat
     /// as `person_client`.
     pub worker_client: Option<Arc<dyn WorkerClient>>,
+    /// What time it is for the background jobs and the services that decide by the time (QUAL-25).
+    pub clock: crate::clock::SharedClock,
 }
 
 impl AppState {
@@ -155,6 +157,7 @@ impl AppState {
             communication,
             person_client: None,
             worker_client: None,
+            clock: crate::clock::system(),
             db,
             publisher,
         }
@@ -209,6 +212,13 @@ impl AppState {
                 .with_communication(self.communication.clone()),
         );
         self.scheduling.set_backfill(self.backfill.clone());
+    }
+
+    /// Use this clock instead of the system's (tests fix the time so a result cannot depend on when they run).
+    pub fn with_clock(mut self, clock: crate::clock::SharedClock) -> Self {
+        self.backfill.set_clock(clock.clone());
+        self.clock = clock;
+        self
     }
 
     /// Attach a [`WorkerClient`] for the v0.44.0 workforce proxy

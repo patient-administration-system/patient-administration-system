@@ -462,3 +462,55 @@ async fn the_http_endpoints_read_without_acting_and_act_on_post() {
     assert_eq!(st, StatusCode::OK);
     assert_eq!(v["data"][0]["status"], "accepted");
 }
+
+/// QUAL-25: quiet hours decided by the service's clock, not the wall clock. The same offer text is held at
+/// 22:00 clinic time and sent at noon, whenever this test runs, with quiet hours on.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn quiet_hours_hold_an_offer_text_by_the_clinic_clock_whatever_the_time_of_the_run() {
+    use chrono::TimeZone;
+    use patient_administration_system::clock::{Clock, FixedClock};
+    let w = world(2).await;
+    // SAFETY: tests that set environment variables run one at a time (`--test-threads=1`).
+    unsafe { std::env::set_var("PAS_QUIET_HOURS", "21:00-08:00") };
+    w.join_standby().await;
+    let (release, _slot, _) = w.release().await;
+    let london = chrono_tz::Europe::London;
+    let today = Utc::now().with_timezone(&london).date_naive();
+    let at = |h: u32| {
+        london
+            .from_local_datetime(&today.and_hms_opt(h, 0, 0).unwrap())
+            .earliest()
+            .unwrap()
+            .with_timezone(&Utc)
+    };
+    let clock = FixedClock::at(at(22));
+    w.svc.set_clock(clock.clone());
+
+    w.svc
+        .offer_next(release)
+        .await
+        .unwrap()
+        .expect("an offer at 22:00");
+    assert!(
+        w.sent.lock().unwrap().is_empty(),
+        "no text at 22:00 clinic time"
+    );
+
+    // The offer runs out unsent and the next patient is offered at noon: that one is texted.
+    // Expired by the fixed clock's reckoning, not the database's `now()`, which is the wall clock.
+    clock.set(at(12));
+    w.s.db
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE slot_offers SET expires_at = $2 WHERE release_id = $1 AND status = 'open'",
+            [release.into(), (clock.now() - Duration::minutes(1)).into()],
+        ))
+        .await
+        .unwrap();
+    w.svc.tick(clock.now()).await.unwrap();
+    let sent = w.sent.lock().unwrap().clone();
+    unsafe { std::env::set_var("PAS_QUIET_HOURS", "off") };
+    assert_eq!(sent.len(), 1, "one text at noon: {sent:?}");
+    assert_eq!(sent[0].0, w.people[1].1, "to the second patient on standby");
+}
