@@ -37,6 +37,17 @@ Development: `podman compose -f podman/compose.yml up -d` (ports overridable wit
 | `PAS_PORTAL_URL` | API | Public address, exposed to templates as `portal_url` |
 | `PAS_REMINDERS_ENABLED`, `PAS_REMINDER_LEAD_HOURS` | API | Switch reminders on; lead time (default 24 h) |
 | `PAS_EMAIL_PROVIDER`, `PAS_WHATSAPP_PROVIDER`, `PAS_APPLE_MESSAGES_PROVIDER`, `PAS_SMS_PROVIDER` | API | `log` or off. **No real carrier exists yet** |
+| `PAS_DEFAULT_COUNTRY_CODE` | API | Country code (for example `44`) that lets a national mobile number (`07700 …`) be accepted and stored as E.164. Unset: only `+…` numbers are accepted |
+| `PAS_REBOOK_HORIZON_DAYS`, `PAS_REBOOK_MIN_NOTICE_HOURS`, `PAS_REBOOK_OFFER_MINUTES` | API | Rebook options (CAP-5): how far ahead alternatives are looked for (default 42 days), the least notice a slot offered may have (24 hours), and how long the patient has to choose (120 minutes) |
+| `PAS_CLINIC_ADDRESS` | API | Destination sent to the transport provider (CAP-15). Default `the clinic`, which no real provider can use: set it before transport is switched on |
+| `PAS_FOLLOW_UP_HOURS` | API | When a follow-up task after a miss on a listed service is due (CAP-7), default 48 |
+| `PAS_CHECK_WEEKS`, `PAS_CHECK_REPEAT_DAYS` | API | The long-wait "still needed?" list (CAP-8): pathways waiting at least this many weeks (default 26) with no check in this many days (90) |
+| `PAS_ANALYTICS_K` | API | Smallest cell the analytics feeds show (default 10; never below 5, whatever is set) |
+| `PAS_NOSHOW_SHADOW_MIN_DAYS` | API | Days of shadow data a clinic needs before the no-show score may go live there (default 28) |
+| `PAS_TOLERANCE_CHECK_MINUTES` | API | How often tolerances are checked for red (default 60; `0` turns the timer off) |
+| `PAS_OUTBOX_MAX_RETRIES` | API | Attempts before an outbox event is dead-lettered (default 10) |
+| `PAS_WEBHOOK_URL`, `PAS_WEBHOOK_SECRET`, `PAS_WEBHOOK_TIMEOUT_SECS` | API | Where domain events are posted; with a secret each post carries `X-PAS-Signature: sha256=<hex>` (HMAC-SHA256 of the body), which receivers must verify; timeout default 10 seconds |
+| `PAS_RATE_LIMIT_RPM`, `PAS_RATE_LIMIT_BURST` | API | Request rate limit per client IP address (default 600 a minute, burst 60; `0` turns it off). Behind a proxy every request may share one address: check before going live |
 
 ## TLS
 
