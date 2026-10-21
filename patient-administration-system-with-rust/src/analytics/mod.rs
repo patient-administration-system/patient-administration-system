@@ -17,6 +17,7 @@ use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
 
+use crate::config::env;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::{Error, Result};
 
@@ -277,11 +278,7 @@ impl AnalyticsService {
     /// day's budget is refused until tomorrow. The rest of the defence is people: who is given the
     /// feed, and the data-sharing terms they sign (`governance/analytics-differencing.md`).
     pub fn query_budget() -> i64 {
-        std::env::var("PAS_ANALYTICS_QUERY_BUDGET")
-            .ok()
-            .and_then(|v| v.parse::<i64>().ok())
-            .unwrap_or(100)
-            .clamp(1, 10_000)
+        env::int("PAS_ANALYTICS_QUERY_BUDGET")
     }
 
     /// Record one query against the caller's daily budget, or refuse it. Anonymous callers share one budget.
@@ -326,11 +323,7 @@ impl AnalyticsService {
 
     /// The smallest cell the feed will ever show: `PAS_ANALYTICS_K`, default 10, never below 5.
     pub fn minimum_k() -> i64 {
-        std::env::var("PAS_ANALYTICS_K")
-            .ok()
-            .and_then(|v| v.parse::<i64>().ok())
-            .unwrap_or(10)
-            .max(5)
+        env::int("PAS_ANALYTICS_K")
     }
 
     /// Record an upstream person's coarse bands. Nothing else about them is taken.

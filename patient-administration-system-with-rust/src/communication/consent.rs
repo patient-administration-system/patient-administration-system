@@ -19,6 +19,7 @@ use chrono_tz::Tz;
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
+use crate::config::env;
 use crate::models::communication::DeliveryChannel;
 use crate::{Error, Result};
 
@@ -51,10 +52,10 @@ impl QuietHours {
 
     /// From `PAS_QUIET_HOURS`: unset means the default, `off` means none.
     pub fn from_env() -> Result<Option<Self>> {
-        match std::env::var("PAS_QUIET_HOURS") {
-            Ok(v) if v.trim().eq_ignore_ascii_case("off") => Ok(None),
-            Ok(v) if !v.trim().is_empty() => Self::parse(&v).map(Some),
-            _ => Self::parse(DEFAULT_QUIET_HOURS).map(Some),
+        match env::text("PAS_QUIET_HOURS") {
+            Some(v) if v.trim().eq_ignore_ascii_case("off") => Ok(None),
+            Some(v) => Self::parse(&v).map(Some),
+            None => Self::parse(DEFAULT_QUIET_HOURS).map(Some),
         }
     }
 

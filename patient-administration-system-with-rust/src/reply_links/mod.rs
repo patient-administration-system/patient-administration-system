@@ -109,6 +109,7 @@ pub struct ReplyLinks {
     help_line: Option<String>,
 }
 
+use crate::config::env;
 pub use crate::link_token::hash;
 use crate::link_token::new_token;
 
@@ -148,9 +149,7 @@ impl ReplyLinks {
             db,
             writeback,
             rebook,
-            help_line: std::env::var("PAS_HELP_LINE")
-                .ok()
-                .filter(|s| !s.trim().is_empty()),
+            help_line: env::text("PAS_HELP_LINE"),
         }
     }
 

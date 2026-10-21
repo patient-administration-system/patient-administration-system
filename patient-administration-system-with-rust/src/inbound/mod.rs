@@ -29,6 +29,7 @@ use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::config::env;
 use crate::contact::normalise_e164;
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::audit::UserContext;
@@ -132,12 +133,8 @@ impl InboundService {
             db,
             writeback,
             rebooking: None,
-            default_country_code: std::env::var("PAS_DEFAULT_COUNTRY_CODE")
-                .ok()
-                .filter(|s| !s.is_empty()),
-            help_line: std::env::var("PAS_HELP_LINE")
-                .ok()
-                .filter(|s| !s.trim().is_empty()),
+            default_country_code: env::text("PAS_DEFAULT_COUNTRY_CODE"),
+            help_line: env::text("PAS_HELP_LINE"),
         }
     }
 

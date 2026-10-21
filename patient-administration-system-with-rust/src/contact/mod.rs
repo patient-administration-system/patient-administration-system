@@ -22,6 +22,7 @@ use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, FromQueryResult, S
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::config::env;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::{Error, Result};
 
@@ -337,9 +338,7 @@ impl ContactService {
     pub fn new(db: DatabaseConnection) -> Self {
         Self {
             db,
-            default_country_code: std::env::var("PAS_DEFAULT_COUNTRY_CODE")
-                .ok()
-                .filter(|s| !s.is_empty()),
+            default_country_code: env::text("PAS_DEFAULT_COUNTRY_CODE"),
         }
     }
 

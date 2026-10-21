@@ -25,6 +25,7 @@ use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::config::env;
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::models::appointment::AppointmentStatus;
@@ -145,7 +146,7 @@ impl TransportService {
     }
 
     fn destination() -> String {
-        std::env::var("PAS_CLINIC_ADDRESS").unwrap_or_else(|_| "the clinic".into())
+        env::text("PAS_CLINIC_ADDRESS").unwrap_or_else(|| "the clinic".into())
     }
 
     fn need(v: &str, what: &str) -> Result<String> {

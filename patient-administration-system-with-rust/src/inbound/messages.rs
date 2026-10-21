@@ -30,8 +30,7 @@ impl Lang {
 }
 
 pub fn timezone() -> Tz {
-    std::env::var("PAS_TIMEZONE")
-        .ok()
+    crate::config::env::text("PAS_TIMEZONE")
         .and_then(|z| z.parse().ok())
         .unwrap_or(chrono_tz::Europe::London)
 }

@@ -172,9 +172,7 @@ async fn main() -> Result<()> {
 
     let mut state = AppState::new(db.clone(), publisher.clone()).with_sms_provider(sms_provider);
     // Public address of the patient portal, exposed to message templates as `portal_url`.
-    if let Ok(url) = std::env::var("PAS_PORTAL_URL")
-        && !url.trim().is_empty()
-    {
+    if let Some(url) = patient_administration_system::config::env::text("PAS_PORTAL_URL") {
         state = state.with_portal_base_url(url.trim());
     }
     // Per-channel senders. "log" enables log-only dispatch; anything else
@@ -196,7 +194,7 @@ async fn main() -> Result<()> {
             "whatsapp",
         ),
     ] {
-        if std::env::var(var).as_deref() == Ok("log") {
+        if patient_administration_system::config::env::text(var).as_deref() == Some("log") {
             tracing::info!("{label} provider: log-only dispatch enabled");
             state = state.with_sender(
                 channel,
@@ -257,10 +255,10 @@ async fn main() -> Result<()> {
 
     // Tolerance alerts: every PAS_TOLERANCE_CHECK_MINUTES (default 60; 0 turns it off) check each measure and
     // open an alert for any that is red. It reads only; nothing here acts on a patient.
-    let tolerance_minutes: u64 = std::env::var("PAS_TOLERANCE_CHECK_MINUTES")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(60);
+    let tolerance_minutes: u64 = u64::try_from(patient_administration_system::config::env::int(
+        "PAS_TOLERANCE_CHECK_MINUTES",
+    ))
+    .unwrap_or(60);
     if tolerance_minutes > 0 {
         let tolerance = state.tolerance.clone();
         jobs.spawn(
@@ -328,7 +326,7 @@ async fn main() -> Result<()> {
 
     // The reminder ladder (CAP-13) replaces the single reminder: PAS_REMINDER_LADDER=true. Steps via
     // PAS_REMINDER_STEPS (default main=7d,second=4d,call=3d,final=24h).
-    if std::env::var("PAS_REMINDER_LADDER").as_deref() == Ok("true") {
+    if patient_administration_system::config::env::flag("PAS_REMINDER_LADDER") {
         let ladder = patient_administration_system::communication::ladder::LadderService::from_env(
             db.clone(),
             state.communication.clone(),
@@ -345,9 +343,9 @@ async fn main() -> Result<()> {
                 }
             }
         });
-    } else if std::env::var("PAS_REMINDERS_ENABLED").as_deref() == Ok("true") {
+    } else if patient_administration_system::config::env::flag("PAS_REMINDERS_ENABLED") {
         let lead = patient_administration_system::communication::reminders::lead_from_hours(
-            std::env::var("PAS_REMINDER_LEAD_HOURS").ok().as_deref(),
+            patient_administration_system::config::env::text("PAS_REMINDER_LEAD_HOURS").as_deref(),
         )?;
         let reminders =
             patient_administration_system::communication::reminders::ReminderService::new(
@@ -414,11 +412,10 @@ async fn main() -> Result<()> {
                 tracing::info!(
                     "per-user authentication enabled (PASETO v4.public, verified offline)"
                 );
-                let every = std::env::var("PAS_PASETO_KEYS_REFRESH_SECS")
-                    .ok()
-                    .and_then(|v| v.parse::<u64>().ok())
-                    .filter(|s| *s >= 30)
-                    .unwrap_or(300);
+                let every = u64::try_from(patient_administration_system::config::env::int(
+                    "PAS_PASETO_KEYS_REFRESH_SECS",
+                ))
+                .unwrap_or(300);
                 patient_administration_system::api::rest::user_auth::spawn_key_refresh(
                     auth.clone(),
                     std::time::Duration::from_secs(every),

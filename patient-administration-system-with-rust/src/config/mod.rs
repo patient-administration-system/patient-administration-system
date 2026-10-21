@@ -6,6 +6,8 @@
 //! variables. `DATABASE_URL` is required; all other values have sensible
 //! defaults so a development binary can boot with a single env var set.
 
+pub mod env;
+
 use crate::{Error, Result};
 
 /// Runtime configuration values for the PAS.
@@ -125,26 +127,19 @@ impl Config {
     /// `DATABASE_URL` is required; all other variables fall back to defaults.
     /// Returns [`Error::Config`] if `DATABASE_URL` is missing or unreadable.
     pub fn from_env() -> Result<Self> {
+        env::validate()?;
         let database_url =
-            std::env::var("DATABASE_URL").map_err(|_| Error::config("DATABASE_URL is required"))?;
-        let server_host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-        let server_port = std::env::var("SERVER_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(8080);
+            env::text("DATABASE_URL").ok_or_else(|| Error::config("DATABASE_URL is required"))?;
+        let server_host = env::text("SERVER_HOST").unwrap_or_else(|| "0.0.0.0".to_string());
+        let server_port = u16::try_from(env::int("SERVER_PORT")).unwrap_or(8080);
         let search_index_path =
-            std::env::var("SEARCH_INDEX_PATH").unwrap_or_else(|_| "./search_index".to_string());
-        let rust_log = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
-        let otlp_endpoint = std::env::var("OTLP_ENDPOINT")
-            .ok()
-            .filter(|s| !s.is_empty());
-        let otel_service_name = std::env::var("OTEL_SERVICE_NAME")
-            .ok()
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "pas-axum".to_string());
-        let api_token = std::env::var("API_TOKEN").ok().filter(|s| !s.is_empty());
-        let cors_origins = std::env::var("CORS_ORIGINS")
-            .ok()
+            env::text("SEARCH_INDEX_PATH").unwrap_or_else(|| "./search_index".to_string());
+        let rust_log = env::text("RUST_LOG").unwrap_or_else(|| "info".to_string());
+        let otlp_endpoint = env::text("OTLP_ENDPOINT");
+        let otel_service_name =
+            env::text("OTEL_SERVICE_NAME").unwrap_or_else(|| "pas-axum".to_string());
+        let api_token = env::text("API_TOKEN");
+        let cors_origins = env::text("CORS_ORIGINS")
             .map(|s| {
                 s.split(',')
                     .map(|x| x.trim().to_string())
@@ -152,55 +147,24 @@ impl Config {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        let hl7v2_mllp_bind = std::env::var("HL7V2_MLLP_BIND")
-            .ok()
-            .filter(|s| !s.is_empty());
-        let hl7v2_outbound_peer = std::env::var("HL7V2_OUTBOUND_PEER")
-            .ok()
-            .filter(|s| !s.is_empty());
-        let pas_outbox_max_retries = std::env::var("PAS_OUTBOX_MAX_RETRIES")
-            .ok()
-            .and_then(|s| s.parse().ok())
+        let hl7v2_mllp_bind = env::text("HL7V2_MLLP_BIND");
+        let hl7v2_outbound_peer = env::text("HL7V2_OUTBOUND_PEER");
+        let pas_outbox_max_retries = u32::try_from(env::int("PAS_OUTBOX_MAX_RETRIES"))
             .unwrap_or(crate::streaming::dispatcher::DEFAULT_MAX_RETRIES);
-        let pas_sms_provider = std::env::var("PAS_SMS_PROVIDER")
-            .ok()
+        let pas_sms_provider = env::text("PAS_SMS_PROVIDER")
             .map(|s| s.trim().to_lowercase())
-            .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "none".to_string());
-        let pas_rate_limit_rpm = std::env::var("PAS_RATE_LIMIT_RPM")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(600);
-        let pas_rate_limit_burst = std::env::var("PAS_RATE_LIMIT_BURST")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(60);
-        let pas_webhook_url = std::env::var("PAS_WEBHOOK_URL")
-            .ok()
-            .filter(|s| !s.is_empty());
-        let pas_webhook_secret = std::env::var("PAS_WEBHOOK_SECRET")
-            .ok()
-            .filter(|s| !s.is_empty());
-        let pas_webhook_timeout_secs = std::env::var("PAS_WEBHOOK_TIMEOUT_SECS")
-            .ok()
-            .and_then(|s| s.parse().ok())
+        let pas_rate_limit_rpm = u32::try_from(env::int("PAS_RATE_LIMIT_RPM")).unwrap_or(600);
+        let pas_rate_limit_burst = u32::try_from(env::int("PAS_RATE_LIMIT_BURST")).unwrap_or(60);
+        let pas_webhook_url = env::text("PAS_WEBHOOK_URL");
+        let pas_webhook_secret = env::text("PAS_WEBHOOK_SECRET");
+        let pas_webhook_timeout_secs = u64::try_from(env::int("PAS_WEBHOOK_TIMEOUT_SECS"))
             .unwrap_or(crate::streaming::webhook::DEFAULT_TIMEOUT_SECS);
-        let person_service_url = std::env::var("PERSON_SERVICE_URL")
-            .ok()
-            .filter(|s| !s.is_empty());
-        let person_service_token = std::env::var("PERSON_SERVICE_TOKEN")
-            .ok()
-            .filter(|s| !s.is_empty());
-        let worker_service_url = std::env::var("WORKER_SERVICE_URL")
-            .ok()
-            .filter(|s| !s.is_empty());
-        let worker_service_token = std::env::var("WORKER_SERVICE_TOKEN")
-            .ok()
-            .filter(|s| !s.is_empty());
-        let upstream_timeout_secs = std::env::var("UPSTREAM_TIMEOUT_SECS")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(10);
+        let person_service_url = env::text("PERSON_SERVICE_URL");
+        let person_service_token = env::text("PERSON_SERVICE_TOKEN");
+        let worker_service_url = env::text("WORKER_SERVICE_URL");
+        let worker_service_token = env::text("WORKER_SERVICE_TOKEN");
+        let upstream_timeout_secs = u64::try_from(env::int("UPSTREAM_TIMEOUT_SECS")).unwrap_or(10);
         Ok(Self {
             database_url,
             server_host,
@@ -411,14 +375,17 @@ mod tests {
     }
 
     #[test]
-    fn test_from_env_ignores_unparseable_port() {
+    fn test_from_env_refuses_an_unparseable_port() {
         let _lock = ENV_LOCK.lock().unwrap();
         let _g = EnvGuard::new(ENV_KEYS);
 
         set("DATABASE_URL", "postgres://u:p@h:5432/pas");
         set("SERVER_PORT", "not-a-number");
 
-        let cfg = Config::from_env().expect("falls back to default port");
-        assert_eq!(cfg.server_port, 8080);
+        // QUAL-6: a bad number stops start-up and names the variable; it is no longer replaced by the default.
+        match Config::from_env().expect_err("a bad port is refused") {
+            Error::Config(msg) => assert!(msg.contains("SERVER_PORT"), "msg: {msg}"),
+            other => panic!("expected Error::Config, got {other:?}"),
+        }
     }
 }

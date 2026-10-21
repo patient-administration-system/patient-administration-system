@@ -32,6 +32,7 @@ use uuid::Uuid;
 
 use super::CommunicationService;
 use super::reminders::{MAX_FAILED_ATTEMPTS, REMINDER_TEMPLATE_NAME, ReminderService};
+use crate::config::env;
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::audit::UserContext;
 use crate::db::repositories::letter::LetterRepository;
@@ -249,22 +250,16 @@ impl LadderService {
         communication: Arc<CommunicationService>,
     ) -> Result<Self> {
         let steps = parse_steps(
-            std::env::var("PAS_REMINDER_STEPS")
-                .ok()
-                .filter(|s| !s.trim().is_empty())
+            env::text("PAS_REMINDER_STEPS")
                 .as_deref()
                 .unwrap_or(DEFAULT_STEPS),
         )?;
-        let max = match std::env::var("PAS_REMINDER_MAX_TOUCHES") {
-            Ok(v) if !v.trim().is_empty() => v.trim().parse().map_err(|_| {
-                Error::validation("PAS_REMINDER_MAX_TOUCHES must be a whole number")
-            })?,
-            _ => DEFAULT_MAX_TOUCHES,
-        };
+        let max =
+            usize::try_from(env::int("PAS_REMINDER_MAX_TOUCHES")).unwrap_or(DEFAULT_MAX_TOUCHES);
         Ok(Self::new(db, communication)
             .with_steps(steps)
             .with_max_touches(max)
-            .with_link_base(std::env::var("PAS_LINK_BASE_URL").ok())
+            .with_link_base(env::text("PAS_LINK_BASE_URL"))
             .with_quiet_hours(super::consent::QuietHours::from_env()?))
     }
 

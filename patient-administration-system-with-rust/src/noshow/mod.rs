@@ -30,6 +30,7 @@ use std::collections::BTreeMap;
 use uuid::Uuid;
 
 use crate::analytics::{AnalyticsService, suppress};
+use crate::config::env;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::{Error, Result};
 
@@ -54,40 +55,29 @@ pub fn band(p: f64, medium: f64) -> Band {
     if p > medium { Band::Medium } else { Band::Low }
 }
 
-fn env_i64(key: &str, default: i64, lo: i64, hi: i64) -> i64 {
-    std::env::var(key)
-        .ok()
-        .and_then(|v| v.parse::<i64>().ok())
-        .map_or(default, |v| v.clamp(lo, hi))
-}
-
 /// How many people the clinic can phone in a day (`PAS_NOSHOW_CALL_CAPACITY`, default 10, at most 500).
 pub fn call_capacity() -> i64 {
-    env_i64("PAS_NOSHOW_CALL_CAPACITY", 10, 0, 500)
+    env::int("PAS_NOSHOW_CALL_CAPACITY")
 }
 
 /// Days of shadow data a clinic needs before it may go live (`PAS_NOSHOW_SHADOW_MIN_DAYS`, default 28).
 pub fn shadow_min_days() -> i64 {
-    env_i64("PAS_NOSHOW_SHADOW_MIN_DAYS", 28, 0, 365)
+    env::int("PAS_NOSHOW_SHADOW_MIN_DAYS")
 }
 
 /// How far ahead the call list looks (`PAS_NOSHOW_CALL_HORIZON_DAYS`, default 7).
 pub fn call_horizon_days() -> i64 {
-    env_i64("PAS_NOSHOW_CALL_HORIZON_DAYS", 7, 1, 60)
+    env::int("PAS_NOSHOW_CALL_HORIZON_DAYS")
 }
 
 /// The percentage is hidden until someone sets this after calibrating the weights on real outcomes
 /// (`PAS_NOSHOW_SHOW_PERCENT=true`). Until then staff see the band word and the reasons only.
 pub fn percent_shown() -> bool {
-    std::env::var("PAS_NOSHOW_SHOW_PERCENT").as_deref() == Ok("true")
+    env::flag("PAS_NOSHOW_SHOW_PERCENT")
 }
 
 pub fn medium_threshold() -> f64 {
-    std::env::var("PAS_NOSHOW_MEDIUM")
-        .ok()
-        .and_then(|v| v.parse::<f64>().ok())
-        .filter(|v| (0.0..=1.0).contains(v))
-        .unwrap_or(0.40)
+    env::float("PAS_NOSHOW_MEDIUM")
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -127,8 +117,7 @@ impl Default for Weights {
 impl Weights {
     /// `PAS_NOSHOW_WEIGHTS` as JSON overriding any of the defaults; an unreadable value keeps the defaults.
     pub fn from_env() -> Self {
-        std::env::var("PAS_NOSHOW_WEIGHTS")
-            .ok()
+        env::text("PAS_NOSHOW_WEIGHTS")
             .and_then(|v| serde_json::from_str(&v).ok())
             .unwrap_or_default()
     }
@@ -269,7 +258,7 @@ impl NoShowService {
 
     /// The cheap check before any work: is the switch on? (It is not enough on its own; see [`Self::status`].)
     pub fn switched_on() -> bool {
-        std::env::var("PAS_NOSHOW_SCORE").as_deref() == Ok("true")
+        env::flag("PAS_NOSHOW_SCORE")
     }
 
     async fn latest_review(&self, kind: &str, valid_days: i64) -> Result<Option<String>> {

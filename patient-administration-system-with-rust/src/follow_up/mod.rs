@@ -14,6 +14,7 @@ use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::config::env;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::db::repositories::outbox::OutboxRepository;
 use crate::models::appointment::Appointment;
@@ -30,12 +31,7 @@ pub const OUTCOMES: [&str; 7] = [
 ];
 
 fn due_after() -> Duration {
-    let h = std::env::var("PAS_FOLLOW_UP_HOURS")
-        .ok()
-        .and_then(|v| v.parse::<i64>().ok())
-        .filter(|h| *h > 0)
-        .unwrap_or(48);
-    Duration::hours(h)
+    Duration::hours(env::int("PAS_FOLLOW_UP_HOURS"))
 }
 
 /// Is the appointment's service one a clinician has listed for human follow-up?

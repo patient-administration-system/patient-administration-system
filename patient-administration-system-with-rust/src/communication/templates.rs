@@ -8,6 +8,7 @@
 
 use sea_orm::ConnectionTrait;
 
+use crate::config::env;
 use crate::db::repositories::letter::LetterRepository;
 use crate::models::communication::LetterTemplate;
 use crate::{Error, Result};
@@ -16,7 +17,7 @@ pub const DEFAULT_REQUIRED_LOCALES: &str = "en-001,cy-001";
 
 /// The locales every active template group must have.
 pub fn required_locales() -> Vec<String> {
-    let raw = std::env::var("PAS_REQUIRED_LOCALES").unwrap_or_default();
+    let raw = env::text("PAS_REQUIRED_LOCALES").unwrap_or_default();
     let list: Vec<String> = if raw.trim().is_empty() {
         DEFAULT_REQUIRED_LOCALES
     } else {

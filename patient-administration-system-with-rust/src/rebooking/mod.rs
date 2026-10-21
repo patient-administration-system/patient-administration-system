@@ -22,6 +22,7 @@ use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, Transac
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::config::env;
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::inbound::messages;
@@ -86,14 +87,6 @@ pub fn spread(candidates: &[OfferedSlot], tz: Tz, n: usize) -> Vec<OfferedSlot> 
     chosen
 }
 
-fn env_i64(name: &str, default: i64) -> i64 {
-    std::env::var(name)
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .filter(|v| *v > 0)
-        .unwrap_or(default)
-}
-
 pub struct RebookService {
     db: DatabaseConnection,
     scheduling: Arc<SchedulingService>,
@@ -106,17 +99,17 @@ impl RebookService {
 
     /// `PAS_REBOOK_HORIZON_DAYS` (default 42), how far ahead alternatives are looked for.
     fn horizon() -> Duration {
-        Duration::days(env_i64("PAS_REBOOK_HORIZON_DAYS", 42))
+        Duration::days(env::int("PAS_REBOOK_HORIZON_DAYS"))
     }
 
     /// `PAS_REBOOK_MIN_NOTICE_HOURS` (default 24): a slot sooner than this is not offered.
     fn min_notice() -> Duration {
-        Duration::hours(env_i64("PAS_REBOOK_MIN_NOTICE_HOURS", 24))
+        Duration::hours(env::int("PAS_REBOOK_MIN_NOTICE_HOURS"))
     }
 
     /// `PAS_REBOOK_OFFER_MINUTES` (default 120): how long a patient has to choose.
     fn offer_ttl() -> Duration {
-        Duration::minutes(env_i64("PAS_REBOOK_OFFER_MINUTES", 120))
+        Duration::minutes(env::int("PAS_REBOOK_OFFER_MINUTES"))
     }
 
     async fn movable(&self, appointment_id: Uuid) -> Result<Appointment> {

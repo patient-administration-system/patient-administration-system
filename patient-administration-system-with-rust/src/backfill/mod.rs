@@ -34,18 +34,14 @@ use crate::{Error, Result};
 pub const TEMPLATE_NAME: &str = "slot_offer";
 
 fn ttl() -> Duration {
-    let m = std::env::var("PAS_OFFER_MINUTES")
-        .ok()
-        .and_then(|v| v.parse::<i64>().ok())
-        .filter(|m| *m > 0)
-        .unwrap_or(30);
-    Duration::minutes(m)
+    Duration::minutes(env::int("PAS_OFFER_MINUTES"))
 }
 
 pub fn enabled() -> bool {
-    std::env::var("PAS_BACKFILL_OFFERS").as_deref() == Ok("true")
+    env::flag("PAS_BACKFILL_OFFERS")
 }
 
+use crate::config::env;
 pub use crate::link_token::hash;
 use crate::link_token::new_token;
 
@@ -122,9 +118,7 @@ impl BackfillService {
             clock: std::sync::RwLock::new(crate::clock::system()),
             standby,
             communication,
-            link_base: std::env::var("PAS_LINK_BASE_URL")
-                .ok()
-                .filter(|s| !s.is_empty()),
+            link_base: env::text("PAS_LINK_BASE_URL"),
         }
     }
 

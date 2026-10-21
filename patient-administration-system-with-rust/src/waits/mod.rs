@@ -13,20 +13,13 @@ use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::config::env;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::db::repositories::rtt::RttRepository;
 use crate::models::rtt::compute_active_weeks;
 use crate::{Error, Result};
 
 pub const ANSWERS: [&str; 4] = ["still_needed", "no_longer_needed", "unsure", "no_reply"];
-
-fn env_i64(name: &str, default: i64) -> i64 {
-    std::env::var(name)
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .filter(|v| *v > 0)
-        .unwrap_or(default)
-}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LeadTime {
@@ -150,8 +143,8 @@ impl WaitsService {
         weeks: Option<i64>,
         repeat_days: Option<i64>,
     ) -> Result<Vec<(Uuid, PathwayWait)>> {
-        let weeks = weeks.unwrap_or_else(|| env_i64("PAS_CHECK_WEEKS", 26));
-        let repeat = repeat_days.unwrap_or_else(|| env_i64("PAS_CHECK_REPEAT_DAYS", 90));
+        let weeks = weeks.unwrap_or_else(|| env::int("PAS_CHECK_WEEKS"));
+        let repeat = repeat_days.unwrap_or_else(|| env::int("PAS_CHECK_REPEAT_DAYS"));
         let rows = self
             .db
             .query_all_raw(Statement::from_sql_and_values(

@@ -73,10 +73,7 @@ pub struct UserAuthConfig {
 
 impl UserAuthConfig {
     pub fn from_env(legacy_token: Option<String>) -> Self {
-        let get = |k: &str| std::env::var(k).ok().filter(|v| !v.trim().is_empty());
-        let truthy = |k: &str| {
-            get(k).is_some_and(|v| matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
-        };
+        let get = crate::config::env::text;
         Self {
             keys_url: get("PAS_PASETO_KEYS_URL"),
             keys_json: get("PAS_PASETO_KEYS_JSON"),
@@ -84,8 +81,8 @@ impl UserAuthConfig {
             audience: get("PAS_PASETO_AUDIENCE")
                 .unwrap_or_else(|| "patient-administration-system".into()),
             legacy_token,
-            allow_legacy: truthy("PAS_ALLOW_LEGACY_API_TOKEN"),
-            require_auth: truthy("PAS_REQUIRE_AUTH"),
+            allow_legacy: crate::config::env::flag("PAS_ALLOW_LEGACY_API_TOKEN"),
+            require_auth: crate::config::env::flag("PAS_REQUIRE_AUTH"),
             carrier_secrets: get("PAS_CARRIER_SECRETS"),
         }
     }

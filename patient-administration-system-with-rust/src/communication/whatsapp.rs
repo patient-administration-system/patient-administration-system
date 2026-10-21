@@ -10,13 +10,14 @@
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use uuid::Uuid;
 
+use crate::config::env;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::{Error, Result};
 
 pub const SOURCES: [&str; 4] = ["patient_reply", "portal", "in_person", "paper"];
 
 pub fn required() -> bool {
-    std::env::var("PAS_WHATSAPP_REQUIRE_OPTIN").as_deref() == Ok("true")
+    env::flag("PAS_WHATSAPP_REQUIRE_OPTIN")
 }
 
 /// Refuse (as a conflict, so the ladder tries the next channel) unless the patient has opted in on WhatsApp

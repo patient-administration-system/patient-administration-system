@@ -923,9 +923,9 @@ pub async fn person_merged_webhook(
 ) -> HandlerResult {
     // 1. Verify signature (config-gated). PERSON_SERVICE_WEBHOOK_SECRET
     //    must be set; otherwise every call refuses.
-    let secret = match std::env::var("PERSON_SERVICE_WEBHOOK_SECRET") {
-        Ok(s) if !s.is_empty() => s,
-        _ => {
+    let secret = match crate::config::env::text("PERSON_SERVICE_WEBHOOK_SECRET") {
+        Some(s) => s,
+        None => {
             return error_to_response(Error::upstream(
                 "PERSON_SERVICE_WEBHOOK_SECRET unset; refusing inbound webhook",
             ));
@@ -1019,9 +1019,9 @@ pub async fn worker_merged_webhook(
     headers: HeaderMap,
     raw: axum::body::Bytes,
 ) -> HandlerResult {
-    let secret = match std::env::var("WORKER_SERVICE_WEBHOOK_SECRET") {
-        Ok(s) if !s.is_empty() => s,
-        _ => {
+    let secret = match crate::config::env::text("WORKER_SERVICE_WEBHOOK_SECRET") {
+        Some(s) => s,
+        None => {
             return error_to_response(Error::upstream(
                 "WORKER_SERVICE_WEBHOOK_SECRET unset; refusing inbound webhook",
             ));
