@@ -245,15 +245,36 @@ jobs:
           fi
 
   container:
-    name: Container images build
+    name: Container image builds (${{ matrix.image }})
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    # The two images build side by side. This proves they build; the release workflow builds the real ones.
+    # Here the server skips link-time optimisation, which only makes the binary faster and was the slowest
+    # step of the whole run (QUAL-24).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: server
+            file: patient-administration-system-with-rust/Containerfile
+            context: .
+            args: --build-arg CARGO_PROFILE_RELEASE_LTO=false --build-arg CARGO_PROFILE_RELEASE_CODEGEN_UNITS=256
+          - image: ui
+            file: patient-administration-system-ui-with-svelte/Containerfile
+            context: patient-administration-system-ui-with-svelte
+            args: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: podman build --format docker -f patient-administration-system-with-rust/Containerfile -t pas-server .
-      - run: podman build --format docker -f patient-administration-system-ui-with-svelte/Containerfile -t pas-ui patient-administration-system-ui-with-svelte
+      - env:
+          FILE: ${{ matrix.file }}
+          CONTEXT: ${{ matrix.context }}
+          ARGS: ${{ matrix.args }}
+          IMAGE: ${{ matrix.image }}
+        run: |
+          read -ra args <<< "$ARGS"
+          podman build --format docker -f "$FILE" "${args[@]}" -t "pas-$IMAGE" "$CONTEXT"
 
   fresh-clone:
     name: Fresh clone builds with locked dependencies

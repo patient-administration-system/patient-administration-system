@@ -11,9 +11,11 @@ on:
     - cron: "17 4 * * 1"
   workflow_dispatch:
 
+# A newer push to a pull request replaces its analysis; on main every commit is analysed to the end, since
+# the Rust analysis is slow and frequent pushes would otherwise cancel it before it ever finished.
 concurrency:
-  group: codeql-${{ github.ref }}
-  cancel-in-progress: true
+  group: codeql-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
