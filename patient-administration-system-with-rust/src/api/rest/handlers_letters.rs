@@ -17,6 +17,7 @@ use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::communication::templates;
 use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::letter::LetterRepository;
+use crate::error::LogErr;
 use crate::models::communication::{DeliveryChannel, LetterTemplate};
 
 #[derive(Debug, Deserialize)]
@@ -73,7 +74,7 @@ pub async fn create_template(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match LetterRepository::create_template(&state.db, &body).await {
         Ok(t) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "letter_template",
                 t.id,
@@ -82,7 +83,8 @@ pub async fn create_template(
                 Some(serde_json::to_value(&t).unwrap_or_default()),
                 &ctx,
             )
-            .await;
+            .await
+            .log_error("audit log write");
             ok_json(t)
         }
         Err(e) => error_to_response(e),
@@ -131,7 +133,7 @@ pub async fn update_template(
     let before = LetterRepository::find_template_by_id(&state.db, id).await;
     match LetterRepository::update_template(&state.db, &body).await {
         Ok(t) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "letter_template",
                 t.id,
@@ -143,7 +145,8 @@ pub async fn update_template(
                 Some(serde_json::to_value(&t).unwrap_or_default()),
                 &ctx,
             )
-            .await;
+            .await
+            .log_error("audit log write");
             ok_json(t)
         }
         Err(e) => error_to_response(e),
@@ -341,7 +344,7 @@ pub async fn mark_sent(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match LetterRepository::mark_sent(&state.db, id).await {
         Ok(l) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "generated_letter",
                 id,
@@ -350,7 +353,8 @@ pub async fn mark_sent(
                 Some(serde_json::to_value(&l).unwrap_or_default()),
                 &ctx,
             )
-            .await;
+            .await
+            .log_error("audit log write");
             ok_json(l)
         }
         Err(e) => error_to_response(e),
@@ -377,7 +381,7 @@ pub async fn mark_failed(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match LetterRepository::mark_failed(&state.db, id).await {
         Ok(l) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "generated_letter",
                 id,
@@ -386,7 +390,8 @@ pub async fn mark_failed(
                 Some(serde_json::to_value(&l).unwrap_or_default()),
                 &ctx,
             )
-            .await;
+            .await
+            .log_error("audit log write");
             ok_json(l)
         }
         Err(e) => error_to_response(e),

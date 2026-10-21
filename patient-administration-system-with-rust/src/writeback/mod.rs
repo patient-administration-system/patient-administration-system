@@ -27,6 +27,7 @@ use uuid::Uuid;
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::db::repositories::outbox::OutboxRepository;
+use crate::error::LogErr;
 use crate::models::appointment::{
     Appointment, AppointmentStatus, BarrierCode, CancelledBy, ConversionState, Modality,
 };
@@ -323,13 +324,13 @@ impl WriteBackService {
         }
         if let Some(id) = post.confirmed {
             self.scheduling.after_confirmed(id).await;
-            let _ = self
-                .scheduling
+            self.scheduling
                 .publish_event(DomainEvent::new(
                     "AppointmentConfirmed",
                     serde_json::json!({ "appointment_id": id }),
                 ))
-                .await;
+                .await
+                .log_warn("in-process event");
         }
         Ok(result)
     }

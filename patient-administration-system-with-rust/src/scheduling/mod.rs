@@ -21,6 +21,7 @@ use crate::db::repositories::{
     outbox::OutboxRepository,
     slot::SlotRepository,
 };
+use crate::error::LogErr;
 use crate::models::appointment::{
     Appointment, AppointmentStatus, BarrierCode, CancellationReason, CancelledBy, notice_days,
 };
@@ -583,15 +584,15 @@ impl SchedulingService {
         if crate::noshow::NoShowService::switched_on()
             && let Some(n) = self.noshow()
         {
-            let _ = n.assess(appt.id).await;
+            n.assess(appt.id).await.log_warn("no-show assessment");
         }
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "AppointmentBooked",
                 serde_json::json!({ "appointment_id": appt.id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
     }
 
     pub(crate) async fn publish_cancelled(&self, appt: &Appointment) {
@@ -607,13 +608,13 @@ impl SchedulingService {
         {
             tracing::warn!(target: "pas::transport", "transport cancel failed: {e}");
         }
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "AppointmentCancelled",
                 serde_json::json!({ "appointment_id": appt.id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
     }
 
     /// Record the barrier for an appointment that has already ended in a cancellation or a miss,

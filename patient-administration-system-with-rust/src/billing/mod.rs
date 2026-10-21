@@ -9,6 +9,7 @@ use crate::db::repositories::{
     billing::BillingRepository,
     outbox::OutboxRepository,
 };
+use crate::error::LogErr;
 use crate::models::billing::{Account, Charge, Invoice, InvoiceStatus, Payment, PaymentMethod};
 use crate::models::{Iso4217, Money};
 use crate::streaming::{DomainEvent, EventPublisher};
@@ -78,13 +79,13 @@ impl BillingService {
             })
             .await
             .map_err(Error::from)?;
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "AccountOpened",
                 serde_json::json!({ "account_id": res.id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 

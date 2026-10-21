@@ -11,6 +11,7 @@ use crate::db::repositories::{
     rtt::RttRepository,
     waitlist::WaitlistRepository,
 };
+use crate::error::LogErr;
 use crate::models::rtt::{RTTClockEvent, RTTPathway, RTTStatus, compute_active_weeks};
 use crate::models::waitlist::{Priority, WaitlistEntry, WaitlistStatus};
 use crate::streaming::{DomainEvent, EventPublisher};
@@ -66,13 +67,13 @@ impl WaitlistService {
             })
             .await
             .map_err(Error::from)?;
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "WaitlistAdded",
                 serde_json::json!({ "entry_id": res.id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -164,13 +165,13 @@ impl RttService {
             })
             .await
             .map_err(Error::from)?;
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "RTTClockStarted",
                 serde_json::json!({ "pathway_id": res.id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -275,13 +276,13 @@ impl RttService {
             })
             .await
             .map_err(Error::from)?;
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 event_type,
                 serde_json::json!({ "pathway_id": pathway_id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 

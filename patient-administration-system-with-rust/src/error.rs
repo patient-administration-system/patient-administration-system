@@ -140,6 +140,29 @@ impl From<sea_orm::TransactionError<Error>> for Error {
     }
 }
 
+/// Say so when a step whose failure must not pass unseen fails, in places where the caller cannot do
+/// anything about it (QUAL-8). `let _ = step.await;` hid these.
+pub trait LogErr {
+    /// A step that should not be lost (an audit row, an outbox event): logged at `error`.
+    fn log_error(self, what: &str);
+    /// A best-effort step (an in-process event after the commit): logged at `warn`.
+    fn log_warn(self, what: &str);
+}
+
+impl<T, E: std::fmt::Display> LogErr for std::result::Result<T, E> {
+    fn log_error(self, what: &str) {
+        if let Err(e) = self {
+            tracing::error!(what, error = %e, "a step that should not be lost failed and was not retried");
+        }
+    }
+
+    fn log_warn(self, what: &str) {
+        if let Err(e) = self {
+            tracing::warn!(what, error = %e, "a best-effort step failed");
+        }
+    }
+}
+
 /// [`Error::client_message`] for any error a handler might hold: a
 /// `crate::Error` is sanitised, any other error (such as an HL7 parse
 /// error, which only describes the caller's own message) is shown as is.
@@ -147,6 +170,71 @@ pub fn client_text<E: std::fmt::Display + 'static>(e: &E) -> String {
     match (e as &dyn std::any::Any).downcast_ref::<Error>() {
         Some(err) => err.client_message(),
         None => e.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod log_err_tests {
+    use super::LogErr;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone, Default)]
+    struct Capture(Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Capture {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            if let Ok(mut v) = self.0.lock() {
+                v.extend_from_slice(buf);
+            }
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for Capture {
+        type Writer = Capture;
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    fn logged(f: impl FnOnce()) -> String {
+        let cap = Capture::default();
+        let sub = tracing_subscriber::fmt()
+            .with_writer(cap.clone())
+            .with_ansi(false)
+            .finish();
+        tracing::subscriber::with_default(sub, f);
+        let bytes = cap.0.lock().map(|v| v.clone()).unwrap_or_default();
+        String::from_utf8_lossy(&bytes).to_string()
+    }
+
+    #[test]
+    fn a_failed_step_is_logged_with_what_it_was_and_why() {
+        let text = logged(|| {
+            Err::<(), _>("connection reset").log_error("audit log write");
+            Err::<(), _>("channel closed").log_warn("in-process event");
+        });
+        assert!(
+            text.contains("ERROR") && text.contains("audit log write"),
+            "{text}"
+        );
+        assert!(text.contains("connection reset"), "{text}");
+        assert!(
+            text.contains("WARN") && text.contains("in-process event"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_step_that_worked_logs_nothing() {
+        let text = logged(|| {
+            Ok::<(), &str>(()).log_error("audit log write");
+            Ok::<(), &str>(()).log_warn("in-process event");
+        });
+        assert!(text.is_empty(), "{text}");
     }
 }
 

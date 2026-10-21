@@ -131,7 +131,10 @@ async fn collect_wards(state: &AppState) -> Vec<WardRow> {
     let wards = ward::Entity::find()
         .all(&state.db)
         .await
-        .unwrap_or_default();
+        .unwrap_or_else(|e| {
+            tracing::error!(error = %e, "dashboard: wards could not be read");
+            Vec::new()
+        });
     let mut rows: Vec<WardRow> = Vec::with_capacity(wards.len());
     for w in &wards {
         match state.resources.ward_occupancy(w.id).await {
@@ -161,7 +164,10 @@ async fn collect_breaches(state: &AppState) -> Vec<BreachRow> {
         .filter(rtt_pathway::Column::Status.ne("stopped"))
         .all(&state.db)
         .await
-        .unwrap_or_default();
+        .unwrap_or_else(|e| {
+            tracing::error!(error = %e, "dashboard: RTT pathways could not be read");
+            Vec::new()
+        });
     let now = chrono::Utc::now();
     let mut out = Vec::new();
     for p in pathways {
@@ -194,7 +200,10 @@ async fn collect_unpublished(state: &AppState) -> usize {
 async fn collect_audit(state: &AppState) -> Vec<AuditRow> {
     AuditLogRepository::list_recent(&state.db, 10)
         .await
-        .unwrap_or_default()
+        .unwrap_or_else(|e| {
+            tracing::error!(error = %e, "dashboard: recent audit rows could not be read");
+            Vec::new()
+        })
         .into_iter()
         .map(|m| AuditRow {
             at_short: m.at.format("%Y-%m-%d %H:%M:%S").to_string(),

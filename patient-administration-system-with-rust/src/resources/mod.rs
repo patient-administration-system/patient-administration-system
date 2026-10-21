@@ -9,6 +9,7 @@ use crate::db::repositories::{
     bed::BedRepository,
     outbox::OutboxRepository,
 };
+use crate::error::LogErr;
 use crate::models::facility::{Bed, BedStatus};
 use crate::streaming::{DomainEvent, EventPublisher};
 use crate::{Error, Result};
@@ -86,13 +87,13 @@ impl ResourcesService {
             })
             .await
             .map_err(Error::from)?;
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "BedStatusChanged",
                 serde_json::json!({ "bed_id": bed_id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(bed)
     }
 }

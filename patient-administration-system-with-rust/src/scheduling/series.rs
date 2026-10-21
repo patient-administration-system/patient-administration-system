@@ -26,6 +26,7 @@ use crate::db::repositories::{
     audit::{AuditLogRepository, UserContext},
     outbox::OutboxRepository,
 };
+use crate::error::LogErr;
 use crate::models::appointment::{Appointment, AppointmentStatus, CancellationReason};
 use crate::models::appointment_series::{
     AppointmentSeries, RecurrenceRule, SeriesStatus, compute_occurrences,
@@ -204,8 +205,7 @@ impl SeriesService {
             .await
             .map_err(Error::from)?;
 
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "AppointmentSeriesCreated",
                 serde_json::json!({
@@ -213,7 +213,8 @@ impl SeriesService {
                     "count": res.appointments.len(),
                 }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -299,13 +300,13 @@ impl SeriesService {
             .await
             .map_err(Error::from)?;
 
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "AppointmentSeriesCancelled",
                 serde_json::json!({ "series_id": series_id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 

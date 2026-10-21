@@ -22,6 +22,7 @@ use crate::db::repositories::{
     encounter::EncounterRepository,
     outbox::OutboxRepository,
 };
+use crate::error::LogErr;
 use crate::models::admission::{Admission, BedAssignment, Discharge, Transfer};
 use crate::models::encounter::{Encounter, EncounterClass, EncounterStatus};
 use crate::models::facility::BedStatus;
@@ -136,8 +137,7 @@ impl AdtService {
 
         // Best-effort publish after commit. The outbox row is the durable
         // record; this is a convenience for in-process consumers.
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "EncounterAdmitted",
                 serde_json::json!({
@@ -145,7 +145,8 @@ impl AdtService {
                     "admission_id": res.admission.id,
                 }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -215,8 +216,7 @@ impl AdtService {
             .await
             .map_err(Error::from)?;
 
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "EncounterPreAdmitted",
                 serde_json::json!({
@@ -225,7 +225,8 @@ impl AdtService {
                     "bed_id": bed_id,
                 }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -316,10 +317,10 @@ impl AdtService {
         if let Some(s) = source_owned.as_deref() {
             in_mem["source"] = serde_json::Value::String(s.to_string());
         }
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new("EncounterPreAdmitCancelled", in_mem))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -418,10 +419,10 @@ impl AdtService {
         if let Some(s) = source_owned.as_deref() {
             in_mem["source"] = serde_json::Value::String(s.to_string());
         }
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(event_type, in_mem))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -502,13 +503,13 @@ impl AdtService {
             .await
             .map_err(Error::from)?;
 
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "EncounterTransferred",
                 serde_json::json!({ "admission_id": admission_id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -620,10 +621,10 @@ impl AdtService {
         if let Some(s) = source_owned.as_deref() {
             in_mem["source"] = serde_json::Value::String(s.to_string());
         }
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new("EncounterPromotedToInpatient", in_mem))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -710,10 +711,10 @@ impl AdtService {
         if let Some(s) = source_owned.as_deref() {
             in_mem["source"] = serde_json::Value::String(s.to_string());
         }
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new("EncounterDemotedToOutpatient", in_mem))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -853,10 +854,10 @@ impl AdtService {
         if let Some(s) = source_owned.as_deref() {
             in_mem["source"] = serde_json::Value::String(s.to_string());
         }
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new("EncounterTransferCancelled", in_mem))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -946,10 +947,10 @@ impl AdtService {
         if let Some(r) = reason_owned.as_deref() {
             in_mem["reason"] = serde_json::Value::String(r.to_string());
         }
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new("EncounterCancelled", in_mem))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -1067,8 +1068,7 @@ impl AdtService {
             .await
             .map_err(Error::from)?;
 
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "EncounterDischargeCancelled",
                 serde_json::json!({
@@ -1076,7 +1076,8 @@ impl AdtService {
                     "encounter_id": res.encounter_id,
                 }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 
@@ -1141,13 +1142,13 @@ impl AdtService {
             .await
             .map_err(Error::from)?;
 
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "EncounterDischarged",
                 serde_json::json!({ "admission_id": admission_id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
         Ok(res)
     }
 }

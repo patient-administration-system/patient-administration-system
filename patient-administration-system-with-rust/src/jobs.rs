@@ -47,6 +47,7 @@ where
             [format!("pas.job.{name}").into()],
         ))
         .await
+        .map_err(|e| tracing::warn!(target: "pas::jobs", job = name, "job lock could not be asked for: {e}"))
         .ok()
         .flatten()
         .and_then(|r| r.try_get::<bool>("", "got").ok())

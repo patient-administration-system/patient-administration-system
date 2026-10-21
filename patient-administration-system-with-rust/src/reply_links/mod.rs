@@ -110,6 +110,7 @@ pub struct ReplyLinks {
 }
 
 use crate::config::env;
+use crate::error::LogErr;
 pub use crate::link_token::hash;
 use crate::link_token::new_token;
 
@@ -303,14 +304,15 @@ impl ReplyLinks {
             return Err(Error::conflict("this link has already been used"));
         }
         let release = || async {
-            let _ = self
+            self
                 .db
                 .execute_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     "UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
                     [hash.clone().into()],
                 ))
-                .await;
+                .await
+.log_error("giving a reply link back");
         };
 
         let appt = AppointmentRepository::find_by_id(&self.db, row.appointment_id).await?;
@@ -449,14 +451,15 @@ impl ReplyLinks {
                 time_zone: tz.name().to_string(),
             }),
             Err(e) => {
-                let _ = self
+                self
                     .db
                     .execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
                         [hash.into()],
                     ))
-                    .await;
+                    .await
+.log_error("giving a reply link back");
                 Err(e)
             }
         }

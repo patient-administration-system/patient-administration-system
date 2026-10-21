@@ -42,6 +42,7 @@ pub fn enabled() -> bool {
 }
 
 use crate::config::env;
+use crate::error::LogErr;
 pub use crate::link_token::hash;
 use crate::link_token::new_token;
 
@@ -507,7 +508,9 @@ impl BackfillService {
                     ))
                     .await
                     .map_err(Error::Database)?;
-                let _ = self.offer_and_notify(row.release_id).await;
+                self.offer_and_notify(row.release_id)
+                    .await
+                    .log_warn("slot offer");
                 Ok(OfferOutcome {
                     status: "gone",
                     starts_at: None,
@@ -516,14 +519,14 @@ impl BackfillService {
             }
             Err(e) => {
                 // Unexpected: give the offer back so the patient can try again.
-                let _ = self
-                    .db
+                self.db
                     .execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "UPDATE slot_offers SET status = 'open', answered_at = NULL WHERE id = $1",
                         [row.id.into()],
                     ))
-                    .await;
+                    .await
+                    .log_error("giving a slot offer back");
                 Err(e)
             }
         }
@@ -548,7 +551,9 @@ impl BackfillService {
                 "this offer has already been answered or has expired",
             ));
         }
-        let _ = self.offer_and_notify(row.release_id).await;
+        self.offer_and_notify(row.release_id)
+            .await
+            .log_warn("slot offer");
         Ok(OfferOutcome {
             status: "declined",
             starts_at: None,

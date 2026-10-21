@@ -41,6 +41,7 @@ use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUser
 use crate::db::repositories::bed::BedRepository;
 use crate::db::repositories::encounter::EncounterRepository;
 use crate::db::repositories::outbox::OutboxRepository;
+use crate::error::LogErr;
 use crate::error::client_text;
 use crate::hl7v2::SegmentRead;
 use crate::hl7v2::ack::{AckCode, ack};
@@ -1566,7 +1567,7 @@ pub async fn schedule_reschedule(
         Ok(a) => a,
         Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
-    let _ = AuditLogRepository::log(
+    AuditLogRepository::log(
         &state.db,
         "appointment",
         saved.id,
@@ -1575,13 +1576,15 @@ pub async fn schedule_reschedule(
         Some(serde_json::to_value(&saved).unwrap_or_default()),
         &r.audit,
     )
-    .await;
-    let _ = OutboxRepository::publish(
+    .await
+    .log_error("audit log write");
+    OutboxRepository::publish(
         &state.db,
         "AppointmentRescheduled",
         &serde_json::json!({ "appointment_id": saved.id, "source": "hl7v2_s13" }),
     )
-    .await;
+    .await
+    .log_error("outbox event");
     aa(
         &r.sender,
         &r.control_id,
@@ -1651,7 +1654,7 @@ pub async fn schedule_modify(
         Ok(a) => a,
         Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
     };
-    let _ = AuditLogRepository::log(
+    AuditLogRepository::log(
         &state.db,
         "appointment",
         saved.id,
@@ -1660,13 +1663,15 @@ pub async fn schedule_modify(
         Some(serde_json::to_value(&saved).unwrap_or_default()),
         &r.audit,
     )
-    .await;
-    let _ = OutboxRepository::publish(
+    .await
+    .log_error("audit log write");
+    OutboxRepository::publish(
         &state.db,
         "AppointmentModified",
         &serde_json::json!({ "appointment_id": saved.id, "source": "hl7v2_s14" }),
     )
-    .await;
+    .await
+    .log_error("outbox event");
     aa(
         &r.sender,
         &r.control_id,

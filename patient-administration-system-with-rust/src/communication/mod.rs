@@ -38,6 +38,7 @@ use uuid::Uuid;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::db::repositories::letter::LetterRepository;
 use crate::db::repositories::outbox::OutboxRepository;
+use crate::error::LogErr;
 use crate::models::communication::{DeliveryChannel, GeneratedLetter, LetterStatus};
 use crate::streaming::{DomainEvent, EventPublisher};
 use crate::upstream::{PersonClient, UserContext as UpstreamUserContext};
@@ -383,19 +384,19 @@ impl CommunicationService {
             })
             .await
             .map_err(Error::from)?;
-        let _ = self
-            .publisher
+        self.publisher
             .publish(DomainEvent::new(
                 "LetterGenerated",
                 serde_json::json!({ "letter_id": persisted.id }),
             ))
-            .await;
+            .await
+            .log_warn("in-process event");
 
         // 7. SMS auto-send when configured and the channel is SMS.
         // The portal needs no carrier: storing the message is delivering it.
         if channel == DeliveryChannel::Portal {
             let updated = LetterRepository::mark_sent(&self.db, persisted.id).await?;
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &self.db,
                 "generated_letter",
                 updated.id,
@@ -404,7 +405,8 @@ impl CommunicationService {
                 None,
                 ctx,
             )
-            .await;
+            .await
+            .log_error("audit log write");
             return Ok(updated);
         }
 
@@ -425,7 +427,7 @@ impl CommunicationService {
                             channel = label,
                             "letter generated but upstream person has no contact point for the channel; leaving status=pending"
                         );
-                        let _ = AuditLogRepository::log(
+                        AuditLogRepository::log(
                             &self.db,
                             "generated_letter",
                             persisted.id,
@@ -434,7 +436,8 @@ impl CommunicationService {
                             None,
                             ctx,
                         )
-                        .await;
+                        .await
+                        .log_error("audit log write");
                         persisted
                     }
                     Some(to) => match sender
@@ -443,7 +446,7 @@ impl CommunicationService {
                     {
                         Ok(()) => match LetterRepository::mark_sent(&self.db, persisted.id).await {
                             Ok(updated) => {
-                                let _ = AuditLogRepository::log(
+                                AuditLogRepository::log(
                                     &self.db,
                                     "generated_letter",
                                     updated.id,
@@ -452,13 +455,14 @@ impl CommunicationService {
                                     Some(serde_json::json!({ "to": to })),
                                     ctx,
                                 )
-                                .await;
+                                .await
+                                .log_error("audit log write");
                                 updated
                             }
                             Err(_) => persisted,
                         },
                         Err(send_err) => {
-                            let _ = AuditLogRepository::log(
+                            AuditLogRepository::log(
                                 &self.db,
                                 "generated_letter",
                                 persisted.id,
@@ -470,10 +474,14 @@ impl CommunicationService {
                                 })),
                                 ctx,
                             )
-                            .await;
+                            .await
+                            .log_error("audit log write");
                             LetterRepository::mark_failed(&self.db, persisted.id)
                                 .await
-                                .unwrap_or(persisted)
+                                .unwrap_or_else(|e| {
+                                    tracing::error!(letter_id = %persisted.id, error = %e, "a failed send could not be recorded on the letter");
+                                    persisted
+                                })
                         }
                     },
                 }

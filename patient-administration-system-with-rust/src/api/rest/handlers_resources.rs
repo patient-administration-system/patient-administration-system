@@ -19,6 +19,7 @@ use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUserContext};
 use crate::db::repositories::bed::BedRepository;
 use crate::db::repositories::facility::{FacilityRepository, RoomRepository, WardRepository};
+use crate::error::LogErr;
 use crate::models::facility::{Bed, BedStatus, Facility, Room, Ward};
 
 #[derive(Debug, Deserialize)]
@@ -129,7 +130,9 @@ async fn write_audit_create(
     payload: Value,
     ctx: &RepoUserContext,
 ) {
-    let _ = AuditLogRepository::log(db, entity_type, id, "create", None, Some(payload), ctx).await;
+    AuditLogRepository::log(db, entity_type, id, "create", None, Some(payload), ctx)
+        .await
+        .log_error("audit log write");
 }
 
 /// `POST /api/facilities` — create a facility from a `Facility` JSON body.

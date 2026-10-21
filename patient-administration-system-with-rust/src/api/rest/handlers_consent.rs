@@ -13,6 +13,7 @@ use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::consent::ConsentRepository;
+use crate::error::LogErr;
 use crate::models::consent::Consent;
 
 /// `POST /api/patients/:id/consents` — record a consent.
@@ -42,7 +43,7 @@ pub async fn create_consent(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match ConsentRepository::create(&state.db, &body).await {
         Ok(c) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "consent",
                 c.id,
@@ -51,7 +52,8 @@ pub async fn create_consent(
                 Some(serde_json::to_value(&c).unwrap_or_default()),
                 &ctx,
             )
-            .await;
+            .await
+            .log_error("audit log write");
             ok_json(c)
         }
         Err(e) => error_to_response(e),
@@ -100,7 +102,7 @@ pub async fn revoke_consent(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match ConsentRepository::revoke(&state.db, id).await {
         Ok(c) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "consent",
                 id,
@@ -109,7 +111,8 @@ pub async fn revoke_consent(
                 Some(serde_json::to_value(&c).unwrap_or_default()),
                 &ctx,
             )
-            .await;
+            .await
+            .log_error("audit log write");
             ok_json(c)
         }
         Err(e) => error_to_response(e),

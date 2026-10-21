@@ -28,6 +28,7 @@ use uuid::Uuid;
 use crate::config::env;
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
+use crate::error::LogErr;
 use crate::models::appointment::AppointmentStatus;
 use crate::upstream::{PersonClient, UserContext as UpstreamUserContext};
 use crate::{Error, Result};
@@ -306,7 +307,7 @@ impl TransportService {
     }
 
     async fn call_task(&self, appt: Uuid, person: Uuid) {
-        let _ = self
+        self
             .db
             .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
@@ -314,7 +315,8 @@ impl TransportService {
                  VALUES ($1,$2,$3,'transport_failed', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",
                 [Uuid::new_v4().into(), appt.into(), person.into()],
             ))
-            .await;
+            .await
+.log_error("call task for a failed transport booking");
     }
 
     async fn set_status(&self, id: Uuid, status: &str, error: Option<&str>) -> Result<()> {

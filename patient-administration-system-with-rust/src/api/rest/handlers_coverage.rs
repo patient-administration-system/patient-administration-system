@@ -18,6 +18,7 @@ use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::coverage::CoverageRepository;
 use crate::db::repositories::outbox::OutboxRepository;
+use crate::error::LogErr;
 use crate::models::coverage::{Coverage, CoverageStatus};
 
 /// `POST /api/coverages` — create a coverage. Body is the full Coverage
@@ -45,7 +46,7 @@ pub async fn create_coverage(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match CoverageRepository::create(&state.db, &body).await {
         Ok(c) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "coverage",
                 c.id,
@@ -54,13 +55,15 @@ pub async fn create_coverage(
                 Some(serde_json::to_value(&c).unwrap_or_default()),
                 &ctx,
             )
-            .await;
-            let _ = OutboxRepository::publish(
+            .await
+            .log_error("audit log write");
+            OutboxRepository::publish(
                 &state.db,
                 "CoverageCreated",
                 &serde_json::json!({ "coverage_id": c.id, "person_id": c.person_id }),
             )
-            .await;
+            .await
+            .log_error("outbox event");
             ok_json(c)
         }
         Err(e) => error_to_response(e),
@@ -110,7 +113,7 @@ pub async fn update_coverage(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match CoverageRepository::update(&state.db, &body).await {
         Ok(c) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "coverage",
                 c.id,
@@ -119,7 +122,8 @@ pub async fn update_coverage(
                 Some(serde_json::to_value(&c).unwrap_or_default()),
                 &ctx,
             )
-            .await;
+            .await
+            .log_error("audit log write");
             ok_json(c)
         }
         Err(e) => error_to_response(e),
@@ -146,7 +150,7 @@ pub async fn delete_coverage(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match CoverageRepository::set_status(&state.db, id, CoverageStatus::Cancelled).await {
         Ok(c) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "coverage",
                 id,
@@ -155,13 +159,15 @@ pub async fn delete_coverage(
                 Some(serde_json::to_value(&c).unwrap_or_default()),
                 &ctx,
             )
-            .await;
-            let _ = OutboxRepository::publish(
+            .await
+            .log_error("audit log write");
+            OutboxRepository::publish(
                 &state.db,
                 "CoverageCancelled",
                 &serde_json::json!({ "coverage_id": id }),
             )
-            .await;
+            .await
+            .log_error("outbox event");
             ok_json(c)
         }
         Err(e) => error_to_response(e),

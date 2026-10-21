@@ -15,6 +15,7 @@ use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::encounter::EncounterRepository;
+use crate::error::LogErr;
 use crate::models::encounter::EncounterStatus;
 
 #[derive(Debug, Deserialize)]
@@ -85,7 +86,7 @@ pub async fn set_status(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match EncounterRepository::set_status(&state.db, id, body.status).await {
         Ok(e) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "encounter",
                 id,
@@ -94,7 +95,8 @@ pub async fn set_status(
                 Some(serde_json::to_value(&e).unwrap_or_default()),
                 &ctx,
             )
-            .await;
+            .await
+            .log_error("audit log write");
             ok_json(e)
         }
         Err(e) => error_to_response(e),
@@ -123,7 +125,7 @@ pub async fn cancel_encounter(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match EncounterRepository::set_status(&state.db, id, EncounterStatus::Cancelled).await {
         Ok(e) => {
-            let _ = AuditLogRepository::log(
+            AuditLogRepository::log(
                 &state.db,
                 "encounter",
                 id,
@@ -132,7 +134,8 @@ pub async fn cancel_encounter(
                 Some(serde_json::to_value(&e).unwrap_or_default()),
                 &ctx,
             )
-            .await;
+            .await
+            .log_error("audit log write");
             ok_json(e)
         }
         Err(e) => error_to_response(e),
