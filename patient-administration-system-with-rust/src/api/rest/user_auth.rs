@@ -233,6 +233,14 @@ impl UserAuth {
             // The shared token has always been all-or-nothing.
             Principal::Legacy => Ok(()),
             Principal::Verified(claims) => {
+                if administrator_only(method, path)
+                    && !is_service(claims)
+                    && !has_attr(claims, "access", "admin")
+                {
+                    return Err(Denied::Forbidden(
+                        "setting a tolerance or acknowledging its alert is for the project administrator".into(),
+                    ));
+                }
                 let d = self
                     .policy
                     .evaluate(claims, derive_action(method, path), &entity_of(path));
@@ -279,6 +287,30 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
         return false;
     }
     a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+
+fn has_attr(claims: &Claims, key: &str, value: &str) -> bool {
+    claims
+        .attrs
+        .get(key)
+        .is_some_and(|v| v.iter().any(|x| x == value))
+}
+
+/// A trusted service (the UI's backend) vouches for the person it acts for, and checks their role itself.
+fn is_service(claims: &Claims) -> bool {
+    has_attr(claims, "svc", "true")
+}
+
+/// Setting or clearing a tolerance, and acknowledging its alert, belong to the project administrator (TOL-1).
+/// Reading, and running the check, stay open to any caller the policy lets in.
+pub fn administrator_only(method: &Method, path: &str) -> bool {
+    let rest = path.trim_end_matches('/');
+    let tolerance = rest
+        .strip_prefix("/api/tolerances/")
+        .is_some_and(|m| m != "status" && m != "evaluate");
+    let ack = rest.starts_with("/api/tolerance-alerts/") && rest.ends_with("/acknowledge");
+    (tolerance && matches!(*method, Method::PUT | Method::DELETE))
+        || (ack && *method == Method::POST)
 }
 
 /// The policy action for a request: reads, writes, deletes, and the named destructive POSTs.
@@ -524,6 +556,28 @@ mod tests {
             derive_action(&Method::POST, "/api/admin/outbox/dead-letters/1/replay"),
             Action::Destructive
         );
+    }
+
+    #[test]
+    fn test_tolerances_and_their_alerts_are_for_the_administrator() {
+        for (m, p) in [
+            (Method::PUT, "/api/tolerances/bed_occupancy"),
+            (Method::DELETE, "/api/tolerances/bed_occupancy"),
+            (Method::POST, "/api/tolerance-alerts/abc/acknowledge"),
+        ] {
+            assert!(administrator_only(&m, p), "{m} {p}");
+        }
+        for (m, p) in [
+            (Method::GET, "/api/tolerances"),
+            (Method::GET, "/api/tolerances/status"),
+            (Method::POST, "/api/tolerances/evaluate"),
+            (Method::GET, "/api/tolerance-alerts"),
+            (Method::PUT, "/api/letter-templates/1"),
+        ] {
+            assert!(!administrator_only(&m, p), "{m} {p}");
+        }
+        assert!(is_service(&claims(&[("svc", "true")])));
+        assert!(!is_service(&claims(&[("access", "admin")])));
     }
 
     #[test]

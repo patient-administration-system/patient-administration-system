@@ -147,10 +147,12 @@
             {#if a.acknowledged_by}
               {t("tol.alerts.ackedBy")} {a.acknowledged_by}
             {:else}
+              {#if data.canAcknowledge}
               <form method="POST" action="?/acknowledge">
                 <input type="hidden" name="alert" value={a.id} />
                 <button class="button" type="submit">{t("tol.alerts.ack")}</button>
               </form>
+              {/if}
             {/if}
           </td>
         </tr>

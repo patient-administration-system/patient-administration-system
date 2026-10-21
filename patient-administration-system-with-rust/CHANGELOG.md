@@ -10,6 +10,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Tolerance alerts: a measure that turns red opens one alert (`tolerance_alerts`, event `ToleranceAlertRaised`) that closes when it is no longer red. `POST /api/tolerances/evaluate`, `GET /api/tolerance-alerts`, `POST /api/tolerance-alerts/{id}/acknowledge`; a timer checks every `PAS_TOLERANCE_CHECK_MINUTES` (default 60, 0 turns it off).
 
 ### Changed
+
+- Setting or clearing a tolerance, and acknowledging its alert, now need the `access=admin` attribute (a trusted service vouches for the person it acts for).
 - `tolerance::ToleranceService::set` and `reset` take a `Scope` (use `Scope::all()` for the whole service).
 
 ### Fixed
