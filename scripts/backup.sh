@@ -7,6 +7,8 @@
 # database container with PG_CONTAINER=podman-postgres-1. The dump contains personal data: store
 # and transmit it as you would the database.
 set -euo pipefail
+# The dump holds personal data: readable by its owner only (0600), whatever the caller's umask.
+umask 077
 out="${1:-pas-$(date -u +%Y%m%dT%H%M%SZ).dump}"
 db="${PGDATABASE:-pas}"
 user="${PGUSER:-pas}"

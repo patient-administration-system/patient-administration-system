@@ -25,7 +25,7 @@ Point `DATABASE_URL` at it, then run `pas-migrate up` (a no-op if the dump is cu
 PG_CONTAINER=podman-postgres-1 scripts/restore-test.sh
 ```
 
-Backs up the live database, restores it into a throwaway one, compares every table's row count, and drops the scratch database. It exits non-zero on any difference. Run it after every schema change and on a schedule. It was run on 2026-10-18 against the development database (30 tables, identical counts); that is evidence the procedure works, not that any production backup exists.
+Backs up the live database, restores it into a throwaway one, compares every table's row count and an MD5 over its rows in a fixed order, and drops the scratch database. It exits non-zero on any difference, and also if the dump was not written mode 0600 (`backup.sh` sets `umask 077`: the dump holds personal data). `RESTORE_DRILL_TAMPER=1` alters one restored row first, to prove the comparison notices; CI runs the drill on seeded rows (`scripts/restore-seed.sql`) both ways. Run it after every schema change and on a schedule. It was run on 2026-10-18 against the development database (30 tables, identical counts); that is evidence the procedure works, not that any production backup exists.
 
 ## Not yet decided
 

@@ -172,7 +172,14 @@ jobs:
       - run: cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
         env:
           DATABASE_URL: postgres://pas:pas_dev_password@localhost:5432/pas
+      - name: Seed rows, so the drill compares data and not an empty schema
+        run: podman exec -i pg psql -U pas -d pas -v ON_ERROR_STOP=1 -q < scripts/restore-seed.sql
       - run: scripts/restore-test.sh
+      - name: The drill notices one altered row
+        run: |
+          if RESTORE_DRILL_TAMPER=1 scripts/restore-test.sh; then
+            echo "the drill passed although a restored row was altered" >&2; exit 1
+          fi
 
   container:
     name: Container images build
