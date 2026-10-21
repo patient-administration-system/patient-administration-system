@@ -25,7 +25,10 @@ use crate::api::fhir::resources::{
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "only its #[utoipa::path] is used: one function documents one path"
+)]
 fn alias_api_patients_search_get() {}
 
 /// The same handler answers `/api/practitioners/search`: documented here because one function can carry one path.
@@ -40,7 +43,10 @@ fn alias_api_patients_search_get() {}
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "only its #[utoipa::path] is used: one function documents one path"
+)]
 fn alias_api_practitioners_search_get() {}
 
 #[derive(OpenApi)]

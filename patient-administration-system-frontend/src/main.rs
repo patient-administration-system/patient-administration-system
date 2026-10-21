@@ -1,5 +1,9 @@
 #![cfg_attr(not(test), forbid(unsafe_code))]
-#![allow(clippy::result_large_err)]
+#![allow(
+    clippy::result_large_err,
+    reason = "loco_rs::Error is large by design; boxing every handler result costs more than it saves"
+)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 //! patient-administration-system-frontend binary entry point.
 //!

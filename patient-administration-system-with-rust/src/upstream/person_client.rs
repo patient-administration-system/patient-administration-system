@@ -426,16 +426,25 @@ impl StubPersonClient {
     /// Pre-seed a person row. Useful for tests that want a known id to
     /// reference before exercising the PAS flow.
     pub fn insert(&self, person: Person) {
-        self.rows.lock().unwrap().insert(person.id, person);
+        self.rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(person.id, person);
     }
 
     /// Number of person rows currently held.
     pub fn len(&self) -> usize {
-        self.rows.lock().unwrap().len()
+        self.rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.rows.lock().unwrap().is_empty()
+        self.rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_empty()
     }
 }
 
@@ -447,21 +456,27 @@ impl PersonClient for StubPersonClient {
             id,
             data: person.fields,
         };
-        self.rows.lock().unwrap().insert(id, new.clone());
+        self.rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(id, new.clone());
         Ok(new)
     }
 
     async fn get(&self, id: Uuid, _ctx: &UserContext) -> Result<Person> {
         self.rows
             .lock()
-            .unwrap()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get(&id)
             .cloned()
             .ok_or_else(|| Error::not_found(format!("person {id}")))
     }
 
     async fn update(&self, id: Uuid, person: PersonCreate, _ctx: &UserContext) -> Result<Person> {
-        let mut rows = self.rows.lock().unwrap();
+        let mut rows = self
+            .rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if !rows.contains_key(&id) {
             return Err(Error::not_found(format!("person {id}")));
         }
@@ -474,7 +489,11 @@ impl PersonClient for StubPersonClient {
     }
 
     async fn delete(&self, id: Uuid, _ctx: &UserContext) -> Result<()> {
-        let removed = self.rows.lock().unwrap().remove(&id);
+        let removed = self
+            .rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(&id);
         match removed {
             Some(_) => Ok(()),
             None => Err(Error::not_found(format!("person {id}"))),
@@ -485,7 +504,10 @@ impl PersonClient for StubPersonClient {
         // The stub does not implement full-text matching. It returns up to
         // `limit` arbitrary rows. Tests that care about query semantics
         // assert against the real `person-service`.
-        let rows = self.rows.lock().unwrap();
+        let rows = self
+            .rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Ok(rows.values().take(limit as usize).cloned().collect())
     }
 
@@ -506,7 +528,10 @@ impl PersonClient for StubPersonClient {
     }
 
     async fn merge(&self, source: Uuid, target: Uuid, _ctx: &UserContext) -> Result<MergeOutcome> {
-        let mut rows = self.rows.lock().unwrap();
+        let mut rows = self
+            .rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if !rows.contains_key(&source) {
             return Err(Error::not_found(format!("person {source}")));
         }
@@ -548,7 +573,13 @@ impl PersonClient for StubPersonClient {
                 "bulk_export: unsupported format {format:?}"
             )));
         }
-        let rows: Vec<Person> = self.rows.lock().unwrap().values().cloned().collect();
+        let rows: Vec<Person> = self
+            .rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .values()
+            .cloned()
+            .collect();
         // The stub returns minimal payloads good enough for tests; the
         // production upstream owns the real formatter logic. JSON is the
         // only format with a structured stub body — the others return

@@ -7,7 +7,7 @@
 //! `WorkerClient::create`, then writes the dependent PAS rows
 //! (facility / ward / room / bed / letter template) referencing the
 //! returned UUIDs.
-
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 #![cfg_attr(not(test), forbid(unsafe_code))]
 fn main() {
     eprintln!(

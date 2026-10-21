@@ -22,6 +22,8 @@
 //! - Distributed tracing and observability via OpenTelemetry
 
 #![cfg_attr(not(test), forbid(unsafe_code))]
+// Production code handles every failure; tests may unwrap (QUAL-12).
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 // Module declarations
 pub mod adt;
 pub mod analytics;

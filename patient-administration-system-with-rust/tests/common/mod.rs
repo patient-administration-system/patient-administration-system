@@ -19,7 +19,10 @@ pub fn database_url() -> Option<String> {
     )
 }
 
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "each test binary uses only some of the shared helpers"
+)]
 pub async fn build_state(url: &str) -> AppState {
     let db = connect(url).await.expect("connect");
     let publisher = Arc::new(InMemoryEventPublisher::new());
@@ -27,7 +30,10 @@ pub async fn build_state(url: &str) -> AppState {
 }
 
 /// A fresh schedule, so a test's slots are its own.
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "each test binary uses only some of the shared helpers"
+)]
 pub async fn new_schedule(
     db: &sea_orm::DatabaseConnection,
 ) -> patient_administration_system::models::schedule::Schedule {
@@ -43,7 +49,10 @@ pub async fn new_schedule(
 }
 
 /// A free slot starting `in_days` days from now and lasting 30 minutes.
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "each test binary uses only some of the shared helpers"
+)]
 pub async fn free_slot(
     db: &sea_orm::DatabaseConnection,
     schedule_id: uuid::Uuid,
@@ -59,7 +68,10 @@ pub async fn free_slot(
 }
 
 /// How many audit rows exist for an entity and action.
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "each test binary uses only some of the shared helpers"
+)]
 pub async fn audit_count(
     db: &sea_orm::DatabaseConnection,
     entity_id: uuid::Uuid,
@@ -79,7 +91,10 @@ pub async fn audit_count(
 }
 
 /// Like [`new_schedule`], for a named service, so a test's candidates are its own.
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "each test binary uses only some of the shared helpers"
+)]
 pub async fn new_schedule_for(
     db: &sea_orm::DatabaseConnection,
     service: &str,
@@ -96,7 +111,10 @@ pub async fn new_schedule_for(
 }
 
 /// A free slot starting `hours` hours from now (use for "cancelled a few hours before").
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "each test binary uses only some of the shared helpers"
+)]
 pub async fn free_slot_in_hours(
     db: &sea_orm::DatabaseConnection,
     schedule_id: uuid::Uuid,

@@ -10,7 +10,7 @@
 //! `--iss` and `--aud` default to the API's defaults. `serve` publishes `GET /keys.json` (default bind
 //! 127.0.0.1:8195) and rewrites the token file every half-TTL, so `PAS_API_TOKEN_FILE` always holds a
 //! live token.
-
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 #![cfg_attr(not(test), forbid(unsafe_code))]
 
 use std::path::PathBuf;
@@ -97,7 +97,9 @@ fn run() -> Result<(), String> {
             ti::write_private(&dir.join("private.key"), &seed)?;
             ti::write_file(
                 &dir.join("keys.json"),
-                serde_json::to_string_pretty(&keys).unwrap().as_bytes(),
+                serde_json::to_string_pretty(&keys)
+                    .map_err(|e| e.to_string())?
+                    .as_bytes(),
                 0o644,
             )?;
             println!(
@@ -124,7 +126,8 @@ fn serve(args: &Args) -> Result<(), String> {
         .one("--bind")
         .unwrap_or_else(|| "127.0.0.1:8195".into());
     let key = ti::load_key(&key_path)?;
-    let keys_doc = serde_json::to_string(&ti::public_keys(&[(spec.kid.as_str(), &key)])).unwrap();
+    let keys_doc = serde_json::to_string(&ti::public_keys(&[(spec.kid.as_str(), &key)]))
+        .map_err(|e| e.to_string())?;
     let every = Duration::from_secs((spec.ttl_secs.max(2) / 2) as u64);
 
     let rt = tokio::runtime::Builder::new_multi_thread()

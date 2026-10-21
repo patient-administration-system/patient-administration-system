@@ -125,3 +125,6 @@ name = "waitlist_bench"
 harness = false
 
 # [profile.release] and [profile.bench] hoisted to the workspace root.
+
+[lints]
+workspace = true

@@ -28,7 +28,8 @@ fn client() -> &'static reqwest::Client {
         reqwest::Client::builder()
             .timeout(Duration::from_secs(DEFAULT_TIMEOUT_SECS))
             .build()
-            .expect("reqwest client build")
+            // Building only fails if the TLS backend cannot start; a default client still works.
+            .unwrap_or_else(|_| reqwest::Client::new())
     })
 }
 

@@ -5,7 +5,7 @@
 //! expected markup (or JSON shape). `#[ignore]`d like the PAS Axum
 //! integration tests: run with `DATABASE_URL=… cargo test -- --ignored`.
 
-#![allow(clippy::result_large_err)]
+#![allow(clippy::result_large_err, reason = "loco_rs::Error is large by design")]
 
 use loco_rs::testing::prelude::*;
 use patient_administration_system_frontend::app::App;

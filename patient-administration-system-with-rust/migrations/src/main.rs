@@ -7,7 +7,7 @@
 //! - `down`   — revert all applied migrations
 //! - `fresh`  — drop everything and re-apply
 //! - `status` — print migration status
-
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 #![cfg_attr(not(test), forbid(unsafe_code))]
 use migration::Migrator;
 use sea_orm::{Database, DatabaseConnection};
@@ -16,7 +16,7 @@ use sea_orm_migration::MigratorTrait;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
-    let url = std::env::var("DATABASE_URL").expect("DATABASE_URL is required");
+    let url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL is required")?;
     let db: DatabaseConnection = Database::connect(&url).await?;
     let cmd = std::env::args().nth(1).unwrap_or_else(|| "up".to_string());
     match cmd.as_str() {

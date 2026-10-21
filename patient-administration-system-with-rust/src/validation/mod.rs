@@ -40,7 +40,10 @@ pub fn validate_contact_point(c: &ContactPoint) -> Result<()> {
     match c.system {
         ContactPointSystem::Email =>
         {
-            #[allow(clippy::collapsible_match)]
+            #[allow(
+                clippy::collapsible_match,
+                reason = "one arm per rule reads more plainly than a collapsed match"
+            )]
             if !c.value.contains('@') || !c.value.contains('.') {
                 return Err(Error::validation(format!("invalid email: {}", c.value)));
             }

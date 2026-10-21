@@ -1,8 +1,13 @@
 #![cfg_attr(not(test), forbid(unsafe_code))]
+// Production code handles every failure; tests may unwrap (QUAL-12).
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 // `loco_rs::Error` is intentionally a large enum (variant per backend);
 // every Loco handler signature ends up tripping `clippy::result_large_err`.
 // Box-everywhere isn't worth the readability cost — accept the noise.
-#![allow(clippy::result_large_err)]
+#![allow(
+    clippy::result_large_err,
+    reason = "loco_rs::Error is large by design; boxing every handler result costs more than it saves"
+)]
 
 //! patient-administration-system-frontend — Loco-rs front-end for the Patient Administration System.
 //!

@@ -150,8 +150,7 @@ fn compute_active_weeks_from_models(events: &[event_entity::Model], now: DateTim
         }
     }
     if let Some(start) = active_since {
-        let now_fixed: DateTime<FixedOffset> =
-            now.with_timezone(&FixedOffset::east_opt(0).unwrap());
+        let now_fixed: DateTime<FixedOffset> = now.fixed_offset();
         total_seconds += (now_fixed - start).num_seconds();
     }
     const SECONDS_PER_WEEK: i64 = 7 * 24 * 3600;

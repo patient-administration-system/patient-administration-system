@@ -487,7 +487,9 @@ impl WriteBackService {
                 })
             }
             ReplyAction::Convert => {
-                let modality = req.modality.expect("validated");
+                let modality = req
+                    .modality
+                    .ok_or_else(|| Error::validation("convert needs a modality"))?;
                 if appt.status != AppointmentStatus::Booked {
                     return Ok(Decision::rejected(
                         format!("not_convertible:{:?}", appt.status).to_lowercase(),
@@ -541,7 +543,9 @@ impl WriteBackService {
                 })
             }
             ReplyAction::Rebook => {
-                let new_slot = req.new_slot_id.expect("validated");
+                let new_slot = req
+                    .new_slot_id
+                    .ok_or_else(|| Error::validation("rebook needs new_slot_id"))?;
                 match SchedulingService::rebook_tx(txn, appt.id, new_slot, ctx).await {
                     Ok((old, new)) => {
                         Self::audit(txn, &old, "rebook", req, ctx).await?;

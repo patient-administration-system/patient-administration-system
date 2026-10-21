@@ -94,8 +94,11 @@ async fn dispatch_frame(router: &Router, frame: &[u8]) -> String {
         .method("POST")
         .uri(path)
         .header("content-type", "application/hl7-v2")
-        .body(Body::from(body_str))
-        .expect("static request builder");
+        .body(Body::from(body_str));
+    let Ok(req) = req else {
+        tracing::error!(target: "pas::hl7v2::mllp", "could not build the request for {path}");
+        return String::new();
+    };
     let resp = match router.clone().oneshot(req).await {
         Ok(r) => r,
         Err(e) => {

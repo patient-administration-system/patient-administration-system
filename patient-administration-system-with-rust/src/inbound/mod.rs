@@ -587,7 +587,10 @@ impl InboundService {
     /// The patient chose one of the times a "different time" reply offered. `ids` is the appointment followed
     /// by the offered slots. A slot taken meanwhile, or an offer that has lapsed, is said plainly and the
     /// appointment stays.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the recorded text's columns; a struct would only rename them"
+    )]
     async fn take_rebook_choice(
         &self,
         person: Uuid,

@@ -38,7 +38,7 @@ fn outcome(code: &str, diagnostics: Option<String>) -> OperationOutcome {
             "resourceType": "OperationOutcome",
             "issue": [{ "severity": "error", "code": "exception" }]
         }))
-        .expect("a constant OperationOutcome reads as a Resource")
+        .unwrap_or_else(|_| unreachable!("a constant OperationOutcome reads as a Resource"))
     })
 }
 

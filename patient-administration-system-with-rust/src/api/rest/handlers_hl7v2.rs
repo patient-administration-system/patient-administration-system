@@ -1292,7 +1292,9 @@ pub async fn dft(
         }
         parsed.push(ft1);
     }
-    let currency_code = shared_currency.expect("at least one FT1");
+    let Some(currency_code) = shared_currency else {
+        return ae(&r.sender, &r.control_id, "no FT1 segments");
+    };
     let currency = match Iso4217::new(&currency_code) {
         Ok(c) => c,
         Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),

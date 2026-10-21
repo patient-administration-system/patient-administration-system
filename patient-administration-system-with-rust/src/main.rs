@@ -4,6 +4,8 @@
 //! builds the application state, and starts the Axum HTTP server.
 
 #![cfg_attr(not(test), forbid(unsafe_code))]
+// Production code handles every failure; tests may unwrap (QUAL-12).
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -159,8 +161,10 @@ async fn main() -> Result<()> {
     }
     let publisher: Arc<dyn patient_administration_system::streaming::EventPublisher> =
         match children.len() {
-            0 => Arc::new(InMemoryEventPublisher::new()),
-            1 => children.into_iter().next().unwrap(),
+            0 | 1 => children
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| Arc::new(InMemoryEventPublisher::new())),
             _ => Arc::new(
                 patient_administration_system::streaming::CompositePublisher::new(children),
             ),

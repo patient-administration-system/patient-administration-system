@@ -87,7 +87,7 @@ pub async fn list_free_slots(
     schedule_id: Uuid,
     days: i64,
 ) -> Result<Vec<FreeSlotRow>, DbErr> {
-    let now: DateTime<FixedOffset> = Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap());
+    let now: DateTime<FixedOffset> = Utc::now().fixed_offset();
     let horizon = now + Duration::days(days);
     let rows = slot_entity::Entity::find()
         .filter(slot_entity::Column::ScheduleId.eq(schedule_id))

@@ -62,7 +62,10 @@ impl AuditLogRepository {
     }
 
     /// [`Self::log`] with the reason for the change as a short code, and the facts around it (CAP-6).
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one audit row's columns; a struct would only rename them"
+    )]
     pub async fn log_with<C: ConnectionTrait>(
         conn: &C,
         entity_type: &str,

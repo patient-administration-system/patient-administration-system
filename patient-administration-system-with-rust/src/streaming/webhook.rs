@@ -98,8 +98,9 @@ impl WebhookEventPublisher {
         // Hmac::new_from_slice never panics for any key length; we accept
         // any non-empty secret. (Constant-time verification on the receive
         // side is the receiver's responsibility.)
-        let mut mac =
-            HmacSha256::new_from_slice(secret).expect("HMAC-SHA256 accepts any key length");
+        let Ok(mut mac) = HmacSha256::new_from_slice(secret) else {
+            unreachable!("HMAC-SHA256 accepts a key of any length")
+        };
         mac.update(body);
         let result = mac.finalize().into_bytes();
         let mut out = String::with_capacity(7 + result.len() * 2);

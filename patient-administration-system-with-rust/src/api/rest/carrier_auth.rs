@@ -128,6 +128,10 @@ fn unhex(s: &str) -> Option<Vec<u8>> {
 }
 
 /// Sign a body the way a carrier must (used by tests and by anyone writing a carrier adapter).
+#[allow(
+    clippy::expect_used,
+    reason = "HMAC accepts a key of any length; `new_from_slice` cannot fail for it"
+)]
 pub fn sign(secret: &[u8], timestamp: i64, body: &[u8]) -> String {
     let mut mac = <Hmac<Sha256>>::new_from_slice(secret).expect("any key length");
     mac.update(timestamp.to_string().as_bytes());

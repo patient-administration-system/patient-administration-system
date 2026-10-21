@@ -86,6 +86,12 @@ pub struct StepSpec {
     pub before: Duration,
 }
 
+/// The built-in ladder, `DEFAULT_STEPS`. The unit tests parse it, so it cannot fail at run time.
+#[allow(clippy::expect_used, reason = "a constant that the unit tests parse")]
+fn default_steps() -> Vec<StepSpec> {
+    parse_steps(DEFAULT_STEPS).expect("DEFAULT_STEPS parses")
+}
+
 /// Parse `main=7d,second=4d,call=3d,final=24h`. Units are `d` and `h`; `main` is required; steps run in
 /// the order of decreasing lead time, so the list must already be in that order.
 pub fn parse_steps(spec: &str) -> Result<Vec<StepSpec>> {
@@ -210,7 +216,7 @@ impl LadderService {
             reminders: ReminderService::new(db.clone(), communication.clone()),
             db,
             communication,
-            steps: parse_steps(DEFAULT_STEPS).expect("default steps parse"),
+            steps: default_steps(),
             max_touches: DEFAULT_MAX_TOUCHES,
             link_base: None,
             quiet_hours: None,
@@ -301,7 +307,10 @@ impl LadderService {
             .collect()
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one log row has this many columns; a struct would only rename them"
+    )]
     async fn log(
         &self,
         appointment_id: Uuid,
@@ -516,7 +525,9 @@ impl LadderService {
                         .and_then(|c| {
                             crate::db::repositories::letter::delivery_channel_from_str(c).ok()
                         });
-                    let name = step.template_name().expect("send steps have a template");
+                    let Some(name) = step.template_name() else {
+                        continue;
+                    };
                     match self.deliver(&a, name, step, first_channel, now).await? {
                         Delivery::Sent {
                             channel,

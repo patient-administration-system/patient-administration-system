@@ -270,7 +270,10 @@ impl CommunicationService {
 
     /// [`Self::generate_letter`] that records why the message is being sent (CAP-6): a short `trigger`
     /// such as `reminder_ladder:main`, and the record it refers to.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the letter's parts as the callers hold them; a struct would only rename them"
+    )]
     pub async fn generate_letter_for(
         &self,
         template_id: Uuid,

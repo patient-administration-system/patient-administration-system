@@ -61,3 +61,6 @@ name = "patient-administration-system-frontend"
 path = "src/main.rs"
 
 # [profile.release] hoisted to the workspace root.
+
+[lints]
+workspace = true

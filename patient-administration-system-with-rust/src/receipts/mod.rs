@@ -61,7 +61,10 @@ impl ReceiptService {
     }
 
     /// Store a carrier's report about a letter. Idempotent by `(carrier, receipt_id)`.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one receipt row's columns; a struct would only rename them"
+    )]
     pub async fn record(
         &self,
         carrier: &str,

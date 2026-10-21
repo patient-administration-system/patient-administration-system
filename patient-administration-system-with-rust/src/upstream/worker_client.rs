@@ -330,15 +330,24 @@ impl StubWorkerClient {
     }
 
     pub fn insert(&self, worker: Worker) {
-        self.rows.lock().unwrap().insert(worker.id, worker);
+        self.rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(worker.id, worker);
     }
 
     pub fn len(&self) -> usize {
-        self.rows.lock().unwrap().len()
+        self.rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.rows.lock().unwrap().is_empty()
+        self.rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_empty()
     }
 }
 
@@ -350,21 +359,27 @@ impl WorkerClient for StubWorkerClient {
             id,
             data: worker.fields,
         };
-        self.rows.lock().unwrap().insert(id, new.clone());
+        self.rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(id, new.clone());
         Ok(new)
     }
 
     async fn get(&self, id: Uuid, _ctx: &UserContext) -> Result<Worker> {
         self.rows
             .lock()
-            .unwrap()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get(&id)
             .cloned()
             .ok_or_else(|| Error::not_found(format!("worker {id}")))
     }
 
     async fn update(&self, id: Uuid, worker: WorkerCreate, _ctx: &UserContext) -> Result<Worker> {
-        let mut rows = self.rows.lock().unwrap();
+        let mut rows = self
+            .rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if !rows.contains_key(&id) {
             return Err(Error::not_found(format!("worker {id}")));
         }
@@ -377,7 +392,11 @@ impl WorkerClient for StubWorkerClient {
     }
 
     async fn delete(&self, id: Uuid, _ctx: &UserContext) -> Result<()> {
-        let removed = self.rows.lock().unwrap().remove(&id);
+        let removed = self
+            .rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(&id);
         match removed {
             Some(_) => Ok(()),
             None => Err(Error::not_found(format!("worker {id}"))),
@@ -385,7 +404,10 @@ impl WorkerClient for StubWorkerClient {
     }
 
     async fn search(&self, _query: &str, limit: u32, _ctx: &UserContext) -> Result<Vec<Worker>> {
-        let rows = self.rows.lock().unwrap();
+        let rows = self
+            .rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Ok(rows.values().take(limit as usize).cloned().collect())
     }
 
@@ -406,7 +428,10 @@ impl WorkerClient for StubWorkerClient {
     }
 
     async fn merge(&self, source: Uuid, target: Uuid, _ctx: &UserContext) -> Result<MergeOutcome> {
-        let mut rows = self.rows.lock().unwrap();
+        let mut rows = self
+            .rows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if !rows.contains_key(&source) {
             return Err(Error::not_found(format!("worker {source}")));
         }
