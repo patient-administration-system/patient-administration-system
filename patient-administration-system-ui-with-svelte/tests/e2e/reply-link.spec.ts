@@ -53,7 +53,10 @@ test("cancelling asks are-you-sure first; no keeps the appointment, yes cancels 
   expect(await acts(request, t)).toEqual(["cancel"]);
 });
 
-test("a cancelling patient may say why, is answered with help that fits, and can skip it", async ({ page, request }) => {
+test("a cancelling patient may say why, is answered with help that fits, and can skip it", async ({
+  page,
+  request,
+}) => {
   const t = token();
   await page.goto(`/en-001/r/${t}`);
   await page.getByRole("button", { name: "Cancel my appointment" }).click();
@@ -96,7 +99,10 @@ test("an invalid, malformed or expired link says so plainly", async ({ page }) =
 
 const offeredToken = (prefix: string) => prefix + randomBytes(30).toString("hex").slice(0, 60);
 
-test("reschedule offers real times; looking does not use the link; choosing one books it once", async ({ page, request }) => {
+test("reschedule offers real times; looking does not use the link; choosing one books it once", async ({
+  page,
+  request,
+}) => {
   const t = offeredToken("aaaa");
   await page.goto(`/en-001/r/${t}`);
   await page.getByRole("button", { name: "I need a different time" }).click();
@@ -129,7 +135,10 @@ test("if the chosen time has just gone, the patient is told and can ask again", 
   await expect(page.getByRole("button", { name: "I need a different time" })).toBeVisible();
 });
 
-test("on an urgent pathway a cancel is held: the patient is told someone will phone first", async ({ page, request }) => {
+test("on an urgent pathway a cancel is held: the patient is told someone will phone first", async ({
+  page,
+  request,
+}) => {
   const t = "dddd" + randomBytes(30).toString("hex").slice(0, 60);
   await page.goto(`/en-001/r/${t}`);
   await page.getByRole("button", { name: "Cancel my appointment" }).click();
@@ -157,7 +166,11 @@ test("the page is not cached, does not leak the address onward, and is not index
   expect(await page.locator('meta[name="robots"]').getAttribute("content")).toBe("noindex");
 });
 
-test("the buttons work with scripts off, as a slow phone or a locked-down browser would have them", async ({ browser, baseURL, request }) => {
+test("the buttons work with scripts off, as a slow phone or a locked-down browser would have them", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
   // A plain form post carries `Origin: null` under `Referrer-Policy: no-referrer`, which SvelteKit refuses as
   // cross-site: the page's policy is `same-origin` so this works.
   const context = await browser.newContext({ javaScriptEnabled: false, baseURL });

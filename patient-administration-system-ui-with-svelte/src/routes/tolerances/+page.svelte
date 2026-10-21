@@ -4,7 +4,8 @@
   import { RAG_MARK, ragOf, toleranceAmount } from "#lib/views.js";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
-  const when = (iso: string) => new Intl.DateTimeFormat(i18n.locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
+  const when = (iso: string) =>
+    new Intl.DateTimeFormat(i18n.locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
   const where = (kind: string, key: string) =>
     kind === "ward" ? t("tol.scope.ward", { name: key }) : kind === "service" ? key : t("tol.scope.all");
   const amount = (v: number, unit: string) => {
@@ -31,7 +32,9 @@
 
 <p>
   {t("tol.overall")}:
-  <span class="rag rag-{overall}" data-testid="overall"><span aria-hidden="true">{RAG_MARK[overall]}</span> {t(`tol.rag.${overall}`)}</span>
+  <span class="rag rag-{overall}" data-testid="overall"
+    ><span aria-hidden="true">{RAG_MARK[overall]}</span> {t(`tol.rag.${overall}`)}</span
+  >
 </p>
 
 {#if data.status.readings.length === 0}
@@ -58,7 +61,10 @@
             {t(`tol.metric.${r.metric}`)}
             <br /><small>{t(`tol.kind.${r.kind}`)} · {t(`tol.dir.${r.direction}`)}</small>
           </th>
-          <td><span class="rag rag-{rag}"><span aria-hidden="true">{RAG_MARK[rag]}</span> {t(`tol.rag.${rag}`)}</span></td>
+          <td
+            ><span class="rag rag-{rag}"><span aria-hidden="true">{RAG_MARK[rag]}</span> {t(`tol.rag.${rag}`)}</span
+            ></td
+          >
           <td>{r.value === null ? "–" : amount(r.value, r.unit)}</td>
           <td>{amount(r.target, r.unit)}</td>
           <td>{amount(r.tolerance, r.unit)}</td>
@@ -91,7 +97,10 @@
         <tr data-scope-key={r.scope_key} data-scoped-metric={r.metric}>
           <th scope="row">{r.scope_key}</th>
           <td>{t(`tol.metric.${r.metric}`)}</td>
-          <td><span class="rag rag-{rag}"><span aria-hidden="true">{RAG_MARK[rag]}</span> {t(`tol.rag.${rag}`)}</span></td>
+          <td
+            ><span class="rag rag-{rag}"><span aria-hidden="true">{RAG_MARK[rag]}</span> {t(`tol.rag.${rag}`)}</span
+            ></td
+          >
           <td>{r.value === null ? "–" : amount(r.value, r.unit)}</td>
           <td>{amount(r.target, r.unit)}</td>
           <td>{amount(r.tolerance, r.unit)}</td>
@@ -148,10 +157,10 @@
               {t("tol.alerts.ackedBy")} {a.acknowledged_by}
             {:else}
               {#if data.canAcknowledge}
-              <form method="POST" action="?/acknowledge">
-                <input type="hidden" name="alert" value={a.id} />
-                <button class="button" type="submit">{t("tol.alerts.ack")}</button>
-              </form>
+                <form method="POST" action="?/acknowledge">
+                  <input type="hidden" name="alert" value={a.id} />
+                  <button class="button" type="submit">{t("tol.alerts.ack")}</button>
+                </form>
               {/if}
             {/if}
           </td>

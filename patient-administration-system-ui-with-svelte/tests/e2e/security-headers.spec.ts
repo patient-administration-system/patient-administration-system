@@ -3,7 +3,13 @@
 import { expect, test } from "@playwright/test";
 import { keycloakLogin } from "./support/login";
 
-const EXPECTED = ["x-content-type-options", "x-frame-options", "referrer-policy", "permissions-policy", "cross-origin-opener-policy"];
+const EXPECTED = [
+  "x-content-type-options",
+  "x-frame-options",
+  "referrer-policy",
+  "permissions-policy",
+  "cross-origin-opener-policy",
+];
 
 test("the sign-in page sends the security headers and a strict CSP", async ({ request }) => {
   const res = await request.get("/en-001/signin");

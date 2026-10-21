@@ -16,8 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "format": "prettier --write src",
-    "lint": "prettier --check src",
+    "format": "prettier --write src tests",
+    "lint": "prettier --check src tests",
     "bundle:check": "node scripts/check-bundle.mjs",
     "test:coverage": "vitest run --coverage"
   },

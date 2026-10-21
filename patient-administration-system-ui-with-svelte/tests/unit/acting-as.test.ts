@@ -37,7 +37,9 @@ describe("actingAs", () => {
 
   it("overrides an actor already on the request instead of trusting it", async () => {
     const f = spy();
-    await actingAs(f as unknown as typeof fetch, "real-user")("http://api/x", { headers: { [ON_BEHALF_OF]: "someone-else" } });
+    await actingAs(f as unknown as typeof fetch, "real-user")("http://api/x", {
+      headers: { [ON_BEHALF_OF]: "someone-else" },
+    });
     expect(new Headers(f.mock.calls[0]![1]!.headers).get(ON_BEHALF_OF)).toBe("real-user");
   });
 

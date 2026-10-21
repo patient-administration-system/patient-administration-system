@@ -3,7 +3,11 @@
 // with a status the page translates, and what the PAS said never travels into that error.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("$app/env/private", () => ({ PAS_API_URL: "http://pas.test/", PAS_API_TOKEN: "service-token", PAS_API_TOKEN_FILE: "" }));
+vi.mock("$app/env/private", () => ({
+  PAS_API_URL: "http://pas.test/",
+  PAS_API_TOKEN: "service-token",
+  PAS_API_TOKEN_FILE: "",
+}));
 
 const { PasError, identityProofed, pas, pasArray } = await import("#lib/server/pas.js");
 

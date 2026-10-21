@@ -42,7 +42,11 @@ async function keys() {
   keyCache = { at: Date.now(), keys: Object.fromEntries(doc.keys.map((k) => [k.kid, k.x])) };
   return keyCache.keys;
 }
-const le64 = (n) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b; };
+const le64 = (n) => {
+  const b = Buffer.alloc(8);
+  b.writeBigUInt64LE(BigInt(n));
+  return b;
+};
 const pae = (...parts) => Buffer.concat([le64(parts.length), ...parts.flatMap((p) => [le64(p.length), p])]);
 async function verify(header) {
   try {
@@ -57,7 +61,12 @@ async function verify(header) {
     const sig = raw.subarray(raw.length - 64);
     const spki = Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), Buffer.from(x, "base64url")]);
     const pub = crypto.createPublicKey({ key: spki, format: "der", type: "spki" });
-    const ok = crypto.verify(null, pae(Buffer.from("v4.public."), msg, Buffer.from(footer, "base64url"), Buffer.alloc(0)), pub, sig);
+    const ok = crypto.verify(
+      null,
+      pae(Buffer.from("v4.public."), msg, Buffer.from(footer, "base64url"), Buffer.alloc(0)),
+      pub,
+      sig,
+    );
     if (!ok) return null;
     const claims = JSON.parse(msg.toString());
     if (claims.iss !== ISSUER || claims.aud !== AUDIENCE || claims.exp <= Date.now() / 1000) return null;
@@ -120,10 +129,17 @@ http
     if (ISSUER_URL) {
       const claims = await verify(req.headers.authorization);
       const isService = claims?.attrs?.svc?.includes("true") ?? false;
-      actors.push({ path: url.pathname, actor: req.headers["x-on-behalf-of"] ?? null, sub: claims?.sub ?? null, service: isService });
+      actors.push({
+        path: url.pathname,
+        actor: req.headers["x-on-behalf-of"] ?? null,
+        sub: claims?.sub ?? null,
+        service: isService,
+      });
       if (!claims) {
         res.statusCode = 401;
-        return res.end(JSON.stringify({ success: false, error: { code: "UNAUTHORIZED", message: "invalid or expired token" } }));
+        return res.end(
+          JSON.stringify({ success: false, error: { code: "UNAUTHORIZED", message: "invalid or expired token" } }),
+        );
       }
     }
     // PILOT-8: backfill offers. A token starting "eeee" is expired, "9999" lost the slot when accepted.
@@ -132,25 +148,47 @@ http
       const [, token, action] = offer;
       if (!/^[0-9a-f]{64}$/.test(token) || /^0+$/.test(token)) {
         res.statusCode = 404;
-        return res.end(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "this link is not valid" } }));
+        return res.end(
+          JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "this link is not valid" } }),
+        );
       }
       const state = offers.get(token) ? "used" : token.startsWith("eeee") ? "expired" : "open";
       if (req.method === "GET") {
-        return res.end(envelope({ state, starts_at: state === "open" ? "2026-11-05T14:00:00Z" : null, time_zone: "Europe/London", expires_at: null, actions: state === "open" ? ["accept", "decline"] : [] }));
+        return res.end(
+          envelope({
+            state,
+            starts_at: state === "open" ? "2026-11-05T14:00:00Z" : null,
+            time_zone: "Europe/London",
+            expires_at: null,
+            actions: state === "open" ? ["accept", "decline"] : [],
+          }),
+        );
       }
       if (state === "used") {
         res.statusCode = 409;
-        return res.end(JSON.stringify({ success: false, error: { code: "CONFLICT", message: "this offer has already been answered" } }));
+        return res.end(
+          JSON.stringify({
+            success: false,
+            error: { code: "CONFLICT", message: "this offer has already been answered" },
+          }),
+        );
       }
       if (state === "expired") {
         res.statusCode = 400;
-        return res.end(JSON.stringify({ success: false, error: { code: "VALIDATION", message: "this offer has expired" } }));
+        return res.end(
+          JSON.stringify({ success: false, error: { code: "VALIDATION", message: "this offer has expired" } }),
+        );
       }
       offers.set(token, action);
       acts.push({ token, action: `offer-${action}` });
-      if (action === "accept" && token.startsWith("9999")) return res.end(envelope({ status: "gone", starts_at: null, time_zone: "Europe/London" }));
+      if (action === "accept" && token.startsWith("9999"))
+        return res.end(envelope({ status: "gone", starts_at: null, time_zone: "Europe/London" }));
       return res.end(
-        envelope(action === "accept" ? { status: "accepted", starts_at: "2026-11-05T14:00:00Z", time_zone: "Europe/London" } : { status: "declined", starts_at: null, time_zone: "Europe/London" }),
+        envelope(
+          action === "accept"
+            ? { status: "accepted", starts_at: "2026-11-05T14:00:00Z", time_zone: "Europe/London" }
+            : { status: "declined", starts_at: null, time_zone: "Europe/London" },
+        ),
       );
     }
     // DTAC-9: has staff proofed this account as this patient? On unless a test turns it off.
@@ -162,13 +200,24 @@ http
       const unknown = !/^[0-9a-f]{64}$/.test(token) || /^0+$/.test(token);
       if (unknown) {
         res.statusCode = 404;
-        return res.end(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "this link is not valid" } }));
+        return res.end(
+          JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "this link is not valid" } }),
+        );
       }
       const expired = /^e+$/.test(token);
       const state = links.get(token) ? "used" : expired ? "expired" : "open";
       const startsAt = "2026-11-03T09:30:00Z";
       if (req.method === "GET") {
-        return res.end(envelope({ state, language: "en", when: "Tue 3 Nov 09:30", starts_at: startsAt, time_zone: "Europe/London", actions: state === "open" ? ["confirm", "cancel", "reschedule", "help"] : [] }));
+        return res.end(
+          envelope({
+            state,
+            language: "en",
+            when: "Tue 3 Nov 09:30",
+            starts_at: startsAt,
+            time_zone: "Europe/London",
+            actions: state === "open" ? ["confirm", "cancel", "reschedule", "help"] : [],
+          }),
+        );
       }
       const body = await new Promise((resolve) => {
         let b = "";
@@ -193,8 +242,16 @@ http
             status: "rebook_options",
             time_zone: "Europe/London",
             options: [
-              { slot_id: "11111111-1111-4111-8111-111111111111", starts_at: "2026-11-10T14:00:00Z", when: "Tue 10 Nov 14:00" },
-              { slot_id: "22222222-2222-4222-8222-222222222222", starts_at: "2026-11-11T09:00:00Z", when: "Wed 11 Nov 09:00" },
+              {
+                slot_id: "11111111-1111-4111-8111-111111111111",
+                starts_at: "2026-11-10T14:00:00Z",
+                when: "Tue 10 Nov 14:00",
+              },
+              {
+                slot_id: "22222222-2222-4222-8222-222222222222",
+                starts_at: "2026-11-11T09:00:00Z",
+                when: "Wed 11 Nov 09:00",
+              },
             ],
           }),
         );
@@ -215,7 +272,10 @@ http
       acts.push({ token, action: action === "cancel" && body.barrier_code ? `cancel:${body.barrier_code}` : action });
       const status = { confirm: "confirmed", cancel: "cancelled", reschedule: "reschedule_requested" }[action];
       // CAS-2: a reason given when cancelling is answered with help that fits it.
-      const signpost = action === "cancel" && body.barrier_code ? `Help for ${body.barrier_code}. Cancelling will not affect your care.` : undefined;
+      const signpost =
+        action === "cancel" && body.barrier_code
+          ? `Help for ${body.barrier_code}. Cancelling will not affect your care.`
+          : undefined;
       return res.end(envelope({ status, signpost }));
     }
     if (url.pathname === `/api/patients/${PATIENT}/appointments`) {
@@ -276,8 +336,22 @@ http
       };
       return res.end(
         envelope([
-          { id: "44444444-4444-4444-4444-444444444444", person_id: PATIENT, start_datetime: at(1, 9), end_datetime: at(1, 10), status: "booked", reason: "Knee review" },
-          { id: "55555555-5555-5555-5555-555555555555", person_id: PATIENT, start_datetime: at(3, 14), end_datetime: at(3, 15), status: "booked", reason: null },
+          {
+            id: "44444444-4444-4444-4444-444444444444",
+            person_id: PATIENT,
+            start_datetime: at(1, 9),
+            end_datetime: at(1, 10),
+            status: "booked",
+            reason: "Knee review",
+          },
+          {
+            id: "55555555-5555-5555-5555-555555555555",
+            person_id: PATIENT,
+            start_datetime: at(3, 14),
+            end_datetime: at(3, 15),
+            status: "booked",
+            reason: null,
+          },
         ]),
       );
     }
@@ -291,22 +365,51 @@ http
       return res.end(
         envelope([
           { at: at(-2, 9), kind: "audit", action: "created", by: "clerk", reason_code: null, context: null },
-          { at: at(-1, 9), kind: "message", action: "reminder_ladder:t_minus_7", by: null, reason_code: null, context: null },
-          { at: at(-1, 10), kind: "reply", action: "confirm", by: "carrier:twilio", reason_code: "patient_confirmed", context: null },
+          {
+            at: at(-1, 9),
+            kind: "message",
+            action: "reminder_ladder:t_minus_7",
+            by: null,
+            reason_code: null,
+            context: null,
+          },
+          {
+            at: at(-1, 10),
+            kind: "reply",
+            action: "confirm",
+            by: "carrier:twilio",
+            reason_code: "patient_confirmed",
+            context: null,
+          },
         ]),
       );
     }
     if (url.pathname === `/api/patients/${PATIENT}/contact-log`) {
-      return res.end(envelope([{ at: at(-1, 9), kind: "message", action: "reminder", by: null, reason_code: null, context: null }]));
+      return res.end(
+        envelope([{ at: at(-1, 9), kind: "message", action: "reminder", by: null, reason_code: null, context: null }]),
+      );
     }
     if (url.pathname === "/api/tolerances/status") {
       const reading = (metric, kind, unit, direction, target, tolerance, escalate_beyond, value, rag, sample) => ({
-        metric, kind, label: metric, unit, direction, target, tolerance, escalate_beyond, value,
-        adverse_drift: value === null ? null : Math.abs(value - target), rag, sample, customised: false,
+        metric,
+        kind,
+        label: metric,
+        unit,
+        direction,
+        target,
+        tolerance,
+        escalate_beyond,
+        value,
+        adverse_drift: value === null ? null : Math.abs(value - target),
+        rag,
+        sample,
+        customised: false,
       });
       return res.end(
         envelope({
-          from: new Date(Date.now() - 30 * 864e5).toISOString(), to: new Date().toISOString(), overall: "red",
+          from: new Date(Date.now() - 30 * 864e5).toISOString(),
+          to: new Date().toISOString(),
+          overall: "red",
           readings: [
             reading("wait_p90_weeks", "time", "weeks", "higher_is_worse", 18, 2, 8, 19, "amber", 120),
             reading("lead_time_median_days", "time", "days", "higher_is_worse", 14, 7, 21, 9, "green", 300),
@@ -316,11 +419,47 @@ http
             reading("invoice_collection_rate", "money", "share", "lower_is_worse", 0.95, 0.03, 0.1, 0.9, "amber", 52),
           ],
           by_service: [
-            { ...reading("did_not_attend_rate", "resources", "share", "higher_is_worse", 0.08, 0.02, 0.06, 0.21, "red", 80), scope_kind: "service", scope_key: "cardiology", customised: true },
-            { ...reading("slot_utilisation", "resources", "share", "lower_is_worse", 0.85, 0.05, 0.15, 0.9, "green", 60), scope_kind: "service", scope_key: "cardiology" },
+            {
+              ...reading(
+                "did_not_attend_rate",
+                "resources",
+                "share",
+                "higher_is_worse",
+                0.08,
+                0.02,
+                0.06,
+                0.21,
+                "red",
+                80,
+              ),
+              scope_kind: "service",
+              scope_key: "cardiology",
+              customised: true,
+            },
+            {
+              ...reading(
+                "slot_utilisation",
+                "resources",
+                "share",
+                "lower_is_worse",
+                0.85,
+                0.05,
+                0.15,
+                0.9,
+                "green",
+                60,
+              ),
+              scope_kind: "service",
+              scope_key: "cardiology",
+            },
           ],
           by_ward: [
-            { ...reading("bed_occupancy", "resources", "share", "either", 1, 0, 0.1, 1, "green", 28), scope_kind: "ward", scope_key: "W7", customised: true },
+            {
+              ...reading("bed_occupancy", "resources", "share", "either", 1, 0, 0.1, 1, "green", 28),
+              scope_kind: "ward",
+              scope_key: "W7",
+              customised: true,
+            },
           ],
         }),
       );
@@ -328,7 +467,20 @@ http
     if (url.pathname === "/api/tolerance-alerts") {
       return res.end(
         envelope([
-          { id: "aaaaaaaa-0000-4000-8000-00000000000a", metric: "did_not_attend_rate", scope_kind: "service", scope_key: "cardiology", value: 0.21, target: 0.08, tolerance: 0.02, escalate_beyond: 0.06, unit: "share", raised_at: new Date().toISOString(), acknowledged_by: acked.has("aaaaaaaa-0000-4000-8000-00000000000a") ? "Admin User" : null, acknowledged_at: null },
+          {
+            id: "aaaaaaaa-0000-4000-8000-00000000000a",
+            metric: "did_not_attend_rate",
+            scope_kind: "service",
+            scope_key: "cardiology",
+            value: 0.21,
+            target: 0.08,
+            tolerance: 0.02,
+            escalate_beyond: 0.06,
+            unit: "share",
+            raised_at: new Date().toISOString(),
+            acknowledged_by: acked.has("aaaaaaaa-0000-4000-8000-00000000000a") ? "Admin User" : null,
+            acknowledged_at: null,
+          },
         ]),
       );
     }
@@ -339,7 +491,15 @@ http
     }
     if (url.pathname === "/api/pathways/due-check") {
       return res.end(
-        envelope([{ pathway_id: "88888888-8888-8888-8888-888888888888", person_id: PATIENT, target_service: "orthopaedics", weeks_waited: 31, last_check_at: null }]),
+        envelope([
+          {
+            pathway_id: "88888888-8888-8888-8888-888888888888",
+            person_id: PATIENT,
+            target_service: "orthopaedics",
+            weeks_waited: 31,
+            last_check_at: null,
+          },
+        ]),
       );
     }
     if (/^\/api\/pathways\/[0-9a-f-]+\/still-needed-checks$/.test(url.pathname) && req.method === "POST") {
@@ -349,13 +509,27 @@ http
     if (url.pathname === "/api/waitlist") {
       return res.end(
         envelope([
-          { id: "66666666-6666-6666-6666-666666666666", person_id: PATIENT, target_service: "general", priority: "urgent", status: "waiting" },
-          { id: "77777777-7777-7777-7777-777777777777", person_id: PATIENT, target_service: "general", priority: "routine", status: "booked" },
+          {
+            id: "66666666-6666-6666-6666-666666666666",
+            person_id: PATIENT,
+            target_service: "general",
+            priority: "urgent",
+            status: "waiting",
+          },
+          {
+            id: "77777777-7777-7777-7777-777777777777",
+            person_id: PATIENT,
+            target_service: "general",
+            priority: "routine",
+            status: "booked",
+          },
         ]),
       );
     }
     if (url.pathname === "/api/patients") {
-      return res.end(envelope([{ id: PATIENT, name: { given: ["Ada"], family: "Lovelace" }, birth_date: "1815-12-10" }]));
+      return res.end(
+        envelope([{ id: PATIENT, name: { given: ["Ada"], family: "Lovelace" }, birth_date: "1815-12-10" }]),
+      );
     }
     // REM-5: the template editor saves, so the mock keeps the one template it serves and applies a PUT to it.
     if (url.pathname === "/api/letter-templates") return res.end(envelope([template]));

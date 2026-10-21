@@ -82,9 +82,7 @@ export function normalizeLocale(raw: string | null | undefined): Locale | null {
 export function isRtl(locale: string): boolean {
   const primary = normalizeLocale(locale);
 
-  return (
-    primary !== null && (RTL_LOCALES as readonly string[]).includes(primary)
-  );
+  return primary !== null && (RTL_LOCALES as readonly string[]).includes(primary);
 }
 
 /** The first path segment, if it is shaped like a locale. */
@@ -152,17 +150,13 @@ export function localizePath(path: string, locale: Locale): string {
  * Tags are taken in the order given; q-values below 1 are ordered after
  * higher ones (stable), and `q=0` is refused.
  */
-export function localeFromAcceptLanguage(
-  header: string | null | undefined,
-): Locale | null {
+export function localeFromAcceptLanguage(header: string | null | undefined): Locale | null {
   if (!header) return null;
   const tags = header
     .split(",")
     .map((part, i) => {
       const [tag = "", ...params] = part.trim().split(";");
-      const q = params
-        .map((p) => /^\s*q=([0-9.]+)\s*$/.exec(p)?.[1])
-        .find((v) => v !== undefined);
+      const q = params.map((p) => /^\s*q=([0-9.]+)\s*$/.exec(p)?.[1]).find((v) => v !== undefined);
       return { tag: tag.trim(), q: q === undefined ? 1 : Number(q), i };
     })
     .filter((x) => x.tag && x.tag !== "*" && x.q > 0)

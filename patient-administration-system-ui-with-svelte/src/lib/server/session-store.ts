@@ -9,7 +9,14 @@
 // Which one is chosen by `OIDC_SESSION_STORE` (`memory` or `redis`) and `REDIS_URL`; see
 // `session-store-instance.ts`.
 
-import { OidcStore, buildSession, type LoginTransaction, type NewSession, type OidcSession, TX_TTL_MS } from "./oidc-session";
+import {
+  OidcStore,
+  buildSession,
+  type LoginTransaction,
+  type NewSession,
+  type OidcSession,
+  TX_TTL_MS,
+} from "./oidc-session";
 import { RedisClient } from "./resp";
 
 export interface SessionStore {
@@ -98,7 +105,8 @@ export class RedisSessionStore implements SessionStore {
     const minute = Math.floor(this.now() / 60_000);
     const n = await this.redis.command("INCR", KEY.rate + minute);
     if (n === 1) await this.redis.command("EXPIRE", KEY.rate + minute, 120);
-    if (typeof n === "number" && n > MAX_LOGINS_PER_MINUTE) throw new Error("too many sign-ins started; try again in a minute");
+    if (typeof n === "number" && n > MAX_LOGINS_PER_MINUTE)
+      throw new Error("too many sign-ins started; try again in a minute");
     const full: LoginTransaction = { ...tx, expiresAt: this.now() + TX_TTL_MS };
     await this.redis.command("SET", KEY.tx + state, JSON.stringify(full), "EX", Math.ceil(TX_TTL_MS / 1000));
   }

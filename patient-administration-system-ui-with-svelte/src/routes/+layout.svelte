@@ -29,7 +29,14 @@
     <summary>{t("app.language")}</summary>
     <ul>
       {#each LOCALES as code (code)}
-        <li><a href={localizePath(rest, code)} lang={code} hreflang={code} aria-current={code === i18n.locale ? "true" : undefined}>{LOCALE_LABELS[code]}</a></li>
+        <li>
+          <a
+            href={localizePath(rest, code)}
+            lang={code}
+            hreflang={code}
+            aria-current={code === i18n.locale ? "true" : undefined}>{LOCALE_LABELS[code]}</a
+          >
+        </li>
       {/each}
     </ul>
   </details>

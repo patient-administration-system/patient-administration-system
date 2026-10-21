@@ -50,7 +50,10 @@ test("a slot taken meanwhile is said plainly, and an expired offer is expired", 
   await expect(page.getByRole("button", { name: "Yes, I will take it" })).toHaveCount(0);
 });
 
-test("it reads in Welsh and Arabic, is not cached, leaks nothing onward and is not indexed", async ({ page, request }) => {
+test("it reads in Welsh and Arabic, is not cached, leaks nothing onward and is not indexed", async ({
+  page,
+  request,
+}) => {
   const t = token();
   await page.goto(`/cy-001/o/${t}`);
   await expect(page.getByRole("heading", { name: "Mae apwyntiad ar gael" })).toBeVisible();

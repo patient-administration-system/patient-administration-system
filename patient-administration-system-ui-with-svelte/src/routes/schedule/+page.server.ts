@@ -12,6 +12,8 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
   const end = new Date(start.getTime() + 28 * DAY);
   return {
     today: start.toISOString().slice(0, 10),
-    appointments: await fromPas(appointmentsBetween(signedInFetch(fetch, locals), start.toISOString(), end.toISOString())),
+    appointments: await fromPas(
+      appointmentsBetween(signedInFetch(fetch, locals), start.toISOString(), end.toISOString()),
+    ),
   };
 };

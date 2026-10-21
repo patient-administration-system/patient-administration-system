@@ -7,9 +7,28 @@ import { expect, test } from "@playwright/test";
 import { keycloakLogin } from "./support/login";
 import { MOCK_URL } from "./support/ports";
 
-const STAFF_PAGES = ["/appointments", "/waitlist", "/schedule", "/patients?q=ada", "/history?appointment=44444444-4444-4444-4444-444444444444", "/waits", "/admin/reminders"];
+const STAFF_PAGES = [
+  "/appointments",
+  "/waitlist",
+  "/schedule",
+  "/patients?q=ada",
+  "/history?appointment=44444444-4444-4444-4444-444444444444",
+  "/waits",
+  "/admin/reminders",
+];
 const MODES = ["500", "garbage", "html", "empty", "wrongshape", "null"];
-const LEAKS = ["hunter2", "panicked", "src/db", "SqlxError", "PgDatabaseError", "TypeError", "ReferenceError", "at async", "node_modules", "/Users/"];
+const LEAKS = [
+  "hunter2",
+  "panicked",
+  "src/db",
+  "SqlxError",
+  "PgDatabaseError",
+  "TypeError",
+  "ReferenceError",
+  "at async",
+  "node_modules",
+  "/Users/",
+];
 
 async function setChaos(request: import("@playwright/test").APIRequestContext, mode: string, seed = 1) {
   await request.get(`${MOCK_URL}/__chaos?mode=${mode}&seed=${seed}`);

@@ -13,7 +13,13 @@ export const load: PageServerLoad = async ({ locals, fetch, url }) => {
   const asked = Number(url.searchParams.get("days"));
   const days = WINDOWS.includes(asked) ? asked : 30;
   const f = signedInFetch(fetch, locals);
-  return { days, windows: WINDOWS, canAcknowledge: isAdmin(session.user), status: await fromPas(toleranceStatus(f, days)), alerts: await fromPas(toleranceAlerts(f)) };
+  return {
+    days,
+    windows: WINDOWS,
+    canAcknowledge: isAdmin(session.user),
+    status: await fromPas(toleranceStatus(f, days)),
+    alerts: await fromPas(toleranceAlerts(f)),
+  };
 };
 
 export const actions: Actions = {
@@ -23,10 +29,13 @@ export const actions: Actions = {
     const id = String((await request.formData()).get("alert") ?? "");
     if (!isUuid(id)) return fail(400, { id, messageKey: "tol.alerts.error" });
     // The person acknowledging is the signed-in member of staff, never a name typed into the form.
-    const failed = await pasFailure(() => acknowledgeToleranceAlert(signedInFetch(fetch, locals), id, actorName(locals)), {
-      id,
-      messageKey: "tol.alerts.error",
-    });
+    const failed = await pasFailure(
+      () => acknowledgeToleranceAlert(signedInFetch(fetch, locals), id, actorName(locals)),
+      {
+        id,
+        messageKey: "tol.alerts.error",
+      },
+    );
     return failed ?? { id, acknowledged: true };
   },
 };

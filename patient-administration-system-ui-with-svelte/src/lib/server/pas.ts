@@ -51,14 +51,20 @@ export async function pas<T>(
   if (!res.ok) {
     // What the PAS said stays in the server log. It never travels into an error page: it can hold anything
     // (a database message, a path), and the page shows its own translated text for the status instead.
-    console.error(`[pas] ${init.method ?? "GET"} ${path.split("?")[0]} answered ${res.status}: ${env.error?.message ?? text.slice(0, 200)}`);
+    console.error(
+      `[pas] ${init.method ?? "GET"} ${path.split("?")[0]} answered ${res.status}: ${env.error?.message ?? text.slice(0, 200)}`,
+    );
     throw new PasError(res.status, `the PAS API answered ${res.status}`);
   }
   return (env.data ?? (env as unknown)) as T;
 }
 
 /** A list endpoint: anything but an array is a broken answer (502), not something for a page to trip over. */
-export async function pasArray<T>(fetchFn: FetchFn, path: string, init: { method?: string; body?: unknown } = {}): Promise<T[]> {
+export async function pasArray<T>(
+  fetchFn: FetchFn,
+  path: string,
+  init: { method?: string; body?: unknown } = {},
+): Promise<T[]> {
   const data = await pas<unknown>(fetchFn, path, init);
   if (!Array.isArray(data)) throw new PasError(502, "the PAS API answered with an unexpected shape");
   return data as T[];
@@ -137,7 +143,10 @@ export interface NoShowItem {
 
 /** The stored assessments for these appointments. `active` is false while the score is switched off. */
 export const noshowFor = (f: FetchFn, ids: string[]) =>
-  pas<{ active: boolean; items: NoShowItem[] }>(f, `/api/noshow/for-appointments?ids=${ids.map(encodeURIComponent).join(",")}`);
+  pas<{ active: boolean; items: NoShowItem[] }>(
+    f,
+    `/api/noshow/for-appointments?ids=${ids.map(encodeURIComponent).join(",")}`,
+  );
 
 // ---- History (CAP-6) and long waits (CAP-8) ---------------------------------------------------
 
@@ -170,7 +179,10 @@ export const dueChecks = (f: FetchFn) => pasArray<DueCheck>(f, "/api/pathways/du
 
 /** A person asks a patient whether they still need this. Nothing is removed. */
 export const askStillNeeded = (f: FetchFn, pathwayId: string, askedBy: string) =>
-  pas<unknown>(f, `/api/pathways/${encodeURIComponent(pathwayId)}/still-needed-checks`, { method: "POST", body: { asked_by: askedBy } });
+  pas<unknown>(f, `/api/pathways/${encodeURIComponent(pathwayId)}/still-needed-checks`, {
+    method: "POST",
+    body: { asked_by: askedBy },
+  });
 
 // ---- Tolerances (red / amber / green) --------------------------------------------------------
 
@@ -278,13 +290,7 @@ export const replyLinkInfo = (f: FetchFn, token: string) =>
   pas<ReplyLinkInfo>(f, `/api/reply-links/${encodeURIComponent(token)}`);
 
 /** A deliberate tap. The first `cancel` answers `needs_confirmation`; send it again with `confirmed`. */
-export const replyLinkAct = (
-  f: FetchFn,
-  token: string,
-  action: string,
-  confirmed = false,
-  barrierCode?: string,
-) =>
+export const replyLinkAct = (f: FetchFn, token: string, action: string, confirmed = false, barrierCode?: string) =>
   pas<{ status: ReplyLinkStatus; options?: ReplyLinkOption[]; time_zone: string; signpost?: string }>(
     f,
     `/api/reply-links/${encodeURIComponent(token)}/${encodeURIComponent(action)}`,

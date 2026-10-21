@@ -27,14 +27,24 @@ export const actions: Actions = {
     // failure while reading it is the form's error too, not a broken page.
     const f = signedInFetch(fetch, locals);
     let current: LetterTemplate | undefined;
-    const unread = await pasFailure(async () => {
-      current = (await letterTemplates(f)).find((t) => t.id === id);
-    }, { id, messageKey: "admin.error.rejected" });
+    const unread = await pasFailure(
+      async () => {
+        current = (await letterTemplates(f)).find((t) => t.id === id);
+      },
+      { id, messageKey: "admin.error.rejected" },
+    );
     if (unread) return unread;
     if (!current) return fail(404, { id, messageKey: "admin.error.notFound" });
     const template = current;
     const failed = await pasFailure(
-      () => updateLetterTemplate(f, { ...template, subject, body_tera: body, channels, active: form.get("active") === "on" }),
+      () =>
+        updateLetterTemplate(f, {
+          ...template,
+          subject,
+          body_tera: body,
+          channels,
+          active: form.get("active") === "on",
+        }),
       { id, messageKey: "admin.error.rejected" },
     );
     return failed ?? { id, saved: true };

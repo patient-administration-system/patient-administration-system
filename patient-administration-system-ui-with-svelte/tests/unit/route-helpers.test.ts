@@ -41,8 +41,14 @@ describe("pasFailure", () => {
   });
 
   it("is a 502 form failure when the PAS failed and a 400 when it refused, carrying the form data", async () => {
-    await expect(pasFailure(() => Promise.reject(new PasError(503, "x")), { id: "1" })).resolves.toMatchObject({ status: 502, data: { id: "1" } });
-    await expect(pasFailure(() => Promise.reject(new PasError(422, "x")), { id: "1" })).resolves.toMatchObject({ status: 400, data: { id: "1" } });
+    await expect(pasFailure(() => Promise.reject(new PasError(503, "x")), { id: "1" })).resolves.toMatchObject({
+      status: 502,
+      data: { id: "1" },
+    });
+    await expect(pasFailure(() => Promise.reject(new PasError(422, "x")), { id: "1" })).resolves.toMatchObject({
+      status: 400,
+      data: { id: "1" },
+    });
   });
 
   it("throws anything that is not a PAS failure", async () => {
@@ -68,11 +74,17 @@ describe("the signed-in person", () => {
 describe("token links", () => {
   it("accept only a token the PAS could have minted", () => {
     expect(isLinkToken("a".repeat(64))).toBe(true);
-    for (const t of ["A".repeat(64), "a".repeat(63), "a".repeat(65), `${"a".repeat(63)}/`, ""]) expect(isLinkToken(t), t).toBe(false);
+    for (const t of ["A".repeat(64), "a".repeat(63), "a".repeat(65), `${"a".repeat(63)}/`, ""])
+      expect(isLinkToken(t), t).toBe(false);
   });
 
   it("map a failed PAS call to what the page says, and to the form status", () => {
-    expect([404, 409, 400, 500].map((s) => linkStateFor(new PasError(s, "x")))).toEqual(["invalid", "used", "expired", "unavailable"]);
+    expect([404, 409, 400, 500].map((s) => linkStateFor(new PasError(s, "x")))).toEqual([
+      "invalid",
+      "used",
+      "expired",
+      "unavailable",
+    ]);
     expect(linkStateFor(new TypeError("fetch failed"))).toBe("unavailable");
     expect([404, 409, 503].map((s) => linkFailureStatus(new PasError(s, "x")))).toEqual([404, 409, 502]);
     expect(linkFailureStatus(new Error("bug"))).toBe(502);

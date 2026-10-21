@@ -16,7 +16,14 @@ import {
 import { MemorySessionStore, type SessionStore } from "#lib/server/session-store.js";
 import type { IdTokenClaims, OidcConfig, ProviderMetadata } from "#lib/server/oidc.js";
 
-const CLAIMS: IdTokenClaims = { iss: "i", sub: "kc-1", aud: "a", exp: 0, preferred_username: "ada", realm_access: { roles: ["staff"] } };
+const CLAIMS: IdTokenClaims = {
+  iss: "i",
+  sub: "kc-1",
+  aud: "a",
+  exp: 0,
+  preferred_username: "ada",
+  realm_access: { roles: ["staff"] },
+};
 const NEW = { accessToken: "at", refreshToken: "rt", sessionSeconds: 3600, claims: CLAIMS };
 const TX = { nonce: "n", verifier: "v", returnTo: "/", redirectUri: "r", locale: "en-001" };
 
@@ -94,7 +101,12 @@ describe("OidcStore", () => {
   });
 });
 
-const META: ProviderMetadata = { issuer: "https://idp", authorization_endpoint: "a", token_endpoint: "https://idp/token", jwks_uri: "https://idp/keys" };
+const META: ProviderMetadata = {
+  issuer: "https://idp",
+  authorization_endpoint: "a",
+  token_endpoint: "https://idp/token",
+  jwks_uri: "https://idp/keys",
+};
 const CFG: OidcConfig = { issuer: "https://idp", clientId: "c", scopes: "openid" };
 
 describe("accessTokenFor", () => {
@@ -117,7 +129,9 @@ describe("accessTokenFor", () => {
   it("refreshes one that is, and keeps the new tokens", async () => {
     const s = mem.createSession({ ...NEW, expiresInSeconds: 20 });
     const save = vi.spyOn(store, "save");
-    const f = vi.fn(async () => new Response(JSON.stringify({ access_token: "at2", refresh_token: "rt2", expires_in: 600 }))) as unknown as typeof fetch;
+    const f = vi.fn(
+      async () => new Response(JSON.stringify({ access_token: "at2", refresh_token: "rt2", expires_in: 600 })),
+    ) as unknown as typeof fetch;
     await expect(accessTokenFor(store, s, deps(f))).resolves.toBe("at2");
     expect(s.refreshToken).toBe("rt2");
     expect(s.accessExpiresAt).toBe(clock.t + 600_000);

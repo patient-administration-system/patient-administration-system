@@ -13,7 +13,6 @@ import { LINK_PAGE_HEADERS, isLinkToken, linkFailureStatus, linkStateFor as stat
 /** What the page is showing. Each is a catalogue key suffix (`link.<state>`). */
 export type LinkState = "open" | "used" | "expired" | "invalid" | "unavailable";
 
-
 export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
   setHeaders(LINK_PAGE_HEADERS);
   if (!isLinkToken(params.token)) return { state: "invalid" as LinkState, startsAt: null, timeZone: "UTC" };

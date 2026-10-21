@@ -15,27 +15,14 @@
 //
 // Tokens never reach the browser; see `oidc-session.ts`.
 
-import {
-  createHash,
-  createPublicKey,
-  createVerify,
-  randomBytes,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHash, createPublicKey, createVerify, randomBytes, timingSafeEqual } from "node:crypto";
 
 type FetchFn = typeof fetch;
 
 /** Why a step failed. The code is safe to log; messages never carry tokens. */
 export class OidcError extends Error {
   constructor(
-    public readonly code:
-      | "metadata"
-      | "issuer_mismatch"
-      | "token_endpoint"
-      | "id_token"
-      | "jwks"
-      | "state"
-      | "denied",
+    public readonly code: "metadata" | "issuer_mismatch" | "token_endpoint" | "id_token" | "jwks" | "state" | "denied",
     message: string,
   ) {
     super(message);
@@ -146,10 +133,7 @@ export function authorizationUrl(
 }
 
 /** Fetch and check the provider's discovery document. */
-export async function discover(
-  fetchFn: FetchFn,
-  issuer: string,
-): Promise<ProviderMetadata> {
+export async function discover(fetchFn: FetchFn, issuer: string): Promise<ProviderMetadata> {
   const url = `${issuer.replace(/\/$/, "")}/.well-known/openid-configuration`;
   let res: Response;
   try {
@@ -178,10 +162,7 @@ export async function discover(
 }
 
 /** The provider's published signing keys. */
-export async function fetchJwks(
-  fetchFn: FetchFn,
-  meta: ProviderMetadata,
-): Promise<Jwk[]> {
+export async function fetchJwks(fetchFn: FetchFn, meta: ProviderMetadata): Promise<Jwk[]> {
   let res: Response;
   try {
     res = await fetchFn(meta.jwks_uri, { headers: { accept: "application/json" } });
@@ -220,11 +201,7 @@ export interface IdTokenExpectation {
  * Verify an ID token and return its claims, or throw {@link OidcError}.
  * RS256 only; the key is chosen by `kid`.
  */
-export function verifyIdToken(
-  idToken: string,
-  keys: Jwk[],
-  expect: IdTokenExpectation,
-): IdTokenClaims {
+export function verifyIdToken(idToken: string, keys: Jwk[], expect: IdTokenExpectation): IdTokenClaims {
   const parts = idToken.split(".");
   if (parts.length !== 3) throw new OidcError("id_token", "not a compact JWS");
   const [encodedHeader, encodedClaims, encodedSignature] = parts as [string, string, string];
@@ -239,9 +216,7 @@ export function verifyIdToken(
   if (header.alg !== "RS256") {
     throw new OidcError("id_token", "only RS256 ID tokens are accepted");
   }
-  const candidates = keys.filter(
-    (k) => k.kty === "RSA" && (k.use === undefined || k.use === "sig"),
-  );
+  const candidates = keys.filter((k) => k.kty === "RSA" && (k.use === undefined || k.use === "sig"));
   const key = header.kid
     ? candidates.find((k) => k.kid === header.kid)
     : candidates.length === 1

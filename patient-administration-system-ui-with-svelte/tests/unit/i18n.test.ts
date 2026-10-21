@@ -9,16 +9,49 @@ const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1
 
 // Strings that are legitimately identical to English in a language: product and technical names
 // (WhatsApp, Apple Messages, SMS, CSV, Excel) in all of them, plus words that really are the same.
-const PROPER = ["channel.whatsapp", "channel.apple_messages", "channel.sms", "calendar.exportCsv", "calendar.exportExcel"];
+const PROPER = [
+  "channel.whatsapp",
+  "channel.apple_messages",
+  "channel.sms",
+  "calendar.exportCsv",
+  "calendar.exportExcel",
+];
 const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
   "cy-001": [...PROPER, "calendar.agenda", "tol.col.ward", "tol.scope.ward"],
-  "de-001": [...PROPER, "col.status", "col.name", "waitlist.patient", "priority.routine", "calendar.agenda", "waits.col.patient", "tol.col.status"],
-  "de-de": [...PROPER, "col.status", "col.name", "waitlist.patient", "priority.routine", "calendar.agenda", "waits.col.patient", "tol.col.status"],
+  "de-001": [
+    ...PROPER,
+    "col.status",
+    "col.name",
+    "waitlist.patient",
+    "priority.routine",
+    "calendar.agenda",
+    "waits.col.patient",
+    "tol.col.status",
+  ],
+  "de-de": [
+    ...PROPER,
+    "col.status",
+    "col.name",
+    "waitlist.patient",
+    "priority.routine",
+    "calendar.agenda",
+    "waits.col.patient",
+    "tol.col.status",
+  ],
   "es-001": [...PROPER, "error.title", "calendar.agenda"],
   "fr-001": [
     ...PROPER,
-    "nav.patients", "col.date", "waitlist.service", "waitlist.patient", "patients.title",
-    "patients.gridLabel", "admin.message", "calendar.agenda", "noshow.points", "waits.col.patient", "waits.col.service",
+    "nav.patients",
+    "col.date",
+    "waitlist.service",
+    "waitlist.patient",
+    "patients.title",
+    "patients.gridLabel",
+    "admin.message",
+    "calendar.agenda",
+    "noshow.points",
+    "waits.col.patient",
+    "waits.col.service",
     "tol.col.service",
   ],
   "ar-001": PROPER,
@@ -39,14 +72,18 @@ describe("catalogues (NFR-5)", () => {
         expect(Object.keys(c).sort()).toEqual(Object.keys(en).sort());
       });
       it("keeps every placeholder", () => {
-        for (const k of Object.keys(en)) expect(placeholders(c[k] ?? ""), `${locale} ${k}`).toEqual(placeholders(en[k]!));
+        for (const k of Object.keys(en))
+          expect(placeholders(c[k] ?? ""), `${locale} ${k}`).toEqual(placeholders(en[k]!));
       });
       it("has no empty string", () => {
         for (const k of Object.keys(en)) expect((c[k] ?? "").trim().length, `${locale} ${k}`).toBeGreaterThan(0);
       });
       it("is translated: only allow-listed strings equal English", () => {
         const same = Object.keys(en).filter((k) => c[k] === en[k]);
-        expect(same.filter((k) => !(SAME_AS_ENGLISH[locale] ?? []).includes(k)), `${locale} untranslated`).toEqual([]);
+        expect(
+          same.filter((k) => !(SAME_AS_ENGLISH[locale] ?? []).includes(k)),
+          `${locale} untranslated`,
+        ).toEqual([]);
       });
     });
   }

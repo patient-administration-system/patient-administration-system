@@ -7,7 +7,8 @@ import { MOCK_URL } from "./support/ports";
 
 const axe = (page: import("@playwright/test").Page) =>
   new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
-const serious = (r: Awaited<ReturnType<typeof axe>>) => r.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id);
+const serious = (r: Awaited<ReturnType<typeof axe>>) =>
+  r.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id);
 
 test("the history of an appointment is a table in order, and the page passes axe", async ({ page }) => {
   await keycloakLogin(page, "admin");
@@ -28,7 +29,10 @@ test("a patient's contact log, and a bad id is said plainly", async ({ page }) =
   await expect(page.getByRole("alert")).toHaveText("That is not a valid id.");
 });
 
-test("long waiters are listed and asking records that someone asked, as the signed-in person", async ({ page, request }) => {
+test("long waiters are listed and asking records that someone asked, as the signed-in person", async ({
+  page,
+  request,
+}) => {
   await keycloakLogin(page, "admin");
   await page.goto("/en-001/waits");
   await expect(page.getByRole("table", { name: "Long waiters, longest first" })).toBeVisible();
@@ -38,7 +42,9 @@ test("long waiters are listed and asking records that someone asked, as the sign
   await page.getByRole("button", { name: "Ask if still needed" }).click();
   await expect(page.getByRole("status")).toHaveText("Recorded that you asked.");
   const acts = (await (await request.get(`${MOCK_URL}/__acts`)).json()) as { token: string; action: string }[];
-  expect(acts.some((a) => a.action === "still-needed-asked" && a.token === "88888888-8888-8888-8888-888888888888")).toBe(true);
+  expect(
+    acts.some((a) => a.action === "still-needed-asked" && a.token === "88888888-8888-8888-8888-888888888888"),
+  ).toBe(true);
 });
 
 test("a patient cannot open either view", async ({ page }) => {

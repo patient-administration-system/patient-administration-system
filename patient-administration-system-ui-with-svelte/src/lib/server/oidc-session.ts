@@ -239,11 +239,7 @@ const CACHE_MS = 10 * 60 * 1000;
 let metaCache: { issuer: string; at: number; meta: ProviderMetadata } | null = null;
 let keyCache: { uri: string; at: number; keys: Jwk[] } | null = null;
 
-export async function providerMetadata(
-  fetchFn: FetchFn,
-  issuer: string,
-  now = Date.now(),
-): Promise<ProviderMetadata> {
+export async function providerMetadata(fetchFn: FetchFn, issuer: string, now = Date.now()): Promise<ProviderMetadata> {
   if (metaCache && metaCache.issuer === issuer && now - metaCache.at < CACHE_MS) {
     return metaCache.meta;
   }

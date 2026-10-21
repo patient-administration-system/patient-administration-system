@@ -52,11 +52,10 @@ describe("statusKey", () => {
 
 describe("appointmentGantt", () => {
   it("groups appointments under one parent per day, in time order", () => {
-    const tasks = appointmentGantt([
-      appt("b", "2026-10-20T11:00:00Z"),
-      appt("a", "2026-10-20T09:00:00Z"),
-      appt("c", "2026-10-21T09:00:00Z"),
-    ], en);
+    const tasks = appointmentGantt(
+      [appt("b", "2026-10-20T11:00:00Z"), appt("a", "2026-10-20T09:00:00Z"), appt("c", "2026-10-21T09:00:00Z")],
+      en,
+    );
     expect(tasks.filter((t) => !t.parentId).map((t) => t.id)).toEqual(["day:2026-10-20", "day:2026-10-21"]);
     expect(tasks.filter((t) => t.parentId === "day:2026-10-20").map((t) => t.id)).toEqual(["a", "b"]);
   });
@@ -74,10 +73,13 @@ describe("ganttRange", () => {
 
 describe("waitlistCards", () => {
   it("orders by clinical priority and files unknown statuses under waiting", () => {
-    const cards = waitlistCards([
-      { id: "1", person_id: "aaaaaaaa-1", target_service: "ENT", priority: "routine", status: "waiting" },
-      { id: "2", person_id: "bbbbbbbb-2", target_service: "ENT", priority: "emergency", status: "mystery" },
-    ], en);
+    const cards = waitlistCards(
+      [
+        { id: "1", person_id: "aaaaaaaa-1", target_service: "ENT", priority: "routine", status: "waiting" },
+        { id: "2", person_id: "bbbbbbbb-2", target_service: "ENT", priority: "emergency", status: "mystery" },
+      ],
+      en,
+    );
     expect(cards.map((c) => c.id)).toEqual(["2", "1"]);
     expect(cards[0]).toMatchObject({ columnId: "waiting", title: "ENT", badges: ["Emergency"] });
     expect(cards[0]?.subtitle).toMatch(/^Patient .*bbbbbbbb/);

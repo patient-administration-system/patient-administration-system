@@ -29,7 +29,9 @@ afterEach(async () => {
 
 /** A server that answers with `answer(command)`: `undefined` never answers, "drop" closes the socket, and
  * `{ delayMs, value }` answers late. */
-async function fakeRedis(answer: (cmd: string[]) => Resp | undefined | "drop" | { delayMs: number; value: Resp }): Promise<Fake> {
+async function fakeRedis(
+  answer: (cmd: string[]) => Resp | undefined | "drop" | { delayMs: number; value: Resp },
+): Promise<Fake> {
   const seen: string[][] = [];
   const sockets = new Set<net.Socket>();
   let connections = 0;
@@ -92,7 +94,11 @@ describe("RedisClient", () => {
     const r = await fakeRedis(kv);
     const u = new URL(r.url);
     const c = new RedisClient({ url: `redis://pas:p%40ss@${u.host}/3` });
-    const [a, b, d] = await Promise.all([c.command("SET", "k", "v é"), c.command("GET", "k"), c.command("GET", "missing")]);
+    const [a, b, d] = await Promise.all([
+      c.command("SET", "k", "v é"),
+      c.command("GET", "k"),
+      c.command("GET", "missing"),
+    ]);
     expect([a, b, d]).toEqual(["OK", "v é", null]);
     expect(r.seen.slice(0, 2)).toEqual([
       ["AUTH", "pas", "p@ss"],

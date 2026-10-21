@@ -7,5 +7,7 @@ import { fromPas, signedInFetch } from "#lib/server/route.js";
 // verified ID token, never from the URL or the browser.
 export const load: PageServerLoad = async ({ locals, fetch }) => {
   const { personId } = await requireProofedPatient(locals, fetch, "/my/appointments");
-  return { appointments: await fromPas(patientAppointments(signedInFetch(fetch, locals), personId), { notFound: true }) };
+  return {
+    appointments: await fromPas(patientAppointments(signedInFetch(fetch, locals), personId), { notFound: true }),
+  };
 };

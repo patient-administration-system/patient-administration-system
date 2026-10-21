@@ -53,7 +53,11 @@ export function noshowText(n: NoShowLike, t: Translate): string {
         : `${t(`noshow.factor.${f.name}`)} ${f.effect_points > 0 ? "+" : ""}${t("noshow.points", { points: f.effect_points })}`,
     );
   const head = `${BAND_MARK[n.band]} ${t(`noshow.band.${n.band}`)}`;
-  return [n.probability_percent === undefined ? `${head}.` : `${head}, ${n.probability_percent}%.`, t("noshow.sample", { n: n.sample_size }) + ".", why.join("; ")]
+  return [
+    n.probability_percent === undefined ? `${head}.` : `${head}, ${n.probability_percent}%.`,
+    t("noshow.sample", { n: n.sample_size }) + ".",
+    why.join("; "),
+  ]
     .filter(Boolean)
     .join(" ");
 }
@@ -177,7 +181,10 @@ export const ragOf = (r: string): "green" | "amber" | "red" | "no_data" =>
 /** A tolerance amount as text: a share as a percentage, weeks and days as a number with a unit key. */
 export function toleranceAmount(value: number, unit: string, locale: string): { text: string; unitKey: string | null } {
   if (unit === "share") {
-    return { text: new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(value), unitKey: null };
+    return {
+      text: new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(value),
+      unitKey: null,
+    };
   }
   const text = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value);
   return { text, unitKey: unit === "weeks" || unit === "days" ? `tol.unit.${unit}` : null };

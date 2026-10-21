@@ -4,7 +4,9 @@ import { expect, test } from "@playwright/test";
 import { keycloakLogin } from "./support/login";
 
 async function noHorizontalScroll(page: import("@playwright/test").Page, label: string) {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
   expect(overflow, `${label} scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(1);
 }
 

@@ -25,7 +25,16 @@ const PUBLIC = ["/signin"];
 const LINKS = ["/r/[token]", "/o/[token]"];
 const PATIENT = ["/my/appointments", "/my/messages"];
 // `/patients` shows its data grid only after a search, so audit it with one.
-const STAFF_AND_ADMIN = ["/appointments", "/waitlist", "/schedule", "/patients?q=ada", "/admin/reminders", "/history", "/waits", "/tolerances"];
+const STAFF_AND_ADMIN = [
+  "/appointments",
+  "/waitlist",
+  "/schedule",
+  "/patients?q=ada",
+  "/admin/reminders",
+  "/history",
+  "/waits",
+  "/tolerances",
+];
 
 async function audit(page: Page, path: string, locale = "en-001") {
   await page.goto(`/${locale}${path}`);
@@ -33,7 +42,13 @@ async function audit(page: Page, path: string, locale = "en-001") {
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   const bad = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(
-    bad.map((v) => `${v.id} (${v.impact}): ${v.nodes.slice(0, 2).map((n) => n.target.join(" ")).join(", ")}`),
+    bad.map(
+      (v) =>
+        `${v.id} (${v.impact}): ${v.nodes
+          .slice(0, 2)
+          .map((n) => n.target.join(" "))
+          .join(", ")}`,
+    ),
     `${locale}${path}`,
   ).toEqual([]);
 }
@@ -67,7 +82,9 @@ test("reply-link page, the are-you-sure step", async ({ page }) => {
   await page.getByRole("button", { name: "Cancel my appointment" }).click();
   await expect(page.getByRole("heading", { name: "Are you sure?" })).toBeVisible();
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-  expect(results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
+  expect(results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual(
+    [],
+  );
 });
 
 for (const locale of ["en-001", "cy-001", "ar-001"]) {
@@ -76,7 +93,9 @@ for (const locale of ["en-001", "cy-001", "ar-001"]) {
     await page.locator('form[action="?/reschedule"] button').click();
     await expect(page.locator('form[action="?/rebook"] button').first()).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-    expect(results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
+    expect(
+      results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id),
+    ).toEqual([]);
   });
 }
 

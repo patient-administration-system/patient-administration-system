@@ -9,9 +9,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 /** Every variable these modules read, unset unless a test sets it (the mock refuses unknown names). */
 const NAMES = [
-  "PAS_API_URL", "PAS_API_TOKEN", "PAS_API_TOKEN_FILE", "OIDC_ISSUER", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET",
-  "OIDC_SCOPES", "OIDC_TENANT_ID", "OIDC_IDP_HINT", "OIDC_REDIRECT_URI", "OIDC_SESSION_HOURS",
-  "OIDC_IDLE_MINUTES", "OIDC_END_SESSION", "OIDC_SESSION_STORE", "REDIS_URL",
+  "PAS_API_URL",
+  "PAS_API_TOKEN",
+  "PAS_API_TOKEN_FILE",
+  "OIDC_ISSUER",
+  "OIDC_CLIENT_ID",
+  "OIDC_CLIENT_SECRET",
+  "OIDC_SCOPES",
+  "OIDC_TENANT_ID",
+  "OIDC_IDP_HINT",
+  "OIDC_REDIRECT_URI",
+  "OIDC_SESSION_HOURS",
+  "OIDC_IDLE_MINUTES",
+  "OIDC_END_SESSION",
+  "OIDC_SESSION_STORE",
+  "REDIS_URL",
 ];
 
 async function withEnv(env: Record<string, string>) {
@@ -84,7 +96,9 @@ describe("OIDC settings", () => {
       idleSeconds: 30 * 60,
       endProviderSession: false,
     });
-    const o = (await withEnv({ OIDC_SESSION_HOURS: "-1", OIDC_IDLE_MINUTES: "abc", OIDC_END_SESSION: "true" })).config.oidcOptions();
+    const o = (
+      await withEnv({ OIDC_SESSION_HOURS: "-1", OIDC_IDLE_MINUTES: "abc", OIDC_END_SESSION: "true" })
+    ).config.oidcOptions();
     expect([o.sessionSeconds, o.idleSeconds, o.endProviderSession]).toEqual([8 * 3600, 30 * 60, true]);
     const z = (await withEnv({ OIDC_SESSION_HOURS: "0.5", OIDC_IDLE_MINUTES: "0" })).config.oidcOptions();
     expect([z.sessionSeconds, z.idleSeconds]).toEqual([1800, 0]);
@@ -103,9 +117,13 @@ describe("the session store", () => {
     const local = await withEnv({ OIDC_SESSION_STORE: "Redis", REDIS_URL: "redis://127.0.0.1:6379" });
     expect(local.instance.sessions()).toBeInstanceOf(local.stores.RedisSessionStore);
     expect(warn).not.toHaveBeenCalled();
-    await (await withEnv({ OIDC_SESSION_STORE: "redis", REDIS_URL: "rediss://cache.internal:6380" })).instance.sessions();
+    await (
+      await withEnv({ OIDC_SESSION_STORE: "redis", REDIS_URL: "rediss://cache.internal:6380" })
+    ).instance.sessions();
     expect(warn).not.toHaveBeenCalled();
-    await (await withEnv({ OIDC_SESSION_STORE: "redis", REDIS_URL: "redis://cache.internal:6379" })).instance.sessions();
+    await (
+      await withEnv({ OIDC_SESSION_STORE: "redis", REDIS_URL: "redis://cache.internal:6379" })
+    ).instance.sessions();
     expect(warn).toHaveBeenCalledOnce();
   });
 

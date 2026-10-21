@@ -38,7 +38,10 @@ const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url")
 function token(claims: Record<string, unknown>, opts: { alg?: string; kid?: string; key?: typeof KEY } = {}): string {
   const head = b64({ alg: opts.alg ?? "RS256", kid: opts.kid ?? "k1", typ: "JWT" });
   const body = b64({ iss: ISSUER, aud: CLIENT, sub: "kc-1", exp: NOW + 300, nonce: "n-1", ...claims });
-  const sig = createSign("RSA-SHA256").update(`${head}.${body}`).sign((opts.key ?? KEY).privateKey).toString("base64url");
+  const sig = createSign("RSA-SHA256")
+    .update(`${head}.${body}`)
+    .sign((opts.key ?? KEY).privateKey)
+    .toString("base64url");
   return `${head}.${body}.${sig}`;
 }
 
@@ -96,7 +99,9 @@ describe("verifyIdToken", () => {
     expect(refusal(() => verifyIdToken(token({ nonce: "n-2" }), [KEY.jwk], EXPECT))).toMatch(/nonce/);
     expect(refusal(() => verifyIdToken(token({ nonce: undefined }), [KEY.jwk], EXPECT))).toMatch(/nonce/);
     expect(refusal(() => verifyIdToken(token({ sub: "" }), [KEY.jwk], EXPECT))).toMatch(/subject/);
-    expect(refusal(() => verifyIdToken(token({ tid: "t-2" }), [KEY.jwk], { ...EXPECT, tenantId: "t-1" }))).toMatch(/tenant/);
+    expect(refusal(() => verifyIdToken(token({ tid: "t-2" }), [KEY.jwk], { ...EXPECT, tenantId: "t-1" }))).toMatch(
+      /tenant/,
+    );
     expect(verifyIdToken(token({ tid: "t-1" }), [KEY.jwk], { ...EXPECT, tenantId: "t-1" }).tid).toBe("t-1");
   });
 
@@ -139,7 +144,13 @@ describe("discover", () => {
   it("refuses another issuer, a templated issuer, missing endpoints, errors and an unreachable provider", async () => {
     const cases: [typeof fetch, string][] = [
       [answering(200, { ...META, issuer: "https://evil.test" }) as unknown as typeof fetch, "issuer_mismatch"],
-      [answering(200, { ...META, issuer: "https://login.microsoftonline.com/{tenantid}/v2.0" }) as unknown as typeof fetch, "issuer_mismatch"],
+      [
+        answering(200, {
+          ...META,
+          issuer: "https://login.microsoftonline.com/{tenantid}/v2.0",
+        }) as unknown as typeof fetch,
+        "issuer_mismatch",
+      ],
       [answering(200, { ...META, jwks_uri: undefined }) as unknown as typeof fetch, "metadata"],
       [answering(500, {}) as unknown as typeof fetch, "metadata"],
       [unreachable, "metadata"],
@@ -150,7 +161,9 @@ describe("discover", () => {
 
 describe("fetchJwks", () => {
   it("returns the keys, and fails closed otherwise", async () => {
-    await expect(fetchJwks(answering(200, { keys: [KEY.jwk] }) as unknown as typeof fetch, META)).resolves.toHaveLength(1);
+    await expect(fetchJwks(answering(200, { keys: [KEY.jwk] }) as unknown as typeof fetch, META)).resolves.toHaveLength(
+      1,
+    );
     for (const f of [answering(200, {}), answering(404, {}), unreachable]) {
       await expect(fetchJwks(f as unknown as typeof fetch, META)).rejects.toMatchObject({ code: "jwks" });
     }
@@ -185,7 +198,9 @@ describe("the token endpoint", () => {
 
   it("fails closed on an error, a reply with no access token, or no answer", async () => {
     for (const f of [answering(400, { error: "invalid_grant" }), answering(200, { id_token: "x" }), unreachable]) {
-      await expect(refreshTokens(f as unknown as typeof fetch, META, CFG, "rt")).rejects.toMatchObject({ code: "token_endpoint" });
+      await expect(refreshTokens(f as unknown as typeof fetch, META, CFG, "rt")).rejects.toMatchObject({
+        code: "token_endpoint",
+      });
     }
   });
 });
@@ -193,11 +208,20 @@ describe("the token endpoint", () => {
 describe("authorizationUrl and PKCE", () => {
   it("asks for the code flow with S256, openid once, and the hint when configured", () => {
     const u = new URL(
-      authorizationUrl(META, { ...CFG, idpHint: "entra" }, { state: "s", nonce: "n", challenge: "c", redirectUri: "https://ui/cb" }),
+      authorizationUrl(
+        META,
+        { ...CFG, idpHint: "entra" },
+        { state: "s", nonce: "n", challenge: "c", redirectUri: "https://ui/cb" },
+      ),
     );
     expect(u.origin + u.pathname).toBe(META.authorization_endpoint);
     const q = Object.fromEntries(u.searchParams);
-    expect(q).toMatchObject({ response_type: "code", client_id: CLIENT, code_challenge_method: "S256", kc_idp_hint: "entra" });
+    expect(q).toMatchObject({
+      response_type: "code",
+      client_id: CLIENT,
+      code_challenge_method: "S256",
+      kc_idp_hint: "entra",
+    });
     expect(q.scope!.split(" ").filter((s) => s === "openid")).toHaveLength(1);
   });
 
@@ -223,7 +247,18 @@ describe("authorizationUrl and PKCE", () => {
 describe("safeReturnPath", () => {
   it("keeps a same-site path and turns everything else into /", () => {
     expect(safeReturnPath("/cy-001/waitlist?x=1#y")).toBe("/cy-001/waitlist?x=1#y");
-    for (const bad of [null, undefined, "", "https://evil.test/", "//evil.test", "/\\evil.test", "/a\\b", "/a\nb", "/a\u0000", "javascript:alert(1)"]) {
+    for (const bad of [
+      null,
+      undefined,
+      "",
+      "https://evil.test/",
+      "//evil.test",
+      "/\\evil.test",
+      "/a\\b",
+      "/a\nb",
+      "/a\u0000",
+      "javascript:alert(1)",
+    ]) {
       expect(safeReturnPath(bad), String(bad)).toBe("/");
     }
   });

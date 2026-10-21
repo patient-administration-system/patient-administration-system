@@ -3,7 +3,8 @@
   import { i18n, t } from "#lib/i18n.svelte.js";
 
   let { data }: { data: PageData } = $props();
-  const when = (iso: string) => new Intl.DateTimeFormat(i18n.locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
+  const when = (iso: string) =>
+    new Intl.DateTimeFormat(i18n.locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
   const what = (r: { kind: string | null; action: string | null }) => [r.kind, r.action].filter(Boolean).join(": ");
 </script>
 

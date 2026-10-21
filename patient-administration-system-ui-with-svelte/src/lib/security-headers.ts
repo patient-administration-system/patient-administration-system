@@ -42,13 +42,8 @@ export function isHttps(url: URL, forwardedProto: string | null): boolean {
  * Adds the security headers to `headers`, never overwriting one the route
  * already set. HSTS is added only for HTTPS requests.
  */
-export function applySecurityHeaders(
-  headers: Headers,
-  https: boolean,
-): Headers {
-  const entries = https
-    ? { "Strict-Transport-Security": HSTS_VALUE, ...SECURITY_HEADERS }
-    : SECURITY_HEADERS;
+export function applySecurityHeaders(headers: Headers, https: boolean): Headers {
+  const entries = https ? { "Strict-Transport-Security": HSTS_VALUE, ...SECURITY_HEADERS } : SECURITY_HEADERS;
   for (const [name, value] of Object.entries(entries)) {
     if (!headers.has(name)) headers.set(name, value);
   }

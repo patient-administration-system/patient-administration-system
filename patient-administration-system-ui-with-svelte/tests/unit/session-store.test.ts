@@ -45,7 +45,12 @@ class FakeRedis {
         const prev = this.live(key!);
         if (opts.includes("XX") && !prev) return null;
         const ex = opts.indexOf("EX");
-        const expiresAt = ex >= 0 ? this.clock.t + Number(opts[ex + 1]) * 1000 : opts.includes("KEEPTTL") ? (prev?.expiresAt ?? null) : null;
+        const expiresAt =
+          ex >= 0
+            ? this.clock.t + Number(opts[ex + 1]) * 1000
+            : opts.includes("KEEPTTL")
+              ? (prev?.expiresAt ?? null)
+              : null;
         this.data.set(key!, { value: value!, expiresAt });
         return "OK";
       }

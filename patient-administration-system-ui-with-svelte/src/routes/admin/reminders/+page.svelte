@@ -12,7 +12,8 @@
 <p>{t("admin.intro")}</p>
 <p>
   {t("admin.variables")}
-  <code>{"{{ patient.name.given }}"}</code>, <code>{"{{ appointment.when }}"}</code>, <code>{"{{ appointment.start }}"}</code>,
+  <code>{"{{ patient.name.given }}"}</code>, <code>{"{{ appointment.when }}"}</code>,
+  <code>{"{{ appointment.start }}"}</code>,
   <code>{"{{ appointment.reason }}"}</code>, <code>{"{{ portal_url }}"}</code>
 </p>
 

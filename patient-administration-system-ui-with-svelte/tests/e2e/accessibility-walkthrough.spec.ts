@@ -41,7 +41,10 @@ test("the skip link is the first stop, shows when focused, and moves to the main
   await expect(page).toHaveURL(/#main$/);
 });
 
-test("a patient can confirm from a reply link using only the keyboard, with focus always visible", async ({ page, request }) => {
+test("a patient can confirm from a reply link using only the keyboard, with focus always visible", async ({
+  page,
+  request,
+}) => {
   const t = token();
   await page.goto(`/en-001/r/${t}`);
   await tabTo(page, /Confirm that I am coming/);
@@ -51,7 +54,10 @@ test("a patient can confirm from a reply link using only the keyboard, with focu
   expect(await acts(request, t)).toEqual(["confirm"]);
 });
 
-test("cancelling with a reason works by keyboard alone: Space on a button, arrows on the reasons, no trap", async ({ page, request }) => {
+test("cancelling with a reason works by keyboard alone: Space on a button, arrows on the reasons, no trap", async ({
+  page,
+  request,
+}) => {
   const t = token();
   await page.goto(`/en-001/r/${t}`);
   await tabTo(page, /Cancel my appointment/);
@@ -85,7 +91,9 @@ test("at 320 pixels wide nothing scrolls sideways and every action is still ther
   await page.setViewportSize({ width: 320, height: 640 });
   for (const path of [`/en-001/r/${token()}`, `/ar-001/r/${token()}`, `/cy-001/o/${token()}`, "/en-001/signin"]) {
     await page.goto(path);
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
     expect(overflow, `${path} scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(1);
   }
   await page.goto(`/en-001/r/${token()}`);

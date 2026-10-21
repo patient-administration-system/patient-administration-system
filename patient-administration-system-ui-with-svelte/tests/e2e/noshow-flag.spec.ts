@@ -5,7 +5,9 @@ import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { keycloakLogin } from "./support/login";
 
-test("a flagged appointment shows the band, the percentage and why, and the page still passes axe", async ({ page }) => {
+test("a flagged appointment shows the band, the percentage and why, and the page still passes axe", async ({
+  page,
+}) => {
   await keycloakLogin(page, "admin");
   await page.goto("/en-001/appointments");
   await page.waitForLoadState("networkidle");
@@ -17,6 +19,10 @@ test("a flagged appointment shows the band, the percentage and why, and the page
   await expect(page.getByText(/Based on 4 past visits\./)).toBeVisible();
   await expect(page.getByText(/Past visits; Lead time/)).toBeVisible();
   await expect(page.getByText(/%|points/)).toHaveCount(0);
-  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
-  expect(results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual(
+    [],
+  );
 });

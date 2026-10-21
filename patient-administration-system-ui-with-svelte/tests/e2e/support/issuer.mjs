@@ -13,7 +13,22 @@ const dir = process.env.ISSUER_DIR ?? path.resolve(here, "../../../test-results/
 const port = process.env.ISSUER_PORT ?? "4195";
 const bin = process.env.PAS_TOKEN_ISSUER ?? null;
 
-const run = (args) => (bin ? [bin, args] : ["cargo", ["run", "--quiet", "--manifest-path", path.join(root, "Cargo.toml"), "--bin", "pas-token-issuer", "--", ...args]]);
+const run = (args) =>
+  bin
+    ? [bin, args]
+    : [
+        "cargo",
+        [
+          "run",
+          "--quiet",
+          "--manifest-path",
+          path.join(root, "Cargo.toml"),
+          "--bin",
+          "pas-token-issuer",
+          "--",
+          ...args,
+        ],
+      ];
 
 rmSync(dir, { recursive: true, force: true });
 mkdirSync(dir, { recursive: true });
@@ -23,8 +38,19 @@ const gen = spawnSync(cmd0, args0, { stdio: "inherit" });
 if (gen.status !== 0) process.exit(gen.status ?? 1);
 
 const [cmd, args] = run([
-  "serve", "--key", path.join(dir, "private.key"), "--kid", "e2e-1", "--sub", "pas-ui", "--ttl", "60",
-  "--token-file", path.join(dir, "service.token"), "--bind", `127.0.0.1:${port}`,
+  "serve",
+  "--key",
+  path.join(dir, "private.key"),
+  "--kid",
+  "e2e-1",
+  "--sub",
+  "pas-ui",
+  "--ttl",
+  "60",
+  "--token-file",
+  path.join(dir, "service.token"),
+  "--bind",
+  `127.0.0.1:${port}`,
 ]);
 const child = spawn(cmd, args, { stdio: "inherit" });
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => child.kill(sig));

@@ -23,6 +23,13 @@
   {#if data.rows.length === 0}
     <p>{t("patients.none", { q: data.q })}</p>
   {:else}
-    <DataGrid label={t("patients.gridLabel")} {columns} rows={data.rows} rowId={(r) => String(r.id)} locale={i18n.locale} exportFilename="patients" />
+    <DataGrid
+      label={t("patients.gridLabel")}
+      {columns}
+      rows={data.rows}
+      rowId={(r) => String(r.id)}
+      locale={i18n.locale}
+      exportFilename="patients"
+    />
   {/if}
 {/if}

@@ -12,7 +12,10 @@ const MAX_LENGTH = 200;
 export function sanitizeActor(actor: string | null | undefined): string | undefined {
   if (!actor) return undefined;
   // Printable ASCII only: this travels in an HTTP header and ends up in an audit log.
-  const clean = actor.replace(/[^\x20-\x7e]/g, "").trim().slice(0, MAX_LENGTH);
+  const clean = actor
+    .replace(/[^\x20-\x7e]/g, "")
+    .trim()
+    .slice(0, MAX_LENGTH);
   return clean === "" ? undefined : clean;
 }
 

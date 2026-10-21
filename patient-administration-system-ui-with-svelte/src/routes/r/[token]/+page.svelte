@@ -19,9 +19,7 @@
   const format = (iso: string, timeZone: string) =>
     new Intl.DateTimeFormat(i18n.locale, { dateStyle: "full", timeStyle: "short", timeZone }).format(new Date(iso));
   const when = $derived(data.startsAt ? format(data.startsAt, data.timeZone) : "");
-  const movedTo = $derived(
-    form && "startsAt" in form && form.startsAt ? format(form.startsAt, data.timeZone) : "",
-  );
+  const movedTo = $derived(form && "startsAt" in form && form.startsAt ? format(form.startsAt, data.timeZone) : "");
 </script>
 
 <svelte:head>
@@ -73,10 +71,18 @@
   {#if when}<p>{t("link.when", { when })}</p>{/if}
   <p>{t("link.question")}</p>
   <div class="actions">
-    <form method="POST" action="?/confirm" use:enhance><button class="button" type="submit">{t("link.confirm")}</button></form>
-    <form method="POST" action="?/reschedule" use:enhance><button class="button" type="submit">{t("link.reschedule")}</button></form>
-    <form method="POST" action="?/cancel" use:enhance><button class="button" type="submit">{t("link.cancel")}</button></form>
-    <form method="POST" action="?/help" use:enhance><button class="button" type="submit">{t("link.help")}</button></form>
+    <form method="POST" action="?/confirm" use:enhance>
+      <button class="button" type="submit">{t("link.confirm")}</button>
+    </form>
+    <form method="POST" action="?/reschedule" use:enhance>
+      <button class="button" type="submit">{t("link.reschedule")}</button>
+    </form>
+    <form method="POST" action="?/cancel" use:enhance>
+      <button class="button" type="submit">{t("link.cancel")}</button>
+    </form>
+    <form method="POST" action="?/help" use:enhance>
+      <button class="button" type="submit">{t("link.help")}</button>
+    </form>
   </div>
 {/if}
 

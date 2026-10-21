@@ -22,9 +22,7 @@ export const LOCALE_COOKIE = "locale";
 
 /** The locale for a request that names none: the remembered one, else `Accept-Language`, else English. */
 export function negotiateLocale(cookies: Pick<Cookies, "get">, acceptLanguage: string | null): Locale {
-  return (
-    normalizeLocale(cookies.get(LOCALE_COOKIE)) ?? localeFromAcceptLanguage(acceptLanguage) ?? DEFAULT_LOCALE
-  );
+  return normalizeLocale(cookies.get(LOCALE_COOKIE)) ?? localeFromAcceptLanguage(acceptLanguage) ?? DEFAULT_LOCALE;
 }
 
 sessions().setIdleSeconds(oidcOptions().idleSeconds);
@@ -38,10 +36,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (!event.locals.oidc && (await sessions().endedIdle(cookie))) {
     event.cookies.delete(OIDC_COOKIE, OIDC_COOKIE_OPTIONS);
     const { pathname } = event.url;
-    if (
-      event.request.headers.get("sec-fetch-dest") === "document" &&
-      !pathname.includes("/signin")
-    ) {
+    if (event.request.headers.get("sec-fetch-dest") === "document" && !pathname.includes("/signin")) {
       redirect(303, `${localizePath("/signin", negotiated)}?error=idle`);
     }
   }

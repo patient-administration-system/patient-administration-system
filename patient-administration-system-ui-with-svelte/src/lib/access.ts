@@ -47,7 +47,8 @@ export function navFor(p: Principal | null | undefined): NavItem[] {
     if (isAdmin(p)) items.push({ href: "/admin/reminders", key: "nav.reminders" });
     return items;
   }
-  if (p && p.roles.includes("patient")) return [
+  if (p && p.roles.includes("patient"))
+    return [
       { href: "/my/appointments", key: "nav.myAppointments" },
       { href: "/my/messages", key: "nav.myMessages" },
     ];

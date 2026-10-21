@@ -14,5 +14,13 @@
 {#if tasks.length === 0}
   <p>{t("schedule.empty")}</p>
 {:else}
-  <GanttChart label={t("schedule.chartLabel")} {tasks} {range} today={data.today} timeUnit="day" locale={i18n.locale} readonly />
+  <GanttChart
+    label={t("schedule.chartLabel")}
+    {tasks}
+    {range}
+    today={data.today}
+    timeUnit="day"
+    locale={i18n.locale}
+    readonly
+  />
 {/if}

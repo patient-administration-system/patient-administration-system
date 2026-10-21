@@ -45,7 +45,18 @@ test("the language menu keeps you on the same page", async ({ page }) => {
 
 test("every language shows the sign-in page in that language", async ({ page }) => {
   const seen = new Set<string>();
-  for (const code of ["ar-001", "cy-001", "de-001", "de-de", "en-001", "es-001", "fr-001", "hi-001", "zh-001", "zh-cn"]) {
+  for (const code of [
+    "ar-001",
+    "cy-001",
+    "de-001",
+    "de-de",
+    "en-001",
+    "es-001",
+    "fr-001",
+    "hi-001",
+    "zh-001",
+    "zh-cn",
+  ]) {
     await page.goto(`/${code}/signin`);
     const heading = (await page.getByRole("heading", { level: 1 }).textContent()) ?? "";
     expect(heading.trim().length, code).toBeGreaterThan(0);

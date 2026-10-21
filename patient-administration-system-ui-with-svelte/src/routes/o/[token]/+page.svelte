@@ -36,8 +36,12 @@
 {:else}
   {#if when}<p>{t("offer.body", { when })}</p>{/if}
   <div class="actions">
-    <form method="POST" action="?/accept" use:enhance><button class="button" type="submit">{t("offer.accept")}</button></form>
-    <form method="POST" action="?/decline" use:enhance><button class="button" type="submit">{t("offer.decline")}</button></form>
+    <form method="POST" action="?/accept" use:enhance>
+      <button class="button" type="submit">{t("offer.accept")}</button>
+    </form>
+    <form method="POST" action="?/decline" use:enhance>
+      <button class="button" type="submit">{t("offer.decline")}</button>
+    </form>
   </div>
 {/if}
 

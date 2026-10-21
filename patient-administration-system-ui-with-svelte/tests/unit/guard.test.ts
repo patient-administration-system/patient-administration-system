@@ -42,7 +42,9 @@ describe("signed out", () => {
     for (const guard of [requireStaff, requireAdmin, requirePatient]) {
       const t = await thrown(() => guard(locals(null), "/waitlist"));
       expect(t.status).toBe(303);
-      expect(t.location).toBe(`${localizePath("/signin", "cy-001")}?return=${encodeURIComponent(localizePath("/waitlist", "cy-001"))}`);
+      expect(t.location).toBe(
+        `${localizePath("/signin", "cy-001")}?return=${encodeURIComponent(localizePath("/waitlist", "cy-001"))}`,
+      );
     }
   });
 });
@@ -61,7 +63,9 @@ describe("roles", () => {
 
   it("gives a patient exactly the person id in the token, and refuses one without a well-formed id", async () => {
     expect(requirePatient(locals({ roles: ["patient"], personId: PERSON }), "/x").personId).toBe(PERSON);
-    expect((await thrown(() => requirePatient(locals({ roles: ["patient"], personId: "not-a-uuid" }), "/x"))).status).toBe(403);
+    expect(
+      (await thrown(() => requirePatient(locals({ roles: ["patient"], personId: "not-a-uuid" }), "/x"))).status,
+    ).toBe(403);
     expect((await thrown(() => requirePatient(locals({ roles: ["patient"] }), "/x"))).status).toBe(403);
     expect((await thrown(() => requirePatient(locals({ roles: ["staff"], personId: PERSON }), "/x"))).status).toBe(403);
   });

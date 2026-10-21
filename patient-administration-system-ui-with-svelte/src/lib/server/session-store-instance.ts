@@ -15,8 +15,13 @@ export function sessions(): SessionStore {
   } else if (kind === "redis") {
     const url = (env.REDIS_URL ?? "").trim();
     if (!url) throw new Error("OIDC_SESSION_STORE=redis needs REDIS_URL");
-    if (url.startsWith("redis://") && !/@(localhost|127\.0\.0\.1|\[::1\])([:/]|$)|\/\/(localhost|127\.0\.0\.1|\[::1\])([:/]|$)/.test(url)) {
-      console.warn("REDIS_URL is not TLS (redis://) and not local: sessions hold identity-provider tokens; prefer rediss://");
+    if (
+      url.startsWith("redis://") &&
+      !/@(localhost|127\.0\.0\.1|\[::1\])([:/]|$)|\/\/(localhost|127\.0\.0\.1|\[::1\])([:/]|$)/.test(url)
+    ) {
+      console.warn(
+        "REDIS_URL is not TLS (redis://) and not local: sessions hold identity-provider tokens; prefer rediss://",
+      );
     }
     chosen = new RedisSessionStore(new RedisClient({ url }));
   } else {

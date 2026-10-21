@@ -1,0 +1,10 @@
+# Generated or vendored: not ours to format.
+build
+.svelte-kit
+node_modules
+coverage
+test-results
+playwright-report
+pnpm-lock.yaml
+static/assets/themes
+src/lib/messages/*.json

@@ -6,7 +6,8 @@ import { MOCK_URL } from "./support/ports";
 
 const axe = (page: import("@playwright/test").Page) =>
   new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
-const serious = (r: Awaited<ReturnType<typeof axe>>) => r.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id);
+const serious = (r: Awaited<ReturnType<typeof axe>>) =>
+  r.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id);
 
 test("each measure shows its tier as a word, not only a colour, and the worst one is the overall", async ({ page }) => {
   await keycloakLogin(page, "admin");
@@ -85,5 +86,7 @@ test("an open alert can be acknowledged, as the signed-in person", async ({ page
   await expect(alert).toContainText("Acknowledged by");
   await expect(alert.getByRole("button")).toHaveCount(0);
   const acts = (await (await request.get(`${MOCK_URL}/__acts`)).json()) as { token: string; action: string }[];
-  expect(acts.some((a) => a.action === "tolerance-alert-acknowledged" && a.token === "aaaaaaaa-0000-4000-8000-00000000000a")).toBe(true);
+  expect(
+    acts.some((a) => a.action === "tolerance-alert-acknowledged" && a.token === "aaaaaaaa-0000-4000-8000-00000000000a"),
+  ).toBe(true);
 });

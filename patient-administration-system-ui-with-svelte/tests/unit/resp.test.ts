@@ -101,7 +101,9 @@ describe("RespParser", () => {
 
 describe("encodeCommand", () => {
   it("writes an array of bulk strings, counting bytes not characters", () => {
-    expect(encodeCommand(["SET", "k", "é", 5]).toString("utf8")).toBe("*4\r\n$3\r\nSET\r\n$1\r\nk\r\n$2\r\né\r\n$1\r\n5\r\n");
+    expect(encodeCommand(["SET", "k", "é", 5]).toString("utf8")).toBe(
+      "*4\r\n$3\r\nSET\r\n$1\r\nk\r\n$2\r\né\r\n$1\r\n5\r\n",
+    );
   });
 
   it("round-trips through the parser as an array of strings", () => {
