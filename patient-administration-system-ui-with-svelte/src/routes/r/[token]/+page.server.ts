@@ -7,28 +7,16 @@
 import { fail } from "@sveltejs/kit";
 import { isReason } from "#lib/reasons.js";
 import type { Actions, PageServerLoad } from "./$types";
-import { PasError, replyLinkAct, replyLinkInfo, replyLinkRebook } from "#lib/server/pas.js";
+import { replyLinkAct, replyLinkInfo, replyLinkRebook } from "#lib/server/pas.js";
+import { LINK_PAGE_HEADERS, isLinkToken, linkFailureStatus, linkStateFor as stateFor } from "#lib/server/token-link.js";
 
 /** What the page is showing. Each is a catalogue key suffix (`link.<state>`). */
 export type LinkState = "open" | "used" | "expired" | "invalid" | "unavailable";
 
-const TOKEN = /^[0-9a-f]{64}$/;
-
-function stateFor(e: unknown): LinkState {
-  if (e instanceof PasError) {
-    if (e.status === 404) return "invalid";
-    if (e.status === 409) return "used";
-    if (e.status === 400) return "expired";
-  }
-  return "unavailable";
-}
 
 export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
-  // The address carries the token: never send it to another site in a Referer, and never cache the page. It is
-  // `same-origin`, not `no-referrer`: with `no-referrer` the browser sends `Origin: null` on a plain form post,
-  // which SvelteKit refuses as cross-site, so a tap before the page finished loading (or with scripts off) failed.
-  setHeaders({ "referrer-policy": "same-origin", "cache-control": "no-store" });
-  if (!TOKEN.test(params.token)) return { state: "invalid" as LinkState, startsAt: null, timeZone: "UTC" };
+  setHeaders(LINK_PAGE_HEADERS);
+  if (!isLinkToken(params.token)) return { state: "invalid" as LinkState, startsAt: null, timeZone: "UTC" };
   try {
     const info = await replyLinkInfo(fetch, params.token);
     return { state: info.state as LinkState, startsAt: info.starts_at, timeZone: info.time_zone };
@@ -38,7 +26,7 @@ export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
 };
 
 async function act(token: string, action: string, confirmed: boolean, f: typeof fetch, reason?: string) {
-  if (!TOKEN.test(token)) return fail(404, { state: "invalid" as LinkState });
+  if (!isLinkToken(token)) return fail(404, { state: "invalid" as LinkState });
   try {
     const r = await replyLinkAct(f, token, action, confirmed, reason);
     // Reschedule offers real times first (CAP-5); the link is not used up until one is chosen.
@@ -50,7 +38,7 @@ async function act(token: string, action: string, confirmed: boolean, f: typeof 
       signpost: r.signpost ?? null,
     };
   } catch (e) {
-    return fail(e instanceof PasError && e.status < 500 ? e.status : 502, { state: stateFor(e) });
+    return fail(linkFailureStatus(e), { state: stateFor(e) });
   }
 }
 
@@ -59,7 +47,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 // Choosing a time. If it is refused (usually because someone else just took it) the API gives the link
 // back, so the patient can ask for other times: say so rather than call the link used.
 async function rebook(token: string, slotId: unknown, f: typeof fetch) {
-  if (!TOKEN.test(token)) return fail(404, { state: "invalid" as LinkState });
+  if (!isLinkToken(token)) return fail(404, { state: "invalid" as LinkState });
   if (typeof slotId !== "string" || !UUID.test(slotId)) return fail(400, { state: "open" as LinkState, retry: true });
   try {
     const r = await replyLinkRebook(f, token, slotId);
@@ -70,7 +58,7 @@ async function rebook(token: string, slotId: unknown, f: typeof fetch) {
       if (info.state === "open") return fail(409, { state: "open" as LinkState, retry: true });
       return fail(409, { state: info.state as LinkState });
     } catch {
-      return fail(e instanceof PasError && e.status < 500 ? e.status : 502, { state: stateFor(e) });
+      return fail(linkFailureStatus(e), { state: stateFor(e) });
     }
   }
 }

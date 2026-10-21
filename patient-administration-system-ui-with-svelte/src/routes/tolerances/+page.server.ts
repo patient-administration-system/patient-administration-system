@@ -1,8 +1,8 @@
 import type { Actions, PageServerLoad } from "./$types";
-import { error, fail } from "@sveltejs/kit";
+import { fail } from "@sveltejs/kit";
 import { requireAdmin, requireStaff } from "#lib/server/guard.js";
-import { PasError, acknowledgeToleranceAlert, toleranceAlerts, toleranceStatus } from "#lib/server/pas.js";
-import { actingAs } from "#lib/acting-as.js";
+import { acknowledgeToleranceAlert, toleranceAlerts, toleranceStatus } from "#lib/server/pas.js";
+import { actorName, fromPas, pasFailure, signedInFetch } from "#lib/server/route.js";
 import { isAdmin, isUuid } from "#lib/access.js";
 
 const WINDOWS = [7, 30, 90];
@@ -12,13 +12,8 @@ export const load: PageServerLoad = async ({ locals, fetch, url }) => {
   const session = requireStaff(locals, "/tolerances");
   const asked = Number(url.searchParams.get("days"));
   const days = WINDOWS.includes(asked) ? asked : 30;
-  const f = actingAs(fetch, locals.oidc?.user.sub);
-  try {
-    return { days, windows: WINDOWS, canAcknowledge: isAdmin(session.user), status: await toleranceStatus(f, days), alerts: await toleranceAlerts(f) };
-  } catch (e) {
-    if (e instanceof PasError) error(502, e.message);
-    throw e;
-  }
+  const f = signedInFetch(fetch, locals);
+  return { days, windows: WINDOWS, canAcknowledge: isAdmin(session.user), status: await fromPas(toleranceStatus(f, days)), alerts: await fromPas(toleranceAlerts(f)) };
 };
 
 export const actions: Actions = {
@@ -28,14 +23,10 @@ export const actions: Actions = {
     const id = String((await request.formData()).get("alert") ?? "");
     if (!isUuid(id)) return fail(400, { id, messageKey: "tol.alerts.error" });
     // The person acknowledging is the signed-in member of staff, never a name typed into the form.
-    const user = locals.oidc?.user;
-    const by = (user?.name ?? user?.sub ?? "").toString().slice(0, 120);
-    try {
-      await acknowledgeToleranceAlert(actingAs(fetch, user?.sub), id, by);
-    } catch (e) {
-      if (e instanceof PasError) return fail(e.status >= 500 ? 502 : 400, { id, messageKey: "tol.alerts.error" });
-      throw e;
-    }
-    return { id, acknowledged: true };
+    const failed = await pasFailure(() => acknowledgeToleranceAlert(signedInFetch(fetch, locals), id, actorName(locals)), {
+      id,
+      messageKey: "tol.alerts.error",
+    });
+    return failed ?? { id, acknowledged: true };
   },
 };

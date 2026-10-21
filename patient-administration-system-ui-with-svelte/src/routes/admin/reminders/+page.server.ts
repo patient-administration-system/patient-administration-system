@@ -1,19 +1,14 @@
 import type { Actions, PageServerLoad } from "./$types";
-import { error, fail } from "@sveltejs/kit";
+import { fail } from "@sveltejs/kit";
 import { requireAdmin } from "#lib/server/guard.js";
-import { PasError, letterTemplates, updateLetterTemplate } from "#lib/server/pas.js";
-import { actingAs } from "#lib/acting-as.js";
+import { letterTemplates, updateLetterTemplate, type LetterTemplate } from "#lib/server/pas.js";
+import { fromPas, pasFailure, signedInFetch } from "#lib/server/route.js";
 import { cleanChannels } from "#lib/channels.js";
 import { isUuid } from "#lib/access.js";
 
 export const load: PageServerLoad = async ({ locals, fetch }) => {
   requireAdmin(locals, "/admin/reminders");
-  try {
-    return { templates: await letterTemplates(actingAs(fetch, locals.oidc?.user.sub)) };
-  } catch (e) {
-    if (e instanceof PasError) error(502, e.message);
-    throw e;
-  }
+  return { templates: await fromPas(letterTemplates(signedInFetch(fetch, locals))) };
 };
 
 export const actions: Actions = {
@@ -28,21 +23,20 @@ export const actions: Actions = {
     const channels = cleanChannels(form.getAll("channels").map(String));
     if (channels.length === 0) return fail(400, { id, messageKey: "admin.error.channelRequired" });
 
-    // Edit only the editable fields of the template as stored, never a browser-supplied copy of the rest.
-    const current = (await letterTemplates(actingAs(fetch, locals.oidc?.user.sub))).find((t) => t.id === id);
+    // Edit only the editable fields of the template as stored, never a browser-supplied copy of the rest. A PAS
+    // failure while reading it is the form's error too, not a broken page.
+    const f = signedInFetch(fetch, locals);
+    let current: LetterTemplate | undefined;
+    const unread = await pasFailure(async () => {
+      current = (await letterTemplates(f)).find((t) => t.id === id);
+    }, { id, messageKey: "admin.error.rejected" });
+    if (unread) return unread;
     if (!current) return fail(404, { id, messageKey: "admin.error.notFound" });
-    try {
-      await updateLetterTemplate(actingAs(fetch, locals.oidc?.user.sub), {
-        ...current,
-        subject,
-        body_tera: body,
-        channels,
-        active: form.get("active") === "on",
-      });
-    } catch (e) {
-      if (e instanceof PasError) return fail(e.status >= 500 ? 502 : 400, { id, messageKey: "admin.error.rejected" });
-      throw e;
-    }
-    return { id, saved: true };
+    const template = current;
+    const failed = await pasFailure(
+      () => updateLetterTemplate(f, { ...template, subject, body_tera: body, channels, active: form.get("active") === "on" }),
+      { id, messageKey: "admin.error.rejected" },
+    );
+    return failed ?? { id, saved: true };
   },
 };
