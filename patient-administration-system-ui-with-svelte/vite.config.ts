@@ -46,5 +46,13 @@ export default defineConfig({
         include: ["tests/unit/**/*.{test,spec}.{ts,js}"],
         environment: "jsdom",
         globals: true,
+        // `pnpm run test:coverage` (CI): the server code holds the session, the tokens and the guards, so
+        // its coverage may not fall below these (QUAL-19; 93% of statements on 2026-10-21).
+        coverage: {
+            provider: "v8",
+            include: ["src/lib/server/**"],
+            reporter: ["text-summary", "text"],
+            thresholds: { statements: 90, lines: 90, branches: 85, functions: 75 },
+        },
     },
 });
