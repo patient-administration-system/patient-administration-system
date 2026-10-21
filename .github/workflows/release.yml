@@ -25,41 +25,56 @@ jobs:
   verify:
     name: "Tag, version and changelog agree"
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # Fails unless the tag, the server crate's version and a CHANGELOG entry all agree.
+      # Expressions reach `run:` through env, never by text substitution: `inputs.version` is typed by a person.
       - id: v
+        env:
+          REQUESTED: ${{ inputs.version || github.ref_name }}
         run: |
-          version="${{ inputs.version || github.ref_name }}"
-          echo "version=${version#v}" >> "$GITHUB_OUTPUT"
-      - run: scripts/release-notes.sh "${{ steps.v.outputs.version }}" > release-notes.md
-      - uses: actions/upload-artifact@v7
+          version="${REQUESTED#v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a version: $REQUESTED" >&2; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: scripts/release-notes.sh "$VERSION" > release-notes.md
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: release-notes, path: release-notes.md }
 
   deny:
     name: Dependencies (cargo deny)
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with: { command: check, arguments: --all-features }
 
   sbom:
     name: SBOMs (CycloneDX)
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
       - run: cargo install cargo-cyclonedx --locked && cargo cyclonedx --format json
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with: { version: 12.10.1 }
-      - uses: actions/setup-node@v7
-        with: { node-version: 26 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 26, package-manager-cache: false }
       - run: pnpm install --frozen-lockfile && pnpm sbom --sbom-format cyclonedx --lockfile-only --out ../sbom-ui.cdx.json
         working-directory: patient-administration-system-ui-with-svelte
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sboms
           path: |
@@ -70,22 +85,25 @@ jobs:
     name: Container images
     needs: [verify, deny]
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
     permissions:
       contents: read
       packages: write
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - if: github.event_name == 'push'
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: server
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: patient-administration-system-with-rust/Containerfile
@@ -99,20 +117,23 @@ jobs:
             REVISION=${{ github.sha }}
             SOURCE=${{ github.server_url }}/${{ github.repository }}
       - if: github.event_name == 'push'
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/${{ github.repository }}/server
           subject-digest: ${{ steps.server.outputs.digest }}
           push-to-registry: true
       - name: The server image carries the verified version
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}/server:v${{ needs.verify.outputs.version }}
+          VERSION: ${{ needs.verify.outputs.version }}
+          EVENT: ${{ github.event_name }}
         run: |
-          image="ghcr.io/${{ github.repository }}/server:v${{ needs.verify.outputs.version }}"
           # A real release pulls what it pushed; a dry run built it locally.
-          if [ "${{ github.event_name }}" = push ]; then docker pull "$image" >/dev/null; fi
-          got="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")"
-          [ "$got" = "${{ needs.verify.outputs.version }}" ] || { echo "image label $got != ${{ needs.verify.outputs.version }}" >&2; exit 1; }
+          if [ "$EVENT" = push ]; then docker pull "$IMAGE" >/dev/null; fi
+          got="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$IMAGE")"
+          [ "$got" = "$VERSION" ] || { echo "image label $got != $VERSION" >&2; exit 1; }
       - id: ui
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: patient-administration-system-ui-with-svelte
           file: patient-administration-system-ui-with-svelte/Containerfile
@@ -126,31 +147,35 @@ jobs:
             REVISION=${{ github.sha }}
             SOURCE=${{ github.server_url }}/${{ github.repository }}
       - if: github.event_name == 'push'
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/${{ github.repository }}/ui
           subject-digest: ${{ steps.ui.outputs.digest }}
           push-to-registry: true
       - name: The UI image carries the verified version
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}/ui:v${{ needs.verify.outputs.version }}
+          VERSION: ${{ needs.verify.outputs.version }}
+          EVENT: ${{ github.event_name }}
         run: |
-          image="ghcr.io/${{ github.repository }}/ui:v${{ needs.verify.outputs.version }}"
-          if [ "${{ github.event_name }}" = push ]; then docker pull "$image" >/dev/null; fi
-          got="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$image")"
-          [ "$got" = "${{ needs.verify.outputs.version }}" ] || { echo "image label $got != ${{ needs.verify.outputs.version }}" >&2; exit 1; }
+          if [ "$EVENT" = push ]; then docker pull "$IMAGE" >/dev/null; fi
+          got="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$IMAGE")"
+          [ "$got" = "$VERSION" ] || { echo "image label $got != $VERSION" >&2; exit 1; }
 
   release:
     name: GitHub release
     if: github.event_name == 'push'
     needs: [verify, deny, sbom, images]
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: release-notes }
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: sboms }
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           body_path: release-notes.md
           files: "**/*.cdx.json"
