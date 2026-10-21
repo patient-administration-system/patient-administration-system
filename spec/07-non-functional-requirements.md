@@ -2,8 +2,8 @@
 
 | ID | Requirement | Verified by |
 |---|---|---|
-| NFR-1 | Every state-changing call MUST write an `audit_log` row in the same transaction as the change. | **Not yet tested** as a general property |
-| NFR-2 | Every state change MUST write an outbox event in the same transaction; failed publishes MUST be retried and dead-lettered, never dropped. | **Not yet tested** as a general property |
+| NFR-1 | Every state-changing call MUST write an `audit_log` row in the same transaction as the change. | `tests/qual32_audit_outbox_test.rs` (ten core mutations over HTTP, one audit row each; a change whose event cannot be written leaves neither the change nor its audit row). Not every route is in the table (QUAL-32) |
+| NFR-2 | Every state change MUST write an outbox event in the same transaction; failed publishes MUST be retried and dead-lettered, never dropped. | `tests/qual32_audit_outbox_test.rs` for the scheduling and waiting-list changes. **Not true as written:** 19 modules audit changes without publishing an event (standby, referrals, support flags, transport, receipts and more); which changes publish is an open decision (QUAL-35) |
 | NFR-3 | A patient session MUST be able to read only the record named by the `person_id` claim of its verified ID token, never one named in a URL or form. | `ui/tests/unit/access.test.ts`, `ui/tests/e2e/sign-in.spec.ts` |
 | NFR-4 | Locale codes MUST be `<language>-<region>`, lowercase, hyphenated; `-001` means "world"; bare two-letter codes MUST NOT be used. | `ui/tests/unit/locale-names.test.ts` |
 | NFR-5 | Every locale MUST have every key, no extra keys, and no visible English outside the translation function. | `ui/tests/unit/i18n.test.ts`, `ui/tests/unit/catalogue-coverage.test.ts` |
