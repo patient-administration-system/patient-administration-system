@@ -5,6 +5,8 @@ members = [
     "patient-administration-system-with-rust/migrations",
     "patient-administration-system-frontend",
 ]
+# The fuzz targets are their own workspace (nightly, sanitizers): see patient-administration-system-with-rust/fuzz.
+exclude = ["patient-administration-system-with-rust/fuzz"]
 
 # Hoisted to the workspace root because per-member [profile.*] blocks are
 # silently ignored by Cargo. One shared `target/`, one shared `Cargo.lock`.

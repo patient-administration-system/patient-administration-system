@@ -78,6 +78,8 @@ hmac = "0.13"
 [dev-dependencies]
 # Testing
 assertables = "10"
+# Property tests for the parsers that read outside input (QUAL-17).
+proptest = { version = "1", default-features = false, features = ["std"] }
 tempfile = "3.27"
 
 # v0.44.0 Phase 3a integration tests: sign + verify HMAC for the inbound

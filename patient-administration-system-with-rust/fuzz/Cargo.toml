@@ -1,0 +1,48 @@
+# No-panic fuzz targets for the code that reads outside input (QUAL-17). Not part of the main workspace:
+# it needs nightly and a sanitizer. Run with `cargo +nightly fuzz run <target>` from this directory; the
+# weekly `.github/workflows/fuzz.yml` runs each target for a few minutes.
+[package]
+name = "patient-administration-system-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+patient-administration-system = { path = ".." }
+
+# Its own workspace, so the main one (and its single lockfile) is untouched.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "hl7_message"
+path = "fuzz_targets/hl7_message.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "hl7_batch"
+path = "fuzz_targets/hl7_batch.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "text_reply"
+path = "fuzz_targets/text_reply.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "nhs_number"
+path = "fuzz_targets/nhs_number.rs"
+test = false
+doc = false
+bench = false

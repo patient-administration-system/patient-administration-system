@@ -1,0 +1,6 @@
+target
+corpus
+artifacts
+coverage
+# The fuzz crate resolves its own dependencies; the repository keeps one lockfile, at the root (QUAL-3).
+Cargo.lock

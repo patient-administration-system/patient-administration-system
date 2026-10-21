@@ -36,9 +36,9 @@ jobs:
       - run: cargo test --workspace
 
   rust-db:
-    name: Rust (tests that need PostgreSQL)
+    name: Rust (tests that need PostgreSQL, with coverage)
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:18
@@ -56,11 +56,29 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component llvm-tools && rustup default "$RUST_TOOLCHAIN"
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        with:
+          tool: cargo-llvm-cov
       - run: cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
-      # `--ignored` runs ONLY the tests marked #[ignore]; they fail (not skip) without a database.
-      - run: cargo test --workspace -- --ignored --test-threads=1
+      # `--ignored` runs ONLY the tests marked #[ignore]; they fail (not skip) without a database. Run under
+      # coverage, with the unit tests after them, so CI publishes one line-coverage report (QUAL-17).
+      - run: cargo llvm-cov --workspace --no-report -- --ignored --test-threads=1
+      - run: cargo llvm-cov --workspace --no-report
+      - name: Coverage report
+        run: |
+          {
+            echo '### Rust line coverage (unit and database tests)'
+            echo '```'
+            cargo llvm-cov report --summary-only
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cargo llvm-cov report --lcov --output-path lcov.info
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rust-coverage
+          path: lcov.info
 
   deny:
     name: Dependencies (cargo deny)
