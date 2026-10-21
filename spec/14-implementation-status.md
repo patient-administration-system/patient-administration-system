@@ -5,8 +5,8 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 <!-- status:begin -->
 | Measure | Count |
 |---|---|
-| Rust test functions (server, front-end, migrations) | 796 |
-| of which `#[ignore]`d (need PostgreSQL) | 269 |
+| Rust test functions (server, front-end, migrations) | 803 |
+| of which `#[ignore]`d (need PostgreSQL) | 271 |
 | Server route registrations | 233 |
 | Migrations | 40 |
 | UI page routes | 13 |
@@ -16,6 +16,6 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | Functional requirements | 165 |
 | Non-functional requirements | 17 |
 | Requirements marked not yet tested or not yet built | 11 |
-| Tasks done | 84 |
-| Tasks open | 44 |
+| Tasks done | 85 |
+| Tasks open | 59 |
 <!-- status:end -->

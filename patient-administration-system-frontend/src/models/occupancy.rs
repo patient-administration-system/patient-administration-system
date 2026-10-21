@@ -1,7 +1,8 @@
-//! Read-side join: bed → active bed_assignment → encounter → patient.
+//! Read-side join: bed → active bed_assignment → encounter → person (name from person-service).
 //!
 //! Returns the *current* occupant (if any) of each bed in a given set.
 
+use crate::models::patient::names_for;
 use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -54,38 +55,6 @@ mod encounter_entity {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-mod patient_entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "patients")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub mpi_id: Option<Uuid>,
-        pub active: bool,
-        pub name: serde_json::Value,
-        pub additional_names: serde_json::Value,
-        pub identifiers: serde_json::Value,
-        pub telecom: serde_json::Value,
-        pub addresses: serde_json::Value,
-        pub gender: String,
-        pub birth_date: Option<chrono::NaiveDate>,
-        pub deceased: bool,
-        pub deceased_datetime: Option<chrono::DateTime<chrono::FixedOffset>>,
-        pub emergency_contacts: serde_json::Value,
-        pub marital_status: Option<String>,
-        pub deleted_at: Option<chrono::DateTime<chrono::FixedOffset>>,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
-}
-
 /// Current occupant of one bed.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Occupant {
@@ -124,17 +93,12 @@ pub async fn current_occupants_for_beds(
     let patient_by_encounter: HashMap<Uuid, Uuid> =
         encounters.iter().map(|e| (e.id, e.person_id)).collect();
 
-    // 3. Look up patient rows.
+    // 3. Look up names in person-service (identity is not stored here).
     let person_ids: Vec<Uuid> = patient_by_encounter.values().copied().collect();
     if person_ids.is_empty() {
         return Ok(HashMap::new());
     }
-    let patients = patient_entity::Entity::find()
-        .filter(patient_entity::Column::Id.is_in(person_ids))
-        .all(db)
-        .await?;
-    let patient_by_id: HashMap<Uuid, patient_entity::Model> =
-        patients.into_iter().map(|p| (p.id, p)).collect();
+    let names = names_for(&person_ids).await;
 
     // 4. Stitch: bed_id → encounter → patient.
     let mut out: HashMap<Uuid, Occupant> = HashMap::with_capacity(assignments.len());
@@ -142,10 +106,11 @@ pub async fn current_occupants_for_beds(
         let Some(person_id) = patient_by_encounter.get(&a.encounter_id).copied() else {
             continue;
         };
-        let Some(p) = patient_by_id.get(&person_id) else {
-            continue;
-        };
-        let (family, given) = name_parts(&p.name);
+        // An occupied bed stays occupied even when the name is unavailable.
+        let (family, given) = names
+            .get(&person_id)
+            .cloned()
+            .unwrap_or_else(|| ("(unknown)".into(), String::new()));
         out.insert(
             a.bed_id,
             Occupant {
@@ -156,23 +121,4 @@ pub async fn current_occupants_for_beds(
         );
     }
     Ok(out)
-}
-
-fn name_parts(v: &serde_json::Value) -> (String, String) {
-    let family = v
-        .get("family")
-        .and_then(|x| x.as_str())
-        .unwrap_or("")
-        .to_string();
-    let given = v
-        .get("given")
-        .and_then(|x| x.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|x| x.as_str())
-                .collect::<Vec<_>>()
-                .join(" ")
-        })
-        .unwrap_or_default();
-    (family, given)
 }

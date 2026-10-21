@@ -9,6 +9,7 @@
 //! unchanged.
 
 use serde::Serialize;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::services::person_api::{self, PersonApiError, UpstreamPerson};
@@ -51,6 +52,36 @@ pub async fn list_active_patients(limit: u32) -> Vec<PatientCard> {
             Vec::new()
         }
     }
+}
+
+/// Most distinct people `names_for` asks person-service about in one call.
+const NAMES_FOR_LIMIT: usize = 500;
+
+/// Display names (`family`, `given`) for a set of people, fetched from
+/// `person-service` (the local `patients` table no longer exists).
+/// A person the service cannot answer for is left out of the map, so a
+/// caller shows "unknown" rather than failing the whole page.
+pub async fn names_for(ids: &[Uuid]) -> HashMap<Uuid, (String, String)> {
+    let mut unique: Vec<Uuid> = ids.to_vec();
+    unique.sort();
+    unique.dedup();
+    unique.truncate(NAMES_FOR_LIMIT);
+    let mut tasks = tokio::task::JoinSet::new();
+    for id in unique {
+        tasks.spawn(async move { (id, person_api::get_person(id).await) });
+    }
+    let mut out = HashMap::new();
+    while let Some(joined) = tasks.join_next().await {
+        match joined {
+            Ok((id, Ok(Some(p)))) => {
+                out.insert(id, name_parts(p.name.as_ref().or(p.names.as_ref())));
+            }
+            Ok((_, Ok(None))) => {}
+            Ok((id, Err(e))) => eprintln!("names_for: person-service failed for {id} ({e})"),
+            Err(e) => eprintln!("names_for: lookup task failed ({e})"),
+        }
+    }
+    out
 }
 
 /// Fetch one patient by id. Maps:

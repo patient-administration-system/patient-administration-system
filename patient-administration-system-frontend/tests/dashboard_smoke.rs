@@ -364,3 +364,92 @@ async fn health_endpoint_returns_json() {
     })
     .await;
 }
+
+/// A one-purpose person-service: answers `GET /api/persons/{id}` with a
+/// fixed name and returns its base URL.
+async fn stub_person_service() -> String {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind stub person-service");
+    let url = format!("http://{}", listener.local_addr().expect("local addr"));
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut sock, _)) = listener.accept().await else {
+                return;
+            };
+            tokio::spawn(async move {
+                let mut buf = vec![0u8; 4096];
+                let n = sock.read(&mut buf).await.unwrap_or(0);
+                let head = String::from_utf8_lossy(&buf[..n]).to_string();
+                let id = head
+                    .split_whitespace()
+                    .nth(1)
+                    .and_then(|p| p.rsplit('/').next())
+                    .unwrap_or("")
+                    .to_string();
+                let body = format!(
+                    r#"{{"success":true,"data":{{"id":"{id}","name":{{"family":"Stubfamily","given":["Sam"]}}}}}}"#
+                );
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = sock.write_all(resp.as_bytes()).await;
+            });
+        }
+    });
+    url
+}
+
+/// BUG-8: the ward and RTT pages used to read a `patients` table that no
+/// longer exists. With an occupied bed and an active pathway they must
+/// render, with the name taken from person-service.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+#[serial]
+async fn ward_and_rtt_pages_render_with_an_occupied_bed_and_an_active_pathway() {
+    use sea_orm::ConnectionTrait;
+    let url = stub_person_service().await;
+    // SAFETY: #[serial] keeps every other test in this binary from running now.
+    unsafe { std::env::set_var("PERSON_SERVICE_URL", &url) };
+    request::<App, _, _>(|request, ctx| async move {
+        let ids: Vec<uuid::Uuid> = (0..8).map(|_| uuid::Uuid::new_v4()).collect();
+        let [facility, ward, room, bed, encounter, assignment, person, pathway] =
+            [0, 1, 2, 3, 4, 5, 6, 7].map(|i| ids[i]);
+        let tag = &facility.simple().to_string()[..8];
+        let seed = format!(
+            "INSERT INTO facilities (id,name,code,address,created_at,updated_at) VALUES ('{facility}','F {tag}','F{tag}','{{}}',now(),now());
+             INSERT INTO wards (id,facility_id,name,code,capacity,created_at,updated_at) VALUES ('{ward}','{facility}','W {tag}','W{tag}',1,now(),now());
+             INSERT INTO rooms (id,ward_id,name,code,created_at,updated_at) VALUES ('{room}','{ward}','R {tag}','R{tag}',now(),now());
+             INSERT INTO beds (id,room_id,name,code,created_at,updated_at) VALUES ('{bed}','{room}','B {tag}','B{tag}',now(),now());
+             INSERT INTO encounters (id,person_id,class,status,period_start,created_at,updated_at) VALUES ('{encounter}','{person}','inpatient','in-progress',now(),now(),now());
+             INSERT INTO bed_assignments (id,encounter_id,bed_id,assigned_at,created_at,updated_at) VALUES ('{assignment}','{encounter}','{bed}',now(),now(),now());
+             INSERT INTO rtt_pathways (id,person_id,target_service,started_at,created_at,updated_at) VALUES ('{pathway}','{person}','Bug8 {tag}',now() - interval '30 days',now(),now());
+             INSERT INTO rtt_clock_events (id,pathway_id,kind,event_at,created_at) VALUES ('{}','{pathway}','started',now() - interval '30 days',now());",
+            uuid::Uuid::new_v4()
+        );
+        ctx.db.execute_unprepared(&seed).await.expect("seed");
+
+        let ward_page = request.get(&format!("/wards/{ward}")).await;
+        let rtt_page = request.get("/rtt").await;
+
+        let cleanup = format!(
+            "DELETE FROM rtt_clock_events WHERE pathway_id='{pathway}';
+             DELETE FROM rtt_pathways WHERE id='{pathway}';
+             DELETE FROM bed_assignments WHERE id='{assignment}';
+             DELETE FROM encounters WHERE id='{encounter}';
+             DELETE FROM beds WHERE id='{bed}';
+             DELETE FROM rooms WHERE id='{room}';
+             DELETE FROM wards WHERE id='{ward}';
+             DELETE FROM facilities WHERE id='{facility}';"
+        );
+        ctx.db.execute_unprepared(&cleanup).await.expect("cleanup");
+
+        ward_page.assert_status_ok();
+        assert!(ward_page.text().contains("Stubfamily"), "ward page: {}", ward_page.text());
+        rtt_page.assert_status_ok();
+        assert!(rtt_page.text().contains("Stubfamily"), "rtt page: {}", rtt_page.text());
+    })
+    .await;
+}

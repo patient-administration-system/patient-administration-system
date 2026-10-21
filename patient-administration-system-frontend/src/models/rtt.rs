@@ -7,10 +7,10 @@
 //! Axum side — sum of unpaused intervals from `started`/`resumed` events
 //! to either the next `paused`/`stopped` event or `now`.
 
+use crate::models::patient::names_for;
 use chrono::{DateTime, FixedOffset, Utc};
 use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, QueryOrder};
 use serde::Serialize;
-use std::collections::HashMap;
 use uuid::Uuid;
 
 mod pathway_entity {
@@ -58,38 +58,6 @@ mod event_entity {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-mod patient_entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "patients")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub mpi_id: Option<Uuid>,
-        pub active: bool,
-        pub name: serde_json::Value,
-        pub additional_names: serde_json::Value,
-        pub identifiers: serde_json::Value,
-        pub telecom: serde_json::Value,
-        pub addresses: serde_json::Value,
-        pub gender: String,
-        pub birth_date: Option<chrono::NaiveDate>,
-        pub deceased: bool,
-        pub deceased_datetime: Option<chrono::DateTime<chrono::FixedOffset>>,
-        pub emergency_contacts: serde_json::Value,
-        pub marital_status: Option<String>,
-        pub deleted_at: Option<chrono::DateTime<chrono::FixedOffset>>,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
-}
-
 /// One row in the `/rtt` cockpit.
 #[derive(Debug, Clone, Serialize)]
 pub struct PathwayRow {
@@ -118,12 +86,7 @@ pub async fn list_active_pathways(db: &DatabaseConnection) -> Result<Vec<Pathway
 
     // Patient name lookup table.
     let person_ids: Vec<Uuid> = pathways.iter().map(|p| p.person_id).collect();
-    let patients = patient_entity::Entity::find()
-        .filter(patient_entity::Column::Id.is_in(person_ids))
-        .all(db)
-        .await?;
-    let patient_by_id: HashMap<Uuid, patient_entity::Model> =
-        patients.into_iter().map(|p| (p.id, p)).collect();
+    let names = names_for(&person_ids).await;
 
     let now = Utc::now();
     let mut rows = Vec::with_capacity(pathways.len());
@@ -136,9 +99,9 @@ pub async fn list_active_pathways(db: &DatabaseConnection) -> Result<Vec<Pathway
             .await?;
         let weeks = compute_active_weeks_from_models(&events, now);
         let breach_weeks = p.breach_weeks.max(0) as u32;
-        let (family, given) = patient_by_id
+        let (family, given) = names
             .get(&p.person_id)
-            .map(|m| name_parts(&m.name))
+            .cloned()
             .unwrap_or_else(|| ("(unknown)".into(), String::new()));
         rows.push(PathwayRow {
             pathway_id: p.id,
@@ -196,23 +159,4 @@ fn compute_active_weeks_from_models(events: &[event_entity::Model], now: DateTim
         return 0;
     }
     (total_seconds / SECONDS_PER_WEEK) as u32
-}
-
-fn name_parts(v: &serde_json::Value) -> (String, String) {
-    let family = v
-        .get("family")
-        .and_then(|x| x.as_str())
-        .unwrap_or("")
-        .to_string();
-    let given = v
-        .get("given")
-        .and_then(|x| x.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|x| x.as_str())
-                .collect::<Vec<_>>()
-                .join(" ")
-        })
-        .unwrap_or_default();
-    (family, given)
 }
