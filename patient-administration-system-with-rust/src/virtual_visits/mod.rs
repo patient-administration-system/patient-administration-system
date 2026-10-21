@@ -98,11 +98,10 @@ impl VirtualVisitService {
                 "service_type must be 1 to 200 characters",
             ));
         }
-        if approved_by.is_empty() {
-            return Err(Error::validation(
-                "a service can go virtual only when a named clinician approves it (approved_by)",
-            ));
-        }
+        let approved_by = crate::validation::named_person(
+            approved_by,
+            "a service can go virtual only when a named clinician approves it (approved_by)",
+        )?;
         self.db
             .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,

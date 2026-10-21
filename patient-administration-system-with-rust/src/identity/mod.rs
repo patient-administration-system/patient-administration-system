@@ -60,12 +60,11 @@ impl IdentityService {
                 METHODS.join(", ")
             )));
         }
-        let by = proofed_by.trim().to_string();
-        if by.is_empty() {
-            return Err(Error::validation(
-                "proofing is recorded by a named person (proofed_by)",
-            ));
-        }
+        let by = crate::validation::named_person(
+            proofed_by,
+            "proofing is recorded by a named person (proofed_by)",
+        )?
+        .to_string();
         let (method, ctx) = (method.to_string(), ctx.clone());
         self.db
             .transaction::<_, (), Error>(|txn| {
@@ -113,12 +112,10 @@ impl IdentityService {
     /// Withdraw the proofing of an account: the portal refuses it from now on.
     pub async fn revoke(&self, subject: &str, revoked_by: &str, ctx: &UserContext) -> Result<()> {
         let subject = Self::subject(subject)?;
-        let by = revoked_by.trim();
-        if by.is_empty() {
-            return Err(Error::validation(
-                "revoking is done by a named person (revoked_by)",
-            ));
-        }
+        let by = crate::validation::named_person(
+            revoked_by,
+            "revoking is done by a named person (revoked_by)",
+        )?;
         let row = self
             .db
             .query_one_raw(Statement::from_sql_and_values(

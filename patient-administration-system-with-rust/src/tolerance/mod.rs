@@ -509,12 +509,10 @@ impl ToleranceService {
     ) -> Result<()> {
         let m = metric(key).ok_or_else(|| Error::not_found(format!("no such measure: {key}")))?;
         check_scope(m, scope)?;
-        let by = set_by.trim();
-        if by.is_empty() {
-            return Err(Error::validation(
-                "name the person setting the tolerance (set_by)",
-            ));
-        }
+        let by = crate::validation::named_person(
+            set_by,
+            "name the person setting the tolerance (set_by)",
+        )?;
         check(limits)?;
         let before = self
             .rows()
@@ -1042,12 +1040,10 @@ impl ToleranceService {
         note: &str,
         ctx: &UserContext,
     ) -> Result<()> {
-        let by = by.trim();
-        if by.is_empty() {
-            return Err(Error::validation(
-                "name the person acknowledging the alert (acknowledged_by)",
-            ));
-        }
+        let by = crate::validation::named_person(
+            by,
+            "name the person acknowledging the alert (acknowledged_by)",
+        )?;
         let n = self
             .db
             .execute_raw(Statement::from_sql_and_values(

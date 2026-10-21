@@ -362,12 +362,11 @@ impl NoShowService {
         if !["approved", "rejected"].contains(&outcome) {
             return Err(Error::validation("outcome must be approved or rejected"));
         }
-        let (reviewer, notes) = (reviewer.trim(), notes.trim());
-        if reviewer.is_empty() {
-            return Err(Error::validation(
-                "a review is made by a named person (reviewer)",
-            ));
-        }
+        let notes = notes.trim();
+        let reviewer = crate::validation::named_person(
+            reviewer,
+            "a review is made by a named person (reviewer)",
+        )?;
         if outcome == "approved" && notes.chars().count() < 40 {
             return Err(Error::validation(
                 "an approval needs notes (at least 40 characters) saying what was looked at and why it is acceptable",

@@ -161,11 +161,10 @@ impl FollowUpService {
                 "service_type must be 1 to 200 characters",
             ));
         }
-        if approved_by.is_empty() {
-            return Err(Error::validation(
-                "a follow-up policy needs a named clinician's approval (approved_by)",
-            ));
-        }
+        let approved_by = crate::validation::named_person(
+            approved_by,
+            "a follow-up policy needs a named clinician's approval (approved_by)",
+        )?;
         self.db
             .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
@@ -257,12 +256,10 @@ impl FollowUpService {
                 OUTCOMES.join(", ")
             )));
         }
-        let closed_by = closed_by.trim();
-        if closed_by.is_empty() {
-            return Err(Error::validation(
-                "a follow-up is closed by a named person (closed_by)",
-            ));
-        }
+        let closed_by = crate::validation::named_person(
+            closed_by,
+            "a follow-up is closed by a named person (closed_by)",
+        )?;
         let row = self
             .db
             .query_one_raw(Statement::from_sql_and_values(

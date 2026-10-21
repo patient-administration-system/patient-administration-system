@@ -76,6 +76,32 @@ pub fn validate_charge(c: &Charge) -> Result<()> {
     Ok(())
 }
 // (national-identifier validators removed in v0.44.0 Option C)
+/// The longest name or role we accept for "who did this" fields.
+pub const MAX_PERSON_NAME: usize = 120;
+
+/// The name of the person who did or approved something (`approved_by`, `closed_by`, ...).
+///
+/// Returns the trimmed name (borrowed from the input). 1 to [`MAX_PERSON_NAME`] characters, no control characters. `message` is the error text for an
+/// empty name, written for the field in question; a name that is too long or has control characters gets
+/// a shared message. A name made only of spaces is empty: it does not count as a named person.
+pub fn named_person<'a>(name: &'a str, message: &str) -> Result<&'a str> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(Error::validation(message));
+    }
+    if name.chars().count() > MAX_PERSON_NAME {
+        return Err(Error::validation(format!(
+            "a name must be at most {MAX_PERSON_NAME} characters"
+        )));
+    }
+    if name.chars().any(char::is_control) {
+        return Err(Error::validation(
+            "a name must not contain control characters",
+        ));
+    }
+    Ok(name)
+}
+
 pub fn normalize_phone(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 1);
     if s.trim_start().starts_with('+') {
@@ -199,5 +225,23 @@ mod nhs_number_tests {
         let other = serde_json::json!({ "identifiers": [{ "system": "https://example.test/mrn", "value": "not an nhs number" }] });
         assert!(check_person_identifiers(other.as_object().unwrap()).is_ok());
         assert!(check_person_identifiers(&serde_json::Map::new()).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod named_person_tests {
+    use super::named_person;
+
+    #[test]
+    fn named_person_is_trimmed_and_never_blank() {
+        assert_eq!(named_person("  Dr Jones ", "m").unwrap(), "Dr Jones");
+        for blank in ["", "   ", "\t\n"] {
+            let e = named_person(blank, "needs a name").unwrap_err().to_string();
+            assert!(e.contains("needs a name"), "{e}");
+        }
+        assert!(named_person(&"x".repeat(121), "m").is_err());
+        assert!(named_person(&"x".repeat(120), "m").is_ok());
+        assert!(named_person("a\u{0}b", "m").is_err());
+        assert!(named_person("a\nb", "m").is_err());
     }
 }

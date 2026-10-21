@@ -51,12 +51,10 @@ impl SupportService {
                 KINDS.join(", ")
             )));
         }
-        let created_by = created_by.trim();
-        if created_by.is_empty() {
-            return Err(Error::validation(
-                "a support flag names who raised it (created_by)",
-            ));
-        }
+        let created_by = crate::validation::named_person(
+            created_by,
+            "a support flag names who raised it (created_by)",
+        )?;
         if let Some(r) = reason_code
             && (r.is_empty()
                 || r.len() > 60
@@ -139,12 +137,10 @@ impl SupportService {
                 OUTCOMES.join(", ")
             )));
         }
-        let resolved_by = resolved_by.trim();
-        if resolved_by.is_empty() {
-            return Err(Error::validation(
-                "a flag is resolved by a named person (resolved_by)",
-            ));
-        }
+        let resolved_by = crate::validation::named_person(
+            resolved_by,
+            "a flag is resolved by a named person (resolved_by)",
+        )?;
         let r = self
             .db
             .execute_raw(Statement::from_sql_and_values(

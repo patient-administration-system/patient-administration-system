@@ -188,10 +188,8 @@ impl WaitsService {
 
     /// A person asks a patient whether they still need this. Returns the check's id.
     pub async fn ask(&self, pathway_id: Uuid, asked_by: &str, ctx: &UserContext) -> Result<Uuid> {
-        let asked_by = asked_by.trim();
-        if asked_by.is_empty() {
-            return Err(Error::validation("a check names who asked (asked_by)"));
-        }
+        let asked_by =
+            crate::validation::named_person(asked_by, "a check names who asked (asked_by)")?;
         let person = self
             .db
             .query_one_raw(Statement::from_sql_and_values(
@@ -239,12 +237,10 @@ impl WaitsService {
                 ANSWERS.join(", ")
             )));
         }
-        let recorded_by = recorded_by.trim();
-        if recorded_by.is_empty() {
-            return Err(Error::validation(
-                "an answer is recorded by a named person (recorded_by)",
-            ));
-        }
+        let recorded_by = crate::validation::named_person(
+            recorded_by,
+            "an answer is recorded by a named person (recorded_by)",
+        )?;
         let row = self
             .db
             .query_one_raw(Statement::from_sql_and_values(

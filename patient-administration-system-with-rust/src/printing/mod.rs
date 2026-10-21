@@ -165,10 +165,8 @@ impl PrintService {
         created_by: &str,
         ctx: &UserContext,
     ) -> Result<Batch> {
-        let created_by = created_by.trim();
-        if created_by.is_empty() {
-            return Err(Error::validation("a batch names who made it (created_by)"));
-        }
+        let created_by =
+            crate::validation::named_person(created_by, "a batch names who made it (created_by)")?;
         let people = self.person_client.as_ref().ok_or_else(|| {
             Error::upstream("print export needs person-service for postal addresses")
         })?;
@@ -274,12 +272,11 @@ impl PrintService {
         sent_by: &str,
         ctx: &UserContext,
     ) -> Result<usize> {
-        let sent_by = sent_by.trim().to_string();
-        if sent_by.is_empty() {
-            return Err(Error::validation(
-                "a batch is marked sent by a named person (sent_by)",
-            ));
-        }
+        let sent_by = crate::validation::named_person(
+            sent_by,
+            "a batch is marked sent by a named person (sent_by)",
+        )?
+        .to_string();
         let ctx = ctx.clone();
         self.db
             .transaction::<_, usize, Error>(|txn| {

@@ -196,12 +196,10 @@ impl ReceiptService {
         note: Option<&str>,
         ctx: &UserContext,
     ) -> Result<()> {
-        let by = resolved_by.trim();
-        if by.is_empty() {
-            return Err(Error::validation(
-                "a contact problem is resolved by a named person (resolved_by)",
-            ));
-        }
+        let by = crate::validation::named_person(
+            resolved_by,
+            "a contact problem is resolved by a named person (resolved_by)",
+        )?;
         if note.is_some_and(|n| n.len() > 200) {
             return Err(Error::validation("note must be at most 200 characters"));
         }

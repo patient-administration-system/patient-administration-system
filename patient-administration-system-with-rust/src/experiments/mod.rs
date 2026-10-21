@@ -148,12 +148,12 @@ impl ExperimentService {
         ctx: &UserContext,
     ) -> Result<Uuid> {
         let template_name = template_name.trim();
-        let started_by = started_by.trim().to_string();
-        if template_name.is_empty() || started_by.is_empty() {
-            return Err(Error::validation(
-                "template_name and started_by (a named person) are required",
-            ));
+        if template_name.is_empty() {
+            return Err(Error::validation("template_name is required"));
         }
+        let started_by =
+            crate::validation::named_person(started_by, "started_by (a named person) is required")?
+                .to_string();
         if !(2..=8).contains(&variants.len()) {
             return Err(Error::validation(
                 "an experiment compares two to eight variants",
@@ -234,12 +234,10 @@ impl ExperimentService {
     /// Stop an experiment: new appointments get the ordinary wording again; those already assigned keep
     /// theirs (their later steps must not change wording mid-way) and the read-out stays available.
     pub async fn stop(&self, id: Uuid, stopped_by: &str, ctx: &UserContext) -> Result<()> {
-        let by = stopped_by.trim();
-        if by.is_empty() {
-            return Err(Error::validation(
-                "stopping is done by a named person (stopped_by)",
-            ));
-        }
+        let by = crate::validation::named_person(
+            stopped_by,
+            "stopping is done by a named person (stopped_by)",
+        )?;
         let r = self
             .db
             .execute_raw(Statement::from_sql_and_values(
