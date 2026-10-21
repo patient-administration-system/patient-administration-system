@@ -1,9 +1,0 @@
-target/
-.git/
-.github/
-*.md
-.env
-.env.*
-!.env.example
-node_modules/
-.DS_Store

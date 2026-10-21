@@ -29,8 +29,8 @@ services:
 
   pas-server:
     build:
-      context: .
-      dockerfile: Containerfile
+      context: ..
+      dockerfile: patient-administration-system-with-rust/Containerfile
     environment:
       DATABASE_URL: postgres://pas:pas_dev_password@postgres:5432/pas
       SERVER_HOST: 0.0.0.0

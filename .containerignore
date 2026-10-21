@@ -1,0 +1,23 @@
+# Build context for the API image (patient-administration-system-with-rust/Containerfile), which builds
+# from the workspace root so it uses the root Cargo.lock with --locked (QUAL-3). Only the Rust workspace
+# is needed; everything else stays out of the context.
+**/target
+**/node_modules
+.git
+.github
+.claude
+.dev-auth
+.env
+.env.*
+!.env.example
+**/.DS_Store
+patient-administration-system-ui-with-svelte
+docs
+spec
+governance
+operations
+podman
+scripts
+agents
+LICENSE
+patient-administration-system-frontend/Cargo.lock

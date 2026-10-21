@@ -1,12 +1,16 @@
 #
 # Multi-stage production build for the PAS server.
 #
-# Stage 1 (builder): compiles the `patient-administration-system` binary in
-# release mode against a slim Rust toolchain. Dependency layers are cached by
-# building a stub `src/main.rs` against `Cargo.toml` / `Cargo.lock` before
-# copying the real source tree.
+# Stage 1 (builder): compiles the `patient-administration-system` and `pas-token-issuer` binaries in
+# release mode. The build context is the WORKSPACE ROOT, so the image is built from the root `Cargo.lock`
+# (the one CI tests) with `--locked`, and from the toolchain pinned in `rust-toolchain.toml` (QUAL-3):
 #
-# Stage 2 (runtime): minimal Debian image carrying only the binary, TLS roots,
+#   podman build --format docker -f patient-administration-system-with-rust/Containerfile -t pas-server .
+#
+# Every workspace member's sources are copied because Cargo loads the whole workspace; only the server
+# is built. The registry and `target/` are cache mounts, so a rebuild reuses compiled dependencies.
+#
+# Stage 2 (runtime): minimal Debian image carrying only the binaries, TLS roots,
 # libssl, and curl (for the HTTP healthcheck). Runs as a non-root user.
 
 FROM docker.io/library/rust:1-slim AS builder
@@ -19,22 +23,23 @@ RUN apt-get update \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Cache dependencies: copy manifests and build a stub binary so Cargo resolves
-# and compiles the dependency graph into a layer that only invalidates when
-# Cargo.toml / Cargo.lock change.
-COPY Cargo.toml Cargo.lock ./
-COPY migrations/Cargo.toml ./migrations/Cargo.toml
-RUN mkdir src \
-    && echo 'fn main(){}' > src/main.rs \
-    && cargo build --release --bin patient-administration-system || true
-RUN rm -rf src
+# The workspace's release profile asks for fat LTO with one codegen unit, whose final link needs more memory
+# than a 12 GB build VM has (killed by SIGKILL). Thin LTO is the image default; a builder with room can pass
+# `--build-arg CARGO_PROFILE_RELEASE_LTO=fat --build-arg CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1`.
+ARG CARGO_PROFILE_RELEASE_LTO=thin
+ARG CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
+ENV CARGO_PROFILE_RELEASE_LTO=${CARGO_PROFILE_RELEASE_LTO} \
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS=${CARGO_PROFILE_RELEASE_CODEGEN_UNITS}
 
-# Real build
-COPY src ./src
-COPY benches ./benches
-COPY templates ./templates
-COPY migrations ./migrations
-RUN cargo build --release --bin patient-administration-system --bin pas-token-issuer
+COPY rust-toolchain.toml Cargo.toml Cargo.lock ./
+COPY patient-administration-system-with-rust ./patient-administration-system-with-rust
+COPY patient-administration-system-frontend ./patient-administration-system-frontend
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo build --release --locked -p patient-administration-system \
+        --bin patient-administration-system --bin pas-token-issuer \
+    && mkdir -p /out \
+    && cp target/release/patient-administration-system target/release/pas-token-issuer /out/
 
 FROM docker.io/library/debian:trixie-slim AS runtime
 # Provenance labels. The release workflow passes the version it verified against the tag, the server crate's
@@ -57,9 +62,9 @@ RUN apt-get update \
     && useradd -m -u 10001 pas
 USER pas
 WORKDIR /app
-COPY --from=builder /app/target/release/patient-administration-system /usr/local/bin/pas
+COPY --from=builder /out/patient-administration-system /usr/local/bin/pas
 # The token issuer ships in the same image so one image can run both roles (see operations/deployment.md).
-COPY --from=builder /app/target/release/pas-token-issuer /usr/local/bin/pas-token-issuer
+COPY --from=builder /out/pas-token-issuer /usr/local/bin/pas-token-issuer
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -fsS http://localhost:8080/api/health || exit 1

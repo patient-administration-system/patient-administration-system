@@ -87,7 +87,7 @@ jobs:
       - id: server
         uses: docker/build-push-action@v7
         with:
-          context: patient-administration-system-with-rust
+          context: .
           file: patient-administration-system-with-rust/Containerfile
           push: ${{ github.event_name == 'push' }}
           load: ${{ github.event_name != 'push' }}

@@ -179,7 +179,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - run: podman build --format docker -f patient-administration-system-with-rust/Containerfile -t pas-server patient-administration-system-with-rust
+      - run: podman build --format docker -f patient-administration-system-with-rust/Containerfile -t pas-server .
       - run: podman build --format docker -f patient-administration-system-ui-with-svelte/Containerfile -t pas-ui patient-administration-system-ui-with-svelte
 
   fresh-clone:
@@ -192,6 +192,11 @@ jobs:
           pinned="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
           test "$pinned" = "$RUST_TOOLCHAIN" || { echo "rust-toolchain.toml ($pinned) != CI ($RUST_TOOLCHAIN)" >&2; exit 1; }
       - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - name: One lockfile, at the workspace root (the API image is built from it, QUAL-3)
+        run: |
+          extra="$(git ls-files '*/Cargo.lock')"
+          test -z "$extra" || { echo "crate-level lockfiles: $extra" >&2; exit 1; }
+          grep -q -- '--locked' patient-administration-system-with-rust/Containerfile
       - run: cargo build --workspace --locked
       - uses: pnpm/action-setup@v6
         with:
