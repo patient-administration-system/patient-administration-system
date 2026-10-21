@@ -98,7 +98,7 @@ fn people() -> Router<AppState> {
             "/api/patients/{id}/audit",
             get(upstream_proxy::audit_patient),
         )
-        // Phase 3d bulk interchange — transparent passthrough to person-service.
+        // Bulk interchange — transparent passthrough to person-service.
         .route(
             "/api/patients/export.json",
             get(upstream_proxy::export_patients_json),
@@ -784,17 +784,16 @@ fn records() -> Router<AppState> {
 /// HL7 v2 messages over HTTP (the MLLP listener posts to these paths).
 fn hl7v2() -> Router<AppState> {
     Router::new()
-        // HL7 v2 (Phase 3c minimum viable surface: parse + ADT
-        // A28/A01/A02/A03). Each handler dedup-or-creates the person
-        // upstream via `PersonClient` before invoking the local
-        // ADT service. Phase 3c2 lands the remaining 14 ADT variants
-        // + DFT^P03 + SIU + MFN.
+        // HL7 v2: parse, then ADT A28/A01/A02/A03. Each handler
+        // dedup-or-creates the person upstream via `PersonClient` before
+        // invoking the local ADT service. The other ADT variants, DFT^P03,
+        // SIU and MFN follow below.
         .route("/api/hl7/v2/parse", post(handlers_hl7v2::parse))
         .route("/api/hl7/v2/patient", post(handlers_hl7v2::add_person))
         .route("/api/hl7/v2/admit", post(handlers_hl7v2::admit))
         .route("/api/hl7/v2/transfer", post(handlers_hl7v2::transfer))
         .route("/api/hl7/v2/discharge", post(handlers_hl7v2::discharge))
-        // Phase 3c2 — remaining 13 ADT trigger surface (URLs match
+        // The remaining ADT triggers (URLs match
         // `listener.rs::route_for_payload` so MLLP traffic reaches
         // them unchanged).
         .route("/api/hl7/v2/register", post(handlers_hl7v2::register))
@@ -831,7 +830,7 @@ fn hl7v2() -> Router<AppState> {
             post(handlers_hl7v2::delete_patient),
         )
         .route("/api/hl7/v2/merge", post(handlers_hl7v2::merge))
-        // Phase 3c3 — DFT / SIU / MFN / batch envelope.
+        // DFT / SIU / MFN / batch envelope.
         .route("/api/hl7/v2/dft", post(handlers_hl7v2::dft))
         .route(
             "/api/hl7/v2/schedule-book",

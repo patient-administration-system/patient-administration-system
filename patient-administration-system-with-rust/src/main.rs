@@ -65,12 +65,9 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// The clients for `person-service` and `worker-service`, each optional (v0.44.0 Option C).
+/// The clients for `person-service` and `worker-service`, each optional.
 fn upstream_clients(cfg: &Config) -> Result<(Option<PersonClient>, Option<WorkerClient>)> {
-    // Upstream identity + workforce clients (v0.44.0 Option C, Phase 1).
-    // Optional in Phase 1 so existing deployments + tests work unchanged.
-    // Phase 5 (final wiring) makes both URLs required at startup with an
-    // upstream `/api/health` ping check.
+    // Both clients are optional: without a URL the proxy handlers answer 503 and the rest of the PAS runs.
     let upstream_timeout = std::time::Duration::from_secs(cfg.upstream_timeout_secs);
     let person_client = match cfg.person_service_url.clone() {
         Some(url) => {
@@ -90,9 +87,7 @@ fn upstream_clients(cfg: &Config) -> Result<(Option<PersonClient>, Option<Worker
                 >)
         }
         None => {
-            tracing::warn!(
-                "PERSON_SERVICE_URL not set; identity proxy handlers will return 503 once Phase 3 lands"
-            );
+            tracing::warn!("PERSON_SERVICE_URL not set; identity proxy handlers will return 503");
             None
         }
     };
@@ -114,9 +109,7 @@ fn upstream_clients(cfg: &Config) -> Result<(Option<PersonClient>, Option<Worker
                 >)
         }
         None => {
-            tracing::warn!(
-                "WORKER_SERVICE_URL not set; workforce proxy handlers will return 503 once Phase 3 lands"
-            );
+            tracing::warn!("WORKER_SERVICE_URL not set; workforce proxy handlers will return 503");
             None
         }
     };
@@ -172,7 +165,7 @@ fn publisher_chain(
         )?;
         children.push(Arc::new(webhook));
     }
-    // The MLLP publisher hydrates events against person-service / worker-service (Phase 3c4).
+    // The MLLP publisher hydrates events against person-service / worker-service.
     let hl7v2_peer = cfg.hl7v2_outbound_peer.clone();
     if let Some(peer) = hl7v2_peer {
         tracing::info!("HL7 v2 outbound peer configured at {peer}");
