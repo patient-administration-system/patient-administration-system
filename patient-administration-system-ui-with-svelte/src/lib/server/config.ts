@@ -19,7 +19,7 @@ export function serviceToken(): string {
   if (!file) return env.PAS_API_TOKEN || "";
   const now = Date.now();
   if (cached && now - cached.at < 5_000) return cached.value;
-  let value = "";
+  let value: string;
   try {
     value = readFileSync(file, "utf8").trim();
   } catch {

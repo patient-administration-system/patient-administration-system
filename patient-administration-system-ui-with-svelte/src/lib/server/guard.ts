@@ -43,7 +43,7 @@ export async function requireProofedPatient(
   returnTo: string,
 ): Promise<{ session: OidcSession; personId: string }> {
   const scope = requirePatient(locals, returnTo);
-  let proofed = false;
+  let proofed: boolean;
   try {
     proofed = await identityProofed(fetch, scope.session.user.sub, scope.personId);
   } catch {

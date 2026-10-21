@@ -223,7 +223,7 @@ export function verifyIdToken(idToken: string, keys: Jwk[], expect: IdTokenExpec
       ? candidates[0]
       : undefined;
   if (!key) throw new OidcError("id_token", "no matching signing key");
-  let ok = false;
+  let ok: boolean;
   try {
     const publicKey = createPublicKey({ key: key as never, format: "jwk" });
     ok = createVerify("RSA-SHA256")
