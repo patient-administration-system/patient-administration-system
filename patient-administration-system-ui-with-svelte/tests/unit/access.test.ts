@@ -28,6 +28,32 @@ describe("roles", () => {
   });
 });
 
+describe("isUuid", () => {
+  // The whole string must be one id: found by mutation testing (QUAL-18), where dropping either anchor of the
+  // pattern passed every test, so a person_id with anything before or after a valid id would have been accepted.
+  it("accepts exactly one id, in either case, and nothing around it", () => {
+    expect(isUuid(ID)).toBe(true);
+    expect(isUuid(ID.toUpperCase())).toBe(true);
+    for (const bad of [
+      `x${ID}`,
+      `${ID}x`,
+      `../${ID}`,
+      `${ID}/../other`,
+      ` ${ID}`,
+      `${ID}\n`,
+      ID.slice(1),
+      "",
+      null,
+      undefined,
+    ]) {
+      expect(isUuid(bad), String(bad)).toBe(false);
+    }
+  });
+  it("keeps such a person_id out of a patient's scope", () => {
+    expect(patientScope({ roles: ["patient"], personId: `${ID}/../${ID}` })).toBeNull();
+  });
+});
+
 describe("navFor", () => {
   it("gives patients only their own pages", () => {
     expect(navFor({ roles: ["patient"] }).map((n) => n.href)).toEqual(["/my/appointments", "/my/messages"]);
