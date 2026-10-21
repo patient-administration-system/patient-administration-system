@@ -1,6 +1,6 @@
 [package]
 name = "patient-administration-system-migrations"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 authors = ["joel@joelparkerhenderson.com"]
 description = "Database migrations (SeaORM) for the Patient Administration System, with the pas-migrate command"

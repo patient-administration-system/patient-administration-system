@@ -5,9 +5,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.49.0] — 2026-10-21
+
+The migrations crate is 0.3.0 because it now requires `sea-orm-migration` 2.0.
+
 ### Changed
 
-- `sea-orm` 2.0 and `sea-orm-migration` 2.0 (DEP-2). Raw SQL goes through `execute_raw`, `query_one_raw` and `query_all_raw`. The migrations crate needs a 0.3.0 release for the new requirement.
+- `sea-orm` 2.0 and `sea-orm-migration` 2.0 (DEP-2). Raw SQL goes through `execute_raw`, `query_one_raw` and `query_all_raw`.
 
 ## [0.48.0] — 2026-10-21
 

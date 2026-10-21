@@ -1,6 +1,6 @@
 # AGENTS Directory Index
 
-Detailed reference documentation for the Patient Administration System (PAS Axum, **v0.48.0**).
+Detailed reference documentation for the Patient Administration System (PAS Axum, **v0.49.0**).
 
 > **v0.44.0 (Option C delegation):** `Patient` and `Practitioner` are HTTP-delegated to `person-service` and `worker-service`. The PAS holds opaque `person_id` / `worker_id` columns. See [`../spec.md`](../spec.md) §13 Layer 11 and the workspace `CHANGELOG.md` Phase 0 entry.
 
@@ -33,7 +33,7 @@ Detailed reference documentation for the Patient Administration System (PAS Axum
 
 - [../AGENTS.md](../AGENTS.md) — project-level orientation for agents
 - [../README.md](../README.md) — public-facing README with the full endpoint table
-- [../CHANGELOG.md](../CHANGELOG.md) — per-release changelog (currently **v0.48.0**)
+- [../CHANGELOG.md](../CHANGELOG.md) — per-release changelog (currently **v0.49.0**)
 - [../spec.md](../spec.md) — comprehensive specification-driven-development document (scope, invariants, architecture, dependency stack, build sequence, acceptance criteria)
 - [../../README.md](../../README.md) — workspace-level README (PAS + patient-administration-system-frontend + migration crate)
 - [../../CHANGELOG.md](../../CHANGELOG.md) — workspace-level changelog that coordinates member-crate releases

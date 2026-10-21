@@ -1,6 +1,6 @@
 [package]
 name = "patient-administration-system"
-version = "0.48.0"
+version = "0.49.0"
 edition = "2024"
 authors = ["joel@joelparkerhenderson.com"]
 description = "Patient Administration System (PAS) - A hospital patient administration system covering ADT, scheduling, waitlists, resources, communications, and billing"
@@ -90,7 +90,7 @@ hmac = "0.13"
 sha2 = "0.11"
 
 # Integration tests
-migration = { path = "migrations", version = "0.2.0", package = "patient-administration-system-migrations" }
+migration = { path = "migrations", version = "0.3.0", package = "patient-administration-system-migrations" }
 
 # Benchmarking
 criterion = { version = "0.8", features = ["html_reports", "async_tokio"] }

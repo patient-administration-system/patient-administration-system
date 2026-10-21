@@ -9,7 +9,12 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
-- **Changed, dependencies (DEP-2):** `loco-rs` 1.2 and `sea-orm` 2.0. `cargo deny` now has one ignore instead of nine. The migrations crate needs a 0.3.0 release (`tasks.md`).
+## Release 0.49.0 (2026-10-21)
+
+Server crate 0.49.0 and `patient-administration-system-migrations` 0.3.0 (`sea-orm` 2.0). Tag `v0.49.0`.
+
+- **Changed, dependencies (DEP-2):** `loco-rs` 1.2 and `sea-orm` 2.0. `cargo deny` now has one ignore instead of nine. The migrations crate is 0.3.0 for the new requirement.
+
 ## Release 0.48.0 (2026-10-21)
 
 Server crate 0.48.0 and `patient-administration-system-migrations` 0.2.0 (migrations 39 and 40: the published 0.1.0 stopped at 38). Tag `v0.48.0`.

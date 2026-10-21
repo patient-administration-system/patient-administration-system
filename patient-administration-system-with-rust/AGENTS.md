@@ -2,7 +2,7 @@
 
 Orientation for AI agents (and humans) working on the Patient Administration System (PAS).
 
-**Current shipped version: v0.48.0** (see `Cargo.toml` and `CHANGELOG.md`). Workspace sibling `patient-administration-system-frontend` is at v0.2.0. v0.44 is the **Option C identity delegation** release: `Patient` rows are owned by `person-service` (`:5180`) and `Practitioner` rows by `worker-service` (`:5181`); PAS holds only opaque `person_id` / `worker_id` references on the rows it still owns (encounters, appointments, beds, billing, coverage, consents, letters, schedules, slots). Integration is HTTP-only (no Cargo dep on the upstream crates).
+**Current shipped version: v0.49.0** (see `Cargo.toml` and `CHANGELOG.md`). Workspace sibling `patient-administration-system-frontend` is at v0.2.0. v0.44 is the **Option C identity delegation** release: `Patient` rows are owned by `person-service` (`:5180`) and `Practitioner` rows by `worker-service` (`:5181`); PAS holds only opaque `person_id` / `worker_id` references on the rows it still owns (encounters, appointments, beds, billing, coverage, consents, letters, schedules, slots). Integration is HTTP-only (no Cargo dep on the upstream crates).
 
 ## Start here for AI agents
 
