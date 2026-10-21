@@ -18,6 +18,10 @@ ignore = [
     { id = "RUSTSEC-2026-0367", reason = "zip: build-time only (utoipa-swagger-ui build script, trusted archive)" },
     { id = "RUSTSEC-2026-0368", reason = "zip: build-time only (utoipa-swagger-ui build script, trusted archive)" },
     { id = "RUSTSEC-2026-0369", reason = "zip: build-time only (utoipa-swagger-ui build script, trusted archive)" },
+    # webpki-roots 0.26.11 is pinned by sqlx-core 0.8.6 (under sea-orm 1.1 and loco-rs 0.14); the fix is 1.0.10, which
+    # sqlx 0.8 does not accept. It only supplies the root certificates for a TLS connection to our own PostgreSQL.
+    # Remove when sea-orm moves to a sqlx that takes webpki-roots 1.x (tasks.md DEP-2).
+    { id = "RUSTSEC-2026-0381", reason = "webpki-roots 0.26 via sqlx-core 0.8; roots for the TLS connection to our own PostgreSQL only. Removed by DEP-2" },
     # Unmaintained (not vulnerable) crates, all pulled in only by loco-rs 0.14; gone with DEP-2.
     { id = "RUSTSEC-2025-0057", reason = "fxhash unmaintained; via loco-rs -> scraper -> selectors" },
     { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 unmaintained; via loco-rs -> validator_derive (compile-time only)" },
