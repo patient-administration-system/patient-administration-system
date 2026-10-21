@@ -6,6 +6,8 @@
 #![cfg_attr(not(test), forbid(unsafe_code))]
 // Production code handles every failure; tests may unwrap (QUAL-12).
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+// The entry point stays a short list of steps (QUAL-30).
+#![deny(clippy::too_many_lines)]
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -23,6 +25,11 @@ use patient_administration_system::{
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+type Publisher = Arc<dyn patient_administration_system::streaming::EventPublisher>;
+type PersonClient = Arc<dyn patient_administration_system::upstream::PersonClient>;
+type WorkerClient = Arc<dyn patient_administration_system::upstream::WorkerClient>;
+type Jobs = patient_administration_system::jobs::Jobs;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
@@ -35,57 +42,31 @@ async fn main() -> Result<()> {
     );
 
     let db = connect(&cfg.database_url).await?;
-    // Outbox publisher chain (v0.14). Each configured backend (HL7 v2
-    // MLLP, webhook URL) becomes a child; CompositePublisher fans the
-    // event out to every child. If none is configured, the in-memory
-    // publisher takes over so the dispatcher can still mark rows
-    // published (it just drops them).
-    let mut children: Vec<Arc<dyn patient_administration_system::streaming::EventPublisher>> =
-        Vec::new();
-    // Hold the MLLP peer config but defer building the publisher until
-    // after the upstream clients are constructed below — Phase 3c4
-    // hydrates events against `person-service` / `worker-service`.
-    let hl7v2_peer = cfg.hl7v2_outbound_peer.clone();
-    if let Some(url) = cfg.pas_webhook_url.clone() {
-        tracing::info!(
-            "Webhook publisher configured: url={url}, hmac_signing={}, timeout={}s",
-            cfg.pas_webhook_secret.is_some(),
-            cfg.pas_webhook_timeout_secs
-        );
-        let secret = cfg
-            .pas_webhook_secret
-            .clone()
-            .map(std::string::String::into_bytes);
-        let timeout = std::time::Duration::from_secs(cfg.pas_webhook_timeout_secs);
-        let webhook = patient_administration_system::streaming::WebhookEventPublisher::new(
-            url, secret, timeout,
-        )?;
-        children.push(Arc::new(webhook));
-    }
-    // v0.43.0 SearchEngine bootstrap removed in Phase 2 — Tantivy patient
-    // index is gone. Phase 3 may add a search proxy over person-service.
+    let (person_client, worker_client) = upstream_clients(&cfg)?;
+    let publisher = publisher_chain(&cfg, &db, person_client.as_ref(), worker_client.as_ref())?;
+    let state = build_state(
+        &db,
+        publisher.clone(),
+        sms_provider(&cfg),
+        person_client,
+        worker_client,
+    );
 
-    // SMS provider selection (v0.8). Unknown values fall back to NoopSmsProvider
-    // so a typo can't accidentally enable auto-send against a live patient
-    // list.
-    let sms_provider: Arc<dyn patient_administration_system::communication::SmsProvider> =
-        match cfg.pas_sms_provider.as_str() {
-            "log" => {
-                tracing::info!("SMS provider: LogSmsProvider (auto-send enabled, log-only)");
-                Arc::new(patient_administration_system::communication::LogSmsProvider)
-            }
-            "none" | "" => {
-                tracing::info!("SMS provider: NoopSmsProvider (auto-send disabled)");
-                Arc::new(patient_administration_system::communication::NoopSmsProvider)
-            }
-            other => {
-                tracing::warn!(
-                    "PAS_SMS_PROVIDER={other:?} is not recognised; falling back to NoopSmsProvider"
-                );
-                Arc::new(patient_administration_system::communication::NoopSmsProvider)
-            }
-        };
+    // Every timer loop runs under `jobs`: one at a time across replicas, a panic does not end it, and it
+    // stops cleanly on SIGTERM (QUAL-2).
+    let mut jobs = Jobs::new(db.clone());
+    spawn_jobs(&mut jobs, &cfg, &db, &publisher, &state)?;
 
+    let app = build_app(&cfg, state).await?;
+    start_mllp(&cfg, &app);
+    serve(&cfg, app).await?;
+    // Let a job that is mid-run finish (a half-sent reminder step is the worst case) before the process exits.
+    jobs.stop(std::time::Duration::from_secs(30)).await;
+    Ok(())
+}
+
+/// The clients for `person-service` and `worker-service`, each optional (v0.44.0 Option C).
+fn upstream_clients(cfg: &Config) -> Result<(Option<PersonClient>, Option<WorkerClient>)> {
     // Upstream identity + workforce clients (v0.44.0 Option C, Phase 1).
     // Optional in Phase 1 so existing deployments + tests work unchanged.
     // Phase 5 (final wiring) makes both URLs required at startup with an
@@ -140,9 +121,59 @@ async fn main() -> Result<()> {
         }
     };
 
-    // Now that the upstream clients exist, build the MLLP publisher (if
-    // configured) with them attached so it can hydrate events against
-    // person-service / worker-service.
+    Ok((person_client, worker_client))
+}
+
+/// The SMS provider named by `PAS_SMS_PROVIDER` (v0.8). Unknown values fall back to `NoopSmsProvider` so a
+/// typo cannot enable auto-send against a live patient list.
+fn sms_provider(
+    cfg: &Config,
+) -> Arc<dyn patient_administration_system::communication::SmsProvider> {
+    match cfg.pas_sms_provider.as_str() {
+        "log" => {
+            tracing::info!("SMS provider: LogSmsProvider (auto-send enabled, log-only)");
+            Arc::new(patient_administration_system::communication::LogSmsProvider)
+        }
+        "none" | "" => {
+            tracing::info!("SMS provider: NoopSmsProvider (auto-send disabled)");
+            Arc::new(patient_administration_system::communication::NoopSmsProvider)
+        }
+        other => {
+            tracing::warn!(
+                "PAS_SMS_PROVIDER={other:?} is not recognised; falling back to NoopSmsProvider"
+            );
+            Arc::new(patient_administration_system::communication::NoopSmsProvider)
+        }
+    }
+}
+
+/// The outbox publisher chain (v0.14): each configured backend (webhook, HL7 v2 MLLP) is a child that every
+/// event fans out to. With none, the in-memory publisher lets the dispatcher mark rows published.
+fn publisher_chain(
+    cfg: &Config,
+    db: &sea_orm::DatabaseConnection,
+    person_client: Option<&PersonClient>,
+    worker_client: Option<&WorkerClient>,
+) -> Result<Publisher> {
+    let mut children: Vec<Publisher> = Vec::new();
+    if let Some(url) = cfg.pas_webhook_url.clone() {
+        tracing::info!(
+            "Webhook publisher configured: url={url}, hmac_signing={}, timeout={}s",
+            cfg.pas_webhook_secret.is_some(),
+            cfg.pas_webhook_timeout_secs
+        );
+        let secret = cfg
+            .pas_webhook_secret
+            .clone()
+            .map(std::string::String::into_bytes);
+        let timeout = std::time::Duration::from_secs(cfg.pas_webhook_timeout_secs);
+        let webhook = patient_administration_system::streaming::WebhookEventPublisher::new(
+            url, secret, timeout,
+        )?;
+        children.push(Arc::new(webhook));
+    }
+    // The MLLP publisher hydrates events against person-service / worker-service (Phase 3c4).
+    let hl7v2_peer = cfg.hl7v2_outbound_peer.clone();
     if let Some(peer) = hl7v2_peer {
         tracing::info!("HL7 v2 outbound peer configured at {peer}");
         let mut mllp = patient_administration_system::streaming::Hl7v2MllpPublisher::new(
@@ -151,26 +182,32 @@ async fn main() -> Result<()> {
             "PAS",
             "EMR",
         );
-        if let Some(ref c) = person_client {
+        if let Some(c) = person_client {
             mllp = mllp.with_person_client(c.clone());
         }
-        if let Some(ref c) = worker_client {
+        if let Some(c) = worker_client {
             mllp = mllp.with_worker_client(c.clone());
         }
         children.push(Arc::new(mllp));
     }
-    let publisher: Arc<dyn patient_administration_system::streaming::EventPublisher> =
-        match children.len() {
-            0 | 1 => children
-                .into_iter()
-                .next()
-                .unwrap_or_else(|| Arc::new(InMemoryEventPublisher::new())),
-            _ => Arc::new(
-                patient_administration_system::streaming::CompositePublisher::new(children),
-            ),
-        };
+    Ok(match children.len() {
+        0 | 1 => children
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| Arc::new(InMemoryEventPublisher::new())),
+        _ => Arc::new(patient_administration_system::streaming::CompositePublisher::new(children)),
+    })
+}
 
-    let mut state = AppState::new(db.clone(), publisher.clone()).with_sms_provider(sms_provider);
+/// The application state, with the senders, portal address and upstream clients the environment names.
+fn build_state(
+    db: &sea_orm::DatabaseConnection,
+    publisher: Publisher,
+    sms_provider: Arc<dyn patient_administration_system::communication::SmsProvider>,
+    person_client: Option<PersonClient>,
+    worker_client: Option<WorkerClient>,
+) -> AppState {
+    let mut state = AppState::new(db.clone(), publisher).with_sms_provider(sms_provider);
     // Public address of the patient portal, exposed to message templates as `portal_url`.
     if let Some(url) = patient_administration_system::config::env::text("PAS_PORTAL_URL") {
         state = state.with_portal_base_url(url.trim());
@@ -213,31 +250,34 @@ async fn main() -> Result<()> {
         state = state.with_worker_client(c);
     }
 
-    let cors = if cfg.cors_origins.is_empty() {
-        tracing::warn!("CORS_ORIGINS unset; using permissive CORS");
-        tower_http::cors::CorsLayer::permissive()
-    } else {
-        tracing::info!("CORS restricted to origins: {:?}", cfg.cors_origins);
-        let origins: Vec<axum::http::HeaderValue> = cfg
-            .cors_origins
-            .iter()
-            .filter_map(|s| s.parse().ok())
-            .collect();
-        tower_http::cors::CorsLayer::new()
-            .allow_origin(origins)
-            .allow_methods(tower_http::cors::Any)
-            .allow_headers(tower_http::cors::Any)
-    };
-    let trace = tower_http::trace::TraceLayer::new_for_http();
-    let compress = tower_http::compression::CompressionLayer::new();
+    state
+}
 
+/// Every background job the environment switches on.
+fn spawn_jobs(
+    jobs: &mut Jobs,
+    cfg: &Config,
+    db: &sea_orm::DatabaseConnection,
+    publisher: &Publisher,
+    state: &AppState,
+) -> Result<()> {
+    spawn_outbox(jobs, cfg, db, publisher);
+    spawn_tolerance(jobs, state);
+    spawn_noshow(jobs, state);
+    spawn_backfill(jobs, state);
+    spawn_reminders(jobs, db, state)
+}
+
+fn spawn_outbox(
+    jobs: &mut Jobs,
+    cfg: &Config,
+    db: &sea_orm::DatabaseConnection,
+    publisher: &Publisher,
+) {
     // Background outbox dispatcher: polls the outbox every 2s.
     let dispatcher_db = db.clone();
     let dispatcher_pub = publisher.clone();
     let dispatcher_max_retries = cfg.pas_outbox_max_retries;
-    // Every timer loop below runs under `jobs`: one at a time across replicas, a panic does not end it, and it
-    // stops cleanly on SIGTERM (QUAL-2).
-    let mut jobs = patient_administration_system::jobs::Jobs::new(db.clone());
     jobs.spawn("outbox", std::time::Duration::from_secs(2), move || {
         let (db, publisher) = (dispatcher_db.clone(), dispatcher_pub.clone());
         async move {
@@ -252,7 +292,9 @@ async fn main() -> Result<()> {
             }
         }
     });
+}
 
+fn spawn_tolerance(jobs: &mut Jobs, state: &AppState) {
     // Tolerance alerts: every PAS_TOLERANCE_CHECK_MINUTES (default 60; 0 turns it off) check each measure and
     // open an alert for any that is red. It reads only; nothing here acts on a patient.
     let tolerance_minutes: u64 = u64::try_from(patient_administration_system::config::env::int(
@@ -283,9 +325,9 @@ async fn main() -> Result<()> {
             },
         );
     }
+}
 
-    // Appointment reminders: opt in with PAS_REMINDERS_ENABLED=true. Lead
-    // time via PAS_REMINDER_LEAD_HOURS (default 24); scanned every 5 minutes.
+fn spawn_noshow(jobs: &mut Jobs, state: &AppState) {
     // The no-show probability (CAP-12): an hourly pass that scores booked appointments still to come. A no-op
     // unless PAS_NOSHOW_SCORE=true AND a fairness and a clinical safety review are approved; idempotent within a
     // day. It only adds tasks for people to ring.
@@ -303,7 +345,9 @@ async fn main() -> Result<()> {
             }
         });
     }
+}
 
+fn spawn_backfill(jobs: &mut Jobs, state: &AppState) {
     // Backfill offers (PILOT-8): PAS_BACKFILL_OFFERS=true offers a released slot to the next patient on
     // standby, and every minute expires offers that ran out and moves on to the next patient.
     if patient_administration_system::backfill::enabled() {
@@ -323,7 +367,15 @@ async fn main() -> Result<()> {
             }
         });
     }
+}
 
+/// The reminder ladder (CAP-13) or, without it, the single reminder (opt in with PAS_REMINDERS_ENABLED=true,
+/// lead time PAS_REMINDER_LEAD_HOURS, default 24; scanned every 5 minutes).
+fn spawn_reminders(
+    jobs: &mut Jobs,
+    db: &sea_orm::DatabaseConnection,
+    state: &AppState,
+) -> Result<()> {
     // The reminder ladder (CAP-13) replaces the single reminder: PAS_REMINDER_LADDER=true. Steps via
     // PAS_REMINDER_STEPS (default main=7d,second=4d,call=3d,final=24h).
     if patient_administration_system::config::env::flag("PAS_REMINDER_LADDER") {
@@ -377,6 +429,31 @@ async fn main() -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+/// CORS from `CORS_ORIGINS`; permissive (with a warning) when unset.
+fn cors_layer(cfg: &Config) -> tower_http::cors::CorsLayer {
+    if cfg.cors_origins.is_empty() {
+        tracing::warn!("CORS_ORIGINS unset; using permissive CORS");
+        tower_http::cors::CorsLayer::permissive()
+    } else {
+        tracing::info!("CORS restricted to origins: {:?}", cfg.cors_origins);
+        let origins: Vec<axum::http::HeaderValue> = cfg
+            .cors_origins
+            .iter()
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        tower_http::cors::CorsLayer::new()
+            .allow_origin(origins)
+            .allow_methods(tower_http::cors::Any)
+            .allow_headers(tower_http::cors::Any)
+    }
+}
+
+/// The whole HTTP application: REST, FHIR, the dashboard and Swagger, then authentication, the rate limit,
+/// tracing, CORS and compression, in that order from the inside out.
+async fn build_app(cfg: &Config, state: AppState) -> Result<axum::Router> {
     let dashboard_routes = axum::Router::new()
         .route("/dashboard", axum::routing::get(dashboard::dashboard_page))
         .route(
@@ -451,8 +528,14 @@ async fn main() -> Result<()> {
     } else {
         tracing::info!("Rate-limit middleware disabled (PAS_RATE_LIMIT_RPM=0)");
     }
-    app = app.layer(trace).layer(cors).layer(compress);
 
+    let trace = tower_http::trace::TraceLayer::new_for_http();
+    let compress = tower_http::compression::CompressionLayer::new();
+    Ok(app.layer(trace).layer(cors_layer(cfg)).layer(compress))
+}
+
+/// The optional MLLP TCP listener for HL7 v2 messages; it posts each frame to `app`.
+fn start_mllp(cfg: &Config, app: &axum::Router) {
     // Optional MLLP TCP listener for HL7 v2 ADT messages.
     if let Some(bind) = cfg.hl7v2_mllp_bind.clone() {
         tracing::info!("HL7 v2 MLLP listener requested on {bind}");
@@ -464,7 +547,10 @@ async fn main() -> Result<()> {
             }
         });
     }
+}
 
+/// Bind and serve until a shutdown signal.
+async fn serve(cfg: &Config, app: axum::Router) -> Result<()> {
     let addr: SocketAddr = format!("{}:{}", cfg.server_host, cfg.server_port)
         .parse()
         .map_err(|e: std::net::AddrParseError| Error::config(format!("bad bind addr: {e}")))?;
@@ -482,7 +568,5 @@ async fn main() -> Result<()> {
     .with_graceful_shutdown(patient_administration_system::jobs::shutdown_signal())
     .await
     .map_err(|e| Error::internal(format!("serve: {e}")))?;
-    // Let a job that is mid-run finish (a half-sent reminder step is the worst case) before the process exits.
-    jobs.stop(std::time::Duration::from_secs(30)).await;
     Ok(())
 }

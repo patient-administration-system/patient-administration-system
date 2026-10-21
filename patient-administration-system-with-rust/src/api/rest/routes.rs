@@ -1,19 +1,12 @@
-//! REST API routing table — Phase 3b1.
+//! The REST API's routing table: `router` merges one function per domain (people, workforce, ADT,
+//! scheduling, messaging, waiting, support, reporting, records, HL7 v2), each listing its own routes
+//! (QUAL-30). Every route also carries a `#[utoipa::path]` on its handler, and the OpenAPI test fails when
+//! a route here is missing from the document. All methods of one path live in the same function.
 //!
-//! Wires:
-//! - `/api/health` (real)
-//! - `/api/patients/*` (proxy `person-service`)
-//! - `/api/practitioners/*` (proxy `worker-service`)
-//! - `/api/upstream/{person,worker}-merged` (inbound merge webhooks)
-//! - `/api/admissions` + `/api/admissions/:id/{transfer,discharge,cancel-admit}` (ADT)
-//! - `/api/slots/:id/book` + `/api/appointments/:id/{cancel,check-in,complete}` (scheduling)
-//! - `/api/wards/:id/{occupancy,beds}` + `/api/beds/:id` + `PUT /api/beds/:id/status` (resources)
-//!
-//! Still unbound (Phase 3b2): billing, communication, consent, coverage,
-//! waitlist + RTT, encounter CRUD, audit query, outbox diagnostics +
-//! DLQ, dashboard, facility/ward/room creation, bulk slot generation,
-//! appointment series, the remaining ADT cancellation + leave + change
-//! variants.
+//! The operator dashboard (`/dashboard` and its fragments) is merged in by `main.rs`, not here.
+
+// One function per domain, each short enough to read (QUAL-30).
+#![deny(clippy::too_many_lines)]
 
 use axum::{
     Router,
@@ -62,7 +55,25 @@ use super::upstream_proxy;
 /// Build the REST sub-router and attach the shared [`AppState`].
 pub fn router(state: AppState) -> Router {
     Router::new()
-        .route("/api/health", get(handlers::health))
+        .merge(people())
+        .merge(workforce())
+        .merge(adt())
+        .merge(scheduling())
+        .merge(messaging())
+        .merge(waiting())
+        .merge(support())
+        .merge(reporting())
+        .merge(records())
+        .merge(hl7v2())
+        // Dashboard (/dashboard + 4 fragment routes) is mounted from
+        // `main.rs` as a sibling router that merges in at boot time —
+        // it isn't part of this REST table.
+        .with_state(state)
+}
+
+/// Everything under `/api/patients`: the person-service proxy and the PAS's own per-patient records; the merge webhooks.
+fn people() -> Router<AppState> {
+    Router::new()
         // /api/patients/* — proxy to person-service
         .route(
             "/api/patients",
@@ -108,6 +119,90 @@ pub fn router(state: AppState) -> Router {
             "/api/patients/import",
             post(upstream_proxy::import_patients),
         )
+        // Inbound merge webhooks (HMAC-verified inside the handler).
+        .route(
+            "/api/upstream/person-merged",
+            post(upstream_proxy::person_merged_webhook),
+        )
+        .route(
+            "/api/upstream/worker-merged",
+            post(upstream_proxy::worker_merged_webhook),
+        )
+        // Contact reliability and communication needs (CAP-4).
+        .route(
+            "/api/patients/{id}/communication-profile",
+            get(handlers_contact::get_profile).put(handlers_contact::put_profile),
+        )
+        .route(
+            "/api/patients/{id}/communication-profile/verify-mobile",
+            post(handlers_contact::verify_mobile),
+        )
+        .route(
+            "/api/patients/{id}/channel-optouts",
+            get(handlers_contact::list_optouts).post(handlers_contact::add_optout),
+        )
+        .route(
+            "/api/patients/{id}/channel-optouts/{channel}",
+            axum::routing::delete(handlers_contact::remove_optout),
+        )
+        .route(
+            "/api/patients/{id}/appointments",
+            get(handlers_scheduling::list_patient_appointments),
+        )
+        .route(
+            "/api/patients/{id}/contact-log",
+            get(handlers_history::contact_log),
+        )
+        .route(
+            "/api/patients/{id}/waits",
+            get(handlers_waits::patient_waits),
+        )
+        .route(
+            "/api/patients/{id}/transport-eligibility",
+            put(handlers_transport::set_eligible).delete(handlers_transport::withdraw_eligible),
+        )
+        .route(
+            "/api/patients/{id}/transport-consent",
+            put(handlers_transport::record_consent).delete(handlers_transport::withdraw_consent),
+        )
+        .route(
+            "/api/validate/nhs-number",
+            post(handlers_contact::validate_nhs_number),
+        )
+        .route(
+            "/api/patients/{id}/whatsapp-optin",
+            put(handlers_whatsapp::record_optin).delete(handlers_whatsapp::withdraw_optin),
+        )
+        .route(
+            "/api/patients/{id}/appointment-series",
+            get(handlers_series::list_series_for_person),
+        )
+        .route(
+            "/api/patients/{id}/encounters",
+            get(handlers_encounter::list_encounters_for_person),
+        )
+        .route(
+            "/api/patients/{id}/coverages",
+            get(handlers_coverage::list_coverages_for_person),
+        )
+        // Consent.
+        .route(
+            "/api/patients/{id}/consents",
+            post(handlers_consent::create_consent).get(handlers_consent::list_consents_for_person),
+        )
+        .route(
+            "/api/patients/{id}/audit/local",
+            get(handlers_audit::list_local_for_person),
+        )
+        .route(
+            "/api/patients/{id}/letters",
+            get(handlers_letters::list_patient_letters),
+        )
+}
+
+/// The worker-service proxy under `/api/practitioners`.
+fn workforce() -> Router<AppState> {
+    Router::new()
         // /api/practitioners/* — proxy to worker-service
         .route(
             "/api/practitioners",
@@ -135,15 +230,11 @@ pub fn router(state: AppState) -> Router {
             "/api/practitioners/{id}/audit",
             get(upstream_proxy::audit_practitioner),
         )
-        // Inbound merge webhooks (HMAC-verified inside the handler).
-        .route(
-            "/api/upstream/person-merged",
-            post(upstream_proxy::person_merged_webhook),
-        )
-        .route(
-            "/api/upstream/worker-merged",
-            post(upstream_proxy::worker_merged_webhook),
-        )
+}
+
+/// Admissions, transfers, discharges, leave and the other ADT events.
+fn adt() -> Router<AppState> {
+    Router::new()
         // ADT — admit / transfer / discharge / cancel-admit / cancel-discharge.
         .route("/api/admissions", post(handlers_adt::admit))
         .route(
@@ -162,46 +253,148 @@ pub fn router(state: AppState) -> Router {
             "/api/admissions/{id}/cancel-discharge",
             post(handlers_adt::cancel_discharge),
         )
+        // Extra ADT variants — pre-admit / cancel-pre-admit / cancel-transfer
+        // / leave-start / leave-end / change-to-{inpatient,outpatient}.
+        .route("/api/admissions/pre-admit", post(handlers_adt::pre_admit))
+        .route(
+            "/api/admissions/cancel-pre-admit",
+            post(handlers_adt::cancel_pre_admit),
+        )
+        .route(
+            "/api/admissions/change-to-inpatient",
+            post(handlers_adt::change_to_inpatient),
+        )
+        .route(
+            "/api/admissions/{id}/change-to-outpatient",
+            post(handlers_adt::change_to_outpatient),
+        )
+        .route(
+            "/api/admissions/{id}/cancel-transfer",
+            post(handlers_adt::cancel_transfer),
+        )
+        .route(
+            "/api/admissions/{id}/leave-start",
+            post(handlers_adt::leave_start),
+        )
+        .route(
+            "/api/admissions/{id}/leave-end",
+            post(handlers_adt::leave_end),
+        )
+        // Encounter.
+        .route(
+            "/api/encounters/{id}",
+            get(handlers_encounter::get_encounter),
+        )
+        .route(
+            "/api/encounters/{id}/status",
+            put(handlers_encounter::set_status),
+        )
+        .route(
+            "/api/encounters/{id}/cancel",
+            post(handlers_encounter::cancel_encounter),
+        )
+}
+
+/// Schedules, slots, appointments, series, rebooking, virtual visits and transport.
+fn scheduling() -> Router<AppState> {
+    Router::new()
         // Scheduling — book / cancel / check-in / complete.
         .route("/api/slots/{id}/book", post(handlers_scheduling::book_slot))
-        // Contact reliability and communication needs (CAP-4).
         .route(
-            "/api/patients/{id}/communication-profile",
-            get(handlers_contact::get_profile).put(handlers_contact::put_profile),
+            "/api/appointments",
+            get(handlers_scheduling::list_appointments),
         )
         .route(
-            "/api/patients/{id}/communication-profile/verify-mobile",
-            post(handlers_contact::verify_mobile),
+            "/api/appointments/{id}/cancel",
+            post(handlers_scheduling::cancel_appointment),
         )
         .route(
-            "/api/patients/{id}/channel-optouts",
-            get(handlers_contact::list_optouts).post(handlers_contact::add_optout),
+            "/api/appointments/{id}/rebook-options",
+            get(handlers_scheduling::rebook_options),
         )
         .route(
-            "/api/patients/{id}/channel-optouts/{channel}",
-            axum::routing::delete(handlers_contact::remove_optout),
+            "/api/appointments/{id}/rebook",
+            post(handlers_scheduling::rebook_appointment),
         )
+        .route(
+            "/api/appointments/{id}/history",
+            get(handlers_history::appointment_history),
+        )
+        .route(
+            "/api/appointments/{id}/lead-time",
+            get(handlers_waits::lead_time),
+        )
+        .route(
+            "/api/appointments/{id}/transport",
+            get(handlers_transport::booking),
+        )
+        .route(
+            "/api/appointments/{id}/noshow",
+            get(handlers_noshow::for_appointment),
+        )
+        .route(
+            "/api/virtual-ok-services",
+            get(handlers_virtual::list_services),
+        )
+        .route(
+            "/api/virtual-ok-services/{service_type}",
+            put(handlers_virtual::approve_service).delete(handlers_virtual::remove_service),
+        )
+        .route("/api/conversions/pending", get(handlers_virtual::pending))
+        .route(
+            "/api/appointments/{id}/video-failed",
+            post(handlers_virtual::video_failed),
+        )
+        .route(
+            "/api/appointments/{id}/conversion/{decision}",
+            post(handlers_virtual::review),
+        )
+        .route(
+            "/api/appointments/{id}/location",
+            put(handlers_scheduling::move_to_room),
+        )
+        .route(
+            "/api/facility/in-facility",
+            get(handlers_scheduling::in_facility),
+        )
+        .route(
+            "/api/appointments/{id}/barrier",
+            put(handlers_scheduling::record_barrier),
+        )
+        .route(
+            "/api/appointments/{id}/check-in",
+            post(handlers_scheduling::check_in_appointment),
+        )
+        .route(
+            "/api/appointments/{id}/complete",
+            post(handlers_scheduling::complete_appointment),
+        )
+        // Scheduling — no-show.
+        .route(
+            "/api/appointments/{id}/no-show",
+            post(handlers_scheduling::mark_no_show),
+        )
+        // Appointment series.
+        .route(
+            "/api/appointment-series",
+            post(handlers_series::create_series),
+        )
+        .route(
+            "/api/appointment-series/{id}",
+            get(handlers_series::get_series),
+        )
+        .route(
+            "/api/appointment-series/{id}/cancel",
+            post(handlers_series::cancel_series),
+        )
+}
+
+/// Letters, templates, replies, links, texts, receipts, printing and contact.
+fn messaging() -> Router<AppState> {
+    Router::new()
         .route(
             "/api/communication-profiles/stale",
             get(handlers_contact::stale_profiles),
-        )
-        // Released slots and the standby list (CAP-3).
-        .route(
-            "/api/standby",
-            post(handlers_standby::add_standby).get(handlers_standby::list_standby),
-        )
-        .route(
-            "/api/standby/{id}",
-            delete(handlers_standby::remove_standby),
-        )
-        .route(
-            "/api/standby/{id}/book",
-            post(handlers_standby::book_from_standby),
-        )
-        .route("/api/slot-releases", get(handlers_standby::list_releases))
-        .route(
-            "/api/slot-releases/{id}/candidates",
-            get(handlers_standby::release_candidates),
         )
         // Write-back (CAP-2): a patient's reply changes the appointment now.
         .route(
@@ -246,41 +439,84 @@ pub fn router(state: AppState) -> Router {
             "/api/inbound-texts/{id}/handled",
             post(handlers_writeback::text_handled),
         )
+        .route("/api/offer-links/{token}", get(handlers_offers::get_offer))
         .route(
-            "/api/appointments",
-            get(handlers_scheduling::list_appointments),
+            "/api/offer-links/{token}/{action}",
+            post(handlers_offers::post_offer_action),
+        )
+        .route("/api/print-queue", get(handlers_print::queue))
+        .route("/api/print-batches", post(handlers_print::export))
+        .route(
+            "/api/print-batches/{id}/sent",
+            post(handlers_print::mark_sent),
         )
         .route(
-            "/api/patients/{id}/appointments",
-            get(handlers_scheduling::list_patient_appointments),
+            "/api/write-back/receipts",
+            post(handlers_receipts::post_receipt),
         )
         .route(
-            "/api/appointments/{id}/cancel",
-            post(handlers_scheduling::cancel_appointment),
+            "/api/letters/{id}/receipts",
+            get(handlers_receipts::letter_receipts),
         )
         .route(
-            "/api/appointments/{id}/rebook-options",
-            get(handlers_scheduling::rebook_options),
+            "/api/contact-problems",
+            get(handlers_receipts::contact_problems),
         )
         .route(
-            "/api/appointments/{id}/rebook",
-            post(handlers_scheduling::rebook_appointment),
+            "/api/contact-problems/{person_id}/resolve",
+            post(handlers_receipts::resolve_problem),
         )
         .route(
-            "/api/appointments/{id}/history",
-            get(handlers_history::appointment_history),
+            "/api/letter-templates/{id}/whatsapp-approval",
+            put(handlers_whatsapp::approve_template).delete(handlers_whatsapp::revoke_template),
+        )
+        .route("/api/write-back/ivr/menu", post(handlers_ivr::menu))
+        .route("/api/write-back/ivr/press", post(handlers_ivr::press))
+        // Letter templates + generation.
+        .route(
+            "/api/letter-templates",
+            post(handlers_letters::create_template).get(handlers_letters::list_templates),
         )
         .route(
-            "/api/patients/{id}/contact-log",
-            get(handlers_history::contact_log),
+            "/api/letter-templates/{id}",
+            get(handlers_letters::get_template).put(handlers_letters::update_template),
         )
         .route(
-            "/api/appointments/{id}/lead-time",
-            get(handlers_waits::lead_time),
+            "/api/letters/preview",
+            post(handlers_letters::preview_letter),
         )
         .route(
-            "/api/patients/{id}/waits",
-            get(handlers_waits::patient_waits),
+            "/api/letters/generate",
+            post(handlers_letters::generate_letter),
+        )
+        .route("/api/letters/{id}", get(handlers_letters::get_letter))
+        .route("/api/letters/{id}/sent", post(handlers_letters::mark_sent))
+        .route(
+            "/api/letters/{id}/failed",
+            post(handlers_letters::mark_failed),
+        )
+}
+
+/// Waiting lists, RTT, standby, released slots, referrals and long waits.
+fn waiting() -> Router<AppState> {
+    Router::new()
+        // Released slots and the standby list (CAP-3).
+        .route(
+            "/api/standby",
+            post(handlers_standby::add_standby).get(handlers_standby::list_standby),
+        )
+        .route(
+            "/api/standby/{id}",
+            delete(handlers_standby::remove_standby),
+        )
+        .route(
+            "/api/standby/{id}/book",
+            post(handlers_standby::book_from_standby),
+        )
+        .route("/api/slot-releases", get(handlers_standby::list_releases))
+        .route(
+            "/api/slot-releases/{id}/candidates",
+            get(handlers_standby::release_candidates),
         )
         .route(
             "/api/pathways/due-check",
@@ -293,43 +529,6 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/still-needed-checks/{id}/answer",
             post(handlers_waits::answer),
-        )
-        .route(
-            "/api/patients/{id}/transport-eligibility",
-            put(handlers_transport::set_eligible).delete(handlers_transport::withdraw_eligible),
-        )
-        .route(
-            "/api/patients/{id}/transport-consent",
-            put(handlers_transport::record_consent).delete(handlers_transport::withdraw_consent),
-        )
-        .route(
-            "/api/appointments/{id}/transport",
-            get(handlers_transport::booking),
-        )
-        .route(
-            "/api/analytics/appointment-outcomes",
-            get(handlers_analytics::outcomes),
-        )
-        .route(
-            "/api/analytics/refill-rates",
-            get(handlers_analytics::refill_rates),
-        )
-        .route(
-            "/api/analytics/deprivation-lookup",
-            put(handlers_analytics::load_deprivation_lookup),
-        )
-        .route(
-            "/api/analytics/demographics/refresh",
-            post(handlers_analytics::refresh_demographics),
-        )
-        .route(
-            "/api/analytics/demographics/{person_id}",
-            put(handlers_analytics::set_demographics),
-        )
-        .route("/api/offer-links/{token}", get(handlers_offers::get_offer))
-        .route(
-            "/api/offer-links/{token}/{action}",
-            post(handlers_offers::post_offer_action),
         )
         .route(
             "/api/slot-releases/{id}/offers",
@@ -357,36 +556,36 @@ pub fn router(state: AppState) -> Router {
             "/api/referrals/{id}/triage",
             post(handlers_referrals::triage),
         )
+        // Waitlist + RTT.
         .route(
-            "/api/reports/clinic-activity",
-            get(handlers_reports::clinic_activity),
-        )
-        .route("/api/print-queue", get(handlers_print::queue))
-        .route("/api/print-batches", post(handlers_print::export))
-        .route(
-            "/api/print-batches/{id}/sent",
-            post(handlers_print::mark_sent),
+            "/api/waitlist",
+            post(handlers_waitlist::add_to_waitlist).get(handlers_waitlist::list_waitlist),
         )
         .route(
-            "/api/validate/nhs-number",
-            post(handlers_contact::validate_nhs_number),
+            "/api/waitlist/{id}",
+            delete(handlers_waitlist::remove_from_waitlist),
         )
         .route(
-            "/api/write-back/receipts",
-            post(handlers_receipts::post_receipt),
+            "/api/waitlist/{id}/book",
+            post(handlers_waitlist::book_from_waitlist),
+        )
+        .route("/api/rtt/start", post(handlers_waitlist::rtt_start))
+        .route("/api/rtt/{id}/pause", post(handlers_waitlist::rtt_pause))
+        .route("/api/rtt/{id}/resume", post(handlers_waitlist::rtt_resume))
+        .route("/api/rtt/{id}/stop", post(handlers_waitlist::rtt_stop))
+        .route(
+            "/api/rtt/{id}/weeks-waiting",
+            get(handlers_waitlist::rtt_weeks_waiting),
         )
         .route(
-            "/api/letters/{id}/receipts",
-            get(handlers_receipts::letter_receipts),
+            "/api/rtt/{id}/breaching",
+            get(handlers_waitlist::rtt_is_breaching),
         )
-        .route(
-            "/api/contact-problems",
-            get(handlers_receipts::contact_problems),
-        )
-        .route(
-            "/api/contact-problems/{person_id}/resolve",
-            post(handlers_receipts::resolve_problem),
-        )
+}
+
+/// Support flags, follow-up, the no-show score, identity proofing and experiments.
+fn support() -> Router<AppState> {
+    Router::new()
         .route(
             "/api/identity-proofings/{subject}",
             put(handlers_identity::record)
@@ -408,21 +607,6 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/experiments/{id}/readout",
             get(handlers_experiments::readout),
-        )
-        .route("/api/tolerances", get(handlers_tolerance::list))
-        .route("/api/tolerances/status", get(handlers_tolerance::status))
-        .route(
-            "/api/tolerances/evaluate",
-            post(handlers_tolerance::evaluate),
-        )
-        .route("/api/tolerance-alerts", get(handlers_tolerance::alerts))
-        .route(
-            "/api/tolerance-alerts/{id}/acknowledge",
-            post(handlers_tolerance::acknowledge),
-        )
-        .route(
-            "/api/tolerances/{metric}",
-            put(handlers_tolerance::set).delete(handlers_tolerance::reset),
         )
         .route("/api/noshow/status", get(handlers_noshow::status))
         .route("/api/noshow/rollout", get(handlers_noshow::rollout))
@@ -449,20 +633,6 @@ pub fn router(state: AppState) -> Router {
             "/api/noshow/priority-list",
             get(handlers_noshow::priority_list),
         )
-        .route(
-            "/api/appointments/{id}/noshow",
-            get(handlers_noshow::for_appointment),
-        )
-        .route(
-            "/api/patients/{id}/whatsapp-optin",
-            put(handlers_whatsapp::record_optin).delete(handlers_whatsapp::withdraw_optin),
-        )
-        .route(
-            "/api/letter-templates/{id}/whatsapp-approval",
-            put(handlers_whatsapp::approve_template).delete(handlers_whatsapp::revoke_template),
-        )
-        .route("/api/write-back/ivr/menu", post(handlers_ivr::menu))
-        .route("/api/write-back/ivr/press", post(handlers_ivr::press))
         .route("/api/support-flags", post(handlers_support::add))
         .route("/api/support-flags/open", get(handlers_support::open))
         .route(
@@ -482,43 +652,72 @@ pub fn router(state: AppState) -> Router {
             "/api/follow-up-tasks/{id}/outcome",
             post(handlers_followup::close_task),
         )
+}
+
+/// Analytics, reports, tolerances, audit and administration.
+fn reporting() -> Router<AppState> {
+    Router::new()
+        .route("/api/health", get(handlers::health))
         .route(
-            "/api/virtual-ok-services",
-            get(handlers_virtual::list_services),
+            "/api/analytics/appointment-outcomes",
+            get(handlers_analytics::outcomes),
         )
         .route(
-            "/api/virtual-ok-services/{service_type}",
-            put(handlers_virtual::approve_service).delete(handlers_virtual::remove_service),
-        )
-        .route("/api/conversions/pending", get(handlers_virtual::pending))
-        .route(
-            "/api/appointments/{id}/video-failed",
-            post(handlers_virtual::video_failed),
+            "/api/analytics/refill-rates",
+            get(handlers_analytics::refill_rates),
         )
         .route(
-            "/api/appointments/{id}/conversion/{decision}",
-            post(handlers_virtual::review),
+            "/api/analytics/deprivation-lookup",
+            put(handlers_analytics::load_deprivation_lookup),
         )
         .route(
-            "/api/appointments/{id}/location",
-            put(handlers_scheduling::move_to_room),
+            "/api/analytics/demographics/refresh",
+            post(handlers_analytics::refresh_demographics),
         )
         .route(
-            "/api/facility/in-facility",
-            get(handlers_scheduling::in_facility),
+            "/api/analytics/demographics/{person_id}",
+            put(handlers_analytics::set_demographics),
         )
         .route(
-            "/api/appointments/{id}/barrier",
-            put(handlers_scheduling::record_barrier),
+            "/api/reports/clinic-activity",
+            get(handlers_reports::clinic_activity),
+        )
+        .route("/api/tolerances", get(handlers_tolerance::list))
+        .route("/api/tolerances/status", get(handlers_tolerance::status))
+        .route(
+            "/api/tolerances/evaluate",
+            post(handlers_tolerance::evaluate),
+        )
+        .route("/api/tolerance-alerts", get(handlers_tolerance::alerts))
+        .route(
+            "/api/tolerance-alerts/{id}/acknowledge",
+            post(handlers_tolerance::acknowledge),
         )
         .route(
-            "/api/appointments/{id}/check-in",
-            post(handlers_scheduling::check_in_appointment),
+            "/api/tolerances/{metric}",
+            put(handlers_tolerance::set).delete(handlers_tolerance::reset),
+        )
+        // Audit query.
+        .route("/api/audit/recent", get(handlers_audit::list_recent))
+        .route("/api/audit/entity", get(handlers_audit::list_for_entity))
+        // Admin: outbox diagnostics + DLQ replay.
+        .route(
+            "/api/admin/outbox/unpublished",
+            get(handlers_admin::list_unpublished_outbox),
         )
         .route(
-            "/api/appointments/{id}/complete",
-            post(handlers_scheduling::complete_appointment),
+            "/api/admin/outbox/dead-letters",
+            get(handlers_admin::list_dead_letters),
         )
+        .route(
+            "/api/admin/outbox/dead-letters/{id}/replay",
+            post(handlers_admin::replay_dead_letter),
+        )
+}
+
+/// Facilities, wards, beds, billing, coverage and consent.
+fn records() -> Router<AppState> {
+    Router::new()
         // Resources — ward occupancy + bed reads + bed status change.
         .route(
             "/api/wards/{id}/occupancy",
@@ -532,72 +731,6 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/beds/{id}/status",
             put(handlers_resources::set_bed_status),
-        )
-        // Extra ADT variants — pre-admit / cancel-pre-admit / cancel-transfer
-        // / leave-start / leave-end / change-to-{inpatient,outpatient}.
-        .route("/api/admissions/pre-admit", post(handlers_adt::pre_admit))
-        .route(
-            "/api/admissions/cancel-pre-admit",
-            post(handlers_adt::cancel_pre_admit),
-        )
-        .route(
-            "/api/admissions/change-to-inpatient",
-            post(handlers_adt::change_to_inpatient),
-        )
-        .route(
-            "/api/admissions/{id}/change-to-outpatient",
-            post(handlers_adt::change_to_outpatient),
-        )
-        .route(
-            "/api/admissions/{id}/cancel-transfer",
-            post(handlers_adt::cancel_transfer),
-        )
-        .route(
-            "/api/admissions/{id}/leave-start",
-            post(handlers_adt::leave_start),
-        )
-        .route(
-            "/api/admissions/{id}/leave-end",
-            post(handlers_adt::leave_end),
-        )
-        // Scheduling — no-show.
-        .route(
-            "/api/appointments/{id}/no-show",
-            post(handlers_scheduling::mark_no_show),
-        )
-        // Appointment series.
-        .route(
-            "/api/appointment-series",
-            post(handlers_series::create_series),
-        )
-        .route(
-            "/api/appointment-series/{id}",
-            get(handlers_series::get_series),
-        )
-        .route(
-            "/api/appointment-series/{id}/cancel",
-            post(handlers_series::cancel_series),
-        )
-        .route(
-            "/api/patients/{id}/appointment-series",
-            get(handlers_series::list_series_for_person),
-        )
-        // Encounter.
-        .route(
-            "/api/encounters/{id}",
-            get(handlers_encounter::get_encounter),
-        )
-        .route(
-            "/api/encounters/{id}/status",
-            put(handlers_encounter::set_status),
-        )
-        .route(
-            "/api/encounters/{id}/cancel",
-            post(handlers_encounter::cancel_encounter),
-        )
-        .route(
-            "/api/patients/{id}/encounters",
-            get(handlers_encounter::list_encounters_for_person),
         )
         // Billing.
         .route("/api/accounts", post(handlers_billing::open_account))
@@ -617,66 +750,12 @@ pub fn router(state: AppState) -> Router {
                 .delete(handlers_coverage::delete_coverage),
         )
         .route(
-            "/api/patients/{id}/coverages",
-            get(handlers_coverage::list_coverages_for_person),
-        )
-        .route(
             "/api/accounts/{id}/coverages",
             get(handlers_coverage::list_coverages_for_account),
-        )
-        // Consent.
-        .route(
-            "/api/patients/{id}/consents",
-            post(handlers_consent::create_consent).get(handlers_consent::list_consents_for_person),
         )
         .route(
             "/api/consents/{id}/revoke",
             post(handlers_consent::revoke_consent),
-        )
-        // Waitlist + RTT.
-        .route(
-            "/api/waitlist",
-            post(handlers_waitlist::add_to_waitlist).get(handlers_waitlist::list_waitlist),
-        )
-        .route(
-            "/api/waitlist/{id}",
-            delete(handlers_waitlist::remove_from_waitlist),
-        )
-        .route(
-            "/api/waitlist/{id}/book",
-            post(handlers_waitlist::book_from_waitlist),
-        )
-        .route("/api/rtt/start", post(handlers_waitlist::rtt_start))
-        .route("/api/rtt/{id}/pause", post(handlers_waitlist::rtt_pause))
-        .route("/api/rtt/{id}/resume", post(handlers_waitlist::rtt_resume))
-        .route("/api/rtt/{id}/stop", post(handlers_waitlist::rtt_stop))
-        .route(
-            "/api/rtt/{id}/weeks-waiting",
-            get(handlers_waitlist::rtt_weeks_waiting),
-        )
-        .route(
-            "/api/rtt/{id}/breaching",
-            get(handlers_waitlist::rtt_is_breaching),
-        )
-        // Audit query.
-        .route("/api/audit/recent", get(handlers_audit::list_recent))
-        .route("/api/audit/entity", get(handlers_audit::list_for_entity))
-        .route(
-            "/api/patients/{id}/audit/local",
-            get(handlers_audit::list_local_for_person),
-        )
-        // Admin: outbox diagnostics + DLQ replay.
-        .route(
-            "/api/admin/outbox/unpublished",
-            get(handlers_admin::list_unpublished_outbox),
-        )
-        .route(
-            "/api/admin/outbox/dead-letters",
-            get(handlers_admin::list_dead_letters),
-        )
-        .route(
-            "/api/admin/outbox/dead-letters/{id}/replay",
-            post(handlers_admin::replay_dead_letter),
         )
         // Facility / Ward / Room / Bed creation + reads.
         .route(
@@ -700,33 +779,11 @@ pub fn router(state: AppState) -> Router {
         .route("/api/rooms", post(handlers_resources::create_room))
         .route("/api/rooms/{id}", get(handlers_resources::get_room))
         .route("/api/beds", post(handlers_resources::create_bed))
-        // Letter templates + generation.
-        .route(
-            "/api/letter-templates",
-            post(handlers_letters::create_template).get(handlers_letters::list_templates),
-        )
-        .route(
-            "/api/letter-templates/{id}",
-            get(handlers_letters::get_template).put(handlers_letters::update_template),
-        )
-        .route(
-            "/api/letters/preview",
-            post(handlers_letters::preview_letter),
-        )
-        .route(
-            "/api/letters/generate",
-            post(handlers_letters::generate_letter),
-        )
-        .route(
-            "/api/patients/{id}/letters",
-            get(handlers_letters::list_patient_letters),
-        )
-        .route("/api/letters/{id}", get(handlers_letters::get_letter))
-        .route("/api/letters/{id}/sent", post(handlers_letters::mark_sent))
-        .route(
-            "/api/letters/{id}/failed",
-            post(handlers_letters::mark_failed),
-        )
+}
+
+/// HL7 v2 messages over HTTP (the MLLP listener posts to these paths).
+fn hl7v2() -> Router<AppState> {
+    Router::new()
         // HL7 v2 (Phase 3c minimum viable surface: parse + ADT
         // A28/A01/A02/A03). Each handler dedup-or-creates the person
         // upstream via `PersonClient` before invoking the local
@@ -798,8 +855,4 @@ pub fn router(state: AppState) -> Router {
             post(handlers_hl7v2::mfn_location),
         )
         .route("/api/hl7/v2/batch", post(handlers_hl7v2::batch))
-        // Dashboard (/dashboard + 4 fragment routes) is mounted from
-        // `main.rs` as a sibling router that merges in at boot time —
-        // it isn't part of this REST table.
-        .with_state(state)
 }
