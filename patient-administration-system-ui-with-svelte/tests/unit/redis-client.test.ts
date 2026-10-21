@@ -27,8 +27,9 @@ afterEach(async () => {
   for (const s of servers.splice(0)) await s.close();
 });
 
-/** A server that answers with `answer(command)`; `undefined` means never answer; "drop" closes the socket. */
-async function fakeRedis(answer: (cmd: string[]) => Resp | undefined | "drop"): Promise<Fake> {
+/** A server that answers with `answer(command)`: `undefined` never answers, "drop" closes the socket, and
+ * `{ delayMs, value }` answers late. */
+async function fakeRedis(answer: (cmd: string[]) => Resp | undefined | "drop" | { delayMs: number; value: Resp }): Promise<Fake> {
   const seen: string[][] = [];
   const sockets = new Set<net.Socket>();
   let connections = 0;
@@ -43,7 +44,10 @@ async function fakeRedis(answer: (cmd: string[]) => Resp | undefined | "drop"): 
         seen.push(cmd);
         const a = answer(cmd);
         if (a === "drop") socket.destroy();
-        else if (a !== undefined) socket.write(reply(a));
+        else if (a !== null && typeof a === "object" && "delayMs" in a) {
+          const { delayMs, value } = a;
+          setTimeout(() => socket.writable && socket.write(reply(value)), delayMs);
+        } else if (a !== undefined) socket.write(reply(a));
       }
     });
   });
@@ -111,6 +115,22 @@ describe("RedisClient", () => {
     await expect(c.command("HANG")).rejects.toThrow(/timed out/);
     await expect(c.command("SET", "y", "2")).resolves.toBe("OK");
     expect(r.connections).toBe(2);
+    c.close();
+  });
+
+  it("ignores a late event from a connection it has already dropped", async () => {
+    // Found by CI: after a timeout, the dropped socket's `close` arrived while the next command was waiting on
+    // a new connection, and dropped that one too. Made certain here by emitting it during the wait.
+    const r = await fakeRedis((cmd) => (cmd[0] === "SLOW" ? { delayMs: 80, value: "late" } : kv(cmd)));
+    const c = new RedisClient({ url: r.url, timeoutMs: 100 });
+    await c.command("SET", "a", "1");
+    const dropped = (c as unknown as { socket: net.Socket }).socket;
+    await expect(c.command("HANG")).rejects.toThrow(/timed out/);
+    const waiting = c.command("SLOW");
+    await new Promise((res) => setTimeout(res, 30)); // connected again, waiting for the reply
+    dropped.emit("close");
+    dropped.emit("error", new Error("ECONNRESET on the old socket"));
+    await expect(waiting).resolves.toBe("late");
     c.close();
   });
 

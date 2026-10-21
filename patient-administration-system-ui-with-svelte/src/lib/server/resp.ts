@@ -149,9 +149,13 @@ export class RedisClient {
     });
     socket.setTimeout(0);
     socket.removeAllListeners("error");
-    socket.on("error", (e) => this.drop(e));
-    socket.on("close", () => this.drop(new Error("Redis connection closed")));
+    // A socket that has been dropped (a timeout) still emits `close`, and may emit `error` or late data. By then
+    // the next command may be waiting on a new connection: events act only while this is the current socket.
+    const current = () => this.socket === socket;
+    socket.on("error", (e) => current() && this.drop(e));
+    socket.on("close", () => current() && this.drop(new Error("Redis connection closed")));
     socket.on("data", (chunk) => {
+      if (!current()) return;
       let replies: Resp[];
       try {
         replies = this.parser.feed(chunk);
