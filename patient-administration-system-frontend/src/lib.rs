@@ -29,4 +29,5 @@ pub mod csrf;
 pub mod initializers;
 pub mod models;
 pub mod services;
+pub mod tpl;
 pub mod views;

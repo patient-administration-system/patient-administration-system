@@ -554,7 +554,7 @@ async fn record_inbox(
         "INSERT INTO upstream_inbox (event_id, source) VALUES ($1, $2) ON CONFLICT DO NOTHING",
         [event_id.into(), source.into()],
     );
-    let result = db.execute(sql).await.map_err(Error::Database)?;
+    let result = db.execute_raw(sql).await.map_err(Error::Database)?;
     Ok(result.rows_affected() > 0)
 }
 
@@ -592,7 +592,7 @@ async fn propagate_person_merge(
                     format!("UPDATE {table} SET person_id = $1 WHERE person_id = $2"),
                     [outcome.target_id.into(), outcome.source_id.into()],
                 );
-                let result = txn.execute(sql).await.map_err(Error::Database)?;
+                let result = txn.execute_raw(sql).await.map_err(Error::Database)?;
                 if result.rows_affected() > 0 {
                     AuditLogRepository::log(
                         txn,
@@ -644,7 +644,7 @@ async fn propagate_worker_merge(
                     format!("UPDATE {table} SET {column} = $1 WHERE {column} = $2"),
                     [outcome.target_id.into(), outcome.source_id.into()],
                 );
-                let result = txn.execute(sql).await.map_err(Error::Database)?;
+                let result = txn.execute_raw(sql).await.map_err(Error::Database)?;
                 if result.rows_affected() > 0 {
                     AuditLogRepository::log(
                         txn,

@@ -130,7 +130,7 @@ async fn the_in_facility_list_shows_minutes_waiting_longest_first_and_drops_the_
     }
     // Backdate their arrivals: 50, 5 and 20 minutes ago.
     for (a, mins) in [(&early, 50), (&late, 5), (&gone, 20)] {
-        s.db.execute(Statement::from_sql_and_values(
+        s.db.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "UPDATE appointments SET arrived_at = now() - make_interval(mins => $2::int) WHERE id = $1",
             [a.id.into(), mins.into()],

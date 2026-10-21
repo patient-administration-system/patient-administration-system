@@ -52,7 +52,7 @@ async fn appointment(s: &AppState, person: Uuid, days: i64, reminded: bool) -> A
     a.status = AppointmentStatus::Booked;
     let a = AppointmentRepository::create(&s.db, &a).await.unwrap();
     if reminded {
-        s.db.execute(Statement::from_sql_and_values(
+        s.db.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "INSERT INTO generated_letters (id, template_id, person_id, appointment_id, rendered_subject, rendered_body, channel, status, sent_at, created_at, updated_at) \
              VALUES ($1,$2,$3,$4,'Reminder','Hello','sms','sent',now(),now(),now())",

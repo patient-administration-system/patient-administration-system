@@ -158,7 +158,7 @@ async fn the_earliest_free_slot_of_the_service_is_booked_and_linked() {
     );
     let stored =
         w.s.db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT referral_id FROM appointments WHERE id = $1",
                 [b.appointment.id.into()],

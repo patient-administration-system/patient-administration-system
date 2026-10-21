@@ -158,7 +158,7 @@ impl ReminderService {
             if self.backoff && failed > 0 {
                 let last: Option<DateTime<Utc>> = self
                     .db
-                    .query_one(Statement::from_sql_and_values(
+                    .query_one_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "SELECT max(updated_at) AS t FROM generated_letters \
                          WHERE appointment_id = $1 AND status = 'failed' AND template_id = ANY($2)",

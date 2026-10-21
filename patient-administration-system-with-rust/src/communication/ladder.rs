@@ -266,7 +266,7 @@ impl LadderService {
     pub async fn has_acted(&self, appointment_id: Uuid) -> Result<bool> {
         let r = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT (a.confirmed_at IS NOT NULL \
                     OR EXISTS (SELECT 1 FROM inbound_texts t WHERE t.appointment_id = a.id AND t.outcome IN ('applied','needs_staff')) \
@@ -283,7 +283,7 @@ impl LadderService {
     async fn logged(&self, appointment_id: Uuid) -> Result<Vec<(String, String, Option<String>)>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT step, outcome, channel FROM reminder_steps WHERE appointment_id = $1",
                 [appointment_id.into()],
@@ -313,7 +313,7 @@ impl LadderService {
         letter_id: Option<Uuid>,
     ) -> Result<()> {
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO reminder_steps (id, appointment_id, step, planned_for, channel, locale, outcome, letter_id) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (appointment_id, step) DO NOTHING",
@@ -489,7 +489,7 @@ impl LadderService {
                 }
                 Step::Call => {
                     self.db
-                        .execute(Statement::from_sql_and_values(
+                        .execute_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) VALUES ($1,$2,$3,'silent',$4) \
                              ON CONFLICT (appointment_id, reason) DO NOTHING",
@@ -563,7 +563,7 @@ impl LadderService {
     pub async fn open_calls(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT t.id, t.appointment_id, t.person_id, t.reason, t.due_at, a.start_datetime FROM staff_call_tasks t \
                  JOIN appointments a ON a.id = t.appointment_id WHERE t.handled_at IS NULL ORDER BY a.start_datetime, t.due_at LIMIT $1",
@@ -594,7 +594,7 @@ impl LadderService {
         }
         let r = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE staff_call_tasks SET handled_at = now(), handled_by = $3, call_outcome = $2 WHERE id = $1 AND handled_at IS NULL",
                 [id.into(), outcome.into(), by.map(String::from).into()],

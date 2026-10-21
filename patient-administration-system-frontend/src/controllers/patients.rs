@@ -1,7 +1,7 @@
 //! Patients controller — list + detail pages.
 
+use crate::tpl::json;
 use loco_rs::prelude::*;
-use serde_json::json;
 use uuid::Uuid;
 
 use crate::models::patient::{find_patient_by_id, list_active_patients};

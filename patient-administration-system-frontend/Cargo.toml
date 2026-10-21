@@ -12,7 +12,9 @@ publish = false
 # tower-http + tracing, so we deliberately do NOT add those crates as
 # direct dependencies — doing so creates conflicting `FromRequest` impls
 # from incompatible axum versions in the dep graph.
-loco-rs = "0.14"
+# No `auth` (JWT): this front-end does not use it, and it brings in `rsa` (RUSTSEC-2023-0071, no fix).
+# No `db-sqlite`: the database is PostgreSQL.
+loco-rs = { version = "1.2", default-features = false, features = ["cli", "with-db", "cache_inmem", "worker"] }
 
 # Needed only to name `Router` and `Extension` in the view-engine initializer
 # (Loco does not re-export them). Same axum 0.8 line Loco 0.14.1 resolves, so one
@@ -29,7 +31,7 @@ axum-extra = { version = "0.12", features = ["cookie"] }
 tokio = { version = "1.54", features = ["full"] }
 
 # Database — same as the PAS Axum app so the two share schemas + migrations.
-sea-orm = { version = "1.1", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "with-json"] }
+sea-orm = { version = "2.0", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "with-json"] }
 
 # Reuse the PAS migrations crate so `patient-administration-system-frontend` and the PAS Axum
 # binary apply identical schemas via `loco-cli db migrate`.
@@ -51,7 +53,7 @@ thiserror = "2.0"
 async-trait = "0.1"
 
 [dev-dependencies]
-loco-rs = { version = "0.14", features = ["testing"] }
+loco-rs = { version = "1.2", default-features = false, features = ["testing"] }
 serial_test = "4.0"
 
 [[bin]]

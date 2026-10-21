@@ -67,7 +67,7 @@ pub async fn audit_count(
 ) -> i64 {
     use sea_orm::{ConnectionTrait, DbBackend, Statement};
     let row = db
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT count(*) AS n FROM audit_log WHERE entity_id = $1 AND action = $2",
             [entity_id.into(), action.into()],

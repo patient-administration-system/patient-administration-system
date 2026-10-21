@@ -275,7 +275,7 @@ impl NoShowService {
     async fn latest_review(&self, kind: &str, valid_days: i64) -> Result<Option<String>> {
         Ok(self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT outcome, reviewed_at > now() - make_interval(days => $3::int) AS fresh FROM noshow_reviews \
                  WHERE kind = $1 AND model_version = $2 ORDER BY reviewed_at DESC LIMIT 1",
@@ -390,7 +390,7 @@ impl NoShowService {
         }
         let id = Uuid::new_v4();
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO noshow_reviews (id, kind, reviewer, outcome, notes, model_version) VALUES ($1,$2,$3,$4,$5,$6)",
                 [id.into(), kind.into(), reviewer.into(), outcome.into(), notes.into(), MODEL_VERSION.into()],
@@ -418,7 +418,7 @@ impl NoShowService {
         let tz = crate::inbound::messages::timezone();
         let Some(r) = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT a.person_id, a.start_datetime, a.created_at, a.updated_at, d.age_band, \
                    (SELECT count(*) FROM appointments p WHERE p.person_id = a.person_id AND p.id <> a.id \
@@ -461,7 +461,7 @@ impl NoShowService {
         if let Some(existing) = self.stored(appointment_id).await? {
             let row = self
                 .db
-                .query_one(Statement::from_sql_and_values(
+                .query_one_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     "SELECT (n.computed_on = $2 AND a.updated_at <= n.computed_at) AS current \
                      FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id WHERE n.appointment_id = $1",
@@ -479,7 +479,7 @@ impl NoShowService {
             .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
         let a = compute(&inputs, &Weights::from_env());
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO noshow_assessments (appointment_id, probability, factors, sample_size, model_version, computed_at, computed_on) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (appointment_id) DO UPDATE SET probability = $2, factors = $3, \
@@ -505,7 +505,7 @@ impl NoShowService {
     async fn stored(&self, appointment_id: Uuid) -> Result<Option<Shown>> {
         let medium = medium_threshold();
         self.db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT probability, factors, sample_size, model_version, computed_at, \
                    EXISTS (SELECT 1 FROM staff_call_tasks t WHERE t.appointment_id = noshow_assessments.appointment_id AND t.reason = 'high_risk') AS listed \
@@ -581,7 +581,7 @@ impl NoShowService {
         }
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT a.id FROM appointments a JOIN slots sl ON sl.id = a.slot_id \
                  JOIN schedules sc ON sc.id = sl.schedule_id \
@@ -600,7 +600,7 @@ impl NoShowService {
     pub async fn rollout(&self) -> Result<Vec<serde_json::Value>> {
         let rows = self
             .db
-            .query_all(Statement::from_string(
+            .query_all_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT s.svc, COALESCE(r.stage, 'shadow') AS stage, r.changed_by, r.live_since, s.first_at, s.n \
                  FROM (SELECT sc.service_type AS svc, min(n.computed_at) AS first_at, count(*) AS n \
@@ -659,7 +659,7 @@ impl NoShowService {
             self.require_active().await?;
             let row = self
                 .db
-                .query_one(Statement::from_sql_and_values(
+                .query_one_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     "SELECT min(n.computed_at) AS first_at FROM noshow_assessments n \
                      JOIN appointments a ON a.id = n.appointment_id JOIN slots sl ON sl.id = a.slot_id \
@@ -678,7 +678,7 @@ impl NoShowService {
             }
         }
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO noshow_rollout (service_type, stage, changed_by, note, live_since) \
                  VALUES ($1,$2,$3,$4, CASE WHEN $2 = 'live' THEN now() END) \
@@ -717,7 +717,7 @@ impl NoShowService {
         let r3 = |x: f64| (x * 1000.0).round() / 1000.0;
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT floor(n.probability * 10)::int AS tenth, count(*)::bigint AS n, avg(n.probability) AS predicted, \
                    avg((a.status = 'no_show')::int) AS observed \
@@ -757,7 +757,7 @@ impl NoShowService {
         // Per clinic: before and after the go-live moment, and the same after-period at clinics still in shadow.
         let clinic_rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "WITH o AS ( \
                    SELECT COALESCE(sc.service_type,'unknown') AS svc, a.start_datetime AS at, (a.status = 'no_show') AS missed \
@@ -814,7 +814,7 @@ impl NoShowService {
         self.require_active().await?;
         let ids = self
             .db
-            .query_all(Statement::from_string(
+            .query_all_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT id FROM appointments WHERE status = 'booked' AND deleted_at IS NULL AND start_datetime > now() \
                  ORDER BY start_datetime LIMIT 20000"
@@ -840,7 +840,7 @@ impl NoShowService {
         self.require_active().await?;
         let r = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
                  SELECT gen_random_uuid(), a.id, a.person_id, 'high_risk', GREATEST(now(), a.start_datetime - interval '2 days') \
@@ -865,7 +865,7 @@ impl NoShowService {
         self.require_active().await?;
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT n.appointment_id, n.probability, n.factors, n.sample_size, a.start_datetime, t.id AS task_id \
                  FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
@@ -900,7 +900,7 @@ impl NoShowService {
         let tz = crate::inbound::messages::timezone();
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT a.status, a.start_datetime, a.created_at, d.age_band, \
                    COALESCE(d.deprivation_quintile::text, 'unknown') AS q, COALESCE(cp.preferred_language, 'unknown') AS lang, \

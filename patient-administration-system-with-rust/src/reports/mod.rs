@@ -199,7 +199,7 @@ impl ReportService {
 
         let appts = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 format!(
                     "SELECT {appt_key} AS k, \
@@ -218,7 +218,7 @@ impl ReportService {
             .map_err(Error::Database)?;
         let slots = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 format!(
                     "SELECT {slot_key} AS k, count(*)::bigint AS slots, \
@@ -264,7 +264,7 @@ impl ReportService {
             if !ids.is_empty() {
                 let svc = self
                     .db
-                    .query_all(Statement::from_sql_and_values(
+                    .query_all_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "SELECT id::text AS id, service_type FROM schedules WHERE id::text = ANY($1)",
                         [ids.into()],
@@ -290,7 +290,7 @@ impl ReportService {
         // Lead time: from booking to the visit, for appointments in the range that were ever booked.
         let leads = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT (extract(epoch FROM (start_datetime - created_at)) / 86400)::float8 AS d FROM appointments \
                  WHERE deleted_at IS NULL AND start_datetime >= $1 AND start_datetime < $2",
@@ -307,7 +307,7 @@ impl ReportService {
         // Open pathways: weeks waited on each, from the clock's own figure.
         let paths = self
             .db
-            .query_all(Statement::from_string(
+            .query_all_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT id, target_service FROM rtt_pathways WHERE stopped_at IS NULL LIMIT 20000"
                     .to_string(),

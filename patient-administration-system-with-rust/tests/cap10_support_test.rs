@@ -86,7 +86,7 @@ async fn no_column_in_the_schema_scores_ranks_penalises_or_suppresses() {
     let s = common::build_state(&common::database_url().unwrap()).await;
     let rows = s
         .db
-        .query_all(Statement::from_string(
+        .query_all_raw(Statement::from_string(
             DbBackend::Postgres,
             "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'",
         ))
@@ -155,7 +155,7 @@ async fn rebooking_options_and_standby_candidates_are_the_same_with_and_without_
         .await
         .unwrap();
     // A fresh offer, so it is computed again rather than reused.
-    s.db.execute(Statement::from_sql_and_values(
+    s.db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "DELETE FROM rebook_offers WHERE appointment_id = $1",
         [appt.id.into()],
@@ -208,7 +208,7 @@ async fn rebooking_options_and_standby_candidates_are_the_same_with_and_without_
         .await
         .unwrap();
     let rel =
-        s.db.query_one(Statement::from_sql_and_values(
+        s.db.query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT id FROM slot_releases WHERE slot_id = $1 ORDER BY released_at DESC LIMIT 1",
             [slot.id.into()],

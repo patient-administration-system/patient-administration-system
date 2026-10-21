@@ -92,7 +92,7 @@ impl ReferralService {
 
     pub async fn get(&self, id: Uuid) -> Result<Referral> {
         self.db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 format!("SELECT {COLS} FROM referrals r WHERE r.id = $1"),
                 [id.into()],
@@ -119,7 +119,7 @@ impl ReferralService {
         }
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 format!(
                     "SELECT {COLS} FROM referrals r WHERE ($1::text IS NULL OR r.status = $1) \
@@ -169,7 +169,7 @@ impl ReferralService {
         let received = n.received_at.unwrap_or_else(Utc::now);
         let made = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO referrals (id, person_id, referring_worker_id, target_service, reason, received_at, created_at, \
                                         source, external_ref, status) \
@@ -191,7 +191,7 @@ impl ReferralService {
             // The same (source, external_ref) was received before.
             let r = self
                 .db
-                .query_one(Statement::from_sql_and_values(
+                .query_one_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     format!(
                         "SELECT {COLS} FROM referrals r WHERE r.source = $1 AND r.external_ref = $2"
@@ -232,7 +232,7 @@ impl ReferralService {
             .transaction::<_, Appointment, Error>(|txn| {
                 Box::pin(async move {
                     let r = txn
-                        .query_one(Statement::from_sql_and_values(
+                        .query_one_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "SELECT person_id, target_service, status FROM referrals WHERE id = $1 FOR UPDATE",
                             [id.into()],
@@ -247,7 +247,7 @@ impl ReferralService {
                         return Err(Error::conflict(format!("that referral is already {status}")));
                     }
                     let slots = txn
-                        .query_all(Statement::from_sql_and_values(
+                        .query_all_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "SELECT s.id FROM slots s JOIN schedules sc ON sc.id = s.schedule_id \
                              WHERE sc.service_type = $1 AND sc.active AND s.status = 'free' AND s.start_datetime > now() \
@@ -262,14 +262,14 @@ impl ReferralService {
                         // took it) is skipped; the next earliest is tried.
                         match SchedulingService::book_tx(txn, slot_id, person, &ctx).await {
                             Ok(appt) => {
-                                txn.execute(Statement::from_sql_and_values(
+                                txn.execute_raw(Statement::from_sql_and_values(
                                     DbBackend::Postgres,
                                     "UPDATE appointments SET referral_id = $2 WHERE id = $1",
                                     [appt.id.into(), id.into()],
                                 ))
                                 .await
                                 .map_err(Error::Database)?;
-                                txn.execute(Statement::from_sql_and_values(
+                                txn.execute_raw(Statement::from_sql_and_values(
                                     DbBackend::Postgres,
                                     "UPDATE referrals SET status = 'booked', updated_at = now() WHERE id = $1",
                                     [id.into()],
@@ -337,7 +337,7 @@ impl ReferralService {
             )
             .await?;
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE referrals SET status = 'waitlisted', updated_at = now() WHERE id = $1",
                 [id.into()],
@@ -355,7 +355,7 @@ impl ReferralService {
     ) -> Result<Referral> {
         let r = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE referrals SET status = 'closed', updated_at = now() WHERE id = $1 AND status <> 'closed'",
                 [id.into()],

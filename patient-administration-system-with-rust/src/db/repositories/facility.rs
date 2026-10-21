@@ -123,7 +123,7 @@ fn ward_from_model(m: ward::Model) -> Ward {
         facility_id: m.facility_id,
         name: m.name,
         code: m.code,
-        capacity: m.capacity.max(0) as u32,
+        capacity: Ord::max(m.capacity, 0) as u32,
         active: m.active,
         created_at: m.created_at.to_utc(),
         updated_at: m.updated_at.to_utc(),

@@ -67,7 +67,7 @@ Before you push: all of the above is green. **After you push, check `gh run list
 
 ## Rust conventions
 
-Edition 2024 with let-chains. New tables are created with raw SQL in a migration and read with `Statement` (SeaORM 1.1; SeaORM 2 was trialled and rejected, see DEP-2). Money is `Decimal`, never `f64`. Times are `DateTime<Utc>`. Multi-row changes run in one transaction with the audit row and the outbox row. **Never hold a lock guard across `.await`** (it makes the future `!Send`); clone the `Arc` out in a separate method. Do not slice a `&str` by byte offsets on untrusted text: use `.get(..n)` or check `is_ascii()` (the chaos monkey found a panic this way). Error text that reaches a client must not contain SQL, paths or stack traces.
+Edition 2024 with let-chains. New tables are created with raw SQL in a migration and read with `Statement` through `execute_raw`, `query_one_raw` and `query_all_raw` (SeaORM 2, Loco 1.2; see DEP-2). Money is `Decimal`, never `f64`. Times are `DateTime<Utc>`. Multi-row changes run in one transaction with the audit row and the outbox row. **Never hold a lock guard across `.await`** (it makes the future `!Send`); clone the `Arc` out in a separate method. Do not slice a `&str` by byte offsets on untrusted text: use `.get(..n)` or check `is_ascii()` (the chaos monkey found a panic this way). Error text that reaches a client must not contain SQL, paths or stack traces.
 
 ## UI conventions
 

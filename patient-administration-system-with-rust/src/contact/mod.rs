@@ -491,7 +491,7 @@ pub async fn trusted_mobile<C: ConnectionTrait>(
     person_id: Uuid,
 ) -> Result<Option<String>> {
     let row = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT mobile_e164 FROM patient_communication_profiles \
              WHERE person_id = $1 AND mobile_e164 IS NOT NULL AND mobile_verified_at IS NOT NULL \
@@ -509,7 +509,7 @@ pub async fn preferred_channel<C: ConnectionTrait>(
     person_id: Uuid,
 ) -> Result<Option<String>> {
     let row = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT preferred_channel FROM patient_communication_profiles WHERE person_id = $1",
             [person_id.into()],
@@ -526,7 +526,7 @@ pub async fn preferred_channel<C: ConnectionTrait>(
 /// Has the patient said they can only be reached by letter (CAS-10)?
 pub async fn letter_only<C: ConnectionTrait>(conn: &C, person_id: Uuid) -> Result<bool> {
     let row = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT 1 AS ok FROM patient_communication_profiles \
              WHERE person_id = $1 AND 'letter_only' = ANY(accessibility_needs)",
@@ -543,7 +543,7 @@ pub async fn preferred_language<C: ConnectionTrait>(
     person_id: Uuid,
 ) -> Result<Option<String>> {
     let row = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT preferred_language FROM patient_communication_profiles WHERE person_id = $1",
             [person_id.into()],

@@ -10,10 +10,10 @@
 //! booking. This keeps the page Loco-prelude-only (no axum::extract::Query
 //! re-export needed) and avoids round-tripping through the GET form.
 
+use crate::tpl::json;
 use axum_extra::extract::cookie::CookieJar;
 use loco_rs::prelude::*;
 use serde::Deserialize;
-use serde_json::json;
 use uuid::Uuid;
 
 use crate::csrf;
@@ -70,7 +70,7 @@ pub async fn submit(
     let (error, result) = match book_slot(form.slot_id, &req).await {
         Ok(out) => (
             None,
-            Some(json!({
+            Some(serde_json::json!({
                 "appointment_id": out.id,
                 "person_id": out.person_id,
                 "start": out.start_datetime,

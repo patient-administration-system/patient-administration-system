@@ -5,6 +5,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- `sea-orm` 2.0 and `sea-orm-migration` 2.0 (DEP-2). Raw SQL goes through `execute_raw`, `query_one_raw` and `query_all_raw`. The migrations crate needs a 0.3.0 release for the new requirement.
+
 ## [0.48.0] — 2026-10-21
 
 The migrations crate is now 0.2.0: 0.1.0 on crates.io stops at migration 38, so 0.47.0 from crates.io lacks the tolerance tables.

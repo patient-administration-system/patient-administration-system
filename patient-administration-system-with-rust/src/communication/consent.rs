@@ -116,7 +116,7 @@ pub async fn is_opted_out<C: ConnectionTrait>(
         subjects.push(address_subject(a));
     }
     let row = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT 1 AS hit FROM message_optouts WHERE channel = $1 AND subject = ANY($2) AND resumed_at IS NULL LIMIT 1",
             [ch.into(), subjects.into()],
@@ -134,7 +134,7 @@ pub async fn record_optout<C: ConnectionTrait>(
     source: &str,
     by: Option<&str>,
 ) -> Result<()> {
-    conn.execute(Statement::from_sql_and_values(
+    conn.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "INSERT INTO message_optouts (id, subject, channel, source, recorded_by) VALUES ($1,$2,$3,$4,$5) \
          ON CONFLICT (subject, channel) DO UPDATE SET opted_out_at = now(), resumed_at = NULL, source = EXCLUDED.source, \
@@ -149,7 +149,7 @@ pub async fn record_optout<C: ConnectionTrait>(
 /// The patient asked to hear from us again. Returns whether anything was active.
 pub async fn resume<C: ConnectionTrait>(conn: &C, subject: &str, channel: &str) -> Result<bool> {
     let r = conn
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "UPDATE message_optouts SET resumed_at = now() WHERE subject = $1 AND channel = $2 AND resumed_at IS NULL",
             [subject.into(), channel.into()],

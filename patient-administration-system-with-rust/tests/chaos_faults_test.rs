@@ -180,7 +180,7 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
     let mut sent_rows_total = 0usize;
     for p in &patients {
         let rows =
-            s.db.query_all(Statement::from_sql_and_values(
+            s.db.query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT step, outcome FROM reminder_steps WHERE appointment_id = $1",
                 [p.appt.id.into()],
@@ -216,7 +216,7 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
         // A step the carrier refused is on the record as a failure.
         let letters = s
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*) FILTER (WHERE status = 'sent')::bigint AS ok FROM generated_letters WHERE person_id = $1",
                 [p.person.into()],
@@ -233,7 +233,7 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
         // Silence is escalated to a person whatever the carrier did.
         let task = s
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*)::bigint AS n FROM staff_call_tasks WHERE appointment_id = $1 AND reason = 'silent'",
                 [p.appt.id.into()],
@@ -290,7 +290,7 @@ async fn a_crowd_booking_the_same_slot_at_once_produces_exactly_one_appointment(
         );
         let n = s
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*)::bigint AS n FROM appointments WHERE slot_id = $1 AND deleted_at IS NULL AND status IN ('booked','arrived','fulfilled')",
                 [slot.id.into()],

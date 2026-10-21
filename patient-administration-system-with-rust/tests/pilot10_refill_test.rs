@@ -68,7 +68,7 @@ async fn refill(s: &AppState, r: &Released) {
 
 /// The slot's time has passed with nobody in it.
 async fn let_expire(s: &AppState, r: &Released) {
-    s.db.execute(Statement::from_sql_and_values(
+    s.db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "UPDATE slot_releases SET start_datetime = now() - interval '1 day' WHERE slot_id = $1 AND status = 'open'",
         [r.slot.into()],
@@ -196,7 +196,7 @@ async fn the_rate_can_be_split_by_deprivation_quintile_and_language() {
             .set_demographics(r.person, Some("45-54"), Some(q), "ETL", &sys())
             .await
             .unwrap();
-        s.db.execute(Statement::from_sql_and_values(
+        s.db.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "INSERT INTO patient_communication_profiles (person_id, preferred_language) VALUES ($1,$2) \
              ON CONFLICT (person_id) DO UPDATE SET preferred_language = $2",

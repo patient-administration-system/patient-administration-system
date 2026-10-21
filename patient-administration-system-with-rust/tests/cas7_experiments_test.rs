@@ -167,7 +167,7 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
         .await
         .with_sender(DeliveryChannel::Sms, Arc::new(Capture(log.clone())));
     // Free the real reminder for this test, whatever an earlier run left.
-    s.db.execute(Statement::from_string(
+    s.db.execute_raw(Statement::from_string(
         DbBackend::Postgres,
         "UPDATE message_experiments SET stopped_at = now(), stopped_by = 'test' WHERE template_name = 'appointment_reminder' AND stopped_at IS NULL".to_string(),
     ))
@@ -247,7 +247,7 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
         // Recorded, and equal to what was sent.
         let rec = s
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT variant FROM message_experiment_assignments WHERE experiment_id = $1 AND appointment_id = $2",
                 [exp.into(), (*appt).into()],
@@ -308,7 +308,7 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
     .unwrap();
     assert_eq!(fresh, "appointment_reminder");
     let n =
-        s.db.query_one(Statement::from_sql_and_values(
+        s.db.query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT count(*) AS n FROM message_experiment_assignments WHERE experiment_id = $1",
             [exp.into()],
@@ -359,14 +359,14 @@ async fn the_readout_splits_by_quintile_and_language_and_withholds_small_cells_w
                 .set_demographics(person, Some("45-54"), Some(quintile), "ETL", &sys())
                 .await
                 .unwrap();
-            s.db.execute(Statement::from_sql_and_values(
+            s.db.execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO patient_communication_profiles (person_id, preferred_language) VALUES ($1,'en-001')",
                 [person.into()],
             ))
             .await
             .unwrap();
-            s.db.execute(Statement::from_sql_and_values(
+            s.db.execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO message_experiment_assignments (experiment_id, appointment_id, variant) VALUES ($1,$2,$3)",
                 [exp.into(), ap.id.into(), variant.into()],
@@ -374,7 +374,7 @@ async fn the_readout_splits_by_quintile_and_language_and_withholds_small_cells_w
             .await
             .unwrap();
             let status = if i < attended { "fulfilled" } else { "no_show" };
-            s.db.execute(Statement::from_sql_and_values(
+            s.db.execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE appointments SET status = $2 WHERE id = $1",
                 [ap.id.into(), status.into()],

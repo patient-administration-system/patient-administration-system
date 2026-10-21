@@ -73,7 +73,7 @@ impl WaitsService {
     pub async fn lead_time(&self, appointment_id: Uuid) -> Result<LeadTime> {
         let r = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT created_at, start_datetime FROM appointments WHERE id = $1 AND deleted_at IS NULL",
                 [appointment_id.into()],
@@ -97,7 +97,7 @@ impl WaitsService {
     pub async fn patient_waits(&self, person_id: Uuid) -> Result<PatientWaits> {
         let appts = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT id, created_at, start_datetime FROM appointments \
                  WHERE person_id = $1 AND deleted_at IS NULL AND status NOT IN ('cancelled','no_show') \
@@ -118,7 +118,7 @@ impl WaitsService {
             .collect::<Result<Vec<_>>>()?;
         let paths = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT p.id, p.target_service, \
                         (SELECT max(asked_at) FROM still_needed_checks c WHERE c.pathway_id = p.id) AS last_check \
@@ -154,7 +154,7 @@ impl WaitsService {
         let repeat = repeat_days.unwrap_or_else(|| env_i64("PAS_CHECK_REPEAT_DAYS", 90));
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT p.id, p.person_id, p.target_service, \
                         (SELECT max(asked_at) FROM still_needed_checks c WHERE c.pathway_id = p.id) AS last_check \
@@ -194,7 +194,7 @@ impl WaitsService {
         }
         let person = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT person_id FROM rtt_pathways WHERE id = $1 AND stopped_at IS NULL",
                 [pathway_id.into()],
@@ -205,7 +205,7 @@ impl WaitsService {
         let person_id: Uuid = person.try_get("", "person_id").map_err(Error::Database)?;
         let id = Uuid::new_v4();
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO still_needed_checks (id, pathway_id, person_id, asked_by) VALUES ($1,$2,$3,$4)",
                 [id.into(), pathway_id.into(), person_id.into(), asked_by.into()],
@@ -247,7 +247,7 @@ impl WaitsService {
         }
         let row = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE still_needed_checks SET answer = $2, recorded_by = $3, answered_at = now() \
                  WHERE id = $1 AND answer IS NULL RETURNING pathway_id",

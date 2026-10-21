@@ -437,7 +437,7 @@ async fn a_video_visit_that_fails_falls_back_to_a_phone_call_once() {
     let tasks = |s: &AppState, id: Uuid| {
         let db = s.db.clone();
         async move {
-            db.query_one(Statement::from_sql_and_values(
+            db.query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*)::bigint AS n FROM staff_call_tasks WHERE appointment_id = $1 AND reason = 'video_failed' AND handled_at IS NULL",
                 [id.into()],

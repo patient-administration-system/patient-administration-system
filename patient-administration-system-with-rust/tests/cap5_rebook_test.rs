@@ -275,7 +275,7 @@ async fn an_expired_offer_and_a_cancelled_appointment_are_refused() {
     let a = w.add(6, 9).await;
     let o = w.s.rebooking.offer(w.appt.id).await.unwrap();
     w.s.db
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "UPDATE rebook_offers SET expires_at = now() - interval '1 minute' WHERE id = $1",
             [o.offer_id.unwrap().into()],

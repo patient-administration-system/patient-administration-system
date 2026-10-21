@@ -127,7 +127,7 @@ pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -
     use sea_orm::{ConnectionTrait, DbBackend, Statement};
     let rows = state
         .db
-        .query_all(Statement::from_sql_and_values(
+        .query_all_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT channel, opted_out_at, source FROM message_optouts WHERE subject = $1 AND resumed_at IS NULL ORDER BY channel",
             [crate::communication::consent::person_subject(id).into()],

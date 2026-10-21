@@ -97,7 +97,7 @@ async fn letter(s: &AppState, person: Uuid, template: Uuid) -> Uuid {
 }
 
 async fn status(s: &AppState, id: Uuid) -> String {
-    s.db.query_one(Statement::from_sql_and_values(
+    s.db.query_one_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "SELECT status FROM generated_letters WHERE id = $1",
         [id.into()],

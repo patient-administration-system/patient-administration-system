@@ -49,7 +49,7 @@ async fn world(with_address: &[bool]) -> W {
         .await
         .with_person_client(stub);
     // Close out print letters earlier runs left pending.
-    s.db.execute(Statement::from_string(
+    s.db.execute_raw(Statement::from_string(
         DbBackend::Postgres,
         "UPDATE generated_letters SET status = 'failed' WHERE channel = 'print' AND status = 'pending'".to_string(),
     ))
@@ -91,7 +91,7 @@ impl W {
     async fn status(&self, letter: Uuid) -> String {
         self.s
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT status FROM generated_letters WHERE id = $1",
                 [letter.into()],
@@ -219,7 +219,7 @@ async fn the_address_is_not_kept_and_the_csv_defuses_formulas() {
     );
     let kept =
         w.s.db
-            .query_one(Statement::from_string(
+            .query_one_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM audit_log WHERE new_value::text LIKE '%Mill Lane%'"
                     .to_string(),

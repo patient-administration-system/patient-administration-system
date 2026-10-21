@@ -250,7 +250,7 @@ impl WriteBackService {
         req: &ReplyRequest,
     ) -> Result<Option<ReplyResult>> {
         let row = conn
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT action, appointment_id, person_id, status, reject_reason, new_appointment_id \
                  FROM inbound_replies WHERE message_id = $1",
@@ -345,7 +345,7 @@ impl WriteBackService {
         // Serialize deliveries of the same message. Without this, two simultaneous deliveries both
         // see "not handled yet", both do the work, and one fails after the other commits. The lock
         // lasts until this transaction ends; the second delivery then finds the first one's outcome.
-        txn.execute(Statement::from_sql_and_values(
+        txn.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
             [req.message_id.trim().into()],
@@ -363,7 +363,7 @@ impl WriteBackService {
             Some(a) => Self::act(txn, req, a, ctx, &mut post).await?,
         };
         let new_id = decision.new_appointment.as_ref().map(|a| a.id);
-        txn.execute(Statement::from_sql_and_values(
+        txn.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "INSERT INTO inbound_replies \
                (id, message_id, action, appointment_id, person_id, channel, barrier_code, new_slot_id, \
@@ -458,7 +458,7 @@ impl WriteBackService {
                 // On a service a clinician has listed (urgent or cancer pathways), a patient's own cancel
                 // is not applied: the slot is kept and a person phones first (CAP-7, FR-58).
                 if crate::follow_up::service_is_listed(txn, appt.slot_id).await? {
-                    txn.execute(Statement::from_sql_and_values(
+                    txn.execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
                          VALUES ($1,$2,$3,'urgent_pathway', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",

@@ -67,7 +67,7 @@ async fn cancel(w: &W, a: &Appointment, barrier: Option<BarrierCode>) {
 }
 
 async fn release_for(w: &W, slot: Uuid) -> serde_json::Value {
-    let row = w.state.db.query_one(Statement::from_sql_and_values(
+    let row = w.state.db.query_one_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "SELECT id::text AS id, status, release_class, notice_days, service_type, seconds_to_refill, refilled_by_appointment_id::text AS by FROM slot_releases WHERE slot_id = $1 ORDER BY released_at DESC LIMIT 1",
         [slot.into()],
@@ -87,7 +87,7 @@ async fn release_for(w: &W, slot: Uuid) -> serde_json::Value {
 }
 
 async fn event_count(w: &W, release_id: &str) -> i64 {
-    let r = w.state.db.query_one(Statement::from_sql_and_values(
+    let r = w.state.db.query_one_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "SELECT count(*) AS n FROM outbox_events WHERE event_type = 'SlotReleased' AND payload->>'release_id' = $1",
         [release_id.into()],
@@ -471,7 +471,7 @@ async fn the_booking_team_sees_open_refilled_and_expired_releases_with_a_summary
     // Make one release's slot time pass without refilling it.
     let (stale_a, stale_slot) = booked(&w, Uuid::new_v4(), 2).await;
     cancel(&w, &stale_a, None).await;
-    w.state.db.execute(Statement::from_sql_and_values(DbBackend::Postgres,
+    w.state.db.execute_raw(Statement::from_sql_and_values(DbBackend::Postgres,
         "UPDATE slot_releases SET start_datetime = now() - interval '1 hour' WHERE slot_id = $1", [stale_slot.into()])).await.unwrap();
 
     let (s, v) = get(app.clone(), "/api/slot-releases").await;

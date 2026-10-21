@@ -70,7 +70,7 @@ async fn the_lookup_loads_good_lines_counts_bad_ones_and_needs_a_named_dataset()
         "the header is not a rejection; three lines are"
     );
     let row =
-        s.db.query_one(Statement::from_string(
+        s.db.query_one_raw(Statement::from_string(
             DbBackend::Postgres,
             format!("SELECT quintile FROM deprivation_lookup WHERE postcode = 'ZZ{tag}1AB'"),
         ))
@@ -89,7 +89,7 @@ async fn the_lookup_loads_good_lines_counts_bad_ones_and_needs_a_named_dataset()
         .await
         .unwrap();
     let row =
-        s.db.query_one(Statement::from_string(
+        s.db.query_one_raw(Statement::from_string(
             DbBackend::Postgres,
             format!(
                 "SELECT quintile, dataset FROM deprivation_lookup WHERE postcode = 'ZZ{tag}1AB'"
@@ -157,7 +157,7 @@ async fn the_job_fills_age_band_and_quintile_keeps_only_the_bands_and_does_it_on
     let get = |p: Uuid| {
         let db = s.db.clone();
         async move {
-            db.query_one(Statement::from_sql_and_values(
+            db.query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT age_band, deprivation_quintile, source FROM person_demographics WHERE person_id = $1",
                 [p.into()],
@@ -279,7 +279,7 @@ async fn a_caller_has_a_daily_query_budget_so_differencing_across_queries_is_bou
         .unwrap();
     let row = s
         .db
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT count(*)::bigint AS n FROM audit_log WHERE action = 'analytics_query' AND user_id = $1",
             [alice.user_id.clone().into()],

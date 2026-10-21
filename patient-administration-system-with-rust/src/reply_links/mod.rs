@@ -131,7 +131,7 @@ pub async fn mint<C: ConnectionTrait>(
     expires_at: DateTime<Utc>,
 ) -> Result<String> {
     let token = new_token();
-    conn.execute(Statement::from_sql_and_values(
+    conn.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "INSERT INTO reply_tokens (token_hash, appointment_id, person_id, expires_at) VALUES ($1,$2,$3,$4)",
         [hash(&token).into(), appointment_id.into(), person_id.into(), expires_at.into()],
@@ -172,7 +172,7 @@ impl ReplyLinks {
         }
         let r = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT appointment_id, person_id, expires_at, consumed_at IS NOT NULL AS consumed FROM reply_tokens WHERE token_hash = $1",
                 [hash(token).into()],
@@ -302,7 +302,7 @@ impl ReplyLinks {
         let hash = hash(token);
         let claimed = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE reply_tokens SET consumed_at = now(), consumed_action = $2 \
                  WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()",
@@ -316,7 +316,7 @@ impl ReplyLinks {
         let release = || async {
             let _ = self
                 .db
-                .execute(Statement::from_sql_and_values(
+                .execute_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     "UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
                     [hash.clone().into()],
@@ -332,7 +332,7 @@ impl ReplyLinks {
             // Leads to rebook options (CAP-5); until then a person finds the new time. The appointment stands.
             let r = self
                 .db
-                .execute(Statement::from_sql_and_values(
+                .execute_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) VALUES ($1,$2,$3,'reschedule_request', now()) \
                      ON CONFLICT (appointment_id, reason) DO NOTHING",
@@ -429,7 +429,7 @@ impl ReplyLinks {
         let hash = hash(token);
         let claimed = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE reply_tokens SET consumed_at = now(), consumed_action = 'rebook' \
                  WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()",
@@ -462,7 +462,7 @@ impl ReplyLinks {
             Err(e) => {
                 let _ = self
                     .db
-                    .execute(Statement::from_sql_and_values(
+                    .execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
                         [hash.into()],

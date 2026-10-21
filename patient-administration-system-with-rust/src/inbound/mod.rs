@@ -188,7 +188,7 @@ impl InboundService {
         let body: String = text.body.chars().take(MAX_BODY).collect();
         let inserted = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO inbound_texts (id, message_id, carrier, from_e164, body, received_at, person_id, intent, outcome, \
                    appointment_id, candidates, pending_intent, reply_text) \
@@ -233,7 +233,7 @@ impl InboundService {
     async fn stored(&self, message_id: &str, from: &str) -> Result<Option<InboundOutcome>> {
         let row = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT from_e164, intent, outcome, reply_text, person_id, appointment_id FROM inbound_texts WHERE message_id = $1",
                 [message_id.into()],
@@ -262,7 +262,7 @@ impl InboundService {
     async fn persons_with_number(&self, from: &str) -> Result<Vec<Uuid>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT person_id FROM patient_communication_profiles WHERE mobile_e164 = $1 LIMIT 3",
                 [from.into()],
@@ -278,7 +278,7 @@ impl InboundService {
     async fn open_reminded(&self, person: Uuid) -> Result<Vec<(Uuid, DateTime<Utc>)>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT a.id, a.start_datetime FROM appointments a \
                  WHERE a.person_id = $1 AND a.status = 'booked' AND a.deleted_at IS NULL AND a.start_datetime > now() \
@@ -308,7 +308,7 @@ impl InboundService {
     ) -> Result<Option<(Vec<Uuid>, String)>> {
         let row = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT outcome, candidates, pending_intent, received_at FROM inbound_texts WHERE from_e164 = $1 \
                  ORDER BY received_at DESC, created_at DESC LIMIT 1",
@@ -643,7 +643,7 @@ impl InboundService {
     pub async fn staff_list(&self, limit: i64) -> Result<Vec<StaffItem>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT id, received_at, outcome, intent, person_id, appointment_id, body FROM inbound_texts \
                  WHERE handled_at IS NULL AND outcome IN ('needs_staff','unmatched','ambiguous_number','no_open_reminder','unknown','rejected') \
@@ -671,7 +671,7 @@ impl InboundService {
     pub async fn mark_handled(&self, id: Uuid) -> Result<bool> {
         let r = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE inbound_texts SET handled_at = now() WHERE id = $1 AND handled_at IS NULL",
                 [id.into()],

@@ -7,28 +7,12 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
+# DEP-2 (loco-rs 1.2, sea-orm 2) cleared the quick-xml, zip, webpki-roots, fxhash and proc-macro-error2 ignores,
+# and dropping loco-rs's `auth` feature removed `rsa`. One is left.
 ignore = [
-    # quick-xml 0.36.2, pulled in by loco-rs 0.14 -> opendal 0.50. Our own quick-xml is 0.42.
-    # Remove when loco-rs moves to 1.x (tasks.md DEP-2), which needs sea-orm 2.
-    { id = "RUSTSEC-2026-0194", reason = "quick-xml 0.36 via loco-rs 0.14 -> opendal; we parse no untrusted XML through it. Removed by DEP-2" },
-    { id = "RUSTSEC-2026-0195", reason = "quick-xml 0.36 via loco-rs 0.14 -> opendal; we parse no untrusted XML through it. Removed by DEP-2" },
-    # zip is a BUILD-time dependency of utoipa-swagger-ui, extracting the Swagger UI archive it
-    # downloads from GitHub at build time. Nothing extracts a zip at run time.
-    # Remove when utoipa-swagger-ui moves to zip 9.
-    { id = "RUSTSEC-2026-0367", reason = "zip: build-time only (utoipa-swagger-ui build script, trusted archive)" },
-    { id = "RUSTSEC-2026-0368", reason = "zip: build-time only (utoipa-swagger-ui build script, trusted archive)" },
-    { id = "RUSTSEC-2026-0369", reason = "zip: build-time only (utoipa-swagger-ui build script, trusted archive)" },
-    # webpki-roots 0.26.11 is pinned by sqlx-core 0.8.6 (under sea-orm 1.1 and loco-rs 0.14); the fix is 1.0.10, which
-    # sqlx 0.8 does not accept. It only supplies the root certificates for a TLS connection to our own PostgreSQL.
-    # Remove when sea-orm moves to a sqlx that takes webpki-roots 1.x (tasks.md DEP-2).
-    { id = "RUSTSEC-2026-0381", reason = "webpki-roots 0.26 via sqlx-core 0.8; roots for the TLS connection to our own PostgreSQL only. Removed by DEP-2" },
-    # Unmaintained (not vulnerable) crates, all pulled in only by loco-rs 0.14; gone with DEP-2.
-    { id = "RUSTSEC-2025-0057", reason = "fxhash unmaintained; via loco-rs -> scraper -> selectors" },
-    { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 unmaintained; via loco-rs -> validator_derive (compile-time only)" },
-    { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml unmaintained; via loco-rs -> serde_yaml (reads our own config files)" },
-    # Not listed here: RUSTSEC-2023-0071 (rsa). It is in Cargo.lock via sqlx-mysql but is never
-    # compiled (`cargo tree -i rsa` is empty; PostgreSQL only). cargo-deny does not see it;
-    # `cargo audit` does, which is a false positive for this workspace.
+    # Unmaintained (not vulnerable). Pulled in by loco-rs -> loco-gen -> rrgen -> serde_yaml, which reads our own config files.
+    # Remove when rrgen moves off serde_yaml.
+    { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml unmaintained; via loco-rs -> loco-gen -> rrgen -> serde_yaml (reads our own config files)" },
 ]
 
 [licenses]

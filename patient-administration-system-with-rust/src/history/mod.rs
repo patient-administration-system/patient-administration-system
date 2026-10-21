@@ -49,7 +49,7 @@ impl HistoryService {
     pub async fn appointment_history(&self, appointment_id: Uuid) -> Result<Vec<Value>> {
         let exists = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT 1 AS ok FROM appointments WHERE id = $1",
                 [appointment_id.into()],
@@ -61,7 +61,7 @@ impl HistoryService {
         }
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT 'audit' AS kind, at, action, user_id AS by_user, reason_code, context \
                    FROM audit_log WHERE entity_type = 'appointment' AND entity_id = $1 \
@@ -92,7 +92,7 @@ impl HistoryService {
     pub async fn contact_log(&self, person_id: Uuid, limit: i64) -> Result<Vec<Value>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT * FROM ( \
                    SELECT 'message' AS kind, created_at AS at, 'message_' || status AS action, NULL::text AS by_user, \

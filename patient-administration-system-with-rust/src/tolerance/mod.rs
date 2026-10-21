@@ -420,7 +420,7 @@ impl ToleranceService {
     async fn rows(&self) -> Result<Vec<Row>> {
         let rows = self
             .db
-            .query_all(Statement::from_string(
+            .query_all_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT metric, scope_kind, scope_key, target, tolerance, escalate_beyond, set_by, note, updated_at \
                  FROM tolerances ORDER BY metric, scope_kind, scope_key"
@@ -523,7 +523,7 @@ impl ToleranceService {
             .find(|r| r.metric == m.key && &r.scope == scope)
             .map(|r| r.limits);
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO tolerances (metric, scope_kind, scope_key, target, tolerance, escalate_beyond, set_by, note) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8) \
@@ -560,7 +560,7 @@ impl ToleranceService {
         let m = metric(key).ok_or_else(|| Error::not_found(format!("no such measure: {key}")))?;
         check_scope(m, scope)?;
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "DELETE FROM tolerances WHERE metric = $1 AND scope_kind = $2 AND scope_key = $3",
                 [
@@ -720,7 +720,7 @@ impl ToleranceService {
         };
         let visits = self
             .db
-            .query_all(q(
+            .query_all_raw(q(
                 "SELECT sch.service_type AS svc, \
                    count(*) FILTER (WHERE a.status IN ('arrived','fulfilled'))::bigint AS attended, \
                    count(*) FILTER (WHERE a.status = 'no_show')::bigint AS missed, \
@@ -733,7 +733,7 @@ impl ToleranceService {
             .map_err(Error::Database)?;
         let slots = self
             .db
-            .query_all(q(
+            .query_all_raw(q(
                 "SELECT sch.service_type AS svc, count(*)::bigint AS slots, \
                    count(*) FILTER (WHERE sl.status = 'busy')::bigint AS busy \
                  FROM slots sl JOIN schedules sch ON sch.id = sl.schedule_id \
@@ -801,7 +801,7 @@ impl ToleranceService {
     async fn ward_measures(&self) -> Result<Vec<Measure>> {
         let rows = self
             .db
-            .query_all(Statement::from_string(
+            .query_all_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT w.code AS ward, count(*)::bigint AS beds, \
                    count(*) FILTER (WHERE b.status = 'occupied')::bigint AS occupied \
@@ -833,7 +833,7 @@ impl ToleranceService {
     async fn bed_counts(&self) -> Result<(i64, i64)> {
         let row = self
             .db
-            .query_one(Statement::from_string(
+            .query_one_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT count(*)::bigint AS beds, count(*) FILTER (WHERE status = 'occupied')::bigint AS occupied FROM beds"
                     .to_string(),
@@ -852,7 +852,7 @@ impl ToleranceService {
     async fn money(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<(f64, f64, i64)> {
         let row = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT COALESCE(sum(i.total_value::numeric), 0)::float8 AS invoiced, \
                         COALESCE((SELECT sum(p.amount_value::numeric) FROM payments p \
@@ -896,7 +896,7 @@ impl ToleranceService {
                 (Rag::Green | Rag::Amber, _) => {
                     let n = self
                         .db
-                        .execute(Statement::from_sql_and_values(
+                        .execute_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "UPDATE tolerance_alerts SET cleared_at = now() \
                              WHERE metric = $1 AND scope_kind = $2 AND scope_key = $3 AND cleared_at IS NULL",
@@ -916,7 +916,7 @@ impl ToleranceService {
         }
         let open = self
             .db
-            .query_one(Statement::from_string(
+            .query_one_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT count(*)::bigint AS n FROM tolerance_alerts WHERE cleared_at IS NULL"
                     .to_string(),
@@ -938,7 +938,7 @@ impl ToleranceService {
         let txn = self.db.begin().await.map_err(Error::Database)?;
         let id = Uuid::new_v4();
         let inserted = txn
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO tolerance_alerts (id, metric, scope_kind, scope_key, value, target, tolerance, escalate_beyond) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING",
@@ -973,7 +973,7 @@ impl ToleranceService {
             )
             .await?;
         } else {
-            txn.execute(Statement::from_sql_and_values(
+            txn.execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE tolerance_alerts SET last_seen_at = now(), value = $4 \
                  WHERE metric = $1 AND scope_kind = $2 AND scope_key = $3 AND cleared_at IS NULL",
@@ -995,7 +995,7 @@ impl ToleranceService {
     pub async fn alerts(&self, open_only: bool) -> Result<Vec<Alert>> {
         let rows = self
             .db
-            .query_all(Statement::from_string(
+            .query_all_raw(Statement::from_string(
                 DbBackend::Postgres,
                 format!(
                     "SELECT id, metric, scope_kind, scope_key, value, target, tolerance, escalate_beyond, raised_at, \
@@ -1050,7 +1050,7 @@ impl ToleranceService {
         }
         let n = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE tolerance_alerts SET acknowledged_by = $2, acknowledged_at = now(), note = $3 \
                  WHERE id = $1 AND cleared_at IS NULL AND acknowledged_by IS NULL",
@@ -1062,7 +1062,7 @@ impl ToleranceService {
         if n == 0 {
             let exists = self
                 .db
-                .query_one(Statement::from_sql_and_values(
+                .query_one_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     "SELECT 1 AS x FROM tolerance_alerts WHERE id = $1",
                     [id.into()],

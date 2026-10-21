@@ -152,7 +152,7 @@ impl SchedulingService {
         txn: &DatabaseTransaction,
         slot: &crate::models::schedule::Slot,
     ) -> Result<()> {
-        txn.execute(Statement::from_sql_and_values(
+        txn.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT pg_advisory_xact_lock(hashtextextended(owner_kind || ':' || owner_id::text, 0)) \
              FROM schedules WHERE id = $1",
@@ -161,7 +161,7 @@ impl SchedulingService {
         .await
         .map_err(Error::Database)?;
         let clash = txn
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT 1 AS ok FROM slots s2 \
                  JOIN schedules sc2 ON sc2.id = s2.schedule_id \
@@ -715,7 +715,7 @@ impl SchedulingService {
     pub async fn in_facility(&self) -> Result<Vec<serde_json::Value>> {
         let rows = self
             .db
-            .query_all(Statement::from_string(
+            .query_all_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT id, person_id, current_room, arrived_at, start_datetime, \
                         (extract(epoch FROM (now() - arrived_at)) / 60)::bigint AS waiting_minutes \

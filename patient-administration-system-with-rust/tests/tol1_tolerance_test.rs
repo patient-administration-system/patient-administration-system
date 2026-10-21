@@ -443,7 +443,7 @@ async fn a_ward_is_judged_on_its_own_beds() {
     let run = |sql: String, vals: Vec<sea_orm::Value>| {
         let db = s.db.clone();
         async move {
-            db.execute(Statement::from_sql_and_values(
+            db.execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 sql,
                 vals,
@@ -534,7 +534,7 @@ async fn a_red_measure_opens_one_alert_that_closes_when_it_recovers() {
     // The event was published once.
     let n: i64 = s
         .db
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT count(*)::bigint AS n FROM outbox_events WHERE event_type = 'ToleranceAlertRaised' AND payload->>'scope_key' = $1",
             [svc.clone().into()],

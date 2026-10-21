@@ -70,7 +70,7 @@ impl IdentityService {
         self.db
             .transaction::<_, (), Error>(|txn| {
                 Box::pin(async move {
-                    txn.execute(Statement::from_sql_and_values(
+                    txn.execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "UPDATE identity_proofings SET revoked_at = now(), revoked_by = $2 \
                          WHERE subject = $1 AND revoked_at IS NULL",
@@ -78,7 +78,7 @@ impl IdentityService {
                     ))
                     .await
                     .map_err(Error::Database)?;
-                    txn.execute(Statement::from_sql_and_values(
+                    txn.execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "INSERT INTO identity_proofings (id, subject, person_id, method, proofed_by) VALUES ($1,$2,$3,$4,$5)",
                         [
@@ -124,7 +124,7 @@ impl IdentityService {
         }
         let row = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE identity_proofings SET revoked_at = now(), revoked_by = $2 \
                  WHERE subject = $1 AND revoked_at IS NULL RETURNING person_id",
@@ -151,7 +151,7 @@ impl IdentityService {
         let subject = Self::subject(subject)?;
         Ok(self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT 1 AS ok FROM identity_proofings WHERE subject = $1 AND person_id = $2 AND revoked_at IS NULL",
                 [subject.into(), person_id.into()],
@@ -165,7 +165,7 @@ impl IdentityService {
     pub async fn get(&self, subject: &str) -> Result<Option<Proofing>> {
         let subject = Self::subject(subject)?;
         self.db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT person_id, method, proofed_by, proofed_at FROM identity_proofings \
                  WHERE subject = $1 AND revoked_at IS NULL",

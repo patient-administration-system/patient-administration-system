@@ -92,7 +92,7 @@ async fn letters_by_channel(
     state: &patient_administration_system::api::rest::AppState,
     appt: Uuid,
 ) -> Vec<(String, String)> {
-    let rows = state.db.query_all(Statement::from_sql_and_values(DbBackend::Postgres,
+    let rows = state.db.query_all_raw(Statement::from_sql_and_values(DbBackend::Postgres,
         "SELECT channel, status FROM generated_letters WHERE appointment_id = $1 ORDER BY created_at, id", [appt.into()])).await.unwrap();
     rows.iter()
         .map(|r| {

@@ -3,7 +3,7 @@
 1. Who is the Clinical Safety Officer? (DTAC-1)
 2. How is a patient's identity proven before an account is linked to a `person_id`? Is NHS login the answer in England, and what is the equivalent in Wales and Scotland? (DTAC-9)
 3. Do pilots need per-person tokens at the API (a full authentication service), or is the UI's server acting for people via `pas-token-issuer` and `X-On-Behalf-Of` enough? (DTAC-4)
-4. When to move to `loco-rs` 1.x, which needs `sea-orm` 2 across the crate. (DEP-2)
+4. ~~When to move to `loco-rs` 1.x, which needs `sea-orm` 2 across the crate.~~ **Done 2026-10-21 on a branch (DEP-2); the migrations crate needs a 0.3.0 release because its `sea-orm` requirement changed.**
 5. What is the written consent basis for each message channel, before WhatsApp or Apple Messages are switched on? (NOT-5, DTAC-2)
 6. Should a template change need a second person's approval before it goes live?
 7. Which carrier per channel, given NHS-approved supplier constraints?

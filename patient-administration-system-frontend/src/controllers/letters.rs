@@ -7,10 +7,10 @@
 //! all happen server-side in the system of record. The Loco UI just
 //! ferries form data.
 
+use crate::tpl::json;
 use axum_extra::extract::cookie::CookieJar;
 use loco_rs::prelude::*;
 use serde::Deserialize;
-use serde_json::json;
 use uuid::Uuid;
 
 use crate::csrf;
@@ -78,7 +78,7 @@ pub async fn submit(
     let (error, result) = match generate_letter(&req).await {
         Ok(letter) => (
             serde_json::Value::Null,
-            json!({
+            serde_json::json!({
                 "id": letter.id,
                 "subject": letter.rendered_subject,
                 "body": letter.rendered_body,

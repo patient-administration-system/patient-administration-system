@@ -41,7 +41,7 @@ pub async fn service_is_virtual_ok<C: ConnectionTrait>(
         return Ok(false);
     };
     let row = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT 1 AS ok FROM slots sl JOIN schedules sc ON sc.id = sl.schedule_id \
              JOIN virtual_ok_services v ON v.service_type = sc.service_type WHERE sl.id = $1",
@@ -104,7 +104,7 @@ impl VirtualVisitService {
             ));
         }
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO virtual_ok_services (service_type, approved_by) VALUES ($1,$2) \
                  ON CONFLICT (service_type) DO UPDATE SET approved_by = $2, approved_at = now()",
@@ -132,7 +132,7 @@ impl VirtualVisitService {
     pub async fn remove_service(&self, service_type: &str, ctx: &UserContext) -> Result<()> {
         let r = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "DELETE FROM virtual_ok_services WHERE service_type = $1",
                 [service_type.trim().into()],
@@ -159,7 +159,7 @@ impl VirtualVisitService {
     pub async fn list_services(&self) -> Result<Vec<ApprovedService>> {
         let rows = self
             .db
-            .query_all(Statement::from_string(
+            .query_all_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT service_type, approved_by, approved_at FROM virtual_ok_services ORDER BY service_type",
             ))
@@ -180,7 +180,7 @@ impl VirtualVisitService {
     pub async fn pending(&self, limit: u64) -> Result<Vec<Appointment>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT id FROM appointments WHERE conversion_state = 'pending_review' \
                  AND status = 'booked' AND deleted_at IS NULL AND start_datetime > now() \
@@ -295,7 +295,7 @@ impl VirtualVisitService {
                     a.modality = Modality::Phone;
                     a.updated_at = chrono::Utc::now();
                     let a = AppointmentRepository::update(txn, &a).await?;
-                    txn.execute(Statement::from_sql_and_values(
+                    txn.execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
                          VALUES ($1,$2,$3,'video_failed', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",

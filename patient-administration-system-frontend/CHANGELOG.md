@@ -6,6 +6,9 @@ crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- `loco-rs` 1.2 and `sea-orm` 2.0 (DEP-2), with Loco's default features off (no `auth`, no `db-sqlite`). Template data goes through `tpl::json!`, which writes plain numbers because Tera 2 cannot compare `serde_json`'s `arbitrary_precision` numbers.
+
 ### Fixed
 - The application could not start: `mailer.smtp` lacked `host`, `queue.kind: Null` is not valid in Loco 0.14, Loco's default routes duplicated `/_health`, and no Tera view engine was installed, so every page returned 500. `/_ping` is now served by this app.
 - All 13 smoke tests now pass with `DATABASE_URL` set.

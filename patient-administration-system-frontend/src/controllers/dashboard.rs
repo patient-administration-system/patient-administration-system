@@ -5,9 +5,9 @@
 //! HTMX-targeted fragment endpoint so the dashboard refreshes per-panel
 //! without a full page swap.
 
+use crate::tpl::json;
 use loco_rs::prelude::*;
 use serde::Serialize;
-use serde_json::json;
 
 use crate::models::{audit::list_recent_audit, outbox::count_unpublished, ward::list_active_wards};
 

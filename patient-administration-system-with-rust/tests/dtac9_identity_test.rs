@@ -66,7 +66,7 @@ async fn an_account_is_proofed_only_as_the_patient_staff_recorded_and_only_until
     );
     let rows = {
         use sea_orm::{ConnectionTrait, DbBackend, Statement};
-        s.db.query_one(Statement::from_sql_and_values(
+        s.db.query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT count(*) AS n FROM identity_proofings WHERE subject = $1",
             [sub.clone().into()],

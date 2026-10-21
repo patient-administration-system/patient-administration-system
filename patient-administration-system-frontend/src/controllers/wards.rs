@@ -3,9 +3,9 @@
 //! Shows every bed in the ward with its status, and for any bed that's
 //! currently occupied, links straight through to the patient detail page.
 
+use crate::tpl::json;
 use loco_rs::prelude::*;
 use serde::Serialize;
-use serde_json::json;
 use uuid::Uuid;
 
 use crate::models::{

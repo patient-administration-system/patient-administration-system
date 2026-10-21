@@ -70,7 +70,7 @@ async fn every_database_column_is_classified_and_no_stale_row_remains() {
         .await
         .expect("connect");
     let rows = db
-        .query_all(Statement::from_string(
+        .query_all_raw(Statement::from_string(
             DbBackend::Postgres,
             "SELECT table_name, column_name FROM information_schema.columns \
              WHERE table_schema = 'public' AND table_name NOT LIKE 'seaql%'"

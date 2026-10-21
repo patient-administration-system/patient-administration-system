@@ -150,7 +150,7 @@ pub(crate) async fn record_release(
         return Ok(None);
     }
     let service: Option<String> = txn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT s.service_type FROM schedules s JOIN slots sl ON sl.schedule_id = s.id WHERE sl.id = $1",
             [slot_id.into()],
@@ -163,7 +163,7 @@ pub(crate) async fn record_release(
         .ok()
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
-    txn.execute(Statement::from_sql_and_values(
+    txn.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "INSERT INTO slot_releases (id, slot_id, appointment_id, service_type, start_datetime, released_at, notice_days, release_class) \
          VALUES ($1,$2,$3,$4,$5,now(),$6,$7)",
@@ -203,7 +203,7 @@ pub(crate) async fn mark_refilled(
     slot_id: Uuid,
     by: &Appointment,
 ) -> Result<()> {
-    txn.execute(Statement::from_sql_and_values(
+    txn.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "UPDATE slot_releases SET status = 'refilled', refilled_by_appointment_id = $2, refilled_at = now(), \
            seconds_to_refill = GREATEST(0, EXTRACT(EPOCH FROM (now() - released_at))::bigint) \
@@ -291,7 +291,7 @@ impl StandbyService {
             .transaction::<_, (), Error>(|txn| {
                 Box::pin(async move {
                     let n = txn
-                        .execute(Statement::from_sql_and_values(
+                        .execute_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "UPDATE standby_entries SET active = false, updated_at = now() WHERE id = $1 AND active",
                             [id.into()],
@@ -337,7 +337,7 @@ impl StandbyService {
                         return Err(Error::conflict("that standby entry is no longer active"));
                     }
                     let appt = SchedulingService::book_tx(txn, slot_id, entry.person_id, &ctx).await?;
-                    txn.execute(Statement::from_sql_and_values(
+                    txn.execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "UPDATE standby_entries SET active = false, updated_at = now() WHERE id = $1",
                         [id.into()],
@@ -417,7 +417,7 @@ impl StandbyService {
     ) -> Result<Vec<StandbyEntry>> {
         let rel = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT r.service_type, r.appointment_id, r.status, sl.start_datetime, sl.end_datetime, a.person_id \
                  FROM slot_releases r JOIN slots sl ON sl.id = r.slot_id LEFT JOIN appointments a ON a.id = r.appointment_id \

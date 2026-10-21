@@ -47,7 +47,7 @@ pub(crate) async fn service_is_listed<C: ConnectionTrait>(
         return Ok(false);
     };
     Ok(conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT 1 AS ok FROM slots sl JOIN schedules sc ON sc.id = sl.schedule_id \
              JOIN follow_up_policies p ON p.service_type = sc.service_type WHERE sl.id = $1",
@@ -69,7 +69,7 @@ pub(crate) async fn on_no_show<C: ConnectionTrait>(
         return Ok(());
     };
     let Some(row) = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT sc.service_type FROM slots sl JOIN schedules sc ON sc.id = sl.schedule_id \
              JOIN follow_up_policies p ON p.service_type = sc.service_type WHERE sl.id = $1",
@@ -84,7 +84,7 @@ pub(crate) async fn on_no_show<C: ConnectionTrait>(
     let id = Uuid::new_v4();
     let due = Utc::now() + due_after();
     let made = conn
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "INSERT INTO follow_up_tasks (id, appointment_id, person_id, service_type, due_at) \
              VALUES ($1,$2,$3,$4,$5) ON CONFLICT (appointment_id) DO NOTHING",
@@ -167,7 +167,7 @@ impl FollowUpService {
             ));
         }
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO follow_up_policies (service_type, approved_by) VALUES ($1,$2) \
                  ON CONFLICT (service_type) DO UPDATE SET approved_by = $2, approved_at = now()",
@@ -195,7 +195,7 @@ impl FollowUpService {
     pub async fn policies(&self) -> Result<Vec<Policy>> {
         let rows = self
             .db
-            .query_all(Statement::from_string(
+            .query_all_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT service_type, approved_by, approved_at FROM follow_up_policies ORDER BY service_type",
             ))
@@ -216,7 +216,7 @@ impl FollowUpService {
     pub async fn open_tasks(&self, limit: i64) -> Result<Vec<Task>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT t.id, t.appointment_id, t.person_id, t.service_type, t.due_at, a.start_datetime \
                  FROM follow_up_tasks t JOIN appointments a ON a.id = t.appointment_id \
@@ -265,7 +265,7 @@ impl FollowUpService {
         }
         let row = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE follow_up_tasks SET outcome = $2, closed_by = $3, closed_at = now() \
                  WHERE id = $1 AND closed_at IS NULL RETURNING appointment_id",

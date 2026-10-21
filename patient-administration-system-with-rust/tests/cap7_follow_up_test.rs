@@ -52,7 +52,7 @@ impl W {
         let r = self
             .s
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM follow_up_tasks WHERE appointment_id = $1",
                 [appt.into()],
@@ -215,7 +215,7 @@ async fn a_miss_never_removes_the_patient_or_touches_their_rtt_clock() {
             .unwrap();
     let events = |db: sea_orm::DatabaseConnection, id: Uuid| async move {
         let r = db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM rtt_clock_events WHERE pathway_id = $1",
                 [id.into()],
@@ -263,7 +263,7 @@ async fn a_miss_never_removes_the_patient_or_touches_their_rtt_clock() {
         "DELETE FROM rtt_pathways WHERE id = $1",
     ] {
         w.s.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 sql,
                 [pathway.id.into()],

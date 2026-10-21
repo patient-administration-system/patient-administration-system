@@ -1,7 +1,7 @@
 //! RTT cockpit controller — one page at `/rtt`.
 
+use crate::tpl::json;
 use loco_rs::prelude::*;
-use serde_json::json;
 
 use crate::models::rtt::list_active_pathways;
 

@@ -91,7 +91,7 @@ async fn world() -> W {
             .await
             .unwrap();
     }
-    s.db.execute(Statement::from_sql_and_values(
+    s.db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "UPDATE appointments SET notice_days = 1 WHERE id = $1",
         [appts[6].id.into()],
@@ -100,7 +100,7 @@ async fn world() -> W {
     .unwrap();
     // Booked 10, 10, 20, 20, 30, 40 and 50 days before the visit.
     for (a, days) in appts.iter().zip([10, 10, 20, 20, 30, 40, 50]) {
-        s.db.execute(Statement::from_sql_and_values(
+        s.db.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "UPDATE appointments SET created_at = start_datetime - make_interval(days => $2::int) WHERE id = $1",
             [a.id.into(), days.into()],
@@ -255,7 +255,7 @@ async fn open_pathway_waits_are_summarised_from_the_clock() {
             .start(Uuid::new_v4(), format!("svc-{}", Uuid::new_v4()), &sys())
             .await
             .unwrap();
-        s.db.execute(Statement::from_sql_and_values(
+        s.db.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "UPDATE rtt_clock_events SET event_at = now() - make_interval(weeks => $2::int) WHERE pathway_id = $1",
             [p.id.into(), weeks.into()],
@@ -284,7 +284,7 @@ async fn open_pathway_waits_are_summarised_from_the_clock() {
             "DELETE FROM rtt_clock_events WHERE pathway_id = $1",
             "DELETE FROM rtt_pathways WHERE id = $1",
         ] {
-            s.db.execute(Statement::from_sql_and_values(
+            s.db.execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 sql,
                 [id.into()],

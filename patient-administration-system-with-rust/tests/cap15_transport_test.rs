@@ -217,7 +217,7 @@ async fn confirming_for_an_eligible_consenting_patient_books_exactly_one_ride_wi
     let stored: i64 = {
         use sea_orm::{ConnectionTrait, DbBackend, Statement};
         w.s.db
-            .query_one(Statement::from_string(
+            .query_one_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM transport_bookings WHERE last_error LIKE '%Mill Lane%'"
                     .to_string(),

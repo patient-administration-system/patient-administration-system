@@ -32,7 +32,7 @@ async fn pathway(s: &AppState, person: Uuid, weeks: i64) -> Uuid {
         .start(person, format!("svc-{}", Uuid::new_v4()), &sys())
         .await
         .unwrap();
-    s.db.execute(Statement::from_sql_and_values(
+    s.db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "UPDATE rtt_clock_events SET event_at = now() - make_interval(weeks => $2::int) WHERE pathway_id = $1",
         [p.id.into(), (weeks as i32).into()],
@@ -48,7 +48,7 @@ async fn remove(s: &AppState, pathway: Uuid) {
         "DELETE FROM rtt_clock_events WHERE pathway_id = $1",
         "DELETE FROM rtt_pathways WHERE id = $1",
     ] {
-        s.db.execute(Statement::from_sql_and_values(
+        s.db.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             sql,
             [pathway.into()],
@@ -71,7 +71,7 @@ async fn lead_time_is_computed_from_the_booking_time() {
         .await
         .unwrap();
     // Booked 21 days before the visit.
-    s.db.execute(Statement::from_sql_and_values(
+    s.db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "UPDATE appointments SET created_at = start_datetime - interval '21 days 2 hours' WHERE id = $1",
         [a.id.into()],
@@ -156,7 +156,7 @@ async fn no_longer_needed_is_recorded_and_audited_and_removes_nobody() {
     let count = |id: Uuid| {
         let db = s.db.clone();
         async move {
-            db.query_one(Statement::from_sql_and_values(
+            db.query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM rtt_clock_events WHERE pathway_id = $1",
                 [id.into()],
@@ -192,7 +192,7 @@ async fn no_longer_needed_is_recorded_and_audited_and_removes_nobody() {
     assert_eq!(e.status, WaitlistStatus::Waiting);
     assert_eq!(count(p.id).await, events);
     let open =
-        s.db.query_one(Statement::from_sql_and_values(
+        s.db.query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT stopped_at IS NULL AS open FROM rtt_pathways WHERE id = $1",
             [p.id.into()],

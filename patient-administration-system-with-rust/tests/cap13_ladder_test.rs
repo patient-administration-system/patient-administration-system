@@ -118,7 +118,7 @@ impl World {
         let rows = self
             .s
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT step, outcome FROM reminder_steps WHERE appointment_id = $1 ORDER BY planned_for",
                 [self.appt.id.into()],
@@ -595,7 +595,7 @@ async fn bad_expired_and_double_tapped_links_are_refused() {
     let t = link(&w).await;
     let plain =
         w.s.db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM reply_tokens WHERE token_hash = $1",
                 [t.clone().into()],
@@ -721,7 +721,7 @@ async fn every_reminder_records_why_it_was_sent_and_the_history_shows_it() {
     w.ladder().run_once(w.at(D7())).await.unwrap();
     let rows =
         w.s.db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT \"trigger\", trigger_ref FROM generated_letters WHERE appointment_id = $1",
                 [w.appt.id.into()],

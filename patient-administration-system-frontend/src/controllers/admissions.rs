@@ -3,10 +3,10 @@
 //! the transactional `AdtService::admit` path (encounter creation, bed
 //! lock + flip to occupied, audit + outbox) runs in the system of record.
 
+use crate::tpl::json;
 use axum_extra::extract::cookie::CookieJar;
 use loco_rs::prelude::*;
 use serde::Deserialize;
-use serde_json::json;
 use uuid::Uuid;
 
 use crate::csrf;
@@ -69,7 +69,7 @@ pub async fn submit(
     let (error, result) = match admit(&req).await {
         Ok(out) => (
             serde_json::Value::Null,
-            json!({
+            serde_json::json!({
                 "admission_id": out.admission.id,
                 "encounter_id": out.encounter.id,
                 "person_id": out.encounter.person_id,

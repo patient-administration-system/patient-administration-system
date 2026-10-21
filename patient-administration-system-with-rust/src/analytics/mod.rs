@@ -297,7 +297,7 @@ impl AnalyticsService {
             .unwrap_or_else(|| "anonymous".to_string());
         let used = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*)::bigint AS n FROM audit_log WHERE action = 'analytics_query' \
                  AND COALESCE(user_id, 'anonymous') = $1 AND at > now() - interval '24 hours'",
@@ -353,7 +353,7 @@ impl AnalyticsService {
             return Err(Error::validation("deprivation_quintile is 1 to 5"));
         }
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO person_demographics (person_id, age_band, deprivation_quintile, source) VALUES ($1,$2,$3,$4) \
                  ON CONFLICT (person_id) DO UPDATE SET age_band = $2, deprivation_quintile = $3, source = $4, updated_at = now()",
@@ -429,7 +429,7 @@ impl AnalyticsService {
             }
             sql.push_str(" ON CONFLICT (postcode) DO UPDATE SET quintile = EXCLUDED.quintile, dataset = EXCLUDED.dataset, loaded_by = EXCLUDED.loaded_by, loaded_at = now()");
             self.db
-                .execute(Statement::from_sql_and_values(
+                .execute_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     sql,
                     values,
@@ -471,7 +471,7 @@ impl AnalyticsService {
     ) -> Result<u64> {
         let ids = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT a.person_id FROM appointments a \
                  LEFT JOIN person_demographics d ON d.person_id = a.person_id \
@@ -506,7 +506,7 @@ impl AnalyticsService {
             let (quintile, dataset): (Option<i16>, Option<String>) = match postcode {
                 Some(pc) => self
                     .db
-                    .query_one(Statement::from_sql_and_values(
+                    .query_one_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "SELECT quintile, dataset FROM deprivation_lookup WHERE postcode = $1",
                         [pc.into()],
@@ -581,7 +581,7 @@ impl AnalyticsService {
         );
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 sql,
                 [from.into(), to.into()],
@@ -693,7 +693,7 @@ impl AnalyticsService {
         }
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 sql,
                 values,

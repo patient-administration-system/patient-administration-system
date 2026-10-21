@@ -42,7 +42,7 @@ async fn world() -> W {
             .and_utc();
         let used: i64 = s
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM appointments WHERE start_datetime >= $1 AND start_datetime < $2",
                 [(centre - Duration::hours(13)).into(), (centre + Duration::hours(13)).into()],
@@ -100,7 +100,7 @@ impl W {
         let (from, to) = self.window();
         self.s
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM appointments WHERE deleted_at IS NULL AND start_datetime >= $1 AND start_datetime < $2",
                 [from.into(), to.into()],

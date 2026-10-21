@@ -125,7 +125,7 @@ fn from_model(m: appointment_series::Model) -> Result<AppointmentSeries> {
         worker_id: m.worker_id,
         service_type: m.service_type,
         start_datetime: m.start_datetime.with_timezone(&chrono::Utc),
-        duration_minutes: m.duration_minutes.max(0) as u32,
+        duration_minutes: Ord::max(m.duration_minutes, 0) as u32,
         rule: serde_json::from_value(m.rule)
             .map_err(|e| Error::internal(format!("deserialize rule: {e}")))?,
         status: series_status_from_str(&m.status)?,

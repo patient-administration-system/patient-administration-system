@@ -54,7 +54,7 @@ async fn counts(
     let n = |sql: &'static str| {
         let db = s.db.clone();
         async move {
-            db.query_one(Statement::from_sql_and_values(
+            db.query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 sql,
                 [person.into()],

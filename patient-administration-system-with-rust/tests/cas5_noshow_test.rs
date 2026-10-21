@@ -38,7 +38,7 @@ async fn state() -> AppState {
 }
 
 async fn clear_reviews(s: &AppState) {
-    s.db.execute(Statement::from_string(
+    s.db.execute_raw(Statement::from_string(
         DbBackend::Postgres,
         "DELETE FROM noshow_reviews".to_string(),
     ))
@@ -74,7 +74,7 @@ async fn reset(s: &AppState) {
         "DELETE FROM noshow_assessments",
         "DELETE FROM noshow_rollout WHERE service_type = 'test-clinic'",
     ] {
-        s.db.execute(Statement::from_string(DbBackend::Postgres, sql.to_string()))
+        s.db.execute_raw(Statement::from_string(DbBackend::Postgres, sql.to_string()))
             .await
             .unwrap();
     }
@@ -82,7 +82,7 @@ async fn reset(s: &AppState) {
 
 /// The shared test clinic is moved straight to live (the shadow-period rule has its own test).
 async fn go_live(s: &AppState) {
-    s.db.execute(Statement::from_string(
+    s.db.execute_raw(Statement::from_string(
         DbBackend::Postgres,
         "INSERT INTO noshow_rollout (service_type, stage, changed_by, note, live_since) \
          VALUES ('test-clinic','live','test','test',now()) \
@@ -109,7 +109,7 @@ async fn history(s: &AppState, person: Uuid, status: &str, n: i64) {
         let mut a = Appointment::new(person, start, start + Duration::minutes(15));
         a.status = AppointmentStatus::Booked;
         let a = AppointmentRepository::create(&s.db, &a).await.unwrap();
-        s.db.execute(Statement::from_sql_and_values(
+        s.db.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "UPDATE appointments SET status = $2 WHERE id = $1",
             [a.id.into(), status.into()],
@@ -200,7 +200,7 @@ async fn it_is_off_until_it_is_switched_on_and_a_named_person_has_approved_fairn
     set("PAS_NOSHOW_SCORE", "true");
     approve_both(&s).await;
     assert!(s.noshow.status().await.unwrap().active);
-    s.db.execute(Statement::from_string(
+    s.db.execute_raw(Statement::from_string(
         DbBackend::Postgres,
         "UPDATE noshow_reviews SET reviewed_at = now() - interval '181 days' WHERE kind = 'fairness'".to_string(),
     ))
@@ -262,7 +262,7 @@ async fn a_new_booking_gets_a_probability_with_its_factors_and_a_rerun_the_same_
     );
 
     // Yesterday's assessment is recomputed today.
-    s.db.execute(Statement::from_sql_and_values(
+    s.db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "UPDATE noshow_assessments SET computed_on = computed_on - 1 WHERE appointment_id = $1",
         [a.id.into()],
@@ -393,7 +393,7 @@ async fn the_call_list_is_the_top_few_matched_to_capacity_not_a_probability_cut_
 
     // Zero capacity lists nobody.
     set("PAS_NOSHOW_CALL_CAPACITY", "0");
-    s.db.execute(Statement::from_string(
+    s.db.execute_raw(Statement::from_string(
         DbBackend::Postgres,
         "DELETE FROM staff_call_tasks WHERE reason = 'high_risk'".to_string(),
     ))
@@ -492,7 +492,7 @@ async fn with_scores_present_rebooking_standby_and_offers_behave_exactly_as_with
         .await
         .unwrap();
     let rid: Uuid =
-        s.db.query_one(Statement::from_sql_and_values(
+        s.db.query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT id FROM slot_releases WHERE slot_id = $1 ORDER BY released_at DESC LIMIT 1",
             [slot.id.into()],
@@ -525,7 +525,7 @@ async fn with_scores_present_rebooking_standby_and_offers_behave_exactly_as_with
         let a = booked(&s, *p, 60).await; // each standby patient has another booked appointment, scored high
         assert!(s.noshow.for_appointment(a.id).await.unwrap().probability > 0.70);
     }
-    s.db.execute(Statement::from_sql_and_values(
+    s.db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "DELETE FROM rebook_offers WHERE appointment_id = $1",
         [appt.id.into()],
@@ -616,7 +616,7 @@ async fn the_fairness_audit_backtests_by_quintile_and_language_withholds_small_c
                 .set_demographics(person, Some("45-54"), Some(q), "ETL", &sys())
                 .await
                 .unwrap();
-            s.db.execute(Statement::from_sql_and_values(
+            s.db.execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO patient_communication_profiles (person_id, preferred_language) VALUES ($1,$2)",
                 [person.into(), lang.clone().into()],
@@ -806,7 +806,7 @@ async fn a_clinic_goes_live_only_after_enough_shadow_data_by_a_named_person_and_
     );
 
     // After the shadow period it may go live, and then calls appear for that clinic only.
-    s.db.execute(Statement::from_string(
+    s.db.execute_raw(Statement::from_string(
         DbBackend::Postgres,
         "UPDATE noshow_assessments SET computed_at = now() - interval '30 days'".to_string(),
     ))
@@ -863,7 +863,7 @@ async fn the_evaluation_reports_calibration_and_before_after_against_clinics_sti
     );
     approve_both(&s).await;
     go_live(&s).await;
-    s.db.execute(Statement::from_string(
+    s.db.execute_raw(Statement::from_string(
         DbBackend::Postgres,
         "UPDATE noshow_rollout SET live_since = now() - interval '20 days' WHERE service_type = 'test-clinic'".to_string(),
     ))
@@ -880,7 +880,7 @@ async fn the_evaluation_reports_calibration_and_before_after_against_clinics_sti
             .unwrap();
         s.noshow.for_appointment(a.id).await.unwrap();
         let status = if i < 10 { "no_show" } else { "fulfilled" };
-        s.db.execute(Statement::from_sql_and_values(
+        s.db.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "UPDATE appointments SET status = $2, start_datetime = now() - make_interval(days => $3::int) WHERE id = $1",
             [a.id.into(), status.into(), (1 + (i % 15) as i32).into()],

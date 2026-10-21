@@ -144,7 +144,7 @@ impl RebookService {
         };
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT s.id, s.start_datetime, s.end_datetime FROM slots s \
                  WHERE s.schedule_id = (SELECT schedule_id FROM slots WHERE id = $1) \
@@ -199,7 +199,7 @@ impl RebookService {
 
         if let Some(row) = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT id, slot_ids, expires_at FROM rebook_offers \
                  WHERE appointment_id = $1 AND chosen_at IS NULL AND expires_at > now() \
@@ -230,7 +230,7 @@ impl RebookService {
         let expires_at = (now + Self::offer_ttl()).min(appt.start_datetime);
         let ids: Vec<String> = options.iter().map(|o| o.slot_id.to_string()).collect();
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO rebook_offers (id, appointment_id, person_id, slot_ids, expires_at) \
                  VALUES ($1,$2,$3,$4,$5)",
@@ -258,7 +258,7 @@ impl RebookService {
     pub async fn standing_offer(&self, appointment_id: Uuid) -> Result<Option<Uuid>> {
         let row = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT id FROM rebook_offers WHERE appointment_id = $1 AND chosen_at IS NULL \
                  AND expires_at > now() ORDER BY created_at DESC LIMIT 1",
@@ -285,7 +285,7 @@ impl RebookService {
             .transaction::<_, (Appointment, Appointment), Error>(|txn| {
                 Box::pin(async move {
                     let row = txn
-                        .query_one(Statement::from_sql_and_values(
+                        .query_one_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "SELECT appointment_id, slot_ids, expires_at, chosen_at IS NOT NULL AS used \
                              FROM rebook_offers WHERE id = $1 FOR UPDATE",
@@ -314,7 +314,7 @@ impl RebookService {
                     }
                     let (old, new) =
                         SchedulingService::rebook_tx(txn, appointment_id, slot_id, &ctx).await?;
-                    txn.execute(Statement::from_sql_and_values(
+                    txn.execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "UPDATE rebook_offers SET chosen_slot_id = $2, chosen_at = now() WHERE id = $1",
                         [offer_id.into(), slot_id.into()],

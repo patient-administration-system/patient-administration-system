@@ -26,7 +26,7 @@ pub async fn check<C: ConnectionTrait>(conn: &C, person_id: Uuid, template_id: U
         return Ok(());
     }
     let opted = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT 1 AS ok FROM whatsapp_optins WHERE person_id = $1 AND withdrawn_at IS NULL",
             [person_id.into()],
@@ -40,7 +40,7 @@ pub async fn check<C: ConnectionTrait>(conn: &C, person_id: Uuid, template_id: U
         ));
     }
     let approved = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT 1 AS ok FROM whatsapp_template_approvals WHERE template_id = $1 AND revoked_at IS NULL",
             [template_id.into()],
@@ -85,7 +85,7 @@ impl WhatsAppService {
             ));
         }
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO whatsapp_optins (person_id, source, recorded_by) VALUES ($1,$2,$3) \
                  ON CONFLICT (person_id) DO UPDATE SET source = $2, recorded_by = $3, opted_in_at = now(), withdrawn_at = NULL",
@@ -108,7 +108,7 @@ impl WhatsAppService {
     pub async fn withdraw_optin(&self, person: Uuid, ctx: &UserContext) -> Result<()> {
         let r = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE whatsapp_optins SET withdrawn_at = now() WHERE person_id = $1 AND withdrawn_at IS NULL",
                 [person.into()],
@@ -145,7 +145,7 @@ impl WhatsAppService {
         }
         let exists = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT 1 AS ok FROM letter_templates WHERE id = $1",
                 [template.into()],
@@ -156,7 +156,7 @@ impl WhatsAppService {
             return Err(Error::not_found(format!("letter template {template}")));
         }
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO whatsapp_template_approvals (template_id, provider_template_id, approved_by) VALUES ($1,$2,$3) \
                  ON CONFLICT (template_id) DO UPDATE SET provider_template_id = $2, approved_by = $3, approved_at = now(), revoked_at = NULL",
@@ -179,7 +179,7 @@ impl WhatsAppService {
     pub async fn revoke_template(&self, template: Uuid, ctx: &UserContext) -> Result<()> {
         let r = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE whatsapp_template_approvals SET revoked_at = now() WHERE template_id = $1 AND revoked_at IS NULL",
                 [template.into()],

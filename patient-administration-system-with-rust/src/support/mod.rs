@@ -68,7 +68,7 @@ impl SupportService {
         }
         let id = Uuid::new_v4();
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO support_flags (id, person_id, appointment_id, kind, reason_code, created_by) \
                  VALUES ($1,$2,$3,$4,$5,$6)",
@@ -102,7 +102,7 @@ impl SupportService {
     pub async fn open(&self, limit: i64) -> Result<Vec<SupportFlag>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT id, person_id, appointment_id, kind, reason_code, created_by, created_at \
                  FROM support_flags WHERE resolved_at IS NULL ORDER BY created_at LIMIT $1",
@@ -147,7 +147,7 @@ impl SupportService {
         }
         let r = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE support_flags SET resolved_at = now(), resolved_by = $3, outcome = $2 \
                  WHERE id = $1 AND resolved_at IS NULL",

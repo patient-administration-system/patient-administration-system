@@ -44,7 +44,7 @@ pub async fn resolve_name<C: ConnectionTrait>(
     template_name: &str,
 ) -> Result<String> {
     let Some(exp) = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT id FROM message_experiments WHERE template_name = $1 AND stopped_at IS NULL",
             [template_name.into()],
@@ -57,7 +57,7 @@ pub async fn resolve_name<C: ConnectionTrait>(
     let exp_id: Uuid = exp.try_get("", "id").map_err(Error::Database)?;
     // Already assigned: the same wording as before.
     if let Some(r) = conn
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT v.template_name FROM message_experiment_assignments a \
              JOIN message_experiment_variants v ON v.experiment_id = a.experiment_id AND v.variant = a.variant \
@@ -70,7 +70,7 @@ pub async fn resolve_name<C: ConnectionTrait>(
         return r.try_get("", "template_name").map_err(Error::Database);
     }
     let variants = conn
-        .query_all(Statement::from_sql_and_values(
+        .query_all_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT variant, template_name FROM message_experiment_variants WHERE experiment_id = $1 ORDER BY variant",
             [exp_id.into()],
@@ -85,7 +85,7 @@ pub async fn resolve_name<C: ConnectionTrait>(
     let name: String = chosen
         .try_get("", "template_name")
         .map_err(Error::Database)?;
-    conn.execute(Statement::from_sql_and_values(
+    conn.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "INSERT INTO message_experiment_assignments (experiment_id, appointment_id, variant) VALUES ($1,$2,$3) \
          ON CONFLICT DO NOTHING",
@@ -190,7 +190,7 @@ impl ExperimentService {
             .transaction::<_, (), Error>(|txn| {
                 Box::pin(async move {
                     let made = txn
-                        .execute(Statement::from_sql_and_values(
+                        .execute_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "INSERT INTO message_experiments (id, template_name, started_by) VALUES ($1,$2,$3)",
                             [id.into(), name.clone().into(), started_by.clone().into()],
@@ -205,7 +205,7 @@ impl ExperimentService {
                         });
                     }
                     for (k, g) in &variants {
-                        txn.execute(Statement::from_sql_and_values(
+                        txn.execute_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "INSERT INTO message_experiment_variants (experiment_id, variant, template_name) VALUES ($1,$2,$3)",
                             [id.into(), k.clone().into(), g.clone().into()],
@@ -245,7 +245,7 @@ impl ExperimentService {
         }
         let r = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE message_experiments SET stopped_at = now(), stopped_by = $2 WHERE id = $1 AND stopped_at IS NULL",
                 [id.into(), by.into()],
@@ -272,7 +272,7 @@ impl ExperimentService {
     pub async fn list(&self) -> Result<Vec<Experiment>> {
         let rows = self
             .db
-            .query_all(Statement::from_string(
+            .query_all_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT id, template_name, started_by, started_at, stopped_at FROM message_experiments ORDER BY started_at DESC LIMIT 200"
                     .to_string(),
@@ -284,7 +284,7 @@ impl ExperimentService {
             let id: Uuid = r.try_get("", "id").map_err(Error::Database)?;
             let vs = self
                 .db
-                .query_all(Statement::from_sql_and_values(
+                .query_all_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     "SELECT variant, template_name FROM message_experiment_variants WHERE experiment_id = $1 ORDER BY variant",
                     [id.into()],
@@ -315,7 +315,7 @@ impl ExperimentService {
     pub async fn readout(&self, id: Uuid, k: Option<i64>) -> Result<Readout> {
         let exists = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT 1 AS ok FROM message_experiments WHERE id = $1",
                 [id.into()],
@@ -328,7 +328,7 @@ impl ExperimentService {
         let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT x.variant, COALESCE(d.deprivation_quintile::text, 'unknown') AS q, \
                         COALESCE(cp.preferred_language, 'unknown') AS lang, count(*)::bigint AS n, \

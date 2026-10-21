@@ -146,7 +146,7 @@ impl BackfillService {
     async fn row_by_hash(&self, h: &str) -> Result<Row> {
         let r = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT id, release_id, slot_id, standby_entry_id, status, expires_at \
                  FROM slot_offers WHERE token_hash = $1",
@@ -168,7 +168,7 @@ impl BackfillService {
 
     async fn slot_start(&self, slot_id: Uuid) -> Result<Option<DateTime<Utc>>> {
         self.db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT start_datetime FROM slots WHERE id = $1",
                 [slot_id.into()],
@@ -184,7 +184,7 @@ impl BackfillService {
     pub async fn offer_next(&self, release_id: Uuid) -> Result<Option<(Offer, String)>> {
         let live = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT 1 AS ok FROM slot_offers WHERE release_id = $1 AND status = 'open'",
                 [release_id.into()],
@@ -196,7 +196,7 @@ impl BackfillService {
         }
         let rel = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT slot_id, status, start_datetime FROM slot_releases WHERE id = $1",
                 [release_id.into()],
@@ -214,7 +214,7 @@ impl BackfillService {
         // Never offered this release before, in time-on-standby order and nothing else.
         let already: Vec<Uuid> = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT person_id FROM slot_offers WHERE release_id = $1",
                 [release_id.into()],
@@ -239,7 +239,7 @@ impl BackfillService {
         let expires_at = (now + ttl()).min(start);
         let made = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO slot_offers (id, release_id, slot_id, standby_entry_id, person_id, token_hash, expires_at) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING",
@@ -347,7 +347,7 @@ impl BackfillService {
             {
                 Ok(l) if l.status == LetterStatus::Sent => {
                     self.db
-                        .execute(Statement::from_sql_and_values(
+                        .execute_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "UPDATE slot_offers SET message_sent = true WHERE id = $1",
                             [offer.id.into()],
@@ -386,7 +386,7 @@ impl BackfillService {
         }
         let rel = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT id FROM slot_releases WHERE appointment_id = $1 AND status = 'open' \
                  ORDER BY released_at DESC LIMIT 1",
@@ -405,7 +405,7 @@ impl BackfillService {
     pub async fn tick(&self, now: DateTime<Utc>) -> Result<TickReport> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE slot_offers SET status = 'expired', answered_at = $1 \
                  WHERE status = 'open' AND expires_at <= $1 RETURNING release_id",
@@ -465,7 +465,7 @@ impl BackfillService {
         }
         let claimed = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE slot_offers SET status = 'accepted', answered_at = now() \
                  WHERE id = $1 AND status = 'open' AND expires_at > now()",
@@ -483,7 +483,7 @@ impl BackfillService {
         {
             Ok(appt) => {
                 self.db
-                    .execute(Statement::from_sql_and_values(
+                    .execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "UPDATE slot_offers SET appointment_id = $2 WHERE id = $1",
                         [row.id.into(), appt.id.into()],
@@ -500,7 +500,7 @@ impl BackfillService {
             // offer is over, and the next patient is tried.
             Err(Error::Conflict(_)) | Err(Error::NotFound(_)) => {
                 self.db
-                    .execute(Statement::from_sql_and_values(
+                    .execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "UPDATE slot_offers SET status = 'missed' WHERE id = $1",
                         [row.id.into()],
@@ -518,7 +518,7 @@ impl BackfillService {
                 // Unexpected: give the offer back so the patient can try again.
                 let _ = self
                     .db
-                    .execute(Statement::from_sql_and_values(
+                    .execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "UPDATE slot_offers SET status = 'open', answered_at = NULL WHERE id = $1",
                         [row.id.into()],
@@ -535,7 +535,7 @@ impl BackfillService {
         let tz = messages::timezone().name().to_string();
         let r = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE slot_offers SET status = 'declined', answered_at = now() \
                  WHERE id = $1 AND status = 'open' AND expires_at > now()",
@@ -560,7 +560,7 @@ impl BackfillService {
     pub async fn offers_for_release(&self, release_id: Uuid) -> Result<Vec<serde_json::Value>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT id, status, offered_at, expires_at, message_sent FROM slot_offers \
                  WHERE release_id = $1 ORDER BY offered_at",

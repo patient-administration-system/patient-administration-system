@@ -122,7 +122,7 @@ impl PrintService {
     pub async fn queue(&self, limit: i64) -> Result<(i64, Vec<QueuedLetter>)> {
         let total = self
             .db
-            .query_one(Statement::from_string(
+            .query_one_raw(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM generated_letters g WHERE g.channel = 'print' AND g.status = 'pending' \
                  AND NOT EXISTS (SELECT 1 FROM print_batch_letters b WHERE b.letter_id = g.id)"
@@ -135,7 +135,7 @@ impl PrintService {
             .map_err(Error::Database)?;
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT g.id, g.created_at, g.rendered_subject FROM generated_letters g \
                  WHERE g.channel = 'print' AND g.status = 'pending' \
@@ -190,13 +190,13 @@ impl PrintService {
                     // commit can lock the same letters (the lock is gone by then) and trip the unique constraint
                     // on `print_batch_letters`. The lock is held until this transaction ends, and the query below
                     // takes its snapshot after it.
-                    txn.execute(Statement::from_string(
+                    txn.execute_raw(Statement::from_string(
                         DbBackend::Postgres,
                         "SELECT pg_advisory_xact_lock(7011)".to_string(),
                     ))
                     .await
                     .map_err(Error::Database)?;
-                    txn.execute(Statement::from_sql_and_values(
+                    txn.execute_raw(Statement::from_sql_and_values(
                         DbBackend::Postgres,
                         "INSERT INTO print_batches (id, created_by) VALUES ($1,$2)",
                         [batch_id.into(), created_by.clone().into()],
@@ -205,7 +205,7 @@ impl PrintService {
                     .map_err(Error::Database)?;
                     // Lock the oldest queued letters, skipping any another export has locked.
                     let letters = txn
-                        .query_all(Statement::from_sql_and_values(
+                        .query_all_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "SELECT g.id, g.person_id, g.rendered_subject, g.rendered_body FROM generated_letters g \
                              WHERE g.channel = 'print' AND g.status = 'pending' \
@@ -225,7 +225,7 @@ impl PrintService {
                             skipped += 1;
                             continue;
                         };
-                        txn.execute(Statement::from_sql_and_values(
+                        txn.execute_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "INSERT INTO print_batch_letters (batch_id, letter_id) VALUES ($1,$2)",
                             [batch_id.into(), id.into()],
@@ -288,7 +288,7 @@ impl PrintService {
             .transaction::<_, usize, Error>(|txn| {
                 Box::pin(async move {
                     let claimed = txn
-                        .execute(Statement::from_sql_and_values(
+                        .execute_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "UPDATE print_batches SET sent_at = now(), sent_by = $2 WHERE id = $1 AND sent_at IS NULL",
                             [batch_id.into(), sent_by.clone().into()],
@@ -297,7 +297,7 @@ impl PrintService {
                         .map_err(Error::Database)?;
                     if claimed.rows_affected() == 0 {
                         let exists = txn
-                            .query_one(Statement::from_sql_and_values(
+                            .query_one_raw(Statement::from_sql_and_values(
                                 DbBackend::Postgres,
                                 "SELECT 1 AS ok FROM print_batches WHERE id = $1",
                                 [batch_id.into()],
@@ -311,7 +311,7 @@ impl PrintService {
                         });
                     }
                     let n = txn
-                        .execute(Statement::from_sql_and_values(
+                        .execute_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "UPDATE generated_letters SET status = 'sent', sent_at = now(), updated_at = now() \
                              WHERE status = 'pending' AND id IN (SELECT letter_id FROM print_batch_letters WHERE batch_id = $1)",

@@ -59,7 +59,7 @@ async fn world(others: &[i64], welsh: bool) -> (AppState, String, Uuid, Appointm
     for d in others {
         common::free_slot(&s.db, schedule, *d).await;
     }
-    s.db.execute(Statement::from_sql_and_values(
+    s.db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "INSERT INTO generated_letters (id, template_id, person_id, appointment_id, rendered_subject, rendered_body, channel, status, sent_at, created_at, updated_at) \
          VALUES ($1,$2,$3,$4,'Reminder','Hello','sms','sent',now(),now(),now())",
@@ -132,7 +132,7 @@ async fn a_slot_taken_meanwhile_is_said_plainly_and_the_appointment_stays() {
     let (s, num, _, appt) = world(&[6], false).await;
     s.inbound.handle(text(&num, "R"), &sys()).await.unwrap();
     // Someone else takes the only offered slot before the patient answers.
-    s.db.execute(Statement::from_sql_and_values(
+    s.db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "UPDATE slots SET status = 'busy' WHERE id IN (SELECT slot_id FROM appointments WHERE id <> $1 AND false) OR (schedule_id = (SELECT sl.schedule_id FROM slots sl WHERE sl.id = (SELECT slot_id FROM appointments WHERE id = $1)) AND id <> (SELECT slot_id FROM appointments WHERE id = $1))",
         [appt.id.into()],

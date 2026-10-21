@@ -90,7 +90,7 @@ impl ReceiptService {
         }
         let known = self
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT status FROM generated_letters WHERE id = $1",
                 [letter_id.into()],
@@ -101,7 +101,7 @@ impl ReceiptService {
         let status: String = known.try_get("", "status").map_err(Error::Database)?;
         let made = self
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO message_receipts (id, letter_id, event, carrier, receipt_id, detail, occurred_at) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (carrier, receipt_id) DO NOTHING",
@@ -126,7 +126,7 @@ impl ReceiptService {
         }
         if event == "bounced" && status == "sent" {
             self.db
-                .execute(Statement::from_sql_and_values(
+                .execute_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     "UPDATE generated_letters SET status = 'failed', updated_at = now() WHERE id = $1 AND status = 'sent'",
                     [letter_id.into()],
@@ -161,7 +161,7 @@ impl ReceiptService {
     ) -> Result<Vec<ContactProblem>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT g.person_id, count(*)::bigint AS bounces, max(r.occurred_at) AS last_at, \
                         (array_agg(g.channel ORDER BY r.occurred_at DESC))[1] AS last_channel, \
@@ -206,7 +206,7 @@ impl ReceiptService {
             return Err(Error::validation("note must be at most 200 characters"));
         }
         self.db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "INSERT INTO contact_problem_resolutions (id, person_id, resolved_by, note, resolved_at) VALUES ($1,$2,$3,$4,$5)",
                 [
@@ -236,7 +236,7 @@ impl ReceiptService {
     pub async fn for_letter(&self, letter_id: Uuid) -> Result<Vec<serde_json::Value>> {
         let rows = self
             .db
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT event, carrier, detail, occurred_at FROM message_receipts WHERE letter_id = $1 ORDER BY occurred_at",
                 [letter_id.into()],

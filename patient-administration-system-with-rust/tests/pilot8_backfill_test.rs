@@ -133,7 +133,7 @@ impl W {
         let r = self
             .s
             .db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT id FROM slot_releases WHERE slot_id = $1 AND status = 'open'",
                 [slot.id.into()],
@@ -155,7 +155,7 @@ impl W {
     async fn expire_live_offer(&self, release: Uuid) {
         self.s
             .db
-            .execute(Statement::from_sql_and_values(
+            .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE slot_offers SET expires_at = now() - interval '1 minute' WHERE release_id = $1 AND status = 'open'",
                 [release.into()],
@@ -198,7 +198,7 @@ async fn offers_go_in_standby_order_one_at_a_time_and_move_on_when_declined_or_e
     // The live offer is p3's, the only one never offered before.
     let live =
         w.s.db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT person_id FROM slot_offers WHERE release_id = $1 AND status = 'open'",
                 [release.into()],
@@ -223,7 +223,7 @@ async fn accepting_books_the_slot_for_that_patient_takes_them_off_standby_and_st
     let appt = w
         .s
         .db
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT person_id, status FROM appointments WHERE slot_id = $1 AND status = 'booked'",
             [slot.into()],
@@ -234,7 +234,7 @@ async fn accepting_books_the_slot_for_that_patient_takes_them_off_standby_and_st
     assert_eq!(appt.try_get::<Uuid>("", "person_id").unwrap(), o.person_id);
     let rel =
         w.s.db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT status FROM slot_releases WHERE id = $1",
                 [release.into()],
@@ -266,7 +266,7 @@ async fn two_taps_at_once_act_once() {
     assert_eq!([a.is_ok(), b.is_ok()].iter().filter(|x| **x).count(), 1);
     let n =
         w.s.db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM appointments WHERE slot_id = $1 AND status = 'booked'",
                 [slot.into()],
@@ -313,7 +313,7 @@ async fn a_slot_taken_meanwhile_is_not_double_booked_and_the_next_patient_is_tri
     );
     let n =
         w.s.db
-            .query_one(Statement::from_sql_and_values(
+            .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT count(*) AS n FROM appointments WHERE slot_id = $1 AND status = 'booked'",
                 [slot.into()],
