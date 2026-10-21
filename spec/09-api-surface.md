@@ -1,6 +1,6 @@
 # 9. API surface
 
-The complete, generated contract is the OpenAPI document served at `/api-docs/openapi.json` with Swagger UI at `/swagger-ui/`. This chapter lists the endpoints this repository's recent work depends on.
+The generated contract is the OpenAPI document served at `/api-docs/openapi.json` with Swagger UI at `/swagger-ui/`, committed as [`openapi.json`](openapi.json). It lists every route and method (268 operations: 244 REST, 24 FHIR), with path parameters and the three response classes. **It does not yet describe request bodies, query parameters, the typed `data` of a response, or which routes need a token** (QUAL-34 in `tasks.md`). A test fails when a route is added without being documented and when `openapi.json` is stale (regenerate with `UPDATE_OPENAPI=1 cargo test -p patient-administration-system openapi`). This chapter lists the endpoints this repository's recent work depends on.
 
 | Method and path | Purpose |
 |---|---|

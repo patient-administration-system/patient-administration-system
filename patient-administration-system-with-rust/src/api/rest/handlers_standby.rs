@@ -31,6 +31,16 @@ fn ok(value: Value) -> HandlerResult {
 }
 
 /// `POST /api/standby`: put a patient on standby for a service (or update their tags).
+#[utoipa::path(
+    post,
+    path = "/api/standby",
+    tag = "Standby",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn add_standby(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -48,6 +58,16 @@ pub struct ListStandbyQuery {
 }
 
 /// `GET /api/standby?service_type=`: active standby entries, longest-waiting first.
+#[utoipa::path(
+    get,
+    path = "/api/standby",
+    tag = "Standby",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_standby(
     State(state): State<AppState>,
     Query(q): Query<ListStandbyQuery>,
@@ -59,6 +79,17 @@ pub async fn list_standby(
 }
 
 /// `DELETE /api/standby/{id}`: take a patient off standby.
+#[utoipa::path(
+    delete,
+    path = "/api/standby/{id}",
+    tag = "Standby",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn remove_standby(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -76,6 +107,17 @@ pub struct BookBody {
 }
 
 /// `POST /api/standby/{id}/book`: book a slot for a patient on standby and take them off the list.
+#[utoipa::path(
+    post,
+    path = "/api/standby/{id}/book",
+    tag = "Standby",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn book_from_standby(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -102,6 +144,16 @@ pub struct ReleasesQuery {
 
 /// `GET /api/slot-releases?from&to&status`: what was released, whether it was refilled and how fast.
 /// Defaults to the last 30 days.
+#[utoipa::path(
+    get,
+    path = "/api/slot-releases",
+    tag = "Slot releases",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_releases(
     State(state): State<AppState>,
     Query(q): Query<ReleasesQuery>,
@@ -118,6 +170,17 @@ pub async fn list_releases(
 
 /// `GET /api/slot-releases/{id}/candidates?language=&needs_transport=&phone_only=`: standby
 /// patients who could take this slot, longest-waiting first. Ordered by waiting time and nothing else.
+#[utoipa::path(
+    get,
+    path = "/api/slot-releases/{id}/candidates",
+    tag = "Slot releases",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn release_candidates(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,

@@ -60,6 +60,16 @@ fn upstream_stub(what: &str) -> HandlerResult {
 
 /// `GET /api/health` — DB liveness probe. Phase 3 extends to include
 /// `person_service` + `worker_service` aggregator.
+#[utoipa::path(
+    get,
+    path = "/api/health",
+    tag = "Health",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn health(State(state): State<AppState>) -> HandlerResult {
     let db_ok = state.db.ping().await.map(|_| true).unwrap_or(false);
     let status = if db_ok { "ok" } else { "degraded" };

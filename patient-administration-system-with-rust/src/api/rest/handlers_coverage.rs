@@ -35,6 +35,16 @@ fn ok(value: Value) -> HandlerResult {
 
 /// `POST /api/coverages` — create a coverage. Body is the full Coverage
 /// JSON (client may omit id + timestamps; server fills them).
+#[utoipa::path(
+    post,
+    path = "/api/coverages",
+    tag = "Coverages",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_coverage(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -71,6 +81,17 @@ pub async fn create_coverage(
 }
 
 /// `GET /api/coverages/:id`.
+#[utoipa::path(
+    get,
+    path = "/api/coverages/{id}",
+    tag = "Coverages",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match CoverageRepository::find_by_id(&state.db, id).await {
         Ok(Some(c)) => ok(serde_json::to_value(c).unwrap_or(Value::Null)),
@@ -80,6 +101,17 @@ pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -
 }
 
 /// `PUT /api/coverages/:id`.
+#[utoipa::path(
+    put,
+    path = "/api/coverages/{id}",
+    tag = "Coverages",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn update_coverage(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -108,6 +140,17 @@ pub async fn update_coverage(
 }
 
 /// `DELETE /api/coverages/:id` — soft-cancel: flips status to Cancelled.
+#[utoipa::path(
+    delete,
+    path = "/api/coverages/{id}",
+    tag = "Coverages",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn delete_coverage(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -139,6 +182,17 @@ pub async fn delete_coverage(
 }
 
 /// `GET /api/patients/:id/coverages` — every coverage for the person.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/coverages",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_coverages_for_person(
     State(state): State<AppState>,
     Path(person_id): Path<Uuid>,
@@ -150,6 +204,17 @@ pub async fn list_coverages_for_person(
 }
 
 /// `GET /api/accounts/:id/coverages` — coverages linked to a billing account.
+#[utoipa::path(
+    get,
+    path = "/api/accounts/{id}/coverages",
+    tag = "Accounts",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_coverages_for_account(
     State(state): State<AppState>,
     Path(account_id): Path<Uuid>,

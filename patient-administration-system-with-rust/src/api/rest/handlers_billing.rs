@@ -87,6 +87,16 @@ pub struct PostPaymentBody {
 }
 
 /// `POST /api/accounts` — open a billing account.
+#[utoipa::path(
+    post,
+    path = "/api/accounts",
+    tag = "Accounts",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn open_account(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -108,6 +118,16 @@ pub async fn open_account(
 }
 
 /// `POST /api/charges`.
+#[utoipa::path(
+    post,
+    path = "/api/charges",
+    tag = "Charges",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn post_charge(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -133,6 +153,16 @@ pub async fn post_charge(
 }
 
 /// `POST /api/invoices` — finalize an invoice from the named charge ids.
+#[utoipa::path(
+    post,
+    path = "/api/invoices",
+    tag = "Invoices",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn finalize_invoice(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -150,6 +180,16 @@ pub async fn finalize_invoice(
 }
 
 /// `POST /api/payments`.
+#[utoipa::path(
+    post,
+    path = "/api/payments",
+    tag = "Payments",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn post_payment(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -171,6 +211,17 @@ pub async fn post_payment(
 }
 
 /// `POST /api/accounts/:id/close`.
+#[utoipa::path(
+    post,
+    path = "/api/accounts/{id}/close",
+    tag = "Accounts",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn close_account(
     State(state): State<AppState>,
     Path(account_id): Path<Uuid>,

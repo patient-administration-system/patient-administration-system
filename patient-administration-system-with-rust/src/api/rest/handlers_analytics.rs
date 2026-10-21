@@ -42,6 +42,16 @@ pub struct OutcomesQuery {
 
 /// `GET /api/analytics/appointment-outcomes`: counts of appointments by the chosen dimensions. No identifier
 /// appears anywhere in it, and cells under `k` are withheld (never shown as zero).
+#[utoipa::path(
+    get,
+    path = "/api/analytics/appointment-outcomes",
+    tag = "Analytics",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn outcomes(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -113,6 +123,16 @@ pub struct RefillQuery {
 /// `GET /api/analytics/refill-rates`: how often released slots are refilled, by notice period, early-release
 /// share and the chosen splits (deprivation quintile, language, ...). Same rules as the outcomes feed: no
 /// identifier, cells under `k` withheld, and nothing in it feeds back into what any patient is offered.
+#[utoipa::path(
+    get,
+    path = "/api/analytics/refill-rates",
+    tag = "Analytics",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn refill_rates(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -163,6 +183,17 @@ pub async fn refill_rates(
 }
 
 /// `PUT /api/analytics/demographics/{person_id}`: an upstream job pushes the patient's coarse bands.
+#[utoipa::path(
+    put,
+    path = "/api/analytics/demographics/{person_id}",
+    tag = "Analytics",
+    params(("person_id" = String, Path, description = "Path parameter `person_id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn set_demographics(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -200,6 +231,16 @@ pub struct LookupQuery {
 
 /// `PUT /api/analytics/deprivation-lookup?dataset=...&loaded_by=...`: the health board's postcode to quintile
 /// file as CSV (`postcode,quintile`). The PAS ships no data.
+#[utoipa::path(
+    put,
+    path = "/api/analytics/deprivation-lookup",
+    tag = "Analytics",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn load_deprivation_lookup(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -234,6 +275,16 @@ pub struct RefreshQuery {
 
 /// `POST /api/analytics/demographics/refresh?limit=`: fill the bands for people who have none, from the
 /// person record and the lookup. Idempotent; run it daily.
+#[utoipa::path(
+    post,
+    path = "/api/analytics/demographics/refresh",
+    tag = "Analytics",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn refresh_demographics(
     State(state): State<AppState>,
     headers: HeaderMap,

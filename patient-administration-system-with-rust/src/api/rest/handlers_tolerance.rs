@@ -29,6 +29,16 @@ fn ctx(headers: &HeaderMap) -> RepoUserContext {
 }
 
 /// `GET /api/tolerances`: every measure with its target, tolerance and limit, and whether a person changed it.
+#[utoipa::path(
+    get,
+    path = "/api/tolerances",
+    tag = "Tolerances",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list(State(state): State<AppState>) -> HandlerResult {
     match state.tolerance.settings().await {
         Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
@@ -53,6 +63,17 @@ pub struct SetBody {
 }
 
 /// `PUT /api/tolerances/{metric}`: a named person sets a measure's tiers.
+#[utoipa::path(
+    put,
+    path = "/api/tolerances/{metric}",
+    tag = "Tolerances",
+    params(("metric" = String, Path, description = "Path parameter `metric`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn set(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -86,6 +107,17 @@ pub struct ScopeQuery {
 
 /// `DELETE /api/tolerances/{metric}?service=&ward=`: take away what was set. The whole service goes back to
 /// the built-in default; a service or ward goes back to the whole service's limits.
+#[utoipa::path(
+    delete,
+    path = "/api/tolerances/{metric}",
+    tag = "Tolerances",
+    params(("metric" = String, Path, description = "Path parameter `metric`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn reset(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -108,6 +140,16 @@ pub struct StatusQuery {
 }
 
 /// `GET /api/tolerances/status?days=30`: each measure's value and its tier, and the worst tier overall.
+#[utoipa::path(
+    get,
+    path = "/api/tolerances/status",
+    tag = "Tolerances",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn status(State(state): State<AppState>, Query(q): Query<StatusQuery>) -> HandlerResult {
     match state.tolerance.status(q.days.unwrap_or(30)).await {
         Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
@@ -117,6 +159,16 @@ pub async fn status(State(state): State<AppState>, Query(q): Query<StatusQuery>)
 
 /// `POST /api/tolerances/evaluate?days=30`: check every measure now. A red one opens an alert (once) and a
 /// recovered one closes its alert. The server also does this on a timer (`PAS_TOLERANCE_CHECK_MINUTES`).
+#[utoipa::path(
+    post,
+    path = "/api/tolerances/evaluate",
+    tag = "Tolerances",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn evaluate(
     State(state): State<AppState>,
     Query(q): Query<StatusQuery>,
@@ -134,6 +186,16 @@ pub struct AlertsQuery {
 }
 
 /// `GET /api/tolerance-alerts?open=true`: alerts, newest first.
+#[utoipa::path(
+    get,
+    path = "/api/tolerance-alerts",
+    tag = "Tolerance alerts",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn alerts(State(state): State<AppState>, Query(q): Query<AlertsQuery>) -> HandlerResult {
     match state.tolerance.alerts(q.open.unwrap_or(false)).await {
         Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
@@ -149,6 +211,17 @@ pub struct AckBody {
 }
 
 /// `POST /api/tolerance-alerts/{id}/acknowledge`: a named person says they are on it.
+#[utoipa::path(
+    post,
+    path = "/api/tolerance-alerts/{id}/acknowledge",
+    tag = "Tolerance alerts",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn acknowledge(
     State(state): State<AppState>,
     headers: HeaderMap,

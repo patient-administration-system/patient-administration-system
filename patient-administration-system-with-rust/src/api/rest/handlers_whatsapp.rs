@@ -36,6 +36,17 @@ pub struct OptInBody {
 }
 
 /// `PUT /api/patients/{id}/whatsapp-optin`: the patient has agreed to hear from us on WhatsApp.
+#[utoipa::path(
+    put,
+    path = "/api/patients/{id}/whatsapp-optin",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn record_optin(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -53,6 +64,17 @@ pub async fn record_optin(
 }
 
 /// `DELETE /api/patients/{id}/whatsapp-optin`.
+#[utoipa::path(
+    delete,
+    path = "/api/patients/{id}/whatsapp-optin",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn withdraw_optin(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -71,6 +93,17 @@ pub struct ApprovalBody {
 }
 
 /// `PUT /api/letter-templates/{id}/whatsapp-approval`: the provider has approved this template for WhatsApp.
+#[utoipa::path(
+    put,
+    path = "/api/letter-templates/{id}/whatsapp-approval",
+    tag = "Letter templates",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn approve_template(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -88,6 +121,17 @@ pub async fn approve_template(
 }
 
 /// `DELETE /api/letter-templates/{id}/whatsapp-approval`.
+#[utoipa::path(
+    delete,
+    path = "/api/letter-templates/{id}/whatsapp-approval",
+    tag = "Letter templates",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn revoke_template(
     State(state): State<AppState>,
     headers: HeaderMap,

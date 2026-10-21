@@ -25,6 +25,17 @@ fn ok(value: Value) -> HandlerResult {
 }
 
 /// `GET /api/reply-links/{token}`: what the page may show. Read-only: opening a link never acts.
+#[utoipa::path(
+    get,
+    path = "/api/reply-links/{token}",
+    tag = "Reply links",
+    params(("token" = String, Path, description = "Path parameter `token`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_link(State(state): State<AppState>, Path(token): Path<String>) -> HandlerResult {
     match state.reply_links.info(&token).await {
         Ok(i) => ok(serde_json::to_value(i).unwrap_or(Value::Null)),
@@ -44,6 +55,17 @@ pub struct ActBody {
 
 /// `POST /api/reply-links/{token}/{action}`: a deliberate tap. `action` is confirm, cancel, reschedule or
 /// help. The first `cancel` answers `needs_confirmation`; send it again with `{"confirmed": true}`.
+#[utoipa::path(
+    post,
+    path = "/api/reply-links/{token}/{action}",
+    tag = "Reply links",
+    params(("token" = String, Path, description = "Path parameter `token`"), ("action" = String, Path, description = "Path parameter `action`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn post_link_action(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -82,6 +104,17 @@ pub struct ChooseBody {
 }
 
 /// `POST /api/reply-links/{token}/rebook`: the patient chose one of the times offered after Reschedule.
+#[utoipa::path(
+    post,
+    path = "/api/reply-links/{token}/rebook",
+    tag = "Reply links",
+    params(("token" = String, Path, description = "Path parameter `token`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn post_link_rebook(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -105,6 +138,16 @@ pub async fn post_link_rebook(
 
 /// `GET /api/staff-call-tasks/open`: patients a person should phone (silent at the second touch, or asked
 /// to reschedule), soonest appointment first.
+#[utoipa::path(
+    get,
+    path = "/api/staff-call-tasks/open",
+    tag = "Staff call tasks",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn open_calls(State(state): State<AppState>) -> HandlerResult {
     match state.ladder.open_calls(200).await {
         Ok(v) => ok(Value::Array(v)),
@@ -118,6 +161,17 @@ pub struct CallOutcomeBody {
 }
 
 /// `POST /api/staff-call-tasks/{id}/outcome`: record what happened on the call; it leaves the list.
+#[utoipa::path(
+    post,
+    path = "/api/staff-call-tasks/{id}/outcome",
+    tag = "Staff call tasks",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn call_outcome(
     State(state): State<AppState>,
     headers: HeaderMap,

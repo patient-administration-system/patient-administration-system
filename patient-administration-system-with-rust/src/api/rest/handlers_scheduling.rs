@@ -63,6 +63,16 @@ pub struct RangeQuery {
 
 /// `GET /api/appointments?from=<rfc3339>&to=<rfc3339>` — appointments
 /// starting in `[from, to)`. The range is capped at 366 days.
+#[utoipa::path(
+    get,
+    path = "/api/appointments",
+    tag = "Appointments",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_appointments(
     State(state): State<AppState>,
     Query(q): Query<RangeQuery>,
@@ -83,6 +93,17 @@ pub async fn list_appointments(
 }
 
 /// `GET /api/patients/{id}/appointments` — every appointment for one patient.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/appointments",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_patient_appointments(
     State(state): State<AppState>,
     Path(person_id): Path<Uuid>,
@@ -102,6 +123,17 @@ pub async fn list_patient_appointments(
 
 /// `POST /api/slots/:id/book` — book the named slot for the supplied
 /// person id. Body: `{ "person_id": "<uuid>" }`.
+#[utoipa::path(
+    post,
+    path = "/api/slots/{id}/book",
+    tag = "Slots",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn book_slot(
     State(state): State<AppState>,
     Path(slot_id): Path<Uuid>,
@@ -122,6 +154,17 @@ pub async fn book_slot(
 /// `POST /api/appointments/:id/cancel` — cancel a booked appointment.
 /// Body: `{ "reason": "<free text>" }` (optional; defaults to
 /// `PatientRequest`).
+#[utoipa::path(
+    post,
+    path = "/api/appointments/{id}/cancel",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_appointment(
     State(state): State<AppState>,
     Path(appointment_id): Path<Uuid>,
@@ -155,6 +198,17 @@ pub struct RoomBody {
 }
 
 /// `PUT /api/appointments/{id}/location` — move a patient who has arrived to a room (CORE-4). Audited.
+#[utoipa::path(
+    put,
+    path = "/api/appointments/{id}/location",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn move_to_room(
     State(state): State<AppState>,
     Path(appointment_id): Path<Uuid>,
@@ -174,6 +228,16 @@ pub async fn move_to_room(
 
 /// `GET /api/facility/in-facility` — everyone who has arrived and not been completed, longest waiting first,
 /// with the minutes they have been here and where they are (CORE-4).
+#[utoipa::path(
+    get,
+    path = "/api/facility/in-facility",
+    tag = "Facility",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn in_facility(State(state): State<AppState>) -> HandlerResult {
     match state.scheduling.in_facility().await {
         Ok(v) => ok_value(Value::Array(v)),
@@ -183,6 +247,17 @@ pub async fn in_facility(State(state): State<AppState>) -> HandlerResult {
 
 /// `PUT /api/appointments/{id}/barrier` — record why a cancelled or missed appointment happened,
 /// typically after a welfare call (CAP-1).
+#[utoipa::path(
+    put,
+    path = "/api/appointments/{id}/barrier",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn record_barrier(
     State(state): State<AppState>,
     Path(appointment_id): Path<Uuid>,
@@ -201,6 +276,17 @@ pub async fn record_barrier(
 }
 
 /// `POST /api/appointments/:id/check-in` — `Booked → Arrived`.
+#[utoipa::path(
+    post,
+    path = "/api/appointments/{id}/check-in",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn check_in_appointment(
     State(state): State<AppState>,
     Path(appointment_id): Path<Uuid>,
@@ -214,6 +300,17 @@ pub async fn check_in_appointment(
 }
 
 /// `POST /api/appointments/:id/complete` — `Arrived → Fulfilled`.
+#[utoipa::path(
+    post,
+    path = "/api/appointments/{id}/complete",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn complete_appointment(
     State(state): State<AppState>,
     Path(appointment_id): Path<Uuid>,
@@ -227,6 +324,17 @@ pub async fn complete_appointment(
 }
 
 /// `POST /api/appointments/:id/no-show` — `Booked → NoShow`.
+#[utoipa::path(
+    post,
+    path = "/api/appointments/{id}/no-show",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn mark_no_show(
     State(state): State<AppState>,
     Path(appointment_id): Path<Uuid>,
@@ -242,6 +350,17 @@ pub async fn mark_no_show(
 /// `GET /api/appointments/{id}/rebook-options` — two or three real alternative slots for this
 /// appointment (CAP-5). Asking again while the offer stands returns the same offer. `options` is empty
 /// when there is nothing to offer; hand the patient to a person then.
+#[utoipa::path(
+    get,
+    path = "/api/appointments/{id}/rebook-options",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn rebook_options(
     State(state): State<AppState>,
     Path(appointment_id): Path<Uuid>,
@@ -261,6 +380,17 @@ pub struct RebookBody {
 /// `POST /api/appointments/{id}/rebook` — take one of the offered times. A slot that was not in the
 /// offer is refused (400), a used offer is 409. The old appointment is released as `rescheduled` and the
 /// new one booked in one transaction.
+#[utoipa::path(
+    post,
+    path = "/api/appointments/{id}/rebook",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn rebook_appointment(
     State(state): State<AppState>,
     Path(appointment_id): Path<Uuid>,

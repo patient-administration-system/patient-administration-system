@@ -38,6 +38,17 @@ pub struct ProofBody {
 
 /// `PUT /api/identity-proofings/{subject}`: staff record that they checked this sign-in account belongs to this
 /// patient. Audited against the patient.
+#[utoipa::path(
+    put,
+    path = "/api/identity-proofings/{subject}",
+    tag = "Identity proofings",
+    params(("subject" = String, Path, description = "Path parameter `subject`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn record(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -66,6 +77,17 @@ pub struct RevokeQuery {
 }
 
 /// `DELETE /api/identity-proofings/{subject}?revoked_by=`: the portal refuses the account from now on.
+#[utoipa::path(
+    delete,
+    path = "/api/identity-proofings/{subject}",
+    tag = "Identity proofings",
+    params(("subject" = String, Path, description = "Path parameter `subject`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn revoke(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -83,6 +105,17 @@ pub async fn revoke(
 }
 
 /// `GET /api/identity-proofings/{subject}`: the live proofing of an account, for staff.
+#[utoipa::path(
+    get,
+    path = "/api/identity-proofings/{subject}",
+    tag = "Identity proofings",
+    params(("subject" = String, Path, description = "Path parameter `subject`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get(State(state): State<AppState>, Path(subject): Path<String>) -> HandlerResult {
     match state.identity.get(&subject).await {
         Ok(p) => ok(serde_json::to_value(p).unwrap_or(Value::Null)),
@@ -97,6 +130,17 @@ pub struct CheckQuery {
 
 /// `GET /api/identity-proofings/{subject}/check?person_id=`: `{ "proofed": bool }`, true only for a live
 /// proofing of exactly that account and patient. The portal asks this before every patient page.
+#[utoipa::path(
+    get,
+    path = "/api/identity-proofings/{subject}/check",
+    tag = "Identity proofings",
+    params(("subject" = String, Path, description = "Path parameter `subject`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn check(
     State(state): State<AppState>,
     Path(subject): Path<String>,

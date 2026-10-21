@@ -22,6 +22,16 @@ pub struct MenuBody {
 }
 
 /// `POST /api/write-back/ivr/menu`: what to say when the call connects.
+#[utoipa::path(
+    post,
+    path = "/api/write-back/ivr/menu",
+    tag = "Write back",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn menu(State(state): State<AppState>, Json(b): Json<MenuBody>) -> HandlerResult {
     match state.ivr.menu(&b.token).await {
         Ok(r) => (
@@ -44,6 +54,16 @@ pub struct PressBody {
 }
 
 /// `POST /api/write-back/ivr/press`: the patient pressed a key.
+#[utoipa::path(
+    post,
+    path = "/api/write-back/ivr/press",
+    tag = "Write back",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn press(
     State(state): State<AppState>,
     headers: HeaderMap,

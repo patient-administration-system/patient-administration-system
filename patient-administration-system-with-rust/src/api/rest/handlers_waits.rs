@@ -29,6 +29,17 @@ fn ctx(headers: &HeaderMap) -> RepoUserContext {
 }
 
 /// `GET /api/appointments/{id}/lead-time`: booking to visit, in whole days.
+#[utoipa::path(
+    get,
+    path = "/api/appointments/{id}/lead-time",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn lead_time(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.waits.lead_time(id).await {
         Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
@@ -37,6 +48,17 @@ pub async fn lead_time(State(state): State<AppState>, Path(id): Path<Uuid>) -> H
 }
 
 /// `GET /api/patients/{id}/waits`: the lead time of each appointment and the weeks waited on each pathway.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/waits",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn patient_waits(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.waits.patient_waits(id).await {
         Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
@@ -52,6 +74,16 @@ pub struct DueQuery {
 
 /// `GET /api/pathways/due-check?weeks=26&repeat_days=90`: long waiters nobody has asked recently whether
 /// they still need this, longest first.
+#[utoipa::path(
+    get,
+    path = "/api/pathways/due-check",
+    tag = "Pathways",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn due_for_check(
     State(state): State<AppState>,
     Query(q): Query<DueQuery>,
@@ -76,6 +108,17 @@ pub struct AskBody {
 }
 
 /// `POST /api/pathways/{id}/still-needed-checks`: a person asks the patient whether they still need this.
+#[utoipa::path(
+    post,
+    path = "/api/pathways/{id}/still-needed-checks",
+    tag = "Pathways",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn ask(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -95,6 +138,17 @@ pub struct AnswerBody {
 }
 
 /// `POST /api/still-needed-checks/{id}/answer`: record the answer. It changes nothing else.
+#[utoipa::path(
+    post,
+    path = "/api/still-needed-checks/{id}/answer",
+    tag = "Still needed checks",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn answer(
     State(state): State<AppState>,
     headers: HeaderMap,

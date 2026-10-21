@@ -50,6 +50,16 @@ fn ok_value(value: Value) -> HandlerResult {
 
 /// `POST /api/admissions` — admit a person to a bed. Body:
 /// `{ "person_id": "<uuid>", "bed_id": "<uuid>" }`.
+#[utoipa::path(
+    post,
+    path = "/api/admissions",
+    tag = "Admissions",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn admit(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -64,6 +74,17 @@ pub async fn admit(
 
 /// `POST /api/admissions/:id/transfer` — move the patient to a new bed.
 /// Body: `{ "new_bed_id": "<uuid>" }`.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/{id}/transfer",
+    tag = "Admissions",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn transfer(
     State(state): State<AppState>,
     Path(admission_id): Path<Uuid>,
@@ -83,6 +104,17 @@ pub async fn transfer(
 
 /// `POST /api/admissions/:id/discharge` — discharge the open admission.
 /// Empty body.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/{id}/discharge",
+    tag = "Admissions",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn discharge(
     State(state): State<AppState>,
     Path(admission_id): Path<Uuid>,
@@ -97,6 +129,17 @@ pub async fn discharge(
 
 /// `POST /api/admissions/:id/cancel-admit` — cancel an admission posted
 /// in error. Empty body.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/{id}/cancel-admit",
+    tag = "Admissions",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_admit(
     State(state): State<AppState>,
     Path(admission_id): Path<Uuid>,
@@ -111,6 +154,17 @@ pub async fn cancel_admit(
 
 /// `POST /api/admissions/:id/cancel-discharge` — reinstate the most-recent
 /// discharge on the original bed. Empty body.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/{id}/cancel-discharge",
+    tag = "Admissions",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_discharge(
     State(state): State<AppState>,
     Path(admission_id): Path<Uuid>,
@@ -125,6 +179,17 @@ pub async fn cancel_discharge(
 
 /// `POST /api/admissions/:id/cancel-transfer` — reverse the most-recent
 /// transfer for the admission.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/{id}/cancel-transfer",
+    tag = "Admissions",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_transfer(
     State(state): State<AppState>,
     Path(admission_id): Path<Uuid>,
@@ -139,6 +204,16 @@ pub async fn cancel_transfer(
 
 /// `POST /api/admissions/pre-admit` — reserve a bed + open a Planned
 /// inpatient encounter (no admission row yet). Body: `{ person_id, bed_id }`.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/pre-admit",
+    tag = "Admissions",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn pre_admit(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -157,6 +232,16 @@ pub async fn pre_admit(
 
 /// `POST /api/admissions/cancel-pre-admit` — release the reservation and
 /// cancel the Planned inpatient encounter. Body: `{ person_id, bed_id }`.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/cancel-pre-admit",
+    tag = "Admissions",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_pre_admit(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -175,6 +260,17 @@ pub async fn cancel_pre_admit(
 
 /// `POST /api/admissions/:id/leave-start` — patient goes on leave of
 /// absence; encounter `InProgress → OnLeave`, bed stays Occupied.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/{id}/leave-start",
+    tag = "Admissions",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn leave_start(
     State(state): State<AppState>,
     Path(admission_id): Path<Uuid>,
@@ -189,6 +285,17 @@ pub async fn leave_start(
 
 /// `POST /api/admissions/:id/leave-end` — patient returns from LOA;
 /// encounter `OnLeave → InProgress`.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/{id}/leave-end",
+    tag = "Admissions",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn leave_end(
     State(state): State<AppState>,
     Path(admission_id): Path<Uuid>,
@@ -204,6 +311,16 @@ pub async fn leave_end(
 /// `POST /api/admissions/change-to-inpatient` — promote the person's
 /// most-recent active ambulatory encounter to Inpatient + bed allocation.
 /// Body: `{ person_id, bed_id }`.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/change-to-inpatient",
+    tag = "Admissions",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn change_to_inpatient(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -222,6 +339,17 @@ pub async fn change_to_inpatient(
 
 /// `POST /api/admissions/:id/change-to-outpatient` — demote an inpatient
 /// admission to Outpatient + release the bed; encounter stays InProgress.
+#[utoipa::path(
+    post,
+    path = "/api/admissions/{id}/change-to-outpatient",
+    tag = "Admissions",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn change_to_outpatient(
     State(state): State<AppState>,
     Path(admission_id): Path<Uuid>,

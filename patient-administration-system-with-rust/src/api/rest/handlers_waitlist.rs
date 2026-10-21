@@ -56,6 +56,16 @@ fn ok(value: Value) -> HandlerResult {
 // ─── Waitlist ──────────────────────────────────────────────────────────
 
 /// `POST /api/waitlist`.
+#[utoipa::path(
+    post,
+    path = "/api/waitlist",
+    tag = "Waitlist",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn add_to_waitlist(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -79,6 +89,17 @@ pub async fn add_to_waitlist(
 }
 
 /// `DELETE /api/waitlist/:id`.
+#[utoipa::path(
+    delete,
+    path = "/api/waitlist/{id}",
+    tag = "Waitlist",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn remove_from_waitlist(
     State(state): State<AppState>,
     Path(entry_id): Path<Uuid>,
@@ -92,6 +113,16 @@ pub async fn remove_from_waitlist(
 }
 
 /// `GET /api/waitlist?service=cardiology`.
+#[utoipa::path(
+    get,
+    path = "/api/waitlist",
+    tag = "Waitlist",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_waitlist(
     State(state): State<AppState>,
     Query(q): Query<ListByServiceQuery>,
@@ -110,6 +141,17 @@ pub struct BookFromEntryBody {
 /// `POST /api/waitlist/{id}/book`: book a slot for the patient on this entry, and mark the entry
 /// `booked`. A cancel or a miss later returns it to `waiting`; completing the appointment marks it
 /// `treated`.
+#[utoipa::path(
+    post,
+    path = "/api/waitlist/{id}/book",
+    tag = "Waitlist",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn book_from_waitlist(
     State(state): State<AppState>,
     Path(entry_id): Path<Uuid>,
@@ -130,6 +172,16 @@ pub async fn book_from_waitlist(
 // ─── RTT ───────────────────────────────────────────────────────────────
 
 /// `POST /api/rtt/start`.
+#[utoipa::path(
+    post,
+    path = "/api/rtt/start",
+    tag = "Rtt",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn rtt_start(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -147,6 +199,17 @@ pub async fn rtt_start(
 }
 
 /// `POST /api/rtt/:id/pause`.
+#[utoipa::path(
+    post,
+    path = "/api/rtt/{id}/pause",
+    tag = "Rtt",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn rtt_pause(
     State(state): State<AppState>,
     Path(pathway_id): Path<Uuid>,
@@ -161,6 +224,17 @@ pub async fn rtt_pause(
 }
 
 /// `POST /api/rtt/:id/resume`.
+#[utoipa::path(
+    post,
+    path = "/api/rtt/{id}/resume",
+    tag = "Rtt",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn rtt_resume(
     State(state): State<AppState>,
     Path(pathway_id): Path<Uuid>,
@@ -174,6 +248,17 @@ pub async fn rtt_resume(
 }
 
 /// `POST /api/rtt/:id/stop`.
+#[utoipa::path(
+    post,
+    path = "/api/rtt/{id}/stop",
+    tag = "Rtt",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn rtt_stop(
     State(state): State<AppState>,
     Path(pathway_id): Path<Uuid>,
@@ -188,6 +273,17 @@ pub async fn rtt_stop(
 }
 
 /// `GET /api/rtt/:id/weeks-waiting`.
+#[utoipa::path(
+    get,
+    path = "/api/rtt/{id}/weeks-waiting",
+    tag = "Rtt",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn rtt_weeks_waiting(
     State(state): State<AppState>,
     Path(pathway_id): Path<Uuid>,
@@ -199,6 +295,17 @@ pub async fn rtt_weeks_waiting(
 }
 
 /// `GET /api/rtt/:id/breaching`.
+#[utoipa::path(
+    get,
+    path = "/api/rtt/{id}/breaching",
+    tag = "Rtt",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn rtt_is_breaching(
     State(state): State<AppState>,
     Path(pathway_id): Path<Uuid>,

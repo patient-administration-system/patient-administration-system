@@ -29,6 +29,16 @@ fn ctx(headers: &HeaderMap) -> RepoUserContext {
 }
 
 /// `GET /api/follow-up-policies`: the services whose misses always get a person's follow-up.
+#[utoipa::path(
+    get,
+    path = "/api/follow-up-policies",
+    tag = "Follow up policies",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn policies(State(state): State<AppState>) -> HandlerResult {
     match state.follow_up.policies().await {
         Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
@@ -42,6 +52,17 @@ pub struct ApproveBody {
 }
 
 /// `PUT /api/follow-up-policies/{service_type}`: list a service. `approved_by` must name a clinician.
+#[utoipa::path(
+    put,
+    path = "/api/follow-up-policies/{service_type}",
+    tag = "Follow up policies",
+    params(("service_type" = String, Path, description = "Path parameter `service_type`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn approve_policy(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -64,6 +85,16 @@ pub struct OpenQuery {
 }
 
 /// `GET /api/follow-up-tasks/open`: misses waiting for a person, most overdue first.
+#[utoipa::path(
+    get,
+    path = "/api/follow-up-tasks/open",
+    tag = "Follow up tasks",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn open_tasks(
     State(state): State<AppState>,
     Query(q): Query<OpenQuery>,
@@ -81,6 +112,17 @@ pub struct CloseBody {
 }
 
 /// `POST /api/follow-up-tasks/{id}/outcome`: a person records what happened, which closes the task.
+#[utoipa::path(
+    post,
+    path = "/api/follow-up-tasks/{id}/outcome",
+    tag = "Follow up tasks",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn close_task(
     State(state): State<AppState>,
     headers: HeaderMap,

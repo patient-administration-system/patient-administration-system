@@ -47,6 +47,16 @@ pub struct ReceiptBody {
 
 /// `POST /api/write-back/receipts`: a carrier reports what happened to a message. Carrier-authenticated like
 /// the other write-back endpoints; a repeated report changes nothing.
+#[utoipa::path(
+    post,
+    path = "/api/write-back/receipts",
+    tag = "Write back",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn post_receipt(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -71,6 +81,17 @@ pub async fn post_receipt(
 }
 
 /// `GET /api/letters/{id}/receipts`: what the carrier has said about one message.
+#[utoipa::path(
+    get,
+    path = "/api/letters/{id}/receipts",
+    tag = "Letters",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn letter_receipts(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.receipts.for_letter(id).await {
         Ok(v) => ok(Value::Array(v)),
@@ -85,6 +106,16 @@ pub struct ProblemsQuery {
 }
 
 /// `GET /api/contact-problems`: patients whose messages have bounced since a person last dealt with them.
+#[utoipa::path(
+    get,
+    path = "/api/contact-problems",
+    tag = "Contact problems",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn contact_problems(
     State(state): State<AppState>,
     Query(q): Query<ProblemsQuery>,
@@ -107,6 +138,17 @@ pub struct ResolveBody {
 }
 
 /// `POST /api/contact-problems/{person_id}/resolve`: a person has dealt with the patient's contact details.
+#[utoipa::path(
+    post,
+    path = "/api/contact-problems/{person_id}/resolve",
+    tag = "Contact problems",
+    params(("person_id" = String, Path, description = "Path parameter `person_id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn resolve_problem(
     State(state): State<AppState>,
     headers: HeaderMap,

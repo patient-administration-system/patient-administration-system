@@ -23,6 +23,17 @@ fn ok(value: Value) -> HandlerResult {
 }
 
 /// `GET /api/offer-links/{token}`: what the page may show. Read-only.
+#[utoipa::path(
+    get,
+    path = "/api/offer-links/{token}",
+    tag = "Offer links",
+    params(("token" = String, Path, description = "Path parameter `token`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_offer(State(state): State<AppState>, Path(token): Path<String>) -> HandlerResult {
     match state.backfill.info(&token).await {
         Ok(i) => ok(serde_json::to_value(i).unwrap_or(Value::Null)),
@@ -31,6 +42,17 @@ pub async fn get_offer(State(state): State<AppState>, Path(token): Path<String>)
 }
 
 /// `POST /api/offer-links/{token}/{action}`: `accept` or `decline`, a deliberate tap.
+#[utoipa::path(
+    post,
+    path = "/api/offer-links/{token}/{action}",
+    tag = "Offer links",
+    params(("token" = String, Path, description = "Path parameter `token`"), ("action" = String, Path, description = "Path parameter `action`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn post_offer_action(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -58,6 +80,17 @@ pub async fn post_offer_action(
 }
 
 /// `GET /api/slot-releases/{id}/offers`: who has been offered this slot and how each offer ended.
+#[utoipa::path(
+    get,
+    path = "/api/slot-releases/{id}/offers",
+    tag = "Slot releases",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn release_offers(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.backfill.offers_for_release(id).await {
         Ok(v) => ok(Value::Array(v)),
@@ -67,6 +100,17 @@ pub async fn release_offers(State(state): State<AppState>, Path(id): Path<Uuid>)
 
 /// `POST /api/slot-releases/{id}/offer`: offer the slot to the next patient on standby now (a person
 /// nudging the loop). Does nothing if an offer is already live or nobody is left.
+#[utoipa::path(
+    post,
+    path = "/api/slot-releases/{id}/offer",
+    tag = "Slot releases",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn offer_now(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.backfill.offer_and_notify(id).await {
         Ok(made) => ok(serde_json::json!({ "offered": made })),

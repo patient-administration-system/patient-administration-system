@@ -32,6 +32,17 @@ fn ok(value: Value) -> HandlerResult {
 
 /// `GET /api/patients/{id}/communication-profile`: how to reach this patient well. Includes a
 /// `fhir` Patient fragment for systems that speak FHIR.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/communication-profile",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_profile(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.contact.get(id).await {
         Ok(Some(p)) => ok(serde_json::to_value(p).unwrap_or(Value::Null)),
@@ -44,6 +55,17 @@ pub async fn get_profile(State(state): State<AppState>, Path(id): Path<Uuid>) ->
 
 /// `PUT /api/patients/{id}/communication-profile`: create or replace. Changing the mobile number
 /// clears its verification.
+#[utoipa::path(
+    put,
+    path = "/api/patients/{id}/communication-profile",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn put_profile(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -63,6 +85,17 @@ pub struct VerifyBody {
 }
 
 /// `POST /api/patients/{id}/communication-profile/verify-mobile`: record that the number was checked.
+#[utoipa::path(
+    post,
+    path = "/api/patients/{id}/communication-profile/verify-mobile",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn verify_mobile(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -87,6 +120,16 @@ pub struct StaleQuery {
 
 /// `GET /api/communication-profiles/stale?older_than_days=365&limit=100`: profiles whose mobile is
 /// missing, unverified or old, oldest first.
+#[utoipa::path(
+    get,
+    path = "/api/communication-profiles/stale",
+    tag = "Communication profiles",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn stale_profiles(
     State(state): State<AppState>,
     Query(q): Query<StaleQuery>,
@@ -123,6 +166,17 @@ fn check_channel(c: &str) -> Result<(), Error> {
 }
 
 /// `GET /api/patients/{id}/channel-optouts`: the channels this patient has asked us not to use.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/channel-optouts",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     use sea_orm::{ConnectionTrait, DbBackend, Statement};
     let rows = state
@@ -153,6 +207,17 @@ pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -
 
 /// `POST /api/patients/{id}/channel-optouts`: staff record that the patient asked us to stop using a
 /// channel (said on the phone, written, or through the portal). Takes effect at once.
+#[utoipa::path(
+    post,
+    path = "/api/patients/{id}/channel-optouts",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn add_optout(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -178,6 +243,17 @@ pub async fn add_optout(
 }
 
 /// `DELETE /api/patients/{id}/channel-optouts/{channel}`: the patient asked to hear from us again.
+#[utoipa::path(
+    delete,
+    path = "/api/patients/{id}/channel-optouts/{channel}",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`"), ("channel" = String, Path, description = "Path parameter `channel`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn remove_optout(
     State(state): State<AppState>,
     Path((id, channel)): Path<(Uuid, String)>,
@@ -208,6 +284,16 @@ pub struct NhsNumberBody {
 /// `POST /api/validate/nhs-number` (DTAC-8): check an NHS number's format and modulus-11 check digit. It says
 /// whether the number is well formed, not whether it is issued or belongs to anyone (that needs a PDS trace,
 /// see `governance/pds-decision.md`). Stores nothing.
+#[utoipa::path(
+    post,
+    path = "/api/validate/nhs-number",
+    tag = "Validate",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn validate_nhs_number(Json(b): Json<NhsNumberBody>) -> HandlerResult {
     match crate::validation::validate_nhs_number(&b.value) {
         Ok(n) => (

@@ -1,11 +1,11 @@
-//! OpenAPI spec aggregator — **stubbed in v0.44.0 Phase 2**.
+//! OpenAPI document: every route in `api/rest/routes.rs` and `api/fhir/routes.rs`, by path and method.
 //!
-//! The Phase 2 stub doc lists only `/api/health` and the FHIR bundle
-//! placeholder request/response shapes. Every Patient / Practitioner /
-//! HL7 v2 handler annotation in v0.43.0 is removed pending Phase 3.
-//!
-//! Phase 3 reintroduces the full spec aggregator over the
-//! proxy-rewired handlers in `rest::handlers` + `fhir::handlers`.
+//! Each routed handler carries a `#[utoipa::path]` (path, method, tag, path parameters and the three response
+//! classes); this file lists them. **What it does not describe yet:** request bodies, query parameters and the
+//! typed `data` of each response (handlers return `ApiResponse<serde_json::Value>`), and which routes are
+//! public or need a token. `tests` below fail when a route is added without being documented, and when
+//! `spec/openapi.json` is stale (regenerate with `UPDATE_OPENAPI=1 cargo test -p patient-administration-system
+//! openapi`).
 
 use utoipa::OpenApi;
 
@@ -13,15 +13,311 @@ use crate::api::fhir::resources::{
     FhirBundleRequest, FhirBundleResponse, FhirBundleWriteEntry, FhirWriteBundle,
 };
 
+/// The same handler answers `/api/patients/search`: documented here because one function can carry one path.
+#[utoipa::path(
+    get,
+    path = "/api/patients/search",
+    tag = "Patients",
+    summary = "Search (alias of the list route)",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+#[allow(dead_code)]
+fn alias_api_patients_search_get() {}
+
+/// The same handler answers `/api/practitioners/search`: documented here because one function can carry one path.
+#[utoipa::path(
+    get,
+    path = "/api/practitioners/search",
+    tag = "Practitioners",
+    summary = "Search (alias of the list route)",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+#[allow(dead_code)]
+fn alias_api_practitioners_search_get() {}
+
 #[derive(OpenApi)]
 #[openapi(
     info(
         title = "Patient Administration System",
-        description = "Phase 2 stub OpenAPI doc. Most v0.43.0 routes return 503 + UPSTREAM_UNAVAILABLE for the duration of the v0.44.0 Option C identity-delegation migration. Phase 3 reintroduces the full annotated handler surface.",
-        version = "0.44.0-phase2"
+        description = "Administrative (not clinical) API for appointments, waiting lists, reminders and replies, transport and virtual-visit requests, analytics and tolerances. Every REST response is an `ApiResponse` envelope. Identity and workforce are held by person-service and worker-service; /api/patients and /api/practitioners proxy them. Request bodies and typed responses are not described yet (QUAL-4)."
     ),
-    tags(
-        (name = "Health", description = "Health + readiness checks.")
+    paths(
+        crate::api::rest::handlers::health,
+        crate::api::rest::upstream_proxy::create_patient,
+        crate::api::rest::upstream_proxy::search_patients,
+        crate::api::rest::upstream_proxy::get_patient,
+        crate::api::rest::upstream_proxy::update_patient,
+        crate::api::rest::upstream_proxy::delete_patient,
+        crate::api::rest::upstream_proxy::masked_patient,
+        crate::api::rest::upstream_proxy::export_patient,
+        crate::api::rest::upstream_proxy::audit_patient,
+        crate::api::rest::upstream_proxy::export_patients_json,
+        crate::api::rest::upstream_proxy::export_patients_xml,
+        crate::api::rest::upstream_proxy::export_patients_tsv,
+        crate::api::rest::upstream_proxy::export_patients_csv,
+        crate::api::rest::upstream_proxy::import_patients,
+        crate::api::rest::upstream_proxy::create_practitioner,
+        crate::api::rest::upstream_proxy::search_practitioners,
+        crate::api::rest::upstream_proxy::get_practitioner,
+        crate::api::rest::upstream_proxy::update_practitioner,
+        crate::api::rest::upstream_proxy::delete_practitioner,
+        crate::api::rest::upstream_proxy::masked_practitioner,
+        crate::api::rest::upstream_proxy::export_practitioner,
+        crate::api::rest::upstream_proxy::audit_practitioner,
+        crate::api::rest::upstream_proxy::person_merged_webhook,
+        crate::api::rest::upstream_proxy::worker_merged_webhook,
+        crate::api::rest::handlers_adt::admit,
+        crate::api::rest::handlers_adt::transfer,
+        crate::api::rest::handlers_adt::discharge,
+        crate::api::rest::handlers_adt::cancel_admit,
+        crate::api::rest::handlers_adt::cancel_discharge,
+        crate::api::rest::handlers_scheduling::book_slot,
+        crate::api::rest::handlers_contact::get_profile,
+        crate::api::rest::handlers_contact::put_profile,
+        crate::api::rest::handlers_contact::verify_mobile,
+        crate::api::rest::handlers_contact::list_optouts,
+        crate::api::rest::handlers_contact::add_optout,
+        crate::api::rest::handlers_contact::remove_optout,
+        crate::api::rest::handlers_contact::stale_profiles,
+        crate::api::rest::handlers_standby::add_standby,
+        crate::api::rest::handlers_standby::list_standby,
+        crate::api::rest::handlers_standby::remove_standby,
+        crate::api::rest::handlers_standby::book_from_standby,
+        crate::api::rest::handlers_standby::list_releases,
+        crate::api::rest::handlers_standby::release_candidates,
+        crate::api::rest::handlers_writeback::post_reply,
+        crate::api::rest::handlers_writeback::post_batch,
+        crate::api::rest::handlers_links::get_link,
+        crate::api::rest::handlers_links::post_link_rebook,
+        crate::api::rest::handlers_links::post_link_action,
+        crate::api::rest::handlers_links::open_calls,
+        crate::api::rest::handlers_links::call_outcome,
+        crate::api::rest::handlers_letters::create_group,
+        crate::api::rest::handlers_letters::check_sms,
+        crate::api::rest::handlers_writeback::post_text,
+        crate::api::rest::handlers_writeback::open_texts,
+        crate::api::rest::handlers_writeback::text_handled,
+        crate::api::rest::handlers_scheduling::list_appointments,
+        crate::api::rest::handlers_scheduling::list_patient_appointments,
+        crate::api::rest::handlers_scheduling::cancel_appointment,
+        crate::api::rest::handlers_scheduling::rebook_options,
+        crate::api::rest::handlers_scheduling::rebook_appointment,
+        crate::api::rest::handlers_history::appointment_history,
+        crate::api::rest::handlers_history::contact_log,
+        crate::api::rest::handlers_waits::lead_time,
+        crate::api::rest::handlers_waits::patient_waits,
+        crate::api::rest::handlers_waits::due_for_check,
+        crate::api::rest::handlers_waits::ask,
+        crate::api::rest::handlers_waits::answer,
+        crate::api::rest::handlers_transport::set_eligible,
+        crate::api::rest::handlers_transport::withdraw_eligible,
+        crate::api::rest::handlers_transport::record_consent,
+        crate::api::rest::handlers_transport::withdraw_consent,
+        crate::api::rest::handlers_transport::booking,
+        crate::api::rest::handlers_analytics::outcomes,
+        crate::api::rest::handlers_analytics::refill_rates,
+        crate::api::rest::handlers_analytics::load_deprivation_lookup,
+        crate::api::rest::handlers_analytics::refresh_demographics,
+        crate::api::rest::handlers_analytics::set_demographics,
+        crate::api::rest::handlers_offers::get_offer,
+        crate::api::rest::handlers_offers::post_offer_action,
+        crate::api::rest::handlers_offers::release_offers,
+        crate::api::rest::handlers_offers::offer_now,
+        crate::api::rest::handlers_referrals::create,
+        crate::api::rest::handlers_referrals::list,
+        crate::api::rest::handlers_referrals::get,
+        crate::api::rest::handlers_referrals::book_first_available,
+        crate::api::rest::handlers_referrals::waitlist,
+        crate::api::rest::handlers_referrals::close,
+        crate::api::rest::handlers_reports::clinic_activity,
+        crate::api::rest::handlers_print::queue,
+        crate::api::rest::handlers_print::export,
+        crate::api::rest::handlers_print::mark_sent,
+        crate::api::rest::handlers_contact::validate_nhs_number,
+        crate::api::rest::handlers_receipts::post_receipt,
+        crate::api::rest::handlers_receipts::letter_receipts,
+        crate::api::rest::handlers_receipts::contact_problems,
+        crate::api::rest::handlers_receipts::resolve_problem,
+        crate::api::rest::handlers_identity::record,
+        crate::api::rest::handlers_identity::get,
+        crate::api::rest::handlers_identity::revoke,
+        crate::api::rest::handlers_identity::check,
+        crate::api::rest::handlers_experiments::start,
+        crate::api::rest::handlers_experiments::list,
+        crate::api::rest::handlers_experiments::stop,
+        crate::api::rest::handlers_experiments::readout,
+        crate::api::rest::handlers_tolerance::list,
+        crate::api::rest::handlers_tolerance::status,
+        crate::api::rest::handlers_tolerance::evaluate,
+        crate::api::rest::handlers_tolerance::alerts,
+        crate::api::rest::handlers_tolerance::acknowledge,
+        crate::api::rest::handlers_tolerance::set,
+        crate::api::rest::handlers_tolerance::reset,
+        crate::api::rest::handlers_noshow::status,
+        crate::api::rest::handlers_noshow::rollout,
+        crate::api::rest::handlers_noshow::set_stage,
+        crate::api::rest::handlers_noshow::evaluation,
+        crate::api::rest::handlers_noshow::model_card,
+        crate::api::rest::handlers_noshow::record_review,
+        crate::api::rest::handlers_noshow::fairness_audit,
+        crate::api::rest::handlers_noshow::recalculate,
+        crate::api::rest::handlers_noshow::for_appointments,
+        crate::api::rest::handlers_noshow::priority_list,
+        crate::api::rest::handlers_noshow::for_appointment,
+        crate::api::rest::handlers_whatsapp::record_optin,
+        crate::api::rest::handlers_whatsapp::withdraw_optin,
+        crate::api::rest::handlers_whatsapp::approve_template,
+        crate::api::rest::handlers_whatsapp::revoke_template,
+        crate::api::rest::handlers_ivr::menu,
+        crate::api::rest::handlers_ivr::press,
+        crate::api::rest::handlers_support::add,
+        crate::api::rest::handlers_support::open,
+        crate::api::rest::handlers_support::resolve,
+        crate::api::rest::handlers_followup::policies,
+        crate::api::rest::handlers_followup::approve_policy,
+        crate::api::rest::handlers_followup::open_tasks,
+        crate::api::rest::handlers_followup::close_task,
+        crate::api::rest::handlers_virtual::list_services,
+        crate::api::rest::handlers_virtual::approve_service,
+        crate::api::rest::handlers_virtual::remove_service,
+        crate::api::rest::handlers_virtual::pending,
+        crate::api::rest::handlers_virtual::video_failed,
+        crate::api::rest::handlers_virtual::review,
+        crate::api::rest::handlers_scheduling::move_to_room,
+        crate::api::rest::handlers_scheduling::in_facility,
+        crate::api::rest::handlers_scheduling::record_barrier,
+        crate::api::rest::handlers_scheduling::check_in_appointment,
+        crate::api::rest::handlers_scheduling::complete_appointment,
+        crate::api::rest::handlers_resources::ward_occupancy,
+        crate::api::rest::handlers_resources::list_beds_by_ward,
+        crate::api::rest::handlers_resources::get_bed,
+        crate::api::rest::handlers_resources::set_bed_status,
+        crate::api::rest::handlers_adt::pre_admit,
+        crate::api::rest::handlers_adt::cancel_pre_admit,
+        crate::api::rest::handlers_adt::change_to_inpatient,
+        crate::api::rest::handlers_adt::change_to_outpatient,
+        crate::api::rest::handlers_adt::cancel_transfer,
+        crate::api::rest::handlers_adt::leave_start,
+        crate::api::rest::handlers_adt::leave_end,
+        crate::api::rest::handlers_scheduling::mark_no_show,
+        crate::api::rest::handlers_series::create_series,
+        crate::api::rest::handlers_series::get_series,
+        crate::api::rest::handlers_series::cancel_series,
+        crate::api::rest::handlers_series::list_series_for_person,
+        crate::api::rest::handlers_encounter::get_encounter,
+        crate::api::rest::handlers_encounter::set_status,
+        crate::api::rest::handlers_encounter::cancel_encounter,
+        crate::api::rest::handlers_encounter::list_encounters_for_person,
+        crate::api::rest::handlers_billing::open_account,
+        crate::api::rest::handlers_billing::close_account,
+        crate::api::rest::handlers_billing::post_charge,
+        crate::api::rest::handlers_billing::finalize_invoice,
+        crate::api::rest::handlers_billing::post_payment,
+        crate::api::rest::handlers_coverage::create_coverage,
+        crate::api::rest::handlers_coverage::get_coverage,
+        crate::api::rest::handlers_coverage::update_coverage,
+        crate::api::rest::handlers_coverage::delete_coverage,
+        crate::api::rest::handlers_coverage::list_coverages_for_person,
+        crate::api::rest::handlers_coverage::list_coverages_for_account,
+        crate::api::rest::handlers_consent::create_consent,
+        crate::api::rest::handlers_consent::list_consents_for_person,
+        crate::api::rest::handlers_consent::revoke_consent,
+        crate::api::rest::handlers_waitlist::add_to_waitlist,
+        crate::api::rest::handlers_waitlist::list_waitlist,
+        crate::api::rest::handlers_waitlist::remove_from_waitlist,
+        crate::api::rest::handlers_waitlist::book_from_waitlist,
+        crate::api::rest::handlers_waitlist::rtt_start,
+        crate::api::rest::handlers_waitlist::rtt_pause,
+        crate::api::rest::handlers_waitlist::rtt_resume,
+        crate::api::rest::handlers_waitlist::rtt_stop,
+        crate::api::rest::handlers_waitlist::rtt_weeks_waiting,
+        crate::api::rest::handlers_waitlist::rtt_is_breaching,
+        crate::api::rest::handlers_audit::list_recent,
+        crate::api::rest::handlers_audit::list_for_entity,
+        crate::api::rest::handlers_audit::list_local_for_person,
+        crate::api::rest::handlers_admin::list_unpublished_outbox,
+        crate::api::rest::handlers_admin::list_dead_letters,
+        crate::api::rest::handlers_admin::replay_dead_letter,
+        crate::api::rest::handlers_resources::create_facility,
+        crate::api::rest::handlers_resources::list_facilities,
+        crate::api::rest::handlers_resources::get_facility,
+        crate::api::rest::handlers_resources::list_wards_by_facility,
+        crate::api::rest::handlers_resources::create_ward,
+        crate::api::rest::handlers_resources::get_ward,
+        crate::api::rest::handlers_resources::list_rooms_by_ward,
+        crate::api::rest::handlers_resources::create_room,
+        crate::api::rest::handlers_resources::get_room,
+        crate::api::rest::handlers_resources::create_bed,
+        crate::api::rest::handlers_letters::create_template,
+        crate::api::rest::handlers_letters::list_templates,
+        crate::api::rest::handlers_letters::get_template,
+        crate::api::rest::handlers_letters::update_template,
+        crate::api::rest::handlers_letters::preview_letter,
+        crate::api::rest::handlers_letters::generate_letter,
+        crate::api::rest::handlers_letters::list_patient_letters,
+        crate::api::rest::handlers_letters::get_letter,
+        crate::api::rest::handlers_letters::mark_sent,
+        crate::api::rest::handlers_letters::mark_failed,
+        crate::api::rest::handlers_hl7v2::parse,
+        crate::api::rest::handlers_hl7v2::add_person,
+        crate::api::rest::handlers_hl7v2::admit,
+        crate::api::rest::handlers_hl7v2::transfer,
+        crate::api::rest::handlers_hl7v2::discharge,
+        crate::api::rest::handlers_hl7v2::register,
+        crate::api::rest::handlers_hl7v2::pre_admit,
+        crate::api::rest::handlers_hl7v2::cancel_pre_admit,
+        crate::api::rest::handlers_hl7v2::change_to_inpatient,
+        crate::api::rest::handlers_hl7v2::change_to_outpatient,
+        crate::api::rest::handlers_hl7v2::update,
+        crate::api::rest::handlers_hl7v2::cancel_admit,
+        crate::api::rest::handlers_hl7v2::cancel_transfer,
+        crate::api::rest::handlers_hl7v2::cancel_discharge,
+        crate::api::rest::handlers_hl7v2::leave_start,
+        crate::api::rest::handlers_hl7v2::leave_end,
+        crate::api::rest::handlers_hl7v2::delete_patient,
+        crate::api::rest::handlers_hl7v2::merge,
+        crate::api::rest::handlers_hl7v2::dft,
+        crate::api::rest::handlers_hl7v2::schedule_book,
+        crate::api::rest::handlers_hl7v2::schedule_reschedule,
+        crate::api::rest::handlers_hl7v2::schedule_modify,
+        crate::api::rest::handlers_hl7v2::schedule_cancel,
+        crate::api::rest::handlers_hl7v2::mfn_staff,
+        crate::api::rest::handlers_hl7v2::mfn_location,
+        crate::api::rest::handlers_hl7v2::batch,
+        crate::api::fhir::handlers::post_bundle,
+        crate::api::fhir::handlers::create_patient,
+        crate::api::fhir::handlers::list_patients,
+        crate::api::fhir::handlers::get_patient,
+        crate::api::fhir::handlers::update_patient,
+        crate::api::fhir::handlers::delete_patient,
+        crate::api::fhir::handlers::create_encounter,
+        crate::api::fhir::handlers::get_encounter,
+        crate::api::fhir::handlers::create_appointment,
+        crate::api::fhir::handlers::get_appointment,
+        crate::api::fhir::handlers::create_practitioner,
+        crate::api::fhir::handlers::get_practitioner,
+        crate::api::fhir::handlers::update_practitioner,
+        crate::api::fhir::handlers::delete_practitioner,
+        crate::api::fhir::handlers::create_schedule,
+        crate::api::fhir::handlers::get_schedule,
+        crate::api::fhir::handlers::update_schedule,
+        crate::api::fhir::handlers::delete_schedule,
+        crate::api::fhir::handlers::create_slot,
+        crate::api::fhir::handlers::get_slot,
+        crate::api::fhir::handlers::update_slot,
+        crate::api::fhir::handlers::delete_slot,
+        crate::api::fhir::handlers::get_location,
+        crate::api::fhir::handlers::get_coverage,
+        alias_api_patients_search_get,
+        alias_api_practitioners_search_get,
     ),
     components(schemas(
         FhirBundleRequest,
@@ -31,3 +327,100 @@ use crate::api::fhir::resources::{
     ))
 )]
 pub struct ApiDoc;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    /// Every `(path, method)` registered with `.route(` in a routing source file.
+    fn routed(src: &str) -> BTreeSet<(String, String)> {
+        let mut out = BTreeSet::new();
+        let mut rest = src;
+        while let Some(at) = rest.find(".route(") {
+            let body = &rest[at + ".route(".len()..];
+            let mut depth = 1usize;
+            let mut end = 0;
+            for (i, c) in body.char_indices() {
+                match c {
+                    '(' => depth += 1,
+                    ')' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            end = i;
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            let call = &body[..end];
+            let open = call.find('"').expect("a route path") + 1;
+            let close = open + call[open..].find('"').expect("a closing quote");
+            let path = call[open..close].to_string();
+            let tail = &call[close..];
+            for method in ["get", "post", "put", "delete", "patch"] {
+                let pat = format!("{method}(");
+                let mut from = 0;
+                while let Some(i) = tail[from..].find(&pat) {
+                    let abs = from + i;
+                    let before = tail[..abs].chars().next_back();
+                    if !before.is_some_and(|c| c.is_alphanumeric() || c == '_') {
+                        out.insert((path.clone(), method.to_string()));
+                    }
+                    from = abs + pat.len();
+                }
+            }
+            rest = &body[end..];
+        }
+        out
+    }
+
+    fn documented() -> BTreeSet<(String, String)> {
+        let doc = serde_json::to_value(ApiDoc::openapi()).expect("serialize");
+        let mut out = BTreeSet::new();
+        for (path, item) in doc["paths"].as_object().expect("paths") {
+            for method in item.as_object().expect("path item").keys() {
+                out.insert((path.clone(), method.clone()));
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn every_routed_path_and_method_is_documented() {
+        let mut routes = routed(include_str!("rest/routes.rs"));
+        routes.extend(routed(include_str!("fhir/routes.rs")));
+        assert!(routes.len() > 250, "the route scan found {}", routes.len());
+        let docs = documented();
+        let missing: Vec<_> = routes.difference(&docs).collect();
+        assert!(
+            missing.is_empty(),
+            "routes with no #[utoipa::path] (add one and list it in ApiDoc): {missing:?}"
+        );
+        let extra: Vec<_> = docs.difference(&routes).collect();
+        assert!(extra.is_empty(), "documented but not routed: {extra:?}");
+    }
+
+    #[test]
+    fn the_committed_document_is_current() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../spec/openapi.json");
+        let mut now = serde_json::to_value(ApiDoc::openapi()).expect("serialize");
+        let text = serde_json::to_string_pretty(&now).expect("pretty") + "\n";
+        if std::env::var("UPDATE_OPENAPI").is_ok() {
+            std::fs::write(path, text).expect("write spec/openapi.json");
+            return;
+        }
+        let mut committed: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(path).expect("spec/openapi.json (UPDATE_OPENAPI=1 writes it)"),
+        )
+        .expect("valid JSON");
+        // A version bump alone is not drift.
+        now["info"]["version"] = "".into();
+        committed["info"]["version"] = "".into();
+        assert!(
+            now == committed,
+            "spec/openapi.json is stale: run `UPDATE_OPENAPI=1 cargo test -p patient-administration-system openapi`"
+        );
+    }
+}

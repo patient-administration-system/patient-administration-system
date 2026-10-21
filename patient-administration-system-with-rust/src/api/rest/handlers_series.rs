@@ -59,6 +59,16 @@ fn ok(value: Value) -> HandlerResult {
 
 /// `POST /api/appointment-series` — create a recurring appointment plan
 /// and materialize its occurrences (atomically). Body: `CreateSeriesInput`.
+#[utoipa::path(
+    post,
+    path = "/api/appointment-series",
+    tag = "Appointment series",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_series(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -73,6 +83,17 @@ pub async fn create_series(
 
 /// `POST /api/appointment-series/:id/cancel` — cancel the series and
 /// every non-terminal occurrence.
+#[utoipa::path(
+    post,
+    path = "/api/appointment-series/{id}/cancel",
+    tag = "Appointment series",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_series(
     State(state): State<AppState>,
     Path(series_id): Path<Uuid>,
@@ -90,6 +111,17 @@ pub async fn cancel_series(
 }
 
 /// `GET /api/appointment-series/:id` — full series with occurrence list.
+#[utoipa::path(
+    get,
+    path = "/api/appointment-series/{id}",
+    tag = "Appointment series",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_series(
     State(state): State<AppState>,
     Path(series_id): Path<Uuid>,
@@ -102,6 +134,17 @@ pub async fn get_series(
 }
 
 /// `GET /api/patients/:id/appointment-series` — series for a person.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/appointment-series",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_series_for_person(
     State(state): State<AppState>,
     Path(person_id): Path<Uuid>,

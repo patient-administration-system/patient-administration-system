@@ -38,6 +38,16 @@ pub struct StartBody {
 }
 
 /// `POST /api/experiments`: compare wordings of one message. Each variant must be a complete template group.
+#[utoipa::path(
+    post,
+    path = "/api/experiments",
+    tag = "Experiments",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn start(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -59,6 +69,16 @@ pub async fn start(
 }
 
 /// `GET /api/experiments`.
+#[utoipa::path(
+    get,
+    path = "/api/experiments",
+    tag = "Experiments",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list(State(state): State<AppState>) -> HandlerResult {
     match state.experiments.list().await {
         Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
@@ -72,6 +92,17 @@ pub struct StopBody {
 }
 
 /// `POST /api/experiments/{id}/stop`.
+#[utoipa::path(
+    post,
+    path = "/api/experiments/{id}/stop",
+    tag = "Experiments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn stop(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -95,6 +126,17 @@ pub struct ReadoutQuery {
 
 /// `GET /api/experiments/{id}/readout`: how each wording did by deprivation quintile and language, small
 /// cells withheld, no identifiers.
+#[utoipa::path(
+    get,
+    path = "/api/experiments/{id}/readout",
+    tag = "Experiments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn readout(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,

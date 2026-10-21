@@ -44,6 +44,17 @@ fn ok_value(value: Value) -> HandlerResult {
 }
 
 /// `GET /api/wards/:id/occupancy` — counts of beds by status.
+#[utoipa::path(
+    get,
+    path = "/api/wards/{id}/occupancy",
+    tag = "Wards",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn ward_occupancy(
     State(state): State<AppState>,
     Path(ward_id): Path<Uuid>,
@@ -56,6 +67,17 @@ pub async fn ward_occupancy(
 
 /// `PUT /api/beds/:id/status` — state-machine-checked bed status change.
 /// Body: `{ "status": "Available" }`.
+#[utoipa::path(
+    put,
+    path = "/api/beds/{id}/status",
+    tag = "Beds",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn set_bed_status(
     State(state): State<AppState>,
     Path(bed_id): Path<Uuid>,
@@ -74,6 +96,17 @@ pub async fn set_bed_status(
 }
 
 /// `GET /api/wards/:id/beds` — list beds in the ward.
+#[utoipa::path(
+    get,
+    path = "/api/wards/{id}/beds",
+    tag = "Wards",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_beds_by_ward(
     State(state): State<AppState>,
     Path(ward_id): Path<Uuid>,
@@ -85,6 +118,17 @@ pub async fn list_beds_by_ward(
 }
 
 /// `GET /api/beds/:id` — fetch a bed by id.
+#[utoipa::path(
+    get,
+    path = "/api/beds/{id}",
+    tag = "Beds",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_bed(State(state): State<AppState>, Path(bed_id): Path<Uuid>) -> HandlerResult {
     match BedRepository::find_by_id(&state.db, bed_id).await {
         Ok(Some(bed)) => ok_value(serde_json::to_value(bed).unwrap_or(Value::Null)),
@@ -106,6 +150,16 @@ async fn write_audit_create(
 }
 
 /// `POST /api/facilities` — create a facility from a `Facility` JSON body.
+#[utoipa::path(
+    post,
+    path = "/api/facilities",
+    tag = "Facilities",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_facility(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -134,6 +188,17 @@ pub async fn create_facility(
 }
 
 /// `GET /api/facilities/:id`.
+#[utoipa::path(
+    get,
+    path = "/api/facilities/{id}",
+    tag = "Facilities",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_facility(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match FacilityRepository::find_by_id(&state.db, id).await {
         Ok(Some(f)) => ok_value(serde_json::to_value(f).unwrap_or(Value::Null)),
@@ -143,6 +208,16 @@ pub async fn get_facility(State(state): State<AppState>, Path(id): Path<Uuid>) -
 }
 
 /// `GET /api/facilities` — list active facilities.
+#[utoipa::path(
+    get,
+    path = "/api/facilities",
+    tag = "Facilities",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_facilities(State(state): State<AppState>) -> HandlerResult {
     match FacilityRepository::list(&state.db).await {
         Ok(rows) => ok_value(serde_json::to_value(rows).unwrap_or(Value::Null)),
@@ -151,6 +226,16 @@ pub async fn list_facilities(State(state): State<AppState>) -> HandlerResult {
 }
 
 /// `POST /api/wards`.
+#[utoipa::path(
+    post,
+    path = "/api/wards",
+    tag = "Wards",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_ward(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -179,6 +264,17 @@ pub async fn create_ward(
 }
 
 /// `GET /api/wards/:id`.
+#[utoipa::path(
+    get,
+    path = "/api/wards/{id}",
+    tag = "Wards",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_ward(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match WardRepository::find_by_id(&state.db, id).await {
         Ok(Some(w)) => ok_value(serde_json::to_value(w).unwrap_or(Value::Null)),
@@ -188,6 +284,17 @@ pub async fn get_ward(State(state): State<AppState>, Path(id): Path<Uuid>) -> Ha
 }
 
 /// `GET /api/facilities/:id/wards`.
+#[utoipa::path(
+    get,
+    path = "/api/facilities/{id}/wards",
+    tag = "Facilities",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_wards_by_facility(
     State(state): State<AppState>,
     Path(facility_id): Path<Uuid>,
@@ -199,6 +306,16 @@ pub async fn list_wards_by_facility(
 }
 
 /// `POST /api/rooms`.
+#[utoipa::path(
+    post,
+    path = "/api/rooms",
+    tag = "Rooms",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_room(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -227,6 +344,17 @@ pub async fn create_room(
 }
 
 /// `GET /api/rooms/:id`.
+#[utoipa::path(
+    get,
+    path = "/api/rooms/{id}",
+    tag = "Rooms",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_room(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match RoomRepository::find_by_id(&state.db, id).await {
         Ok(Some(r)) => ok_value(serde_json::to_value(r).unwrap_or(Value::Null)),
@@ -236,6 +364,17 @@ pub async fn get_room(State(state): State<AppState>, Path(id): Path<Uuid>) -> Ha
 }
 
 /// `GET /api/wards/:id/rooms`.
+#[utoipa::path(
+    get,
+    path = "/api/wards/{id}/rooms",
+    tag = "Wards",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_rooms_by_ward(
     State(state): State<AppState>,
     Path(ward_id): Path<Uuid>,
@@ -247,6 +386,16 @@ pub async fn list_rooms_by_ward(
 }
 
 /// `POST /api/beds`.
+#[utoipa::path(
+    post,
+    path = "/api/beds",
+    tag = "Beds",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_bed(
     State(state): State<AppState>,
     headers: HeaderMap,

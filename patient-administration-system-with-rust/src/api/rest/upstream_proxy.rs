@@ -92,6 +92,17 @@ fn default_limit() -> u32 {
 
 // ─── /api/patients/* (proxy person-service) ────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/patients",
+    tag = "Patients",
+    summary = "Create patient",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_patient(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -122,6 +133,18 @@ pub async fn create_patient(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}",
+    tag = "Patients",
+    summary = "Get patient",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_patient(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -138,6 +161,18 @@ pub async fn get_patient(
     }
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/patients/{id}",
+    tag = "Patients",
+    summary = "Update patient",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn update_patient(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -168,6 +203,18 @@ pub async fn update_patient(
     }
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/patients/{id}",
+    tag = "Patients",
+    summary = "Delete patient",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn delete_patient(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -184,6 +231,17 @@ pub async fn delete_patient(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/patients",
+    tag = "Patients",
+    summary = "Search patients",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn search_patients(
     State(state): State<AppState>,
     Query(q): Query<SearchQuery>,
@@ -201,6 +259,18 @@ pub async fn search_patients(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/masked",
+    tag = "Patients",
+    summary = "Masked patient",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn masked_patient(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -217,6 +287,18 @@ pub async fn masked_patient(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/export",
+    tag = "Patients",
+    summary = "Export patient",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn export_patient(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -236,6 +318,18 @@ pub async fn export_patient(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/audit",
+    tag = "Patients",
+    summary = "Audit patient",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn audit_patient(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -287,6 +381,17 @@ async fn bulk_export_format(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/patients/export.json",
+    tag = "Patients",
+    summary = "Export patients json",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn export_patients_json(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -294,6 +399,17 @@ pub async fn export_patients_json(
     bulk_export_format(&state, &headers, "json").await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/patients/export.xml",
+    tag = "Patients",
+    summary = "Export patients xml",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn export_patients_xml(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -301,6 +417,17 @@ pub async fn export_patients_xml(
     bulk_export_format(&state, &headers, "xml").await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/patients/export.tsv",
+    tag = "Patients",
+    summary = "Export patients tsv",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn export_patients_tsv(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -308,6 +435,17 @@ pub async fn export_patients_tsv(
     bulk_export_format(&state, &headers, "tsv").await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/patients/export.csv",
+    tag = "Patients",
+    summary = "Export patients csv",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn export_patients_csv(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -321,6 +459,16 @@ pub async fn export_patients_csv(
 /// Returns the upstream's import report (as JSON) under the PAS
 /// envelope so callers can integrate with the same error-handling
 /// surface as the typed endpoints.
+#[utoipa::path(
+    post,
+    path = "/api/patients/import",
+    tag = "Patients",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn import_patients(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -344,6 +492,17 @@ pub async fn import_patients(
 
 // ─── /api/practitioners/* (proxy worker-service) ───────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/practitioners",
+    tag = "Practitioners",
+    summary = "Create practitioner",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_practitioner(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -370,6 +529,18 @@ pub async fn create_practitioner(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/practitioners/{id}",
+    tag = "Practitioners",
+    summary = "Get practitioner",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_practitioner(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -386,6 +557,18 @@ pub async fn get_practitioner(
     }
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/practitioners/{id}",
+    tag = "Practitioners",
+    summary = "Update practitioner",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn update_practitioner(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -413,6 +596,18 @@ pub async fn update_practitioner(
     }
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/practitioners/{id}",
+    tag = "Practitioners",
+    summary = "Delete practitioner",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn delete_practitioner(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -429,6 +624,17 @@ pub async fn delete_practitioner(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/practitioners",
+    tag = "Practitioners",
+    summary = "Search practitioners",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn search_practitioners(
     State(state): State<AppState>,
     Query(q): Query<SearchQuery>,
@@ -446,6 +652,18 @@ pub async fn search_practitioners(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/practitioners/{id}/masked",
+    tag = "Practitioners",
+    summary = "Masked practitioner",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn masked_practitioner(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -462,6 +680,18 @@ pub async fn masked_practitioner(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/practitioners/{id}/export",
+    tag = "Practitioners",
+    summary = "Export practitioner",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn export_practitioner(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -478,6 +708,18 @@ pub async fn export_practitioner(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/practitioners/{id}/audit",
+    tag = "Practitioners",
+    summary = "Audit practitioner",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn audit_practitioner(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -673,6 +915,16 @@ async fn propagate_worker_merge(
 
 /// `POST /api/upstream/person-merged` — receive a merge notification from
 /// `person-service`, propagate it to PAS-owned `person_id` columns.
+#[utoipa::path(
+    post,
+    path = "/api/upstream/person-merged",
+    tag = "Upstream",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn person_merged_webhook(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -761,6 +1013,16 @@ pub async fn person_merged_webhook(
 
 /// `POST /api/upstream/worker-merged` — same shape as person-merged but
 /// for `worker-service` merges.
+#[utoipa::path(
+    post,
+    path = "/api/upstream/worker-merged",
+    tag = "Upstream",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn worker_merged_webhook(
     State(state): State<AppState>,
     headers: HeaderMap,

@@ -28,6 +28,16 @@ pub struct ActivityQuery {
 
 /// `GET /api/reports/clinic-activity`: appointments by outcome, utilization, lead time and waiting-time
 /// statistics, per day or per schedule. Counts reconcile; an empty range gives zeros. No identifiers.
+#[utoipa::path(
+    get,
+    path = "/api/reports/clinic-activity",
+    tag = "Reports",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn clinic_activity(
     State(state): State<AppState>,
     Query(q): Query<ActivityQuery>,

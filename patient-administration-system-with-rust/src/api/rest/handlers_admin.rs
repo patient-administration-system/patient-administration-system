@@ -43,6 +43,16 @@ fn ok(value: Value) -> HandlerResult {
 }
 
 /// `GET /api/admin/outbox/unpublished?limit=N`.
+#[utoipa::path(
+    get,
+    path = "/api/admin/outbox/unpublished",
+    tag = "Admin",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_unpublished_outbox(
     State(state): State<AppState>,
     Query(q): Query<LimitQuery>,
@@ -55,6 +65,16 @@ pub async fn list_unpublished_outbox(
 }
 
 /// `GET /api/admin/outbox/dead-letters?limit=N`.
+#[utoipa::path(
+    get,
+    path = "/api/admin/outbox/dead-letters",
+    tag = "Admin",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_dead_letters(
     State(state): State<AppState>,
     Query(q): Query<LimitQuery>,
@@ -69,6 +89,17 @@ pub async fn list_dead_letters(
 /// `POST /api/admin/outbox/dead-letters/:id/replay` — re-inserts the
 /// dead-letter row into `outbox_events` (retry_count=0) and deletes the
 /// DLQ row, atomically. Returns the new outbox row id.
+#[utoipa::path(
+    post,
+    path = "/api/admin/outbox/dead-letters/{id}/replay",
+    tag = "Admin",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn replay_dead_letter(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,

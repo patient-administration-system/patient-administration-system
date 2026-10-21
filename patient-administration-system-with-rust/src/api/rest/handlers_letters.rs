@@ -43,6 +43,16 @@ fn ok(value: Value) -> HandlerResult {
 }
 
 /// `POST /api/letter-templates` — create a template.
+#[utoipa::path(
+    post,
+    path = "/api/letter-templates",
+    tag = "Letter templates",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_template(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -94,6 +104,17 @@ pub async fn create_template(
 /// `PUT /api/letter-templates/{id}` — administrators edit a template's
 /// subject, body, channels, required variables and active flag. The Tera
 /// source is validated before it is stored so a typo cannot break reminders.
+#[utoipa::path(
+    put,
+    path = "/api/letter-templates/{id}",
+    tag = "Letter templates",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn update_template(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -142,6 +163,17 @@ pub async fn update_template(
 }
 
 /// `GET /api/letter-templates/:id`.
+#[utoipa::path(
+    get,
+    path = "/api/letter-templates/{id}",
+    tag = "Letter templates",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_template(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match LetterRepository::find_template_by_id(&state.db, id).await {
         Ok(Some(t)) => ok(serde_json::to_value(t).unwrap_or(Value::Null)),
@@ -151,6 +183,16 @@ pub async fn get_template(State(state): State<AppState>, Path(id): Path<Uuid>) -
 }
 
 /// `GET /api/letter-templates` — list active templates.
+#[utoipa::path(
+    get,
+    path = "/api/letter-templates",
+    tag = "Letter templates",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_templates(State(state): State<AppState>) -> HandlerResult {
     match LetterRepository::list_active_templates(&state.db).await {
         Ok(rows) => ok(serde_json::to_value(rows).unwrap_or(Value::Null)),
@@ -166,6 +208,17 @@ pub struct PatientLettersQuery {
 
 /// `GET /api/patients/{id}/letters?channel=portal` — a patient's letters,
 /// newest first. The patient portal reads `channel=portal`.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/letters",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_patient_letters(
     State(state): State<AppState>,
     Path(person_id): Path<Uuid>,
@@ -196,6 +249,16 @@ pub struct PreviewLetterBody {
 
 /// `POST /api/letters/preview` — render a letter as it would be sent, without storing or sending it. A
 /// missing template variable is a 400 that names it.
+#[utoipa::path(
+    post,
+    path = "/api/letters/preview",
+    tag = "Letters",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn preview_letter(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -217,6 +280,16 @@ pub async fn preview_letter(
 
 /// `POST /api/letters/generate` — render + persist a letter (proxies to
 /// `person-service` to fetch the person snapshot).
+#[utoipa::path(
+    post,
+    path = "/api/letters/generate",
+    tag = "Letters",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn generate_letter(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -241,6 +314,17 @@ pub async fn generate_letter(
 }
 
 /// `GET /api/letters/:id`.
+#[utoipa::path(
+    get,
+    path = "/api/letters/{id}",
+    tag = "Letters",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_letter(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match LetterRepository::find_generated_letter_by_id(&state.db, id).await {
         Ok(Some(l)) => ok(serde_json::to_value(l).unwrap_or(Value::Null)),
@@ -250,6 +334,17 @@ pub async fn get_letter(State(state): State<AppState>, Path(id): Path<Uuid>) -> 
 }
 
 /// `POST /api/letters/:id/sent` — operator marks a letter as delivered.
+#[utoipa::path(
+    post,
+    path = "/api/letters/{id}/sent",
+    tag = "Letters",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn mark_sent(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -275,6 +370,17 @@ pub async fn mark_sent(
 }
 
 /// `POST /api/letters/:id/failed`.
+#[utoipa::path(
+    post,
+    path = "/api/letters/{id}/failed",
+    tag = "Letters",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn mark_failed(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -320,6 +426,16 @@ pub struct GroupBody {
 /// The set must cover every required language (`PAS_REQUIRED_LOCALES`, default English and Welsh). The
 /// answer shows, for each variant, how many text segments it costs: Welsh circumflex letters make a
 /// text cost more than twice as much, and the writer should see that before it goes out.
+#[utoipa::path(
+    post,
+    path = "/api/letter-template-groups",
+    tag = "Letter template groups",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_group(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -429,6 +545,16 @@ pub struct CheckSmsBody {
 
 /// `POST /api/letter-templates/check-sms`: what a body would cost as a text, rendered with typical
 /// values, with the character that forced the longer encoding named.
+#[utoipa::path(
+    post,
+    path = "/api/letter-templates/check-sms",
+    tag = "Letter templates",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn check_sms(Json(b): Json<CheckSmsBody>) -> HandlerResult {
     if let Err(e) = crate::communication::validate_template_syntax("", &b.body_tera) {
         return error_to_response(e);

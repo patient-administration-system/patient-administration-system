@@ -50,6 +50,16 @@ pub struct CreateBody {
 
 /// `POST /api/referrals`: receive a referral. The same `(source, external_ref)` twice is one referral
 /// (`duplicate: true`).
+#[utoipa::path(
+    post,
+    path = "/api/referrals",
+    tag = "Referrals",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -84,6 +94,16 @@ pub struct ListQuery {
 }
 
 /// `GET /api/referrals?status=&service=`: oldest first.
+#[utoipa::path(
+    get,
+    path = "/api/referrals",
+    tag = "Referrals",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> HandlerResult {
     match state
         .referrals
@@ -100,6 +120,17 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> 
 }
 
 /// `GET /api/referrals/{id}`.
+#[utoipa::path(
+    get,
+    path = "/api/referrals/{id}",
+    tag = "Referrals",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.referrals.get(id).await {
         Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
@@ -109,6 +140,17 @@ pub async fn get(State(state): State<AppState>, Path(id): Path<Uuid>) -> Handler
 
 /// `POST /api/referrals/{id}/book-first-available`: book the earliest free slot of the target service and
 /// link the appointment. With none free, 409 and the referral stays open.
+#[utoipa::path(
+    post,
+    path = "/api/referrals/{id}/book-first-available",
+    tag = "Referrals",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn book_first_available(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -131,6 +173,17 @@ pub struct WaitlistBody {
 }
 
 /// `POST /api/referrals/{id}/waitlist`: put the patient on the waiting list for the service.
+#[utoipa::path(
+    post,
+    path = "/api/referrals/{id}/waitlist",
+    tag = "Referrals",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn waitlist(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -151,6 +204,17 @@ pub struct CloseBody {
 }
 
 /// `POST /api/referrals/{id}/close`.
+#[utoipa::path(
+    post,
+    path = "/api/referrals/{id}/close",
+    tag = "Referrals",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn close(
     State(state): State<AppState>,
     headers: HeaderMap,

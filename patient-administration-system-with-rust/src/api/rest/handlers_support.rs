@@ -40,6 +40,16 @@ pub struct AddBody {
 }
 
 /// `POST /api/support-flags`: ask for a call or a navigator referral for a patient.
+#[utoipa::path(
+    post,
+    path = "/api/support-flags",
+    tag = "Support flags",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn add(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -68,6 +78,16 @@ pub struct OpenQuery {
 }
 
 /// `GET /api/support-flags/open`: flags waiting for a person, oldest first.
+#[utoipa::path(
+    get,
+    path = "/api/support-flags/open",
+    tag = "Support flags",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn open(State(state): State<AppState>, Query(q): Query<OpenQuery>) -> HandlerResult {
     match state.support.open(q.limit.unwrap_or(100)).await {
         Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
@@ -82,6 +102,17 @@ pub struct ResolveBody {
 }
 
 /// `POST /api/support-flags/{id}/resolve`: a named person records what happened.
+#[utoipa::path(
+    post,
+    path = "/api/support-flags/{id}/resolve",
+    tag = "Support flags",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn resolve(
     State(state): State<AppState>,
     headers: HeaderMap,

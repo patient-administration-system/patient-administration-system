@@ -39,6 +39,16 @@ fn ok(value: Value) -> HandlerResult {
 }
 
 /// `GET /api/audit/recent?limit=N`.
+#[utoipa::path(
+    get,
+    path = "/api/audit/recent",
+    tag = "Audit",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_recent(
     State(state): State<AppState>,
     Query(q): Query<LimitQuery>,
@@ -51,6 +61,16 @@ pub async fn list_recent(
 }
 
 /// `GET /api/audit/entity?entity_type=…&entity_id=…&limit=N`.
+#[utoipa::path(
+    get,
+    path = "/api/audit/entity",
+    tag = "Audit",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_for_entity(
     State(state): State<AppState>,
     Query(q): Query<EntityQuery>,
@@ -67,6 +87,17 @@ pub async fn list_for_entity(
 /// actions taken against the person (admit, charge, letter, etc.). The
 /// proxy variant `/api/patients/:id/audit` (in `upstream_proxy`) hits
 /// the upstream service for demographic-mutation audit.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/audit/local",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_local_for_person(
     State(state): State<AppState>,
     Path(person_id): Path<Uuid>,

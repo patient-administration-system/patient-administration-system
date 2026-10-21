@@ -72,6 +72,18 @@ fn body_to_fields(body: Value) -> Result<serde_json::Map<String, Value>, Error> 
 
 // ─── /fhir/Patient/* (proxy person-service) ────────────────────────
 
+#[utoipa::path(
+    get,
+    path = "/fhir/Patient/{id}",
+    tag = "FHIR",
+    summary = "Get patient",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn get_patient(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -83,6 +95,17 @@ pub async fn get_patient(
     Ok(Json(serde_json::to_value(person).unwrap_or(Value::Null)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/fhir/Patient",
+    tag = "FHIR",
+    summary = "Create patient",
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn create_patient(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -98,6 +121,18 @@ pub async fn create_patient(
     Ok(Json(serde_json::to_value(person).unwrap_or(Value::Null)))
 }
 
+#[utoipa::path(
+    put,
+    path = "/fhir/Patient/{id}",
+    tag = "FHIR",
+    summary = "Update patient",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn update_patient(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -114,6 +149,18 @@ pub async fn update_patient(
     Ok(Json(serde_json::to_value(person).unwrap_or(Value::Null)))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/fhir/Patient/{id}",
+    tag = "FHIR",
+    summary = "Delete patient",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn delete_patient(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -125,6 +172,17 @@ pub async fn delete_patient(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    get,
+    path = "/fhir/Patient",
+    tag = "FHIR",
+    summary = "List patients",
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn list_patients(State(state): State<AppState>, headers: HeaderMap) -> FhirResult {
     let client = need_person_client(&state).map_err(error_to_response)?;
     let ctx = user_context_from_headers(&headers);
@@ -141,6 +199,18 @@ pub async fn list_patients(State(state): State<AppState>, headers: HeaderMap) ->
 
 // ─── /fhir/Practitioner/* (proxy worker-service) ───────────────────
 
+#[utoipa::path(
+    get,
+    path = "/fhir/Practitioner/{id}",
+    tag = "FHIR",
+    summary = "Get practitioner",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn get_practitioner(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -152,6 +222,17 @@ pub async fn get_practitioner(
     Ok(Json(serde_json::to_value(worker).unwrap_or(Value::Null)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/fhir/Practitioner",
+    tag = "FHIR",
+    summary = "Create practitioner",
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn create_practitioner(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -167,6 +248,18 @@ pub async fn create_practitioner(
     Ok(Json(serde_json::to_value(worker).unwrap_or(Value::Null)))
 }
 
+#[utoipa::path(
+    put,
+    path = "/fhir/Practitioner/{id}",
+    tag = "FHIR",
+    summary = "Update practitioner",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn update_practitioner(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -183,6 +276,18 @@ pub async fn update_practitioner(
     Ok(Json(serde_json::to_value(worker).unwrap_or(Value::Null)))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/fhir/Practitioner/{id}",
+    tag = "FHIR",
+    summary = "Delete practitioner",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn delete_practitioner(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -220,6 +325,18 @@ fn wrap_fhir(resource_type: &str, mut value: Value) -> Value {
     value
 }
 
+#[utoipa::path(
+    get,
+    path = "/fhir/Encounter/{id}",
+    tag = "FHIR",
+    summary = "Get encounter",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn get_encounter(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match EncounterRepository::find_by_id(&state.db, id).await {
         Ok(Some(e)) => Ok(Json(wrap_fhir(
@@ -234,6 +351,18 @@ pub async fn get_encounter(State(state): State<AppState>, Path(id): Path<Uuid>) 
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/fhir/Appointment/{id}",
+    tag = "FHIR",
+    summary = "Get appointment",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn get_appointment(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match AppointmentRepository::find_by_id(&state.db, id).await {
         Ok(Some(a)) => Ok(Json(wrap_fhir(
@@ -248,6 +377,18 @@ pub async fn get_appointment(State(state): State<AppState>, Path(id): Path<Uuid>
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/fhir/Coverage/{id}",
+    tag = "FHIR",
+    summary = "Get coverage",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match CoverageRepository::find_by_id(&state.db, id).await {
         Ok(Some(c)) => Ok(Json(wrap_fhir(
@@ -262,6 +403,18 @@ pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/fhir/Schedule/{id}",
+    tag = "FHIR",
+    summary = "Get schedule",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn get_schedule(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match ScheduleRepository::find_by_id(&state.db, id).await {
         Ok(Some(s)) => Ok(Json(wrap_fhir(
@@ -276,6 +429,18 @@ pub async fn get_schedule(State(state): State<AppState>, Path(id): Path<Uuid>) -
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/fhir/Slot/{id}",
+    tag = "FHIR",
+    summary = "Get slot",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn get_slot(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match SlotRepository::find_by_id(&state.db, id).await {
         Ok(Some(s)) => Ok(Json(wrap_fhir(
@@ -291,6 +456,17 @@ pub async fn get_slot(State(state): State<AppState>, Path(id): Path<Uuid>) -> Fh
 }
 
 /// FHIR Location read backed by the PAS `Bed` row.
+#[utoipa::path(
+    get,
+    path = "/fhir/Location/{id}",
+    tag = "FHIR",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn get_location(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match BedRepository::find_by_id(&state.db, id).await {
         Ok(Some(b)) => Ok(Json(wrap_fhir(
@@ -331,10 +507,32 @@ fn upstream_stub(resource: &str) -> (StatusCode, Json<OperationOutcome>) {
     )
 }
 
+#[utoipa::path(
+    post,
+    path = "/fhir/Encounter",
+    tag = "FHIR",
+    summary = "Create encounter",
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn create_encounter() -> FhirResult {
     Err(upstream_stub("Encounter"))
 }
 
+#[utoipa::path(
+    post,
+    path = "/fhir/Appointment",
+    tag = "FHIR",
+    summary = "Create appointment",
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn create_appointment() -> FhirResult {
     Err(upstream_stub("Appointment"))
 }
@@ -425,6 +623,17 @@ fn parse_service_type(body: &Value) -> String {
     "general".to_string()
 }
 
+#[utoipa::path(
+    post,
+    path = "/fhir/Schedule",
+    tag = "FHIR",
+    summary = "Create schedule",
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn create_schedule(State(state): State<AppState>, Json(body): Json<Value>) -> FhirResult {
     let owner = parse_schedule_owner(&body).map_err(error_to_response)?;
     let svc = parse_service_type(&body);
@@ -438,6 +647,18 @@ pub async fn create_schedule(State(state): State<AppState>, Json(body): Json<Val
     )))
 }
 
+#[utoipa::path(
+    put,
+    path = "/fhir/Schedule/{id}",
+    tag = "FHIR",
+    summary = "Update schedule",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn update_schedule(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -471,6 +692,18 @@ pub async fn update_schedule(
     )))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/fhir/Schedule/{id}",
+    tag = "FHIR",
+    summary = "Delete schedule",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn delete_schedule(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -539,6 +772,17 @@ fn parse_schedule_ref(body: &Value) -> Result<Uuid, Error> {
     Uuid::parse_str(id_str).map_err(|e| Error::validation(format!("schedule id {id_str:?}: {e}")))
 }
 
+#[utoipa::path(
+    post,
+    path = "/fhir/Slot",
+    tag = "FHIR",
+    summary = "Create slot",
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn create_slot(State(state): State<AppState>, Json(body): Json<Value>) -> FhirResult {
     let schedule_id = parse_schedule_ref(&body).map_err(error_to_response)?;
     let start = parse_dt(&body, "start").map_err(error_to_response)?;
@@ -556,6 +800,18 @@ pub async fn create_slot(State(state): State<AppState>, Json(body): Json<Value>)
     )))
 }
 
+#[utoipa::path(
+    put,
+    path = "/fhir/Slot/{id}",
+    tag = "FHIR",
+    summary = "Update slot",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn update_slot(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -589,6 +845,18 @@ pub async fn update_slot(
     )))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/fhir/Slot/{id}",
+    tag = "FHIR",
+    summary = "Delete slot",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn delete_slot(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -608,6 +876,16 @@ pub async fn delete_slot(
 /// must be posted directly there, never proxied through a PAS Bundle).
 /// Other entries return `not-supported` for now — typed FHIR creators
 /// for non-Patient/Practitioner resources are wired one-at-a-time.
+#[utoipa::path(
+    post,
+    path = "/fhir",
+    tag = "FHIR",
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
 pub async fn post_bundle(State(_state): State<AppState>, Json(body): Json<Value>) -> FhirResult {
     let entries = body
         .get("entry")

@@ -182,6 +182,16 @@ fn person_has_identifier_value(p: &crate::upstream::Person, target: &str) -> boo
 
 /// Passive parse: parse the wire, ACK AA with no side-effects. Useful
 /// for client debugging.
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/parse",
+    tag = "Hl7",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn parse(body: String) -> impl IntoResponse {
     match parse_message(&body) {
         Ok(msg) => {
@@ -194,6 +204,17 @@ pub async fn parse(body: String) -> impl IntoResponse {
 
 // ─── /api/hl7/v2/patient (ADT^A28 add person) ──────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/patient",
+    tag = "Hl7",
+    summary = "Add person",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn add_person(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -231,6 +252,17 @@ pub async fn add_person(
 
 // ─── /api/hl7/v2/admit (ADT^A01) ───────────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/admit",
+    tag = "Hl7",
+    summary = "Admit",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn admit(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -292,6 +324,17 @@ pub async fn admit(
 
 // ─── /api/hl7/v2/transfer (ADT^A02) ────────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/transfer",
+    tag = "Hl7",
+    summary = "Transfer",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn transfer(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -370,6 +413,17 @@ pub async fn transfer(
 
 // ─── /api/hl7/v2/discharge (ADT^A03) ───────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/discharge",
+    tag = "Hl7",
+    summary = "Discharge",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn discharge(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -472,6 +526,17 @@ struct ResolvedHeader {
 
 // ─── /api/hl7/v2/register (ADT^A04 register outpatient) ────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/register",
+    tag = "Hl7",
+    summary = "Register",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn register(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -548,6 +613,17 @@ pub async fn register(
 
 // ─── /api/hl7/v2/pre-admit (ADT^A05) ───────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/pre-admit",
+    tag = "Hl7",
+    summary = "Pre admit",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn pre_admit(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -591,6 +667,17 @@ pub async fn pre_admit(
 
 // ─── /api/hl7/v2/cancel-pre-admit (ADT^A38) ────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/cancel-pre-admit",
+    tag = "Hl7",
+    summary = "Cancel pre admit",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_pre_admit(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -634,6 +721,17 @@ pub async fn cancel_pre_admit(
 
 // ─── /api/hl7/v2/change-to-inpatient (ADT^A06) ─────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/change-to-inpatient",
+    tag = "Hl7",
+    summary = "Change to inpatient",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn change_to_inpatient(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -677,6 +775,17 @@ pub async fn change_to_inpatient(
 
 // ─── /api/hl7/v2/change-to-outpatient (ADT^A07) ────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/change-to-outpatient",
+    tag = "Hl7",
+    summary = "Change to outpatient",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn change_to_outpatient(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -716,6 +825,17 @@ pub async fn change_to_outpatient(
 
 // ─── /api/hl7/v2/update (ADT^A08 update patient info) ──────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/update",
+    tag = "Hl7",
+    summary = "Update",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn update(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -747,6 +867,17 @@ pub async fn update(
 
 // ─── /api/hl7/v2/cancel-admit (ADT^A11) ────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/cancel-admit",
+    tag = "Hl7",
+    summary = "Cancel admit",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_admit(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -786,6 +917,17 @@ pub async fn cancel_admit(
 
 // ─── /api/hl7/v2/cancel-transfer (ADT^A12) ─────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/cancel-transfer",
+    tag = "Hl7",
+    summary = "Cancel transfer",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_transfer(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -822,6 +964,17 @@ pub async fn cancel_transfer(
 
 // ─── /api/hl7/v2/cancel-discharge (ADT^A13) ────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/cancel-discharge",
+    tag = "Hl7",
+    summary = "Cancel discharge",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_discharge(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -861,6 +1014,17 @@ pub async fn cancel_discharge(
 
 // ─── /api/hl7/v2/leave-start (ADT^A21) ─────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/leave-start",
+    tag = "Hl7",
+    summary = "Leave start",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn leave_start(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -900,6 +1064,17 @@ pub async fn leave_start(
 
 // ─── /api/hl7/v2/leave-end (ADT^A22) ───────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/leave-end",
+    tag = "Hl7",
+    summary = "Leave end",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn leave_end(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -939,6 +1114,17 @@ pub async fn leave_end(
 
 // ─── /api/hl7/v2/delete-patient (ADT^A23) ──────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/delete-patient",
+    tag = "Hl7",
+    summary = "Delete patient",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn delete_patient(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -967,6 +1153,17 @@ pub async fn delete_patient(
 
 // ─── /api/hl7/v2/merge (ADT^A40) ───────────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/merge",
+    tag = "Hl7",
+    summary = "Merge",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn merge(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1050,6 +1247,17 @@ pub async fn merge(
 
 // ─── /api/hl7/v2/dft (DFT^P03 financial transaction) ────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/dft",
+    tag = "Hl7",
+    summary = "Dft",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn dft(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1189,6 +1397,17 @@ pub async fn dft(
 
 // ─── /api/hl7/v2/schedule-book (SIU^S12) ───────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/schedule-book",
+    tag = "Hl7",
+    summary = "Schedule book",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn schedule_book(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1274,6 +1493,17 @@ pub async fn schedule_book(
 
 // ─── /api/hl7/v2/schedule-reschedule (SIU^S13) ─────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/schedule-reschedule",
+    tag = "Hl7",
+    summary = "Schedule reschedule",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn schedule_reschedule(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1377,6 +1607,17 @@ pub async fn schedule_reschedule(
 
 // ─── /api/hl7/v2/schedule-modify (SIU^S14) ─────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/schedule-modify",
+    tag = "Hl7",
+    summary = "Schedule modify",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn schedule_modify(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1451,6 +1692,17 @@ pub async fn schedule_modify(
 
 // ─── /api/hl7/v2/schedule-cancel (SIU^S15) ─────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/schedule-cancel",
+    tag = "Hl7",
+    summary = "Schedule cancel",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn schedule_cancel(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1491,6 +1743,17 @@ fn need_worker_client(state: &AppState) -> Option<&dyn WorkerClient> {
     state.worker_client.as_deref()
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/mfn-staff",
+    tag = "Hl7",
+    summary = "Mfn staff",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn mfn_staff(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1674,6 +1937,17 @@ fn staff_item_to_worker_create(item: &crate::hl7v2::pid_translation::StaffItem) 
 
 // ─── /api/hl7/v2/mfn-location (MFN^M05) ────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/mfn-location",
+    tag = "Hl7",
+    summary = "Mfn location",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn mfn_location(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1902,6 +2176,17 @@ async fn dispatch_inner_to_ack_body(
     }
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/hl7/v2/batch",
+    tag = "Hl7",
+    summary = "Batch",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn batch(
     State(state): State<AppState>,
     headers: HeaderMap,

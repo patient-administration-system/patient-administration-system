@@ -31,6 +31,16 @@ pub struct QueueQuery {
 }
 
 /// `GET /api/print-queue`: letters waiting to be posted, oldest first, with the total waiting.
+#[utoipa::path(
+    get,
+    path = "/api/print-queue",
+    tag = "Print queue",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn queue(State(state): State<AppState>, Query(q): Query<QueueQuery>) -> HandlerResult {
     match state.printing.queue(q.limit.unwrap_or(100)).await {
         Ok((total, items)) => (
@@ -55,6 +65,16 @@ pub struct ExportBody {
 
 /// `POST /api/print-batches`: make a batch of the oldest queued letters that have an address, and return the
 /// export (JSON, or CSV with `"format": "csv"`). The letters stay `pending` until the batch is marked sent.
+#[utoipa::path(
+    post,
+    path = "/api/print-batches",
+    tag = "Print batches",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn export(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -98,6 +118,17 @@ pub struct SentBody {
 }
 
 /// `POST /api/print-batches/{id}/sent`: the mail house has the batch. Flips exactly its letters to sent.
+#[utoipa::path(
+    post,
+    path = "/api/print-batches/{id}/sent",
+    tag = "Print batches",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn mark_sent(
     State(state): State<AppState>,
     headers: HeaderMap,

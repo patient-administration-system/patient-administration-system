@@ -19,6 +19,17 @@ fn ok(value: Value) -> HandlerResult {
 
 /// `GET /api/appointments/{id}/history`: who did what to this appointment, when and why, with the messages
 /// sent about it and the patient's replies, oldest first.
+#[utoipa::path(
+    get,
+    path = "/api/appointments/{id}/history",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn appointment_history(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -36,6 +47,17 @@ pub struct LogQuery {
 
 /// `GET /api/patients/{id}/contact-log`: every message sent to the patient and every text received, newest
 /// first, with what triggered each. It says that a contact happened and why, never what it said.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/contact-log",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn contact_log(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,

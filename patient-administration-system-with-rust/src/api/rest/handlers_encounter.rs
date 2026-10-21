@@ -36,6 +36,17 @@ fn ok(value: Value) -> HandlerResult {
 }
 
 /// `GET /api/encounters/:id`.
+#[utoipa::path(
+    get,
+    path = "/api/encounters/{id}",
+    tag = "Encounters",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn get_encounter(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match EncounterRepository::find_by_id(&state.db, id).await {
         Ok(Some(e)) => ok(serde_json::to_value(e).unwrap_or(Value::Null)),
@@ -45,6 +56,17 @@ pub async fn get_encounter(State(state): State<AppState>, Path(id): Path<Uuid>) 
 }
 
 /// `GET /api/patients/:id/encounters` — list a person's encounters.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/encounters",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_encounters_for_person(
     State(state): State<AppState>,
     Path(person_id): Path<Uuid>,
@@ -56,6 +78,17 @@ pub async fn list_encounters_for_person(
 }
 
 /// `PUT /api/encounters/:id/status` — state-machine-checked status flip.
+#[utoipa::path(
+    put,
+    path = "/api/encounters/{id}/status",
+    tag = "Encounters",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn set_status(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -84,6 +117,17 @@ pub async fn set_status(
 /// `POST /api/encounters/:id/cancel` — convenience: set status to
 /// Cancelled. Equivalent to `PUT /api/encounters/:id/status` with
 /// `{"status":"Cancelled"}`.
+#[utoipa::path(
+    post,
+    path = "/api/encounters/{id}/cancel",
+    tag = "Encounters",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn cancel_encounter(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,

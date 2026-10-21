@@ -32,6 +32,16 @@ fn ctx(headers: &HeaderMap) -> RepoUserContext {
 }
 
 /// `GET /api/virtual-ok-services`: the services a clinician has approved for conversion.
+#[utoipa::path(
+    get,
+    path = "/api/virtual-ok-services",
+    tag = "Virtual ok services",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_services(State(state): State<AppState>) -> HandlerResult {
     match state.virtual_visits.list_services().await {
         Ok(v) => ok(serde_json::to_value(v).unwrap_or(Value::Null)),
@@ -45,6 +55,17 @@ pub struct ApproveBody {
 }
 
 /// `PUT /api/virtual-ok-services/{service_type}`: approve a service. `approved_by` must name a person.
+#[utoipa::path(
+    put,
+    path = "/api/virtual-ok-services/{service_type}",
+    tag = "Virtual ok services",
+    params(("service_type" = String, Path, description = "Path parameter `service_type`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn approve_service(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -63,6 +84,17 @@ pub async fn approve_service(
 
 /// `DELETE /api/virtual-ok-services/{service_type}`: stop accepting conversions for a service. Existing
 /// conversions stand until reviewed.
+#[utoipa::path(
+    delete,
+    path = "/api/virtual-ok-services/{service_type}",
+    tag = "Virtual ok services",
+    params(("service_type" = String, Path, description = "Path parameter `service_type`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn remove_service(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -84,6 +116,16 @@ pub struct PendingQuery {
 }
 
 /// `GET /api/conversions/pending`: conversions waiting for a clinician, soonest appointment first.
+#[utoipa::path(
+    get,
+    path = "/api/conversions/pending",
+    tag = "Conversions",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn pending(
     State(state): State<AppState>,
     Query(q): Query<PendingQuery>,
@@ -95,6 +137,17 @@ pub async fn pending(
 }
 
 /// `POST /api/appointments/{id}/conversion/{decision}`: `confirm` or `veto` (a veto restores in-person).
+#[utoipa::path(
+    post,
+    path = "/api/appointments/{id}/conversion/{decision}",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`"), ("decision" = String, Path, description = "Path parameter `decision`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn review(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -115,6 +168,17 @@ pub async fn review(
 
 /// `POST /api/appointments/{id}/video-failed`: the video visit did not connect. It becomes a phone
 /// consultation and a person is asked to ring the patient. Idempotent.
+#[utoipa::path(
+    post,
+    path = "/api/appointments/{id}/video-failed",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn video_failed(
     State(state): State<AppState>,
     headers: HeaderMap,

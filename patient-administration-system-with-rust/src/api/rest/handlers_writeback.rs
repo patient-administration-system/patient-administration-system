@@ -35,6 +35,16 @@ fn ok(value: Value) -> HandlerResult {
 /// `POST /api/write-back/replies`: apply one reply. A reply that cannot be applied for a
 /// deterministic reason is still `200` with `status: "rejected"` and a `reject_reason`: the sender
 /// should not retry it. Malformed input is `400`; a reused `message_id` is `409`.
+#[utoipa::path(
+    post,
+    path = "/api/write-back/replies",
+    tag = "Write back",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn post_reply(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -50,6 +60,16 @@ pub async fn post_reply(
 /// array of replies, or CSV (`Content-Type: text/csv`) with the header
 /// `message_id,action,appointment_id,person_id,channel,barrier_code,new_slot_id,received_at`.
 /// Each row is applied independently and reported; at most 1000 rows.
+#[utoipa::path(
+    post,
+    path = "/api/write-back/batch",
+    tag = "Write back",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn post_batch(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -99,6 +119,16 @@ pub fn parse_csv(body: &[u8]) -> Result<Vec<ReplyRequest>, Error> {
 
 /// `POST /api/write-back/texts`: a carrier hands over a raw inbound text (PILOT-4). The answer says what
 /// was done and the text to send back, or none (never to an unmatched or shared number).
+#[utoipa::path(
+    post,
+    path = "/api/write-back/texts",
+    tag = "Write back",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn post_text(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -111,6 +141,16 @@ pub async fn post_text(
 }
 
 /// `GET /api/inbound-texts/open`: replies nobody could act on, for the booking team.
+#[utoipa::path(
+    get,
+    path = "/api/inbound-texts/open",
+    tag = "Inbound texts",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn open_texts(State(state): State<AppState>) -> HandlerResult {
     match state.inbound.staff_list(200).await {
         Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
@@ -119,6 +159,17 @@ pub async fn open_texts(State(state): State<AppState>) -> HandlerResult {
 }
 
 /// `POST /api/inbound-texts/{id}/handled`: a person dealt with it.
+#[utoipa::path(
+    post,
+    path = "/api/inbound-texts/{id}/handled",
+    tag = "Inbound texts",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn text_handled(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.inbound.mark_handled(id).await {
         Ok(true) => ok(serde_json::json!({ "handled": true })),

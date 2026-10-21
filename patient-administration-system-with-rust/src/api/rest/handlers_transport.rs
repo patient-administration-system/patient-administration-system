@@ -36,6 +36,17 @@ pub struct EligibleBody {
 }
 
 /// `PUT /api/patients/{id}/transport-eligibility`: staff record that the patient is eligible, and why.
+#[utoipa::path(
+    put,
+    path = "/api/patients/{id}/transport-eligibility",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn set_eligible(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -53,6 +64,17 @@ pub async fn set_eligible(
 }
 
 /// `DELETE /api/patients/{id}/transport-eligibility`.
+#[utoipa::path(
+    delete,
+    path = "/api/patients/{id}/transport-eligibility",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn withdraw_eligible(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -73,6 +95,17 @@ pub struct ConsentBody {
 
 /// `PUT /api/patients/{id}/transport-consent`: the patient's explicit consent to share their pick-up address
 /// with the transport provider.
+#[utoipa::path(
+    put,
+    path = "/api/patients/{id}/transport-consent",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn record_consent(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -90,6 +123,17 @@ pub async fn record_consent(
 }
 
 /// `DELETE /api/patients/{id}/transport-consent`: withdraw consent. Later confirmations request no ride.
+#[utoipa::path(
+    delete,
+    path = "/api/patients/{id}/transport-consent",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn withdraw_consent(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -102,6 +146,17 @@ pub async fn withdraw_consent(
 }
 
 /// `GET /api/appointments/{id}/transport`: the ride for this appointment, with its pick-up window.
+#[utoipa::path(
+    get,
+    path = "/api/appointments/{id}/transport",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn booking(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.transport.booking_for(id).await {
         Ok(b) => ok(serde_json::to_value(b).unwrap_or(Value::Null)),

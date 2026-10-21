@@ -29,6 +29,17 @@ fn ok(value: Value) -> HandlerResult {
 }
 
 /// `POST /api/patients/:id/consents` — record a consent.
+#[utoipa::path(
+    post,
+    path = "/api/patients/{id}/consents",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn create_consent(
     State(state): State<AppState>,
     Path(person_id): Path<Uuid>,
@@ -61,6 +72,17 @@ pub async fn create_consent(
 }
 
 /// `GET /api/patients/:id/consents` — list consents for the person.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/consents",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn list_consents_for_person(
     State(state): State<AppState>,
     Path(person_id): Path<Uuid>,
@@ -72,6 +94,17 @@ pub async fn list_consents_for_person(
 }
 
 /// `POST /api/consents/:id/revoke`.
+#[utoipa::path(
+    post,
+    path = "/api/consents/{id}/revoke",
+    tag = "Consents",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
 pub async fn revoke_consent(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
