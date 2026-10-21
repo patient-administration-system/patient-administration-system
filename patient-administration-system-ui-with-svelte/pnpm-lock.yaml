@@ -23,9 +23,6 @@ importers:
       '@lilydesignsystem/svelte-kanban-board':
         specifier: 0.8.1
         version: 0.8.1(@lilydesignsystem/svelte-headless@0.5.1(svelte@5.57.2))(svelte@5.57.2)
-      '@lilydesignsystem/themes':
-        specifier: 0.5.0
-        version: 0.5.0
       '@sveltia/i18n':
         specifier: ^1.5.0
         version: 1.5.0(svelte@5.57.2)
@@ -214,10 +211,6 @@ packages:
     peerDependencies:
       '@lilydesignsystem/svelte-headless': '>=0.4.0 <1.0.0'
       svelte: ^5.0.0
-
-  '@lilydesignsystem/themes@0.5.0':
-    resolution: {integrity: sha512-Dpvs/Oj+bUNYS+9AuyN7nqR2CVGt0N2hLNS67gGEOHI0l+BOm5JinG1w1zjfjezbfxneAGoD33zShnXPF6WAuw==}
-    engines: {node: '=26'}
 
   '@oxc-project/types@0.154.0':
     resolution: {integrity: sha512-KYOUGQFlLWR+s4QMV2Q9ko38TZm7EdO87Qm7rvZLqk/webse/cDjtyxKhg/47l0byCbs/k46LT8qc4PKjAikzA==}
@@ -1064,8 +1057,6 @@ snapshots:
     dependencies:
       '@lilydesignsystem/svelte-headless': 0.5.1(svelte@5.57.2)
       svelte: 5.57.2
-
-  '@lilydesignsystem/themes@0.5.0': {}
 
   '@oxc-project/types@0.154.0': {}
 

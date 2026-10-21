@@ -76,7 +76,11 @@ jobs:
           arguments: --all-features
       # An unused dependency still costs build time and attack surface.
       - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
-      - run: cargo install cargo-machete --locked && cargo machete
+      # A prebuilt binary, not a compile from source on every run.
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        with:
+          tool: cargo-machete
+      - run: cargo machete
 
   ui:
     name: UI (check, unit tests, build)
@@ -103,6 +107,7 @@ jobs:
       - run: pnpm run check
       - run: pnpm test
       - run: pnpm run build
+      - run: pnpm run bundle:check
 
   ui-e2e:
     name: "UI (browser tests: Keycloak, axe, CSP, phone width)"
@@ -143,12 +148,14 @@ jobs:
           docker compose -f ../podman/compose.yml logs keycloak
           echo "Keycloak did not become ready" >&2
           exit 1
+      - id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm exec playwright test --project=chromium
-        env:
-          KEYCLOAK_URL: http://localhost:8180
-          CI: "true"
-      - run: pnpm exec playwright test --project=mobile
+      - run: pnpm exec playwright test --project=chromium --project=mobile
         env:
           KEYCLOAK_URL: http://localhost:8180
           CI: "true"

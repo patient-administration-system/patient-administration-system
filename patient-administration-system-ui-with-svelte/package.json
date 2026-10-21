@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "format": "prettier --write src",
-    "lint": "prettier --check src"
+    "lint": "prettier --check src",
+    "bundle:check": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
     "@lilydesignsystem/svelte-calendar": "0.7.0",
@@ -25,7 +26,6 @@
     "@lilydesignsystem/svelte-gantt-chart": "0.8.0",
     "@lilydesignsystem/svelte-headless": "0.5.1",
     "@lilydesignsystem/svelte-kanban-board": "0.8.1",
-    "@lilydesignsystem/themes": "0.5.0",
     "@sveltia/i18n": "^1.5.0"
   },
   "devDependencies": {
@@ -44,11 +44,6 @@
     "typescript": "^6.0.3",
     "vite": "^8.3.1",
     "vitest": "^5.0.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
   },
   "imports": {
     "#lib": "./src/lib/index.js",

@@ -9,7 +9,8 @@
 # Keycloak:  http://localhost:${PAS_KEYCLOAK_PORT:-8180}  (admin / admin, development only)
 # Redis:     redis://localhost:${PAS_REDIS_PORT:-6379}  (no password, development only; nothing in the PAS uses it yet)
 #
-# Ports are overridable when another stack already holds them, e.g.
+# Ports listen on 127.0.0.1 only: the passwords here are published, so nothing else on the network may reach
+# them. Ports are overridable when another stack already holds them, e.g.
 #   PAS_PG_PORT=5442 PAS_KEYCLOAK_PORT=8190 PAS_REDIS_PORT=6389 podman compose -f podman/compose.yml up -d
 #            realm "pas", imported from keycloak/pas-realm.json
 
@@ -21,7 +22,7 @@ services:
       POSTGRES_PASSWORD: pas_dev_password
       POSTGRES_DB: pas
     ports:
-      - "${PAS_PG_PORT:-5432}:5432"
+      - "127.0.0.1:${PAS_PG_PORT:-5432}:5432"
     volumes:
       - pas_pgdata:/var/lib/postgresql
       - ./postgres/init-keycloak.sql:/docker-entrypoint-initdb.d/init-keycloak.sql:ro,Z
@@ -42,7 +43,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
     ports:
-      - "${PAS_KEYCLOAK_PORT:-8180}:8080"
+      - "127.0.0.1:${PAS_KEYCLOAK_PORT:-8180}:8080"
     volumes:
       - ./keycloak/pas-realm.json:/opt/keycloak/data/import/pas-realm.json:ro,Z
     depends_on:
@@ -53,7 +54,7 @@ services:
     image: docker.io/library/redis:8-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "${PAS_REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${PAS_REDIS_PORT:-6379}:6379"
     volumes:
       - pas_redisdata:/data
     healthcheck:

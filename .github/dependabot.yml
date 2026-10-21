@@ -30,6 +30,10 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+  # The development stack's images (Postgres, Keycloak, Redis) in podman/compose.yml.
+  - package-ecosystem: docker-compose
+    directory: /podman
+    schedule: { interval: weekly }
   - package-ecosystem: docker
     directory: /patient-administration-system-with-rust
     schedule: { interval: weekly }

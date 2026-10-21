@@ -1,15 +1,6 @@
 allowBuilds:
   esbuild: true
 # Refuse any package version published less than a day ago (value in minutes), so a hijacked or
-# mistaken release cannot reach us before it is noticed. The exclusions below are the exact versions
-# we have reviewed and chose to take sooner.
+# mistaken release cannot reach us before it is noticed. To take a version sooner, list it under
+# minimumReleaseAgeExclude with the reason, and remove it once it is a day old.
 minimumReleaseAge: 1440
-minimumReleaseAgeExclude:
-  - '@sveltejs/kit@3.0.0'
-  - '@sveltejs/adapter-node@6.0.0'
-  - '@lilydesignsystem/svelte-headless@0.5.1'
-  - '@lilydesignsystem/themes@0.5.0'
-  - '@lilydesignsystem/svelte-calendar@0.7.0'
-  - '@lilydesignsystem/svelte-data-grid@0.11.0'
-  - '@lilydesignsystem/svelte-gantt-chart@0.8.0'
-  - '@lilydesignsystem/svelte-kanban-board@0.8.0 || 0.8.1'
