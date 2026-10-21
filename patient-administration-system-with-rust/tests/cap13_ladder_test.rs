@@ -134,6 +134,28 @@ impl World {
             })
             .collect()
     }
+    /// This appointment's open call tasks as (task id, reason). Asked of the table, not of `open_calls`, which
+    /// shows the first 500 of every open task and so loses a new one on a database that has seen many runs.
+    async fn open_calls(&self) -> Vec<(Uuid, String)> {
+        let rows = self
+            .s
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT id, reason FROM staff_call_tasks WHERE appointment_id = $1 AND handled_at IS NULL",
+                [self.appt.id.into()],
+            ))
+            .await
+            .unwrap();
+        rows.iter()
+            .map(|r| {
+                (
+                    r.try_get("", "id").unwrap(),
+                    r.try_get("", "reason").unwrap(),
+                )
+            })
+            .collect()
+    }
     async fn status(&self) -> AppointmentStatus {
         AppointmentRepository::find_by_id(&self.s.db, self.appt.id)
             .await
@@ -214,23 +236,12 @@ async fn a_silent_patient_climbs_the_whole_ladder_whatever_a_score_might_say() {
             .await
             .contains(&("call".to_string(), "call_task".to_string()))
     );
-    let calls = l.open_calls(500).await.unwrap();
-    let task = calls
-        .iter()
-        .find(|c| c["appointment_id"] == w.appt.id.to_string())
-        .expect("on the call list");
-    assert_eq!(task["reason"], "silent");
+    let calls = w.open_calls().await;
+    assert_eq!(calls.len(), 1, "on the call list: {calls:?}");
+    assert_eq!(calls[0].1, "silent");
     // Scanning again does not add a second task.
     l.run_once(w.at(D3() - Duration::hours(2))).await.unwrap();
-    assert_eq!(
-        l.open_calls(500)
-            .await
-            .unwrap()
-            .iter()
-            .filter(|c| c["appointment_id"] == w.appt.id.to_string())
-            .count(),
-        1
-    );
+    assert_eq!(w.open_calls().await.len(), 1);
 
     // T-24h: the final nudge goes to everyone still booked.
     l.run_once(w.at(H24())).await.unwrap();
@@ -246,7 +257,7 @@ async fn a_silent_patient_climbs_the_whole_ladder_whatever_a_score_might_say() {
     );
 
     // The person phones and records it; it leaves the list.
-    let id: Uuid = task["id"].as_str().unwrap().parse().unwrap();
+    let id: Uuid = calls[0].0;
     assert!(
         l.complete_call(id, "reached", Some("nurse-1"))
             .await
@@ -260,13 +271,7 @@ async fn a_silent_patient_climbs_the_whole_ladder_whatever_a_score_might_say() {
         l.complete_call(id, "shrugged", None).await.is_err(),
         "an unknown outcome is refused"
     );
-    assert!(
-        !l.open_calls(500)
-            .await
-            .unwrap()
-            .iter()
-            .any(|c| c["id"] == id.to_string())
-    );
+    assert!(w.open_calls().await.iter().all(|(t, _)| *t != id));
 }
 
 #[tokio::test]
@@ -305,13 +310,7 @@ async fn a_patient_who_confirmed_is_not_chased_but_still_gets_the_final_nudge() 
             .contains(&("call".to_string(), "skipped_replied".to_string())),
         "no phone call for someone who confirmed"
     );
-    assert!(
-        !l.open_calls(500)
-            .await
-            .unwrap()
-            .iter()
-            .any(|c| c["appointment_id"] == w.appt.id.to_string())
-    );
+    assert!(w.open_calls().await.is_empty());
     l.run_once(w.at(H24())).await.unwrap();
     assert_eq!(w.channels().len(), 2, "main and final only");
     assert_eq!(
@@ -551,10 +550,12 @@ async fn reschedule_asks_for_a_person_and_leaves_the_appointment_alone() {
             .unwrap();
     assert_eq!(o.status, "reschedule_requested");
     assert_eq!(w.status().await, AppointmentStatus::Booked);
-    let calls = w.s.ladder.open_calls(500).await.unwrap();
-    assert!(calls.iter().any(
-        |c| c["appointment_id"] == w.appt.id.to_string() && c["reason"] == "reschedule_request"
-    ));
+    assert!(
+        w.open_calls()
+            .await
+            .iter()
+            .any(|(_, reason)| reason == "reschedule_request")
+    );
     assert!(
         w.ladder().has_acted(w.appt.id).await.unwrap(),
         "a reschedule request is an action: no chasing"
@@ -921,4 +922,31 @@ fn test_every_reason_a_patient_can_pick_has_help_in_both_languages() {
         );
         assert_ne!(en, cy);
     }
+}
+
+/// QUAL-2: two scans arriving together (two replicas) send each step once, because the job runner lets only
+/// one of them run at a time.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn two_scans_at_once_send_each_step_once() {
+    use patient_administration_system::jobs::{Outcome, run_exclusive};
+    let w = world().await;
+    let ladder = Arc::new(w.ladder());
+    let now = w.at(D7());
+    let job = format!("ladder-{}", Uuid::new_v4());
+    let scan = |l: Arc<LadderService>| {
+        move || async move {
+            l.run_once(now).await.unwrap();
+        }
+    };
+    let (a, b) = tokio::join!(
+        run_exclusive(&w.s.db, &job, scan(ladder.clone())),
+        run_exclusive(&w.s.db, &job, scan(ladder.clone())),
+    );
+    assert!(a == Outcome::Ran || b == Outcome::Ran);
+    assert_eq!(
+        w.steps().await,
+        vec![("main".to_string(), "sent".to_string())]
+    );
+    assert_eq!(w.channels().len(), 1, "one text, not two");
 }

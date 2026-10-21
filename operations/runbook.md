@@ -61,3 +61,7 @@ The medium line (`PAS_NOSHOW_MEDIUM`), the call list size (`PAS_NOSHOW_CALL_CAPA
 
 `POST /api/appointments/{id}/video-failed` (from the provider's callback, or by a clinician or the front desk). The appointment becomes a phone consultation and a `video_failed` call task appears on the staff call list.
 
+
+## Running more than one API replica, and stopping one (QUAL-2)
+
+The timers (outbox dispatcher, reminder ladder or reminders, backfill offers, no-show pass, tolerance check) run in every API process, but each run takes a database lock named for the job (`pg_try_advisory_xact_lock`, name `pas.job.<job>`), so two replicas never run the same job at the same moment; the one that does not get the lock skips that tick. A run that panics is logged (`pas::jobs`, "job panicked") and the next tick runs. On SIGTERM or Ctrl-C the server stops taking requests and waits up to 30 seconds for a job that is mid-run before it exits; give the container a termination grace period of at least 40 seconds. Not covered: two replicas still run a job one after the other, so a job must be safe to repeat (the ladder and reminders record each step once). The lock needs one database connection per running job, so the connection pool must be larger than the number of jobs you switch on plus your request concurrency.

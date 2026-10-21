@@ -233,14 +233,22 @@ async fn main() -> Result<()> {
     let dispatcher_db = db.clone();
     let dispatcher_pub = publisher.clone();
     let dispatcher_max_retries = cfg.pas_outbox_max_retries;
-    tokio::spawn(async move {
-        patient_administration_system::streaming::dispatcher::run(
-            dispatcher_db,
-            dispatcher_pub,
-            std::time::Duration::from_secs(2),
-            dispatcher_max_retries,
-        )
-        .await;
+    // Every timer loop below runs under `jobs`: one at a time across replicas, a panic does not end it, and it
+    // stops cleanly on SIGTERM (QUAL-2).
+    let mut jobs = patient_administration_system::jobs::Jobs::new(db.clone());
+    jobs.spawn("outbox", std::time::Duration::from_secs(2), move || {
+        let (db, publisher) = (dispatcher_db.clone(), dispatcher_pub.clone());
+        async move {
+            if let Err(e) = patient_administration_system::streaming::dispatcher::tick(
+                &db,
+                &publisher,
+                dispatcher_max_retries,
+            )
+            .await
+            {
+                tracing::warn!("outbox dispatcher tick failed: {e}");
+            }
+        }
     });
 
     // Tolerance alerts: every PAS_TOLERANCE_CHECK_MINUTES (default 60; 0 turns it off) check each measure and
@@ -251,25 +259,27 @@ async fn main() -> Result<()> {
         .unwrap_or(60);
     if tolerance_minutes > 0 {
         let tolerance = state.tolerance.clone();
-        tokio::spawn(async move {
-            let mut tick =
-                tokio::time::interval(std::time::Duration::from_secs(tolerance_minutes * 60));
-            loop {
-                tick.tick().await;
-                match tolerance.evaluate(30).await {
-                    Ok(e) => tracing::info!(
-                        target: "pas::tolerance",
-                        raised = e.raised,
-                        cleared = e.cleared,
-                        open = e.open,
-                        "tolerance check complete"
-                    ),
-                    Err(e) => {
-                        tracing::warn!(target: "pas::tolerance", "tolerance check failed: {e}")
+        jobs.spawn(
+            "tolerance",
+            std::time::Duration::from_secs(tolerance_minutes * 60),
+            move || {
+                let tolerance = tolerance.clone();
+                async move {
+                    match tolerance.evaluate(30).await {
+                        Ok(e) => tracing::info!(
+                            target: "pas::tolerance",
+                            raised = e.raised,
+                            cleared = e.cleared,
+                            open = e.open,
+                            "tolerance check complete"
+                        ),
+                        Err(e) => {
+                            tracing::warn!(target: "pas::tolerance", "tolerance check failed: {e}")
+                        }
                     }
                 }
-            }
-        });
+            },
+        );
     }
 
     // Appointment reminders: opt in with PAS_REMINDERS_ENABLED=true. Lead
@@ -279,10 +289,9 @@ async fn main() -> Result<()> {
     // day. It only adds tasks for people to ring.
     if patient_administration_system::noshow::NoShowService::switched_on() {
         let noshow = state.noshow.clone();
-        tokio::spawn(async move {
-            let mut tick = tokio::time::interval(std::time::Duration::from_secs(3600));
-            loop {
-                tick.tick().await;
+        jobs.spawn("noshow", std::time::Duration::from_secs(3600), move || {
+            let noshow = noshow.clone();
+            async move {
                 match noshow.recalculate_all().await {
                     Ok(n) => {
                         tracing::info!(target: "pas::noshow", assessed = n, "no-show pass complete");
@@ -297,10 +306,9 @@ async fn main() -> Result<()> {
     // standby, and every minute expires offers that ran out and moves on to the next patient.
     if patient_administration_system::backfill::enabled() {
         let backfill = state.backfill.clone();
-        tokio::spawn(async move {
-            let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
-            loop {
-                tick.tick().await;
+        jobs.spawn("backfill", std::time::Duration::from_secs(60), move || {
+            let backfill = backfill.clone();
+            async move {
                 match backfill.tick(chrono::Utc::now()).await {
                     Ok(r) if r.expired > 0 => {
                         tracing::info!(target: "pas::backfill", ?r, "offers moved on");
@@ -319,10 +327,10 @@ async fn main() -> Result<()> {
             db.clone(),
             state.communication.clone(),
         )?;
-        tokio::spawn(async move {
-            let mut tick = tokio::time::interval(std::time::Duration::from_secs(300));
-            loop {
-                tick.tick().await;
+        let ladder = std::sync::Arc::new(ladder);
+        jobs.spawn("ladder", std::time::Duration::from_secs(300), move || {
+            let ladder = ladder.clone();
+            async move {
                 match ladder.run_once(chrono::Utc::now()).await {
                     Ok(r) => tracing::info!(target: "pas::ladder", ?r, "ladder scan complete"),
                     Err(e) => tracing::warn!(target: "pas::ladder", "ladder scan failed: {e}"),
@@ -341,16 +349,24 @@ async fn main() -> Result<()> {
             .with_quiet_hours(
                 patient_administration_system::communication::consent::QuietHours::from_env()?,
             );
-        tokio::spawn(async move {
-            let mut tick = tokio::time::interval(std::time::Duration::from_secs(300));
-            loop {
-                tick.tick().await;
-                match reminders.run_once(chrono::Utc::now(), lead).await {
-                    Ok(r) => tracing::info!(target: "pas::reminders", ?r, "reminder scan complete"),
-                    Err(e) => tracing::warn!(target: "pas::reminders", "reminder scan failed: {e}"),
+        let reminders = std::sync::Arc::new(reminders);
+        jobs.spawn(
+            "reminders",
+            std::time::Duration::from_secs(300),
+            move || {
+                let reminders = reminders.clone();
+                async move {
+                    match reminders.run_once(chrono::Utc::now(), lead).await {
+                        Ok(r) => {
+                            tracing::info!(target: "pas::reminders", ?r, "reminder scan complete")
+                        }
+                        Err(e) => {
+                            tracing::warn!(target: "pas::reminders", "reminder scan failed: {e}")
+                        }
+                    }
                 }
-            }
-        });
+            },
+        );
     }
 
     let dashboard_routes = axum::Router::new()
@@ -456,7 +472,10 @@ async fn main() -> Result<()> {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
+    .with_graceful_shutdown(patient_administration_system::jobs::shutdown_signal())
     .await
     .map_err(|e| Error::internal(format!("serve: {e}")))?;
+    // Let a job that is mid-run finish (a half-sent reminder step is the worst case) before the process exits.
+    jobs.stop(std::time::Duration::from_secs(30)).await;
     Ok(())
 }
