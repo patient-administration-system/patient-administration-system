@@ -39,7 +39,10 @@ pub const TRIAGE_OUTCOMES: [&str; 2] = ["returned_with_advice", "redirected"];
 
 /// A referral in one of these states cannot be booked, waitlisted, closed or triaged again.
 fn is_ended(status: &str) -> bool {
-    matches!(status, "booked" | "closed" | "returned_with_advice" | "redirected")
+    matches!(
+        status,
+        "booked" | "closed" | "returned_with_advice" | "redirected"
+    )
 }
 const CANDIDATES: i64 = 25;
 
@@ -391,7 +394,11 @@ impl ReferralService {
             let r = self.get(id).await?; // not found, or already ended
             return Err(Error::conflict(format!(
                 "that referral is already {}",
-                if r.status == "closed" { "closed" } else { &r.status }
+                if r.status == "closed" {
+                    "closed"
+                } else {
+                    &r.status
+                }
             )));
         }
         AuditLogRepository::log(
