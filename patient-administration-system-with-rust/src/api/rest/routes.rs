@@ -354,6 +354,10 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/referrals/{id}/close", post(handlers_referrals::close))
         .route(
+            "/api/referrals/{id}/triage",
+            post(handlers_referrals::triage),
+        )
+        .route(
             "/api/reports/clinic-activity",
             get(handlers_reports::clinic_activity),
         )

@@ -143,6 +143,7 @@ fn alias_api_practitioners_search_get() {}
         crate::api::rest::handlers_referrals::book_first_available,
         crate::api::rest::handlers_referrals::waitlist,
         crate::api::rest::handlers_referrals::close,
+        crate::api::rest::handlers_referrals::triage,
         crate::api::rest::handlers_reports::clinic_activity,
         crate::api::rest::handlers_print::queue,
         crate::api::rest::handlers_print::export,

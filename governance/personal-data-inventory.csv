@@ -545,3 +545,7 @@ tolerance_alerts,cleared_at,none,"Not personal data (structure, status, timestam
 tolerance_alerts,acknowledged_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerance_alerts,acknowledged_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 tolerance_alerts,note,free-text,A named person's note on an alert; no patient details,audit-or-message
+referrals,triaged_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+referrals,triaged_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+referrals,redirected_to_service,health,"Administrative care information (why, where, what service, outcome)",record
+referrals,redirected_referral_id,none,"Not personal data (structure, status, timestamps, places, templates)",record

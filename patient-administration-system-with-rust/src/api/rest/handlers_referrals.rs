@@ -219,3 +219,49 @@ pub async fn close(
         Err(e) => error_to_response(e),
     }
 }
+
+#[derive(Debug, Deserialize)]
+pub struct TriageBody {
+    /// `returned_with_advice` or `redirected`.
+    pub outcome: String,
+    /// The named person (a consultant or their delegate) who triaged it.
+    pub triaged_by: String,
+    /// For a redirect: the service the patient goes to.
+    #[serde(default)]
+    pub redirect_to_service: Option<String>,
+}
+
+/// `POST /api/referrals/{id}/triage`: a consultant returns the referral with advice or redirects it to
+/// another service (a redirect creates the new referral). Only a referral just received can be triaged.
+#[utoipa::path(
+    post,
+    path = "/api/referrals/{id}/triage",
+    tag = "Referrals",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+pub async fn triage(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(b): Json<TriageBody>,
+) -> HandlerResult {
+    match state
+        .referrals
+        .triage(
+            id,
+            &b.outcome,
+            &b.triaged_by,
+            b.redirect_to_service.as_deref(),
+            &request_audit_ctx(&headers),
+        )
+        .await
+    {
+        Ok(r) => ok_json(r),
+        Err(e) => error_to_response(e),
+    }
+}

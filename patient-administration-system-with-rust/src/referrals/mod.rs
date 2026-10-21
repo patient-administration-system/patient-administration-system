@@ -26,6 +26,21 @@ use crate::waitlist::WaitlistService;
 use crate::{Error, Result};
 
 pub const SOURCES: [&str; 3] = ["gp", "e-rs", "internal"];
+pub const STATUSES: [&str; 6] = [
+    "received",
+    "waitlisted",
+    "booked",
+    "closed",
+    "returned_with_advice",
+    "redirected",
+];
+/// Triage outcomes (NEW-11). Both end the referral at this service.
+pub const TRIAGE_OUTCOMES: [&str; 2] = ["returned_with_advice", "redirected"];
+
+/// A referral in one of these states cannot be booked, waitlisted, closed or triaged again.
+fn is_ended(status: &str) -> bool {
+    matches!(status, "booked" | "closed" | "returned_with_advice" | "redirected")
+}
 const CANDIDATES: i64 = 25;
 
 #[derive(Debug, Clone, Serialize)]
@@ -41,6 +56,12 @@ pub struct Referral {
     pub received_at: DateTime<Utc>,
     /// The appointment booked from this referral, if any.
     pub appointment_id: Option<Uuid>,
+    /// Set when a consultant triaged the referral (`returned_with_advice` or `redirected`).
+    pub triaged_by: Option<String>,
+    pub triaged_at: Option<DateTime<Utc>>,
+    /// For a redirect: the service it went to and the new referral that carries the patient there.
+    pub redirected_to_service: Option<String>,
+    pub redirected_referral_id: Option<Uuid>,
 }
 
 pub struct NewReferral {
@@ -66,6 +87,7 @@ pub struct ReferralService {
 
 const COLS: &str = "r.id, r.person_id, r.source, r.external_ref, r.target_service, r.reason, \
     r.referring_worker_id, r.status, r.received_at, \
+    r.triaged_by, r.triaged_at, r.redirected_to_service, r.redirected_referral_id, \
     (SELECT a.id FROM appointments a WHERE a.referral_id = r.id AND a.deleted_at IS NULL \
        AND a.status NOT IN ('cancelled','no_show') ORDER BY a.created_at DESC LIMIT 1) AS appointment_id";
 
@@ -82,6 +104,10 @@ fn row_to_referral(r: &sea_orm::QueryResult) -> Result<Referral> {
         status: r.try_get("", "status").map_err(g)?,
         received_at: r.try_get("", "received_at").map_err(g)?,
         appointment_id: r.try_get("", "appointment_id").map_err(g)?,
+        triaged_by: r.try_get("", "triaged_by").map_err(g)?,
+        triaged_at: r.try_get("", "triaged_at").map_err(g)?,
+        redirected_to_service: r.try_get("", "redirected_to_service").map_err(g)?,
+        redirected_referral_id: r.try_get("", "redirected_referral_id").map_err(g)?,
     })
 }
 
@@ -111,11 +137,12 @@ impl ReferralService {
         limit: i64,
     ) -> Result<Vec<Referral>> {
         if let Some(s) = status
-            && !["received", "waitlisted", "booked", "closed"].contains(&s)
+            && !STATUSES.contains(&s)
         {
-            return Err(Error::validation(
-                "status must be received, waitlisted, booked or closed",
-            ));
+            return Err(Error::validation(format!(
+                "status must be one of {}",
+                STATUSES.join(", ")
+            )));
         }
         let rows = self
             .db
@@ -243,7 +270,7 @@ impl ReferralService {
                     let person: Uuid = r.try_get("", "person_id").map_err(Error::Database)?;
                     let service: String = r.try_get("", "target_service").map_err(Error::Database)?;
                     let status: String = r.try_get("", "status").map_err(Error::Database)?;
-                    if matches!(status.as_str(), "booked" | "closed") {
+                    if is_ended(&status) {
                         return Err(Error::conflict(format!("that referral is already {status}")));
                     }
                     let slots = txn
@@ -318,7 +345,7 @@ impl ReferralService {
         ctx: &UserContext,
     ) -> Result<Referral> {
         let r = self.get(id).await?;
-        if matches!(r.status.as_str(), "booked" | "closed" | "waitlisted") {
+        if is_ended(&r.status) || r.status == "waitlisted" {
             return Err(Error::conflict(format!(
                 "that referral is already {}",
                 r.status
@@ -354,14 +381,18 @@ impl ReferralService {
             .db
             .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "UPDATE referrals SET status = 'closed', updated_at = now() WHERE id = $1 AND status <> 'closed'",
+                "UPDATE referrals SET status = 'closed', updated_at = now() \
+                 WHERE id = $1 AND status NOT IN ('closed','returned_with_advice','redirected')",
                 [id.into()],
             ))
             .await
             .map_err(Error::Database)?;
         if r.rows_affected() == 0 {
-            self.get(id).await?; // not found, or already closed
-            return Err(Error::conflict("that referral is already closed"));
+            let r = self.get(id).await?; // not found, or already ended
+            return Err(Error::conflict(format!(
+                "that referral is already {}",
+                if r.status == "closed" { "closed" } else { &r.status }
+            )));
         }
         AuditLogRepository::log(
             &self.db,
@@ -373,6 +404,120 @@ impl ReferralService {
             ctx,
         )
         .await?;
+        self.get(id).await
+    }
+
+    /// A consultant triages a referral that has not been booked or put on the waiting list: it is returned to
+    /// the referrer with advice, or redirected to another service. Either way a named person is recorded and the
+    /// referral ends here. A redirect creates the new referral in the same transaction, so the patient is never
+    /// left without one. The advice itself is clinical and is not stored here.
+    pub async fn triage(
+        &self,
+        id: Uuid,
+        outcome: &str,
+        triaged_by: &str,
+        redirect_to_service: Option<&str>,
+        ctx: &UserContext,
+    ) -> Result<Referral> {
+        if !TRIAGE_OUTCOMES.contains(&outcome) {
+            return Err(Error::validation(
+                "outcome must be returned_with_advice or redirected",
+            ));
+        }
+        let by = crate::validation::named_person(
+            triaged_by,
+            "a referral is triaged by a named person (triaged_by)",
+        )?
+        .to_string();
+        let to = match (outcome, redirect_to_service.map(str::trim)) {
+            ("redirected", Some(s)) if !s.is_empty() && s.len() <= 200 => Some(s.to_string()),
+            ("redirected", _) => {
+                return Err(Error::validation(
+                    "a redirect names the service it goes to (redirect_to_service, 1 to 200 characters)",
+                ));
+            }
+            (_, Some(s)) if !s.is_empty() => {
+                return Err(Error::validation(
+                    "redirect_to_service is only for a redirect",
+                ));
+            }
+            _ => None,
+        };
+        let (outcome, ctx) = (outcome.to_string(), ctx.clone());
+        let new_id = Uuid::new_v4();
+        self.db
+            .transaction::<_, (), Error>(|txn| {
+                Box::pin(async move {
+                    let r = txn
+                        .query_one_raw(Statement::from_sql_and_values(
+                            DbBackend::Postgres,
+                            "SELECT person_id, target_service, reason, status FROM referrals WHERE id = $1 FOR UPDATE",
+                            [id.into()],
+                        ))
+                        .await
+                        .map_err(Error::Database)?
+                        .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
+                    let status: String = r.try_get("", "status").map_err(Error::Database)?;
+                    if status != "received" {
+                        return Err(Error::conflict(format!(
+                            "only a referral that has just been received can be triaged; this one is {status}"
+                        )));
+                    }
+                    let person: Uuid = r.try_get("", "person_id").map_err(Error::Database)?;
+                    let from: String = r.try_get("", "target_service").map_err(Error::Database)?;
+                    let reason: Option<String> = r.try_get("", "reason").map_err(Error::Database)?;
+                    if to.as_deref() == Some(from.as_str()) {
+                        return Err(Error::validation(
+                            "a redirect goes to a different service from the one it was sent to",
+                        ));
+                    }
+                    if let Some(service) = &to {
+                        txn.execute_raw(Statement::from_sql_and_values(
+                            DbBackend::Postgres,
+                            "INSERT INTO referrals (id, person_id, target_service, reason, received_at, created_at, source, status) \
+                             VALUES ($1,$2,$3,$4,now(),now(),'internal','received')",
+                            [new_id.into(), person.into(), service.clone().into(), reason.into()],
+                        ))
+                        .await
+                        .map_err(Error::Database)?;
+                    }
+                    txn.execute_raw(Statement::from_sql_and_values(
+                        DbBackend::Postgres,
+                        "UPDATE referrals SET status = $2, triaged_by = $3, triaged_at = now(), \
+                                redirected_to_service = $4, redirected_referral_id = $5, updated_at = now() \
+                         WHERE id = $1",
+                        [
+                            id.into(),
+                            outcome.clone().into(),
+                            by.clone().into(),
+                            to.clone().into(),
+                            to.as_ref().map(|_| new_id).into(),
+                        ],
+                    ))
+                    .await
+                    .map_err(Error::Database)?;
+                    AuditLogRepository::log_with(
+                        txn,
+                        "referral",
+                        id,
+                        "triaged",
+                        Some(serde_json::json!({ "status": status })),
+                        Some(serde_json::json!({
+                            "status": outcome,
+                            "triaged_by": by,
+                            "redirected_to_service": to,
+                            "redirected_referral_id": to.as_ref().map(|_| new_id),
+                        })),
+                        Some(&outcome),
+                        None,
+                        &ctx,
+                    )
+                    .await?;
+                    Ok(())
+                })
+            })
+            .await
+            .map_err(Error::from)?;
         self.get(id).await
     }
 }

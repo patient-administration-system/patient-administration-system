@@ -43,6 +43,7 @@ mod m20260630_000037_inbound_rebook_choice;
 mod m20260630_000038_video_failed;
 mod m20260701_000039_tolerances;
 mod m20260701_000040_tolerance_scopes_and_alerts;
+mod m20260702_000041_referral_triage;
 
 pub struct Migrator;
 
@@ -90,6 +91,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260630_000038_video_failed::Migration),
             Box::new(m20260701_000039_tolerances::Migration),
             Box::new(m20260701_000040_tolerance_scopes_and_alerts::Migration),
+            Box::new(m20260702_000041_referral_triage::Migration),
         ]
     }
 }
