@@ -33,7 +33,7 @@ sea-orm = { version = "1.1", features = ["sqlx-postgres", "runtime-tokio-rustls"
 
 # Reuse the PAS migrations crate so `patient-administration-system-frontend` and the PAS Axum
 # binary apply identical schemas via `loco-cli db migrate`.
-migration = { path = "../patient-administration-system-with-rust/migrations", version = "0.1.0", package = "patient-administration-system-migrations" }
+migration = { path = "../patient-administration-system-with-rust/migrations", version = "0.2.0", package = "patient-administration-system-migrations" }
 
 # Serialization.
 serde = { version = "1.0", features = ["derive"] }

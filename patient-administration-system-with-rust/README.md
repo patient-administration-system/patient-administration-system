@@ -632,7 +632,7 @@ cargo fmt --check --all                                   # formatting clean
 
 ## Status
 
-**Version:** v0.47.0 — library + `patient-administration-system` binary + `pas-seed` binary + `pas-migrate` binary. See [`CHANGELOG.md`](CHANGELOG.md) for the per-release summary.
+**Version:** v0.48.0 — library + `patient-administration-system` binary + `pas-seed` binary + `pas-migrate` binary. See [`CHANGELOG.md`](CHANGELOG.md) for the per-release summary.
 
 **Implemented:**
 

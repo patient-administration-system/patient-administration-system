@@ -9,6 +9,10 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
+## Release 0.48.0 (2026-10-21)
+
+Server crate 0.48.0 and `patient-administration-system-migrations` 0.2.0 (migrations 39 and 40: the published 0.1.0 stopped at 38). Tag `v0.48.0`.
+
 - **New, tolerances per service or ward, and alerts:** a tolerance can be set for one service or one ward; a measure that turns red opens one alert (event `ToleranceAlertRaised`) that closes when it recovers, and a named person can acknowledge it (TOL-1; `tasks.md`).
 - **New, tolerances:** how much time, money and resources may vary from target, in red, amber and green, with a staff page `/tolerances` (TOL-1; `tasks.md`).
 

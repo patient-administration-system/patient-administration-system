@@ -5,6 +5,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.48.0] — 2026-10-21
+
+The migrations crate is now 0.2.0: 0.1.0 on crates.io stops at migration 38, so 0.47.0 from crates.io lacks the tolerance tables.
+
 ### Added
 - Tolerances per service or ward (migration 40): `service` or `ward` on `PUT`/`DELETE /api/tolerances/{metric}`; a scope's own limits win, then the whole service's, then the default. `GET /api/tolerances/status` adds `by_service` and `by_ward`.
 - Tolerance alerts: a measure that turns red opens one alert (`tolerance_alerts`, event `ToleranceAlertRaised`) that closes when it is no longer red. `POST /api/tolerances/evaluate`, `GET /api/tolerance-alerts`, `POST /api/tolerance-alerts/{id}/acknowledge`; a timer checks every `PAS_TOLERANCE_CHECK_MINUTES` (default 60, 0 turns it off).
