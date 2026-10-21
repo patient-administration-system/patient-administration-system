@@ -20,3 +20,4 @@
 
 `ui/` abbreviates `patient-administration-system-ui-with-svelte/`.
 | NFR-16 | When per-user authentication is on, the audit user id MUST be the verified token subject; a client-supplied `X-User-Id` MUST be discarded, and `X-On-Behalf-Of` MUST be honoured only from an authenticated service. | `tests/user_auth_test.rs`, `tests/token_issuer_test.rs`, `ui/tests/unit/acting-as.test.ts`, `ui/tests/e2e/sign-in.spec.ts` |
+| NFR-17 | The REST API MUST be versioned with an `Accept-Version` request header on the one `/api` path, and MUST NOT put a version in the path (no `/api/v1`, `/api/v2`). A request without the header MUST get the current version; an unsupported version MUST be refused with 406. | Not built: today there is one unversioned `/api`, so nothing breaks; the header is read once a second version exists |
