@@ -29,7 +29,16 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for ddl in [
+            "DROP INDEX IF EXISTS idx_audit_log_entity",
+            "DROP INDEX IF EXISTS idx_generated_letters_person",
+            "ALTER TABLE generated_letters DROP COLUMN IF EXISTS trigger_ref, DROP COLUMN IF EXISTS trigger",
+            "ALTER TABLE audit_log DROP COLUMN IF EXISTS context, DROP COLUMN IF EXISTS reason_code",
+        ] {
+            db.execute_unprepared(ddl).await?;
+        }
         Ok(())
     }
 }

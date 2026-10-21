@@ -27,7 +27,15 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for ddl in [
+            "DROP INDEX IF EXISTS idx_appointments_in_facility",
+            "ALTER TABLE appointments DROP CONSTRAINT IF EXISTS appointments_current_room_chk",
+            "ALTER TABLE appointments DROP COLUMN IF EXISTS current_room, DROP COLUMN IF EXISTS completed_at, DROP COLUMN IF EXISTS arrived_at",
+        ] {
+            db.execute_unprepared(ddl).await?;
+        }
         Ok(())
     }
 }

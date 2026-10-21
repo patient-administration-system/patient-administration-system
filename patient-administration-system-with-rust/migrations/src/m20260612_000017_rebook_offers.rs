@@ -34,10 +34,17 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .get_connection()
-            .execute_unprepared("DROP TABLE IF EXISTS rebook_offers")
-            .await?;
+        // Restoring a narrower CHECK fails, and the down stops, while a row still uses a newer value:
+        // a down never deletes or rewrites data to make room.
+        let db = manager.get_connection();
+        for ddl in [
+            "DROP TABLE IF EXISTS rebook_offers",
+            "ALTER TABLE reply_tokens DROP CONSTRAINT IF EXISTS reply_tokens_consumed_action_check",
+            "ALTER TABLE reply_tokens ADD CONSTRAINT reply_tokens_consumed_action_check \
+               CHECK (consumed_action IS NULL OR consumed_action IN ('confirm','cancel','reschedule'))",
+        ] {
+            db.execute_unprepared(ddl).await?;
+        }
         Ok(())
     }
 }

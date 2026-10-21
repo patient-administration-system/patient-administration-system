@@ -45,10 +45,21 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .get_connection()
-            .execute_unprepared("DROP TABLE IF EXISTS virtual_ok_services")
-            .await?;
+        // Restoring a narrower CHECK fails, and the down stops, while a row still uses a newer value:
+        // a down never deletes or rewrites data to make room.
+        let db = manager.get_connection();
+        for ddl in [
+            "DROP TABLE IF EXISTS virtual_ok_services",
+            "ALTER TABLE inbound_replies DROP CONSTRAINT IF EXISTS inbound_replies_action_check",
+            "ALTER TABLE inbound_replies ADD CONSTRAINT inbound_replies_action_check CHECK (action IN ('confirm','cancel','rebook'))",
+            "ALTER TABLE inbound_replies DROP COLUMN IF EXISTS modality",
+            "ALTER TABLE appointments DROP CONSTRAINT IF EXISTS appointments_conversion_barrier_chk, \
+               DROP CONSTRAINT IF EXISTS appointments_conversion_state_chk, DROP CONSTRAINT IF EXISTS appointments_modality_chk",
+            "ALTER TABLE appointments DROP COLUMN IF EXISTS converted_at, DROP COLUMN IF EXISTS conversion_barrier_code, \
+               DROP COLUMN IF EXISTS conversion_state, DROP COLUMN IF EXISTS modality",
+        ] {
+            db.execute_unprepared(ddl).await?;
+        }
         Ok(())
     }
 }

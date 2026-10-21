@@ -22,7 +22,16 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // Fails while a profile still records `letter_only`: a down never rewrites data.
+        let db = manager.get_connection();
+        for ddl in [
+            "ALTER TABLE patient_communication_profiles DROP CONSTRAINT IF EXISTS patient_communication_profiles_accessibility_needs_check",
+            "ALTER TABLE patient_communication_profiles ADD CONSTRAINT patient_communication_profiles_accessibility_needs_check \
+               CHECK (accessibility_needs <@ ARRAY['easy_read','large_print','audio','british_sign_language'])",
+        ] {
+            db.execute_unprepared(ddl).await?;
+        }
         Ok(())
     }
 }

@@ -34,10 +34,15 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // Restoring a narrower CHECK fails, and the down stops, while a row still uses a newer value:
+        // a down never deletes or rewrites data to make room.
         let db = manager.get_connection();
-        for t in ["print_batch_letters", "print_batches"] {
-            db.execute_unprepared(&format!("DROP TABLE IF EXISTS {t}"))
-                .await?;
+        for ddl in [
+            "DROP INDEX IF EXISTS idx_generated_letters_print_pending",
+            "DROP TABLE IF EXISTS print_batch_letters",
+            "DROP TABLE IF EXISTS print_batches",
+        ] {
+            db.execute_unprepared(ddl).await?;
         }
         Ok(())
     }
