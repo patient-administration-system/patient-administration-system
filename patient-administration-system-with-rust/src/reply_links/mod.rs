@@ -22,7 +22,6 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::db::repositories::appointment::AppointmentRepository;
@@ -110,17 +109,8 @@ pub struct ReplyLinks {
     help_line: Option<String>,
 }
 
-/// A fresh token: two random UUIDs, 244 bits.
-fn new_token() -> String {
-    format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple())
-}
-
-pub fn hash(token: &str) -> String {
-    Sha256::digest(token.as_bytes())
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect()
-}
+pub use crate::link_token::hash;
+use crate::link_token::new_token;
 
 /// Mint a link token for an appointment. The plaintext is returned once, for the message; only its hash
 /// is stored.

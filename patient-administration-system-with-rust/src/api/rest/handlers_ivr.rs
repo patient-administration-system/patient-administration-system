@@ -56,7 +56,7 @@ pub async fn press(
     let uc = user_context_from_headers(&headers);
     // The audit trail names the call's link, not a person: nobody has signed in.
     let ctx = RepoUserContext {
-        user_id: Some(format!("ivr:{}", &crate::reply_links::hash(&b.token)[..12])),
+        user_id: Some(format!("ivr:{}", crate::link_token::audit_tag(&b.token))),
         user_ip: uc.user_ip,
         user_agent: uc.user_agent,
     };

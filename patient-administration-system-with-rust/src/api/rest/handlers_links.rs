@@ -60,7 +60,7 @@ pub async fn post_link_action(
     let ctx = RepoUserContext {
         user_id: Some(format!(
             "reply-link:{}",
-            &crate::reply_links::hash(&token)[..12]
+            crate::link_token::audit_tag(&token)
         )),
         user_ip: uc.user_ip,
         user_agent: uc.user_agent,
@@ -92,7 +92,7 @@ pub async fn post_link_rebook(
     let ctx = RepoUserContext {
         user_id: Some(format!(
             "reply-link:{}",
-            &crate::reply_links::hash(&token)[..12]
+            crate::link_token::audit_tag(&token)
         )),
         user_ip: uc.user_ip,
         user_agent: uc.user_agent,

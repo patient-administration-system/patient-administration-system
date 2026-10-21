@@ -21,7 +21,6 @@ use std::sync::Arc;
 use chrono::{DateTime, Duration, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::communication::CommunicationService;
@@ -47,16 +46,8 @@ pub fn enabled() -> bool {
     std::env::var("PAS_BACKFILL_OFFERS").as_deref() == Ok("true")
 }
 
-fn new_token() -> String {
-    format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple())
-}
-
-pub fn hash(token: &str) -> String {
-    Sha256::digest(token.as_bytes())
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect()
-}
+pub use crate::link_token::hash;
+use crate::link_token::new_token;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Offer {

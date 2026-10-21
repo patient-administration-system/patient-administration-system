@@ -40,6 +40,7 @@ pub mod hl7v2;
 pub mod identity;
 pub mod inbound;
 pub mod ivr;
+pub mod link_token;
 pub mod models;
 pub mod noshow;
 pub mod observability;

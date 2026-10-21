@@ -41,7 +41,7 @@ pub async fn post_offer_action(
     let ctx = RepoUserContext {
         user_id: Some(format!(
             "offer-link:{}",
-            &crate::backfill::hash(&token)[..12]
+            crate::link_token::audit_tag(&token)
         )),
         user_ip: uc.user_ip,
         user_agent: uc.user_agent,
