@@ -17,5 +17,5 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | Non-functional requirements | 17 |
 | Requirements marked not yet tested or not yet built | 11 |
 | Tasks done | 84 |
-| Tasks open | 5 |
+| Tasks open | 44 |
 <!-- status:end -->
