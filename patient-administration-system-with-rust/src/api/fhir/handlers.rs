@@ -1,20 +1,16 @@
 //! FHIR R5 HTTP handlers.
 //!
-//! Phase 3a wires real proxy bodies for `/fhir/Patient/*` and
-//! `/fhir/Practitioner/*` against `person-service` / `worker-service`.
-//! Every other FHIR route (Encounter, Appointment, Coverage, Schedule,
-//! Slot, Location, Bed, Bundle write) is still stubbed `503 + transient`
-//! pending Phase 3b restoration against the renamed `person_id` /
-//! `worker_id` columns.
+//! `/fhir/Patient/*` and `/fhir/Practitioner/*` proxy `person-service` / `worker-service` and forward their
+//! shape verbatim. Encounter, Appointment, Coverage, Schedule, Slot and Location are read from the PAS-owned
+//! tables and wrapped as FHIR; Schedule and Slot can also be written. `POST /fhir/Encounter` and
+//! `POST /fhir/Appointment` are intentionally not exposed (`503` with a `not-supported` OperationOutcome that
+//! names the REST endpoint to use). `POST /fhir` accepts a write Bundle.
 //!
 //! ## Wire shape
 //!
-//! Patient + Practitioner proxies forward the upstream's FHIR Person /
-//! Worker shape verbatim. The PAS does not re-translate to the v0.43.0
-//! local `FhirPatient` / `FhirPractitioner` types (those are deleted in
-//! Phase 2). Callers that need FHIR R5 Person semantics should hit
-//! `person-service` directly; the PAS surface here is a
-//! compatibility shim.
+//! Patient and Practitioner forward the upstream's Person / Worker shape unchanged; the PAS does not
+//! re-translate it. Callers that need FHIR R5 Person semantics should use `person-service` directly; this
+//! surface is a compatibility shim.
 
 use axum::{
     Json,
@@ -318,14 +314,13 @@ pub async fn delete_practitioner(
     Ok(StatusCode::NO_CONTENT)
 }
 
-// ─── PAS-owned FHIR reads (Phase 3b3) ───────────────────────────────────
+// ─── PAS-owned FHIR reads ───────────────────────────────────────────────
 //
 // These return JSON wrapped in a minimal FHIR-shaped envelope. They
-// don't re-implement the v0.43.0 typed FhirEncounter / FhirAppointment /
-// FhirCoverage shapes — those translation layers were deleted in Phase
-// 2 and would be heavy to restore. The wire shape is the underlying PAS
-// row JSON with a `resourceType` field bolted on so basic FHIR client
-// type-routing works. Phase 3e can add a real translator if needed.
+// don't translate to typed FhirEncounter / FhirAppointment / FhirCoverage
+// shapes. The wire shape is the underlying PAS row JSON with a
+// `resourceType` field added so basic FHIR client type-routing works.
+// A real translator (and the R4 form Wales uses) is NEW-1 in `tasks.md`.
 
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::bed::BedRepository;
@@ -482,7 +477,7 @@ pub async fn get_location(State(state): State<AppState>, Path(id): Path<Uuid>) -
     }
 }
 
-// ─── Phase 3e write surface ─────────────────────────────────────────────
+// ─── Write surface ──────────────────────────────────────────────────────
 //
 // FHIR Schedule + Slot create/update/delete persist directly against the
 // PAS-owned `schedules` / `slots` tables. Bundle POST validates entries
@@ -858,7 +853,7 @@ pub async fn delete_slot(
 
 // ── Bundle POST with Decision #4 enforcement ─────────────────────────────
 
-/// Phase 3e Bundle handler. Walks `entry[*].resource.resourceType` and
+/// Bundle handler. Walks `entry[*].resource.resourceType` and
 /// enforces Decision #4: any entry of type `Patient` or `Practitioner`
 /// is rejected with `invalid` so callers learn the correct routing
 /// (those resources are owned by person-service / worker-service and

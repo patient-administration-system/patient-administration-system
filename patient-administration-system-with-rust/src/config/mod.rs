@@ -97,12 +97,9 @@ pub struct Config {
     /// `PAS_WEBHOOK_TIMEOUT_SECS`. Ignored when `pas_webhook_url` is
     /// `None`.
     pub pas_webhook_timeout_secs: u64,
-    /// Base URL of the upstream `person-service` (v0.44.0
-    /// Option C identity delegation, Phase 1 wiring). When `None` the
-    /// PAS does not attach a [`crate::upstream::PersonClient`] to
-    /// the AppState; the proxy handlers added in Phase 3 will then
-    /// return `503 + UPSTREAM_UNAVAILABLE` for any identity-bearing
-    /// request. Read from `PERSON_SERVICE_URL`.
+    /// Base URL of the upstream `person-service`. When `None` the PAS does not attach a
+    /// [`crate::upstream::PersonClient`] to the AppState, and the proxy handlers return
+    /// `503 + UPSTREAM_UNAVAILABLE` for any identity-bearing request. Read from `PERSON_SERVICE_URL`.
     pub person_service_url: Option<String>,
     /// Optional bearer token attached as `Authorization: Bearer <token>`
     /// on every outbound call to `person-service`. Read from

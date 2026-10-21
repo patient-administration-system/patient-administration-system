@@ -10,11 +10,9 @@
 //!
 //! ## Wire-shape note
 //!
-//! Phase 3a does **transparent proxy**: the upstream's `Person` /
-//! `Worker` JSON shape is forwarded under the PAS `ApiResponse` envelope
-//! verbatim. The v0.43.0 PAS `Patient` JSON shape is **not** preserved;
-//! callers see whatever `person-service` returns. This is a
-//! deliberate Option C trade-off — see `spec.md` §4.0 wire-shape note.
+//! This is a **transparent proxy**: the upstream's `Person` / `Worker` JSON shape is forwarded under the
+//! PAS `ApiResponse` envelope verbatim. Callers see whatever `person-service` returns. This is a
+//! deliberate trade-off of keeping identity upstream — see `spec.md` §4.0 wire-shape note.
 //!
 //! ## User context
 //!
@@ -306,9 +304,8 @@ pub async fn export_patient(
         Err(e) => return error_to_response(e),
     };
     let ctx = user_context_from_headers(&headers);
-    // Phase 3a returns just the upstream's GDPR export. Phase 3b will
-    // additionally join PAS-owned related rows (encounters, appointments,
-    // billing, consents) keyed by person_id.
+    // Returns just the upstream's GDPR export. It does not yet add the PAS-owned rows for the person
+    // (encounters, appointments, billing, consents).
     match client.export(id, &ctx).await {
         Ok(value) => ok(value),
         Err(e) => error_to_response(e),
@@ -338,9 +335,8 @@ pub async fn audit_patient(
         Err(e) => return error_to_response(e),
     };
     let ctx = user_context_from_headers(&headers);
-    // Phase 3a returns just upstream audit. Phase 3b will merge in
-    // PAS-owned audit_log entries (admit/discharge/charge/letter/etc.)
-    // time-sorted with the upstream entries.
+    // Returns just the upstream's audit. It does not yet merge in the PAS-owned audit_log entries for the
+    // person (admit, discharge, charge, letter, ...).
     match client.audit(id, q.limit, &ctx).await {
         Ok(entries) => ok_json(entries),
         Err(e) => error_to_response(e),
@@ -349,7 +345,7 @@ pub async fn audit_patient(
 
 // ─── /api/patients/export.{json,xml,tsv,csv} + /api/patients/import ────
 //
-// Phase 3d bulk interchange. The PAS no longer owns patient rows, so
+// Bulk interchange. The PAS does not own patient rows, so
 // every bulk export/import becomes a transparent passthrough to
 // `person-service`. We do NOT wrap the body in the PAS `ApiResponse`
 // envelope here — callers feeding the output into their own tooling
@@ -812,8 +808,7 @@ async fn propagate_person_merge(
         Box::pin(async move {
             use crate::db::repositories::audit::AuditLogRepository;
             use sea_orm::ConnectionTrait;
-            // Every table that carries person_id. Phase 3a does a single
-            // bulk UPDATE per table; Phase 3b may optimize / batch.
+            // Every table that carries person_id: one bulk UPDATE per table.
             for table in [
                 "encounters",
                 "appointments",

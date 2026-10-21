@@ -2,7 +2,7 @@
   "components": {
     "schemas": {
       "FhirBundleRequest": {
-        "description": "FHIR Bundle request body — Phase 2 placeholder.",
+        "description": "FHIR Bundle request body.",
         "properties": {
           "entry": {},
           "resourceType": {
@@ -18,7 +18,7 @@
         "type": "object"
       },
       "FhirBundleResponse": {
-        "description": "FHIR Bundle response — Phase 2 placeholder.",
+        "description": "FHIR Bundle response.",
         "properties": {
           "entry": {
             "items": {},
@@ -39,7 +39,7 @@
         "type": "object"
       },
       "FhirBundleWriteEntry": {
-        "description": "Per-entry write outcome — Phase 2 placeholder.",
+        "description": "Per-entry write outcome.",
         "properties": {
           "response": {}
         },
@@ -52,7 +52,7 @@
         "allOf": [
           {}
         ],
-        "description": "Wrapper for incoming write Bundles — Phase 2 placeholder."
+        "description": "Wrapper for incoming write Bundles."
       }
     }
   },
@@ -2009,7 +2009,7 @@
             "description": "Server or upstream error; the `ApiResponse` envelope"
           }
         },
-        "summary": "`GET /api/health` — DB liveness probe. Phase 3 extends to include\n`person_service` + `worker_service` aggregator.",
+        "summary": "`GET /api/health` — database liveness probe.",
         "tags": [
           "Health"
         ]
@@ -6398,7 +6398,7 @@
             "description": "Server or upstream error; an OperationOutcome"
           }
         },
-        "summary": "Phase 3e Bundle handler. Walks `entry[*].resource.resourceType` and\nenforces Decision #4: any entry of type `Patient` or `Practitioner`\nis rejected with `invalid` so callers learn the correct routing\n(those resources are owned by person-service / worker-service and\nmust be posted directly there, never proxied through a PAS Bundle).\nOther entries return `not-supported` for now — typed FHIR creators\nfor non-Patient/Practitioner resources are wired one-at-a-time.",
+        "summary": "Bundle handler. Walks `entry[*].resource.resourceType` and\nenforces Decision #4: any entry of type `Patient` or `Practitioner`\nis rejected with `invalid` so callers learn the correct routing\n(those resources are owned by person-service / worker-service and\nmust be posted directly there, never proxied through a PAS Bundle).\nOther entries return `not-supported` for now — typed FHIR creators\nfor non-Patient/Practitioner resources are wired one-at-a-time.",
         "tags": [
           "FHIR"
         ]

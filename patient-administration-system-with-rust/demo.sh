@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # demo.sh — end-to-end smoke test of the PAS REST API.
 #
-# Assumes the server is reachable at http://localhost:8080 with seed data
-# already loaded (pas-seed). Walks through the headline ADT + scheduling
+# Assumes the server is reachable at http://localhost:8080 with demo data
+# already loaded. (pas-seed, which was meant to load it, is not implemented:
+# QUAL-36 in tasks.md.) Walks through the headline ADT + scheduling
 # flows and prints each response.
 
 set -euo pipefail

@@ -46,11 +46,8 @@ pub use escape::{escape_value, unescape_value};
 pub use listener::MllpServer;
 pub use parser::parse_message;
 
-// NOTE: `mapping` module deleted in v0.44.0 Option C. Every PID/STF/MFE
-// shape conversion now happens inside the proxy handlers in Phase 3,
-// which translate between the upstream `Person` / `Worker` JSON and the
-// HL7 v2 wire format directly. ADT/SIU/DFT/MFN encoders are rebuilt as
-// proxy-handler-local helpers in Phase 3.
+// NOTE: there is no general `mapping` module. PID/STF/MFE shape conversion happens in `pid_translation` and
+// in the handlers, which translate between the upstream `Person` / `Worker` JSON and the HL7 v2 wire format.
 
 /// The message model is the `er7` crate's.
 pub use er7::{Message, Segment, Separators};

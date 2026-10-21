@@ -46,18 +46,17 @@ cp .env.example .env
 # 1. Start Postgres
 podman compose up -d postgres
 
-# 2. Apply migrations + load demo data
+# 2. Apply migrations (demo data: `pas-seed` is not implemented yet, see QUAL-36 in tasks.md)
 (cd migrations && cargo run --bin pas-migrate -- up)
-cargo run --bin pas-seed
 
 # 3. Run the API server (in another terminal)
 cargo run --release
 
-# 4. Walk the headline flows
+# 4. Walk the headline flows (needs demo data that nothing loads yet: see the note below)
 ./demo.sh
 ```
 
-Server defaults to `http://localhost:8080`. With `pas-seed` loaded, the database contains 1 facility, 1 ward, 1 room, 3 beds (`Available`), 2 practitioners, 1 patient (Jane Doe), and 1 letter template — everything `demo.sh` needs.
+Server defaults to `http://localhost:8080`. `demo.sh` expects 1 facility, 1 ward, 1 room, 3 beds, 2 practitioners, 1 patient and 1 letter template to exist; `pas-seed` was meant to create them but is not implemented (it exits 1), so create them through the API and the two identity services until QUAL-36 is done.
 
 `pas-migrate` lives in the nested `migrations/` crate; subcommands are `up`, `down`, `fresh`, `status`.
 

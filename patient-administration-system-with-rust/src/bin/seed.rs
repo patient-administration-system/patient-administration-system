@@ -1,19 +1,17 @@
-//! `pas-seed` — **stubbed in v0.44.0 Phase 2**.
+//! `pas-seed`: **not implemented**. It prints that and exits with status 1, so a script that expects demo data
+//! stops instead of carrying on with an empty database.
 //!
-//! The v0.43.0 seed bin populated `patients` / `practitioners` rows
-//! directly. Those tables are gone in v0.44.0 Option C. Phase 3
-//! restores a version of this bin that provisions person + worker
-//! rows in the upstream services via `PersonClient::create` /
-//! `WorkerClient::create`, then writes the dependent PAS rows
-//! (facility / ward / room / bed / letter template) referencing the
-//! returned UUIDs.
+//! The PAS no longer holds patient or practitioner rows (identity lives in `person-service` and
+//! `worker-service`). A real seed has to create people and workers there through `PersonClient::create` and
+//! `WorkerClient::create`, then write the PAS-owned rows (facility, ward, room, bed, letter template) that
+//! refer to the returned ids. See QUAL-36 in `tasks.md`.
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 #![cfg_attr(not(test), forbid(unsafe_code))]
 fn main() {
     eprintln!(
-        "pas-seed is stubbed during v0.44.0 Phase 2. Phase 3 reintroduces \
-         a version that provisions person + worker rows in person-service \
-         and worker-service before writing the PAS-owned dependent rows."
+        "pas-seed is not implemented: it would have to create people and workers in person-service and \
+         worker-service and then write the PAS-owned rows that refer to them (QUAL-36 in tasks.md). \
+         Nothing was loaded."
     );
-    std::process::exit(0);
+    std::process::exit(1);
 }

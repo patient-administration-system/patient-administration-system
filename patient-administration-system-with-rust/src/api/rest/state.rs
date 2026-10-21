@@ -59,13 +59,10 @@ pub struct AppState {
     pub resources: Arc<ResourcesService>,
     pub billing: Arc<BillingService>,
     pub communication: Arc<CommunicationService>,
-    /// HTTP client to `person-service`. `None` when the service is
-    /// not configured (Phase 1 keeps this optional so existing tests don't
-    /// need wiring changes; Phase 5 will make it required at startup).
-    /// See [`crate::upstream`] and `spec.md` §13 Layer 11.
+    /// HTTP client to `person-service`. `None` when the service is not configured (the identity proxy
+    /// handlers then answer 503). See [`crate::upstream`] and `spec.md` §13 Layer 11.
     pub person_client: Option<Arc<dyn PersonClient>>,
-    /// HTTP client to `worker-service`. Same Phase 1 / Phase 5 caveat
-    /// as `person_client`.
+    /// HTTP client to `worker-service`. `None` when not configured, as for `person_client`.
     pub worker_client: Option<Arc<dyn WorkerClient>>,
     /// What time it is for the background jobs and the services that decide by the time (QUAL-25).
     pub clock: crate::clock::SharedClock,
@@ -163,14 +160,11 @@ impl AppState {
         }
     }
 
-    /// Attach a [`PersonClient`] for the v0.44.0 identity proxy
-    /// surface. Phase 1 builds and attaches it from `main.rs` when
-    /// `PERSON_SERVICE_URL` is set; tests can attach a
-    /// [`crate::upstream::StubPersonClient`].
+    /// Attach a [`PersonClient`] for the identity proxy surface. `main.rs` builds and attaches it when
+    /// `PERSON_SERVICE_URL` is set; tests can attach a [`crate::upstream::StubPersonClient`].
     ///
-    /// Phase 3b3: the client is also threaded into [`CommunicationService`]
-    /// so `generate_letter` can fetch the upstream person snapshot to
-    /// bind as the Tera `patient` context variable.
+    /// The client is also given to [`CommunicationService`] so `generate_letter` can fetch the upstream
+    /// person snapshot to bind as the Tera `patient` context variable.
     pub fn with_person_client(mut self, client: Arc<dyn PersonClient>) -> Self {
         // Rebuild communication with the new person client so the renderer
         // can reach upstream. Carrying over the existing SMS provider keeps
@@ -221,9 +215,8 @@ impl AppState {
         self
     }
 
-    /// Attach a [`WorkerClient`] for the v0.44.0 workforce proxy
-    /// surface. Same Phase 1 caveat as
-    /// [`Self::with_person_client`].
+    /// Attach a [`WorkerClient`] for the workforce proxy surface, as
+    /// [`Self::with_person_client`] does for people.
     pub fn with_worker_client(mut self, client: Arc<dyn WorkerClient>) -> Self {
         self.worker_client = Some(client);
         self

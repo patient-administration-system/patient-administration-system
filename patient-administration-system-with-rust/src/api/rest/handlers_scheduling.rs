@@ -1,9 +1,5 @@
-//! REST handlers for the scheduling surface.
-//!
-//! Phase 3b1 restores slot booking + the appointment lifecycle on top of
-//! the existing [`crate::scheduling::SchedulingService`]. Bulk slot
-//! generation, appointment series, and the `mark_no_show` path land in
-//! Phase 3b2.
+//! REST handlers for the scheduling surface: slot booking and the appointment lifecycle on top of
+//! [`crate::scheduling::SchedulingService`]. Appointment series are in `handlers_series`.
 
 use axum::{
     Json,

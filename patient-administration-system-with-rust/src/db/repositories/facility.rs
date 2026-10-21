@@ -1,10 +1,5 @@
-//! Facility / Ward / Room repository.
-//!
-//! Restored in v0.44.0 Phase 3b3 to support REST `POST /api/facilities`,
-//! `POST /api/wards`, `POST /api/rooms` plus per-id GETs and list-by-parent
-//! reads. v0.43.0 had this CRUD inline in `handlers.rs`; that file was
-//! deleted in Phase 2, so the path is replumbed through a dedicated
-//! repository now.
+//! Facility / Ward / Room repository: the CRUD behind `POST /api/facilities`, `POST /api/wards` and
+//! `POST /api/rooms`, the per-id GETs and the list-by-parent reads.
 
 use sea_orm::*;
 use uuid::Uuid;

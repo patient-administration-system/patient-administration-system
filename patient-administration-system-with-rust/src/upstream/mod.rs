@@ -1,9 +1,5 @@
-//! Upstream HTTP clients for `person-service` and `worker-service`.
-//!
-//! Phase 1 of the v0.44.0 Option C identity delegation. Adds **additive**
-//! HTTP client traits + reqwest impls + in-memory stub impls for tests.
-//! No existing handler calls into this module yet — Phase 3 rewrites the
-//! Patient and Practitioner handlers to proxy through these clients.
+//! Upstream HTTP clients for `person-service` and `worker-service`: HTTP client traits, the reqwest
+//! implementations, and in-memory stubs for tests. The patient and practitioner handlers proxy through them.
 //!
 //! Design rules baked in here (per `spec.md` §13 Layer 11A):
 //!
@@ -24,8 +20,7 @@
 //!   error, non-translatable non-2xx) is [`crate::Error::Upstream`].
 //! - **Stubs for tests.** [`StubPersonClient`] and
 //!   [`StubWorkerClient`] are pure in-memory `HashMap` implementations
-//!   that satisfy the trait without any HTTP at all. Integration tests in
-//!   later phases can install them via `AppState`.
+//!   that satisfy the trait without any HTTP at all. Integration tests install them via `AppState`.
 
 pub mod person_client;
 pub mod worker_client;

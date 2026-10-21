@@ -1,9 +1,4 @@
-//! FHIR R5 router.
-//!
-//! Phase 2 stub: every route is wired to a handler that returns
-//! `503 + transient OperationOutcome`. Phase 3 replaces the handler
-//! bodies (in `handlers.rs`) with real proxy / direct-read
-//! implementations — the route table itself is stable.
+//! FHIR R5 router: the route table for the handlers in `handlers.rs`.
 
 use axum::{
     Router,

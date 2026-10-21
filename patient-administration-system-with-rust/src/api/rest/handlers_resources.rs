@@ -1,11 +1,6 @@
-//! REST handlers for the resources (ward / bed) surface.
-//!
-//! Phase 3b1 restores the read + status-change endpoints that the
-//! existing [`crate::resources::ResourcesService`] already provides
-//! plus a bed listing helper. Facility / ward / room creation is
-//! intentionally deferred to Phase 3b2 — it needs FacilityRepository
-//! scaffolding that wasn't in the v0.43.0 split (creation lived
-//! inline in handlers.rs and was deleted in Phase 2).
+//! REST handlers for the resources surface: ward and bed reads, bed status changes and a bed listing on top
+//! of [`crate::resources::ResourcesService`], and facility, ward and room creation and reads on top of the
+//! facility repositories.
 
 use axum::{
     Json,

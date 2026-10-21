@@ -1,4 +1,4 @@
-//! HL7 v2 MLLP outbound publisher (v0.44.0 Phase 3c4).
+//! HL7 v2 MLLP outbound publisher.
 //!
 //! Subscribes to the transactional outbox via [`EventPublisher`]; when the
 //! dispatcher hands an event in, this publisher:

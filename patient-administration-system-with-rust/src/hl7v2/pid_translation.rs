@@ -1,17 +1,14 @@
 //! PID ↔ upstream `Person` translation.
 //!
-//! v0.43.0 had this conversion in the deleted `mapping.rs` (3068 lines)
-//! talking to a local `Patient` model. Phase 3c reintroduces a minimal
-//! PID → [`PersonCreate`] mapping that produces the upstream's JSON
-//! shape directly — the PAS no longer holds a Patient type.
+//! A minimal PID → [`PersonCreate`] mapping that produces the upstream's JSON shape directly; the PAS holds
+//! no Patient type.
 //!
 //! ## PID fields honored
 //!
 //! - **PID-3** (Patient Identifier List, repeating): split on `~`. The
 //!   first identifier becomes the upstream's MRN; additional identifiers
-//!   are dropped on the floor at this minimum surface (Phase 3c2 will
-//!   widen to handle the full repeating list incl. NHS / NIR / TSI /
-//!   IHI / HCN system URIs).
+//!   are not mapped (only the first repetition is read; the NHS number and
+//!   other system URIs are not distinguished).
 //! - **PID-5** (Patient Name): `family^given^middle^suffix^prefix`.
 //! - **PID-7** (Date of Birth): `YYYYMMDD` → `birth_date` (ISO 8601).
 //! - **PID-8** (Sex): `M`/`F`/`O`/`U` → `male` / `female` / `other` /
@@ -24,7 +21,7 @@
 //! Everything else (PID-2 external id, PID-6 mother maiden name, PID-9
 //! patient alias, PID-10 race, PID-14 business phone, PID-16 marital
 //! status, PID-22 ethnicity, PID-29 / PID-30 death info) is dropped at
-//! this surface; Phase 3c2 can extend as use cases arise.
+//! this surface.
 
 use serde_json::{Map, Value, json};
 

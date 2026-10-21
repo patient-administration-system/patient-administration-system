@@ -1,13 +1,7 @@
 //! privacy
 //!
-//! Data masking helpers. The patient-specific `mask_patient` +
-//! `export_patient` surface that lived here through v0.43.0 is removed
-//! in v0.44.0 Phase 2 because identity moved to `person-service`
-//! (which owns masking + export via its own `/api/persons/{id}/masked`
-//! and `/api/persons/{id}/export` endpoints). Phase 3 reintroduces a
-//! thin `export_patient_combined` helper that joins the upstream's
-//! GDPR export with PAS-owned related rows (encounters, appointments,
-//! billing, consents).
+//! Data masking helpers. Identity lives in `person-service`, which owns masking and export for people
+//! (`/api/persons/{id}/masked` and `/api/persons/{id}/export`); the PAS keeps no patient rows to mask.
 //!
 //! [`mask_value`] and [`mask_contact_point`] survive — they're generic
 //! string helpers used by code that still touches free-form telecom

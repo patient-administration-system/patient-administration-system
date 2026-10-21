@@ -1,14 +1,5 @@
-//! REST handlers for the ADT (admission / discharge / transfer) surface.
-//!
-//! Phase 3b1 restores `POST /api/admissions`, `POST /api/admissions/:id/transfer`,
-//! and `POST /api/admissions/:id/discharge` on top of the existing
-//! [`crate::adt::AdtService`]. Cancel-admit / cancel-transfer /
-//! cancel-discharge / pre-admit / cancel-pre-admit / leave-start /
-//! leave-end / change-to-inpatient / change-to-outpatient land in Phase
-//! 3b2 — they follow the same shape.
-//!
-//! Identity references on the wire are `person_id` (was `patient_id` at
-//! v0.43.0). The bed remains a PAS-owned UUID — no upstream call.
+//! REST handlers for the ADT (admission / discharge / transfer) surface: `POST /api/admissions` and its
+//! transfer, discharge and cancel variants on top of [`crate::adt::AdtService`].
 
 use axum::{
     Json,

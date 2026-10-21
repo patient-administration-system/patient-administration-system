@@ -16,8 +16,7 @@ use crate::{Error, Result};
 
 /// One `Person` row as returned by the upstream. The id is typed; every
 /// other field rides in `data` as raw JSON so the upstream wire shape can
-/// evolve without breaking PAS compile. Typed accessors land in Phase 3
-/// when the proxy handlers actually read fields.
+/// evolve without breaking PAS compile.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Person {
     pub id: Uuid,

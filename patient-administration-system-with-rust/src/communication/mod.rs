@@ -1,7 +1,6 @@
 //! communication — Letter template rendering, persistence, and SMS dispatch.
 //!
-//! v0.44.0 Phase 3b3 — restores `generate_letter` over the upstream
-//! `PersonClient`. The renderer:
+//! `generate_letter` renders over the upstream `PersonClient`. The renderer:
 //!
 //! 1. Fetches the upstream `Person` (the demographic snapshot) via
 //!    [`PersonClient::get`] using the inbound caller's
@@ -50,9 +49,8 @@ pub struct CommunicationService {
     sms_provider: Arc<dyn SmsProvider>,
     senders: HashMap<DeliveryChannel, Arc<dyn MessageSender>>,
     portal_base_url: Option<String>,
-    /// Upstream identity client. `None` keeps the v0.44.0 Phase 2 stub
-    /// behavior (every `generate_letter` returns `Error::Upstream`); the
-    /// real renderer needs the upstream client to fetch demographic JSON.
+    /// Upstream identity client. `None` makes every `generate_letter` return `Error::Upstream`; the
+    /// renderer needs the upstream client to fetch demographic JSON.
     /// `main.rs` injects the client at startup.
     person_client: Option<Arc<dyn PersonClient>>,
 }

@@ -1,6 +1,7 @@
-//! HL7 v2 inbound handlers — Phase 3c minimum viable PID-bearing surface.
+//! HL7 v2 inbound handlers: the PID-bearing core below, then the other ADT variants, DFT, SIU and MFN
+//! (see the route table).
 //!
-//! Five endpoints land here:
+//! The first five endpoints are:
 //! - `POST /api/hl7/v2/parse` — passive parse → JSON echo (no
 //!   side-effects, helpful for client debugging).
 //! - `POST /api/hl7/v2/patient` — ADT^A28 add-person. PID is parsed,
@@ -22,8 +23,7 @@
 //! - **AE** on application-level errors (no PID, unknown bed, etc.).
 //! - **AR** on parser failure or malformed wire payload.
 //!
-//! The remaining 14 ADT variants + DFT^P03 + SIU^S12/S13/S14/S15 +
-//! MFN^M02/M05 land in Phase 3c2 — they all follow the same
+//! The other ADT variants, DFT^P03, SIU^S12 to S15 and MFN^M02/M05 follow the same
 //! parse → resolve-person-upstream → call-PAS-service → ACK shape.
 
 use axum::{
@@ -466,7 +466,7 @@ pub async fn discharge(
     }
 }
 
-// ─── Helpers shared across the Phase 3c2 ADT handlers ──────────────────
+// ─── Helpers shared across the ADT handlers ─────────────────────────────
 
 /// Walk the parse → header → PID → person_id pipeline used by every
 /// PID-driven handler. Returns either a populated context or a fully
