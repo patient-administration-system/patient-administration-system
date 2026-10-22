@@ -47,6 +47,7 @@ mod m20260702_000041_referral_triage;
 mod m20260704_000043_follow_up_targets;
 mod m20260705_000044_needs_review;
 mod m20260706_000045_clinical_priority;
+mod m20260707_000046_interpreters;
 
 pub struct Migrator;
 
@@ -98,6 +99,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260704_000043_follow_up_targets::Migration),
             Box::new(m20260705_000044_needs_review::Migration),
             Box::new(m20260706_000045_clinical_priority::Migration),
+            Box::new(m20260707_000046_interpreters::Migration),
         ]
     }
 }

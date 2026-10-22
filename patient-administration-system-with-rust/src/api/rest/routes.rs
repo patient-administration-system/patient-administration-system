@@ -31,6 +31,7 @@ use super::handlers_followup;
 use super::handlers_history;
 use super::handlers_hl7v2;
 use super::handlers_identity;
+use super::handlers_interpreter;
 use super::handlers_ivr;
 use super::handlers_letters;
 use super::handlers_links;
@@ -77,6 +78,10 @@ pub fn router(state: AppState) -> Router {
 /// Everything under `/api/patients`: the person-service proxy and the PAS's own per-patient records; the merge webhooks.
 fn people() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/patients/{id}/interpreter-need",
+            put(handlers_interpreter::set_need),
+        )
         .route(
             "/api/patients/{id}/communication-needs/review",
             post(handlers_needs_review::record_review),
@@ -305,6 +310,14 @@ fn adt() -> Router<AppState> {
 /// Schedules, slots, appointments, series, rebooking, virtual visits and transport.
 fn scheduling() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/interpreter-requests/{id}/confirm",
+            post(handlers_interpreter::confirm),
+        )
+        .route(
+            "/api/interpreter-requests/unconfirmed",
+            get(handlers_interpreter::unconfirmed),
+        )
         // Scheduling — book / cancel / check-in / complete.
         .route("/api/slots/{id}/book", post(handlers_scheduling::book_slot))
         .route(

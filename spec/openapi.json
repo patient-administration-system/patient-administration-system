@@ -2746,6 +2746,57 @@
         ]
       }
     },
+    "/api/interpreter-requests/unconfirmed": {
+      "get": {
+        "operationId": "unconfirmed",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/interpreter-requests/unconfirmed`: booked appointments starting soon whose interpreter is not\nconfirmed, soonest first; paged (NFR-23).",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/interpreter-requests/{id}/confirm": {
+      "post": {
+        "operationId": "confirm",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/interpreter-requests/{id}/confirm`: a named person confirms the interpreter is booked.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
     "/api/invoices": {
       "post": {
         "operationId": "finalize_invoice",
@@ -4233,6 +4284,37 @@
           }
         },
         "summary": "Export patient",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/api/patients/{id}/interpreter-need": {
+      "put": {
+        "operationId": "set_need",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`PUT /api/patients/{id}/interpreter-need`: what interpreting the patient needs, or none. A named person;\naudited. Every later booking for the patient raises an interpreter request.",
         "tags": [
           "Patients"
         ]

@@ -242,6 +242,8 @@ impl SchedulingService {
         let appt = AppointmentRepository::create(txn, &appt).await?;
         Self::sync_waitlist(txn, &appt, WaitlistStatus::Booked, ctx).await?;
         crate::standby::mark_refilled(txn, slot.id, &appt).await?;
+        // A patient who needs an interpreter gets one requested with every booking (NEW-5).
+        crate::interpreter::on_booked(txn, &appt).await?;
         AuditLogRepository::log(
             txn,
             "appointment",
@@ -299,6 +301,7 @@ impl SchedulingService {
         if let Some(class) = appt.release_class {
             crate::standby::record_release(txn, &appt, class).await?;
         }
+        crate::interpreter::on_cancelled(txn, appt.id).await?;
         // Why, as a code a report can group by: the barrier the patient gave, else who ended it (CAP-6).
         let reason = match (details.legacy_reason, details.barrier_code) {
             (Some(CancellationReason::Rescheduled), _) => "rescheduled".to_string(),

@@ -44,6 +44,7 @@ pub mod history;
 pub mod hl7v2;
 pub mod identity;
 pub mod inbound;
+pub mod interpreter;
 pub mod ivr;
 pub mod jobs;
 pub mod link_token;
