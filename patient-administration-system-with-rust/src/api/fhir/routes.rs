@@ -11,6 +11,8 @@ use crate::api::rest::AppState;
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/fhir", post(super::handlers::post_bundle))
+        // What the server supports; `capability::SUPPORTED` lists every route below (NEW-21).
+        .route("/fhir/metadata", get(super::handlers::metadata))
         .route(
             "/fhir/Patient",
             post(super::handlers::create_patient).get(super::handlers::list_patients),
@@ -21,12 +23,7 @@ pub fn router(state: AppState) -> Router {
                 .put(super::handlers::update_patient)
                 .delete(super::handlers::delete_patient),
         )
-        .route("/fhir/Encounter", post(super::handlers::create_encounter))
         .route("/fhir/Encounter/{id}", get(super::handlers::get_encounter))
-        .route(
-            "/fhir/Appointment",
-            post(super::handlers::create_appointment),
-        )
         .route(
             "/fhir/Appointment/{id}",
             get(super::handlers::get_appointment),

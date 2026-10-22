@@ -9,6 +9,7 @@
 //! [`axum::Router`] so callers can `merge` it into the main app. `main.rs` is
 //! intentionally untouched by this module.
 
+pub mod capability;
 pub mod handlers;
 pub mod operation_outcome;
 pub mod resources;

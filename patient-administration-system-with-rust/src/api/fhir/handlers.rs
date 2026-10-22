@@ -491,48 +491,6 @@ pub async fn get_location(State(state): State<AppState>, Path(id): Path<Uuid>) -
 
 use crate::models::schedule::{Schedule, ScheduleOwner, Slot, SlotStatus};
 
-fn upstream_stub(resource: &str) -> (StatusCode, Json<OperationOutcome>) {
-    let err = Error::upstream(format!(
-        "FHIR {resource} write is intentionally not exposed; use the typed REST \
-         endpoint instead (POST /api/admissions for Encounter; \
-         POST /api/appointments for Appointment)."
-    ));
-    (
-        StatusCode::SERVICE_UNAVAILABLE,
-        Json(operation_outcome::error("not-supported", err.to_string())),
-    )
-}
-
-#[utoipa::path(
-    post,
-    path = "/fhir/Encounter",
-    tag = "FHIR",
-    summary = "Create encounter",
-    responses(
-        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
-        (status = "4XX", description = "Error; an OperationOutcome"),
-        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
-    )
-)]
-pub async fn create_encounter() -> FhirResult {
-    Err(upstream_stub("Encounter"))
-}
-
-#[utoipa::path(
-    post,
-    path = "/fhir/Appointment",
-    tag = "FHIR",
-    summary = "Create appointment",
-    responses(
-        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
-        (status = "4XX", description = "Error; an OperationOutcome"),
-        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
-    )
-)]
-pub async fn create_appointment() -> FhirResult {
-    Err(upstream_stub("Appointment"))
-}
-
 // ── Schedule writes ──────────────────────────────────────────────────────
 
 /// Read one element of a FHIR-shaped body as its typed R5 datatype, so a malformed one is refused with
@@ -849,6 +807,18 @@ pub async fn delete_slot(
         .await
         .map_err(error_to_response)?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// The server's CapabilityStatement: which resources and interactions it supports (NEW-21).
+#[utoipa::path(
+    get,
+    path = "/fhir/metadata",
+    tag = "FHIR",
+    summary = "CapabilityStatement",
+    responses((status = 200, description = "The FHIR R5 CapabilityStatement")),
+)]
+pub async fn metadata() -> Json<Value> {
+    Json(super::capability::statement())
 }
 
 // ── Bundle POST with Decision #4 enforcement ─────────────────────────────
