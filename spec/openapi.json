@@ -1349,6 +1349,26 @@
         ]
       }
     },
+    "/api/communication-needs/due-review": {
+      "get": {
+        "operationId": "due_review",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/communication-needs/due-review`: patients with recorded communication needs that were never\nreviewed or not within the period, never-reviewed first.",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
     "/api/communication-profiles/stale": {
       "get": {
         "operationId": "stale_profiles",
@@ -3887,6 +3907,37 @@
           }
         },
         "summary": "`DELETE /api/patients/{id}/channel-optouts/{channel}`: the patient asked to hear from us again.",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/api/patients/{id}/communication-needs/review": {
+      "post": {
+        "operationId": "record_review",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/patients/{id}/communication-needs/review`: record that a named person reviewed the patient's\ncommunication needs with them now. Audited.",
         "tags": [
           "Patients"
         ]

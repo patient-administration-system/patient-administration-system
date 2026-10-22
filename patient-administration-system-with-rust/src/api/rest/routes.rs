@@ -33,6 +33,7 @@ use super::handlers_identity;
 use super::handlers_ivr;
 use super::handlers_letters;
 use super::handlers_links;
+use super::handlers_needs_review;
 use super::handlers_noshow;
 use super::handlers_offers;
 use super::handlers_print;
@@ -75,6 +76,10 @@ pub fn router(state: AppState) -> Router {
 /// Everything under `/api/patients`: the person-service proxy and the PAS's own per-patient records; the merge webhooks.
 fn people() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/patients/{id}/communication-needs/review",
+            post(handlers_needs_review::record_review),
+        )
         // /api/patients/* — proxy to person-service
         .route(
             "/api/patients",
@@ -393,6 +398,10 @@ fn scheduling() -> Router<AppState> {
 /// Letters, templates, replies, links, texts, receipts, printing and contact.
 fn messaging() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/communication-needs/due-review",
+            get(handlers_needs_review::due_review),
+        )
         .route(
             "/api/communication-profiles/stale",
             get(handlers_contact::stale_profiles),

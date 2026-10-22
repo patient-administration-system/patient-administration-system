@@ -45,6 +45,7 @@ mod m20260701_000039_tolerances;
 mod m20260701_000040_tolerance_scopes_and_alerts;
 mod m20260702_000041_referral_triage;
 mod m20260704_000043_follow_up_targets;
+mod m20260705_000044_needs_review;
 
 pub struct Migrator;
 
@@ -94,6 +95,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260701_000040_tolerance_scopes_and_alerts::Migration),
             Box::new(m20260702_000041_referral_triage::Migration),
             Box::new(m20260704_000043_follow_up_targets::Migration),
+            Box::new(m20260705_000044_needs_review::Migration),
         ]
     }
 }

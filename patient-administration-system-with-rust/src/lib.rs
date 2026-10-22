@@ -47,6 +47,7 @@ pub mod ivr;
 pub mod jobs;
 pub mod link_token;
 pub mod models;
+pub mod needs_review;
 pub mod noshow;
 pub mod observability;
 pub mod paging;

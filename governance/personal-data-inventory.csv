@@ -204,6 +204,8 @@ patient_communication_profiles,preferred_language,preference,"A personal prefere
 patient_communication_profiles,accessibility_needs,health,"Administrative care information (why, where, what service, outcome); accessibility needs can reveal a disability",record
 patient_communication_profiles,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 patient_communication_profiles,updated_by,staff-trace,"Audit of who did what, from where",record
+patient_communication_profiles,needs_reviewed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+patient_communication_profiles,needs_reviewed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 payments,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 payments,invoice_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 payments,amount_value,financial,Billing and insurance,billing

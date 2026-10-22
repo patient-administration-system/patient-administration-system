@@ -147,6 +147,8 @@ fn alias_api_practitioners_search_get() {}
         crate::api::rest::handlers_reports::clinic_activity,
         crate::api::rest::handlers_follow_up_delay::delay_report,
         crate::api::rest::handlers_follow_up_delay::set_target,
+        crate::api::rest::handlers_needs_review::record_review,
+        crate::api::rest::handlers_needs_review::due_review,
         crate::api::rest::handlers_print::queue,
         crate::api::rest::handlers_print::export,
         crate::api::rest::handlers_print::mark_sent,
