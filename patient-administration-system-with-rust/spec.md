@@ -515,7 +515,7 @@ src/
 ├── validation/                Phone, address, dates, charge amount, RTT order (no patient identifier validators — upstream owns)
 ├── privacy/                   Masking, GDPR export aggregator (delegates demographics to upstream, joins PAS-owned related rows), consent gate
 ├── observability/             tracing-subscriber init
-└── bin/seed.rs                pas-seed binary (demo data — calls person-service / worker-service to provision identities)
+└── bin/seed.rs                pas-seed binary (the demo ward, room and beds; no people)
 ```
 
 ### 6.7 Error handling

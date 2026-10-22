@@ -1,69 +1,61 @@
 #!/usr/bin/env bash
-# demo.sh — end-to-end smoke test of the PAS REST API.
+# demo.sh: a walk through the headline ADT flow against a running server.
 #
-# Assumes the server is reachable at http://localhost:8080 with demo data
-# already loaded. (pas-seed, which was meant to load it, is not implemented:
-# QUAL-36 in tasks.md.) Walks through the headline ADT + scheduling
-# flows and prints each response.
+# Needs the server (default http://localhost:8080) on a database that `pas-seed` has filled with the demo ward and
+# beds. The PAS holds no people: a patient is an id from person-service. Set PERSON_ID to a real one; without it
+# the script uses a made-up id, which is enough for the bed movements (the PAS only stores the id) but means
+# nothing for anything that reads the person from person-service (letters, patient search).
+#
+#   cargo run --bin pas-migrate -- up && cargo run --bin pas-seed && cargo run --release &
+#   ./demo.sh
 
 set -euo pipefail
 
 BASE="${BASE:-http://localhost:8080}"
 JQ="${JQ:-jq -C}"
+JQR="jq -r"
+PERSON_ID="${PERSON_ID:-$(uuidgen | tr 'A-Z' 'a-z')}"
 
 say() { printf "\n\033[1;36m== %s ==\033[0m\n" "$*"; }
+get() { curl -sS "$BASE$1"; }
+post() { curl -sS -X POST "$BASE$1" -H 'content-type: application/json' -d "$2"; }
 
 say "Health"
-curl -sS "$BASE/api/health" | $JQ '.'
+get /api/health | $JQ '.'
 
-say "List wards"
-WARD_ID=$(curl -sS "$BASE/api/wards" | $JQ -r '.data[0].id')
-echo "ward_id=$WARD_ID"
+say "The demo ward"
+FACILITY_ID=$(get /api/facilities | $JQR '.data[] | select(.code == "DEMO") | .id')
+[ -n "$FACILITY_ID" ] || { echo "no DEMO facility: run pas-seed first" >&2; exit 1; }
+WARD_ID=$(get "/api/facilities/$FACILITY_ID/wards" | $JQR '.data[] | select(.code == "WARD-A") | .id')
+echo "facility_id=$FACILITY_ID ward_id=$WARD_ID person_id=$PERSON_ID"
 
 say "Ward occupancy (before admit)"
-curl -sS "$BASE/api/wards/$WARD_ID/occupancy" | $JQ '.'
+get "/api/wards/$WARD_ID/occupancy" | $JQ '.'
 
-say "List beds in ward"
-BED_IDS=($(curl -sS "$BASE/api/wards/$WARD_ID/beds" | $JQ -r '.data[].id'))
+say "Beds in the ward"
+mapfile -t BED_IDS < <(get "/api/wards/$WARD_ID/beds" | $JQR '.data | sort_by(.code) | .[].id')
 BED0=${BED_IDS[0]}
 BED1=${BED_IDS[1]}
-echo "bed0=$BED0  bed1=$BED1"
+echo "bed0=$BED0 bed1=$BED1"
 
-say "Find a patient"
-PATIENT_ID=$(curl -sS "$BASE/api/patients?limit=1" | $JQ -r '.data[0].id')
-echo "patient_id=$PATIENT_ID"
-
-say "Admit patient to bed0"
-ADMIT=$(curl -sS -X POST "$BASE/api/admissions" \
-    -H 'content-type: application/json' \
-    -d "{\"patient_id\":\"$PATIENT_ID\",\"bed_id\":\"$BED0\"}")
+say "Admit the person to bed0"
+ADMIT=$(post /api/admissions "{\"person_id\":\"$PERSON_ID\",\"bed_id\":\"$BED0\"}")
 echo "$ADMIT" | $JQ '.'
-ADMISSION_ID=$(echo "$ADMIT" | $JQ -r '.data.admission.id')
+ADMISSION_ID=$(echo "$ADMIT" | $JQR '.data.admission.id')
 
 say "Ward occupancy (after admit)"
-curl -sS "$BASE/api/wards/$WARD_ID/occupancy" | $JQ '.'
+get "/api/wards/$WARD_ID/occupancy" | $JQ '.'
 
 say "Transfer to bed1"
-curl -sS -X POST "$BASE/api/admissions/$ADMISSION_ID/transfer" \
-    -H 'content-type: application/json' \
-    -d "{\"new_bed_id\":\"$BED1\"}" | $JQ '.'
+post "/api/admissions/$ADMISSION_ID/transfer" "{\"new_bed_id\":\"$BED1\"}" | $JQ '.'
 
 say "Discharge"
-curl -sS -X POST "$BASE/api/admissions/$ADMISSION_ID/discharge" \
-    -H 'content-type: application/json' \
-    -d '{}' | $JQ '.'
+post "/api/admissions/$ADMISSION_ID/discharge" '{}' | $JQ '.'
 
 say "Ward occupancy (after discharge)"
-curl -sS "$BASE/api/wards/$WARD_ID/occupancy" | $JQ '.'
+get "/api/wards/$WARD_ID/occupancy" | $JQ '.'
 
-say "Audit history for patient"
-curl -sS "$BASE/api/patients/$PATIENT_ID/audit?limit=10" | $JQ '.data | map({action, entity_type, at})'
-
-say "Generate a letter"
-TPL_ID=$(curl -sS "$BASE/api/letter-templates" | $JQ -r '.data[0].id')
-curl -sS -X POST "$BASE/api/letters/generate" \
-    -H 'content-type: application/json' \
-    -d "{\"template_id\":\"$TPL_ID\",\"patient_id\":\"$PATIENT_ID\",\"channel\":\"email\",\"extra\":{\"appointment_date\":\"2026-06-15\"}}" \
-    | $JQ '.data | {rendered_subject, rendered_body, status}'
+say "What was recorded about the admission"
+get "/api/audit/entity?entity_type=admission&entity_id=$ADMISSION_ID" | $JQ '.data | map({action, entity_type, at})'
 
 printf "\n\033[1;32mdone\033[0m\n"

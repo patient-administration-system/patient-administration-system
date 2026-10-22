@@ -65,6 +65,7 @@ pub mod reply_links;
 pub mod reports;
 pub mod resources;
 pub mod scheduling;
+pub mod seed;
 pub mod standby;
 pub mod streaming;
 pub mod support;

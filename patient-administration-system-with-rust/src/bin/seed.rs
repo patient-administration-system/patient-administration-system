@@ -1,17 +1,43 @@
-//! `pas-seed`: **not implemented**. It prints that and exits with status 1, so a script that expects demo data
-//! stops instead of carrying on with an empty database.
-//!
-//! The PAS no longer holds patient or practitioner rows (identity lives in `person-service` and
-//! `worker-service`). A real seed has to create people and workers there through `PersonClient::create` and
-//! `WorkerClient::create`, then write the PAS-owned rows (facility, ward, room, bed, letter template) that
-//! refer to the returned ids. See QUAL-36 in `tasks.md`.
+//! `pas-seed`: creates the demo reference data (one facility, ward, room and three beds) if it is missing.
+//! Safe to run twice. It seeds no people: they live in `person-service` and `worker-service` (see
+//! [`patient_administration_system::seed`]). Needs `DATABASE_URL` and a migrated database.
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 #![cfg_attr(not(test), forbid(unsafe_code))]
-fn main() {
-    eprintln!(
-        "pas-seed is not implemented: it would have to create people and workers in person-service and \
-         worker-service and then write the PAS-owned rows that refer to them (QUAL-36 in tasks.md). \
-         Nothing was loaded."
-    );
-    std::process::exit(1);
+
+use patient_administration_system::config::env;
+
+#[tokio::main]
+async fn main() {
+    let Some(url) = env::text("DATABASE_URL") else {
+        eprintln!("pas-seed: DATABASE_URL is required");
+        std::process::exit(2);
+    };
+    let db = match patient_administration_system::db::connect(&url).await {
+        Ok(db) => db,
+        Err(e) => {
+            eprintln!("pas-seed: cannot connect to the database: {e}");
+            std::process::exit(1);
+        }
+    };
+    match patient_administration_system::seed::run(&db).await {
+        Ok(s) => {
+            println!(
+                "pas-seed: {} record(s) created; ward_id={} bed_ids={}",
+                s.created,
+                s.ward_id,
+                s.bed_ids
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            );
+            println!(
+                "pas-seed: people and staff are not seeded; create them in person-service and worker-service"
+            );
+        }
+        Err(e) => {
+            eprintln!("pas-seed: failed: {e}");
+            std::process::exit(1);
+        }
+    }
 }
