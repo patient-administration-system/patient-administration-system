@@ -522,9 +522,12 @@ async fn build_app(cfg: &Config, state: AppState) -> Result<axum::Router> {
         tracing::info!("Rate-limit middleware disabled (PAS_RATE_LIMIT_RPM=0)");
     }
 
-    let trace = tower_http::trace::TraceLayer::new_for_http();
     let compress = tower_http::compression::CompressionLayer::new();
-    Ok(app.layer(trace).layer(cors_layer(cfg)).layer(compress))
+    Ok(
+        patient_administration_system::observability::with_request_telemetry(app)
+            .layer(cors_layer(cfg))
+            .layer(compress),
+    )
 }
 
 /// The optional MLLP TCP listener for HL7 v2 messages; it posts each frame to `app`.

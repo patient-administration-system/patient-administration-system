@@ -298,7 +298,8 @@ fn is_service(claims: &Claims) -> bool {
     has_attr(claims, "svc", "true")
 }
 
-/// Setting or clearing a tolerance, and acknowledging its alert, belong to the project administrator (TOL-1).
+/// Setting or clearing a tolerance, acknowledging its alert (TOL-1) and reading the metrics (QUAL-16) belong to
+/// the project administrator.
 /// Reading, and running the check, stay open to any caller the policy lets in.
 pub fn administrator_only(method: &Method, path: &str) -> bool {
     let rest = path.trim_end_matches('/');
@@ -306,8 +307,11 @@ pub fn administrator_only(method: &Method, path: &str) -> bool {
         .strip_prefix("/api/tolerances/")
         .is_some_and(|m| m != "status" && m != "evaluate");
     let ack = rest.starts_with("/api/tolerance-alerts/") && rest.ends_with("/acknowledge");
+    // The operational numbers (QUAL-16) are for the administrator too.
+    let metrics = rest == "/api/admin/metrics" && *method == Method::GET;
     (tolerance && matches!(*method, Method::PUT | Method::DELETE))
         || (ack && *method == Method::POST)
+        || metrics
 }
 
 /// The policy action for a request: reads, writes, deletes, and the named destructive POSTs.
@@ -561,6 +565,7 @@ mod tests {
             (Method::PUT, "/api/tolerances/bed_occupancy"),
             (Method::DELETE, "/api/tolerances/bed_occupancy"),
             (Method::POST, "/api/tolerance-alerts/abc/acknowledge"),
+            (Method::GET, "/api/admin/metrics"),
         ] {
             assert!(administrator_only(&m, p), "{m} {p}");
         }
@@ -569,6 +574,8 @@ mod tests {
             (Method::GET, "/api/tolerances/status"),
             (Method::POST, "/api/tolerances/evaluate"),
             (Method::GET, "/api/tolerance-alerts"),
+            (Method::GET, "/api/admin/outbox/unpublished"),
+            (Method::POST, "/api/admin/metrics"),
             (Method::PUT, "/api/letter-templates/1"),
         ] {
             assert!(!administrator_only(&m, p), "{m} {p}");

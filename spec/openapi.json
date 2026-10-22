@@ -152,6 +152,26 @@
         ]
       }
     },
+    "/api/admin/metrics": {
+      "get": {
+        "operationId": "metrics",
+        "responses": {
+          "200": {
+            "description": "Prometheus text format (`text/plain`)"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/admin/metrics`: counters and gauges in the Prometheus text format (QUAL-16): requests by status\nclass, background job runs and when each last finished, outbox events waiting and dead-lettered, and open\nstaff call tasks. No identifiers. Administrators only.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/admin/outbox/dead-letters": {
       "get": {
         "operationId": "list_dead_letters",

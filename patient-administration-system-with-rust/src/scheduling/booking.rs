@@ -179,6 +179,7 @@ impl SchedulingService {
         Ok(appt)
     }
 
+    #[tracing::instrument(skip_all, fields(slot_id = %slot_id))]
     pub async fn book_slot(
         &self,
         slot_id: Uuid,

@@ -449,6 +449,7 @@ impl LadderService {
     }
 
     /// One pass: run the next due step of every appointment that has one.
+    #[tracing::instrument(skip_all, fields(job = "ladder"))]
     pub async fn run_once(&self, now: DateTime<Utc>) -> Result<LadderReport> {
         let reach = self
             .steps

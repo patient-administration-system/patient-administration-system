@@ -63,6 +63,7 @@ pub async fn run(
 /// max_retries` (and `max_retries > 0`), move the row to the dead-letter
 /// queue in one transaction. Otherwise leave it in `outbox_events` for the
 /// next tick.
+#[tracing::instrument(skip_all, fields(job = "outbox"))]
 pub async fn tick(
     db: &DatabaseConnection,
     publisher: &Arc<dyn EventPublisher>,

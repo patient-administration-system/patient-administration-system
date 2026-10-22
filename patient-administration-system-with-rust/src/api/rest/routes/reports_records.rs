@@ -123,6 +123,7 @@ pub(super) fn reporting() -> Router<AppState> {
         // Audit query.
         .route("/api/audit/recent", get(handlers_audit::list_recent))
         .route("/api/audit/entity", get(handlers_audit::list_for_entity))
+        .route("/api/admin/metrics", get(handlers_admin::metrics))
         // Admin: outbox diagnostics + DLQ replay.
         .route(
             "/api/admin/outbox/unpublished",

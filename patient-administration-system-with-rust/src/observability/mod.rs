@@ -176,3 +176,88 @@ mod tests {
         assert!(init(&cfg).is_ok());
     }
 }
+
+// ─── Request telemetry (QUAL-16) ────────────────────────────────────────────────────────────────────────
+
+/// The header that carries a request's id. A caller may send one (a proxy usually does); otherwise the server
+/// makes one. It is echoed in the response and is on every log line the request produces, so one complaint
+/// ("it failed at 10:42") can be followed through the logs.
+pub const REQUEST_ID_HEADER: &str = "x-request-id";
+
+/// A path with the secrets taken out: a segment that is a long run of hex digits and dashes (a reply link's
+/// token, a UUID) is replaced by `{id}`. Logs must not hold a token that still works.
+pub fn redact_path(path: &str) -> String {
+    path.split('/')
+        .map(|seg| {
+            let id_like = seg.len() >= 24 && seg.chars().all(|c| c.is_ascii_hexdigit() || c == '-');
+            if id_like { "{id}" } else { seg }
+        })
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+/// Wrap the router in the telemetry layers: a request id (made if the caller sent none, echoed in the
+/// response), a trace span per request carrying that id and the redacted path, and the request counters
+/// behind `GET /api/admin/metrics`.
+pub fn with_request_telemetry(app: axum::Router) -> axum::Router {
+    use axum::http::{HeaderName, Request};
+    use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
+    use tower_http::trace::TraceLayer;
+
+    let header = HeaderName::from_static(REQUEST_ID_HEADER);
+    let trace = TraceLayer::new_for_http().make_span_with(|req: &Request<_>| {
+        let request_id = req
+            .headers()
+            .get(REQUEST_ID_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("-");
+        tracing::info_span!(
+            "http",
+            method = %req.method(),
+            path = %redact_path(req.uri().path()),
+            request_id = %request_id,
+        )
+    });
+    // Layers added later are outer: the id is set first, then the span reads it, then it is copied to the
+    // response, and the counters see the final status.
+    app.layer(axum::middleware::from_fn(count_request))
+        .layer(PropagateRequestIdLayer::new(header.clone()))
+        .layer(trace)
+        .layer(SetRequestIdLayer::new(header, MakeRequestUuid))
+}
+
+async fn count_request(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let started = std::time::Instant::now();
+    let resp = next.run(req).await;
+    crate::metrics::http_finished(
+        resp.status().as_u16(),
+        u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX),
+    );
+    resp
+}
+
+#[cfg(test)]
+mod request_tests {
+    use super::*;
+
+    #[test]
+    fn tokens_and_ids_in_a_path_are_redacted_but_names_are_not() {
+        let token = "a".repeat(64);
+        assert_eq!(
+            redact_path(&format!("/api/reply-links/{token}/cancel")),
+            "/api/reply-links/{id}/cancel"
+        );
+        assert_eq!(
+            redact_path("/api/appointments/7c9e6679-7425-40de-944b-e07fc1f90ae7/cancel"),
+            "/api/appointments/{id}/cancel"
+        );
+        assert_eq!(
+            redact_path("/api/referrals/triage"),
+            "/api/referrals/triage"
+        );
+        assert_eq!(redact_path("/"), "/");
+    }
+}

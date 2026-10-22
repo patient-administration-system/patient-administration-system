@@ -122,3 +122,32 @@ pub async fn replay_dead_letter(
         Err(e) => error_to_response(Error::from(e)),
     }
 }
+
+/// `GET /api/admin/metrics`: counters and gauges in the Prometheus text format (QUAL-16): requests by status
+/// class, background job runs and when each last finished, outbox events waiting and dead-lettered, and open
+/// staff call tasks. No identifiers. Administrators only.
+#[utoipa::path(
+    get,
+    path = "/api/admin/metrics",
+    tag = "Admin",
+    responses(
+        (status = 200, description = "Prometheus text format (`text/plain`)"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+pub async fn metrics(State(state): State<AppState>) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    match crate::metrics::render(&state.db).await {
+        Ok(text) => (
+            axum::http::StatusCode::OK,
+            [(
+                axum::http::header::CONTENT_TYPE,
+                "text/plain; version=0.0.4",
+            )],
+            text,
+        )
+            .into_response(),
+        Err(e) => error_to_response(e).into_response(),
+    }
+}

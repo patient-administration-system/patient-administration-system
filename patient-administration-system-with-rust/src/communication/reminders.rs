@@ -122,6 +122,7 @@ impl ReminderService {
             .ok_or_else(|| Error::internal("no reminder template could be created"))
     }
 
+    #[tracing::instrument(skip_all, fields(job = "reminders"))]
     pub async fn run_once(&self, now: DateTime<Utc>, lead: Duration) -> Result<ReminderReport> {
         let templates = self.ensure_default_templates().await?;
         let required = super::templates::required_locales();

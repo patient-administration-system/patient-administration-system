@@ -101,7 +101,8 @@ impl Jobs {
                     _ = stop.changed() => break,
                     _ = tick.tick() => {}
                 }
-                run_exclusive(&db, name, &work).await;
+                let outcome = run_exclusive(&db, name, &work).await;
+                crate::metrics::job_finished(name, outcome);
             }
             tracing::info!(target: "pas::jobs", job = name, "job stopped");
         });

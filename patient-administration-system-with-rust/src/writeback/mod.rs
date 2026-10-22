@@ -194,6 +194,7 @@ impl WriteBackService {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all, fields(action = ?req.action))]
     pub async fn apply(&self, req: ReplyRequest, ctx: &UserContext) -> Result<ReplyResult> {
         Self::validate(&req)?;
         if let Some(stored) = Self::stored(&self.db, &req).await? {
