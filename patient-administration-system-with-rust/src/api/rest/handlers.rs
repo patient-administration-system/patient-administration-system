@@ -33,6 +33,12 @@ pub fn error_to_response(err: Error) -> HandlerResult {
     (status, Json(ApiResponse::err(code, err.client_message())))
 }
 
+/// The `?limit=` of a list request (see [`crate::paging`]).
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct LimitQuery {
+    pub limit: Option<i64>,
+}
+
 /// `200` with `value` in the `ApiResponse` envelope.
 pub fn ok(value: Value) -> HandlerResult {
     (StatusCode::OK, Json(ApiResponse::ok(value)))
@@ -43,6 +49,18 @@ pub fn ok(value: Value) -> HandlerResult {
 pub fn ok_json<T: serde::Serialize>(value: T) -> HandlerResult {
     match serde_json::to_value(value) {
         Ok(v) => ok(v),
+        Err(e) => error_to_response(Error::internal(format!(
+            "response could not be serialized: {e}"
+        ))),
+    }
+}
+
+/// `200` with a list: at most `limit` rows, and `meta` saying whether there were more (QUAL-14). Ask the
+/// service for [`crate::paging::ask_for`]`(limit)` rows so there is one to tell the difference.
+pub fn ok_page<T: serde::Serialize>(rows: Vec<T>, limit: i64) -> HandlerResult {
+    let (rows, meta) = crate::paging::cut(rows, limit);
+    match serde_json::to_value(rows) {
+        Ok(v) => (StatusCode::OK, Json(ApiResponse::ok_page(v, meta))),
         Err(e) => error_to_response(Error::internal(format!(
             "response could not be serialized: {e}"
         ))),

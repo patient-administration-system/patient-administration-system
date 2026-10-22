@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::Error;
 use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 use crate::contact::{DEFAULT_STALE_DAYS, ProfileInput};
 
@@ -124,15 +124,19 @@ pub async fn stale_profiles(
     State(state): State<AppState>,
     Query(q): Query<StaleQuery>,
 ) -> HandlerResult {
+    let limit = match crate::paging::limit(q.limit, 100) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .contact
         .stale(
             q.older_than_days.unwrap_or(DEFAULT_STALE_DAYS),
-            q.limit.unwrap_or(100),
+            crate::paging::ask_for(limit),
         )
         .await
     {
-        Ok(rows) => ok_json(rows),
+        Ok(rows) => ok_page(rows, limit),
         Err(e) => error_to_response(e),
     }
 }

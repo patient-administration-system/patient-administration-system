@@ -49,6 +49,7 @@ pub mod link_token;
 pub mod models;
 pub mod noshow;
 pub mod observability;
+pub mod paging;
 pub mod printing;
 pub mod privacy;
 pub mod rebooking;

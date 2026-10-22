@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::ok;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
 
 /// `GET /api/appointments/{id}/history`: who did what to this appointment, when and why, with the messages
 /// sent about it and the patient's replies, oldest first.
@@ -55,8 +55,16 @@ pub async fn contact_log(
     Path(id): Path<Uuid>,
     Query(q): Query<LogQuery>,
 ) -> HandlerResult {
-    match state.history.contact_log(id, q.limit.unwrap_or(200)).await {
-        Ok(v) => ok(Value::Array(v)),
+    let limit = match crate::paging::limit(q.limit, 200) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .history
+        .contact_log(id, crate::paging::ask_for(limit))
+        .await
+    {
+        Ok(v) => ok_page(v, limit),
         Err(e) => error_to_response(e),
     }
 }

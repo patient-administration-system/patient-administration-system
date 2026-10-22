@@ -19,6 +19,9 @@ pub struct ApiResponse<T> {
     pub success: bool,
     pub data: Option<T>,
     pub error: Option<ApiError>,
+    /// Present on list responses: the limit that applied and whether the list was cut short.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub meta: Option<crate::paging::PageMeta>,
 }
 
 /// Machine-readable error payload carried in [`ApiResponse::error`].
@@ -35,6 +38,15 @@ impl<T> ApiResponse<T> {
             success: true,
             data: Some(data),
             error: None,
+            meta: None,
+        }
+    }
+
+    /// Build a success response for a list, with the page information.
+    pub fn ok_page(data: T, meta: crate::paging::PageMeta) -> Self {
+        Self {
+            meta: Some(meta),
+            ..Self::ok(data)
         }
     }
 
@@ -48,6 +60,7 @@ impl<T> ApiResponse<T> {
                 code: code.into(),
                 message: message.into(),
             }),
+            meta: None,
         }
     }
 }

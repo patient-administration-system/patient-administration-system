@@ -10,7 +10,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 use crate::models::waitlist::Priority;
 use crate::referrals::NewReferral;
@@ -89,16 +89,20 @@ pub struct ListQuery {
     )
 )]
 pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> HandlerResult {
+    let limit = match crate::paging::limit(q.limit, 100) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .referrals
         .list(
             q.status.as_deref(),
             q.service.as_deref(),
-            q.limit.unwrap_or(100),
+            crate::paging::ask_for(limit),
         )
         .await
     {
-        Ok(v) => ok_json(v),
+        Ok(v) => ok_page(v, limit),
         Err(e) => error_to_response(e),
     }
 }

@@ -106,7 +106,7 @@ impl HistoryService {
                           jsonb_build_object('appointment_id', appointment_id) \
                      FROM inbound_texts WHERE person_id = $1 \
                  ) c ORDER BY at DESC LIMIT $2",
-                [person_id.into(), limit.clamp(1, 500).into()],
+                [person_id.into(), crate::paging::fetch(limit).into()],
             ))
             .await
             .map_err(Error::Database)?;

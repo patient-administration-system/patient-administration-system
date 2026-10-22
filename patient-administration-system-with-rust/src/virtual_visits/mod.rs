@@ -177,7 +177,7 @@ impl VirtualVisitService {
     }
 
     /// Conversions waiting for a clinician, soonest appointment first.
-    pub async fn pending(&self, limit: u64) -> Result<Vec<Appointment>> {
+    pub async fn pending(&self, limit: i64) -> Result<Vec<Appointment>> {
         let rows = self
             .db
             .query_all_raw(Statement::from_sql_and_values(
@@ -185,7 +185,7 @@ impl VirtualVisitService {
                 "SELECT id FROM appointments WHERE conversion_state = 'pending_review' \
                  AND status = 'booked' AND deleted_at IS NULL AND start_datetime > now() \
                  ORDER BY start_datetime LIMIT $1",
-                [(limit.min(500) as i64).into()],
+                [crate::paging::fetch(limit).into()],
             ))
             .await
             .map_err(Error::Database)?;

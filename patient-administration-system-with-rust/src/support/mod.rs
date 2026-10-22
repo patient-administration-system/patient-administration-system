@@ -105,7 +105,7 @@ impl SupportService {
                 DbBackend::Postgres,
                 "SELECT id, person_id, appointment_id, kind, reason_code, created_by, created_at \
                  FROM support_flags WHERE resolved_at IS NULL ORDER BY created_at LIMIT $1",
-                [limit.clamp(1, 500).into()],
+                [crate::paging::fetch(limit).into()],
             ))
             .await
             .map_err(Error::Database)?;

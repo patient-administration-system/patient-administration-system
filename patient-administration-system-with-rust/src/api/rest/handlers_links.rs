@@ -5,16 +5,15 @@
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
 };
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
 use crate::api::rest::handlers::{ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
@@ -144,9 +143,16 @@ pub async fn post_link_rebook(
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
-pub async fn open_calls(State(state): State<AppState>) -> HandlerResult {
-    match state.ladder.open_calls(200).await {
-        Ok(v) => ok(Value::Array(v)),
+pub async fn open_calls(
+    State(state): State<AppState>,
+    Query(q): Query<crate::api::rest::handlers::LimitQuery>,
+) -> HandlerResult {
+    let limit = match crate::paging::limit(q.limit, 200) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    match state.ladder.open_calls(crate::paging::ask_for(limit)).await {
+        Ok(v) => ok_page(v, limit),
         Err(e) => error_to_response(e),
     }
 }

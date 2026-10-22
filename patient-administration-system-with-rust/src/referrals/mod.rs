@@ -158,7 +158,7 @@ impl ReferralService {
                 [
                     status.map(String::from).into(),
                     service.map(String::from).into(),
-                    limit.clamp(1, 500).into(),
+                    crate::paging::fetch(limit).into(),
                 ],
             ))
             .await

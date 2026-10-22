@@ -3,13 +3,13 @@
 use axum::{
     Json,
     body::Bytes,
-    extract::State,
+    extract::{Query, State},
     http::{HeaderMap, header},
 };
 
 use crate::Error;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 use crate::inbound::InboundText;
 use crate::writeback::{MAX_BATCH, ReplyRequest};
@@ -143,9 +143,20 @@ pub async fn post_text(
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
-pub async fn open_texts(State(state): State<AppState>) -> HandlerResult {
-    match state.inbound.staff_list(200).await {
-        Ok(r) => ok_json(r),
+pub async fn open_texts(
+    State(state): State<AppState>,
+    Query(q): Query<crate::api::rest::handlers::LimitQuery>,
+) -> HandlerResult {
+    let limit = match crate::paging::limit(q.limit, 200) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .inbound
+        .staff_list(crate::paging::ask_for(limit))
+        .await
+    {
+        Ok(r) => ok_page(r, limit),
         Err(e) => error_to_response(e),
     }
 }

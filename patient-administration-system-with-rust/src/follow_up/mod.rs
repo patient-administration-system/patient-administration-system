@@ -217,7 +217,7 @@ impl FollowUpService {
                 "SELECT t.id, t.appointment_id, t.person_id, t.service_type, t.due_at, a.start_datetime \
                  FROM follow_up_tasks t JOIN appointments a ON a.id = t.appointment_id \
                  WHERE t.closed_at IS NULL ORDER BY t.due_at LIMIT $1",
-                [limit.clamp(1, 500).into()],
+                [crate::paging::fetch(limit).into()],
             ))
             .await
             .map_err(Error::Database)?;

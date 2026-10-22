@@ -11,7 +11,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 
 #[derive(Debug, Deserialize)]
@@ -105,12 +105,16 @@ pub async fn contact_problems(
     State(state): State<AppState>,
     Query(q): Query<ProblemsQuery>,
 ) -> HandlerResult {
+    let limit = match crate::paging::limit(q.limit, 100) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .receipts
-        .contact_problems(q.since_days.unwrap_or(90), q.limit.unwrap_or(100))
+        .contact_problems(q.since_days.unwrap_or(90), crate::paging::ask_for(limit))
         .await
     {
-        Ok(v) => ok_json(v),
+        Ok(v) => ok_page(v, limit),
         Err(e) => error_to_response(e),
     }
 }

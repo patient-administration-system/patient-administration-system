@@ -175,7 +175,7 @@ impl ReceiptService {
                    AND NOT EXISTS (SELECT 1 FROM contact_problem_resolutions c \
                                    WHERE c.person_id = g.person_id AND c.resolved_at >= r.occurred_at) \
                  GROUP BY g.person_id ORDER BY max(r.occurred_at) DESC LIMIT $2",
-                [(since_days.clamp(1, 3650) as i32).into(), limit.clamp(1, 500).into()],
+                [(since_days.clamp(1, 3650) as i32).into(), crate::paging::fetch(limit).into()],
             ))
             .await
             .map_err(Error::Database)?;

@@ -5,29 +5,20 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::ok_json;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
 use crate::db::repositories::audit::AuditLogRepository;
 
 #[derive(Debug, Deserialize)]
 pub struct LimitQuery {
-    #[serde(default = "default_limit")]
-    pub limit: u64,
+    pub limit: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct EntityQuery {
     pub entity_type: String,
     pub entity_id: Uuid,
-    #[serde(default = "default_limit")]
-    pub limit: u64,
+    pub limit: Option<i64>,
 }
-
-fn default_limit() -> u64 {
-    50
-}
-
-const MAX_LIMIT: u64 = 500;
 
 /// `GET /api/audit/recent?limit=N`.
 #[utoipa::path(
@@ -44,9 +35,13 @@ pub async fn list_recent(
     State(state): State<AppState>,
     Query(q): Query<LimitQuery>,
 ) -> HandlerResult {
-    let limit = q.limit.min(MAX_LIMIT);
-    match AuditLogRepository::list_recent(&state.db, limit).await {
-        Ok(rows) => ok_json(rows),
+    let limit = match crate::paging::limit(q.limit, 50) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    let fetch = u64::try_from(crate::paging::ask_for(limit)).unwrap_or(0);
+    match AuditLogRepository::list_recent(&state.db, fetch).await {
+        Ok(rows) => ok_page(rows, limit),
         Err(e) => error_to_response(e),
     }
 }
@@ -66,9 +61,13 @@ pub async fn list_for_entity(
     State(state): State<AppState>,
     Query(q): Query<EntityQuery>,
 ) -> HandlerResult {
-    let limit = q.limit.min(MAX_LIMIT);
-    match AuditLogRepository::list_for_entity(&state.db, &q.entity_type, q.entity_id, limit).await {
-        Ok(rows) => ok_json(rows),
+    let limit = match crate::paging::limit(q.limit, 50) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    let fetch = u64::try_from(crate::paging::ask_for(limit)).unwrap_or(0);
+    match AuditLogRepository::list_for_entity(&state.db, &q.entity_type, q.entity_id, fetch).await {
+        Ok(rows) => ok_page(rows, limit),
         Err(e) => error_to_response(e),
     }
 }
@@ -94,9 +93,13 @@ pub async fn list_local_for_person(
     Path(person_id): Path<Uuid>,
     Query(q): Query<LimitQuery>,
 ) -> HandlerResult {
-    let limit = q.limit.min(MAX_LIMIT);
-    match AuditLogRepository::list_for_entity(&state.db, "patient", person_id, limit).await {
-        Ok(rows) => ok_json(rows),
+    let limit = match crate::paging::limit(q.limit, 50) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    let fetch = u64::try_from(crate::paging::ask_for(limit)).unwrap_or(0);
+    match AuditLogRepository::list_for_entity(&state.db, "patient", person_id, fetch).await {
+        Ok(rows) => ok_page(rows, limit),
         Err(e) => error_to_response(e),
     }
 }

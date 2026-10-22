@@ -30,7 +30,11 @@ pub struct QueueQuery {
     )
 )]
 pub async fn queue(State(state): State<AppState>, Query(q): Query<QueueQuery>) -> HandlerResult {
-    match state.printing.queue(q.limit.unwrap_or(100)).await {
+    let limit = match crate::paging::limit(q.limit, 100) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    match state.printing.queue(limit).await {
         Ok((total, items)) => (
             StatusCode::OK,
             Json(ApiResponse::ok(

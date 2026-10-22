@@ -468,7 +468,7 @@ impl ContactService {
                  WHERE mobile_e164 IS NULL OR mobile_verified_at IS NULL OR mobile_verified_at < now() - ($1 || ' days')::interval \
                  ORDER BY mobile_verified_at ASC NULLS FIRST, person_id LIMIT $2"
             ),
-            [older_than_days.to_string().into(), limit.clamp(1, 1000).into()],
+            [older_than_days.to_string().into(), crate::paging::fetch(limit).into()],
         ))
         .all(&self.db)
         .await

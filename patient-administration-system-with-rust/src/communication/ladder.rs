@@ -568,7 +568,7 @@ impl LadderService {
                 DbBackend::Postgres,
                 "SELECT t.id, t.appointment_id, t.person_id, t.reason, t.due_at, a.start_datetime FROM staff_call_tasks t \
                  JOIN appointments a ON a.id = t.appointment_id WHERE t.handled_at IS NULL ORDER BY a.start_datetime, t.due_at LIMIT $1",
-                [limit.clamp(1, 500).into()],
+                [crate::paging::fetch(limit).into()],
             ))
             .await
             .map_err(Error::Database)?;

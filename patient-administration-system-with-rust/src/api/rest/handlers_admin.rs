@@ -10,23 +10,16 @@ use uuid::Uuid;
 
 use crate::Error;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
+use crate::api::rest::handlers::{audit_ctx, ok};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::outbox::{DeadLetterRepository, OutboxRepository};
 
 #[derive(Debug, Deserialize)]
 pub struct LimitQuery {
-    #[serde(default = "default_limit")]
-    pub limit: u64,
+    pub limit: Option<i64>,
 }
-
-fn default_limit() -> u64 {
-    50
-}
-
-const MAX_LIMIT: u64 = 500;
 
 /// `GET /api/admin/outbox/unpublished?limit=N`.
 #[utoipa::path(
@@ -43,9 +36,13 @@ pub async fn list_unpublished_outbox(
     State(state): State<AppState>,
     Query(q): Query<LimitQuery>,
 ) -> HandlerResult {
-    let limit = q.limit.min(MAX_LIMIT);
-    match OutboxRepository::fetch_unpublished(&state.db, limit).await {
-        Ok(rows) => ok_json(rows),
+    let limit = match crate::paging::limit(q.limit, 50) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    let fetch = u64::try_from(crate::paging::ask_for(limit)).unwrap_or(0);
+    match OutboxRepository::fetch_unpublished(&state.db, fetch).await {
+        Ok(rows) => ok_page(rows, limit),
         Err(e) => error_to_response(e),
     }
 }
@@ -65,9 +62,13 @@ pub async fn list_dead_letters(
     State(state): State<AppState>,
     Query(q): Query<LimitQuery>,
 ) -> HandlerResult {
-    let limit = q.limit.min(MAX_LIMIT);
-    match DeadLetterRepository::list(&state.db, limit).await {
-        Ok(rows) => ok_json(rows),
+    let limit = match crate::paging::limit(q.limit, 50) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    let fetch = u64::try_from(crate::paging::ask_for(limit)).unwrap_or(0);
+    match DeadLetterRepository::list(&state.db, fetch).await {
+        Ok(rows) => ok_page(rows, limit),
         Err(e) => error_to_response(e),
     }
 }

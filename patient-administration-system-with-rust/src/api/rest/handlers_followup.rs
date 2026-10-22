@@ -10,7 +10,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 
 /// `GET /api/follow-up-policies`: the services whose misses always get a person's follow-up.
@@ -88,8 +88,16 @@ pub async fn open_tasks(
     State(state): State<AppState>,
     Query(q): Query<OpenQuery>,
 ) -> HandlerResult {
-    match state.follow_up.open_tasks(q.limit.unwrap_or(100)).await {
-        Ok(v) => ok_json(v),
+    let limit = match crate::paging::limit(q.limit, 100) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .follow_up
+        .open_tasks(crate::paging::ask_for(limit))
+        .await
+    {
+        Ok(v) => ok_page(v, limit),
         Err(e) => error_to_response(e),
     }
 }

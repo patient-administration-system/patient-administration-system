@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::Error;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 use crate::virtual_visits::Review;
 
@@ -101,7 +101,7 @@ pub async fn remove_service(
 
 #[derive(Debug, Deserialize)]
 pub struct PendingQuery {
-    pub limit: Option<u64>,
+    pub limit: Option<i64>,
 }
 
 /// `GET /api/conversions/pending`: conversions waiting for a clinician, soonest appointment first.
@@ -119,8 +119,16 @@ pub async fn pending(
     State(state): State<AppState>,
     Query(q): Query<PendingQuery>,
 ) -> HandlerResult {
-    match state.virtual_visits.pending(q.limit.unwrap_or(100)).await {
-        Ok(v) => ok_json(v),
+    let limit = match crate::paging::limit(q.limit, 100) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .virtual_visits
+        .pending(crate::paging::ask_for(limit))
+        .await
+    {
+        Ok(v) => ok_page(v, limit),
         Err(e) => error_to_response(e),
     }
 }
