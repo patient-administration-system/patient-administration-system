@@ -5259,6 +5259,26 @@
         ]
       }
     },
+    "/api/reports/validation-removals": {
+      "get": {
+        "operationId": "removals_report",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/reports/validation-removals?from=&to=`: validation removals, reinstatements and keeps by service,\napart from treatment. No identifiers. Defaults to the last 90 days.",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
     "/api/rooms": {
       "post": {
         "operationId": "create_room",
@@ -6110,6 +6130,306 @@
         "summary": "`POST /api/validate/nhs-number` (DTAC-8): check an NHS number's format and modulus-11 check digit. It says\nwhether the number is well formed, not whether it is issued or belongs to anyone (that needs a PDS trace,\nsee `governance/pds-decision.md`). Stores nothing.",
         "tags": [
           "Validate"
+        ]
+      }
+    },
+    "/api/validation-campaigns": {
+      "get": {
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/validation-campaigns`: newest first, each with its item counts by state.",
+        "tags": [
+          "Validation campaigns"
+        ]
+      },
+      "post": {
+        "operationId": "start",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/validation-campaigns`: take the longest-waiting pathways (not urgent, not already in a campaign,\nnot checked lately) and start asking whether the care is still needed.",
+        "tags": [
+          "Validation campaigns"
+        ]
+      }
+    },
+    "/api/validation-campaigns/{id}": {
+      "get": {
+        "operationId": "get",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/validation-campaigns/{id}`.",
+        "tags": [
+          "Validation campaigns"
+        ]
+      }
+    },
+    "/api/validation-campaigns/{id}/items": {
+      "get": {
+        "operationId": "items",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/validation-campaigns/{id}/items?state=&next=&limit=`.",
+        "tags": [
+          "Validation campaigns"
+        ]
+      }
+    },
+    "/api/validation-campaigns/{id}/items/{item}/answer": {
+      "post": {
+        "operationId": "answer",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Path parameter `item`",
+            "in": "path",
+            "name": "item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/validation-campaigns/{id}/items/{item}/answer`: the patient's answer, recorded by a person.",
+        "tags": [
+          "Validation campaigns"
+        ]
+      }
+    },
+    "/api/validation-campaigns/{id}/items/{item}/asked": {
+      "post": {
+        "operationId": "asked",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Path parameter `item`",
+            "in": "path",
+            "name": "item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/validation-campaigns/{id}/items/{item}/asked`: a person has asked the patient.",
+        "tags": [
+          "Validation campaigns"
+        ]
+      }
+    },
+    "/api/validation-campaigns/{id}/items/{item}/decision": {
+      "post": {
+        "operationId": "decision",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Path parameter `item`",
+            "in": "path",
+            "name": "item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/validation-campaigns/{id}/items/{item}/decision`: a named person keeps or removes the patient.\nRefused until the patient said the care is no longer needed, or the wait for a reply to the letter has ended;\nnever a removal for a patient who still needs it or is unsure, or on an urgent service.",
+        "tags": [
+          "Validation campaigns"
+        ]
+      }
+    },
+    "/api/validation-campaigns/{id}/items/{item}/letter-sent": {
+      "post": {
+        "operationId": "letter_sent",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Path parameter `item`",
+            "in": "path",
+            "name": "item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/validation-campaigns/{id}/items/{item}/letter-sent`: the letter has been posted to a patient who\ndid not reply by the campaign's date.",
+        "tags": [
+          "Validation campaigns"
+        ]
+      }
+    },
+    "/api/validation-campaigns/{id}/items/{item}/reinstate": {
+      "post": {
+        "operationId": "reinstate",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Path parameter `item`",
+            "in": "path",
+            "name": "item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/validation-campaigns/{id}/items/{item}/reinstate`: undo a removal within 90 days; the clock\ncontinues as if the patient had never left.",
+        "tags": [
+          "Validation campaigns"
         ]
       }
     },

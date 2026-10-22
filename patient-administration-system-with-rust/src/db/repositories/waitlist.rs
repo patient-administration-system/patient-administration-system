@@ -46,6 +46,10 @@ impl WaitlistRepository {
     ) -> Result<Vec<WaitlistEntry>> {
         let rows = waitlist_entry::Entity::find()
             .filter(waitlist_entry::Column::TargetService.eq(service))
+            // Longest on the list first. Without an order Postgres returns rows in the order they happen to lie
+            // on disk, and an UPDATE moves a row.
+            .order_by_asc(waitlist_entry::Column::CreatedAt)
+            .order_by_asc(waitlist_entry::Column::Id)
             .all(conn)
             .await
             .map_err(Error::Database)?;

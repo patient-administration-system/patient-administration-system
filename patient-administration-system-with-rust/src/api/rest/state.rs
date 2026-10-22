@@ -44,6 +44,7 @@ pub struct AppState {
     pub backfill: Arc<crate::backfill::BackfillService>,
     pub transport: Arc<crate::transport::TransportService>,
     pub waits: Arc<crate::waits::WaitsService>,
+    pub list_validation: Arc<crate::list_validation::ListValidationService>,
     pub tolerance: Arc<crate::tolerance::ToleranceService>,
     pub support: Arc<crate::support::SupportService>,
     pub history: Arc<crate::history::HistoryService>,
@@ -107,6 +108,7 @@ impl AppState {
             writeback.clone(),
             rebooking.clone(),
         ));
+        let waits = Arc::new(crate::waits::WaitsService::new(db.clone()));
         Self {
             adt: Arc::new(AdtService::new(db.clone(), publisher.clone())),
             reply_links: reply_links.clone(),
@@ -127,7 +129,11 @@ impl AppState {
                 Arc::new(WaitlistService::new(db.clone(), publisher.clone())),
             )),
             transport,
-            waits: Arc::new(crate::waits::WaitsService::new(db.clone())),
+            waits: waits.clone(),
+            list_validation: Arc::new(crate::list_validation::ListValidationService::new(
+                db.clone(),
+                waits,
+            )),
             tolerance: Arc::new(crate::tolerance::ToleranceService::new(db.clone())),
             support: Arc::new(crate::support::SupportService::new(db.clone())),
             history: Arc::new(crate::history::HistoryService::new(db.clone())),

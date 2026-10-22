@@ -69,3 +69,14 @@ The timers (outbox dispatcher, reminder ladder or reminders, backfill offers, no
 ## Configuration is checked when the server starts (QUAL-6)
 
 Every switch and number is listed with its default and bounds in `patient-administration-system-with-rust/src/config/env.rs` (`VARS`). At start-up the server checks every one that is set and refuses to start if any is wrong, naming all of them in one message (`invalid environment: PAS_TOLERANCE_CHECK_MINUTES="abc" must be a whole number between 0 and 10080 (default 60); ...`). Before this change a bad number was replaced by its default without a word. A switch accepts `true`, `false`, `1`, `0`, `yes`, `no`, `on` and `off` in any case; before, most accepted only the exact text `true`, so `TRUE` or `1` left a feature off. A value that is blank means the default. After start-up a value changed in the environment of a running process is not noticed by most settings; restart to apply a change.
+
+## Running a waiting-list validation campaign (NEW-2)
+
+Read [`governance/waiting-list-validation.md`](../governance/waiting-list-validation.md) first. The steps, all through the API and each by a named person:
+
+1. `POST /api/validation-campaigns` (`name`, `started_by`, `service_type`, `min_weeks`, `reply_in_days`, `final_wait_days`, `limit`). It takes the longest waiters of the service and contacts nobody.
+2. Ask each patient (phone, text, in person) and record it: `POST .../items/{item}/asked` (`asked_by`, `channel`), then the reply: `POST .../items/{item}/answer` (`answer` is `still_needed`, `no_longer_needed` or `unsure`, `recorded_by`).
+3. After the reply date, `GET .../items?next=letter_due` lists patients who have not answered. Post the letter, then record it: `POST .../items/{item}/letter-sent` (`sent_by`).
+4. `GET .../items?next=decision_due` lists who can now be decided: those who said they no longer need it, and those who did not answer the letter by its date. `POST .../items/{item}/decision` (`decision` `keep` or `remove`, `decided_by`, `note`). A removal ends the clock with reason `validation_removal`.
+5. A removal made in error is undone within 90 days with `POST .../items/{item}/reinstate` (`reinstated_by`).
+6. `GET /api/reports/validation-removals` for the figures to publish.

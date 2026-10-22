@@ -49,6 +49,7 @@ use super::handlers_standby;
 use super::handlers_support;
 use super::handlers_tolerance;
 use super::handlers_transport;
+use super::handlers_validation;
 use super::handlers_virtual;
 use super::handlers_waitlist;
 use super::handlers_waits;
@@ -531,6 +532,42 @@ fn waiting() -> Router<AppState> {
         .route(
             "/api/clinical-priority-reviews/overdue",
             get(handlers_clinical_priority::overdue),
+        )
+        .route(
+            "/api/validation-campaigns",
+            post(handlers_validation::start).get(handlers_validation::list),
+        )
+        .route(
+            "/api/validation-campaigns/{id}",
+            get(handlers_validation::get),
+        )
+        .route(
+            "/api/validation-campaigns/{id}/items",
+            get(handlers_validation::items),
+        )
+        .route(
+            "/api/validation-campaigns/{id}/items/{item}/asked",
+            post(handlers_validation::asked),
+        )
+        .route(
+            "/api/validation-campaigns/{id}/items/{item}/answer",
+            post(handlers_validation::answer),
+        )
+        .route(
+            "/api/validation-campaigns/{id}/items/{item}/letter-sent",
+            post(handlers_validation::letter_sent),
+        )
+        .route(
+            "/api/validation-campaigns/{id}/items/{item}/decision",
+            post(handlers_validation::decision),
+        )
+        .route(
+            "/api/validation-campaigns/{id}/items/{item}/reinstate",
+            post(handlers_validation::reinstate),
+        )
+        .route(
+            "/api/reports/validation-removals",
+            get(handlers_validation::removals_report),
         )
         // Released slots and the standby list (CAP-3).
         .route(

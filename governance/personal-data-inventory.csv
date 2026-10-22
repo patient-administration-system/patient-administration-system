@@ -558,6 +558,40 @@ referrals,triaged_by,staff-identifier,Attribute work to a staff member held by w
 referrals,triaged_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 referrals,redirected_to_service,health,"Administrative care information (why, where, what service, outcome)",record
 referrals,redirected_referral_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_campaigns,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_campaigns,name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_campaigns,service_type,health,"Administrative care information (why, where, what service, outcome)",record
+validation_campaigns,min_weeks,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_campaigns,started_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+validation_campaigns,reply_by,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_campaigns,final_wait_days,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_campaigns,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_campaigns,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_campaigns,closed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_campaigns,closed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+validation_items,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,campaign_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,pathway_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,person_id,identifier,Link a record to a person held by person-service,record
+validation_items,target_service,health,"Administrative care information (why, where, what service, outcome)",record
+validation_items,state,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,check_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,asked_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+validation_items,asked_channel,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,asked_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,answer,health,"Administrative care information (why, where, what service, outcome)",record
+validation_items,answered_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,letter_sent_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+validation_items,letter_sent_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,final_by,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,decided_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+validation_items,decided_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,decision_note,free-text,A named person's reason for a validation decision; no patient details,audit-or-message
+validation_items,removed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,rtt_stop_event_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,removed_waitlist_ids,none,"Not personal data (structure, status, timestamps, places, templates)",record
+validation_items,reinstated_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+validation_items,reinstated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 interpreter_requests,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 interpreter_requests,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 interpreter_requests,person_id,identifier,Link a record to a person held by person-service,record
