@@ -270,6 +270,7 @@ slots,schedule_id,none,"Not personal data (structure, status, timestamps, places
 slots,start_datetime,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,end_datetime,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,capacity,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 standby_entries,id,none,"Not personal data (structure, status, timestamps, places, templates)",record

@@ -169,7 +169,9 @@ impl SchedulingService {
                  JOIN schedules sc2 ON sc2.id = s2.schedule_id \
                  JOIN schedules sc1 ON sc1.id = $1 \
                  WHERE sc2.owner_kind = sc1.owner_kind AND sc2.owner_id = sc1.owner_id \
-                   AND sc2.id <> sc1.id AND s2.status = 'busy' \
+                   AND sc2.id <> sc1.id \
+                   AND (s2.status = 'busy' OR EXISTS (SELECT 1 FROM appointments a WHERE a.slot_id = s2.id \
+                        AND a.deleted_at IS NULL AND a.status NOT IN ('cancelled','no_show'))) \
                    AND s2.start_datetime < $3 AND s2.end_datetime > $2 LIMIT 1",
                 [
                     slot.schedule_id.into(),
@@ -219,6 +221,12 @@ impl SchedulingService {
                 slot.status
             )));
         }
+        // A group session (NEW-18) takes bookings until its declared capacity; the row lock above means two
+        // bookings arriving together are counted one after the other.
+        let (capacity, booked) = crate::group_sessions::places(txn, slot_id).await?;
+        if booked >= capacity {
+            return Err(Error::conflict(format!("group session {slot_id} is full")));
+        }
         Self::check_owner_free(txn, &slot).await?;
         let overlapping = AppointmentRepository::find_overlapping_for_patient(
             txn,
@@ -232,7 +240,10 @@ impl SchedulingService {
                 "patient already has an overlapping appointment",
             ));
         }
-        SlotRepository::update_status(txn, slot_id, SlotStatus::Busy).await?;
+        // A one-to-one slot is busy once booked; a group session only once its last place is taken.
+        if booked + 1 >= capacity {
+            SlotRepository::update_status(txn, slot_id, SlotStatus::Busy).await?;
+        }
         let mut appt = Appointment::new(person_id, slot.start_datetime, slot.end_datetime);
         appt.slot_id = Some(slot.id);
         if let EntryLink::Explicit(e) | EntryLink::Inherit(e) = link {

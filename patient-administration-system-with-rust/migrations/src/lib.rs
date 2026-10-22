@@ -49,6 +49,7 @@ mod m20260704_000043_follow_up_targets;
 mod m20260705_000044_needs_review;
 mod m20260706_000045_clinical_priority;
 mod m20260707_000046_interpreters;
+mod m20260708_000047_group_sessions;
 
 pub struct Migrator;
 
@@ -102,6 +103,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260705_000044_needs_review::Migration),
             Box::new(m20260706_000045_clinical_priority::Migration),
             Box::new(m20260707_000046_interpreters::Migration),
+            Box::new(m20260708_000047_group_sessions::Migration),
         ]
     }
 }

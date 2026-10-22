@@ -164,6 +164,8 @@ fn alias_api_practitioners_search_get() {}
         crate::api::rest::handlers_interpreter::set_need,
         crate::api::rest::handlers_interpreter::confirm,
         crate::api::rest::handlers_interpreter::unconfirmed,
+        crate::api::rest::handlers_group_sessions::set_capacity,
+        crate::api::rest::handlers_group_sessions::attendees,
         crate::api::rest::handlers_print::queue,
         crate::api::rest::handlers_print::export,
         crate::api::rest::handlers_print::mark_sent,

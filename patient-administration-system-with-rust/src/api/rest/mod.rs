@@ -15,6 +15,7 @@ pub mod handlers_encounter;
 pub mod handlers_experiments;
 pub mod handlers_follow_up_delay;
 pub mod handlers_followup;
+pub mod handlers_group_sessions;
 pub mod handlers_history;
 pub mod handlers_hl7v2;
 pub mod handlers_identity;

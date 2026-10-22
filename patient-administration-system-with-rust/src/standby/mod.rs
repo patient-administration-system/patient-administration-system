@@ -150,6 +150,11 @@ pub(crate) async fn record_release(
     if appt.start_datetime <= Utc::now() {
         return Ok(None);
     }
+    // A place in a group session is not offered to the standby list: nobody is put into a group
+    // automatically (NEW-18).
+    if crate::group_sessions::is_group(txn, slot_id).await? {
+        return Ok(None);
+    }
     let service: Option<String> = txn
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,

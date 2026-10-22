@@ -28,6 +28,7 @@ use super::handlers_encounter;
 use super::handlers_experiments;
 use super::handlers_follow_up_delay;
 use super::handlers_followup;
+use super::handlers_group_sessions;
 use super::handlers_history;
 use super::handlers_hl7v2;
 use super::handlers_identity;
@@ -311,6 +312,14 @@ fn adt() -> Router<AppState> {
 /// Schedules, slots, appointments, series, rebooking, virtual visits and transport.
 fn scheduling() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/slots/{id}/capacity",
+            put(handlers_group_sessions::set_capacity),
+        )
+        .route(
+            "/api/slots/{id}/attendees",
+            get(handlers_group_sessions::attendees),
+        )
         .route(
             "/api/interpreter-requests/{id}/confirm",
             post(handlers_interpreter::confirm),
