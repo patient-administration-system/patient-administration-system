@@ -1,0 +1,98 @@
+# Weekly mutation testing where a surviving mutant would hurt (QUAL-18): the consent and quiet-hours rules,
+# the no-show score, the privacy-safe analytics and the support flags that may only add help (NFR-11).
+# cargo-mutants changes the code one small way at a time and runs the tests that should notice; a mutant
+# that survives is a change to the rule that no test catches. The survivors are listed on the run page and
+# the full output is kept as an artefact. A survivor in the consent or support module fails the job.
+name: Mutation
+
+on:
+  schedule:
+    - cron: "23 2 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: "1.99.1"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  mutants:
+    name: Mutants (${{ matrix.module }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - module: consent
+            file: "**/communication/consent.rs"
+            tests: "pilot7_consent_test qual18_quiet_hours_test cas10_letter_only_test"
+            must_be_clean: true
+          - module: support
+            file: "**/support/mod.rs"
+            tests: "cap10_support_test"
+            must_be_clean: true
+          - module: noshow
+            file: "**/noshow/mod.rs"
+            tests: "cas5_noshow_test"
+            must_be_clean: false
+          - module: analytics
+            file: "**/analytics/mod.rs"
+            tests: "cap11_analytics_test pilot10_refill_test"
+            must_be_clean: false
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: pas
+          POSTGRES_PASSWORD: pas_dev_password
+          POSTGRES_DB: pas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pas"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://pas:pas_dev_password@localhost:5432/pas
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        with:
+          tool: cargo-mutants
+      - run: cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
+      - name: Mutate and test
+        env:
+          FILE: ${{ matrix.file }}
+          TESTS: ${{ matrix.tests }}
+        run: |
+          args=(--cargo-test-arg=--lib)
+          for t in $TESTS; do args+=("--cargo-test-arg=--test=$t"); done
+          # cargo-mutants exits non-zero when a mutant survives; the next step decides what that means.
+          # After `--`, arguments go to `cargo test`; after a second `--`, to the test binaries.
+          cargo mutants -p patient-administration-system --file "$FILE" --output . "${args[@]}" \
+            -- -- --include-ignored --test-threads=1 || true
+      - name: Report
+        env:
+          MODULE: ${{ matrix.module }}
+          MUST_BE_CLEAN: ${{ matrix.must_be_clean }}
+        run: |
+          out=mutants.out
+          caught=$(wc -l < "$out/caught.txt"); missed=$(wc -l < "$out/missed.txt")
+          {
+            echo "### Mutants in $MODULE: $caught caught, $missed survived"
+            if [ "$missed" -gt 0 ]; then echo '```'; cat "$out/missed.txt"; echo '```'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$MUST_BE_CLEAN" = true ] && [ "$missed" -gt 0 ]; then
+            echo "$missed mutant(s) survived in $MODULE" >&2
+            exit 1
+          fi
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutants-${{ matrix.module }}
+          path: mutants.out

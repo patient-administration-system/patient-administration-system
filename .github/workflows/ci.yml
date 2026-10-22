@@ -248,9 +248,9 @@ jobs:
     name: Container image builds (${{ matrix.image }})
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    # The two images build side by side. This proves they build; the release workflow builds the real ones.
-    # Here the server skips link-time optimisation, which only makes the binary faster and was the slowest
-    # step of the whole run (QUAL-24).
+    # The two images build side by side, with the settings they ship with. The server image compiles every
+    # dependency from scratch (about ten minutes) and is the slowest job of the run; turning off its LTO here
+    # made no difference, so a build cache that survives between runs is the next step (QUAL-24).
     strategy:
       fail-fast: false
       matrix:
@@ -258,7 +258,7 @@ jobs:
           - image: server
             file: patient-administration-system-with-rust/Containerfile
             context: .
-            args: --build-arg CARGO_PROFILE_RELEASE_LTO=false --build-arg CARGO_PROFILE_RELEASE_CODEGEN_UNITS=256
+            args: ""
           - image: ui
             file: patient-administration-system-ui-with-svelte/Containerfile
             context: patient-administration-system-ui-with-svelte

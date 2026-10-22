@@ -1,0 +1,9 @@
+# cargo-mutants settings (QUAL-18; .github/workflows/mutation.yml).
+#
+# Mutants that cannot change behaviour, each with the reason. Anything listed here is never tested, so each
+# pattern names the exact line and column: if the code moves, the pattern stops matching and the weekly job
+# reports the mutant again, which is the safe way round.
+exclude_re = [
+    # `QuietHours::parse` refuses a window whose ends are equal, so `start < end` and `start <= end` always agree.
+    "consent.rs:65:23: replace < with <= in QuietHours::contains",
+]
