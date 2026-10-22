@@ -1349,6 +1349,26 @@
         ]
       }
     },
+    "/api/clinical-priority-reviews/overdue": {
+      "get": {
+        "operationId": "overdue",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/clinical-priority-reviews/overdue`: entries whose priority review date has passed (clinic\ndate), the longest overdue first; paged (NFR-23).",
+        "tags": [
+          "Waitlist"
+        ]
+      }
+    },
     "/api/communication-needs/due-review": {
       "get": {
         "operationId": "due_review",
@@ -6186,6 +6206,37 @@
           }
         },
         "summary": "`POST /api/waitlist/{id}/book`: book a slot for the patient on this entry, and mark the entry\n`booked`. A cancel or a miss later returns it to `waiting`; completing the appointment marks it\n`treated`.",
+        "tags": [
+          "Waitlist"
+        ]
+      }
+    },
+    "/api/waitlist/{id}/clinical-priority": {
+      "put": {
+        "operationId": "set_priority",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`PUT /api/waitlist/{id}/clinical-priority`: a named clinician sets the entry's clinical priority and its\nreview date. Audited. Shown to staff only: nothing orders, offers or books by it (NFR-11).",
         "tags": [
           "Waitlist"
         ]

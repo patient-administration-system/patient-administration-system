@@ -297,6 +297,9 @@ waitlist_entries,target_service,health,"Administrative care information (why, wh
 waitlist_entries,priority,health,"Administrative care information (why, where, what service, outcome)",record
 waitlist_entries,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
 waitlist_entries,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+waitlist_entries,clinical_priority,health,"Administrative care information (why, where, what service, outcome)",record
+waitlist_entries,clinical_priority_review_by,none,"Not personal data (structure, status, timestamps, places, templates)",record
+waitlist_entries,clinical_priority_set_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 waitlist_entries,follow_up_target,health,"Administrative care information (why, where, what service, outcome)",record
 waitlist_entries,follow_up_target_set_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 waitlist_entries,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

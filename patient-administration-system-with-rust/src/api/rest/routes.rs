@@ -20,6 +20,7 @@ use super::handlers_adt;
 use super::handlers_analytics;
 use super::handlers_audit;
 use super::handlers_billing;
+use super::handlers_clinical_priority;
 use super::handlers_consent;
 use super::handlers_contact;
 use super::handlers_coverage;
@@ -510,6 +511,14 @@ fn messaging() -> Router<AppState> {
 /// Waiting lists, RTT, standby, released slots, referrals and long waits.
 fn waiting() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/waitlist/{id}/clinical-priority",
+            put(handlers_clinical_priority::set_priority),
+        )
+        .route(
+            "/api/clinical-priority-reviews/overdue",
+            get(handlers_clinical_priority::overdue),
+        )
         // Released slots and the standby list (CAP-3).
         .route(
             "/api/standby",
