@@ -5,7 +5,7 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 <!-- status:begin -->
 | Measure | Count |
 |---|---|
-| Rust test functions (server, front-end, migrations) | 849 |
+| Rust test functions (server, front-end, migrations) | 851 |
 | of which `#[ignore]`d (need PostgreSQL) | 285 |
 | Server route registrations | 234 |
 | Migrations | 41 |
