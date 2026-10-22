@@ -34,12 +34,28 @@ struct W {
 /// Schedule A has ten slots on the day and seven appointments, in every outcome; schedule B has four free slots.
 async fn world() -> W {
     let s = common::build_state(&common::database_url().unwrap()).await;
-    let d = 4000 + (Uuid::new_v4().as_u128() % 20_000) as i64;
-    let day = (Utc::now() + Duration::days(d))
-        .date_naive()
-        .and_hms_opt(8, 0, 0)
-        .unwrap()
-        .and_utc();
+    // A random day far ahead that no earlier run used: the report counts everything on the day, and on a
+    // long-lived database two runs landing on the same day (likely after a few hundred) would see each other.
+    let day = loop {
+        let d = 4000 + (Uuid::new_v4().as_u128() % 20_000) as i64;
+        let day = (Utc::now() + Duration::days(d))
+            .date_naive()
+            .and_hms_opt(8, 0, 0)
+            .unwrap()
+            .and_utc();
+        let used = s
+            .db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT 1 AS used FROM slots WHERE start_datetime >= $1 AND start_datetime < $2 LIMIT 1",
+                [day.into(), (day + Duration::days(1)).into()],
+            ))
+            .await
+            .unwrap();
+        if used.is_none() {
+            break day;
+        }
+    };
     let a = common::new_schedule_for(
         &s.db,
         &format!("A{}", &Uuid::new_v4().simple().to_string()[..6]),
@@ -218,7 +234,13 @@ async fn lead_time_statistics_come_from_booking_to_visit() {
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn an_empty_range_gives_zeros_not_an_error() {
     let w = world().await;
-    let empty_from = w.day + Duration::days(100);
+    // A day nothing is ever booked on. (It used to be `w.day + 100 days`, but every run leaves slots on a
+    // random day in the same years, so on a long-lived database that day eventually had some.)
+    let empty_from = chrono::NaiveDate::from_ymd_opt(1990, 1, 1)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap()
+        .and_utc();
     let r =
         w.s.reports
             .clinic_activity(
