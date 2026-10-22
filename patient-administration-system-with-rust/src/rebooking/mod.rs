@@ -14,6 +14,7 @@
 //!   booked in one transaction (`SchedulingService::rebook_tx`).
 //! - It only ever adds a way to a better time: nothing here scores, ranks or limits a patient (NFR-11).
 
+use crate::db::row::RowExt;
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Timelike, Utc};
@@ -164,9 +165,9 @@ impl RebookService {
         rows.iter()
             .map(|r| {
                 Ok(OfferedSlot {
-                    slot_id: r.try_get("", "id").map_err(Error::Database)?,
-                    starts_at: r.try_get("", "start_datetime").map_err(Error::Database)?,
-                    ends_at: r.try_get("", "end_datetime").map_err(Error::Database)?,
+                    slot_id: r.col("id")?,
+                    starts_at: r.col("start_datetime")?,
+                    ends_at: r.col("end_datetime")?,
                 })
             })
             .collect()
@@ -209,9 +210,9 @@ impl RebookService {
                 .collect();
             if !ids.is_empty() && still.len() == ids.len() {
                 return Ok(Offer {
-                    offer_id: Some(row.try_get("", "id").map_err(Error::Database)?),
+                    offer_id: Some(row.col("id")?),
                     appointment_id,
-                    expires_at: Some(row.try_get("", "expires_at").map_err(Error::Database)?),
+                    expires_at: Some(row.col("expires_at")?),
                     time_zone: tz.name().to_string(),
                     options: still,
                 });
@@ -259,8 +260,7 @@ impl RebookService {
             ))
             .await
             .map_err(Error::Database)?;
-        row.map(|r| r.try_get("", "id").map_err(Error::Database))
-            .transpose()
+        row.map(|r| r.col("id")).transpose()
     }
 
     /// Take the patient's choice. Refused, changing nothing, if the offer is unknown, belongs to another
@@ -287,18 +287,18 @@ impl RebookService {
                         .await
                         .map_err(Error::Database)?
                         .ok_or_else(|| Error::validation("that offer does not exist"))?;
-                    let for_appt: Uuid = row.try_get("", "appointment_id").map_err(Error::Database)?;
+                    let for_appt: Uuid = row.col("appointment_id")?;
                     if for_appt != appointment_id {
                         return Err(Error::validation(
                             "that offer is for a different appointment",
                         ));
                     }
-                    let used: bool = row.try_get("", "used").map_err(Error::Database)?;
+                    let used: bool = row.col("used")?;
                     if used {
                         return Err(Error::conflict("that offer has already been used"));
                     }
                     let expires: DateTime<Utc> =
-                        row.try_get("", "expires_at").map_err(Error::Database)?;
+                        row.col("expires_at")?;
                     if expires <= Utc::now() {
                         return Err(Error::validation("that offer has expired"));
                     }
@@ -338,7 +338,7 @@ impl RebookService {
 }
 
 fn stored_ids(row: &sea_orm::QueryResult) -> Result<Vec<Uuid>> {
-    let v: serde_json::Value = row.try_get("", "slot_ids").map_err(Error::Database)?;
+    let v: serde_json::Value = row.col("slot_ids")?;
     Ok(v.as_array()
         .map(|a| {
             a.iter()

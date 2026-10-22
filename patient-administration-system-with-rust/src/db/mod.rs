@@ -1,6 +1,7 @@
 //! db
 pub mod entities;
 pub mod repositories;
+pub mod row;
 
 use sea_orm::{
     ConnectOptions, Database, DatabaseConnection, DatabaseTransaction, TransactionTrait,

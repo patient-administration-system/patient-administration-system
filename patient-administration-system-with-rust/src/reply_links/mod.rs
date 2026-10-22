@@ -17,6 +17,7 @@
 //! - The reply is applied through the same write-back as a text reply (CAP-2), so rules, audit and
 //!   idempotency are shared.
 
+use crate::db::row::RowExt;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
@@ -171,10 +172,10 @@ impl ReplyLinks {
             .map_err(Error::Database)?
             .ok_or_else(invalid)?;
         Ok(Row {
-            appointment_id: r.try_get("", "appointment_id").map_err(Error::Database)?,
-            person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-            expires_at: r.try_get("", "expires_at").map_err(Error::Database)?,
-            consumed: r.try_get("", "consumed").map_err(Error::Database)?,
+            appointment_id: r.col("appointment_id")?,
+            person_id: r.col("person_id")?,
+            expires_at: r.col("expires_at")?,
+            consumed: r.col("consumed")?,
         })
     }
 

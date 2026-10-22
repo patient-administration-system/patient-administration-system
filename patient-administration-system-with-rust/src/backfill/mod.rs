@@ -16,6 +16,7 @@
 //!   hours apply. If a patient cannot be messaged, the offer simply runs out and the next patient is tried.
 //!   Nothing is sent unless `PAS_BACKFILL_OFFERS=true`.
 
+use crate::db::row::RowExt;
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
@@ -158,12 +159,12 @@ impl BackfillService {
             // The same answer for a malformed and an unknown token.
             .ok_or_else(|| Error::not_found("this link is not valid"))?;
         Ok(Row {
-            id: r.try_get("", "id").map_err(Error::Database)?,
-            release_id: r.try_get("", "release_id").map_err(Error::Database)?,
-            slot_id: r.try_get("", "slot_id").map_err(Error::Database)?,
-            standby_entry_id: r.try_get("", "standby_entry_id").map_err(Error::Database)?,
-            status: r.try_get("", "status").map_err(Error::Database)?,
-            expires_at: r.try_get("", "expires_at").map_err(Error::Database)?,
+            id: r.col("id")?,
+            release_id: r.col("release_id")?,
+            slot_id: r.col("slot_id")?,
+            standby_entry_id: r.col("standby_entry_id")?,
+            status: r.col("status")?,
+            expires_at: r.col("expires_at")?,
         })
     }
 
@@ -176,7 +177,7 @@ impl BackfillService {
             ))
             .await
             .map_err(Error::Database)?
-            .map(|r| r.try_get("", "start_datetime").map_err(Error::Database))
+            .map(|r| r.col("start_datetime"))
             .transpose()
     }
 
@@ -205,9 +206,9 @@ impl BackfillService {
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found(format!("slot release {release_id}")))?;
-        let status: String = rel.try_get("", "status").map_err(Error::Database)?;
-        let start: DateTime<Utc> = rel.try_get("", "start_datetime").map_err(Error::Database)?;
-        let slot_id: Uuid = rel.try_get("", "slot_id").map_err(Error::Database)?;
+        let status: String = rel.col("status")?;
+        let start: DateTime<Utc> = rel.col("start_datetime")?;
+        let slot_id: Uuid = rel.col("slot_id")?;
         let now = self.now();
         if status != "open" || start <= now {
             return Ok(None);
@@ -396,7 +397,7 @@ impl BackfillService {
             .await
             .map_err(Error::Database)?;
         if let Some(r) = rel {
-            let id: Uuid = r.try_get("", "id").map_err(Error::Database)?;
+            let id: Uuid = r.col("id")?;
             self.offer_and_notify(id).await?;
         }
         Ok(())
@@ -419,7 +420,7 @@ impl BackfillService {
             offered: 0,
         };
         for r in rows {
-            let rid: Uuid = r.try_get("", "release_id").map_err(Error::Database)?;
+            let rid: Uuid = r.col("release_id")?;
             if self.offer_and_notify(rid).await? {
                 report.offered += 1;
             }
@@ -576,11 +577,11 @@ impl BackfillService {
         rows.iter()
             .map(|r| {
                 Ok(serde_json::json!({
-                    "id": r.try_get::<Uuid>("", "id").map_err(Error::Database)?,
-                    "status": r.try_get::<String>("", "status").map_err(Error::Database)?,
+                    "id": r.col::<Uuid>("id")?,
+                    "status": r.col::<String>("status")?,
                     "offered_at": r.try_get::<DateTime<Utc>>("", "offered_at").map_err(Error::Database)?,
                     "expires_at": r.try_get::<DateTime<Utc>>("", "expires_at").map_err(Error::Database)?,
-                    "message_sent": r.try_get::<bool>("", "message_sent").map_err(Error::Database)?,
+                    "message_sent": r.col::<bool>("message_sent")?,
                 }))
             })
             .collect()

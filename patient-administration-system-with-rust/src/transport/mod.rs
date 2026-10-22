@@ -17,6 +17,7 @@
 //! Not built: the real provider (none is chosen), and telling the patient the pick-up window in a message.
 //! The window is recorded on the booking and readable at `GET /api/appointments/{id}/transport`.
 
+use crate::db::row::RowExt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -294,13 +295,13 @@ impl TransportService {
             .map_err(Error::Database)?;
         r.map(|r| {
             Ok(Booking {
-                id: r.try_get("", "id").map_err(Error::Database)?,
-                appointment_id: r.try_get("", "appointment_id").map_err(Error::Database)?,
-                status: r.try_get("", "status").map_err(Error::Database)?,
-                provider_ref: r.try_get("", "provider_ref").map_err(Error::Database)?,
-                window_start: r.try_get("", "window_start").map_err(Error::Database)?,
-                window_end: r.try_get("", "window_end").map_err(Error::Database)?,
-                last_error: r.try_get("", "last_error").map_err(Error::Database)?,
+                id: r.col("id")?,
+                appointment_id: r.col("appointment_id")?,
+                status: r.col("status")?,
+                provider_ref: r.col("provider_ref")?,
+                window_start: r.col("window_start")?,
+                window_end: r.col("window_end")?,
+                last_error: r.col("last_error")?,
             })
         })
         .transpose()
@@ -450,8 +451,7 @@ impl TransportService {
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::internal("booking vanished"))?
-            .try_get("", "person_id")
-            .map_err(Error::Database)?;
+            .col("person_id")?;
         match self
             .client
             .cancel(b.provider_ref.as_deref().unwrap_or_default())

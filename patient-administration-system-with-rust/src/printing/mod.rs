@@ -12,6 +12,7 @@
 //! - **A patient who has opted out of nothing here:** postal letters are not a text-style channel, so
 //!   STOP does not apply; a patient's choice of channel (CAP-4, CAS-10) decides whether one is made at all.
 
+use crate::db::row::RowExt;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
@@ -131,8 +132,7 @@ impl PrintService {
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::internal("count returned no row"))?
-            .try_get::<i64>("", "n")
-            .map_err(Error::Database)?;
+            .col::<i64>("n")?;
         let rows = self
             .db
             .query_all_raw(Statement::from_sql_and_values(
@@ -149,9 +149,9 @@ impl PrintService {
             .iter()
             .map(|r| {
                 Ok(QueuedLetter {
-                    letter_id: r.try_get("", "id").map_err(Error::Database)?,
-                    created_at: r.try_get("", "created_at").map_err(Error::Database)?,
-                    subject: r.try_get("", "rendered_subject").map_err(Error::Database)?,
+                    letter_id: r.col("id")?,
+                    created_at: r.col("created_at")?,
+                    subject: r.col("rendered_subject")?,
                 })
             })
             .collect::<Result<Vec<_>>>()?;
@@ -215,8 +215,8 @@ impl PrintService {
                         .map_err(Error::Database)?;
                     let (mut rows, mut skipped) = (Vec::new(), 0usize);
                     for l in letters {
-                        let id: Uuid = l.try_get("", "id").map_err(Error::Database)?;
-                        let person: Uuid = l.try_get("", "person_id").map_err(Error::Database)?;
+                        let id: Uuid = l.col("id")?;
+                        let person: Uuid = l.col("person_id")?;
                         let person = people.get(person, &upstream).await;
                         let address = person.as_ref().ok().and_then(crate::transport::pickup_address);
                         let Some(address) = address else {
@@ -234,8 +234,8 @@ impl PrintService {
                             reference: id,
                             name: person.as_ref().map(display_name).unwrap_or_default(),
                             address,
-                            subject: l.try_get("", "rendered_subject").map_err(Error::Database)?,
-                            body: l.try_get("", "rendered_body").map_err(Error::Database)?,
+                            subject: l.col("rendered_subject")?,
+                            body: l.col("rendered_body")?,
                         });
                     }
                     if rows.is_empty() {

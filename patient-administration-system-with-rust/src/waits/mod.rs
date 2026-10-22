@@ -8,6 +8,7 @@
 //! - **The answer** is recorded and audited by a named person. Answering "no longer needed" changes nothing
 //!   else: it does not remove the patient from a list or stop their clock. A person decides what follows.
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
@@ -76,8 +77,8 @@ impl WaitsService {
             .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
         Ok(Self::lead(
             appointment_id,
-            r.try_get("", "created_at").map_err(Error::Database)?,
-            r.try_get("", "start_datetime").map_err(Error::Database)?,
+            r.col("created_at")?,
+            r.col("start_datetime")?,
         ))
     }
 
@@ -103,9 +104,9 @@ impl WaitsService {
             .iter()
             .map(|r| {
                 Ok(Self::lead(
-                    r.try_get("", "id").map_err(Error::Database)?,
-                    r.try_get("", "created_at").map_err(Error::Database)?,
-                    r.try_get("", "start_datetime").map_err(Error::Database)?,
+                    r.col("id")?,
+                    r.col("created_at")?,
+                    r.col("start_datetime")?,
                 ))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -122,12 +123,12 @@ impl WaitsService {
             .map_err(Error::Database)?;
         let mut pathways = Vec::new();
         for r in &paths {
-            let id: Uuid = r.try_get("", "id").map_err(Error::Database)?;
+            let id: Uuid = r.col("id")?;
             pathways.push(PathwayWait {
                 pathway_id: id,
-                target_service: r.try_get("", "target_service").map_err(Error::Database)?,
+                target_service: r.col("target_service")?,
                 weeks_waited: self.weeks(id).await?,
-                last_check_at: r.try_get("", "last_check").map_err(Error::Database)?,
+                last_check_at: r.col("last_check")?,
             });
         }
         Ok(PatientWaits {
@@ -161,16 +162,16 @@ impl WaitsService {
             .map_err(Error::Database)?;
         let mut out = Vec::new();
         for r in &rows {
-            let id: Uuid = r.try_get("", "id").map_err(Error::Database)?;
+            let id: Uuid = r.col("id")?;
             let w = self.weeks(id).await?;
             if i64::from(w) >= weeks {
                 out.push((
-                    r.try_get("", "person_id").map_err(Error::Database)?,
+                    r.col("person_id")?,
                     PathwayWait {
                         pathway_id: id,
-                        target_service: r.try_get("", "target_service").map_err(Error::Database)?,
+                        target_service: r.col("target_service")?,
                         weeks_waited: w,
-                        last_check_at: r.try_get("", "last_check").map_err(Error::Database)?,
+                        last_check_at: r.col("last_check")?,
                     },
                 ));
             }
@@ -193,7 +194,7 @@ impl WaitsService {
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found(format!("open pathway {pathway_id}")))?;
-        let person_id: Uuid = person.try_get("", "person_id").map_err(Error::Database)?;
+        let person_id: Uuid = person.col("person_id")?;
         let id = Uuid::new_v4();
         self.db
             .execute_raw(Statement::from_sql_and_values(
@@ -245,7 +246,7 @@ impl WaitsService {
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::conflict("that check is unknown or already answered"))?;
-        let pathway_id: Uuid = row.try_get("", "pathway_id").map_err(Error::Database)?;
+        let pathway_id: Uuid = row.col("pathway_id")?;
         AuditLogRepository::log_with(
             &self.db,
             "rtt_pathway",

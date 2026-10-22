@@ -6,6 +6,7 @@ pub use series::{
     CreateSeriesInput, CreateSeriesResult, PreviewResult, SeriesService, SeriesWithOccurrences,
 };
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, Statement,
@@ -729,12 +730,12 @@ impl SchedulingService {
         rows.iter()
             .map(|r| {
                 Ok(serde_json::json!({
-                    "appointment_id": r.try_get::<Uuid>("", "id").map_err(Error::Database)?,
-                    "person_id": r.try_get::<Uuid>("", "person_id").map_err(Error::Database)?,
+                    "appointment_id": r.col::<Uuid>("id")?,
+                    "person_id": r.col::<Uuid>("person_id")?,
                     "room": r.try_get::<Option<String>>("", "current_room").map_err(Error::Database)?,
                     "arrived_at": r.try_get::<DateTime<Utc>>("", "arrived_at").map_err(Error::Database)?,
                     "appointment_start": r.try_get::<DateTime<Utc>>("", "start_datetime").map_err(Error::Database)?,
-                    "waiting_minutes": r.try_get::<i64>("", "waiting_minutes").map_err(Error::Database)?.max(0),
+                    "waiting_minutes": r.col::<i64>("waiting_minutes")?.max(0),
                 }))
             })
             .collect()

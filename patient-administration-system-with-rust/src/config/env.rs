@@ -73,8 +73,9 @@ pub const VARS: &[Var] = &[
     // The server.
     int_var("SERVER_PORT", 8080, 1, 65_535),
     int_var("PAS_OUTBOX_MAX_RETRIES", 10, 0, 1_000),
-    int_var("PAS_RATE_LIMIT_RPM", 600, 1, 1_000_000),
-    int_var("PAS_RATE_LIMIT_BURST", 60, 1, 1_000_000),
+    // 0 turns the limiter off (documented in operations/deployment.md), so 0 must stay valid.
+    int_var("PAS_RATE_LIMIT_RPM", 600, 0, 1_000_000),
+    int_var("PAS_RATE_LIMIT_BURST", 60, 0, 1_000_000),
     int_var("PAS_WEBHOOK_TIMEOUT_SECS", 10, 1, 3_600),
     int_var("UPSTREAM_TIMEOUT_SECS", 10, 1, 600),
     int_var("PAS_PASETO_KEYS_REFRESH_SECS", 300, 30, 86_400),
@@ -260,6 +261,23 @@ mod tests {
         assert!(problem(v, "0").is_none(), "0 turns the check off");
         assert!(problem(v, "10081").is_some());
         assert!(problem(v, "-1").is_some());
+    }
+
+    /// A zero that the deployment guide documents as "off" must pass the start-up check (it did not at first:
+    /// QUAL-6 shipped `PAS_RATE_LIMIT_RPM` with a minimum of 1).
+    #[test]
+    fn documented_zeros_are_valid() {
+        for name in [
+            "PAS_RATE_LIMIT_RPM",
+            "PAS_RATE_LIMIT_BURST",
+            "PAS_TOLERANCE_CHECK_MINUTES",
+            "PAS_OUTBOX_MAX_RETRIES",
+        ] {
+            let v = var(name).expect("registered");
+            assert!(problem(v, "0").is_none(), "{name}=0 must be accepted");
+        }
+        let rpm = var("PAS_RATE_LIMIT_RPM").expect("registered");
+        assert!(problem(rpm, "-1").is_some());
     }
 
     #[test]

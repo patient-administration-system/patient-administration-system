@@ -25,6 +25,7 @@
 //! and goes in the morning), STOP and opt-out (`communication::consent`), no clinical detail (the wording),
 //! and the language variant of the patient's preference.
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Duration, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use std::sync::Arc;
@@ -292,13 +293,7 @@ impl LadderService {
             .await
             .map_err(Error::Database)?;
         rows.iter()
-            .map(|r| {
-                Ok((
-                    r.try_get("", "step").map_err(Error::Database)?,
-                    r.try_get("", "outcome").map_err(Error::Database)?,
-                    r.try_get("", "channel").map_err(Error::Database)?,
-                ))
-            })
+            .map(|r| Ok((r.col("step")?, r.col("outcome")?, r.col("channel")?)))
             .collect()
     }
 
@@ -580,10 +575,10 @@ impl LadderService {
         rows.iter()
             .map(|r| {
                 Ok(serde_json::json!({
-                    "id": r.try_get::<Uuid>("", "id").map_err(Error::Database)?,
-                    "appointment_id": r.try_get::<Uuid>("", "appointment_id").map_err(Error::Database)?,
-                    "person_id": r.try_get::<Uuid>("", "person_id").map_err(Error::Database)?,
-                    "reason": r.try_get::<String>("", "reason").map_err(Error::Database)?,
+                    "id": r.col::<Uuid>("id")?,
+                    "appointment_id": r.col::<Uuid>("appointment_id")?,
+                    "person_id": r.col::<Uuid>("person_id")?,
+                    "reason": r.col::<String>("reason")?,
                     "due_at": r.try_get::<DateTime<Utc>>("", "due_at").map_err(Error::Database)?,
                     "appointment_start": r.try_get::<DateTime<Utc>>("", "start_datetime").map_err(Error::Database)?,
                 }))

@@ -6,6 +6,7 @@
 //! for a live (unrevoked) proofing of exactly that `(subject, person_id)`, so a wrong or stale link in the
 //! identity provider's attributes reaches nothing.
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
 use serde::Serialize;
@@ -127,7 +128,7 @@ impl IdentityService {
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found("no live identity proofing for that account"))?;
-        let person_id: Uuid = row.try_get("", "person_id").map_err(Error::Database)?;
+        let person_id: Uuid = row.col("person_id")?;
         AuditLogRepository::log(
             &self.db,
             "patient",
@@ -169,10 +170,10 @@ impl IdentityService {
             .map_err(Error::Database)?
             .map(|r| {
                 Ok(Proofing {
-                    person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-                    method: r.try_get("", "method").map_err(Error::Database)?,
-                    proofed_by: r.try_get("", "proofed_by").map_err(Error::Database)?,
-                    proofed_at: r.try_get("", "proofed_at").map_err(Error::Database)?,
+                    person_id: r.col("person_id")?,
+                    method: r.col("method")?,
+                    proofed_by: r.col("proofed_by")?,
+                    proofed_at: r.col("proofed_at")?,
                 })
             })
             .transpose()

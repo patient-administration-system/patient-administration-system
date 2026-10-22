@@ -11,6 +11,7 @@
 //! Neither shows a message body or a text's content: they say that a contact happened and why, not what it
 //! said. Both only read.
 
+use crate::db::row::RowExt;
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -24,7 +25,7 @@ pub struct HistoryService {
 fn rows_to_json(rows: &[sea_orm::QueryResult]) -> Result<Vec<Value>> {
     rows.iter()
         .map(|r| {
-            let at: chrono::DateTime<chrono::Utc> = r.try_get("", "at").map_err(Error::Database)?;
+            let at: chrono::DateTime<chrono::Utc> = r.col("at")?;
             let s = |c: &str| -> Result<Option<String>> {
                 r.try_get::<Option<String>>("", c).map_err(Error::Database)
             };

@@ -5,6 +5,7 @@
 //! are computed without looking at this table, and a schema guard test fails if any column anywhere
 //! scores, ranks, penalises or suppresses contact. Resolving a flag needs a named person and an outcome.
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
@@ -111,13 +112,13 @@ impl SupportService {
         rows.iter()
             .map(|r| {
                 Ok(SupportFlag {
-                    id: r.try_get("", "id").map_err(Error::Database)?,
-                    person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-                    appointment_id: r.try_get("", "appointment_id").map_err(Error::Database)?,
-                    kind: r.try_get("", "kind").map_err(Error::Database)?,
-                    reason_code: r.try_get("", "reason_code").map_err(Error::Database)?,
-                    created_by: r.try_get("", "created_by").map_err(Error::Database)?,
-                    created_at: r.try_get("", "created_at").map_err(Error::Database)?,
+                    id: r.col("id")?,
+                    person_id: r.col("person_id")?,
+                    appointment_id: r.col("appointment_id")?,
+                    kind: r.col("kind")?,
+                    reason_code: r.col("reason_code")?,
+                    created_by: r.col("created_by")?,
+                    created_at: r.col("created_at")?,
                 })
             })
             .collect()

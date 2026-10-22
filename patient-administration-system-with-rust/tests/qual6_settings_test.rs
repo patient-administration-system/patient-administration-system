@@ -131,6 +131,9 @@ fn good_values_get_past_the_check_and_fail_later_on_the_database() {
         ("PAS_NOSHOW_SCORE", "TRUE"),
         ("PAS_BACKFILL_OFFERS", "1"),
         ("PAS_TOLERANCE_CHECK_MINUTES", "0"),
+        // 0 turns the rate limiter off; it must not stop the server starting.
+        ("PAS_RATE_LIMIT_RPM", "0"),
+        ("PAS_RATE_LIMIT_BURST", "0"),
     ]);
     assert!(!ok);
     assert!(!text.contains("invalid environment"), "{text}");

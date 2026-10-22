@@ -9,6 +9,7 @@
 //! the patient from a waiting list, discharges them, or stops their referral-to-treatment clock; the
 //! no-show path returns the waiting-list entry to `waiting`, as it always has.
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Duration, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
@@ -76,7 +77,7 @@ pub(crate) async fn on_no_show<C: ConnectionTrait>(
     else {
         return Ok(());
     };
-    let service: String = row.try_get("", "service_type").map_err(Error::Database)?;
+    let service: String = row.col("service_type")?;
     let id = Uuid::new_v4();
     let due = Utc::now() + due_after();
     let made = conn
@@ -199,9 +200,9 @@ impl FollowUpService {
         rows.iter()
             .map(|r| {
                 Ok(Policy {
-                    service_type: r.try_get("", "service_type").map_err(Error::Database)?,
-                    approved_by: r.try_get("", "approved_by").map_err(Error::Database)?,
-                    approved_at: r.try_get("", "approved_at").map_err(Error::Database)?,
+                    service_type: r.col("service_type")?,
+                    approved_by: r.col("approved_by")?,
+                    approved_at: r.col("approved_at")?,
                 })
             })
             .collect()
@@ -223,15 +224,15 @@ impl FollowUpService {
         let now = Utc::now();
         rows.iter()
             .map(|r| {
-                let due_at: DateTime<Utc> = r.try_get("", "due_at").map_err(Error::Database)?;
+                let due_at: DateTime<Utc> = r.col("due_at")?;
                 Ok(Task {
-                    id: r.try_get("", "id").map_err(Error::Database)?,
-                    appointment_id: r.try_get("", "appointment_id").map_err(Error::Database)?,
-                    person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-                    service_type: r.try_get("", "service_type").map_err(Error::Database)?,
+                    id: r.col("id")?,
+                    appointment_id: r.col("appointment_id")?,
+                    person_id: r.col("person_id")?,
+                    service_type: r.col("service_type")?,
                     due_at,
                     overdue: due_at < now,
-                    appointment_start: r.try_get("", "start_datetime").map_err(Error::Database)?,
+                    appointment_start: r.col("start_datetime")?,
                 })
             })
             .collect()
@@ -269,7 +270,7 @@ impl FollowUpService {
         let Some(row) = row else {
             return Err(Error::conflict("that follow-up task is not open"));
         };
-        let appointment_id: Uuid = row.try_get("", "appointment_id").map_err(Error::Database)?;
+        let appointment_id: Uuid = row.col("appointment_id")?;
         AuditLogRepository::log(
             &self.db,
             "appointment",

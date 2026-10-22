@@ -22,6 +22,7 @@
 //! Not built here: the video-visit provider and its join link (an interface to NHS Attend Anywhere or the
 //! Wales equivalent). Until one is connected nothing reports a failure by itself; a person does.
 
+use crate::db::row::RowExt;
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
 use serde::Serialize;
 use uuid::Uuid;
@@ -167,9 +168,9 @@ impl VirtualVisitService {
         rows.iter()
             .map(|r| {
                 Ok(ApprovedService {
-                    service_type: r.try_get("", "service_type").map_err(Error::Database)?,
-                    approved_by: r.try_get("", "approved_by").map_err(Error::Database)?,
-                    approved_at: r.try_get("", "approved_at").map_err(Error::Database)?,
+                    service_type: r.col("service_type")?,
+                    approved_by: r.col("approved_by")?,
+                    approved_at: r.col("approved_at")?,
                 })
             })
             .collect()
@@ -190,7 +191,7 @@ impl VirtualVisitService {
             .map_err(Error::Database)?;
         let mut out = Vec::new();
         for r in rows {
-            let id: Uuid = r.try_get("", "id").map_err(Error::Database)?;
+            let id: Uuid = r.col("id")?;
             if let Some(a) = AppointmentRepository::find_by_id(&self.db, id).await? {
                 out.push(a);
             }

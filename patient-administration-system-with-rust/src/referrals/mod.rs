@@ -11,6 +11,7 @@
 //!   changes nothing and says so: the referral stays open.
 //! - Not here: the e-RS integration itself (it needs NHS API access); only the data it would carry.
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
 use serde::Serialize;
@@ -95,22 +96,21 @@ const COLS: &str = "r.id, r.person_id, r.source, r.external_ref, r.target_servic
        AND a.status NOT IN ('cancelled','no_show') ORDER BY a.created_at DESC LIMIT 1) AS appointment_id";
 
 fn row_to_referral(r: &sea_orm::QueryResult) -> Result<Referral> {
-    let g = |e| Error::Database(e);
     Ok(Referral {
-        id: r.try_get("", "id").map_err(g)?,
-        person_id: r.try_get("", "person_id").map_err(g)?,
-        source: r.try_get("", "source").map_err(g)?,
-        external_ref: r.try_get("", "external_ref").map_err(g)?,
-        target_service: r.try_get("", "target_service").map_err(g)?,
-        reason: r.try_get("", "reason").map_err(g)?,
-        referring_worker_id: r.try_get("", "referring_worker_id").map_err(g)?,
-        status: r.try_get("", "status").map_err(g)?,
-        received_at: r.try_get("", "received_at").map_err(g)?,
-        appointment_id: r.try_get("", "appointment_id").map_err(g)?,
-        triaged_by: r.try_get("", "triaged_by").map_err(g)?,
-        triaged_at: r.try_get("", "triaged_at").map_err(g)?,
-        redirected_to_service: r.try_get("", "redirected_to_service").map_err(g)?,
-        redirected_referral_id: r.try_get("", "redirected_referral_id").map_err(g)?,
+        id: r.col("id")?,
+        person_id: r.col("person_id")?,
+        source: r.col("source")?,
+        external_ref: r.col("external_ref")?,
+        target_service: r.col("target_service")?,
+        reason: r.col("reason")?,
+        referring_worker_id: r.col("referring_worker_id")?,
+        status: r.col("status")?,
+        received_at: r.col("received_at")?,
+        appointment_id: r.col("appointment_id")?,
+        triaged_by: r.col("triaged_by")?,
+        triaged_at: r.col("triaged_at")?,
+        redirected_to_service: r.col("redirected_to_service")?,
+        redirected_referral_id: r.col("redirected_referral_id")?,
     })
 }
 
@@ -270,9 +270,9 @@ impl ReferralService {
                         .await
                         .map_err(Error::Database)?
                         .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
-                    let person: Uuid = r.try_get("", "person_id").map_err(Error::Database)?;
-                    let service: String = r.try_get("", "target_service").map_err(Error::Database)?;
-                    let status: String = r.try_get("", "status").map_err(Error::Database)?;
+                    let person: Uuid = r.col("person_id")?;
+                    let service: String = r.col("target_service")?;
+                    let status: String = r.col("status")?;
                     if is_ended(&status) {
                         return Err(Error::conflict(format!("that referral is already {status}")));
                     }
@@ -287,7 +287,7 @@ impl ReferralService {
                         .await
                         .map_err(Error::Database)?;
                     for row in slots {
-                        let slot_id: Uuid = row.try_get("", "id").map_err(Error::Database)?;
+                        let slot_id: Uuid = row.col("id")?;
                         // A slot that cannot be booked for this patient (they have a clash, or someone just
                         // took it) is skipped; the next earliest is tried.
                         match SchedulingService::book_tx(txn, slot_id, person, &ctx).await {
@@ -464,15 +464,15 @@ impl ReferralService {
                         .await
                         .map_err(Error::Database)?
                         .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
-                    let status: String = r.try_get("", "status").map_err(Error::Database)?;
+                    let status: String = r.col("status")?;
                     if status != "received" {
                         return Err(Error::conflict(format!(
                             "only a referral that has just been received can be triaged; this one is {status}"
                         )));
                     }
-                    let person: Uuid = r.try_get("", "person_id").map_err(Error::Database)?;
-                    let from: String = r.try_get("", "target_service").map_err(Error::Database)?;
-                    let reason: Option<String> = r.try_get("", "reason").map_err(Error::Database)?;
+                    let person: Uuid = r.col("person_id")?;
+                    let from: String = r.col("target_service")?;
+                    let reason: Option<String> = r.col("reason")?;
                     if to.as_deref() == Some(from.as_str()) {
                         return Err(Error::validation(
                             "a redirect goes to a different service from the one it was sent to",

@@ -22,6 +22,7 @@
 pub mod messages;
 pub mod parser;
 
+use crate::db::row::RowExt;
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
@@ -238,7 +239,7 @@ impl InboundService {
             .await
             .map_err(db_err)?;
         let Some(r) = row else { return Ok(None) };
-        let was_from: String = r.try_get("", "from_e164").map_err(db_err)?;
+        let was_from: String = r.col("from_e164")?;
         if was_from != from {
             return Err(Error::conflict(
                 "message_id was already used for a message from a different number",
@@ -246,12 +247,12 @@ impl InboundService {
         }
         Ok(Some(InboundOutcome {
             message_id: message_id.into(),
-            outcome: r.try_get("", "outcome").map_err(db_err)?,
-            intent: r.try_get("", "intent").map_err(db_err)?,
-            reply_text: r.try_get("", "reply_text").map_err(db_err)?,
+            outcome: r.col("outcome")?,
+            intent: r.col("intent")?,
+            reply_text: r.col("reply_text")?,
             language: None,
-            person_id: r.try_get("", "person_id").map_err(db_err)?,
-            appointment_id: r.try_get("", "appointment_id").map_err(db_err)?,
+            person_id: r.col("person_id")?,
+            appointment_id: r.col("appointment_id")?,
             duplicate: true,
         }))
     }
@@ -266,9 +267,7 @@ impl InboundService {
             ))
             .await
             .map_err(db_err)?;
-        rows.iter()
-            .map(|r| r.try_get("", "person_id").map_err(db_err))
-            .collect()
+        rows.iter().map(|r| r.col("person_id")).collect()
     }
 
     /// Appointments to come that a text-channel reminder was sent for recently, soonest first.
@@ -288,12 +287,7 @@ impl InboundService {
             .await
             .map_err(db_err)?;
         rows.iter()
-            .map(|r| {
-                Ok((
-                    r.try_get("", "id").map_err(db_err)?,
-                    r.try_get("", "start_datetime").map_err(db_err)?,
-                ))
-            })
+            .map(|r| Ok((r.col("id")?, r.col("start_datetime")?)))
             .collect()
     }
 
@@ -314,13 +308,13 @@ impl InboundService {
             .await
             .map_err(db_err)?;
         let Some(r) = row else { return Ok(None) };
-        let outcome: String = r.try_get("", "outcome").map_err(db_err)?;
-        let at: DateTime<Utc> = r.try_get("", "received_at").map_err(db_err)?;
+        let outcome: String = r.col("outcome")?;
+        let at: DateTime<Utc> = r.col("received_at")?;
         if outcome != "asked" || now - at > Duration::minutes(QUESTION_TTL_MINUTES) {
             return Ok(None);
         }
-        let cands: Option<serde_json::Value> = r.try_get("", "candidates").map_err(db_err)?;
-        let pending: Option<String> = r.try_get("", "pending_intent").map_err(db_err)?;
+        let cands: Option<serde_json::Value> = r.col("candidates")?;
+        let pending: Option<String> = r.col("pending_intent")?;
         let ids: Vec<Uuid> = cands
             .and_then(|v| serde_json::from_value(v).ok())
             .unwrap_or_default();
@@ -655,13 +649,13 @@ impl InboundService {
         rows.iter()
             .map(|r| {
                 Ok(StaffItem {
-                    id: r.try_get("", "id").map_err(db_err)?,
-                    received_at: r.try_get("", "received_at").map_err(db_err)?,
-                    outcome: r.try_get("", "outcome").map_err(db_err)?,
-                    intent: r.try_get("", "intent").map_err(db_err)?,
-                    person_id: r.try_get("", "person_id").map_err(db_err)?,
-                    appointment_id: r.try_get("", "appointment_id").map_err(db_err)?,
-                    body: r.try_get("", "body").map_err(db_err)?,
+                    id: r.col("id")?,
+                    received_at: r.col("received_at")?,
+                    outcome: r.col("outcome")?,
+                    intent: r.col("intent")?,
+                    person_id: r.col("person_id")?,
+                    appointment_id: r.col("appointment_id")?,
+                    body: r.col("body")?,
                 })
             })
             .collect()

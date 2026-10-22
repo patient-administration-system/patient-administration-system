@@ -23,6 +23,7 @@
 //! **Not built:** distance from the clinic (needs a postcode-district band no one supplies yet), clinic type
 //! as a factor, and weather or travel forecasts.
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::{Deserialize, Serialize};
@@ -422,18 +423,17 @@ impl NoShowService {
         else {
             return Ok(None);
         };
-        let g = Error::Database;
-        let start: DateTime<Utc> = r.try_get("", "start_datetime").map_err(g)?;
-        let created: DateTime<Utc> = r.try_get("", "created_at").map_err(g)?;
-        let updated: DateTime<Utc> = r.try_get("", "updated_at").map_err(g)?;
+        let start: DateTime<Utc> = r.col("start_datetime")?;
+        let created: DateTime<Utc> = r.col("created_at")?;
+        let updated: DateTime<Utc> = r.col("updated_at")?;
         let local = start.with_timezone(&tz);
         Ok(Some((
-            r.try_get("", "person_id").map_err(g)?,
+            r.col("person_id")?,
             Inputs {
-                past_missed: r.try_get("", "missed").map_err(g)?,
-                past_attended: r.try_get("", "attended").map_err(g)?,
+                past_missed: r.col("missed")?,
+                past_attended: r.col("attended")?,
                 lead_days: ((start - created).num_seconds() as f64 / 86_400.0).max(0.0),
-                age_band: r.try_get("", "age_band").map_err(g)?,
+                age_band: r.col("age_band")?,
                 weekday: local.weekday().num_days_from_monday() as usize,
                 hour: local.hour(),
             },
@@ -503,21 +503,21 @@ impl NoShowService {
             .await
             .map_err(Error::Database)?
             .map(|r| {
-                let p: f64 = r.try_get("", "probability").map_err(Error::Database)?;
-                let factors: serde_json::Value = r.try_get("", "factors").map_err(Error::Database)?;
+                let p: f64 = r.col("probability")?;
+                let factors: serde_json::Value = r.col("factors")?;
                 Ok(Shown {
                     appointment_id,
                     probability: p,
                     probability_percent: percent_shown().then(|| (p * 1000.0).round() / 10.0),
-                    band: if r.try_get::<bool>("", "listed").map_err(Error::Database)? {
+                    band: if r.col::<bool>("listed")? {
                         Band::High
                     } else {
                         band(p, medium)
                     },
                     factors: serde_json::from_value(factors).unwrap_or_default(),
-                    sample_size: i64::from(r.try_get::<i32>("", "sample_size").map_err(Error::Database)?),
-                    model_version: r.try_get("", "model_version").map_err(Error::Database)?,
-                    computed_at: r.try_get("", "computed_at").map_err(Error::Database)?,
+                    sample_size: i64::from(r.col::<i32>("sample_size")?),
+                    model_version: r.col("model_version")?,
+                    computed_at: r.col("computed_at")?,
                 })
             })
             .transpose()
@@ -579,9 +579,7 @@ impl NoShowService {
             ))
             .await
             .map_err(Error::Database)?;
-        rows.iter()
-            .map(|r| r.try_get::<Uuid>("", "id").map_err(Error::Database))
-            .collect()
+        rows.iter().map(|r| r.col::<Uuid>("id")).collect()
     }
 
     /// Every clinic seen so far with its stage and how long it has been recording in shadow.
@@ -602,14 +600,14 @@ impl NoShowService {
         let min = shadow_min_days();
         rows.iter()
             .map(|r| {
-                let first: DateTime<Utc> = r.try_get("", "first_at").map_err(Error::Database)?;
+                let first: DateTime<Utc> = r.col("first_at")?;
                 let days = (Utc::now() - first).num_days();
                 Ok(serde_json::json!({
-                    "service_type": r.try_get::<String>("", "svc").map_err(Error::Database)?,
-                    "stage": r.try_get::<String>("", "stage").map_err(Error::Database)?,
+                    "service_type": r.col::<String>("svc")?,
+                    "stage": r.col::<String>("stage")?,
                     "changed_by": r.try_get::<Option<String>>("", "changed_by").map_err(Error::Database)?,
                     "live_since": r.try_get::<Option<DateTime<Utc>>>("", "live_since").map_err(Error::Database)?,
-                    "assessments": r.try_get::<i64>("", "n").map_err(Error::Database)?,
+                    "assessments": r.col::<i64>("n")?,
                     "days_in_shadow": days,
                     "may_go_live": days >= min,
                 }))
@@ -722,7 +720,7 @@ impl NoShowService {
                 let t: i32 = r.try_get("", "tenth").unwrap_or(0);
                 Ok((
                     vec![("tenth".to_string(), t.min(9).to_string())],
-                    r.try_get::<i64>("", "n").map_err(Error::Database)?,
+                    r.col::<i64>("n")?,
                 ))
             })
             .collect::<Result<_>>()?;
@@ -812,7 +810,7 @@ impl NoShowService {
             .map_err(Error::Database)?;
         let mut n = 0;
         for r in ids {
-            let id: Uuid = r.try_get("", "id").map_err(Error::Database)?;
+            let id: Uuid = r.col("id")?;
             self.assess(id).await?;
             n += 1;
         }
@@ -866,14 +864,14 @@ impl NoShowService {
             .map_err(Error::Database)?;
         rows.iter()
             .map(|r| {
-                let p: f64 = r.try_get("", "probability").map_err(Error::Database)?;
+                let p: f64 = r.col("probability")?;
                 Ok(serde_json::json!({
-                    "appointment_id": r.try_get::<Uuid>("", "appointment_id").map_err(Error::Database)?,
-                    "task_id": r.try_get::<Uuid>("", "task_id").map_err(Error::Database)?,
+                    "appointment_id": r.col::<Uuid>("appointment_id")?,
+                    "task_id": r.col::<Uuid>("task_id")?,
                     "probability_percent": percent_shown().then(|| (p * 1000.0).round() / 10.0),
                     "starts_at": r.try_get::<DateTime<Utc>>("", "start_datetime").map_err(Error::Database)?,
-                    "sample_size": r.try_get::<i32>("", "sample_size").map_err(Error::Database)?,
-                    "factors": r.try_get::<serde_json::Value>("", "factors").map_err(Error::Database)?,
+                    "sample_size": r.col::<i32>("sample_size")?,
+                    "factors": r.col::<serde_json::Value>("factors")?,
                 }))
             })
             .collect()
@@ -918,31 +916,23 @@ impl NoShowService {
         // Pass 1: the model's probability for each past appointment, as it would have been.
         let mut scored: Vec<(f64, bool, (String, String))> = Vec::new();
         for r in &rows {
-            let g = Error::Database;
-            let start: DateTime<Utc> = r.try_get("", "start_datetime").map_err(g)?;
-            let created: DateTime<Utc> = r.try_get("", "created_at").map_err(g)?;
+            let start: DateTime<Utc> = r.col("start_datetime")?;
+            let created: DateTime<Utc> = r.col("created_at")?;
             let local = start.with_timezone(&tz);
             let p = compute(
                 &Inputs {
-                    past_missed: r.try_get("", "missed").map_err(g)?,
-                    past_attended: r.try_get("", "attended").map_err(g)?,
+                    past_missed: r.col("missed")?,
+                    past_attended: r.col("attended")?,
                     lead_days: ((start - created).num_seconds() as f64 / 86_400.0).max(0.0),
-                    age_band: r.try_get("", "age_band").map_err(g)?,
+                    age_band: r.col("age_band")?,
                     weekday: local.weekday().num_days_from_monday() as usize,
                     hour: local.hour(),
                 },
                 &w,
             )
             .probability;
-            let missed = r.try_get::<String>("", "status").map_err(g)? == "no_show";
-            scored.push((
-                p,
-                missed,
-                (
-                    r.try_get("", "q").map_err(g)?,
-                    r.try_get("", "lang").map_err(g)?,
-                ),
-            ));
+            let missed = r.col::<String>("status")? == "no_show";
+            scored.push((p, missed, (r.col("q")?, r.col("lang")?)));
         }
         // The call list takes the top few, not everyone above a fixed probability, so the audit asks the same
         // question: who would be in the top tenth of the period? (A tie at the cut-off is all in.)

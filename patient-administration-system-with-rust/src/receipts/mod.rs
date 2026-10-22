@@ -11,6 +11,7 @@
 //!   and when; only later bounces count again. This list only *adds* a task: nothing here stops anyone being
 //!   offered anything (NFR-11).
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Duration, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
@@ -101,7 +102,7 @@ impl ReceiptService {
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found(format!("letter {letter_id}")))?;
-        let status: String = known.try_get("", "status").map_err(Error::Database)?;
+        let status: String = known.col("status")?;
         let made = self
             .db
             .execute_raw(Statement::from_sql_and_values(
@@ -181,11 +182,11 @@ impl ReceiptService {
         rows.iter()
             .map(|r| {
                 Ok(ContactProblem {
-                    person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-                    bounces: r.try_get("", "bounces").map_err(Error::Database)?,
-                    last_bounce_at: r.try_get("", "last_at").map_err(Error::Database)?,
-                    last_channel: r.try_get("", "last_channel").map_err(Error::Database)?,
-                    last_reason: r.try_get("", "last_reason").map_err(Error::Database)?,
+                    person_id: r.col("person_id")?,
+                    bounces: r.col("bounces")?,
+                    last_bounce_at: r.col("last_at")?,
+                    last_channel: r.col("last_channel")?,
+                    last_reason: r.col("last_reason")?,
                 })
             })
             .collect()
@@ -247,8 +248,8 @@ impl ReceiptService {
         rows.iter()
             .map(|r| {
                 Ok(serde_json::json!({
-                    "event": r.try_get::<String>("", "event").map_err(Error::Database)?,
-                    "carrier": r.try_get::<String>("", "carrier").map_err(Error::Database)?,
+                    "event": r.col::<String>("event")?,
+                    "carrier": r.col::<String>("carrier")?,
                     "detail": r.try_get::<Option<String>>("", "detail").map_err(Error::Database)?,
                     "occurred_at": r.try_get::<DateTime<Utc>>("", "occurred_at").map_err(Error::Database)?,
                 }))

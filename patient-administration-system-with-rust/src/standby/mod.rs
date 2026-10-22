@@ -13,6 +13,7 @@
 //! Nothing here contacts anyone. Offering a slot is a person's decision until consent and opt-out
 //! exist (NOT-5).
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, FromQueryResult,
@@ -427,17 +428,17 @@ impl StandbyService {
             .await
             .map_err(db_err)?
             .ok_or_else(|| Error::not_found(format!("slot release {release_id}")))?;
-        let status: String = rel.try_get("", "status").map_err(db_err)?;
+        let status: String = rel.col("status")?;
         if status != "open" {
             return Err(Error::conflict("that slot has already been refilled"));
         }
-        let service: Option<String> = rel.try_get("", "service_type").map_err(db_err)?;
+        let service: Option<String> = rel.col("service_type")?;
         let Some(service) = service else {
             return Ok(Vec::new());
         };
-        let start: DateTime<Utc> = rel.try_get("", "start_datetime").map_err(db_err)?;
-        let end: DateTime<Utc> = rel.try_get("", "end_datetime").map_err(db_err)?;
-        let gave_up: Option<Uuid> = rel.try_get("", "person_id").map_err(db_err)?;
+        let start: DateTime<Utc> = rel.col("start_datetime")?;
+        let end: DateTime<Utc> = rel.col("end_datetime")?;
+        let gave_up: Option<Uuid> = rel.col("person_id")?;
         StandbyEntry::find_by_statement(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT se.id, se.person_id, se.service_type, se.short_notice_ok, se.language, se.needs_transport, se.phone_only, se.active, se.created_at, se.updated_at \

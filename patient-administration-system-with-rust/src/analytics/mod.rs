@@ -13,6 +13,7 @@
 //! Age band and deprivation quintile come from `person_demographics`, which an upstream job fills with the
 //! coarse bands only. Time of day is in the clinic's time zone.
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
@@ -476,7 +477,7 @@ impl AnalyticsService {
             .map_err(Error::Database)?;
         let mut n = 0;
         for r in ids {
-            let id: uuid::Uuid = r.try_get("", "person_id").map_err(Error::Database)?;
+            let id: uuid::Uuid = r.col("person_id")?;
             // A person the upstream cannot return is skipped, not an error for the whole run.
             let Ok(person) = people.get(id, upstream_ctx).await else {
                 continue;
@@ -596,9 +597,9 @@ impl AnalyticsService {
                     ))
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let n: i64 = r.try_get("", "n").map_err(Error::Database)?;
-            let refilled: i64 = r.try_get("", "refilled").map_err(Error::Database)?;
-            let early: i64 = r.try_get("", "early").map_err(Error::Database)?;
+            let n: i64 = r.col("n")?;
+            let refilled: i64 = r.col("refilled")?;
+            let early: i64 = r.col("early")?;
             total += n;
             total_refilled += refilled;
             data.push((dims, n));
@@ -707,7 +708,7 @@ impl AnalyticsService {
                     ))
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let n: i64 = r.try_get("", "n").map_err(Error::Database)?;
+            let n: i64 = r.col("n")?;
             total += n;
             data.push((dims, n));
         }

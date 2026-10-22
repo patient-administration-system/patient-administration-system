@@ -14,6 +14,7 @@
 //! - **Mind the words.** Wording about "the cost to the NHS" of a missed appointment can read as blame. Review
 //!   every variant with that in mind (`governance/messaging-rules.md`).
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
 use serde::Serialize;
@@ -54,7 +55,7 @@ pub async fn resolve_name<C: ConnectionTrait>(
     else {
         return Ok(template_name.to_string());
     };
-    let exp_id: Uuid = exp.try_get("", "id").map_err(Error::Database)?;
+    let exp_id: Uuid = exp.col("id")?;
     // Already assigned: the same wording as before.
     if let Some(r) = conn
         .query_one_raw(Statement::from_sql_and_values(
@@ -67,7 +68,7 @@ pub async fn resolve_name<C: ConnectionTrait>(
         .await
         .map_err(Error::Database)?
     {
-        return r.try_get("", "template_name").map_err(Error::Database);
+        return r.col("template_name");
     }
     let variants = conn
         .query_all_raw(Statement::from_sql_and_values(
@@ -81,10 +82,8 @@ pub async fn resolve_name<C: ConnectionTrait>(
         return Ok(template_name.to_string());
     }
     let chosen = &variants[pick(exp_id, appointment_id, variants.len())];
-    let variant: String = chosen.try_get("", "variant").map_err(Error::Database)?;
-    let name: String = chosen
-        .try_get("", "template_name")
-        .map_err(Error::Database)?;
+    let variant: String = chosen.col("variant")?;
+    let name: String = chosen.col("template_name")?;
     conn.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "INSERT INTO message_experiment_assignments (experiment_id, appointment_id, variant) VALUES ($1,$2,$3) \
@@ -276,7 +275,7 @@ impl ExperimentService {
             .map_err(Error::Database)?;
         let mut out = Vec::new();
         for r in rows {
-            let id: Uuid = r.try_get("", "id").map_err(Error::Database)?;
+            let id: Uuid = r.col("id")?;
             let vs = self
                 .db
                 .query_all_raw(Statement::from_sql_and_values(
@@ -288,19 +287,14 @@ impl ExperimentService {
                 .map_err(Error::Database)?;
             out.push(Experiment {
                 id,
-                template_name: r.try_get("", "template_name").map_err(Error::Database)?,
+                template_name: r.col("template_name")?,
                 variants: vs
                     .iter()
-                    .map(|v| {
-                        Ok((
-                            v.try_get("", "variant").map_err(Error::Database)?,
-                            v.try_get("", "template_name").map_err(Error::Database)?,
-                        ))
-                    })
+                    .map(|v| Ok((v.col("variant")?, v.col("template_name")?)))
                     .collect::<Result<_>>()?,
-                started_by: r.try_get("", "started_by").map_err(Error::Database)?,
-                started_at: r.try_get("", "started_at").map_err(Error::Database)?,
-                stopped_at: r.try_get("", "stopped_at").map_err(Error::Database)?,
+                started_by: r.col("started_by")?,
+                started_at: r.col("started_at")?,
+                stopped_at: r.col("stopped_at")?,
             });
         }
         Ok(out)
@@ -342,10 +336,10 @@ impl ExperimentService {
         let mut extra = Vec::new();
         let mut total = 0;
         for r in &rows {
-            let variant: String = r.try_get("", "variant").map_err(Error::Database)?;
-            let q: String = r.try_get("", "q").map_err(Error::Database)?;
-            let lang: String = r.try_get("", "lang").map_err(Error::Database)?;
-            let n: i64 = r.try_get("", "n").map_err(Error::Database)?;
+            let variant: String = r.col("variant")?;
+            let q: String = r.col("q")?;
+            let lang: String = r.col("lang")?;
+            let n: i64 = r.col("n")?;
             total += n;
             data.push((
                 vec![
@@ -356,9 +350,9 @@ impl ExperimentService {
                 n,
             ));
             extra.push((
-                r.try_get::<i64>("", "confirmed").map_err(Error::Database)?,
-                r.try_get::<i64>("", "attended").map_err(Error::Database)?,
-                r.try_get::<i64>("", "dna").map_err(Error::Database)?,
+                r.col::<i64>("confirmed")?,
+                r.col::<i64>("attended")?,
+                r.col::<i64>("dna")?,
             ));
         }
         let flags = suppress(data, k);

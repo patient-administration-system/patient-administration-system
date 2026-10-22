@@ -10,6 +10,7 @@
 //! - **Utilization is busy slots over all slots** starting in the range, `0` when there are none.
 //! - **An empty range gives zeros, never an error.**
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Duration, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::Serialize;
@@ -230,30 +231,29 @@ impl ReportService {
             .await
             .map_err(Error::Database)?;
 
-        let g = Error::Database;
         let mut rows: BTreeMap<String, Row> = BTreeMap::new();
         for r in &appts {
-            let key: String = r.try_get("", "k").map_err(g)?;
+            let key: String = r.col("k")?;
             let row = rows.entry(key.clone()).or_insert_with(|| Row {
                 key,
                 ..Default::default()
             });
-            row.booked = r.try_get("", "booked").map_err(g)?;
-            row.attended = r.try_get("", "attended").map_err(g)?;
-            row.did_not_attend = r.try_get("", "dna").map_err(g)?;
-            row.cancelled_early = r.try_get("", "early").map_err(g)?;
-            row.cancelled_late = r.try_get("", "late").map_err(g)?;
-            row.total = r.try_get("", "total").map_err(g)?;
+            row.booked = r.col("booked")?;
+            row.attended = r.col("attended")?;
+            row.did_not_attend = r.col("dna")?;
+            row.cancelled_early = r.col("early")?;
+            row.cancelled_late = r.col("late")?;
+            row.total = r.col("total")?;
         }
         for r in &slots {
-            let key: Option<String> = r.try_get("", "k").map_err(g)?;
+            let key: Option<String> = r.col("k")?;
             let Some(key) = key else { continue };
             let row = rows.entry(key.clone()).or_insert_with(|| Row {
                 key,
                 ..Default::default()
             });
-            row.slots = r.try_get("", "slots").map_err(g)?;
-            row.busy_slots = r.try_get("", "busy").map_err(g)?;
+            row.slots = r.col("slots")?;
+            row.busy_slots = r.col("busy")?;
         }
         if group == GroupBy::Schedule {
             let ids: Vec<String> = rows
@@ -272,9 +272,9 @@ impl ReportService {
                     .await
                     .map_err(Error::Database)?;
                 for r in &svc {
-                    let id: String = r.try_get("", "id").map_err(g)?;
+                    let id: String = r.col("id")?;
                     if let Some(row) = rows.get_mut(&id) {
-                        row.service = r.try_get("", "service_type").map_err(g)?;
+                        row.service = r.col("service_type")?;
                     }
                 }
             }
@@ -319,7 +319,7 @@ impl ReportService {
         let mut by_service = Vec::new();
         let mut breaching = 0;
         for p in &paths {
-            let id: uuid::Uuid = p.try_get("", "id").map_err(g)?;
+            let id: uuid::Uuid = p.col("id")?;
             let events = RttRepository::list_events_for_pathway(&self.db, id).await?;
             let w = compute_active_weeks(&events, now);
             if let Some(pw) = RttRepository::find_pathway_by_id(&self.db, id).await?
@@ -328,10 +328,7 @@ impl ReportService {
                 breaching += 1;
             }
             weeks.push(f64::from(w));
-            by_service.push((
-                p.try_get::<String>("", "target_service").map_err(g)?,
-                f64::from(w),
-            ));
+            by_service.push((p.col::<String>("target_service")?, f64::from(w)));
         }
         Ok(Report {
             from,

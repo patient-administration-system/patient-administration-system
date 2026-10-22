@@ -15,6 +15,7 @@
 //! additionally requires the reply to name both the appointment and the patient and refuses a
 //! mismatch, so one patient's message cannot touch another's appointment.
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, SqlErr, Statement,
@@ -260,9 +261,9 @@ impl WriteBackService {
             .await
             .map_err(Error::Database)?;
         let Some(row) = row else { return Ok(None) };
-        let action: String = row.try_get("", "action").map_err(Error::Database)?;
-        let appointment_id: Uuid = row.try_get("", "appointment_id").map_err(Error::Database)?;
-        let person_id: Uuid = row.try_get("", "person_id").map_err(Error::Database)?;
+        let action: String = row.col("action")?;
+        let appointment_id: Uuid = row.col("appointment_id")?;
+        let person_id: Uuid = row.col("person_id")?;
         if action != req.action.as_str()
             || appointment_id != req.appointment_id
             || person_id != req.person_id
@@ -271,12 +272,9 @@ impl WriteBackService {
                 "message_id was already used for a different reply; a message id identifies one reply",
             ));
         }
-        let status: String = row.try_get("", "status").map_err(Error::Database)?;
-        let reject_reason: Option<String> =
-            row.try_get("", "reject_reason").map_err(Error::Database)?;
-        let new_id: Option<Uuid> = row
-            .try_get("", "new_appointment_id")
-            .map_err(Error::Database)?;
+        let status: String = row.col("status")?;
+        let reject_reason: Option<String> = row.col("reject_reason")?;
+        let new_id: Option<Uuid> = row.col("new_appointment_id")?;
         let status = if status == "applied" {
             ReplyStatus::Applied
         } else {

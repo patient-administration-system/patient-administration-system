@@ -16,6 +16,7 @@
 //! per measure and scope, and a `ToleranceAlertRaised` event); it closes when the measure is no longer red. Nothing here acts on a patient: it is a
 //! view for managers, and no score or rank of a person takes part (NFR-11).
 
+use crate::db::row::RowExt;
 use chrono::{DateTime, Duration, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
 use serde::Serialize;
@@ -428,23 +429,22 @@ impl ToleranceService {
             ))
             .await
             .map_err(Error::Database)?;
-        let g = Error::Database;
         let mut out = Vec::new();
         for r in &rows {
-            let kind: String = r.try_get("", "scope_kind").map_err(g)?;
+            let kind: String = r.col("scope_kind")?;
             let Some(kind) = ScopeKind::parse(&kind) else {
                 continue;
             };
             out.push(Row {
                 scope: Scope {
                     kind,
-                    key: r.try_get("", "scope_key").map_err(g)?,
+                    key: r.col("scope_key")?,
                 },
-                metric: r.try_get("", "metric").map_err(g)?,
+                metric: r.col("metric")?,
                 limits: Limits {
-                    target: r.try_get("", "target").map_err(g)?,
-                    tolerance: r.try_get("", "tolerance").map_err(g)?,
-                    escalate_beyond: r.try_get("", "escalate_beyond").map_err(g)?,
+                    target: r.col("target")?,
+                    tolerance: r.col("tolerance")?,
+                    escalate_beyond: r.col("escalate_beyond")?,
                 },
                 set_by: r.try_get("", "set_by").ok(),
                 note: r.try_get("", "note").ok(),
@@ -708,7 +708,6 @@ impl ToleranceService {
         to: DateTime<Utc>,
         report: &crate::reports::Report,
     ) -> Result<Vec<Measure>> {
-        let g = Error::Database;
         let q = |sql: &str| {
             Statement::from_sql_and_values(
                 DbBackend::Postgres,
@@ -752,15 +751,15 @@ impl ToleranceService {
         }
         let mut by: BTreeMap<String, Acc> = BTreeMap::new();
         for r in &visits {
-            let acc = by.entry(r.try_get("", "svc").map_err(g)?).or_default();
-            acc.attended = r.try_get("", "attended").map_err(g)?;
-            acc.missed = r.try_get("", "missed").map_err(g)?;
-            acc.leads = r.try_get("", "leads").map_err(g)?;
+            let acc = by.entry(r.col("svc")?).or_default();
+            acc.attended = r.col("attended")?;
+            acc.missed = r.col("missed")?;
+            acc.leads = r.col("leads")?;
         }
         for r in &slots {
-            let acc = by.entry(r.try_get("", "svc").map_err(g)?).or_default();
-            acc.slots = r.try_get("", "slots").map_err(g)?;
-            acc.busy = r.try_get("", "busy").map_err(g)?;
+            let acc = by.entry(r.col("svc")?).or_default();
+            acc.slots = r.col("slots")?;
+            acc.busy = r.col("busy")?;
         }
         for (svc, weeks) in &report.pathway_weeks {
             by.entry(svc.clone()).or_default().waits.push(*weeks);
@@ -813,13 +812,13 @@ impl ToleranceService {
         };
         let mut out = Vec::new();
         for r in &rows {
-            let beds: i64 = r.try_get("", "beds").map_err(Error::Database)?;
-            let occupied: i64 = r.try_get("", "occupied").map_err(Error::Database)?;
+            let beds: i64 = r.col("beds")?;
+            let occupied: i64 = r.col("occupied")?;
             out.push(Measure {
                 m,
                 scope: Scope {
                     kind: ScopeKind::Ward,
-                    key: r.try_get("", "ward").map_err(Error::Database)?,
+                    key: r.col("ward")?,
                 },
                 value: share(occupied, beds),
                 sample: beds,
@@ -839,10 +838,7 @@ impl ToleranceService {
             .await
             .map_err(Error::Database)?;
         let Some(r) = row else { return Ok((0, 0)) };
-        Ok((
-            r.try_get("", "beds").map_err(Error::Database)?,
-            r.try_get("", "occupied").map_err(Error::Database)?,
-        ))
+        Ok((r.col("beds")?, r.col("occupied")?))
     }
 
     /// Money invoiced and collected on invoices finalised in the window. Amounts are summed as written, so
@@ -865,11 +861,7 @@ impl ToleranceService {
         let Some(r) = row else {
             return Ok((0.0, 0.0, 0));
         };
-        Ok((
-            r.try_get("", "invoiced").map_err(Error::Database)?,
-            r.try_get("", "collected").map_err(Error::Database)?,
-            r.try_get("", "n").map_err(Error::Database)?,
-        ))
+        Ok((r.col("invoiced")?, r.col("collected")?, r.col("n")?))
     }
 
     /// Check every reading and keep the alerts true to it: a measure that is red has one open alert (and the
@@ -1004,28 +996,27 @@ impl ToleranceService {
             ))
             .await
             .map_err(Error::Database)?;
-        let g = Error::Database;
         let mut out = Vec::new();
         for r in &rows {
-            let key: String = r.try_get("", "metric").map_err(g)?;
+            let key: String = r.col("metric")?;
             let m = metric(&key);
             out.push(Alert {
-                id: r.try_get("", "id").map_err(g)?,
+                id: r.col("id")?,
                 label: m.map(|m| m.label),
                 unit: m.map(|m| m.unit),
                 metric: key,
-                scope_kind: r.try_get("", "scope_kind").map_err(g)?,
-                scope_key: r.try_get("", "scope_key").map_err(g)?,
-                value: r.try_get("", "value").map_err(g)?,
-                target: r.try_get("", "target").map_err(g)?,
-                tolerance: r.try_get("", "tolerance").map_err(g)?,
-                escalate_beyond: r.try_get("", "escalate_beyond").map_err(g)?,
-                raised_at: r.try_get("", "raised_at").map_err(g)?,
-                last_seen_at: r.try_get("", "last_seen_at").map_err(g)?,
-                cleared_at: r.try_get("", "cleared_at").map_err(g)?,
-                acknowledged_by: r.try_get("", "acknowledged_by").map_err(g)?,
-                acknowledged_at: r.try_get("", "acknowledged_at").map_err(g)?,
-                note: r.try_get("", "note").map_err(g)?,
+                scope_kind: r.col("scope_kind")?,
+                scope_key: r.col("scope_key")?,
+                value: r.col("value")?,
+                target: r.col("target")?,
+                tolerance: r.col("tolerance")?,
+                escalate_beyond: r.col("escalate_beyond")?,
+                raised_at: r.col("raised_at")?,
+                last_seen_at: r.col("last_seen_at")?,
+                cleared_at: r.col("cleared_at")?,
+                acknowledged_by: r.col("acknowledged_by")?,
+                acknowledged_at: r.col("acknowledged_at")?,
+                note: r.col("note")?,
             });
         }
         Ok(out)
