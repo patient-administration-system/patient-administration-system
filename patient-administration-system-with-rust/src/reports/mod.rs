@@ -153,6 +153,24 @@ pub fn stats(mut v: Vec<f64>) -> Stats {
     }
 }
 
+/// The report's range: `to` defaults to now, `from` to 30 days earlier; at most [`MAX_RANGE_DAYS`].
+fn check_range(
+    from: Option<DateTime<Utc>>,
+    to: Option<DateTime<Utc>>,
+) -> Result<(DateTime<Utc>, DateTime<Utc>)> {
+    let to = to.unwrap_or_else(Utc::now);
+    let from = from.unwrap_or_else(|| to - Duration::days(30));
+    if to < from {
+        return Err(Error::validation("to must not be before from"));
+    }
+    if to - from > Duration::days(MAX_RANGE_DAYS) {
+        return Err(Error::validation(format!(
+            "the range may be at most {MAX_RANGE_DAYS} days"
+        )));
+    }
+    Ok((from, to))
+}
+
 pub struct ReportService {
     db: DatabaseConnection,
 }
@@ -168,16 +186,37 @@ impl ReportService {
         to: Option<DateTime<Utc>>,
         group: GroupBy,
     ) -> Result<Report> {
-        let to = to.unwrap_or_else(Utc::now);
-        let from = from.unwrap_or_else(|| to - Duration::days(30));
-        if to < from {
-            return Err(Error::validation("to must not be before from"));
-        }
-        if to - from > Duration::days(MAX_RANGE_DAYS) {
-            return Err(Error::validation(format!(
-                "the range may be at most {MAX_RANGE_DAYS} days"
-            )));
-        }
+        let (from, to) = check_range(from, to)?;
+        let by_day = group == GroupBy::Day;
+        let rows = self.activity_rows(from, to, group).await?;
+        let total_appointments = rows.iter().map(|r| r.total).sum();
+        let total_slots: i64 = rows.iter().map(|r| r.slots).sum();
+        let busy_slots: i64 = rows.iter().map(|r| r.busy_slots).sum();
+        let lead_days = self.lead_days(from, to).await?;
+        let (weeks, by_service, breaching) = self.open_pathways().await?;
+        Ok(Report {
+            from,
+            to,
+            group_by: if by_day { "day" } else { "schedule" },
+            total_appointments,
+            total_slots,
+            busy_slots,
+            utilization: ratio(busy_slots, total_slots),
+            rows,
+            lead_time_days: stats(lead_days),
+            open_pathway_weeks: stats(weeks),
+            breaching_pathways: breaching,
+            pathway_weeks: by_service,
+        })
+    }
+
+    /// One row per day or schedule: appointments by outcome and slot use, with the service of each schedule.
+    async fn activity_rows(
+        &self,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+        group: GroupBy,
+    ) -> Result<Vec<Row>> {
         let tz = crate::inbound::messages::timezone().name().to_string();
         let (appt_key, slot_key) = match group {
             GroupBy::Day => (
@@ -197,7 +236,6 @@ impl ReportService {
             v
         };
         let by_day = group == GroupBy::Day;
-
         let appts = self
             .db
             .query_all_raw(Statement::from_sql_and_values(
@@ -283,11 +321,11 @@ impl ReportService {
         for r in &mut rows {
             r.utilization = ratio(r.busy_slots, r.slots);
         }
-        let total_appointments = rows.iter().map(|r| r.total).sum();
-        let total_slots: i64 = rows.iter().map(|r| r.slots).sum();
-        let busy_slots: i64 = rows.iter().map(|r| r.busy_slots).sum();
+        Ok(rows)
+    }
 
-        // Lead time: from booking to the visit, for appointments in the range that were ever booked.
+    /// Days from booking to the visit, for appointments in the range that were ever booked.
+    async fn lead_days(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<f64>> {
         let leads = self
             .db
             .query_all_raw(Statement::from_sql_and_values(
@@ -304,7 +342,11 @@ impl ReportService {
             .map(|d| d.max(0.0).floor())
             .collect();
 
-        // Open pathways: weeks waited on each, from the clock's own figure.
+        Ok(lead_days)
+    }
+
+    /// Open pathways: weeks waited on each (from the clock's own figure), by service, and how many breach.
+    async fn open_pathways(&self) -> Result<(Vec<f64>, Vec<(String, f64)>, i64)> {
         let paths = self
             .db
             .query_all_raw(Statement::from_string(
@@ -330,20 +372,7 @@ impl ReportService {
             weeks.push(f64::from(w));
             by_service.push((p.col::<String>("target_service")?, f64::from(w)));
         }
-        Ok(Report {
-            from,
-            to,
-            group_by: if by_day { "day" } else { "schedule" },
-            total_appointments,
-            total_slots,
-            busy_slots,
-            utilization: ratio(busy_slots, total_slots),
-            rows,
-            lead_time_days: stats(lead_days),
-            open_pathway_weeks: stats(weeks),
-            breaching_pathways: breaching,
-            pathway_weeks: by_service,
-        })
+        Ok((weeks, by_service, breaching))
     }
 }
 

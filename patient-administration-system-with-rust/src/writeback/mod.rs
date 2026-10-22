@@ -405,168 +405,204 @@ impl WriteBackService {
         post: &mut PostCommit,
     ) -> Result<Decision> {
         match req.action {
-            ReplyAction::Confirm => {
-                if appt.status != AppointmentStatus::Booked {
-                    return Ok(Decision::rejected(
-                        format!("not_confirmable:{:?}", appt.status).to_lowercase(),
-                        Some(appt),
-                    ));
+            ReplyAction::Confirm => Self::act_confirm(txn, req, appt, ctx, post).await,
+            ReplyAction::Cancel => Self::act_cancel(txn, req, appt, ctx, post).await,
+            ReplyAction::Convert => Self::act_convert(txn, req, appt, ctx).await,
+            ReplyAction::Rebook => Self::act_rebook(txn, req, appt, ctx, post).await,
+        }
+    }
+
+    /// Confirm a booked appointment (once; a second confirm is still a success).
+    async fn act_confirm(
+        txn: &DatabaseTransaction,
+        req: &ReplyRequest,
+        appt: Appointment,
+        ctx: &UserContext,
+        post: &mut PostCommit,
+    ) -> Result<Decision> {
+        if appt.status != AppointmentStatus::Booked {
+            return Ok(Decision::rejected(
+                format!("not_confirmable:{:?}", appt.status).to_lowercase(),
+                Some(appt),
+            ));
+        }
+        if appt.confirmed_at.is_some() {
+            // Already confirmed by an earlier message: nothing to change, and still success.
+            return Ok(Decision {
+                status: ReplyStatus::Applied,
+                reject_reason: None,
+                appointment: Some(appt),
+                new_appointment: None,
+            });
+        }
+        let mut a = appt;
+        let now = Utc::now();
+        a.confirmed_at = Some(now);
+        a.updated_at = now;
+        let a = AppointmentRepository::update(txn, &a).await?;
+        Self::audit(txn, &a, "confirm", req, ctx).await?;
+        OutboxRepository::publish(
+            txn,
+            "AppointmentConfirmed",
+            &serde_json::json!({ "appointment_id": a.id }),
+        )
+        .await?;
+        post.confirmed = Some(a.id);
+        Ok(Decision {
+            status: ReplyStatus::Applied,
+            reject_reason: None,
+            appointment: Some(a),
+            new_appointment: None,
+        })
+    }
+
+    /// Cancel on the patient's behalf, unless the service is listed for human follow-up (then a person
+    /// phones first and the slot is kept).
+    async fn act_cancel(
+        txn: &DatabaseTransaction,
+        req: &ReplyRequest,
+        appt: Appointment,
+        ctx: &UserContext,
+        post: &mut PostCommit,
+    ) -> Result<Decision> {
+        if !matches!(
+            appt.status,
+            AppointmentStatus::Booked | AppointmentStatus::Proposed
+        ) {
+            return Ok(Decision::rejected(
+                format!("not_cancellable:{:?}", appt.status).to_lowercase(),
+                Some(appt),
+            ));
+        }
+        // On a service a clinician has listed (urgent or cancer pathways), a patient's own cancel
+        // is not applied: the slot is kept and a person phones first (CAP-7, FR-58).
+        if crate::follow_up::service_is_listed(txn, appt.slot_id).await? {
+            txn.execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
+                 VALUES ($1,$2,$3,'urgent_pathway', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",
+                [Uuid::new_v4().into(), appt.id.into(), appt.person_id.into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+            Self::audit(txn, &appt, "cancel_held", req, ctx).await?;
+            return Ok(Decision::rejected(HELD_FOR_STAFF, Some(appt)));
+        }
+        let a = SchedulingService::cancel_tx(
+            txn,
+            appt.id,
+            CancelDetails {
+                cancelled_by: CancelledBy::Patient,
+                barrier_code: req.barrier_code,
+                legacy_reason: None,
+            },
+            ctx,
+        )
+        .await?;
+        Self::audit(txn, &a, "cancel", req, ctx).await?;
+        post.cancelled = Some(a.clone());
+        Ok(Decision {
+            status: ReplyStatus::Applied,
+            reject_reason: None,
+            appointment: Some(a),
+            new_appointment: None,
+        })
+    }
+
+    /// Ask for a video or phone visit instead of in person (CAP-14); a person reviews it.
+    async fn act_convert(
+        txn: &DatabaseTransaction,
+        req: &ReplyRequest,
+        appt: Appointment,
+        ctx: &UserContext,
+    ) -> Result<Decision> {
+        let modality = req
+            .modality
+            .ok_or_else(|| Error::validation("convert needs a modality"))?;
+        if appt.status != AppointmentStatus::Booked {
+            return Ok(Decision::rejected(
+                format!("not_convertible:{:?}", appt.status).to_lowercase(),
+                Some(appt),
+            ));
+        }
+        if appt.start_datetime <= Utc::now() {
+            return Ok(Decision::rejected("already_started", Some(appt)));
+        }
+        if appt.modality != Modality::InPerson
+            && appt.conversion_state != Some(ConversionState::Vetoed)
+        {
+            // Asking for the same thing twice is success; asking for something else is not.
+            return Ok(if appt.modality == modality {
+                Decision {
+                    status: ReplyStatus::Applied,
+                    reject_reason: None,
+                    appointment: Some(appt),
+                    new_appointment: None,
                 }
-                if appt.confirmed_at.is_some() {
-                    // Already confirmed by an earlier message: nothing to change, and still success.
-                    return Ok(Decision {
-                        status: ReplyStatus::Applied,
-                        reject_reason: None,
-                        appointment: Some(appt),
-                        new_appointment: None,
-                    });
-                }
-                let mut a = appt;
-                let now = Utc::now();
-                a.confirmed_at = Some(now);
-                a.updated_at = now;
-                let a = AppointmentRepository::update(txn, &a).await?;
-                Self::audit(txn, &a, "confirm", req, ctx).await?;
-                OutboxRepository::publish(
-                    txn,
-                    "AppointmentConfirmed",
-                    &serde_json::json!({ "appointment_id": a.id }),
-                )
-                .await?;
-                post.confirmed = Some(a.id);
+            } else {
+                Decision::rejected("already_converted", Some(appt))
+            });
+        }
+        if !crate::virtual_visits::service_is_virtual_ok(txn, appt.slot_id).await? {
+            return Ok(Decision::rejected("not_virtual_ok", Some(appt)));
+        }
+        let mut a = appt;
+        let now = Utc::now();
+        a.modality = modality;
+        a.conversion_state = Some(ConversionState::PendingReview);
+        a.conversion_barrier_code = req.barrier_code;
+        a.converted_at = Some(now);
+        a.updated_at = now;
+        let a = AppointmentRepository::update(txn, &a).await?;
+        Self::audit(txn, &a, "convert", req, ctx).await?;
+        OutboxRepository::publish(
+            txn,
+            "AppointmentConverted",
+            &serde_json::json!({
+                "appointment_id": a.id, "modality": modality.as_str(),
+                "barrier_code": req.barrier_code,
+            }),
+        )
+        .await?;
+        Ok(Decision {
+            status: ReplyStatus::Applied,
+            reject_reason: None,
+            appointment: Some(a),
+            new_appointment: None,
+        })
+    }
+
+    /// Move to another slot the patient chose (CAP-5).
+    async fn act_rebook(
+        txn: &DatabaseTransaction,
+        req: &ReplyRequest,
+        appt: Appointment,
+        ctx: &UserContext,
+        post: &mut PostCommit,
+    ) -> Result<Decision> {
+        let new_slot = req
+            .new_slot_id
+            .ok_or_else(|| Error::validation("rebook needs new_slot_id"))?;
+        match SchedulingService::rebook_tx(txn, appt.id, new_slot, ctx).await {
+            Ok((old, new)) => {
+                Self::audit(txn, &old, "rebook", req, ctx).await?;
+                post.cancelled = Some(old.clone());
+                post.booked = Some(new.clone());
                 Ok(Decision {
                     status: ReplyStatus::Applied,
                     reject_reason: None,
-                    appointment: Some(a),
-                    new_appointment: None,
+                    appointment: Some(old),
+                    new_appointment: Some(new),
                 })
             }
-            ReplyAction::Cancel => {
-                if !matches!(
-                    appt.status,
-                    AppointmentStatus::Booked | AppointmentStatus::Proposed
-                ) {
-                    return Ok(Decision::rejected(
-                        format!("not_cancellable:{:?}", appt.status).to_lowercase(),
-                        Some(appt),
-                    ));
-                }
-                // On a service a clinician has listed (urgent or cancer pathways), a patient's own cancel
-                // is not applied: the slot is kept and a person phones first (CAP-7, FR-58).
-                if crate::follow_up::service_is_listed(txn, appt.slot_id).await? {
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
-                         VALUES ($1,$2,$3,'urgent_pathway', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",
-                        [Uuid::new_v4().into(), appt.id.into(), appt.person_id.into()],
-                    ))
-                    .await
-                    .map_err(Error::Database)?;
-                    Self::audit(txn, &appt, "cancel_held", req, ctx).await?;
-                    return Ok(Decision::rejected(HELD_FOR_STAFF, Some(appt)));
-                }
-                let a = SchedulingService::cancel_tx(
-                    txn,
-                    appt.id,
-                    CancelDetails {
-                        cancelled_by: CancelledBy::Patient,
-                        barrier_code: req.barrier_code,
-                        legacy_reason: None,
-                    },
-                    ctx,
-                )
-                .await?;
-                Self::audit(txn, &a, "cancel", req, ctx).await?;
-                post.cancelled = Some(a.clone());
-                Ok(Decision {
-                    status: ReplyStatus::Applied,
-                    reject_reason: None,
-                    appointment: Some(a),
-                    new_appointment: None,
-                })
+            // rebook_tx checks everything before it writes, so a refusal changed nothing.
+            Err(Error::Conflict(_)) | Err(Error::NotFound(_)) => {
+                Ok(Decision::rejected("slot_unavailable", Some(appt)))
             }
-            ReplyAction::Convert => {
-                let modality = req
-                    .modality
-                    .ok_or_else(|| Error::validation("convert needs a modality"))?;
-                if appt.status != AppointmentStatus::Booked {
-                    return Ok(Decision::rejected(
-                        format!("not_convertible:{:?}", appt.status).to_lowercase(),
-                        Some(appt),
-                    ));
-                }
-                if appt.start_datetime <= Utc::now() {
-                    return Ok(Decision::rejected("already_started", Some(appt)));
-                }
-                if appt.modality != Modality::InPerson
-                    && appt.conversion_state != Some(ConversionState::Vetoed)
-                {
-                    // Asking for the same thing twice is success; asking for something else is not.
-                    return Ok(if appt.modality == modality {
-                        Decision {
-                            status: ReplyStatus::Applied,
-                            reject_reason: None,
-                            appointment: Some(appt),
-                            new_appointment: None,
-                        }
-                    } else {
-                        Decision::rejected("already_converted", Some(appt))
-                    });
-                }
-                if !crate::virtual_visits::service_is_virtual_ok(txn, appt.slot_id).await? {
-                    return Ok(Decision::rejected("not_virtual_ok", Some(appt)));
-                }
-                let mut a = appt;
-                let now = Utc::now();
-                a.modality = modality;
-                a.conversion_state = Some(ConversionState::PendingReview);
-                a.conversion_barrier_code = req.barrier_code;
-                a.converted_at = Some(now);
-                a.updated_at = now;
-                let a = AppointmentRepository::update(txn, &a).await?;
-                Self::audit(txn, &a, "convert", req, ctx).await?;
-                OutboxRepository::publish(
-                    txn,
-                    "AppointmentConverted",
-                    &serde_json::json!({
-                        "appointment_id": a.id, "modality": modality.as_str(),
-                        "barrier_code": req.barrier_code,
-                    }),
-                )
-                .await?;
-                Ok(Decision {
-                    status: ReplyStatus::Applied,
-                    reject_reason: None,
-                    appointment: Some(a),
-                    new_appointment: None,
-                })
+            Err(Error::InvalidStateTransition(_)) => {
+                Ok(Decision::rejected("not_movable", Some(appt)))
             }
-            ReplyAction::Rebook => {
-                let new_slot = req
-                    .new_slot_id
-                    .ok_or_else(|| Error::validation("rebook needs new_slot_id"))?;
-                match SchedulingService::rebook_tx(txn, appt.id, new_slot, ctx).await {
-                    Ok((old, new)) => {
-                        Self::audit(txn, &old, "rebook", req, ctx).await?;
-                        post.cancelled = Some(old.clone());
-                        post.booked = Some(new.clone());
-                        Ok(Decision {
-                            status: ReplyStatus::Applied,
-                            reject_reason: None,
-                            appointment: Some(old),
-                            new_appointment: Some(new),
-                        })
-                    }
-                    // rebook_tx checks everything before it writes, so a refusal changed nothing.
-                    Err(Error::Conflict(_)) | Err(Error::NotFound(_)) => {
-                        Ok(Decision::rejected("slot_unavailable", Some(appt)))
-                    }
-                    Err(Error::InvalidStateTransition(_)) => {
-                        Ok(Decision::rejected("not_movable", Some(appt)))
-                    }
-                    Err(e) => Err(e),
-                }
-            }
+            Err(e) => Err(e),
         }
     }
 

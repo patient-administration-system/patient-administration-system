@@ -300,33 +300,10 @@ impl CommunicationService {
         };
         let person = person_client.get(person_id, &upstream_ctx).await?;
 
-        // 1a. A patient who can only be reached by letter is never sent a text, WhatsApp, email or portal
-        //     message (CAS-10). This is the choke point every message passes through.
-        if channel != DeliveryChannel::Print
-            && crate::contact::letter_only(&self.db, person_id).await?
-        {
-            return Err(Error::conflict(
-                "the recipient can only be contacted by letter",
-            ));
-        }
-
-        // 1b. Never send to someone who has opted out of this channel (PILOT-7). This is the choke
-        //     point every send passes through, so no caller can skip it.
+        // 1a to 1c. May this message be sent to this person on this channel at all? Every send passes here.
         let person_json = serde_json::to_value(&person).unwrap_or_default();
-        let address = self
-            .resolve_recipient(channel, person_id, &person_json)
+        self.check_may_send(channel, person_id, template_id, &person_json)
             .await?;
-        if consent::is_opted_out(&self.db, person_id, channel, address.as_deref()).await? {
-            return Err(Error::conflict(format!(
-                "the recipient has opted out of {} messages",
-                channel_label(channel)
-            )));
-        }
-
-        // 1c. WhatsApp needs the patient's opt-in and a provider-approved template (CAP-13), when the rule is on.
-        if channel == DeliveryChannel::WhatsApp {
-            whatsapp::check(&self.db, person_id, template_id).await?;
-        }
 
         // 2. Load template.
         let template = LetterRepository::find_template_by_id(&self.db, template_id)
@@ -352,8 +329,70 @@ impl CommunicationService {
         letter.trigger_ref = trigger_ref;
 
         // 6. Persist + audit + outbox in one DB tx.
+        let persisted = self
+            .persist_letter(letter, template_id, person_id, ctx)
+            .await?;
+
+        // 7. Deliver: the portal at once, a text-style channel through its carrier when one is switched on.
+        let letter = self
+            .deliver(channel, persisted, person_id, &person_value, ctx)
+            .await?;
+
+        let _ = LetterStatus::Pending;
+        Ok(letter)
+    }
+
+    /// The refusals every message must pass before anything is written: a letter-only patient is never sent
+    /// a text, WhatsApp, email or portal message (CAS-10); an opt-out is honoured (PILOT-7); WhatsApp needs
+    /// the patient's opt-in and an approved template (CAP-13). No caller can skip this.
+    async fn check_may_send(
+        &self,
+        channel: DeliveryChannel,
+        person_id: Uuid,
+        template_id: Uuid,
+        person_json: &serde_json::Value,
+    ) -> Result<()> {
+        // 1a. A patient who can only be reached by letter is never sent a text, WhatsApp, email or portal
+        //     message (CAS-10). This is the choke point every message passes through.
+        if channel != DeliveryChannel::Print
+            && crate::contact::letter_only(&self.db, person_id).await?
+        {
+            return Err(Error::conflict(
+                "the recipient can only be contacted by letter",
+            ));
+        }
+
+        // 1b. Never send to someone who has opted out of this channel (PILOT-7). This is the choke
+        //     point every send passes through, so no caller can skip it.
+        let address = self
+            .resolve_recipient(channel, person_id, person_json)
+            .await?;
+        if consent::is_opted_out(&self.db, person_id, channel, address.as_deref()).await? {
+            return Err(Error::conflict(format!(
+                "the recipient has opted out of {} messages",
+                channel_label(channel)
+            )));
+        }
+
+        // 1c. WhatsApp needs the patient's opt-in and a provider-approved template (CAP-13), when the rule is on.
+        if channel == DeliveryChannel::WhatsApp {
+            whatsapp::check(&self.db, person_id, template_id).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Persist the rendered letter, its audit row and its outbox event in one transaction, then tell
+    /// in-process listeners.
+    async fn persist_letter(
+        &self,
+        letter: GeneratedLetter,
+        template_id: Uuid,
+        person_id: Uuid,
+        ctx: &UserContext,
+    ) -> Result<GeneratedLetter> {
         let ctx_clone = ctx.clone();
-        let letter_clone = letter.clone();
+        let letter_clone = letter;
         let persisted = self
             .db
             .transaction::<_, GeneratedLetter, Error>(|txn| {
@@ -391,8 +430,20 @@ impl CommunicationService {
             ))
             .await
             .log_warn("in-process event");
+        Ok(persisted)
+    }
 
-        // 7. SMS auto-send when configured and the channel is SMS.
+    /// Send a stored letter: the portal needs no carrier (storing the message is delivering it); a
+    /// text-style channel goes through its sender when one is switched on, and a failure is recorded on the
+    /// letter, never lost.
+    async fn deliver(
+        &self,
+        channel: DeliveryChannel,
+        persisted: GeneratedLetter,
+        person_id: Uuid,
+        person_value: &serde_json::Value,
+        ctx: &UserContext,
+    ) -> Result<GeneratedLetter> {
         // The portal needs no carrier: storing the message is delivering it.
         if channel == DeliveryChannel::Portal {
             let updated = LetterRepository::mark_sent(&self.db, persisted.id).await?;
@@ -416,7 +467,7 @@ impl CommunicationService {
             Some(sender) => {
                 let label = channel_label(channel);
                 match self
-                    .resolve_recipient(channel, person_id, &person_value)
+                    .resolve_recipient(channel, person_id, person_value)
                     .await?
                 {
                     None => {
@@ -488,7 +539,6 @@ impl CommunicationService {
             }
         };
 
-        let _ = LetterStatus::Pending;
         Ok(letter)
     }
 }

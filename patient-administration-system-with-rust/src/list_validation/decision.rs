@@ -46,36 +46,13 @@ impl ListValidationService {
                         .await
                         .map_err(Error::Database)?
                         .ok_or_else(|| Error::not_found(format!("item {item} in campaign {campaign}")))?;
-                    let state: String = r.col("state")?;
-                    let answer: Option<String> = r.col("answer")?;
-                    let next: Option<String> = r.col("next")?;
-                    let urgent: bool = r.col("urgent")?;
-                    if decision_s == "remove" {
-                        if urgent {
-                            return Err(Error::conflict(
-                                "an urgent pathway is never removed by validation: a clinician decides",
-                            ));
-                        }
-                        if matches!(answer.as_deref(), Some("still_needed" | "unsure")) {
-                            return Err(Error::conflict(
-                                "the patient said they still need this or are unsure: they are not removed",
-                            ));
-                        }
-                    }
-                    if next.as_deref() != Some("decision_due") {
-                        // A patient who answered still_needed may be recorded as kept at any time.
-                        let closing_a_yes = decision_s == "keep" && state == "answered";
-                        if !closing_a_yes {
-                            return Err(Error::conflict(format!(
-                                "not ready for a decision: the item is {state}{}",
-                                if state == "letter_sent" {
-                                    " and the wait for a reply to the letter has not ended"
-                                } else {
-                                    " and has no answer and no letter yet"
-                                }
-                            )));
-                        }
-                    }
+                    let row = DecisionRow {
+                        state: r.col("state")?,
+                        answer: r.col("answer")?,
+                        next: r.col("next")?,
+                        urgent: r.col("urgent")?,
+                    };
+                    check_decision_allowed(&decision_s, &row)?;
                     let person: Uuid = r.col("person_id")?;
                     let pathway: Uuid = r.col("pathway_id")?;
                     let service: String = r.col("target_service")?;
@@ -88,82 +65,7 @@ impl ListValidationService {
                         .await
                         .map_err(Error::Database)?;
                     } else {
-                        let stopped_at = Utc::now();
-                        let removed = txn
-                            .query_all_raw(Statement::from_sql_and_values(
-                                DbBackend::Postgres,
-                                "UPDATE waitlist_entries SET status = 'removed', updated_at = now() \
-                                 WHERE person_id = $1 AND target_service = $2 AND status = 'waiting' RETURNING id",
-                                [person.into(), service.clone().into()],
-                            ))
-                            .await
-                            .map_err(Error::Database)?
-                            .iter()
-                            .map(|e| e.col::<Uuid>("id"))
-                            .collect::<Result<Vec<_>>>()?;
-                        txn.execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "INSERT INTO rtt_clock_events (id, pathway_id, kind, reason, event_at, created_at) \
-                             VALUES ($1,$2,'stopped','validation_removal',$3,now())",
-                            [Uuid::new_v4().into(), pathway.into(), stopped_at.into()],
-                        ))
-                        .await
-                        .map_err(Error::Database)?;
-                        txn.execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE rtt_pathways SET status = 'stopped', stopped_at = $2, updated_at = now() \
-                             WHERE id = $1 AND stopped_at IS NULL",
-                            [pathway.into(), stopped_at.into()],
-                        ))
-                        .await
-                        .map_err(Error::Database)?;
-                        txn.execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE validation_items SET state = 'removed', decided_by = $2, decided_at = now(), \
-                                    decision_note = $3, removed_at = $4, rtt_stop_event_at = $4, removed_waitlist_ids = $5 \
-                             WHERE id = $1",
-                            [
-                                item.into(),
-                                by.clone().into(),
-                                note_s.clone().into(),
-                                stopped_at.into(),
-                                removed.clone().into(),
-                            ],
-                        ))
-                        .await
-                        .map_err(Error::Database)?;
-                        for entry in &removed {
-                            AuditLogRepository::log_with(
-                                txn,
-                                "waitlist_entry",
-                                *entry,
-                                "remove",
-                                None,
-                                Some(serde_json::json!({ "campaign_id": campaign, "decided_by": by })),
-                                Some("validation_removal"),
-                                None,
-                                &ctx,
-                            )
-                            .await?;
-                        }
-                        AuditLogRepository::log_with(
-                            txn,
-                            "rtt_pathway",
-                            pathway,
-                            "stop",
-                            None,
-                            Some(serde_json::json!({ "reason": "validation_removal" })),
-                            Some("validation_removal"),
-                            None,
-                            &ctx,
-                        )
-                        .await?;
-                        OutboxRepository::publish(
-                            txn,
-                            "ValidationRemoval",
-                            &serde_json::json!({ "item_id": item, "campaign_id": campaign, "pathway_id": pathway }),
-                        )
-                        .await?;
+                        remove_patient(txn, campaign, item, person, pathway, &service, &by, note_s.as_deref(), &ctx).await?;
                     }
                     AuditLogRepository::log_with(
                         txn,
@@ -284,5 +186,220 @@ impl ListValidationService {
             .await
             .map_err(Error::from)?;
         self.item(campaign, item).await
+    }
+}
+
+/// What the decision rules need to know about an item.
+struct DecisionRow {
+    state: String,
+    answer: Option<String>,
+    next: Option<String>,
+    urgent: bool,
+}
+
+/// The rules (FR-172): may this decision be taken now? A removal is never for an urgent service nor for a
+/// patient who said they still need the care or are unsure; either decision waits until the patient has said
+/// the care is no longer needed, or the wait for a reply to the letter has ended.
+fn check_decision_allowed(decision: &str, row: &DecisionRow) -> Result<()> {
+    let state = row.state.as_str();
+    if decision == "remove" {
+        if row.urgent {
+            return Err(Error::conflict(
+                "an urgent pathway is never removed by validation: a clinician decides",
+            ));
+        }
+        if matches!(row.answer.as_deref(), Some("still_needed" | "unsure")) {
+            return Err(Error::conflict(
+                "the patient said they still need this or are unsure: they are not removed",
+            ));
+        }
+    }
+    if row.next.as_deref() != Some("decision_due") {
+        // A patient who answered still_needed may be recorded as kept at any time.
+        let closing_a_yes = decision == "keep" && state == "answered";
+        if !closing_a_yes {
+            return Err(Error::conflict(format!(
+                "not ready for a decision: the item is {state}{}",
+                if state == "letter_sent" {
+                    " and the wait for a reply to the letter has not ended"
+                } else {
+                    " and has no answer and no letter yet"
+                }
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Remove the patient from the list in the caller's transaction: the waiting entries, the clock (stopped with
+/// the reason `validation_removal`), the item, the audit rows and the outbox event.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the parts of one removal as the caller holds them"
+)]
+async fn remove_patient(
+    txn: &sea_orm::DatabaseTransaction,
+    campaign: Uuid,
+    item: Uuid,
+    person: Uuid,
+    pathway: Uuid,
+    service: &str,
+    by: &str,
+    note: Option<&str>,
+    ctx: &UserContext,
+) -> Result<()> {
+    let stopped_at = Utc::now();
+    let removed = txn
+                            .query_all_raw(Statement::from_sql_and_values(
+                                DbBackend::Postgres,
+                                "UPDATE waitlist_entries SET status = 'removed', updated_at = now() \
+                                 WHERE person_id = $1 AND target_service = $2 AND status = 'waiting' RETURNING id",
+                                [person.into(), service.to_string().into()],
+                            ))
+                            .await
+                            .map_err(Error::Database)?
+                            .iter()
+                            .map(|e| e.col::<Uuid>("id"))
+                            .collect::<Result<Vec<_>>>()?;
+    txn.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO rtt_clock_events (id, pathway_id, kind, reason, event_at, created_at) \
+                             VALUES ($1,$2,'stopped','validation_removal',$3,now())",
+        [Uuid::new_v4().into(), pathway.into(), stopped_at.into()],
+    ))
+    .await
+    .map_err(Error::Database)?;
+    txn.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "UPDATE rtt_pathways SET status = 'stopped', stopped_at = $2, updated_at = now() \
+                             WHERE id = $1 AND stopped_at IS NULL",
+        [pathway.into(), stopped_at.into()],
+    ))
+    .await
+    .map_err(Error::Database)?;
+    txn.execute_raw(Statement::from_sql_and_values(
+                            DbBackend::Postgres,
+                            "UPDATE validation_items SET state = 'removed', decided_by = $2, decided_at = now(), \
+                                    decision_note = $3, removed_at = $4, rtt_stop_event_at = $4, removed_waitlist_ids = $5 \
+                             WHERE id = $1",
+                            [
+                                item.into(),
+                                by.to_string().into(),
+                                note.map(str::to_string).into(),
+                                stopped_at.into(),
+                                removed.clone().into(),
+                            ],
+                        ))
+                        .await
+                        .map_err(Error::Database)?;
+    for entry in &removed {
+        AuditLogRepository::log_with(
+            txn,
+            "waitlist_entry",
+            *entry,
+            "remove",
+            None,
+            Some(serde_json::json!({ "campaign_id": campaign, "decided_by": by })),
+            Some("validation_removal"),
+            None,
+            ctx,
+        )
+        .await?;
+    }
+    AuditLogRepository::log_with(
+        txn,
+        "rtt_pathway",
+        pathway,
+        "stop",
+        None,
+        Some(serde_json::json!({ "reason": "validation_removal" })),
+        Some("validation_removal"),
+        None,
+        ctx,
+    )
+    .await?;
+    OutboxRepository::publish(
+        txn,
+        "ValidationRemoval",
+        &serde_json::json!({ "item_id": item, "campaign_id": campaign, "pathway_id": pathway }),
+    )
+    .await?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(state: &str, answer: Option<&str>, next: Option<&str>, urgent: bool) -> DecisionRow {
+        DecisionRow {
+            state: state.into(),
+            answer: answer.map(Into::into),
+            next: next.map(Into::into),
+            urgent,
+        }
+    }
+
+    #[test]
+    fn a_removal_needs_a_no_longer_needed_answer_or_an_unanswered_letter_that_ran_out() {
+        // "No longer needed": decision due.
+        assert!(
+            check_decision_allowed(
+                "remove",
+                &row(
+                    "answered",
+                    Some("no_longer_needed"),
+                    Some("decision_due"),
+                    false
+                )
+            )
+            .is_ok()
+        );
+        // Silent after the letter, wait over: decision due.
+        assert!(
+            check_decision_allowed(
+                "remove",
+                &row("letter_sent", None, Some("decision_due"), false)
+            )
+            .is_ok()
+        );
+        // Not yet: still waiting for the letter's reply, or no letter yet.
+        assert!(check_decision_allowed("remove", &row("letter_sent", None, None, false)).is_err());
+        assert!(check_decision_allowed("remove", &row("asked", None, None, false)).is_err());
+        assert!(check_decision_allowed("keep", &row("asked", None, None, false)).is_err());
+    }
+
+    #[test]
+    fn nobody_who_still_needs_the_care_or_is_unsure_is_removed_and_urgent_is_never_removed() {
+        for answer in ["still_needed", "unsure"] {
+            assert!(
+                check_decision_allowed(
+                    "remove",
+                    &row("answered", Some(answer), Some("decision_due"), false)
+                )
+                .is_err()
+            );
+        }
+        assert!(
+            check_decision_allowed(
+                "remove",
+                &row(
+                    "answered",
+                    Some("no_longer_needed"),
+                    Some("decision_due"),
+                    true
+                )
+            )
+            .is_err()
+        );
+        // Keeping someone who said they still need it is always allowed.
+        assert!(
+            check_decision_allowed("keep", &row("answered", Some("still_needed"), None, false))
+                .is_ok()
+        );
+        assert!(
+            check_decision_allowed("keep", &row("answered", Some("still_needed"), None, true))
+                .is_ok()
+        );
     }
 }

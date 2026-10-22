@@ -111,6 +111,69 @@ struct Decision {
     lang: Option<Lang>,
 }
 
+/// Who is texting, once the number matches exactly one person.
+struct Who {
+    person: Uuid,
+    lang: Lang,
+    tz: chrono_tz::Tz,
+}
+
+/// A confirm or cancel text, resolved to one appointment, ready to apply.
+#[derive(Clone, Copy)]
+struct Reply<'a> {
+    message_id: &'a str,
+    intent: Intent,
+    action: Intent,
+    appointment_id: Uuid,
+    now: DateTime<Utc>,
+}
+
+/// What `target_of` found: an answer to send now, or the action and appointment to apply.
+enum Target {
+    Answer(Decision),
+    Act(Intent, Option<Uuid>),
+}
+
+/// A decision that matched no appointment.
+fn blank(
+    intent: Intent,
+    outcome: &'static str,
+    person_id: Option<Uuid>,
+    reply_text: Option<String>,
+    lang: Option<Lang>,
+) -> Decision {
+    Decision {
+        intent,
+        outcome,
+        person_id,
+        appointment_id: None,
+        candidates: None,
+        pending_intent: None,
+        reply_text,
+        lang,
+    }
+}
+
+/// A decision about one appointment, with its reply.
+fn done(
+    intent: Intent,
+    who: &Who,
+    outcome: &'static str,
+    reply: String,
+    appointment_id: Uuid,
+) -> Decision {
+    Decision {
+        intent,
+        outcome,
+        person_id: Some(who.person),
+        appointment_id: Some(appointment_id),
+        candidates: None,
+        pending_intent: None,
+        reply_text: Some(reply),
+        lang: Some(who.lang),
+    }
+}
+
 fn db_err(e: sea_orm::DbErr) -> Error {
     Error::Database(e)
 }
@@ -330,19 +393,6 @@ impl InboundService {
         now: DateTime<Utc>,
         ctx: &UserContext,
     ) -> Result<Decision> {
-        let tz = messages::timezone();
-        let help = self.help_line.as_deref();
-        let blank = |intent, outcome, person_id, reply_text, lang| Decision {
-            intent,
-            outcome,
-            person_id,
-            appointment_id: None,
-            candidates: None,
-            pending_intent: None,
-            reply_text,
-            lang,
-        };
-
         let persons = self.persons_with_number(from).await?;
         let single = if persons.len() == 1 {
             Some(persons[0])
@@ -358,45 +408,8 @@ impl InboundService {
             None => None,
         };
 
-        // START lifts a STOP, for the number and (when we know who) the person.
-        if intent == Intent::Start {
-            use crate::communication::consent as c;
-            for ch in c::TEXT_CHANNELS {
-                c::resume(&self.db, &c::address_subject(from), ch).await?;
-                if let Some(p) = single {
-                    c::resume(&self.db, &c::person_subject(p), ch).await?;
-                }
-            }
-            let reply = match lang {
-                Some(l) => messages::text(l, Kind::Started, "", help),
-                None => messages::bilingual(Kind::Started),
-            };
-            return Ok(blank(intent, "start", single, Some(reply), lang));
-        }
-        // STOP is honoured whoever sends it, against the number and (when we know who) the person.
-        if intent == Intent::Stop {
-            use crate::communication::consent as c;
-            // "Stop texting me" means every text-style channel, whichever one the word arrived on.
-            for ch in c::TEXT_CHANNELS {
-                c::record_optout(&self.db, &c::address_subject(from), ch, "reply_stop", None)
-                    .await?;
-                if let Some(p) = single {
-                    c::record_optout(&self.db, &c::person_subject(p), ch, "reply_stop", None)
-                        .await?;
-                }
-            }
-            let reply = match lang {
-                Some(l) => messages::text(l, Kind::Stop, "", help),
-                None => messages::bilingual(Kind::Stop),
-            };
-            return Ok(blank(intent, "stop", single, Some(reply), lang));
-        }
-        if intent == Intent::Help {
-            let reply = match lang {
-                Some(l) => messages::text(l, Kind::Help, "", help),
-                None => messages::bilingual(Kind::Help),
-            };
-            return Ok(blank(intent, "help", single, Some(reply), lang));
+        if let Some(d) = self.keyword_decision(intent, from, single, lang).await? {
+            return Ok(d);
         }
         let Some(person) = single else {
             // Nobody, or more than one: say nothing, let staff see it.
@@ -407,122 +420,208 @@ impl InboundService {
             };
             return Ok(blank(intent, outcome, None, None, None));
         };
-        let lang = lang.unwrap_or(Lang::En);
+        let who = Who {
+            person,
+            lang: lang.unwrap_or(Lang::En),
+            tz: messages::timezone(),
+        };
 
         // Work out what is being asked of which appointment.
-        let (action, target): (Intent, Option<Uuid>) = match intent {
-            Intent::Choice(n) => match self.open_question(from, now).await? {
-                Some((ids, pending)) if pending == "rebook" => {
-                    return self
-                        .take_rebook_choice(person, &ids, n as usize, intent, lang, tz, help, ctx)
-                        .await;
+        let (action, target) = match self.target_of(intent, from, now, &who, ctx).await? {
+            Target::Answer(d) => return Ok(d),
+            Target::Act(action, target) => (action, target),
+        };
+        let help = self.help_line.as_deref();
+        let (Some(appointment_id), true) = (target, action != Intent::Unknown) else {
+            return Ok(blank(
+                intent,
+                "unknown",
+                Some(who.person),
+                Some(messages::text(who.lang, Kind::Unknown, "", help)),
+                Some(who.lang),
+            ));
+        };
+        if action == Intent::Reschedule {
+            return self.reschedule(intent, &who, appointment_id).await;
+        }
+        let reply = Reply {
+            message_id,
+            intent,
+            action,
+            appointment_id,
+            now,
+        };
+        self.apply_reply(&reply, &who, ctx).await
+    }
+
+    /// START, STOP and HELP: answered whoever sends them. STOP is honoured against the number and (when we
+    /// know who) the person, on every text-style channel whichever one the word arrived on; START lifts it.
+    async fn keyword_decision(
+        &self,
+        intent: Intent,
+        from: &str,
+        single: Option<Uuid>,
+        lang: Option<Lang>,
+    ) -> Result<Option<Decision>> {
+        use crate::communication::consent as c;
+        let help = self.help_line.as_deref();
+        let (kind, outcome) = match intent {
+            Intent::Start => {
+                for ch in c::TEXT_CHANNELS {
+                    c::resume(&self.db, &c::address_subject(from), ch).await?;
+                    if let Some(p) = single {
+                        c::resume(&self.db, &c::person_subject(p), ch).await?;
+                    }
                 }
+                (Kind::Started, "start")
+            }
+            Intent::Stop => {
+                for ch in c::TEXT_CHANNELS {
+                    c::record_optout(&self.db, &c::address_subject(from), ch, "reply_stop", None)
+                        .await?;
+                    if let Some(p) = single {
+                        c::record_optout(&self.db, &c::person_subject(p), ch, "reply_stop", None)
+                            .await?;
+                    }
+                }
+                (Kind::Stop, "stop")
+            }
+            Intent::Help => (Kind::Help, "help"),
+            _ => return Ok(None),
+        };
+        let reply = match lang {
+            Some(l) => messages::text(l, kind, "", help),
+            None => messages::bilingual(kind),
+        };
+        Ok(Some(blank(intent, outcome, single, Some(reply), lang)))
+    }
+
+    /// What a confirm, cancel, reschedule or numbered choice is about: either an answer to send now (a
+    /// question back, or nothing open), or the action and the appointment it applies to.
+    async fn target_of(
+        &self,
+        intent: Intent,
+        from: &str,
+        now: DateTime<Utc>,
+        who: &Who,
+        ctx: &UserContext,
+    ) -> Result<Target> {
+        let help = self.help_line.as_deref();
+        Ok(match intent {
+            Intent::Choice(n) => match self.open_question(from, now).await? {
+                Some((ids, pending)) if pending == "rebook" => Target::Answer(
+                    self.take_rebook_choice(
+                        who.person, &ids, n as usize, intent, who.lang, who.tz, help, ctx,
+                    )
+                    .await?,
+                ),
                 Some((ids, pending)) if (1..=ids.len()).contains(&(n as usize)) => {
                     let a = match pending.as_str() {
                         "confirm" => Intent::Confirm,
                         "cancel" => Intent::Cancel,
                         _ => Intent::Reschedule,
                     };
-                    (a, Some(ids[n as usize - 1]))
+                    Target::Act(a, Some(ids[n as usize - 1]))
                 }
-                _ => (Intent::Unknown, None),
+                _ => Target::Act(Intent::Unknown, None),
             },
             Intent::Confirm | Intent::Cancel | Intent::Reschedule => {
-                let open = self.open_reminded(person).await?;
+                let open = self.open_reminded(who.person).await?;
                 match open.len() {
-                    0 => {
-                        return Ok(blank(
-                            intent,
-                            "no_open_reminder",
-                            Some(person),
-                            Some(messages::text(lang, Kind::NoOpenReminder, "", help)),
-                            Some(lang),
-                        ));
-                    }
-                    1 => (intent, Some(open[0].0)),
+                    0 => Target::Answer(blank(
+                        intent,
+                        "no_open_reminder",
+                        Some(who.person),
+                        Some(messages::text(who.lang, Kind::NoOpenReminder, "", help)),
+                        Some(who.lang),
+                    )),
+                    1 => Target::Act(intent, Some(open[0].0)),
                     _ => {
                         let times: Vec<String> = open
                             .iter()
-                            .map(|(_, at)| messages::when(*at, lang, tz))
+                            .map(|(_, at)| messages::when(*at, who.lang, who.tz))
                             .collect();
                         let pending = match intent {
                             Intent::Confirm => "confirm",
                             Intent::Cancel => "cancel",
                             _ => "reschedule",
                         };
-                        return Ok(Decision {
+                        Target::Answer(Decision {
                             intent,
                             outcome: "asked",
-                            person_id: Some(person),
+                            person_id: Some(who.person),
                             appointment_id: None,
                             candidates: Some(open.iter().map(|(id, _)| *id).collect()),
                             pending_intent: Some(pending),
-                            reply_text: Some(messages::ask(lang, &times)),
-                            lang: Some(lang),
-                        });
+                            reply_text: Some(messages::ask(who.lang, &times)),
+                            lang: Some(who.lang),
+                        })
                     }
                 }
             }
-            _ => (Intent::Unknown, None),
-        };
+            _ => Target::Act(Intent::Unknown, None),
+        })
+    }
 
-        let (Some(appointment_id), true) = (target, action != Intent::Unknown) else {
-            return Ok(blank(
+    /// A reschedule: offer real alternatives when they exist (nothing moves until the patient chooses one),
+    /// otherwise a person finds the new time.
+    async fn reschedule(
+        &self,
+        intent: Intent,
+        who: &Who,
+        appointment_id: Uuid,
+    ) -> Result<Decision> {
+        let help = self.help_line.as_deref();
+        if let Some(rebook) = &self.rebooking
+            && let Ok(offer) = rebook.offer(appointment_id).await
+            && !offer.options.is_empty()
+        {
+            let whens: Vec<String> = offer
+                .options
+                .iter()
+                .map(|o| messages::when(o.starts_at, who.lang, who.tz))
+                .collect();
+            let mut ids = vec![appointment_id];
+            ids.extend(offer.options.iter().map(|o| o.slot_id));
+            return Ok(Decision {
                 intent,
-                "unknown",
-                Some(person),
-                Some(messages::text(lang, Kind::Unknown, "", help)),
-                Some(lang),
-            ));
-        };
-
-        let done = |outcome, reply: String, appt| Decision {
-            intent,
-            outcome,
-            person_id: Some(person),
-            appointment_id: Some(appt),
-            candidates: None,
-            pending_intent: None,
-            reply_text: Some(reply),
-            lang: Some(lang),
-        };
-
-        if action == Intent::Reschedule {
-            // Offer real alternatives when they exist. Nothing moves until the patient chooses one.
-            if let Some(rebook) = &self.rebooking
-                && let Ok(offer) = rebook.offer(appointment_id).await
-                && !offer.options.is_empty()
-            {
-                let whens: Vec<String> = offer
-                    .options
-                    .iter()
-                    .map(|o| messages::when(o.starts_at, lang, tz))
-                    .collect();
-                let mut ids = vec![appointment_id];
-                ids.extend(offer.options.iter().map(|o| o.slot_id));
-                return Ok(Decision {
-                    intent,
-                    outcome: "asked",
-                    person_id: Some(person),
-                    appointment_id: Some(appointment_id),
-                    candidates: Some(ids),
-                    pending_intent: Some("rebook"),
-                    reply_text: Some(messages::rebook_options(lang, &whens)),
-                    lang: Some(lang),
-                });
-            }
-            // Nothing to offer: a person finds the new time.
-            let when = match AppointmentRepository::find_by_id(&self.db, appointment_id).await? {
-                Some(a) => messages::when(a.start_datetime, lang, tz),
-                None => String::new(),
-            };
-            return Ok(done(
-                "needs_staff",
-                messages::text(lang, Kind::NeedsStaff, &when, help),
-                appointment_id,
-            ));
+                outcome: "asked",
+                person_id: Some(who.person),
+                appointment_id: Some(appointment_id),
+                candidates: Some(ids),
+                pending_intent: Some("rebook"),
+                reply_text: Some(messages::rebook_options(who.lang, &whens)),
+                lang: Some(who.lang),
+            });
         }
+        let when = match AppointmentRepository::find_by_id(&self.db, appointment_id).await? {
+            Some(a) => messages::when(a.start_datetime, who.lang, who.tz),
+            None => String::new(),
+        };
+        Ok(done(
+            intent,
+            who,
+            "needs_staff",
+            messages::text(who.lang, Kind::NeedsStaff, &when, help),
+            appointment_id,
+        ))
+    }
 
+    /// A confirm or a cancel, applied through the write-back path so a reply by text, link or API is one rule.
+    async fn apply_reply(
+        &self,
+        reply: &Reply<'_>,
+        who: &Who,
+        ctx: &UserContext,
+    ) -> Result<Decision> {
+        let Reply {
+            message_id,
+            intent,
+            action,
+            appointment_id,
+            now,
+        } = *reply;
+        let help = self.help_line.as_deref();
         let req = ReplyRequest {
             message_id: message_id.to_string(),
             action: if action == Intent::Confirm {
@@ -531,7 +630,7 @@ impl InboundService {
                 ReplyAction::Cancel
             },
             appointment_id,
-            person_id: person,
+            person_id: who.person,
             channel: Some("sms".into()),
             barrier_code: None,
             new_slot_id: None,
@@ -539,40 +638,28 @@ impl InboundService {
             received_at: Some(now),
         };
         let result = self.writeback.apply(req, ctx).await?;
-        if result.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) {
-            let when = result
-                .appointment
-                .as_ref()
-                .map(|a| messages::when(a.start_datetime, lang, tz))
-                .unwrap_or_default();
-            return Ok(done(
-                "needs_staff",
-                messages::text(lang, Kind::HeldForCall, &when, help),
-                appointment_id,
-            ));
-        }
-        if result.status == ReplyStatus::Rejected {
-            return Ok(done(
-                "rejected",
-                messages::text(lang, Kind::Failed, "", help),
-                appointment_id,
-            ));
-        }
         let when = result
             .appointment
             .as_ref()
-            .map(|a| messages::when(a.start_datetime, lang, tz))
+            .map(|a| messages::when(a.start_datetime, who.lang, who.tz))
             .unwrap_or_default();
-        let kind = if action == Intent::Confirm {
-            Kind::Confirmed
-        } else {
-            Kind::Cancelled
-        };
-        Ok(done(
-            "applied",
-            messages::text(lang, kind, &when, help),
-            appointment_id,
-        ))
+        let (outcome, text) =
+            if result.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) {
+                (
+                    "needs_staff",
+                    messages::text(who.lang, Kind::HeldForCall, &when, help),
+                )
+            } else if result.status == ReplyStatus::Rejected {
+                ("rejected", messages::text(who.lang, Kind::Failed, "", help))
+            } else {
+                let kind = if action == Intent::Confirm {
+                    Kind::Confirmed
+                } else {
+                    Kind::Cancelled
+                };
+                ("applied", messages::text(who.lang, kind, &when, help))
+            };
+        Ok(done(intent, who, outcome, text, appointment_id))
     }
 
     /// The patient chose one of the times a "different time" reply offered. `ids` is the appointment followed

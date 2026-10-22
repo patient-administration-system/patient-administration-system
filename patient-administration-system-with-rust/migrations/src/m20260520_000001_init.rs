@@ -21,6 +21,10 @@ pub struct Migration;
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
+    #[allow(
+        clippy::too_many_lines,
+        reason = "the initial schema is one list of table definitions; splitting it would not make it clearer"
+    )]
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // ---------- patients ----------
         manager

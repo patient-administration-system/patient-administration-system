@@ -17,6 +17,7 @@ use super::CommunicationService;
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::audit::UserContext;
 use crate::db::repositories::letter::LetterRepository;
+use crate::models::appointment::Appointment;
 use crate::models::communication::{DeliveryChannel, LetterTemplate};
 use crate::{Error, Result};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
@@ -137,42 +138,20 @@ impl ReminderService {
         };
         let ctx = UserContext::system();
         for a in appointments {
-            // Any language variant counts: the patient was reminded either way.
-            let mut already = false;
-            let mut failed = 0;
-            for id in &ids {
-                already |= LetterRepository::exists_for_appointment(&self.db, a.id, *id).await?;
-                failed +=
-                    LetterRepository::count_failed_for_appointment(&self.db, a.id, *id).await?;
-            }
-            if already {
-                report.skipped_already_reminded += 1;
-                continue;
-            }
-            if failed >= MAX_FAILED_ATTEMPTS {
-                tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "giving up after {MAX_FAILED_ATTEMPTS} failed attempts");
-                report.gave_up += 1;
-                continue;
-            }
-            // A reminder that failed is tried again after a growing delay, not on every scan (NOT-4).
-            if self.backoff && failed > 0 {
-                let last: Option<DateTime<Utc>> = self
-                    .db
-                    .query_one_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "SELECT max(updated_at) AS t FROM generated_letters \
-                         WHERE appointment_id = $1 AND status = 'failed' AND template_id = ANY($2)",
-                        [a.id.into(), ids.clone().into()],
-                    ))
-                    .await
-                    .map_err(crate::Error::Database)?
-                    .and_then(|r| r.try_get("", "t").ok());
-                if let Some(last) = last
-                    && now < last + crate::receipts::retry_delay(failed)
-                {
+            match self.skip_reason(&a, &ids, now).await? {
+                Some(Skip::AlreadyReminded) => {
+                    report.skipped_already_reminded += 1;
+                    continue;
+                }
+                Some(Skip::GaveUp) => {
+                    report.gave_up += 1;
+                    continue;
+                }
+                Some(Skip::BackingOff) => {
                     report.backing_off += 1;
                     continue;
                 }
+                None => {}
             }
             // The patient's language picks the variant; `when` reads in that language and the clinic's
             // time zone, which is how they will read it (the RFC 3339 `start` stays for templates that want it).
@@ -183,95 +162,166 @@ impl ReminderService {
                 report.skipped_no_channel += 1;
                 continue;
             };
-            let lang = crate::inbound::messages::Lang::from_preference(Some(&template.locale));
-            let extra = serde_json::json!({
-                "appointment": {
-                    "id": a.id,
-                    "start": a.start_datetime.to_rfc3339(),
-                    "end": a.end_datetime.to_rfc3339(),
-                    "when": crate::inbound::messages::when(a.start_datetime, lang, crate::inbound::messages::timezone()),
-                    "reason": a.reason,
-                }
-            });
-            let mut sent = false;
-            let mut deferred = false;
-            let mut opted_out = false;
-            let preferred = crate::contact::preferred_channel(&self.db, a.person_id)
+            match self
+                .try_channels(&a, template, &channels, now, &ctx)
                 .await?
-                .and_then(|c| crate::db::repositories::letter::delivery_channel_from_str(&c).ok());
-            for channel in &prefer_first(&channels, preferred) {
-                if !self.communication.channel_ready(*channel) {
-                    continue;
-                }
-                // Check the contact point first: generating a letter persists it
-                // even when nothing can be delivered, and a stray pending letter
-                // would block a later reminder.
-                let address = match self
-                    .communication
-                    .recipient(a.person_id, *channel, &ctx)
-                    .await
-                {
-                    Ok(Some(addr)) => addr,
-                    Ok(None) => continue,
-                    Err(e) => {
-                        tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "recipient lookup failed: {e}");
-                        break;
-                    }
-                };
-                if super::consent::is_opted_out(&self.db, a.person_id, *channel, Some(&address))
-                    .await?
-                {
-                    opted_out = true;
-                    continue;
-                }
-                // Overnight, wait for the morning rather than fall back to another channel or drop it.
-                if super::consent::is_intrusive(*channel)
-                    && self
-                        .quiet_hours
-                        .is_some_and(|q| q.contains(now, crate::inbound::messages::timezone()))
-                {
-                    deferred = true;
-                    break;
-                }
-                match self
-                    .communication
-                    .generate_letter_for(
-                        template.id,
-                        a.person_id,
-                        Some(a.id),
-                        *channel,
-                        extra.clone(),
-                        "reminder",
-                        Some(a.id.to_string()),
-                        &ctx,
-                    )
-                    .await
-                {
-                    Ok(letter)
-                        if letter.status == crate::models::communication::LetterStatus::Sent =>
-                    {
-                        sent = true;
-                        break;
-                    }
-                    Ok(_) => continue, // the sender failed; try the next channel
-                    Err(e) => {
-                        tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "reminder failed: {e}");
-                        continue;
-                    }
-                }
-            }
-            if sent {
-                report.sent += 1;
-            } else if deferred {
-                report.deferred_quiet_hours += 1;
-            } else if opted_out {
-                report.skipped_opted_out += 1;
-            } else {
-                report.skipped_no_channel += 1;
+            {
+                Tried::Sent => report.sent += 1,
+                Tried::Deferred => report.deferred_quiet_hours += 1,
+                Tried::OptedOut => report.skipped_opted_out += 1,
+                Tried::NoChannel => report.skipped_no_channel += 1,
             }
         }
         Ok(report)
     }
+
+    /// Why this appointment is not reminded on this scan, if it is not.
+    async fn skip_reason(
+        &self,
+        a: &Appointment,
+        template_ids: &[uuid::Uuid],
+        now: DateTime<Utc>,
+    ) -> Result<Option<Skip>> {
+        // Any language variant counts: the patient was reminded either way.
+        let mut already = false;
+        let mut failed = 0;
+        for id in template_ids {
+            already |= LetterRepository::exists_for_appointment(&self.db, a.id, *id).await?;
+            failed += LetterRepository::count_failed_for_appointment(&self.db, a.id, *id).await?;
+        }
+        if already {
+            return Ok(Some(Skip::AlreadyReminded));
+        }
+        if failed >= MAX_FAILED_ATTEMPTS {
+            tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "giving up after {MAX_FAILED_ATTEMPTS} failed attempts");
+            return Ok(Some(Skip::GaveUp));
+        }
+        // A reminder that failed is tried again after a growing delay, not on every scan (NOT-4).
+        if self.backoff && failed > 0 {
+            let last: Option<DateTime<Utc>> = self
+                .db
+                .query_one_raw(Statement::from_sql_and_values(
+                    DbBackend::Postgres,
+                    "SELECT max(updated_at) AS t FROM generated_letters \
+                     WHERE appointment_id = $1 AND status = 'failed' AND template_id = ANY($2)",
+                    [a.id.into(), template_ids.to_vec().into()],
+                ))
+                .await
+                .map_err(crate::Error::Database)?
+                .and_then(|r| r.try_get("", "t").ok());
+            if let Some(last) = last
+                && now < last + crate::receipts::retry_delay(failed)
+            {
+                return Ok(Some(Skip::BackingOff));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Try the channels in the patient's order (their own choice first) until one reaches them.
+    async fn try_channels(
+        &self,
+        a: &Appointment,
+        template: &LetterTemplate,
+        channels: &[DeliveryChannel],
+        now: DateTime<Utc>,
+        ctx: &UserContext,
+    ) -> Result<Tried> {
+        let lang = crate::inbound::messages::Lang::from_preference(Some(&template.locale));
+        let extra = serde_json::json!({
+            "appointment": {
+                "id": a.id,
+                "start": a.start_datetime.to_rfc3339(),
+                "end": a.end_datetime.to_rfc3339(),
+                "when": crate::inbound::messages::when(a.start_datetime, lang, crate::inbound::messages::timezone()),
+                "reason": a.reason,
+            }
+        });
+        let mut deferred = false;
+        let mut opted_out = false;
+        let preferred = crate::contact::preferred_channel(&self.db, a.person_id)
+            .await?
+            .and_then(|c| crate::db::repositories::letter::delivery_channel_from_str(&c).ok());
+        for channel in &prefer_first(channels, preferred) {
+            if !self.communication.channel_ready(*channel) {
+                continue;
+            }
+            // Check the contact point first: generating a letter persists it
+            // even when nothing can be delivered, and a stray pending letter
+            // would block a later reminder.
+            let address = match self
+                .communication
+                .recipient(a.person_id, *channel, ctx)
+                .await
+            {
+                Ok(Some(addr)) => addr,
+                Ok(None) => continue,
+                Err(e) => {
+                    tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "recipient lookup failed: {e}");
+                    break;
+                }
+            };
+            if super::consent::is_opted_out(&self.db, a.person_id, *channel, Some(&address)).await?
+            {
+                opted_out = true;
+                continue;
+            }
+            // Overnight, wait for the morning rather than fall back to another channel or drop it.
+            if super::consent::is_intrusive(*channel)
+                && self
+                    .quiet_hours
+                    .is_some_and(|q| q.contains(now, crate::inbound::messages::timezone()))
+            {
+                deferred = true;
+                break;
+            }
+            match self
+                .communication
+                .generate_letter_for(
+                    template.id,
+                    a.person_id,
+                    Some(a.id),
+                    *channel,
+                    extra.clone(),
+                    "reminder",
+                    Some(a.id.to_string()),
+                    ctx,
+                )
+                .await
+            {
+                Ok(letter) if letter.status == crate::models::communication::LetterStatus::Sent => {
+                    return Ok(Tried::Sent);
+                }
+                Ok(_) => continue, // the sender failed; try the next channel
+                Err(e) => {
+                    tracing::warn!(target: "pas::reminders", appointment_id = %a.id, "reminder failed: {e}");
+                    continue;
+                }
+            }
+        }
+        Ok(if deferred {
+            Tried::Deferred
+        } else if opted_out {
+            Tried::OptedOut
+        } else {
+            Tried::NoChannel
+        })
+    }
+}
+
+/// Why a scan leaves an appointment alone.
+enum Skip {
+    AlreadyReminded,
+    GaveUp,
+    BackingOff,
+}
+
+/// What came of trying one appointment's channels.
+enum Tried {
+    Sent,
+    Deferred,
+    OptedOut,
+    NoChannel,
 }
 
 /// The wording a missing variant starts with: `(subject, body)`, by message and language. **The Welsh is

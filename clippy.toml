@@ -1,5 +1,6 @@
 # Clippy settings (QUAL-12). Tests may print with dbg! while being written; CI still runs them.
 allow-dbg-in-tests = true
-# Long functions (QUAL-10, QUAL-30): `main.rs` and the routing table deny `too_many_lines` above this; the rest of
-# the workspace follows as QUAL-10 splits its longest modules.
+# Long functions (QUAL-10): `too_many_lines` is denied workspace-wide (Cargo.toml) above this many code lines.
+# Every function above 150 code lines was split (the longest were 250). 44 functions still exceed 80, and a few
+# scenario tests sit between 130 and 150, so lowering it needs those tests shortened first.
 too-many-lines-threshold = 150

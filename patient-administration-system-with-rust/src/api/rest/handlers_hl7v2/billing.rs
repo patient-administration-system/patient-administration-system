@@ -22,51 +22,10 @@ pub async fn dft(
         Ok(r) => r,
         Err(ack_resp) => return ack_resp,
     };
-    let ft1_segs: Vec<_> = r.message.segments_named("FT1").collect();
-    if ft1_segs.is_empty() {
-        return ae(&r.sender, &r.control_id, "no FT1 segments");
-    }
-    let mut parsed: Vec<crate::hl7v2::pid_translation::Ft1> = Vec::with_capacity(ft1_segs.len());
-    let mut shared_currency: Option<String> = None;
-    for seg in &ft1_segs {
-        let ft1 = match parse_ft1(seg) {
-            Ok(f) => f,
-            Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
-        };
-        if !matches!(ft1.transaction_type.as_str(), "CG" | "") {
-            return ae(
-                &r.sender,
-                &r.control_id,
-                &format!(
-                    "FT1[{}]-6 transaction type {:?} not supported (CG only)",
-                    ft1.set_id, ft1.transaction_type
-                ),
-            );
-        }
-        match &shared_currency {
-            None => shared_currency = Some(ft1.currency.clone()),
-            Some(c) if c == &ft1.currency => {}
-            Some(c) => {
-                return ae(
-                    &r.sender,
-                    &r.control_id,
-                    &format!(
-                        "FT1[{}] currency {:?} differs from prior {:?}",
-                        ft1.set_id, ft1.currency, c
-                    ),
-                );
-            }
-        }
-        parsed.push(ft1);
-    }
-    let Some(currency_code) = shared_currency else {
-        return ae(&r.sender, &r.control_id, "no FT1 segments");
+    let (parsed, currency) = match parse_charges(&r) {
+        Ok(p) => p,
+        Err(ack) => return ack,
     };
-    let currency = match Iso4217::new(&currency_code) {
-        Ok(c) => c,
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
-    };
-
     let person_id = r.person_id;
     let audit_clone = r.audit.clone();
     let parsed_clone = parsed.clone();
@@ -147,4 +106,56 @@ pub async fn dft(
             &crate::Error::from(e).client_message(),
         ),
     }
+}
+
+/// The FT1 charges of a DFT^P03 message, all in one currency, or the ACK to send back when they are not.
+fn parse_charges(
+    r: &ResolvedHeader,
+) -> std::result::Result<(Vec<crate::hl7v2::pid_translation::Ft1>, Iso4217), Hl7Response> {
+    let ft1_segs: Vec<_> = r.message.segments_named("FT1").collect();
+    if ft1_segs.is_empty() {
+        return Err(ae(&r.sender, &r.control_id, "no FT1 segments"));
+    }
+    let mut parsed: Vec<crate::hl7v2::pid_translation::Ft1> = Vec::with_capacity(ft1_segs.len());
+    let mut shared_currency: Option<String> = None;
+    for seg in &ft1_segs {
+        let ft1 = match parse_ft1(seg) {
+            Ok(f) => f,
+            Err(e) => return Err(ae(&r.sender, &r.control_id, &client_text(&e))),
+        };
+        if !matches!(ft1.transaction_type.as_str(), "CG" | "") {
+            return Err(ae(
+                &r.sender,
+                &r.control_id,
+                &format!(
+                    "FT1[{}]-6 transaction type {:?} not supported (CG only)",
+                    ft1.set_id, ft1.transaction_type
+                ),
+            ));
+        }
+        match &shared_currency {
+            None => shared_currency = Some(ft1.currency.clone()),
+            Some(c) if c == &ft1.currency => {}
+            Some(c) => {
+                return Err(ae(
+                    &r.sender,
+                    &r.control_id,
+                    &format!(
+                        "FT1[{}] currency {:?} differs from prior {:?}",
+                        ft1.set_id, ft1.currency, c
+                    ),
+                ));
+            }
+        }
+        parsed.push(ft1);
+    }
+    let Some(currency_code) = shared_currency else {
+        return Err(ae(&r.sender, &r.control_id, "no FT1 segments"));
+    };
+    let currency = match Iso4217::new(&currency_code) {
+        Ok(c) => c,
+        Err(e) => return Err(ae(&r.sender, &r.control_id, &client_text(&e))),
+    };
+
+    Ok((parsed, currency))
 }

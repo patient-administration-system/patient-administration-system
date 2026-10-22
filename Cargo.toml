@@ -24,3 +24,5 @@ inherits = "release"
 [workspace.lints.clippy]
 dbg_macro = "deny"
 allow_attributes_without_reason = "deny"
+# Functions longer than 150 code lines (clippy.toml) are refused: split them (QUAL-10).
+too_many_lines = "deny"

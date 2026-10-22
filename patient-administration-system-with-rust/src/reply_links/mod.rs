@@ -134,6 +134,26 @@ pub async fn mint<C: ConnectionTrait>(
     Ok(token)
 }
 
+/// How an outcome is shown to this patient.
+struct View {
+    lang: Lang,
+    tz: chrono_tz::Tz,
+}
+
+impl View {
+    fn out(&self, status: &'static str, message: String) -> LinkOutcome {
+        LinkOutcome {
+            status,
+            language: self.lang.code(),
+            message,
+            options: vec![],
+            signpost: None,
+            starts_at: None,
+            time_zone: self.tz.name().to_string(),
+        }
+    }
+}
+
 struct Row {
     appointment_id: Uuid,
     person_id: Uuid,
@@ -240,18 +260,11 @@ impl ReplyLinks {
         ctx: &UserContext,
     ) -> Result<LinkOutcome> {
         let row = self.row(token).await?;
-        let lang = self.lang(row.person_id).await?;
-        let tz = messages::timezone();
-        let help = self.help_line.as_deref();
-        let out = |status, message| LinkOutcome {
-            status,
-            language: lang.code(),
-            message,
-            options: vec![],
-            signpost: None,
-            starts_at: None,
-            time_zone: tz.name().to_string(),
+        let view = View {
+            lang: self.lang(row.person_id).await?,
+            tz: messages::timezone(),
         };
+        let help = self.help_line.as_deref();
 
         if row.consumed {
             return Err(Error::conflict("this link has already been used"));
@@ -261,10 +274,12 @@ impl ReplyLinks {
         }
         match action {
             // Help is information: it does not use the link up.
-            LinkAction::Help => return Ok(out("help", messages::text(lang, Kind::Help, "", help))),
+            LinkAction::Help => {
+                return Ok(view.out("help", messages::text(view.lang, Kind::Help, "", help)));
+            }
             // The first Cancel tap only asks; nothing changes.
             LinkAction::Cancel if !confirmed => {
-                return Ok(out("needs_confirmation", messages::are_you_sure(lang)));
+                return Ok(view.out("needs_confirmation", messages::are_you_sure(view.lang)));
             }
             _ => {}
         }
@@ -273,73 +288,113 @@ impl ReplyLinks {
         // used up and the appointment stands, so the patient can look, go back, or choose. If there is
         // nothing to offer, a person takes over (below).
         if action == LinkAction::Reschedule
-            && let Ok(offer) = self.rebook.offer(row.appointment_id).await
-            && !offer.options.is_empty()
+            && let Some(offered) = self.alternatives(&row, &view).await
         {
-            let mut o = out("rebook_options", String::new());
-            o.options = offer
-                .options
-                .iter()
-                .map(|s| LinkOption {
-                    slot_id: s.slot_id,
-                    starts_at: s.starts_at,
-                    when: messages::when(s.starts_at, lang, tz),
-                })
-                .collect();
-            return Ok(o);
+            return Ok(offered);
         }
 
         // Claim the link atomically; whoever fails to claim it was too late.
         let hash = hash(token);
+        self.claim(&hash, action).await?;
+
+        let appt = AppointmentRepository::find_by_id(&self.db, row.appointment_id).await?;
+        let when = appt
+            .map(|a| messages::when(a.start_datetime, view.lang, view.tz))
+            .unwrap_or_default();
+        let result = if action == LinkAction::Reschedule {
+            self.request_reschedule(&row, &view, &when).await
+        } else {
+            self.apply_through_writeback(&row, &view, action, barrier, &hash, &when, ctx)
+                .await
+        };
+        if result.is_err() {
+            self.release(&hash).await;
+        }
+        result
+    }
+
+    /// Real alternative times for a reschedule, if there are any to offer.
+    async fn alternatives(&self, row: &Row, view: &View) -> Option<LinkOutcome> {
+        let offer = self.rebook.offer(row.appointment_id).await.ok()?;
+        if offer.options.is_empty() {
+            return None;
+        }
+        let mut o = view.out("rebook_options", String::new());
+        o.options = offer
+            .options
+            .iter()
+            .map(|s| LinkOption {
+                slot_id: s.slot_id,
+                starts_at: s.starts_at,
+                when: messages::when(s.starts_at, view.lang, view.tz),
+            })
+            .collect();
+        Some(o)
+    }
+
+    /// Use the link up, atomically. Whoever fails to claim it was too late.
+    async fn claim(&self, hash: &str, action: LinkAction) -> Result<()> {
         let claimed = self
             .db
             .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE reply_tokens SET consumed_at = now(), consumed_action = $2 \
                  WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()",
-                [hash.clone().into(), action.as_str().into()],
+                [hash.to_string().into(), action.as_str().into()],
             ))
             .await
             .map_err(Error::Database)?;
         if claimed.rows_affected() == 0 {
             return Err(Error::conflict("this link has already been used"));
         }
-        let release = || async {
-            self
-                .db
-                .execute_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
-                    [hash.clone().into()],
-                ))
-                .await
-.log_error("giving a reply link back");
-        };
+        Ok(())
+    }
 
-        let appt = AppointmentRepository::find_by_id(&self.db, row.appointment_id).await?;
-        let when = appt
-            .map(|a| messages::when(a.start_datetime, lang, tz))
-            .unwrap_or_default();
-        if action == LinkAction::Reschedule {
-            // Leads to rebook options (CAP-5); until then a person finds the new time. The appointment stands.
-            let r = self
-                .db
-                .execute_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) VALUES ($1,$2,$3,'reschedule_request', now()) \
-                     ON CONFLICT (appointment_id, reason) DO NOTHING",
-                    [Uuid::new_v4().into(), row.appointment_id.into(), row.person_id.into()],
-                ))
-                .await;
-            if let Err(e) = r {
-                release().await;
-                return Err(Error::Database(e));
-            }
-            return Ok(out(
-                "reschedule_requested",
-                messages::text(lang, Kind::NeedsStaff, &when, help),
-            ));
-        }
+    /// Give the link back after a refused or failed action, so the patient can try again.
+    async fn release(&self, hash: &str) {
+        self.db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
+                [hash.to_string().into()],
+            ))
+            .await
+            .log_error("giving a reply link back");
+    }
+
+    /// Leads to rebook options (CAP-5); until then a person finds the new time. The appointment stands.
+    async fn request_reschedule(&self, row: &Row, view: &View, when: &str) -> Result<LinkOutcome> {
+        self.db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) VALUES ($1,$2,$3,'reschedule_request', now()) \
+                 ON CONFLICT (appointment_id, reason) DO NOTHING",
+                [Uuid::new_v4().into(), row.appointment_id.into(), row.person_id.into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        Ok(view.out(
+            "reschedule_requested",
+            messages::text(view.lang, Kind::NeedsStaff, when, self.help_line.as_deref()),
+        ))
+    }
+
+    /// A confirm or a cancel, applied through the write-back path so a reply by link, text or API is one rule.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the parts of one link action as the caller holds them"
+    )]
+    async fn apply_through_writeback(
+        &self,
+        row: &Row,
+        view: &View,
+        action: LinkAction,
+        barrier: Option<crate::models::appointment::BarrierCode>,
+        hash: &str,
+        when: &str,
+        ctx: &UserContext,
+    ) -> Result<LinkOutcome> {
+        let help = self.help_line.as_deref();
         let req = ReplyRequest {
             message_id: format!("link-{hash}"),
             action: if action == LinkAction::Confirm {
@@ -359,40 +414,31 @@ impl ReplyLinks {
             modality: None,
             received_at: None,
         };
-        match self.writeback.apply(req, ctx).await {
-            Ok(r) if r.status == ReplyStatus::Applied => {
-                let kind = if action == LinkAction::Confirm {
-                    Kind::Confirmed
-                } else {
-                    Kind::Cancelled
-                };
-                let status = if action == LinkAction::Confirm {
-                    "confirmed"
-                } else {
-                    "cancelled"
-                };
-                let mut o = out(status, messages::text(lang, kind, &when, help));
-                if action == LinkAction::Cancel {
-                    o.signpost = barrier.and_then(|b| messages::signpost(lang, b));
-                }
-                Ok(o)
+        let r = self.writeback.apply(req, ctx).await?;
+        Ok(if r.status == ReplyStatus::Applied {
+            let (kind, status) = if action == LinkAction::Confirm {
+                (Kind::Confirmed, "confirmed")
+            } else {
+                (Kind::Cancelled, "cancelled")
+            };
+            let mut o = view.out(status, messages::text(view.lang, kind, when, help));
+            if action == LinkAction::Cancel {
+                o.signpost = barrier.and_then(|b| messages::signpost(view.lang, b));
             }
-            Ok(r) if r.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) => {
-                Ok(out(
-                    "held_for_call",
-                    messages::text(lang, Kind::HeldForCall, &when, help),
-                ))
-            }
-            Ok(_) => Ok(out(
+            o
+        } else if r.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) {
+            view.out(
+                "held_for_call",
+                messages::text(view.lang, Kind::HeldForCall, when, help),
+            )
+        } else {
+            view.out(
                 "rejected",
-                messages::text(lang, Kind::Failed, "", help),
-            )),
-            Err(e) => {
-                release().await;
-                Err(e)
-            }
-        }
+                messages::text(view.lang, Kind::Failed, "", help),
+            )
+        })
     }
+
     /// The patient chose one of the offered times. The link is used up by this tap, atomically, and given
     /// back if the move is refused (for example the slot was just taken), so the patient can pick again.
     pub async fn choose(
