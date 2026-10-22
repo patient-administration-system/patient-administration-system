@@ -1,0 +1,172 @@
+//! Part of [`super`]: directory.
+
+use super::*;
+
+/// Everything under `/api/patients`: the person-service proxy and the PAS's own per-patient records; the merge webhooks.
+pub(super) fn people() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/api/patients/{id}/interpreter-need",
+            put(handlers_interpreter::set_need),
+        )
+        .route(
+            "/api/patients/{id}/communication-needs/review",
+            post(handlers_needs_review::record_review),
+        )
+        // /api/patients/* — proxy to person-service
+        .route(
+            "/api/patients",
+            post(upstream_proxy::create_patient).get(upstream_proxy::search_patients),
+        )
+        .route(
+            "/api/patients/{id}",
+            get(upstream_proxy::get_patient)
+                .put(upstream_proxy::update_patient)
+                .delete(upstream_proxy::delete_patient),
+        )
+        .route("/api/patients/search", get(upstream_proxy::search_patients))
+        .route(
+            "/api/patients/{id}/masked",
+            get(upstream_proxy::masked_patient),
+        )
+        .route(
+            "/api/patients/{id}/export",
+            get(upstream_proxy::export_patient),
+        )
+        .route(
+            "/api/patients/{id}/audit",
+            get(upstream_proxy::audit_patient),
+        )
+        // Bulk interchange — transparent passthrough to person-service.
+        .route(
+            "/api/patients/export.json",
+            get(upstream_proxy::export_patients_json),
+        )
+        .route(
+            "/api/patients/export.xml",
+            get(upstream_proxy::export_patients_xml),
+        )
+        .route(
+            "/api/patients/export.tsv",
+            get(upstream_proxy::export_patients_tsv),
+        )
+        .route(
+            "/api/patients/export.csv",
+            get(upstream_proxy::export_patients_csv),
+        )
+        .route(
+            "/api/patients/import",
+            post(upstream_proxy::import_patients),
+        )
+        // Inbound merge webhooks (HMAC-verified inside the handler).
+        .route(
+            "/api/upstream/person-merged",
+            post(upstream_proxy::person_merged_webhook),
+        )
+        .route(
+            "/api/upstream/worker-merged",
+            post(upstream_proxy::worker_merged_webhook),
+        )
+        // Contact reliability and communication needs (CAP-4).
+        .route(
+            "/api/patients/{id}/communication-profile",
+            get(handlers_contact::get_profile).put(handlers_contact::put_profile),
+        )
+        .route(
+            "/api/patients/{id}/communication-profile/verify-mobile",
+            post(handlers_contact::verify_mobile),
+        )
+        .route(
+            "/api/patients/{id}/channel-optouts",
+            get(handlers_contact::list_optouts).post(handlers_contact::add_optout),
+        )
+        .route(
+            "/api/patients/{id}/channel-optouts/{channel}",
+            axum::routing::delete(handlers_contact::remove_optout),
+        )
+        .route(
+            "/api/patients/{id}/appointments",
+            get(handlers_scheduling::list_patient_appointments),
+        )
+        .route(
+            "/api/patients/{id}/contact-log",
+            get(handlers_history::contact_log),
+        )
+        .route(
+            "/api/patients/{id}/waits",
+            get(handlers_waits::patient_waits),
+        )
+        .route(
+            "/api/patients/{id}/transport-eligibility",
+            put(handlers_transport::set_eligible).delete(handlers_transport::withdraw_eligible),
+        )
+        .route(
+            "/api/patients/{id}/transport-consent",
+            put(handlers_transport::record_consent).delete(handlers_transport::withdraw_consent),
+        )
+        .route(
+            "/api/validate/nhs-number",
+            post(handlers_contact::validate_nhs_number),
+        )
+        .route(
+            "/api/patients/{id}/whatsapp-optin",
+            put(handlers_whatsapp::record_optin).delete(handlers_whatsapp::withdraw_optin),
+        )
+        .route(
+            "/api/patients/{id}/appointment-series",
+            get(handlers_series::list_series_for_person),
+        )
+        .route(
+            "/api/patients/{id}/encounters",
+            get(handlers_encounter::list_encounters_for_person),
+        )
+        .route(
+            "/api/patients/{id}/coverages",
+            get(handlers_coverage::list_coverages_for_person),
+        )
+        // Consent.
+        .route(
+            "/api/patients/{id}/consents",
+            post(handlers_consent::create_consent).get(handlers_consent::list_consents_for_person),
+        )
+        .route(
+            "/api/patients/{id}/audit/local",
+            get(handlers_audit::list_local_for_person),
+        )
+        .route(
+            "/api/patients/{id}/letters",
+            get(handlers_letters::list_patient_letters),
+        )
+}
+
+/// The worker-service proxy under `/api/practitioners`.
+pub(super) fn workforce() -> Router<AppState> {
+    Router::new()
+        // /api/practitioners/* — proxy to worker-service
+        .route(
+            "/api/practitioners",
+            post(upstream_proxy::create_practitioner).get(upstream_proxy::search_practitioners),
+        )
+        .route(
+            "/api/practitioners/{id}",
+            get(upstream_proxy::get_practitioner)
+                .put(upstream_proxy::update_practitioner)
+                .delete(upstream_proxy::delete_practitioner),
+        )
+        .route(
+            "/api/practitioners/search",
+            get(upstream_proxy::search_practitioners),
+        )
+        .route(
+            "/api/practitioners/{id}/masked",
+            get(upstream_proxy::masked_practitioner),
+        )
+        .route(
+            "/api/practitioners/{id}/export",
+            get(upstream_proxy::export_practitioner),
+        )
+        .route(
+            "/api/practitioners/{id}/audit",
+            get(upstream_proxy::audit_practitioner),
+        )
+}

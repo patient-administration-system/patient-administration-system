@@ -1,6 +1,6 @@
 //! Chaos testing, part 1: a seeded monkey hits every route with hostile input.
 //!
-//! It reads the route table from `src/api/rest/routes.rs`, so a new route is covered the day it is added. For
+//! It reads the route table from `src/api/rest/routes/`, so a new route is covered the day it is added. For
 //! each request it picks a method that route accepts, fills the path parameters with a mix of plausible and
 //! hostile values (random ids, `../`, NUL, very long strings, unicode), adds a junk query string, and sends a
 //! generated JSON body (or no body, malformed JSON, or the wrong content type). Whatever it sends, the API must:
@@ -52,7 +52,24 @@ struct Route {
 
 /// Every `.route("path", get(..).post(..))` in the table, with the methods it registers.
 fn routes() -> Vec<Route> {
-    let src = include_str!("../src/api/rest/routes.rs");
+    // The route table is split by area: every file under `src/api/rest/routes/`.
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/api/rest/routes");
+    let mut files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "rs"))
+        .collect();
+    files.sort();
+    assert!(
+        files.len() >= 6,
+        "expected the whole route table, found {files:?}"
+    );
+    let src: String = files
+        .iter()
+        .map(|p| std::fs::read_to_string(p).unwrap())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let src = src.as_str();
     let mut out = Vec::new();
     let mut rest = src;
     while let Some(i) = rest.find(".route(") {

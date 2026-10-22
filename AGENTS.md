@@ -87,4 +87,4 @@ Do **not** publish to crates.io or a registry, tag, bump a version, change repos
 
 ## Where to look
 
-Route table `patient-administration-system-with-rust/src/api/rest/routes.rs`; modules `src/lib.rs`; schema = the migrations in order (`migrations/src/`); operator switches `operations/runbook.md`; what is not done `tasks.md` (open items) and `spec/16-open-questions.md`; per-crate detail `patient-administration-system-with-rust/AGENTS/`.
+Route table `patient-administration-system-with-rust/src/api/rest/routes/`; modules `src/lib.rs`; schema = the migrations in order (`migrations/src/`); operator switches `operations/runbook.md`; what is not done `tasks.md` (open items) and `spec/16-open-questions.md`; per-crate detail `patient-administration-system-with-rust/AGENTS/`.

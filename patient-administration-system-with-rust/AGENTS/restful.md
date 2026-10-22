@@ -173,7 +173,7 @@ Money fields are split into `amount_value` (string decimal) + `amount_currency` 
 - `src/api/mod.rs` — `ApiResponse`, `ApiError`.
 - `src/api/rest/mod.rs` — re-exports `router`, `AppState`, `RequireBearerToken`, `require_bearer`.
 - `src/api/rest/handlers.rs` — every REST handler.
-- `src/api/rest/routes.rs` — the route table (single source of truth in code).
+- `src/api/rest/routes/` — the route table, one file per area (single source of truth in code).
 - `src/api/rest/state.rs` — `AppState` (services + DB + publisher + optional Tantivy).
 - `src/api/rest/auth.rs` — bearer-token middleware.
 - `src/api/fhir/handlers.rs` — FHIR R5 handlers.

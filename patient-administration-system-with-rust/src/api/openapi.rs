@@ -416,8 +416,18 @@ mod tests {
 
     #[test]
     fn every_routed_path_and_method_is_documented() {
-        let mut routes = routed(include_str!("rest/routes.rs"));
-        routes.extend(routed(include_str!("fhir/routes.rs")));
+        let mut routes = std::collections::BTreeSet::new();
+        for src in [
+            include_str!("rest/routes/mod.rs"),
+            include_str!("rest/routes/directory.rs"),
+            include_str!("rest/routes/clinical.rs"),
+            include_str!("rest/routes/messaging_waiting.rs"),
+            include_str!("rest/routes/reports_records.rs"),
+            include_str!("rest/routes/hl7.rs"),
+            include_str!("fhir/routes.rs"),
+        ] {
+            routes.extend(routed(src));
+        }
         assert!(routes.len() > 250, "the route scan found {}", routes.len());
         let docs = documented();
         let missing: Vec<_> = routes.difference(&docs).collect();

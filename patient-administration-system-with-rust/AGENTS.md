@@ -17,7 +17,7 @@ Read in this order before touching code:
 
 Ground truth for any claim about behavior:
 
-- `src/api/rest/routes.rs` — the REST route table.
+- `src/api/rest/routes/` — the REST route table, one file per area (`mod.rs` merges them; keep all methods of one path in the same function).
 - `src/api/fhir/routes.rs` — the FHIR R5 route table.
 - `src/api/rest/handlers.rs` — handler shapes and validation.
 - `src/lib.rs` — the module tree.

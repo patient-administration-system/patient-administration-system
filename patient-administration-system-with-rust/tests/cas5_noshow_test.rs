@@ -563,8 +563,23 @@ async fn with_scores_present_rebooking_standby_and_offers_behave_exactly_as_with
 fn test_the_scoring_module_never_writes_to_slots_offers_standby_or_appointments() {
     // A crude, blunt guard: the module's source never names the tables that decide what a patient is offered,
     // and never changes an appointment, so it cannot hold back, reorder or remove a slot.
-    let src =
-        std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/noshow/mod.rs")).unwrap();
+    // Every file of the module (it is split into several): a guard that read only `mod.rs` would check a fraction.
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/noshow");
+    let mut files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "rs"))
+        .collect();
+    files.sort();
+    assert!(
+        files.len() >= 7,
+        "expected the whole module, found {files:?}"
+    );
+    let src: String = files
+        .iter()
+        .map(|p| std::fs::read_to_string(p).unwrap())
+        .collect::<Vec<_>>()
+        .join("\n");
     for forbidden in [
         "UPDATE slots",
         "INSERT INTO slots",
