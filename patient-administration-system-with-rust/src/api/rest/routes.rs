@@ -37,6 +37,7 @@ use super::handlers_offers;
 use super::handlers_print;
 use super::handlers_receipts;
 use super::handlers_referrals;
+use super::handlers_follow_up_delay;
 use super::handlers_reports;
 use super::handlers_resources;
 use super::handlers_scheduling;
@@ -569,6 +570,10 @@ fn waiting() -> Router<AppState> {
             "/api/waitlist/{id}/book",
             post(handlers_waitlist::book_from_waitlist),
         )
+        .route(
+            "/api/waitlist/{id}/follow-up-target",
+            put(handlers_follow_up_delay::set_target),
+        )
         .route("/api/rtt/start", post(handlers_waitlist::rtt_start))
         .route("/api/rtt/{id}/pause", post(handlers_waitlist::rtt_pause))
         .route("/api/rtt/{id}/resume", post(handlers_waitlist::rtt_resume))
@@ -681,6 +686,10 @@ fn reporting() -> Router<AppState> {
         .route(
             "/api/reports/clinic-activity",
             get(handlers_reports::clinic_activity),
+        )
+        .route(
+            "/api/reports/follow-up-delay",
+            get(handlers_follow_up_delay::delay_report),
         )
         .route("/api/tolerances", get(handlers_tolerance::list))
         .route("/api/tolerances/status", get(handlers_tolerance::status))

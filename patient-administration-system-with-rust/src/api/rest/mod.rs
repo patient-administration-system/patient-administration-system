@@ -24,6 +24,7 @@ pub mod handlers_offers;
 pub mod handlers_print;
 pub mod handlers_receipts;
 pub mod handlers_referrals;
+pub mod handlers_follow_up_delay;
 pub mod handlers_reports;
 pub mod handlers_resources;
 pub mod handlers_scheduling;

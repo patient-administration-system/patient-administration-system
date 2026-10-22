@@ -5086,6 +5086,26 @@
         ]
       }
     },
+    "/api/reports/follow-up-delay": {
+      "get": {
+        "operationId": "delay_report",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/reports/follow-up-delay`: follow-up entries past their target, booked and not booked, banded\nby how far past (DSCN 2020/18), as of the clinic's date. No identifiers; small cells withheld.",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
     "/api/rooms": {
       "post": {
         "operationId": "create_room",
@@ -6115,6 +6135,37 @@
           }
         },
         "summary": "`POST /api/waitlist/{id}/book`: book a slot for the patient on this entry, and mark the entry\n`booked`. A cancel or a miss later returns it to `waiting`; completing the appointment marks it\n`treated`.",
+        "tags": [
+          "Waitlist"
+        ]
+      }
+    },
+    "/api/waitlist/{id}/follow-up-target": {
+      "put": {
+        "operationId": "set_target",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`PUT /api/waitlist/{id}/follow-up-target`: the date by which a waiting or booked entry's follow-up is\ndue. A named person is required; the change is audited.",
         "tags": [
           "Waitlist"
         ]

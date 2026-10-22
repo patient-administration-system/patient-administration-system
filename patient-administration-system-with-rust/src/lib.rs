@@ -38,6 +38,7 @@ pub mod db;
 pub mod error;
 pub mod experiments;
 pub mod follow_up;
+pub mod follow_up_delay;
 pub mod history;
 pub mod hl7v2;
 pub mod identity;
