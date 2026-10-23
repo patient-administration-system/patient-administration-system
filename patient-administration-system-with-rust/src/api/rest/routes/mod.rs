@@ -51,6 +51,7 @@ use super::handlers_standby;
 use super::handlers_support;
 use super::handlers_tolerance;
 use super::handlers_transport;
+use super::handlers_triage;
 use super::handlers_validation;
 use super::handlers_virtual;
 use super::handlers_waitlist;

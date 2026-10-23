@@ -38,6 +38,7 @@ pub mod handlers_standby;
 pub mod handlers_support;
 pub mod handlers_tolerance;
 pub mod handlers_transport;
+pub mod handlers_triage;
 pub mod handlers_validation;
 pub mod handlers_virtual;
 pub mod handlers_waitlist;

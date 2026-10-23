@@ -161,6 +161,8 @@ fn alias_api_practitioners_search_get() {}
         crate::api::rest::handlers_needs_review::due_review,
         crate::api::rest::handlers_clinical_priority::set_priority,
         crate::api::rest::handlers_clinical_priority::overdue,
+        crate::api::rest::handlers_triage::record,
+        crate::api::rest::handlers_triage::list,
         crate::api::rest::handlers_adjustments::list,
         crate::api::rest::handlers_adjustments::record,
         crate::api::rest::handlers_adjustments::codes,

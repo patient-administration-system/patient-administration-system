@@ -614,3 +614,12 @@ reasonable_adjustments,recorded_by,staff-identifier,Attribute work to a staff me
 reasonable_adjustments,recorded_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 reasonable_adjustments,ended_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 reasonable_adjustments,ended_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+triage_assessments,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+triage_assessments,encounter_id,identifier,Link a record to a person held by person-service,record
+triage_assessments,triage_system,none,"Not personal data (structure, status, timestamps, places, templates)",record
+triage_assessments,system_version,none,"Not personal data (structure, status, timestamps, places, templates)",record
+triage_assessments,category,health,"Administrative care information (why, where, what service, outcome)",record
+triage_assessments,flowchart,health,"Administrative care information (why, where, what service, outcome)",record
+triage_assessments,assessed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+triage_assessments,assessed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+triage_assessments,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
