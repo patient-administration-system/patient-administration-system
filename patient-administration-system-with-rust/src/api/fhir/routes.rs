@@ -54,6 +54,10 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/fhir/Location/{id}", get(super::handlers::get_location))
         .route("/fhir/Flag", get(super::handlers::search_flags))
+        .route(
+            "/fhir/Observation",
+            get(super::handlers::search_observations),
+        )
         .route("/fhir/Coverage/{id}", get(super::handlers::get_coverage))
         .with_state(state)
 }

@@ -1702,6 +1702,37 @@
         ]
       }
     },
+    "/api/encounters/{id}/first-contact": {
+      "post": {
+        "operationId": "first_contact",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/encounters/{id}/first-contact`: record, once, when a clinician first saw the patient. Audited.",
+        "tags": [
+          "Encounters"
+        ]
+      }
+    },
     "/api/encounters/{id}/status": {
       "put": {
         "operationId": "set_status",
@@ -6711,6 +6742,46 @@
         ]
       }
     },
+    "/api/triage/queue": {
+      "get": {
+        "operationId": "queue",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/triage/queue`: who has arrived and not yet been seen, by category then arrival. A display only:\nthe order of care is a clinician's decision.",
+        "tags": [
+          "Encounters"
+        ]
+      }
+    },
+    "/api/triage/waits": {
+      "get": {
+        "operationId": "waits",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/triage/waits`: attendances in the window against each category's target (`PAS_TRIAGE_TARGETS`),\nwith those past target listed. Attendances with no category are counted as excluded, not guessed.",
+        "tags": [
+          "Encounters"
+        ]
+      }
+    },
     "/api/upstream/person-merged": {
       "post": {
         "operationId": "person_merged_webhook",
@@ -7747,6 +7818,37 @@
           }
         },
         "summary": "FHIR Location read backed by the PAS `Bed` row.",
+        "tags": [
+          "FHIR"
+        ]
+      }
+    },
+    "/fhir/Observation": {
+      "get": {
+        "operationId": "search_observations",
+        "parameters": [
+          {
+            "description": "The encounter, as `Encounter/<id>` or the bare id (required)",
+            "in": "query",
+            "name": "encounter",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FHIR resource, Bundle or OperationOutcome"
+          },
+          "4XX": {
+            "description": "Error; an OperationOutcome"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an OperationOutcome"
+          }
+        },
+        "summary": "Search triage categories as Observations",
         "tags": [
           "FHIR"
         ]

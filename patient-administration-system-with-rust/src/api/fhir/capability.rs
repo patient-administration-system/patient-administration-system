@@ -51,6 +51,10 @@ pub const SUPPORTED: &[Supported] = &[
         resource: "Flag",
         interactions: &["search-type"],
     },
+    Supported {
+        resource: "Observation",
+        interactions: &["search-type"],
+    },
 ];
 
 /// The FHIR R5 CapabilityStatement for this server, built from [`SUPPORTED`].
@@ -68,7 +72,7 @@ pub fn statement() -> Value {
         "resourceType": "CapabilityStatement",
         "status": "active",
         // When SUPPORTED last changed; FHIR asks for the date the statement was last revised.
-        "date": "2026-10-22",
+        "date": "2026-10-23",
         "kind": "instance",
         "software": { "name": "patient-administration-system", "version": env!("CARGO_PKG_VERSION") },
         "implementation": {

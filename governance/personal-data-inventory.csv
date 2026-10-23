@@ -655,3 +655,5 @@ proxy_authorities,recorded_at,none,"Not personal data (structure, status, timest
 proxy_authorities,expires_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 proxy_authorities,revoked_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 proxy_authorities,revoked_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+encounters,first_contact_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+encounters,first_contact_by,staff-identifier,Attribute work to a staff member held by worker-service,record

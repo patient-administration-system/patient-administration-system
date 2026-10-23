@@ -54,6 +54,7 @@ mod m20260709_000048_reasonable_adjustments;
 mod m20260710_000049_triage_assessments;
 mod m20260711_000050_pifu;
 mod m20260712_000051_proxy_authority;
+mod m20260713_000052_first_clinician_contact;
 
 pub struct Migrator;
 
@@ -112,6 +113,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260710_000049_triage_assessments::Migration),
             Box::new(m20260711_000050_pifu::Migration),
             Box::new(m20260712_000051_proxy_authority::Migration),
+            Box::new(m20260713_000052_first_clinician_contact::Migration),
         ]
     }
 }

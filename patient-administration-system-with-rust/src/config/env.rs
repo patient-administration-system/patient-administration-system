@@ -105,6 +105,11 @@ pub const VARS: &[Var] = &[
         name: "PAS_NOSHOW_WEIGHTS",
         kind: Kind::Json,
     },
+    // Minutes to first clinician contact for each triage category (NEW-23); checked by `validate`.
+    Var {
+        name: "PAS_TRIAGE_TARGETS",
+        kind: Kind::Json,
+    },
     // Analytics: the floor for k is 5 by design (see `governance/analytics-differencing.md`).
     int_var("PAS_ANALYTICS_QUERY_BUDGET", 100, 1, 10_000),
     int_var("PAS_ANALYTICS_K", 10, 5, 1_000_000),
@@ -220,6 +225,11 @@ pub fn validate() -> Result<()> {
     }
     if let Err(e) = crate::communication::consent::QuietHours::from_env() {
         problems.push(format!("PAS_QUIET_HOURS: {e}"));
+    }
+    if let Some(raw) = text("PAS_TRIAGE_TARGETS")
+        && let Err(e) = crate::triage::targets::Targets::from_json(&raw)
+    {
+        problems.push(e.to_string());
     }
     if let Some(steps) = text("PAS_REMINDER_STEPS")
         && let Err(e) = crate::communication::ladder::parse_steps(&steps)

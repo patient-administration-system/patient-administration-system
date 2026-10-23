@@ -197,3 +197,44 @@ pub async fn search_flags(
         "entry": entries,
     })))
 }
+
+#[utoipa::path(
+    get,
+    path = "/fhir/Observation",
+    tag = "FHIR",
+    summary = "Search triage categories as Observations",
+    params(("encounter" = String, Query, description = "The encounter, as `Encounter/<id>` or the bare id (required)")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
+pub async fn search_observations(
+    State(state): State<AppState>,
+    axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> FhirResult {
+    let encounter = q
+        .get("encounter")
+        .map(|p| p.strip_prefix("Encounter/").unwrap_or(p))
+        .and_then(|p| Uuid::parse_str(p).ok())
+        .ok_or_else(|| {
+            error_to_response(Error::validation(
+                "search by encounter: ?encounter=Encounter/<id> is required",
+            ))
+        })?;
+    let all = crate::triage::TriageService::new(state.db.clone())
+        .observations(encounter)
+        .await
+        .map_err(error_to_response)?;
+    let entries: Vec<Value> = all
+        .into_iter()
+        .map(|o| serde_json::json!({ "resource": o }))
+        .collect();
+    Ok(Json(serde_json::json!({
+        "resourceType": "Bundle",
+        "type": "searchset",
+        "total": entries.len(),
+        "entry": entries,
+    })))
+}

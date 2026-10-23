@@ -64,6 +64,12 @@ pub(super) fn adt() -> Router<AppState> {
             get(handlers_triage::list).post(handlers_triage::record),
         )
         .route(
+            "/api/encounters/{id}/first-contact",
+            post(handlers_triage::first_contact),
+        )
+        .route("/api/triage/waits", get(handlers_triage::waits))
+        .route("/api/triage/queue", get(handlers_triage::queue))
+        .route(
             "/api/encounters/{id}/cancel",
             post(handlers_encounter::cancel_encounter),
         )

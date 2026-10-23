@@ -5,6 +5,10 @@
 //! nurse or a licensed tool (plan §11, NEW-25). **The PAS records the result and never computes it**: no
 //! discriminator text, no flowchart logic. A re-triage adds a row; the history is kept.
 
+pub mod interchange;
+pub mod targets;
+pub mod waits;
+
 use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
 use serde::Serialize;
@@ -182,6 +186,28 @@ impl TriageService {
             assessed_by: assessor.to_string(),
             assessed_at,
         })
+    }
+
+    /// Every assessment of an encounter as FHIR `Observation`s, oldest first (NEW-24).
+    pub async fn observations(&self, encounter_id: Uuid) -> Result<Vec<serde_json::Value>> {
+        let person: Uuid = self
+            .db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT person_id FROM encounters WHERE id = $1 AND deleted_at IS NULL",
+                [encounter_id.into()],
+            ))
+            .await
+            .map_err(Error::Database)?
+            .ok_or_else(|| Error::not_found(format!("encounter {encounter_id}")))?
+            .try_get("", "person_id")
+            .map_err(Error::Database)?;
+        Ok(self
+            .history(encounter_id)
+            .await?
+            .iter()
+            .map(|a| interchange::to_observation(a, person))
+            .collect())
     }
 
     /// Every assessment of an encounter, oldest first. The last is the current one.
