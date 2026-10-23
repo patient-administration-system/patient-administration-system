@@ -73,6 +73,7 @@ pub mod support;
 pub mod token_issuer;
 pub mod tolerance;
 pub mod transport;
+pub mod triage;
 pub mod upstream;
 pub mod validation;
 pub mod virtual_visits;

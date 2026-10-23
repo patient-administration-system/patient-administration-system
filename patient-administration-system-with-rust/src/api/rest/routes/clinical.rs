@@ -60,6 +60,10 @@ pub(super) fn adt() -> Router<AppState> {
             put(handlers_encounter::set_status),
         )
         .route(
+            "/api/encounters/{id}/triage",
+            get(handlers_triage::list).post(handlers_triage::record),
+        )
+        .route(
             "/api/encounters/{id}/cancel",
             post(handlers_encounter::cancel_encounter),
         )
