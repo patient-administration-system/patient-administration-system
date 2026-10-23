@@ -665,3 +665,23 @@ slot_proposals,expires_at,none,"Not personal data (structure, status, timestamps
 slot_proposals,held_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slot_proposals,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slot_proposals,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscriptions,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscriptions,topic,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscriptions,endpoint,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscriptions,secret_env,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscriptions,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscriptions,created_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+subscriptions,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscriptions,ended_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,subscription_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,outbox_event_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,event_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,payload,free-text,May contain personal data copied from the record it describes,audit-or-message
+subscription_deliveries,event_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,attempts,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,next_attempt_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,last_error,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,delivered_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+subscription_deliveries,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

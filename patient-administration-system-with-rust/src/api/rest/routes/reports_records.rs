@@ -126,6 +126,15 @@ pub(super) fn reporting() -> Router<AppState> {
         .route("/api/audit/recent", get(handlers_audit::list_recent))
         .route("/api/audit/entity", get(handlers_audit::list_for_entity))
         .route("/api/admin/metrics", get(handlers_admin::metrics))
+        // Admin: event subscriptions (NEW-4).
+        .route(
+            "/api/admin/subscriptions",
+            get(handlers_subscriptions::list).post(handlers_subscriptions::create),
+        )
+        .route(
+            "/api/admin/subscriptions/{id}",
+            delete(handlers_subscriptions::end),
+        )
         // Admin: outbox diagnostics + DLQ replay.
         .route(
             "/api/admin/outbox/unpublished",

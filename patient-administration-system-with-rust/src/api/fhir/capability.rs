@@ -55,6 +55,14 @@ pub const SUPPORTED: &[Supported] = &[
         resource: "Observation",
         interactions: &["search-type"],
     },
+    Supported {
+        resource: "SubscriptionTopic",
+        interactions: &["search-type"],
+    },
+    Supported {
+        resource: "Subscription",
+        interactions: &["search-type"],
+    },
 ];
 
 /// The FHIR R5 CapabilityStatement for this server, built from [`SUPPORTED`].

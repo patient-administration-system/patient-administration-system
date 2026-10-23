@@ -255,6 +255,7 @@ fn spawn_jobs(
     state: &AppState,
 ) -> Result<()> {
     spawn_outbox(jobs, cfg, db, publisher);
+    spawn_subscriptions(jobs, db);
     spawn_tolerance(jobs, state);
     spawn_noshow(jobs, state);
     spawn_backfill(jobs, state);
@@ -285,6 +286,26 @@ fn spawn_outbox(
             }
         }
     });
+}
+
+fn spawn_subscriptions(jobs: &mut Jobs, db: &sea_orm::DatabaseConnection) {
+    // Event subscriptions (NEW-4): queue each new outbox event for its subscribers and post the due
+    // notifications, with retries. A no-op while nobody is subscribed.
+    let svc = std::sync::Arc::new(
+        patient_administration_system::subscriptions::SubscriptionService::new(db.clone()),
+    );
+    jobs.spawn(
+        "subscriptions",
+        std::time::Duration::from_secs(5),
+        move || {
+            let svc = svc.clone();
+            async move {
+                if let Err(e) = svc.tick(chrono::Utc::now()).await {
+                    tracing::warn!("subscription pass failed: {e}");
+                }
+            }
+        },
+    );
 }
 
 fn spawn_tolerance(jobs: &mut Jobs, state: &AppState) {

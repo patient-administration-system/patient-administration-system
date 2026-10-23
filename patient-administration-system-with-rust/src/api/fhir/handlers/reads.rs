@@ -238,3 +238,71 @@ pub async fn search_observations(
         "entry": entries,
     })))
 }
+
+#[utoipa::path(
+    get,
+    path = "/fhir/SubscriptionTopic",
+    tag = "FHIR",
+    summary = "Search subscription topics",
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
+pub async fn search_subscription_topics() -> FhirResult {
+    let entries: Vec<Value> = crate::subscriptions::TOPICS
+        .iter()
+        .map(|(name, url)| {
+            serde_json::json!({ "resource": {
+                "resourceType": "SubscriptionTopic",
+                "id": name,
+                "url": url,
+                "status": "active",
+                "title": format!("Changes to {name}"),
+            } })
+        })
+        .collect();
+    Ok(Json(serde_json::json!({
+        "resourceType": "Bundle", "type": "searchset", "total": entries.len(), "entry": entries,
+    })))
+}
+
+#[utoipa::path(
+    get,
+    path = "/fhir/Subscription",
+    tag = "FHIR",
+    summary = "Search subscriptions",
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
+pub async fn search_subscriptions(State(state): State<AppState>) -> FhirResult {
+    let all = crate::subscriptions::SubscriptionService::new(state.db.clone())
+        .list()
+        .await
+        .map_err(error_to_response)?;
+    let entries: Vec<Value> = all
+        .iter()
+        .map(|s| {
+            serde_json::json!({ "resource": {
+                "resourceType": "Subscription",
+                "id": s.id,
+                "status": if s.status == "active" { "active" } else { "off" },
+                "topic": crate::subscriptions::topic_url(&s.topic),
+                "channelType": {
+                    "system": "http://terminology.hl7.org/CodeSystem/subscription-channel-type",
+                    "code": "rest-hook",
+                },
+                "endpoint": s.endpoint,
+                "contentType": "application/fhir+json",
+                "content": "id-only",
+            } })
+        })
+        .collect();
+    Ok(Json(serde_json::json!({
+        "resourceType": "Bundle", "type": "searchset", "total": entries.len(), "entry": entries,
+    })))
+}

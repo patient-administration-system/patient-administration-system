@@ -50,6 +50,7 @@ use super::handlers_resources;
 use super::handlers_scheduling;
 use super::handlers_series;
 use super::handlers_standby;
+use super::handlers_subscriptions;
 use super::handlers_support;
 use super::handlers_tolerance;
 use super::handlers_transport;

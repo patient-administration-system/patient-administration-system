@@ -309,9 +309,13 @@ pub fn administrator_only(method: &Method, path: &str) -> bool {
     let ack = rest.starts_with("/api/tolerance-alerts/") && rest.ends_with("/acknowledge");
     // The operational numbers (QUAL-16) are for the administrator too.
     let metrics = rest == "/api/admin/metrics" && *method == Method::GET;
+    // Who may be sent notifications about patients is an administrator's decision (NEW-4).
+    let subscriptions =
+        rest == "/api/admin/subscriptions" || rest.starts_with("/api/admin/subscriptions/");
     (tolerance && matches!(*method, Method::PUT | Method::DELETE))
         || (ack && *method == Method::POST)
         || metrics
+        || subscriptions
 }
 
 /// The policy action for a request: reads, writes, deletes, and the named destructive POSTs.
@@ -566,6 +570,9 @@ mod tests {
             (Method::DELETE, "/api/tolerances/bed_occupancy"),
             (Method::POST, "/api/tolerance-alerts/abc/acknowledge"),
             (Method::GET, "/api/admin/metrics"),
+            (Method::GET, "/api/admin/subscriptions"),
+            (Method::POST, "/api/admin/subscriptions"),
+            (Method::DELETE, "/api/admin/subscriptions/abc"),
         ] {
             assert!(administrator_only(&m, p), "{m} {p}");
         }

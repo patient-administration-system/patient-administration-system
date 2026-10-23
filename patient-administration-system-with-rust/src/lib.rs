@@ -72,6 +72,7 @@ pub mod scheduling;
 pub mod seed;
 pub mod standby;
 pub mod streaming;
+pub mod subscriptions;
 pub mod support;
 pub mod token_issuer;
 pub mod tolerance;

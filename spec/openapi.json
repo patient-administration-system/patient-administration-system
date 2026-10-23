@@ -243,6 +243,75 @@
         ]
       }
     },
+    "/api/admin/subscriptions": {
+      "get": {
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/admin/subscriptions`: every subscription with its counts of pending, delivered and failed.",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "post": {
+        "operationId": "create",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/admin/subscriptions`: register a subscriber.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/subscriptions/{id}": {
+      "delete": {
+        "operationId": "end",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`DELETE /api/admin/subscriptions/{id}`: switch a subscription off; undelivered notifications are dropped.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/admissions": {
       "post": {
         "operationId": "admit",
@@ -8323,6 +8392,46 @@
           }
         },
         "summary": "Update slot",
+        "tags": [
+          "FHIR"
+        ]
+      }
+    },
+    "/fhir/Subscription": {
+      "get": {
+        "operationId": "search_subscriptions",
+        "responses": {
+          "200": {
+            "description": "FHIR resource, Bundle or OperationOutcome"
+          },
+          "4XX": {
+            "description": "Error; an OperationOutcome"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an OperationOutcome"
+          }
+        },
+        "summary": "Search subscriptions",
+        "tags": [
+          "FHIR"
+        ]
+      }
+    },
+    "/fhir/SubscriptionTopic": {
+      "get": {
+        "operationId": "search_subscription_topics",
+        "responses": {
+          "200": {
+            "description": "FHIR resource, Bundle or OperationOutcome"
+          },
+          "4XX": {
+            "description": "Error; an OperationOutcome"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an OperationOutcome"
+          }
+        },
+        "summary": "Search subscription topics",
         "tags": [
           "FHIR"
         ]

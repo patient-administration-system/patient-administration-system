@@ -45,6 +45,7 @@ Development: `podman compose -f podman/compose.yml up -d` (ports overridable wit
 | `PAS_ANALYTICS_K` | API | Smallest cell the analytics feeds show (default 10; never below 5, whatever is set) |
 | `PAS_TRIAGE_TARGETS` | API | JSON of triage category to minutes to first clinician contact, for example `{"very_urgent": 15}`; categories left out keep 0, 10, 60, 120 and 240 (`immediate`, `very_urgent`, `urgent`, `standard`, `non_urgent`); an invalid value stops start-up |
 | `PAS_HOLD_MINUTES` | API | How long an IHE `$hold` keeps a proposed appointment from being booked by anyone else (default 10, 1 to 1440) |
+| `PAS_SUB_SECRET_<NAME>` | API | The signing secret for an event subscription that names it (`secret_env`, for example `PAS_SUB_SECRET_PARTNER`). Each notification carries `X-PAS-Signature: sha256=` and the HMAC-SHA256 of the body. A subscription naming a variable that is not set is not sent to |
 | `PAS_NOSHOW_SHADOW_MIN_DAYS` | API | Days of shadow data a clinic needs before the no-show score may go live there (default 28) |
 | `PAS_TOLERANCE_CHECK_MINUTES` | API | How often tolerances are checked for red (default 60; `0` turns the timer off) |
 | `PAS_OUTBOX_MAX_RETRIES` | API | Attempts before an outbox event is dead-lettered (default 10) |

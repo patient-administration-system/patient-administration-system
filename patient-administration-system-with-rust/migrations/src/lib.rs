@@ -56,6 +56,7 @@ mod m20260711_000050_pifu;
 mod m20260712_000051_proxy_authority;
 mod m20260713_000052_first_clinician_contact;
 mod m20260714_000053_slot_proposals;
+mod m20260715_000054_subscriptions;
 
 pub struct Migrator;
 
@@ -116,6 +117,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260712_000051_proxy_authority::Migration),
             Box::new(m20260713_000052_first_clinician_contact::Migration),
             Box::new(m20260714_000053_slot_proposals::Migration),
+            Box::new(m20260715_000054_subscriptions::Migration),
         ]
     }
 }
