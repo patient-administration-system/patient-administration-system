@@ -52,6 +52,7 @@ mod m20260707_000046_interpreters;
 mod m20260708_000047_group_sessions;
 mod m20260709_000048_reasonable_adjustments;
 mod m20260710_000049_triage_assessments;
+mod m20260711_000050_pifu;
 
 pub struct Migrator;
 
@@ -108,6 +109,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260708_000047_group_sessions::Migration),
             Box::new(m20260709_000048_reasonable_adjustments::Migration),
             Box::new(m20260710_000049_triage_assessments::Migration),
+            Box::new(m20260711_000050_pifu::Migration),
         ]
     }
 }

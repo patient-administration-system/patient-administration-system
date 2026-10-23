@@ -4462,6 +4462,37 @@
         ]
       }
     },
+    "/api/patients/{id}/pifu": {
+      "post": {
+        "operationId": "open",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/patients/{id}/pifu`: a clinician opens a PIFU episode. Audited.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
     "/api/patients/{id}/reasonable-adjustments": {
       "get": {
         "operationId": "list",
@@ -4750,6 +4781,139 @@
         "summary": "`POST /api/payments`.",
         "tags": [
           "Payments"
+        ]
+      }
+    },
+    "/api/pifu/due-reviews": {
+      "get": {
+        "operationId": "due_reviews",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/pifu/due-reviews`: episodes whose window has ended and that nobody has reviewed. The review\ntask: a person discharges or extends; nothing does it for them. Paged (NFR-23).",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/pifu/requests": {
+      "get": {
+        "operationId": "requests",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/pifu/requests?route=`: open requests, oldest first, for the booking team or for a person's\ndecision. Paged (NFR-23).",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/pifu/requests/{id}/handle": {
+      "post": {
+        "operationId": "handle",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/pifu/requests/{id}/handle`: a named person has dealt with the request. Once only; audited.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/pifu/{id}/request": {
+      "post": {
+        "operationId": "request",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/pifu/{id}/request`: the patient asks to be seen. Inside the window the request is a booking\ntask (`route: booking`); after it, a person decides (`route: person`).",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/pifu/{id}/review": {
+      "post": {
+        "operationId": "review",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/pifu/{id}/review`: a named person discharges or extends an episode whose window has ended.",
+        "tags": [
+          "Scheduling"
         ]
       }
     },
@@ -5462,6 +5626,26 @@
           }
         },
         "summary": "`GET /api/reports/follow-up-delay`: follow-up entries past their target, booked and not booked, banded\nby how far past (DSCN 2020/18), as of the clinic's date. No identifiers; small cells withheld.",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/reports/pifu": {
+      "get": {
+        "operationId": "uptake",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/reports/pifu`: PIFU uptake apart from discharges. Counts only; small cells withheld.",
         "tags": [
           "Reports"
         ]

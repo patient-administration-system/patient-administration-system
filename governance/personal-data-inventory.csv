@@ -623,3 +623,24 @@ triage_assessments,flowchart,health,"Administrative care information (why, where
 triage_assessments,assessed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 triage_assessments,assessed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 triage_assessments,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_episodes,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_episodes,person_id,identifier,Link a record to a person held by person-service,record
+pifu_episodes,service_type,health,"Administrative care information (why, where, what service, outcome)",record
+pifu_episodes,conditions,health,"Administrative care information (why, where, what service, outcome); written for the patient, it can describe their condition",record
+pifu_episodes,opened_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+pifu_episodes,opened_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_episodes,expires_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_episodes,urgent_override_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+pifu_episodes,extended_count,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_episodes,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_episodes,closed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+pifu_episodes,closed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_requests,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_requests,episode_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_requests,person_id,identifier,Link a record to a person held by person-service,record
+pifu_requests,requested_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_requests,channel,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_requests,route,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_requests,handled_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+pifu_requests,handled_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+pifu_requests,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record

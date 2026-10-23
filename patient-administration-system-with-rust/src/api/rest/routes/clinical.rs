@@ -80,6 +80,14 @@ pub(super) fn scheduling() -> Router<AppState> {
             "/api/slots/{id}/attendees",
             get(handlers_group_sessions::attendees),
         )
+        .route("/api/pifu/{id}/request", post(handlers_pifu::request))
+        .route("/api/pifu/{id}/review", post(handlers_pifu::review))
+        .route("/api/pifu/requests", get(handlers_pifu::requests))
+        .route(
+            "/api/pifu/requests/{id}/handle",
+            post(handlers_pifu::handle),
+        )
+        .route("/api/pifu/due-reviews", get(handlers_pifu::due_reviews))
         .route(
             "/api/interpreter-requests/{id}/confirm",
             post(handlers_interpreter::confirm),

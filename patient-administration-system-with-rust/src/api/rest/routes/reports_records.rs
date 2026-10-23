@@ -105,6 +105,7 @@ pub(super) fn reporting() -> Router<AppState> {
             "/api/reports/follow-up-delay",
             get(handlers_follow_up_delay::delay_report),
         )
+        .route("/api/reports/pifu", get(handlers_pifu::uptake))
         .route("/api/tolerances", get(handlers_tolerance::list))
         .route("/api/tolerances/status", get(handlers_tolerance::status))
         .route(

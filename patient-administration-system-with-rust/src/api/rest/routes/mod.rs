@@ -40,6 +40,7 @@ use super::handlers_links;
 use super::handlers_needs_review;
 use super::handlers_noshow;
 use super::handlers_offers;
+use super::handlers_pifu;
 use super::handlers_print;
 use super::handlers_receipts;
 use super::handlers_referrals;

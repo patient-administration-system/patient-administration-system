@@ -57,6 +57,7 @@ pub mod needs_review;
 pub mod noshow;
 pub mod observability;
 pub mod paging;
+pub mod pifu;
 pub mod printing;
 pub mod privacy;
 pub mod rebooking;

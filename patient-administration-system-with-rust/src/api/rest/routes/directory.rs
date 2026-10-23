@@ -21,6 +21,7 @@ pub(super) fn people() -> Router<AppState> {
             "/api/reasonable-adjustments/{id}/end",
             post(handlers_adjustments::end),
         )
+        .route("/api/patients/{id}/pifu", post(handlers_pifu::open))
         .route(
             "/api/patients/{id}/interpreter-need",
             put(handlers_interpreter::set_need),
