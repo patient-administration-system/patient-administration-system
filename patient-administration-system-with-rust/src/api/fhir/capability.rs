@@ -47,6 +47,10 @@ pub const SUPPORTED: &[Supported] = &[
         resource: "Coverage",
         interactions: &["read"],
     },
+    Supported {
+        resource: "Flag",
+        interactions: &["search-type"],
+    },
 ];
 
 /// The FHIR R5 CapabilityStatement for this server, built from [`SUPPORTED`].

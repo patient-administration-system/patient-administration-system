@@ -604,3 +604,13 @@ interpreter_requests,confirmed_by,staff-identifier,Attribute work to a staff mem
 interpreter_requests,confirmed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 interpreter_requests,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 interpreter_requests,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reasonable_adjustments,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reasonable_adjustments,person_id,identifier,Link a record to a person held by person-service,record
+reasonable_adjustments,category,health,"Administrative care information (why, where, what service, outcome); accessibility needs can reveal a disability",record
+reasonable_adjustments,code,health,"Administrative care information (why, where, what service, outcome); accessibility needs can reveal a disability",record
+reasonable_adjustments,note,health,"Administrative care information (why, where, what service, outcome); a free-text note can reveal a disability",record
+reasonable_adjustments,review_by,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reasonable_adjustments,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+reasonable_adjustments,recorded_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+reasonable_adjustments,ended_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+reasonable_adjustments,ended_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

@@ -4402,6 +4402,66 @@
         ]
       }
     },
+    "/api/patients/{id}/reasonable-adjustments": {
+      "get": {
+        "operationId": "list",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/patients/{id}/reasonable-adjustments`: the patient's live adjustments (and ended ones on\nrequest), each with its FHIR `Flag`; what the staff booking view shows. Paged (NFR-23).",
+        "tags": [
+          "Patients"
+        ]
+      },
+      "post": {
+        "operationId": "record",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/patients/{id}/reasonable-adjustments`: a named person records an adjustment. Audited. The\nanswer carries the adjustment as a FHIR `Flag`.",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
     "/api/patients/{id}/transport-consent": {
       "delete": {
         "operationId": "withdraw_consent",
@@ -4941,6 +5001,54 @@
         "summary": "`GET /api/print-queue`: letters waiting to be posted, oldest first, with the total waiting.",
         "tags": [
           "Print queue"
+        ]
+      }
+    },
+    "/api/reasonable-adjustments/codes": {
+      "get": {
+        "operationId": "codes",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/reasonable-adjustments/codes`: the catalogue of codes, with category and display text.",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/api/reasonable-adjustments/{id}/end": {
+      "post": {
+        "operationId": "end",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/reasonable-adjustments/{id}/end`: a named person ends a live adjustment. Audited.",
+        "tags": [
+          "Patients"
         ]
       }
     },
@@ -7129,6 +7237,37 @@
           }
         },
         "summary": "Get encounter",
+        "tags": [
+          "FHIR"
+        ]
+      }
+    },
+    "/fhir/Flag": {
+      "get": {
+        "operationId": "search_flags",
+        "parameters": [
+          {
+            "description": "The patient, as `Patient/<id>` or the bare id (required)",
+            "in": "query",
+            "name": "patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FHIR resource, Bundle or OperationOutcome"
+          },
+          "4XX": {
+            "description": "Error; an OperationOutcome"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an OperationOutcome"
+          }
+        },
+        "summary": "Search flags (reasonable adjustments)",
         "tags": [
           "FHIR"
         ]

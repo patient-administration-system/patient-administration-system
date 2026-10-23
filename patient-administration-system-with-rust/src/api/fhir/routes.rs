@@ -53,6 +53,7 @@ pub fn router(state: AppState) -> Router {
                 .delete(super::handlers::delete_slot),
         )
         .route("/fhir/Location/{id}", get(super::handlers::get_location))
+        .route("/fhir/Flag", get(super::handlers::search_flags))
         .route("/fhir/Coverage/{id}", get(super::handlers::get_coverage))
         .with_state(state)
 }

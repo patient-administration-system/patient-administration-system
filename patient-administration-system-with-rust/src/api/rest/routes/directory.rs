@@ -6,6 +6,18 @@ use super::*;
 pub(super) fn people() -> Router<AppState> {
     Router::new()
         .route(
+            "/api/patients/{id}/reasonable-adjustments",
+            get(handlers_adjustments::list).post(handlers_adjustments::record),
+        )
+        .route(
+            "/api/reasonable-adjustments/codes",
+            get(handlers_adjustments::codes),
+        )
+        .route(
+            "/api/reasonable-adjustments/{id}/end",
+            post(handlers_adjustments::end),
+        )
+        .route(
             "/api/patients/{id}/interpreter-need",
             put(handlers_interpreter::set_need),
         )

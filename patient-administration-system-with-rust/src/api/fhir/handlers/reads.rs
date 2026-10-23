@@ -149,3 +149,51 @@ pub async fn get_location(State(state): State<AppState>, Path(id): Path<Uuid>) -
         Err(e) => Err(error_to_response(e)),
     }
 }
+
+#[utoipa::path(
+    get,
+    path = "/fhir/Flag",
+    tag = "FHIR",
+    summary = "Search flags (reasonable adjustments)",
+    params(("patient" = String, Query, description = "The patient, as `Patient/<id>` or the bare id (required)")),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
+pub async fn search_flags(
+    State(state): State<AppState>,
+    axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> FhirResult {
+    let patient = q
+        .get("patient")
+        .map(|p| p.strip_prefix("Patient/").unwrap_or(p))
+        .and_then(|p| Uuid::parse_str(p).ok())
+        .ok_or_else(|| {
+            error_to_response(Error::validation(
+                "search by patient: ?patient=Patient/<id> is required",
+            ))
+        })?;
+    let status = q.get("status").map(String::as_str);
+    if !matches!(status, None | Some("active" | "inactive")) {
+        return Err(error_to_response(Error::validation(
+            "status must be active or inactive",
+        )));
+    }
+    let all = crate::adjustments::AdjustmentService::new(state.db.clone())
+        .for_patient(patient, status != Some("active"), 201)
+        .await
+        .map_err(error_to_response)?;
+    let entries: Vec<Value> = all
+        .iter()
+        .filter(|a| status != Some("inactive") || a.ended_at.is_some())
+        .map(|a| serde_json::json!({ "resource": a.fhir }))
+        .collect();
+    Ok(Json(serde_json::json!({
+        "resourceType": "Bundle",
+        "type": "searchset",
+        "total": entries.len(),
+        "entry": entries,
+    })))
+}
