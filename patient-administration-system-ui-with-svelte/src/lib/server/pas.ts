@@ -148,6 +148,20 @@ export const noshowFor = (f: FetchFn, ids: string[]) =>
     `/api/noshow/for-appointments?ids=${ids.map(encodeURIComponent).join(",")}`,
   );
 
+// ---- Reasonable adjustments (NEW-6): shown to staff beside an appointment ---------------------
+
+export interface AppointmentAdjustments {
+  appointment_id: string;
+  adjustments: { code: string; category: string }[];
+}
+
+/** The live adjustments of each appointment's patient; only appointments whose patient has any are listed. */
+export const adjustmentsFor = (f: FetchFn, ids: string[]) =>
+  pasArray<AppointmentAdjustments>(
+    f,
+    `/api/reasonable-adjustments/for-appointments?ids=${ids.map(encodeURIComponent).join(",")}`,
+  );
+
 // ---- History (CAP-6) and long waits (CAP-8) ---------------------------------------------------
 
 export interface HistoryRow {

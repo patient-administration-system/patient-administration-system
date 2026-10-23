@@ -10,6 +10,10 @@ pub(super) fn people() -> Router<AppState> {
             get(handlers_adjustments::list).post(handlers_adjustments::record),
         )
         .route(
+            "/api/reasonable-adjustments/for-appointments",
+            get(handlers_adjustments::for_appointments),
+        )
+        .route(
             "/api/reasonable-adjustments/codes",
             get(handlers_adjustments::codes),
         )

@@ -327,6 +327,25 @@ http
         : [];
       return res.end(envelope({ active: true, items }));
     }
+    // NEW-6: reasonable adjustments, for the first appointment's patient only.
+    if (url.pathname === "/api/reasonable-adjustments/for-appointments") {
+      const wanted = (url.searchParams.get("ids") ?? "").split(",");
+      return res.end(
+        envelope(
+          wanted.includes("44444444-4444-4444-4444-444444444444")
+            ? [
+                {
+                  appointment_id: "44444444-4444-4444-4444-444444444444",
+                  adjustments: [
+                    { code: "large_print", category: "communication" },
+                    { code: "step_free", category: "physical_access" },
+                  ],
+                },
+              ]
+            : [],
+        ),
+      );
+    }
     if (url.pathname === "/api/appointments") {
       // Two appointments in the coming days, so the calendar and the schedule chart have content.
       const at = (days, hour) => {

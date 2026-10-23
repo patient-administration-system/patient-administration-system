@@ -17,11 +17,14 @@
     today = anchorDate = new Date().toISOString().slice(0, 10);
   });
 
-  const events = $derived(appointmentEvents(data.appointments, t, data.noshow));
+  const events = $derived(appointmentEvents(data.appointments, t, data.noshow, data.adjustments));
   const fields = $derived<CalendarEventField[]>([
     { id: "time", header: t("col.time"), type: "text" },
     { id: "status", header: t("col.status"), type: "text" },
     // Only when the score is on and an appointment has one (CAP-12): the flag and why, beside the appointment.
+    ...(data.adjustments.length > 0
+      ? [{ id: "adjustments", header: t("adjustments.col"), type: "text" } as CalendarEventField]
+      : []),
     ...(data.noshow.length > 0 ? [{ id: "support", header: t("noshow.col"), type: "text" } as CalendarEventField] : []),
   ]);
   const labels = $derived(calendarLabels(t, i18n.locale));

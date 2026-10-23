@@ -5021,6 +5021,26 @@
         ]
       }
     },
+    "/api/reasonable-adjustments/for-appointments": {
+      "get": {
+        "operationId": "for_appointments",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/reasonable-adjustments/for-appointments?ids=a,b,c`: the live adjustments of each appointment's\npatient, for the staff schedule: `[{appointment_id, adjustments: [{code, category, display}]}]`, only for\nappointments whose patient has any.",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
     "/api/reasonable-adjustments/{id}/end": {
       "post": {
         "operationId": "end",

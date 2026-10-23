@@ -27,12 +27,18 @@ pub const CATEGORY_SYSTEM: &str =
 
 /// Every adjustment code: `(category, code, display)`. Adding one here is the whole change: the database
 /// stores the code as text and the list is checked on the way in.
-pub const CATALOGUE: [(&str, &str, &str); 19] = [
+pub const CATALOGUE: [(&str, &str, &str); 20] = [
     ("communication", "easy_read", "Easy read information"),
     ("communication", "large_print", "Large print"),
     ("communication", "braille", "Braille"),
     ("communication", "audio", "Audio information"),
     ("communication", "hearing_loop", "Hearing loop"),
+    // A preference only (plan section 12): the PAS holds no pain score and no pain-scale artwork.
+    (
+        "communication",
+        "pictorial_pain_scale",
+        "Prefers a pictorial or simplified pain scale",
+    ),
     (
         "communication",
         "text_not_calls",
@@ -297,6 +303,34 @@ impl AdjustmentService {
         txn.commit().await.map_err(Error::Database)
     }
 
+    /// The live adjustments of the patients of these appointments, for a schedule view: `(appointment_id,
+    /// code)` pairs, at most 500 appointments. Read-only.
+    pub async fn live_for_appointments(&self, ids: &[Uuid]) -> Result<Vec<(Uuid, String)>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<Uuid> = ids.iter().take(500).copied().collect();
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT a.id AS appointment_id, r.code FROM appointments a \
+                 JOIN reasonable_adjustments r ON r.person_id = a.person_id AND r.ended_at IS NULL \
+                 WHERE a.id = ANY($1) ORDER BY a.id, r.category, r.code",
+                [ids.into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        rows.iter()
+            .map(|r| {
+                Ok((
+                    r.try_get("", "appointment_id").map_err(Error::Database)?,
+                    r.try_get("", "code").map_err(Error::Database)?,
+                ))
+            })
+            .collect()
+    }
+
     /// A patient's adjustments, live ones first then ended ones when `include_ended`, newest first.
     pub async fn for_patient(
         &self,
@@ -328,6 +362,15 @@ impl AdjustmentService {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pictorial_pain_scale_preference_is_a_communication_code() {
+        assert!(CATALOGUE.contains(&(
+            "communication",
+            "pictorial_pain_scale",
+            "Prefers a pictorial or simplified pain scale"
+        )));
+    }
 
     #[test]
     fn the_catalogue_has_unique_codes_in_known_categories() {

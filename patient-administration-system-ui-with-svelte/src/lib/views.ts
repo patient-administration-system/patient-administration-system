@@ -62,8 +62,25 @@ export function noshowText(n: NoShowLike, t: Translate): string {
     .join(" ");
 }
 
-export function appointmentEvents(rows: AppointmentLike[], t: Translate, noshow: NoShowLike[] = []): CalendarEvent[] {
+/** The reasonable adjustments (NEW-6) of one appointment's patient, as the PAS sends them. */
+export interface AdjustmentsLike {
+  appointment_id: string;
+  adjustments: { code: string }[];
+}
+
+/** The adjustments as words, for the front desk: `Large print; Step-free access`. Names come from the catalogue, never from the API. */
+export function adjustmentsText(a: AdjustmentsLike, t: Translate): string {
+  return a.adjustments.map((x) => t(`adjustment.${x.code}`)).join("; ");
+}
+
+export function appointmentEvents(
+  rows: AppointmentLike[],
+  t: Translate,
+  noshow: NoShowLike[] = [],
+  adjustments: AdjustmentsLike[] = [],
+): CalendarEvent[] {
   const flags = new Map(noshow.map((n) => [n.appointment_id, n]));
+  const needs = new Map(adjustments.map((a) => [a.appointment_id, a]));
   return rows.map((a) => {
     const flag = flags.get(a.id);
     return {
@@ -75,6 +92,7 @@ export function appointmentEvents(rows: AppointmentLike[], t: Translate, noshow:
         time: `${timeOf(a.start_datetime)}–${timeOf(a.end_datetime)}`,
         status: t(statusKey(a.status)),
         ...(flag ? { support: noshowText(flag, t) } : {}),
+        ...(needs.has(a.id) ? { adjustments: adjustmentsText(needs.get(a.id)!, t) } : {}),
       },
     };
   });

@@ -43,6 +43,25 @@ describe("appointmentEvents", () => {
   });
 });
 
+describe("reasonable adjustments (NEW-6)", () => {
+  const rows = [appt("a", "2026-10-20T09:30:00Z"), appt("b", "2026-10-21T09:30:00Z")];
+  const needs = [{ appointment_id: "a", adjustments: [{ code: "large_print" }, { code: "step_free" }] }];
+  it("adds the adjustments, from the catalogue, only to the appointment whose patient has any", () => {
+    const [a, b] = appointmentEvents(rows, en, [], needs);
+    expect(a?.values?.adjustments).toBe("Large print; Step-free access");
+    expect(b?.values).not.toHaveProperty("adjustments");
+  });
+  it("speaks the reader's language and ignores any text the API might send", () => {
+    const [a] = appointmentEvents(
+      rows,
+      cy,
+      [],
+      [{ ...needs[0]!, adjustments: [{ code: "large_print", display: "<b>x</b>" } as never] }],
+    );
+    expect(a?.values?.adjustments).toBe("Print bras");
+  });
+});
+
 describe("statusKey", () => {
   it("names a catalogue entry, and did-not-attend is words in English", () => {
     expect(statusKey("no_show")).toBe("status.no_show");

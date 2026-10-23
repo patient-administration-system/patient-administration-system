@@ -142,3 +142,79 @@ async fn bad_input_is_refused_and_a_live_duplicate_conflicts() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_pictorial_pain_scale_preference_is_recorded_listed_and_not_duplicated() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let svc = AdjustmentService::new(state.db.clone());
+    let person = Uuid::new_v4();
+    let ctx = UserContext::system();
+    let a = svc
+        .record(
+            person,
+            &new("pictorial_pain_scale", "Receptionist"),
+            Utc::now(),
+            &ctx,
+        )
+        .await
+        .unwrap();
+    assert_eq!(a.category, "communication");
+
+    let live = svc.for_patient(person, false, 101).await.unwrap();
+    assert_eq!(live.len(), 1);
+    assert_eq!(live[0].code, "pictorial_pain_scale");
+    assert_eq!(live[0].fhir["resourceType"], "Flag");
+
+    // A second live row of the same code is refused, as for every other code.
+    assert!(
+        svc.record(
+            person,
+            &new("pictorial_pain_scale", "Receptionist"),
+            Utc::now(),
+            &ctx
+        )
+        .await
+        .is_err()
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_schedule_view_gets_live_adjustments_for_many_appointments_at_once() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let svc = AdjustmentService::new(state.db.clone());
+    let schedule = common::new_schedule(&state.db).await.id;
+    let (with, without) = (Uuid::new_v4(), Uuid::new_v4());
+    let ctx = UserContext::system();
+    let now = Utc::now();
+    svc.record(with, &new("hearing_loop", "Receptionist"), now, &ctx)
+        .await
+        .unwrap();
+    let gone = svc
+        .record(with, &new("quiet_space", "Receptionist"), now, &ctx)
+        .await
+        .unwrap();
+    svc.end(gone.id, "Receptionist", now, &ctx).await.unwrap();
+    let a = state
+        .scheduling
+        .book_slot(
+            common::free_slot(&state.db, schedule, 5).await.id,
+            with,
+            &ctx,
+        )
+        .await
+        .unwrap();
+    let b = state
+        .scheduling
+        .book_slot(
+            common::free_slot(&state.db, schedule, 6).await.id,
+            without,
+            &ctx,
+        )
+        .await
+        .unwrap();
+    let got = svc.live_for_appointments(&[a.id, b.id]).await.unwrap();
+    assert_eq!(got, vec![(a.id, "hearing_loop".to_string())]);
+    assert!(svc.live_for_appointments(&[]).await.unwrap().is_empty());
+}

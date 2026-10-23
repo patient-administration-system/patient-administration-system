@@ -164,6 +164,7 @@ fn alias_api_practitioners_search_get() {}
         crate::api::rest::handlers_adjustments::list,
         crate::api::rest::handlers_adjustments::record,
         crate::api::rest::handlers_adjustments::codes,
+        crate::api::rest::handlers_adjustments::for_appointments,
         crate::api::rest::handlers_adjustments::end,
         crate::api::fhir::handlers::search_flags,
         crate::api::rest::handlers_interpreter::set_need,

@@ -127,6 +127,61 @@ pub async fn codes() -> HandlerResult {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct IdsQuery {
+    /// Comma-separated appointment ids, at most 500.
+    pub ids: String,
+}
+
+/// `GET /api/reasonable-adjustments/for-appointments?ids=a,b,c`: the live adjustments of each appointment's
+/// patient, for the staff schedule: `[{appointment_id, adjustments: [{code, category, display}]}]`, only for
+/// appointments whose patient has any.
+#[utoipa::path(
+    get,
+    path = "/api/reasonable-adjustments/for-appointments",
+    tag = "Patients",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+pub async fn for_appointments(
+    State(state): State<AppState>,
+    Query(q): Query<IdsQuery>,
+) -> HandlerResult {
+    let ids: Vec<Uuid> = q
+        .ids
+        .split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect();
+    match AdjustmentService::new(state.db.clone())
+        .live_for_appointments(&ids)
+        .await
+    {
+        Ok(pairs) => {
+            let mut out: Vec<serde_json::Value> = Vec::new();
+            let mut last: Option<Uuid> = None;
+            for (appointment_id, code) in pairs {
+                let (category, display) = crate::adjustments::lookup(&code).unwrap_or(("", ""));
+                let item =
+                    serde_json::json!({ "code": code, "category": category, "display": display });
+                if last == Some(appointment_id)
+                    && let Some(o) = out.last_mut()
+                    && let Some(list) = o["adjustments"].as_array_mut()
+                {
+                    list.push(item);
+                } else {
+                    out.push(serde_json::json!({ "appointment_id": appointment_id, "adjustments": [item] }));
+                    last = Some(appointment_id);
+                }
+            }
+            ok(serde_json::Value::Array(out))
+        }
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
 pub struct EndBody {
     pub ended_by: String,
 }
