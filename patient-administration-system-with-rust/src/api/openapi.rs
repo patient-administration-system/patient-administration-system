@@ -295,6 +295,7 @@ fn alias_api_practitioners_search_get() {}
         crate::api::rest::handlers_waitlist::rtt_is_breaching,
         crate::api::rest::handlers_audit::list_recent,
         crate::api::rest::handlers_audit::list_for_entity,
+        crate::api::rest::handlers_audit::export_balp,
         crate::api::rest::handlers_audit::list_local_for_person,
         crate::api::rest::handlers_admin::metrics,
         crate::api::rest::handlers_admin::list_unpublished_outbox,

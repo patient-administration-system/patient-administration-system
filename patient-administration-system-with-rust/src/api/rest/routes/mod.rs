@@ -90,5 +90,9 @@ pub fn router(state: AppState) -> Router {
         // Dashboard (/dashboard + 4 fragment routes) is mounted from
         // `main.rs` as a sibling router that merges in at boot time —
         // it isn't part of this REST table.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            super::read_audit::read_audit_middleware,
+        ))
         .with_state(state)
 }

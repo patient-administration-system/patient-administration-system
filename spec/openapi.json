@@ -1227,6 +1227,26 @@
         ]
       }
     },
+    "/api/audit/balp": {
+      "get": {
+        "operationId": "export_balp",
+        "responses": {
+          "200": {
+            "description": "A FHIR R4 Bundle of AuditEvent (`application/fhir+json; fhirVersion=4.0`)"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/audit/balp`: audit rows in a window as FHIR **R4** `AuditEvent`s in the shape of IHE Basic Audit\nLog Patterns, oldest first, as a searchset Bundle. An event names a BALP profile only when it meets that\nprofile's structural constraints (`audit_export::violations`). The export is itself audited.",
+        "tags": [
+          "Audit"
+        ]
+      }
+    },
     "/api/audit/entity": {
       "get": {
         "operationId": "list_for_entity",

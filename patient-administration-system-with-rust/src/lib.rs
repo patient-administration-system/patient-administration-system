@@ -29,6 +29,7 @@ pub mod adjustments;
 pub mod adt;
 pub mod analytics;
 pub mod api;
+pub mod audit_export;
 pub mod backfill;
 pub mod billing;
 pub mod clinical_priority;

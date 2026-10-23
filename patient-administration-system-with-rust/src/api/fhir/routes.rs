@@ -59,5 +59,9 @@ pub fn router(state: AppState) -> Router {
             get(super::handlers::search_observations),
         )
         .route("/fhir/Coverage/{id}", get(super::handlers::get_coverage))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::api::rest::read_audit::read_audit_middleware,
+        ))
         .with_state(state)
 }

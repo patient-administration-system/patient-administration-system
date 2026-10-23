@@ -36,6 +36,7 @@ pub(super) fn support() -> Router<AppState> {
         .route("/api/noshow/evaluation", get(handlers_noshow::evaluation))
         .route("/api/noshow/model-card", get(handlers_noshow::model_card))
         .route("/api/noshow/reviews", post(handlers_noshow::record_review))
+        .route("/api/audit/balp", get(handlers_audit::export_balp))
         .route(
             "/api/noshow/fairness-audit",
             get(handlers_noshow::fairness_audit),
