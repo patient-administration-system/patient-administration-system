@@ -644,3 +644,14 @@ pifu_requests,route,none,"Not personal data (structure, status, timestamps, plac
 pifu_requests,handled_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 pifu_requests,handled_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 pifu_requests,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+proxy_authorities,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+proxy_authorities,person_id,identifier,Link a record to a person held by person-service,record
+proxy_authorities,proxy_person_id,identifier,Link a record to a person held by person-service,record
+proxy_authorities,relationship,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
+proxy_authorities,basis,health,"Administrative care information (why, where, what service, outcome)",record
+proxy_authorities,scopes,none,"Not personal data (structure, status, timestamps, places, templates)",record
+proxy_authorities,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+proxy_authorities,recorded_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+proxy_authorities,expires_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+proxy_authorities,revoked_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+proxy_authorities,revoked_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

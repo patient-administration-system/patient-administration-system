@@ -4493,6 +4493,66 @@
         ]
       }
     },
+    "/api/patients/{id}/proxies": {
+      "get": {
+        "operationId": "list",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/patients/{id}/proxies`: who may act for the patient. Paged (NFR-23).",
+        "tags": [
+          "Patients"
+        ]
+      },
+      "post": {
+        "operationId": "grant",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/patients/{id}/proxies`: a named person records who may act for the patient, how far, on what\nbasis and until when. Audited.",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
     "/api/patients/{id}/reasonable-adjustments": {
       "get": {
         "operationId": "list",
@@ -5225,6 +5285,130 @@
         "summary": "`GET /api/print-queue`: letters waiting to be posted, oldest first, with the total waiting.",
         "tags": [
           "Print queue"
+        ]
+      }
+    },
+    "/api/proxies/{id}/revoke": {
+      "post": {
+        "operationId": "revoke",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/proxies/{id}/revoke`: a named person withdraws an authority. Once; audited.",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/api/proxy/appointments/{id}/cancel": {
+      "post": {
+        "operationId": "cancel",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/proxy/appointments/{id}/cancel`: a proxy with the `cancel` scope cancels the patient's\nappointment. Audited as the proxy acting for the patient.",
+        "tags": [
+          "Appointments"
+        ]
+      }
+    },
+    "/api/proxy/appointments/{id}/rebook": {
+      "post": {
+        "operationId": "rebook",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/proxy/appointments/{id}/rebook`: a proxy with the `rebook` scope moves the patient's\nappointment to another slot (`slot_id`). Audited as the proxy acting for the patient.",
+        "tags": [
+          "Appointments"
+        ]
+      }
+    },
+    "/api/proxy/patients/{id}/appointments": {
+      "get": {
+        "operationId": "appointments",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/proxy/patients/{id}/appointments?proxy_person_id=`: the patient's appointments, for a proxy\nwith the `receive` scope.",
+        "tags": [
+          "Patients"
         ]
       }
     },

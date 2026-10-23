@@ -42,6 +42,7 @@ use super::handlers_noshow;
 use super::handlers_offers;
 use super::handlers_pifu;
 use super::handlers_print;
+use super::handlers_proxy;
 use super::handlers_receipts;
 use super::handlers_referrals;
 use super::handlers_reports;
@@ -76,6 +77,7 @@ use reports_records::*;
 pub fn router(state: AppState) -> Router {
     Router::new()
         .merge(people())
+        .merge(proxies())
         .merge(workforce())
         .merge(adt())
         .merge(scheduling())

@@ -2,6 +2,20 @@
 
 use super::*;
 
+/// Carer and proxy authority (NEW-7): recording who may act for a patient, and the reads a proxy makes.
+pub(super) fn proxies() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/api/patients/{id}/proxies",
+            get(handlers_proxy::list).post(handlers_proxy::grant),
+        )
+        .route("/api/proxies/{id}/revoke", post(handlers_proxy::revoke))
+        .route(
+            "/api/proxy/patients/{id}/appointments",
+            get(handlers_proxy::appointments),
+        )
+}
+
 /// Everything under `/api/patients`: the person-service proxy and the PAS's own per-patient records; the merge webhooks.
 pub(super) fn people() -> Router<AppState> {
     Router::new()

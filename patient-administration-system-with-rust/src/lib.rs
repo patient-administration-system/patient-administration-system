@@ -60,6 +60,7 @@ pub mod paging;
 pub mod pifu;
 pub mod printing;
 pub mod privacy;
+pub mod proxy;
 pub mod rebooking;
 pub mod receipts;
 pub mod referrals;

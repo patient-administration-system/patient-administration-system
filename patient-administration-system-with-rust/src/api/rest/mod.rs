@@ -29,6 +29,7 @@ pub mod handlers_noshow;
 pub mod handlers_offers;
 pub mod handlers_pifu;
 pub mod handlers_print;
+pub mod handlers_proxy;
 pub mod handlers_receipts;
 pub mod handlers_referrals;
 pub mod handlers_reports;
