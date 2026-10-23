@@ -97,6 +97,22 @@ impl SchedulingService {
             return Err(Error::conflict(format!("group session {slot_id} is full")));
         }
         Self::check_owner_free(txn, &slot).await?;
+        // A slot held for someone else (IHE `$hold`, NEW-10) is not bookable until the hold is booked,
+        // released or has run out.
+        let held_for_other = txn
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT 1 AS ok FROM slot_proposals WHERE slot_id = $1 AND status = 'held' \
+                   AND expires_at > now() AND person_id <> $2 LIMIT 1",
+                [slot_id.into(), person_id.into()],
+            ))
+            .await
+            .map_err(Error::Database)?;
+        if held_for_other.is_some() {
+            return Err(Error::conflict(format!(
+                "slot {slot_id} is being held for another patient"
+            )));
+        }
         let overlapping = AppointmentRepository::find_overlapping_for_patient(
             txn,
             person_id,
@@ -120,6 +136,15 @@ impl SchedulingService {
         }
         appt.status = appt.status.try_transition_to(AppointmentStatus::Booked)?;
         let appt = AppointmentRepository::create(txn, &appt).await?;
+        // The booker's own hold or proposal for this slot is spent.
+        txn.execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE slot_proposals SET status = 'booked', appointment_id = $3 \
+             WHERE slot_id = $1 AND person_id = $2 AND status IN ('proposed','held')",
+            [slot.id.into(), person_id.into(), appt.id.into()],
+        ))
+        .await
+        .map_err(Error::Database)?;
         Self::sync_waitlist(txn, &appt, WaitlistStatus::Booked, ctx).await?;
         crate::standby::mark_refilled(txn, slot.id, &appt).await?;
         // A patient who needs an interpreter gets one requested with every booking (NEW-5).

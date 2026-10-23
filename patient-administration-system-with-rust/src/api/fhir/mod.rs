@@ -11,6 +11,7 @@
 
 pub mod capability;
 pub mod handlers;
+pub mod ihe_scheduling;
 pub mod operation_outcome;
 pub mod resources;
 pub mod routes;

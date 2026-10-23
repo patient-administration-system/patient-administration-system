@@ -35,6 +35,7 @@ mod attendance;
 mod booking;
 mod cancelling;
 mod events;
+pub mod ihe;
 
 /// How a new booking relates to a waiting-list entry (CORE-2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

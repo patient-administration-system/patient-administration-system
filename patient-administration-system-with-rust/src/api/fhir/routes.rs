@@ -54,6 +54,20 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/fhir/Location/{id}", get(super::handlers::get_location))
         .route("/fhir/Flag", get(super::handlers::search_flags))
+        // IHE ITI Scheduling is FHIR R4: its own prefix and CapabilityStatement (NEW-10).
+        .route("/fhir/r4/metadata", get(super::ihe_scheduling::metadata))
+        .route(
+            "/fhir/r4/Appointment/$find",
+            post(super::ihe_scheduling::find),
+        )
+        .route(
+            "/fhir/r4/Appointment/$hold",
+            post(super::ihe_scheduling::hold),
+        )
+        .route(
+            "/fhir/r4/Appointment/$book",
+            post(super::ihe_scheduling::book),
+        )
         .route(
             "/fhir/Observation",
             get(super::handlers::search_observations),

@@ -8341,6 +8341,86 @@
           "FHIR"
         ]
       }
+    },
+    "/fhir/r4/Appointment/$book": {
+      "post": {
+        "operationId": "book",
+        "responses": {
+          "200": {
+            "description": "FHIR R4 resource or Bundle (`application/fhir+json; fhirVersion=4.0`)"
+          },
+          "4XX": {
+            "description": "Error; an OperationOutcome"
+          },
+          "5XX": {
+            "description": "Server error; an OperationOutcome"
+          }
+        },
+        "summary": "IHE ITI-117 Book Appointment (FHIR R4)",
+        "tags": [
+          "FHIR"
+        ]
+      }
+    },
+    "/fhir/r4/Appointment/$find": {
+      "post": {
+        "operationId": "find",
+        "responses": {
+          "200": {
+            "description": "FHIR R4 resource or Bundle (`application/fhir+json; fhirVersion=4.0`)"
+          },
+          "4XX": {
+            "description": "Error; an OperationOutcome"
+          },
+          "5XX": {
+            "description": "Server error; an OperationOutcome"
+          }
+        },
+        "summary": "IHE ITI-115 Find Potential Appointments (FHIR R4)",
+        "tags": [
+          "FHIR"
+        ]
+      }
+    },
+    "/fhir/r4/Appointment/$hold": {
+      "post": {
+        "operationId": "hold",
+        "responses": {
+          "200": {
+            "description": "FHIR R4 resource or Bundle (`application/fhir+json; fhirVersion=4.0`)"
+          },
+          "4XX": {
+            "description": "Error; an OperationOutcome"
+          },
+          "5XX": {
+            "description": "Server error; an OperationOutcome"
+          }
+        },
+        "summary": "IHE ITI-116 Hold Appointment (FHIR R4)",
+        "tags": [
+          "FHIR"
+        ]
+      }
+    },
+    "/fhir/r4/metadata": {
+      "get": {
+        "operationId": "metadata",
+        "responses": {
+          "200": {
+            "description": "FHIR R4 resource or Bundle (`application/fhir+json; fhirVersion=4.0`)"
+          },
+          "4XX": {
+            "description": "Error; an OperationOutcome"
+          },
+          "5XX": {
+            "description": "Server error; an OperationOutcome"
+          }
+        },
+        "summary": "CapabilityStatement for the IHE Scheduling operations (FHIR R4)",
+        "tags": [
+          "FHIR"
+        ]
+      }
     }
   }
 }
