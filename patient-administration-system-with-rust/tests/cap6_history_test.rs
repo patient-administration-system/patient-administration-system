@@ -65,7 +65,7 @@ async fn a_patients_cancel_shows_who_when_and_why() {
         .unwrap();
     assert_eq!(r.reject_reason, None);
 
-    let h = s.history.appointment_history(a.id).await.unwrap();
+    let h = rows(s.history.appointment_history(a.id).await.unwrap());
     let cancel = find(&h, "audit", "cancel");
     assert_eq!(cancel["reason_code"], "caring", "why");
     assert_eq!(cancel["by"], "nurse.b", "who");
@@ -90,7 +90,7 @@ async fn a_cancel_without_a_barrier_says_who_ended_it_and_a_move_says_reschedule
         .cancel(a.id, CancellationReason::ProviderRequest, &staff())
         .await
         .unwrap();
-    let h = s.history.appointment_history(a.id).await.unwrap();
+    let h = rows(s.history.appointment_history(a.id).await.unwrap());
     // `cancel` uses the legacy reason: the patient-or-provider code comes from who cancelled.
     let c = find(&h, "audit", "cancel");
     assert!(
@@ -102,7 +102,7 @@ async fn a_cancel_without_a_barrier_says_who_ended_it_and_a_move_says_reschedule
     let schedule = common::new_schedule(&s2.db).await.id;
     let to = common::free_slot(&s2.db, schedule, 6).await;
     s2.scheduling.rebook(b.id, to.id, &staff()).await.unwrap();
-    let h = s2.history.appointment_history(b.id).await.unwrap();
+    let h = rows(s2.history.appointment_history(b.id).await.unwrap());
     assert_eq!(find(&h, "audit", "cancel")["reason_code"], "rescheduled");
 }
 
@@ -111,7 +111,7 @@ async fn a_cancel_without_a_barrier_says_who_ended_it_and_a_move_says_reschedule
 async fn a_miss_is_recorded_as_a_no_show_with_who_marked_it() {
     let (s, a) = booked().await;
     s.scheduling.mark_no_show(a.id, &staff()).await.unwrap();
-    let h = s.history.appointment_history(a.id).await.unwrap();
+    let h = rows(s.history.appointment_history(a.id).await.unwrap());
     let n = find(&h, "audit", "no_show");
     assert_eq!(n["reason_code"], "no_show");
     assert_eq!(n["by"], "nurse.b");
@@ -151,4 +151,9 @@ async fn a_manually_generated_letter_is_marked_manual_and_the_http_views_work() 
         serde_json::json!([]),
         "nobody has contacted them yet"
     );
+}
+
+/// The history rows as JSON, for the assertions below.
+fn rows(v: Vec<patient_administration_system::history::HistoryRow>) -> Vec<serde_json::Value> {
+    serde_json::to_value(v).unwrap().as_array().unwrap().clone()
 }

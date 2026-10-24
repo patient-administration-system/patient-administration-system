@@ -81,9 +81,13 @@ async fn moving_a_patient_updates_the_room_and_is_audited_with_where_they_came_f
     assert_eq!(m2.current_room.as_deref(), Some("Room 4"));
     assert_eq!(common::audit_count(&s.db, a.id, "moved").await, 2);
     let h = s.history.appointment_history(a.id).await.unwrap();
-    let last = h.iter().rev().find(|e| e["action"] == "moved").unwrap();
-    assert_eq!(last["by"], "nurse.b");
-    assert_eq!(last["reason_code"], "moved_room");
+    let last = h
+        .iter()
+        .rev()
+        .find(|e| e.action.as_deref() == Some("moved"))
+        .unwrap();
+    assert_eq!(last.by.as_deref(), Some("nurse.b"));
+    assert_eq!(last.reason_code.as_deref(), Some("moved_room"));
 
     // An empty room clears it; a bad one is refused and changes nothing.
     assert_eq!(

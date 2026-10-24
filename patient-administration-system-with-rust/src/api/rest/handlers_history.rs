@@ -2,12 +2,10 @@
 
 use axum::extract::{Path, Query, State};
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::ok;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, ok_page};
 
 /// `GET /api/appointments/{id}/history`: who did what to this appointment, when and why, with the messages
 /// sent about it and the patient's replies, oldest first.
@@ -17,7 +15,7 @@ use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::history::HistoryRow>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -27,7 +25,7 @@ pub async fn appointment_history(
     Path(id): Path<Uuid>,
 ) -> HandlerResult {
     match state.history.appointment_history(id).await {
-        Ok(v) => ok(Value::Array(v)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -45,7 +43,7 @@ pub struct LogQuery {
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`"), LogQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::history::HistoryRow>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

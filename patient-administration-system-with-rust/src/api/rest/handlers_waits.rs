@@ -57,6 +57,16 @@ pub struct DueQuery {
     pub repeat_days: Option<i64>,
 }
 
+/// One long waiter nobody has asked recently whether they still need the appointment.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct DueCheck {
+    pub pathway_id: Uuid,
+    pub person_id: Uuid,
+    pub target_service: String,
+    pub weeks_waited: u32,
+    pub last_check_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
 /// `GET /api/pathways/due-check?weeks=26&repeat_days=90`: long waiters nobody has asked recently whether
 /// they still need this, longest first.
 #[utoipa::path(
@@ -65,7 +75,7 @@ pub struct DueQuery {
     tag = "Pathways",
     params(DueQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<DueCheck>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -75,23 +85,17 @@ pub async fn due_for_check(
     Query(q): Query<DueQuery>,
 ) -> HandlerResult {
     match state.waits.due_for_check(q.weeks, q.repeat_days).await {
-        Ok(v) => {
-            let mut rows = Vec::with_capacity(v.len());
-            for (person_id, p) in v {
-                match serde_json::to_value(p) {
-                    Ok(mut j) => {
-                        j["person_id"] = serde_json::json!(person_id);
-                        rows.push(j);
-                    }
-                    Err(e) => {
-                        return error_to_response(crate::Error::internal(format!(
-                            "response could not be serialized: {e}"
-                        )));
-                    }
-                }
-            }
-            ok(Value::Array(rows))
-        }
+        Ok(v) => ok_json(
+            v.into_iter()
+                .map(|(person_id, p)| DueCheck {
+                    pathway_id: p.pathway_id,
+                    person_id,
+                    target_service: p.target_service,
+                    weeks_waited: p.weeks_waited,
+                    last_check_at: p.last_check_at,
+                })
+                .collect::<Vec<_>>(),
+        ),
         Err(e) => error_to_response(e),
     }
 }

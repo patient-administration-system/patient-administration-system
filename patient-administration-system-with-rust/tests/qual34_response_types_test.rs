@@ -248,3 +248,79 @@ async fn the_tolerance_and_letter_template_routes_send_the_fields_they_declare()
         assert_fields_match_schema("LetterTemplate", x);
     }
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_history_due_check_adjustment_and_noshow_routes_send_the_types_they_declare() {
+    use patient_administration_system::api::rest::handlers_adjustments::AppointmentAdjustments;
+    use patient_administration_system::api::rest::handlers_waits::DueCheck;
+    use patient_administration_system::history::HistoryRow;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let person = Uuid::new_v4();
+    let sched = common::new_schedule(&state.db).await;
+    let slot = common::free_slot(&state.db, sched.id, 18).await;
+    let appt: Appointment = call(
+        &app,
+        "POST",
+        &format!("/api/slots/{}/book", slot.id),
+        Some(json!({"person_id": person})),
+    )
+    .await;
+
+    let history: Vec<HistoryRow> = call(
+        &app,
+        "GET",
+        &format!("/api/appointments/{}/history", appt.id),
+        None,
+    )
+    .await;
+    assert!(history.iter().any(|h| h.kind.as_deref() == Some("audit")));
+    let _log: Vec<HistoryRow> = call(
+        &app,
+        "GET",
+        &format!("/api/patients/{person}/contact-log"),
+        None,
+    )
+    .await;
+
+    let service = format!("svc-{}", Uuid::new_v4());
+    let pathway: RTTPathway = call(
+        &app,
+        "POST",
+        "/api/rtt/start",
+        Some(json!({"person_id": person, "target_service": service})),
+    )
+    .await;
+    let due: Vec<DueCheck> = call(
+        &app,
+        "GET",
+        "/api/pathways/due-check?weeks=0&repeat_days=1",
+        None,
+    )
+    .await;
+    assert!(
+        due.iter()
+            .any(|d| d.pathway_id == pathway.id && d.person_id == person)
+    );
+
+    let _adjustments: Vec<AppointmentAdjustments> = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/reasonable-adjustments/for-appointments?ids={}",
+            appt.id
+        ),
+        None,
+    )
+    .await;
+    let shown: Value = call(
+        &app,
+        "GET",
+        &format!("/api/noshow/for-appointments?ids={}", appt.id),
+        None,
+    )
+    .await;
+    assert_fields_match_schema("ShownAssessments", &shown);
+}

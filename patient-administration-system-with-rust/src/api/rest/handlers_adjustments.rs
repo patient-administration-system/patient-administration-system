@@ -133,6 +133,21 @@ pub struct IdsQuery {
     pub ids: String,
 }
 
+/// One reasonable adjustment, with its category and the words staff see.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct Adjustment {
+    pub code: String,
+    pub category: String,
+    pub display: String,
+}
+
+/// The live adjustments of one appointment's patient.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct AppointmentAdjustments {
+    pub appointment_id: Uuid,
+    pub adjustments: Vec<Adjustment>,
+}
+
 /// `GET /api/reasonable-adjustments/for-appointments?ids=a,b,c`: the live adjustments of each appointment's
 /// patient, for the staff schedule: `[{appointment_id, adjustments: [{code, category, display}]}]`, only for
 /// appointments whose patient has any.
@@ -142,7 +157,7 @@ pub struct IdsQuery {
     tag = "Patients",
     params(IdsQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<AppointmentAdjustments>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -161,23 +176,25 @@ pub async fn for_appointments(
         .await
     {
         Ok(pairs) => {
-            let mut out: Vec<serde_json::Value> = Vec::new();
-            let mut last: Option<Uuid> = None;
+            let mut out: Vec<AppointmentAdjustments> = Vec::new();
             for (appointment_id, code) in pairs {
                 let (category, display) = crate::adjustments::lookup(&code).unwrap_or(("", ""));
-                let item =
-                    serde_json::json!({ "code": code, "category": category, "display": display });
-                if last == Some(appointment_id)
-                    && let Some(o) = out.last_mut()
-                    && let Some(list) = o["adjustments"].as_array_mut()
-                {
-                    list.push(item);
-                } else {
-                    out.push(serde_json::json!({ "appointment_id": appointment_id, "adjustments": [item] }));
-                    last = Some(appointment_id);
+                let item = Adjustment {
+                    code,
+                    category: category.to_string(),
+                    display: display.to_string(),
+                };
+                match out.last_mut() {
+                    Some(last) if last.appointment_id == appointment_id => {
+                        last.adjustments.push(item)
+                    }
+                    _ => out.push(AppointmentAdjustments {
+                        appointment_id,
+                        adjustments: vec![item],
+                    }),
                 }
             }
-            ok(serde_json::Value::Array(out))
+            ok_json(out)
         }
         Err(e) => error_to_response(e),
     }

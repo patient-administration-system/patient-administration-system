@@ -90,7 +90,7 @@ pub struct Inputs {
     pub hour: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Factor {
     pub name: String,
     /// What was measured, in words a front-desk member can read.

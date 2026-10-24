@@ -48,7 +48,7 @@ pub const MODEL_VERSION: &str = "weighted-sum-1";
 const FAIRNESS_VALID_DAYS: i64 = 180;
 const SAFETY_VALID_DAYS: i64 = 365;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Band {
     Low,
@@ -74,7 +74,7 @@ pub struct Status {
     pub age_in_use: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct Shown {
     pub appointment_id: Uuid,
     /// For the server's own use (tests, the audit); never serialised.

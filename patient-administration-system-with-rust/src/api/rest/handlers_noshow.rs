@@ -148,6 +148,13 @@ pub struct IdsQuery {
     pub ids: String,
 }
 
+/// The stored no-show assessments for some appointments. `active` is false while the score is switched off.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct ShownAssessments {
+    pub active: bool,
+    pub items: Vec<crate::noshow::Shown>,
+}
+
 /// `GET /api/noshow/for-appointments?ids=a,b,c`: the stored assessments for many appointments at once, for a
 /// schedule view. `{"active": false, "items": []}` while the score is off; never an error for that.
 #[utoipa::path(
@@ -156,7 +163,7 @@ pub struct IdsQuery {
     tag = "Noshow",
     params(IdsQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<ShownAssessments>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -171,7 +178,7 @@ pub async fn for_appointments(
         .filter_map(|s| s.trim().parse().ok())
         .collect();
     match state.noshow.for_appointments(&ids).await {
-        Ok((active, items)) => ok(serde_json::json!({ "active": active, "items": items })),
+        Ok((active, items)) => ok_json(ShownAssessments { active, items }),
         Err(e) => error_to_response(e),
     }
 }

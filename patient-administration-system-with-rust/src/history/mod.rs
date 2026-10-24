@@ -13,7 +13,7 @@
 
 use crate::db::row::RowExt;
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
-use serde_json::{Value, json};
+use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{Error, Result};
@@ -22,21 +22,36 @@ pub struct HistoryService {
     db: DatabaseConnection,
 }
 
-fn rows_to_json(rows: &[sea_orm::QueryResult]) -> Result<Vec<Value>> {
+/// One line of an appointment's history or a patient's contact log: when, what kind of thing it was, what
+/// happened, who did it, why, and a little context. Never the text of a message.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct HistoryRow {
+    pub at: chrono::DateTime<chrono::Utc>,
+    /// `audit`, `message`, `reply`, `text` or `reminder_step`.
+    pub kind: Option<String>,
+    pub action: Option<String>,
+    pub by: Option<String>,
+    pub reason_code: Option<String>,
+    #[schema(value_type = Option<Object>)]
+    pub context: Option<Value>,
+}
+
+fn rows_to_history(rows: &[sea_orm::QueryResult]) -> Result<Vec<HistoryRow>> {
     rows.iter()
         .map(|r| {
-            let at: chrono::DateTime<chrono::Utc> = r.col("at")?;
             let s = |c: &str| -> Result<Option<String>> {
                 r.try_get::<Option<String>>("", c).map_err(Error::Database)
             };
-            Ok(json!({
-                "at": at,
-                "kind": s("kind")?,
-                "action": s("action")?,
-                "by": s("by_user")?,
-                "reason_code": s("reason_code")?,
-                "context": r.try_get::<Option<Value>>("", "context").map_err(Error::Database)?,
-            }))
+            Ok(HistoryRow {
+                at: r.col("at")?,
+                kind: s("kind")?,
+                action: s("action")?,
+                by: s("by_user")?,
+                reason_code: s("reason_code")?,
+                context: r
+                    .try_get::<Option<Value>>("", "context")
+                    .map_err(Error::Database)?,
+            })
         })
         .collect()
 }
@@ -47,7 +62,7 @@ impl HistoryService {
     }
 
     /// Everything that happened to one appointment, oldest first.
-    pub async fn appointment_history(&self, appointment_id: Uuid) -> Result<Vec<Value>> {
+    pub async fn appointment_history(&self, appointment_id: Uuid) -> Result<Vec<HistoryRow>> {
         let exists = self
             .db
             .query_one_raw(Statement::from_sql_and_values(
@@ -86,11 +101,11 @@ impl HistoryService {
             ))
             .await
             .map_err(Error::Database)?;
-        rows_to_json(&rows)
+        rows_to_history(&rows)
     }
 
     /// Every message sent to a patient and every text received from them, newest first.
-    pub async fn contact_log(&self, person_id: Uuid, limit: i64) -> Result<Vec<Value>> {
+    pub async fn contact_log(&self, person_id: Uuid, limit: i64) -> Result<Vec<HistoryRow>> {
         let rows = self
             .db
             .query_all_raw(Statement::from_sql_and_values(
@@ -110,6 +125,6 @@ impl HistoryService {
             ))
             .await
             .map_err(Error::Database)?;
-        rows_to_json(&rows)
+        rows_to_history(&rows)
     }
 }

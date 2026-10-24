@@ -742,20 +742,14 @@ async fn every_reminder_records_why_it_was_sent_and_the_history_shows_it() {
     }
     // The appointment's history lists the message with its trigger and the step in the log.
     let h = w.s.history.appointment_history(w.appt.id).await.unwrap();
-    assert!(
-        h.iter()
-            .any(|e| e["kind"] == "message" && e["reason_code"] == "reminder_ladder:main")
-    );
-    assert!(
-        h.iter()
-            .any(|e| e["kind"] == "reminder_step" && e["action"] == "reminder_step_main")
-    );
+    assert!(h.iter().any(|e| e.kind.as_deref() == Some("message")
+        && e.reason_code.as_deref() == Some("reminder_ladder:main")));
+    assert!(h.iter().any(|e| e.kind.as_deref() == Some("reminder_step")
+        && e.action.as_deref() == Some("reminder_step_main")));
     // And the patient's contact log says the same, without the text of the message.
     let log = w.s.history.contact_log(w.person, 50).await.unwrap();
-    assert!(
-        log.iter()
-            .any(|e| e["kind"] == "message" && e["reason_code"] == "reminder_ladder:main")
-    );
+    assert!(log.iter().any(|e| e.kind.as_deref() == Some("message")
+        && e.reason_code.as_deref() == Some("reminder_ladder:main")));
     assert!(!serde_json::to_string(&log).unwrap().contains("Can't come"));
 }
 
