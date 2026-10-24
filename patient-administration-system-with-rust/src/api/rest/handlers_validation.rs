@@ -87,6 +87,7 @@ pub async fn start(
     get,
     path = "/api/validation-campaigns",
     tag = "Validation campaigns",
+    params(LimitQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -135,7 +136,7 @@ pub async fn get(State(state): State<AppState>, Path(id): Path<Uuid>) -> Handler
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ItemsQuery {
     pub state: Option<String>,
     /// `letter_due` or `decision_due`: what a person can act on now.
@@ -148,7 +149,7 @@ pub struct ItemsQuery {
     get,
     path = "/api/validation-campaigns/{id}/items",
     tag = "Validation campaigns",
-    params(("id" = String, Path, description = "Path parameter `id`")),
+    params(("id" = String, Path, description = "Path parameter `id`"), ItemsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -381,7 +382,7 @@ pub async fn reinstate(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ReportQuery {
     pub from: Option<DateTime<Utc>>,
     pub to: Option<DateTime<Utc>>,
@@ -393,6 +394,7 @@ pub struct ReportQuery {
     get,
     path = "/api/reports/validation-removals",
     tag = "Reports",
+    params(ReportQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

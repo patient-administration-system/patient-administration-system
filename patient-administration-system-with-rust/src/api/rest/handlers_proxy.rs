@@ -71,7 +71,7 @@ pub async fn grant(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListQuery {
     /// Include expired and revoked authorities (default false).
     pub include_inactive: Option<bool>,
@@ -83,7 +83,7 @@ pub struct ListQuery {
     get,
     path = "/api/patients/{id}/proxies",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`")),
+    params(("id" = String, Path, description = "Path parameter `id`"), ListQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -151,7 +151,7 @@ pub async fn revoke(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ActingQuery {
     /// The authenticated proxy, as the portal knows them.
     pub proxy_person_id: Uuid,
@@ -177,7 +177,7 @@ async fn appointment(state: &AppState, id: Uuid) -> crate::Result<Appointment> {
     get,
     path = "/api/proxy/patients/{id}/appointments",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`")),
+    params(("id" = String, Path, description = "Path parameter `id`"), ActingQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

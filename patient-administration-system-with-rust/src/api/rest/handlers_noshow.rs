@@ -90,7 +90,7 @@ pub async fn record_review(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct AuditQuery {
     pub days: Option<i64>,
     pub k: Option<i64>,
@@ -102,6 +102,7 @@ pub struct AuditQuery {
     get,
     path = "/api/noshow/fairness-audit",
     tag = "Noshow",
+    params(AuditQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -141,7 +142,7 @@ pub async fn for_appointment(State(state): State<AppState>, Path(id): Path<Uuid>
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct IdsQuery {
     /// Comma-separated appointment ids, at most 500.
     pub ids: String,
@@ -153,6 +154,7 @@ pub struct IdsQuery {
     get,
     path = "/api/noshow/for-appointments",
     tag = "Noshow",
+    params(IdsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -192,7 +194,7 @@ pub async fn recalculate(State(state): State<AppState>) -> HandlerResult {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListQuery {
     pub limit: Option<i64>,
 }
@@ -204,6 +206,7 @@ pub struct ListQuery {
     get,
     path = "/api/noshow/priority-list",
     tag = "Noshow",
+    params(ListQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -296,6 +299,7 @@ pub async fn set_stage(
     get,
     path = "/api/noshow/evaluation",
     tag = "Noshow",
+    params(AuditQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

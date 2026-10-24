@@ -70,6 +70,7 @@ pub async fn set_priority(
     get,
     path = "/api/clinical-priority-reviews/overdue",
     tag = "Waitlist",
+    params(LimitQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

@@ -92,7 +92,7 @@ pub async fn set(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ScopeQuery {
     pub service: Option<String>,
     pub ward: Option<String>,
@@ -104,7 +104,7 @@ pub struct ScopeQuery {
     delete,
     path = "/api/tolerances/{metric}",
     tag = "Tolerances",
-    params(("metric" = String, Path, description = "Path parameter `metric`")),
+    params(("metric" = String, Path, description = "Path parameter `metric`"), ScopeQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -131,7 +131,7 @@ pub async fn reset(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct StatusQuery {
     pub days: Option<i64>,
 }
@@ -141,6 +141,7 @@ pub struct StatusQuery {
     get,
     path = "/api/tolerances/status",
     tag = "Tolerances",
+    params(StatusQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -160,6 +161,7 @@ pub async fn status(State(state): State<AppState>, Query(q): Query<StatusQuery>)
     post,
     path = "/api/tolerances/evaluate",
     tag = "Tolerances",
+    params(StatusQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -176,7 +178,7 @@ pub async fn evaluate(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct AlertsQuery {
     /// `true` for the alerts still open; the default is all of them.
     pub open: Option<bool>,
@@ -187,6 +189,7 @@ pub struct AlertsQuery {
     get,
     path = "/api/tolerance-alerts",
     tag = "Tolerance alerts",
+    params(AlertsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

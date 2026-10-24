@@ -101,7 +101,7 @@ pub async fn remove_service(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct PendingQuery {
     pub limit: Option<i64>,
 }
@@ -111,6 +111,7 @@ pub struct PendingQuery {
     get,
     path = "/api/conversions/pending",
     tag = "Conversions",
+    params(PendingQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

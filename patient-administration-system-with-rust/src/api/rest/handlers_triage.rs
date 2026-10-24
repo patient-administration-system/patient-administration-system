@@ -140,7 +140,7 @@ pub async fn first_contact(
     )
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct WindowQuery {
     /// Start of the window (inclusive); defaults to 24 hours before `to`.
     pub from: Option<DateTime<Utc>>,
@@ -154,6 +154,7 @@ pub struct WindowQuery {
     get,
     path = "/api/triage/waits",
     tag = "Encounters",
+    params(WindowQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

@@ -32,7 +32,7 @@ pub async fn appointment_history(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct LogQuery {
     pub limit: Option<i64>,
 }
@@ -43,7 +43,7 @@ pub struct LogQuery {
     get,
     path = "/api/patients/{id}/contact-log",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`")),
+    params(("id" = String, Path, description = "Path parameter `id`"), LogQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

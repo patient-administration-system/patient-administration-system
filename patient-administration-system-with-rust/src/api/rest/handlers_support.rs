@@ -58,7 +58,7 @@ pub async fn add(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct OpenQuery {
     pub limit: Option<i64>,
 }
@@ -68,6 +68,7 @@ pub struct OpenQuery {
     get,
     path = "/api/support-flags/open",
     tag = "Support flags",
+    params(OpenQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

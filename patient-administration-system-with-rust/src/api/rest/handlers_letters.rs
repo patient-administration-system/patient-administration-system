@@ -193,7 +193,7 @@ pub async fn list_templates(State(state): State<AppState>) -> HandlerResult {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, utoipa::IntoParams)]
 pub struct PatientLettersQuery {
     /// `portal`, `email`, ... — omit for every channel.
     pub channel: Option<String>,
@@ -205,7 +205,7 @@ pub struct PatientLettersQuery {
     get,
     path = "/api/patients/{id}/letters",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`")),
+    params(("id" = String, Path, description = "Path parameter `id`"), PatientLettersQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

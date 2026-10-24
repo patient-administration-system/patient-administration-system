@@ -104,7 +104,7 @@ pub async fn verify_mobile(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct StaleQuery {
     pub older_than_days: Option<i64>,
     pub limit: Option<i64>,
@@ -116,6 +116,7 @@ pub struct StaleQuery {
     get,
     path = "/api/communication-profiles/stale",
     tag = "Communication profiles",
+    params(StaleQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

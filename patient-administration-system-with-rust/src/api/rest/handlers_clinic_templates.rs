@@ -56,7 +56,7 @@ pub async fn create(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListQuery {
     pub schedule_id: Option<Uuid>,
 }
@@ -66,6 +66,7 @@ pub struct ListQuery {
     get,
     path = "/api/session-templates",
     tag = "Scheduling",
+    params(ListQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -253,7 +254,7 @@ pub async fn ring_fence(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ReportQuery {
     pub service_type: String,
     /// Start of the forward window; defaults to now.
@@ -271,6 +272,7 @@ pub struct ReportQuery {
     get,
     path = "/api/capacity/report",
     tag = "Scheduling",
+    params(ReportQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

@@ -13,7 +13,7 @@ use crate::api::rest::AppState;
 use crate::api::rest::handlers::{error_to_response, ok_json};
 use crate::reports::GroupBy;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ActivityQuery {
     pub from: Option<DateTime<Utc>>,
     pub to: Option<DateTime<Utc>>,
@@ -29,6 +29,7 @@ pub struct ActivityQuery {
     get,
     path = "/api/reports/clinic-activity",
     tag = "Reports",
+    params(ActivityQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

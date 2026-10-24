@@ -8,12 +8,12 @@ use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
 use crate::db::repositories::audit::AuditLogRepository;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct LimitQuery {
     pub limit: Option<i64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct EntityQuery {
     pub entity_type: String,
     pub entity_id: Uuid,
@@ -25,6 +25,7 @@ pub struct EntityQuery {
     get,
     path = "/api/audit/recent",
     tag = "Audit",
+    params(LimitQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -51,6 +52,7 @@ pub async fn list_recent(
     get,
     path = "/api/audit/entity",
     tag = "Audit",
+    params(EntityQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -81,7 +83,7 @@ pub async fn list_for_entity(
     get,
     path = "/api/patients/{id}/audit/local",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`")),
+    params(("id" = String, Path, description = "Path parameter `id`"), LimitQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -104,7 +106,7 @@ pub async fn list_local_for_person(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct BalpQuery {
     /// Start of the window (inclusive); defaults to 24 hours before `to`.
     pub from: Option<chrono::DateTime<chrono::Utc>>,
@@ -123,6 +125,7 @@ pub struct BalpQuery {
     get,
     path = "/api/audit/balp",
     tag = "Audit",
+    params(BalpQuery),
     responses(
         (status = 200, description = "A FHIR R4 Bundle of AuditEvent (`application/fhir+json; fhirVersion=4.0`)"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

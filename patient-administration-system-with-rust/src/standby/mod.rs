@@ -86,7 +86,7 @@ impl StandbyInput {
 }
 
 /// Optional tag filters a coordinator can apply to candidates.
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, utoipa::IntoParams)]
 pub struct CandidateFilter {
     pub language: Option<String>,
     pub needs_transport: Option<bool>,

@@ -13,7 +13,7 @@ use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct QueueQuery {
     pub limit: Option<i64>,
 }
@@ -23,6 +23,7 @@ pub struct QueueQuery {
     get,
     path = "/api/print-queue",
     tag = "Print queue",
+    params(QueueQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

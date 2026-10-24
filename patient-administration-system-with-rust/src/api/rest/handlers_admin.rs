@@ -16,7 +16,7 @@ use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::outbox::{DeadLetterRepository, OutboxRepository};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct LimitQuery {
     pub limit: Option<i64>,
 }
@@ -26,6 +26,7 @@ pub struct LimitQuery {
     get,
     path = "/api/admin/outbox/unpublished",
     tag = "Admin",
+    params(LimitQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -52,6 +53,7 @@ pub async fn list_unpublished_outbox(
     get,
     path = "/api/admin/outbox/dead-letters",
     tag = "Admin",
+    params(LimitQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

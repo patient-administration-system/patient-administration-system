@@ -23,7 +23,7 @@ pub struct WaitlistAddBody {
     pub referral_id: Option<Uuid>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListByServiceQuery {
     pub service: String,
 }
@@ -104,6 +104,7 @@ pub async fn remove_from_waitlist(
     get,
     path = "/api/waitlist",
     tag = "Waitlist",
+    params(ListByServiceQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

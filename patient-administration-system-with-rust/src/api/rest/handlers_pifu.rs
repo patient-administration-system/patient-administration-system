@@ -107,7 +107,7 @@ pub async fn request(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct RequestsQuery {
     /// `booking` (default) or `person`.
     pub route: Option<String>,
@@ -120,6 +120,7 @@ pub struct RequestsQuery {
     get,
     path = "/api/pifu/requests",
     tag = "Scheduling",
+    params(RequestsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -187,7 +188,7 @@ pub async fn handle(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ReviewsQuery {
     pub limit: Option<i64>,
 }
@@ -198,6 +199,7 @@ pub struct ReviewsQuery {
     get,
     path = "/api/pifu/due-reviews",
     tag = "Scheduling",
+    params(ReviewsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -280,7 +282,7 @@ pub async fn review(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct UptakeQuery {
     /// The smallest cell shown; a caller may raise it above the configured minimum, never lower it.
     pub k: Option<i64>,
@@ -291,6 +293,7 @@ pub struct UptakeQuery {
     get,
     path = "/api/reports/pifu",
     tag = "Reports",
+    params(UptakeQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

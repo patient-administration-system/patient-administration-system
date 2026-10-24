@@ -38,7 +38,7 @@ pub async fn add_standby(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListStandbyQuery {
     pub service_type: Option<String>,
 }
@@ -48,6 +48,7 @@ pub struct ListStandbyQuery {
     get,
     path = "/api/standby",
     tag = "Standby",
+    params(ListStandbyQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -126,7 +127,7 @@ pub async fn book_from_standby(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ReleasesQuery {
     pub from: Option<DateTime<Utc>>,
     pub to: Option<DateTime<Utc>>,
@@ -140,6 +141,7 @@ pub struct ReleasesQuery {
     get,
     path = "/api/slot-releases",
     tag = "Slot releases",
+    params(ReleasesQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -166,7 +168,7 @@ pub async fn list_releases(
     get,
     path = "/api/slot-releases/{id}/candidates",
     tag = "Slot releases",
-    params(("id" = String, Path, description = "Path parameter `id`")),
+    params(("id" = String, Path, description = "Path parameter `id`"), CandidateFilter),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

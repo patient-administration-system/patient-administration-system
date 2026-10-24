@@ -101,7 +101,7 @@ pub async fn confirm(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct UnconfirmedQuery {
     /// How far ahead to look, in hours (1 to 336, default 36: tomorrow's clinics, checked today).
     pub within_hours: Option<i64>,
@@ -114,6 +114,7 @@ pub struct UnconfirmedQuery {
     get,
     path = "/api/interpreter-requests/unconfirmed",
     tag = "Scheduling",
+    params(UnconfirmedQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

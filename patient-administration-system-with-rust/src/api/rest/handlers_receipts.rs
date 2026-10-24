@@ -85,7 +85,7 @@ pub async fn letter_receipts(State(state): State<AppState>, Path(id): Path<Uuid>
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ProblemsQuery {
     pub since_days: Option<i64>,
     pub limit: Option<i64>,
@@ -96,6 +96,7 @@ pub struct ProblemsQuery {
     get,
     path = "/api/contact-problems",
     tag = "Contact problems",
+    params(ProblemsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

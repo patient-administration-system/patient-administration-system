@@ -51,7 +51,7 @@ pub async fn record_review(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct DueQuery {
     /// The review period in months (default 12).
     pub months: Option<u32>,
@@ -65,6 +65,7 @@ pub struct DueQuery {
     get,
     path = "/api/communication-needs/due-review",
     tag = "Patients",
+    params(DueQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

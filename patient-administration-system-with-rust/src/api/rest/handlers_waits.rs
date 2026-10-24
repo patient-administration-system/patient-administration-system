@@ -51,7 +51,7 @@ pub async fn patient_waits(State(state): State<AppState>, Path(id): Path<Uuid>) 
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct DueQuery {
     pub weeks: Option<i64>,
     pub repeat_days: Option<i64>,
@@ -63,6 +63,7 @@ pub struct DueQuery {
     get,
     path = "/api/pathways/due-check",
     tag = "Pathways",
+    params(DueQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

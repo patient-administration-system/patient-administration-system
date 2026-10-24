@@ -139,6 +139,7 @@ pub async fn post_link_rebook(
     get,
     path = "/api/staff-call-tasks/open",
     tag = "Staff call tasks",
+    params(crate::api::rest::handlers::LimitQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

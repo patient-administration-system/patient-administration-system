@@ -72,7 +72,7 @@ pub async fn create(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListQuery {
     pub status: Option<String>,
     pub service: Option<String>,
@@ -84,6 +84,7 @@ pub struct ListQuery {
     get,
     path = "/api/referrals",
     tag = "Referrals",
+    params(ListQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

@@ -2772,7 +2772,7 @@
     "contact": {
       "name": "joel@joelparkerhenderson.com"
     },
-    "description": "Administrative (not clinical) API for appointments, waiting lists, reminders and replies, transport and virtual-visit requests, analytics and tolerances. Every REST response is an `ApiResponse` envelope. Identity and workforce are held by person-service and worker-service; /api/patients and /api/practitioners proxy them. Request bodies of the REST routes are described (QUAL-34); typed responses are not yet.",
+    "description": "Administrative (not clinical) API for appointments, waiting lists, reminders and replies, transport and virtual-visit requests, analytics and tolerances. Every REST response is an `ApiResponse` envelope. Identity and workforce are held by person-service and worker-service; /api/patients and /api/practitioners proxy them. Request bodies and query parameters of the REST routes are described (QUAL-34); typed responses are not yet.",
     "license": {
       "identifier": "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only",
       "name": "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only"
@@ -2917,6 +2917,20 @@
     "/api/admin/outbox/dead-letters": {
       "get": {
         "operationId": "list_dead_letters",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -2978,6 +2992,20 @@
     "/api/admin/outbox/unpublished": {
       "get": {
         "operationId": "list_unpublished_outbox",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -3535,6 +3563,66 @@
     "/api/analytics/appointment-outcomes": {
       "get": {
         "operationId": "outcomes",
+        "parameters": [
+          {
+            "description": "Comma-separated: specialty, language, age_band, deprivation_quintile, time_of_day, outcome, notice.",
+            "in": "path",
+            "name": "group_by",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "A larger `k` than the configured minimum; a smaller one is ignored.",
+            "in": "path",
+            "name": "k",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "`csv` for CSV; JSON otherwise.",
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -3560,6 +3648,20 @@
     "/api/analytics/demographics/refresh": {
       "post": {
         "operationId": "refresh_demographics",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -3631,6 +3733,25 @@
     "/api/analytics/deprivation-lookup": {
       "put": {
         "operationId": "load_deprivation_lookup",
+        "parameters": [
+          {
+            "description": "Which dataset the file was built from, for example `WIMD 2019 + ONSPD Aug 2026`.",
+            "in": "path",
+            "name": "dataset",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "loaded_by",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -3656,6 +3777,64 @@
     "/api/analytics/refill-rates": {
       "get": {
         "operationId": "refill_rates",
+        "parameters": [
+          {
+            "description": "Comma-separated: notice_band, release_class, specialty, language, age_band, deprivation_quintile.",
+            "in": "path",
+            "name": "group_by",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "k",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -3788,6 +3967,26 @@
     "/api/appointments": {
       "get": {
         "operationId": "list_appointments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -4366,6 +4565,70 @@
     "/api/audit/balp": {
       "get": {
         "operationId": "export_balp",
+        "parameters": [
+          {
+            "description": "Start of the window (inclusive); defaults to 24 hours before `to`.",
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "End of the window (exclusive); defaults to now.",
+            "in": "path",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "entity_type",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "At most 500; default 100.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "A FHIR R4 Bundle of AuditEvent (`application/fhir+json; fhirVersion=4.0`)"
@@ -4391,6 +4654,37 @@
     "/api/audit/entity": {
       "get": {
         "operationId": "list_for_entity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -4416,6 +4710,20 @@
     "/api/audit/recent": {
       "get": {
         "operationId": "list_recent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -4558,6 +4866,55 @@
     "/api/capacity/report": {
       "get": {
         "operationId": "report",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service_type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Start of the forward window; defaults to now.",
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "End of the forward window; defaults to 28 days after `from`.",
+            "in": "path",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "How far back demand and non-attendance are measured; defaults to 84 days.",
+            "in": "path",
+            "name": "lookback_days",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -4618,6 +4975,20 @@
     "/api/clinical-priority-reviews/overdue": {
       "get": {
         "operationId": "overdue",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -4643,6 +5014,35 @@
     "/api/communication-needs/due-review": {
       "get": {
         "operationId": "due_review",
+        "parameters": [
+          {
+            "description": "The review period in months (default 12).",
+            "in": "path",
+            "name": "months",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "How many to return (1 to 500, default 100); `meta.truncated` says when there were more.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -4668,6 +5068,32 @@
     "/api/communication-profiles/stale": {
       "get": {
         "operationId": "stale_profiles",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "older_than_days",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -4729,6 +5155,32 @@
     "/api/contact-problems": {
       "get": {
         "operationId": "contact_problems",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "since_days",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -4800,6 +5252,20 @@
     "/api/conversions/pending": {
       "get": {
         "operationId": "pending",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -5285,6 +5751,18 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "path",
+            "name": "k",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -5584,6 +6062,20 @@
     "/api/follow-up-tasks/open": {
       "get": {
         "operationId": "open_tasks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -6335,6 +6827,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "path",
+            "name": "revoked_by",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6449,6 +6949,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6476,6 +6985,20 @@
     "/api/inbound-texts/open": {
       "get": {
         "operationId": "open_texts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -6537,6 +7060,33 @@
     "/api/interpreter-requests/unconfirmed": {
       "get": {
         "operationId": "unconfirmed",
+        "parameters": [
+          {
+            "description": "How far ahead to look, in hours (1 to 336, default 36: tomorrow's clinics, checked today).",
+            "in": "path",
+            "name": "within_hours",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -7145,6 +7695,32 @@
     "/api/noshow/evaluation": {
       "get": {
         "operationId": "evaluation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "days",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "k",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -7170,6 +7746,32 @@
     "/api/noshow/fairness-audit": {
       "get": {
         "operationId": "fairness_audit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "days",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "k",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -7195,6 +7797,17 @@
     "/api/noshow/for-appointments": {
       "get": {
         "operationId": "for_appointments",
+        "parameters": [
+          {
+            "description": "Comma-separated appointment ids, at most 500.",
+            "in": "path",
+            "name": "ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -7245,6 +7858,20 @@
     "/api/noshow/priority-list": {
       "get": {
         "operationId": "priority_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -7507,6 +8134,32 @@
     "/api/pathways/due-check": {
       "get": {
         "operationId": "due_for_check",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "weeks",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "repeat_days",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -7997,6 +8650,18 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -8410,6 +9075,18 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -8600,6 +9277,18 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "`portal`, `email`, ... — omit for every channel.",
+            "in": "path",
+            "name": "channel",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -8718,6 +9407,30 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Include expired and revoked authorities (default false).",
+            "in": "path",
+            "name": "include_inactive",
+            "required": true,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -8797,6 +9510,30 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "description": "Include ended adjustments (default false: what staff need to act on).",
+            "in": "path",
+            "name": "include_ended",
+            "required": true,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
             }
           }
         ],
@@ -9180,6 +9917,20 @@
     "/api/pifu/due-reviews": {
       "get": {
         "operationId": "due_reviews",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9205,6 +9956,32 @@
     "/api/pifu/requests": {
       "get": {
         "operationId": "requests",
+        "parameters": [
+          {
+            "description": "`booking` (default) or `person`.",
+            "in": "path",
+            "name": "route",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9734,6 +10511,20 @@
     "/api/print-queue": {
       "get": {
         "operationId": "queue",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9906,6 +10697,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "The authenticated proxy, as the portal knows them.",
+            "in": "path",
+            "name": "proxy_person_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -9955,6 +10756,17 @@
     "/api/reasonable-adjustments/for-appointments": {
       "get": {
         "operationId": "for_appointments",
+        "parameters": [
+          {
+            "description": "Comma-separated appointment ids, at most 500.",
+            "in": "path",
+            "name": "ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -10026,6 +10838,42 @@
     "/api/referrals": {
       "get": {
         "operationId": "list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "status",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -10431,6 +11279,56 @@
     "/api/reports/clinic-activity": {
       "get": {
         "operationId": "clinic_activity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "`day` (default) or `schedule`.",
+            "in": "path",
+            "name": "group_by",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "`csv` for CSV; JSON otherwise.",
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -10456,6 +11354,21 @@
     "/api/reports/follow-up-delay": {
       "get": {
         "operationId": "delay_report",
+        "parameters": [
+          {
+            "description": "The smallest cell shown; a caller may raise it above the configured minimum, never lower it.",
+            "in": "path",
+            "name": "k",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -10481,6 +11394,21 @@
     "/api/reports/pifu": {
       "get": {
         "operationId": "uptake",
+        "parameters": [
+          {
+            "description": "The smallest cell shown; a caller may raise it above the configured minimum, never lower it.",
+            "in": "path",
+            "name": "k",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -10506,6 +11434,32 @@
     "/api/reports/validation-removals": {
       "get": {
         "operationId": "removals_report",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -10837,6 +11791,20 @@
     "/api/session-templates": {
       "get": {
         "operationId": "list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11042,6 +12010,44 @@
     "/api/slot-releases": {
       "get": {
         "operationId": "list_releases",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "`open`, `refilled` or `expired`.",
+            "in": "path",
+            "name": "status",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11075,6 +12081,39 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "language",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "needs_transport",
+            "required": true,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "phone_only",
+            "required": true,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
             }
           }
         ],
@@ -11349,6 +12388,20 @@
     "/api/staff-call-tasks/open": {
       "get": {
         "operationId": "open_calls",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11420,6 +12473,19 @@
     "/api/standby": {
       "get": {
         "operationId": "list_standby",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service_type",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11641,6 +12707,20 @@
     "/api/support-flags/open": {
       "get": {
         "operationId": "open",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11712,6 +12792,20 @@
     "/api/tolerance-alerts": {
       "get": {
         "operationId": "alerts",
+        "parameters": [
+          {
+            "description": "`true` for the alerts still open; the default is all of them.",
+            "in": "path",
+            "name": "open",
+            "required": true,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11808,6 +12902,20 @@
     "/api/tolerances/evaluate": {
       "post": {
         "operationId": "evaluate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "days",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11833,6 +12941,20 @@
     "/api/tolerances/status": {
       "get": {
         "operationId": "status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "days",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11866,6 +12988,28 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "ward",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -11963,6 +13107,34 @@
     "/api/triage/waits": {
       "get": {
         "operationId": "waits",
+        "parameters": [
+          {
+            "description": "Start of the window (inclusive); defaults to 24 hours before `to`.",
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "End of the window (exclusive); defaults to now.",
+            "in": "path",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -12073,6 +13245,20 @@
     "/api/validation-campaigns": {
       "get": {
         "operationId": "list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -12175,6 +13361,41 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "`letter_due` or `decision_due`: what a person can act on now.",
+            "in": "path",
+            "name": "next",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
             }
           }
         ],
@@ -12583,6 +13804,16 @@
     "/api/waitlist": {
       "get": {
         "operationId": "list_waitlist",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"

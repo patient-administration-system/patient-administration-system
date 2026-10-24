@@ -65,7 +65,7 @@ pub async fn record(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListQuery {
     /// Include ended adjustments (default false: what staff need to act on).
     pub include_ended: Option<bool>,
@@ -78,7 +78,7 @@ pub struct ListQuery {
     get,
     path = "/api/patients/{id}/reasonable-adjustments",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`")),
+    params(("id" = String, Path, description = "Path parameter `id`"), ListQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -127,7 +127,7 @@ pub async fn codes() -> HandlerResult {
     }))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct IdsQuery {
     /// Comma-separated appointment ids, at most 500.
     pub ids: String,
@@ -140,6 +140,7 @@ pub struct IdsQuery {
     get,
     path = "/api/reasonable-adjustments/for-appointments",
     tag = "Patients",
+    params(IdsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

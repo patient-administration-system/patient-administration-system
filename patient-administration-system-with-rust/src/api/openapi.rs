@@ -120,7 +120,7 @@ impl utoipa::Modify for Credentials {
     modifiers(&Credentials),
     info(
         title = "Patient Administration System",
-        description = "Administrative (not clinical) API for appointments, waiting lists, reminders and replies, transport and virtual-visit requests, analytics and tolerances. Every REST response is an `ApiResponse` envelope. Identity and workforce are held by person-service and worker-service; /api/patients and /api/practitioners proxy them. Request bodies of the REST routes are described (QUAL-34); typed responses are not yet."
+        description = "Administrative (not clinical) API for appointments, waiting lists, reminders and replies, transport and virtual-visit requests, analytics and tolerances. Every REST response is an `ApiResponse` envelope. Identity and workforce are held by person-service and worker-service; /api/patients and /api/practitioners proxy them. Request bodies and query parameters of the REST routes are described (QUAL-34); typed responses are not yet."
     ),
     paths(
         crate::api::rest::handlers::health,
@@ -594,6 +594,53 @@ mod tests {
         assert!(
             missing.is_empty(),
             "typed JSON bodies not described in the OpenAPI document: {missing:#?}"
+        );
+    }
+
+    /// A REST handler that takes `Query<T>` must list `T` among the `params(...)` of its `#[utoipa::path]`,
+    /// so the document names every query parameter.
+    #[test]
+    fn a_handler_with_a_typed_query_documents_its_parameters() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/api/rest");
+        let mut missing = Vec::new();
+        let mut seen = 0;
+        for entry in std::fs::read_dir(&dir).expect("src/api/rest") {
+            let path = entry.expect("entry").path();
+            if path.extension().is_none_or(|x| x != "rs") {
+                continue;
+            }
+            let src = std::fs::read_to_string(&path).expect("read");
+            for block in src.split("#[utoipa::path(").skip(1) {
+                let Some((attr, rest)) = block.split_once("\n)]\n") else {
+                    continue;
+                };
+                let Some(sig) = rest.split(") ->").next() else {
+                    continue;
+                };
+                let Some(at) = sig.find("Query<") else {
+                    continue;
+                };
+                let ty: String = sig[at + 6..].chars().take_while(|c| *c != '>').collect();
+                let name = ty.rsplit("::").next().unwrap_or(&ty);
+                seen += 1;
+                let params = attr.split("params(").nth(1).unwrap_or("");
+                if !params.contains(name) {
+                    let f = rest
+                        .split("fn ")
+                        .nth(1)
+                        .and_then(|f| f.split('(').next())
+                        .unwrap_or("?");
+                    missing.push(format!("{}::{f} ({ty})", path.display()));
+                }
+            }
+        }
+        assert!(
+            seen > 40,
+            "the scan found only {seen} typed queries: it is broken"
+        );
+        assert!(
+            missing.is_empty(),
+            "query parameters not described in the OpenAPI document: {missing:#?}"
         );
     }
 

@@ -139,6 +139,7 @@ pub async fn post_text(
     get,
     path = "/api/inbound-texts/open",
     tag = "Inbound texts",
+    params(crate::api::rest::handlers::LimitQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

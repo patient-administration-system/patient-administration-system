@@ -70,7 +70,7 @@ pub async fn approve_policy(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct OpenQuery {
     pub limit: Option<i64>,
 }
@@ -80,6 +80,7 @@ pub struct OpenQuery {
     get,
     path = "/api/follow-up-tasks/open",
     tag = "Follow up tasks",
+    params(OpenQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

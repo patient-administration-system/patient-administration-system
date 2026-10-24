@@ -34,7 +34,7 @@ pub fn error_to_response(err: Error) -> HandlerResult {
 }
 
 /// The `?limit=` of a list request (see [`crate::paging`]).
-#[derive(Debug, Default, serde::Deserialize)]
+#[derive(Debug, Default, serde::Deserialize, utoipa::IntoParams)]
 pub struct LimitQuery {
     pub limit: Option<i64>,
 }

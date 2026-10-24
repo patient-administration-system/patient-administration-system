@@ -53,7 +53,7 @@ pub async fn set_target(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct DelayQuery {
     /// The smallest cell shown; a caller may raise it above the configured minimum, never lower it.
     pub k: Option<i64>,
@@ -65,6 +65,7 @@ pub struct DelayQuery {
     get,
     path = "/api/reports/follow-up-delay",
     tag = "Reports",
+    params(DelayQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

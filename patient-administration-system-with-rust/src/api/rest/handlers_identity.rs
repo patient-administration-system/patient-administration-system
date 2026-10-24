@@ -57,7 +57,7 @@ pub async fn record(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct RevokeQuery {
     pub revoked_by: String,
 }
@@ -67,7 +67,7 @@ pub struct RevokeQuery {
     delete,
     path = "/api/identity-proofings/{subject}",
     tag = "Identity proofings",
-    params(("subject" = String, Path, description = "Path parameter `subject`")),
+    params(("subject" = String, Path, description = "Path parameter `subject`"), RevokeQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -109,7 +109,7 @@ pub async fn get(State(state): State<AppState>, Path(subject): Path<String>) -> 
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct CheckQuery {
     pub person_id: Uuid,
 }
@@ -120,7 +120,7 @@ pub struct CheckQuery {
     get,
     path = "/api/identity-proofings/{subject}/check",
     tag = "Identity proofings",
-    params(("subject" = String, Path, description = "Path parameter `subject`")),
+    params(("subject" = String, Path, description = "Path parameter `subject`"), CheckQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

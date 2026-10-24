@@ -19,7 +19,7 @@ use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, requ
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct OutcomesQuery {
     /// Comma-separated: specialty, language, age_band, deprivation_quintile, time_of_day, outcome, notice.
     pub group_by: String,
@@ -37,6 +37,7 @@ pub struct OutcomesQuery {
     get,
     path = "/api/analytics/appointment-outcomes",
     tag = "Analytics",
+    params(OutcomesQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -95,7 +96,7 @@ pub struct DemographicsBody {
     pub source: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct RefillQuery {
     /// Comma-separated: notice_band, release_class, specialty, language, age_band, deprivation_quintile.
     pub group_by: String,
@@ -112,6 +113,7 @@ pub struct RefillQuery {
     get,
     path = "/api/analytics/refill-rates",
     tag = "Analytics",
+    params(RefillQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -202,7 +204,7 @@ pub async fn set_demographics(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct LookupQuery {
     /// Which dataset the file was built from, for example `WIMD 2019 + ONSPD Aug 2026`.
     pub dataset: String,
@@ -215,6 +217,7 @@ pub struct LookupQuery {
     put,
     path = "/api/analytics/deprivation-lookup",
     tag = "Analytics",
+    params(LookupQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -248,7 +251,7 @@ pub async fn load_deprivation_lookup(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct RefreshQuery {
     pub limit: Option<i64>,
 }
@@ -259,6 +262,7 @@ pub struct RefreshQuery {
     post,
     path = "/api/analytics/demographics/refresh",
     tag = "Analytics",
+    params(RefreshQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

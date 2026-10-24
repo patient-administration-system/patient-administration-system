@@ -39,7 +39,7 @@ pub struct BarrierBody {
     pub barrier_code: crate::models::appointment::BarrierCode,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct RangeQuery {
     pub from: chrono::DateTime<chrono::Utc>,
     pub to: chrono::DateTime<chrono::Utc>,
@@ -51,6 +51,7 @@ pub struct RangeQuery {
     get,
     path = "/api/appointments",
     tag = "Appointments",
+    params(RangeQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
