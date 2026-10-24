@@ -21,8 +21,9 @@ use patient_administration_system::models::Address;
 use patient_administration_system::models::communication::DeliveryChannel;
 use patient_administration_system::models::communication::LetterTemplate;
 use patient_administration_system::models::consent::{Consent, ConsentType};
+use patient_administration_system::models::coverage::Coverage;
 use patient_administration_system::models::encounter::{Encounter, EncounterClass};
-use patient_administration_system::models::facility::Facility;
+use patient_administration_system::models::facility::{Bed, Facility, Room, Ward};
 use patient_administration_system::upstream::{Person, StubPersonClient};
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use serde::Serialize;
@@ -323,6 +324,176 @@ async fn a_message_is_not_sent_when_its_attempt_cannot_be_audited() {
     );
 
     db.execute_unprepared("DROP TRIGGER IF EXISTS qual37_attempt ON audit_log")
+        .await
+        .unwrap();
+}
+
+/// The remaining routes of the same pattern: coverage, encounter status and the ward, room and bed creates.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_other_writes_are_refused_too_and_leave_no_change() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let db = state.db.clone();
+    for sql in [
+        "CREATE OR REPLACE FUNCTION qual37_fail() RETURNS trigger AS $$ BEGIN \
+           IF NEW.user_id = 'qual37-audit-fails' THEN RAISE EXCEPTION 'audit insert refused (qual37)'; END IF; \
+           RETURN NEW; END $$ LANGUAGE plpgsql",
+        "DROP TRIGGER IF EXISTS qual37 ON audit_log",
+        "CREATE TRIGGER qual37 BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION qual37_fail()",
+    ] {
+        db.execute_unprepared(sql).await.unwrap();
+    }
+    let app = router(state.clone());
+    let person = Uuid::new_v4();
+
+    // Coverage: a create is refused; an update and a cancel of a real one change nothing.
+    let refused = Coverage::new(person, "Refused Ltd", "P-REFUSED");
+    let (status, _) = send(&app, "POST", "/api/coverages", FAILS, json(&refused)).await;
+    assert!(!status.is_success(), "{status}");
+    assert_eq!(
+        count(
+            &db,
+            "SELECT count(*) AS n FROM coverages WHERE id = $1",
+            refused.id
+        )
+        .await,
+        0
+    );
+    let real = Coverage::new(person, "Real Ltd", "P-REAL");
+    let (status, _) = send(&app, "POST", "/api/coverages", "someone", json(&real)).await;
+    assert_eq!(status, StatusCode::OK);
+    let mut changed = real.clone();
+    changed.payor_name = "Changed Ltd".into();
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/coverages/{}", real.id),
+        FAILS,
+        json(&changed),
+    )
+    .await;
+    assert!(!status.is_success(), "{status}");
+    assert_eq!(
+        count(
+            &db,
+            "SELECT count(*) AS n FROM coverages WHERE id = $1 AND payor_name = 'Real Ltd'",
+            real.id
+        )
+        .await,
+        1,
+        "the update must not be kept"
+    );
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/coverages/{}", real.id),
+        FAILS,
+        None,
+    )
+    .await;
+    assert!(!status.is_success(), "{status}");
+    assert_eq!(
+        count(
+            &db,
+            "SELECT count(*) AS n FROM coverages WHERE id = $1 AND status = 'active'",
+            real.id
+        )
+        .await,
+        1,
+        "the coverage must still be active"
+    );
+
+    // Encounter status: refused, and still planned.
+    let enc = EncounterRepository::create(&db, &Encounter::new(person, EncounterClass::Outpatient))
+        .await
+        .unwrap();
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/encounters/{}/status", enc.id),
+        FAILS,
+        Some(r#"{"status":"arrived"}"#.into()),
+    )
+    .await;
+    assert!(!status.is_success(), "{status}");
+    assert_eq!(
+        count(
+            &db,
+            "SELECT count(*) AS n FROM encounters WHERE id = $1 AND status = 'planned'",
+            enc.id
+        )
+        .await,
+        1
+    );
+
+    // Ward, room and bed creates, each under a parent made normally.
+    let facility = Facility::new(
+        "F".into(),
+        format!("F{}", Uuid::new_v4().simple()),
+        Address::default(),
+    );
+    send(&app, "POST", "/api/facilities", "someone", json(&facility)).await;
+    let ward = Ward::new(
+        facility.id,
+        "W".into(),
+        format!("W{}", Uuid::new_v4().simple()),
+        4,
+    );
+    send(&app, "POST", "/api/wards", "someone", json(&ward)).await;
+    let room = Room::new(ward.id, "R".into(), format!("R{}", Uuid::new_v4().simple()));
+    send(&app, "POST", "/api/rooms", "someone", json(&room)).await;
+
+    let bad_ward = Ward::new(
+        facility.id,
+        "BW".into(),
+        format!("W{}", Uuid::new_v4().simple()),
+        4,
+    );
+    let (status, _) = send(&app, "POST", "/api/wards", FAILS, json(&bad_ward)).await;
+    assert!(!status.is_success(), "{status}");
+    assert_eq!(
+        count(
+            &db,
+            "SELECT count(*) AS n FROM wards WHERE id = $1",
+            bad_ward.id
+        )
+        .await,
+        0
+    );
+    let bad_room = Room::new(
+        ward.id,
+        "BR".into(),
+        format!("R{}", Uuid::new_v4().simple()),
+    );
+    let (status, _) = send(&app, "POST", "/api/rooms", FAILS, json(&bad_room)).await;
+    assert!(!status.is_success(), "{status}");
+    assert_eq!(
+        count(
+            &db,
+            "SELECT count(*) AS n FROM rooms WHERE id = $1",
+            bad_room.id
+        )
+        .await,
+        0
+    );
+    let bad_bed = Bed::new(
+        room.id,
+        "BB".into(),
+        format!("B{}", Uuid::new_v4().simple()),
+    );
+    let (status, _) = send(&app, "POST", "/api/beds", FAILS, json(&bad_bed)).await;
+    assert!(!status.is_success(), "{status}");
+    assert_eq!(
+        count(
+            &db,
+            "SELECT count(*) AS n FROM beds WHERE id = $1",
+            bad_bed.id
+        )
+        .await,
+        0
+    );
+
+    db.execute_unprepared("DROP TRIGGER IF EXISTS qual37 ON audit_log")
         .await
         .unwrap();
 }
