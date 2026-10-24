@@ -5,6 +5,7 @@ use axum::{
     extract::{Path, State},
     http::HeaderMap,
 };
+use sea_orm::TransactionTrait;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -15,7 +16,6 @@ use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::encounter::EncounterRepository;
-use crate::error::LogErr;
 use crate::models::encounter::EncounterStatus;
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -85,21 +85,24 @@ pub async fn set_status(
     Json(body): Json<SetStatusBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match EncounterRepository::set_status(&state.db, id, body.status).await {
-        Ok(e) => {
-            AuditLogRepository::log(
-                &state.db,
-                "encounter",
-                id,
-                "set_status",
-                None,
-                Some(serde_json::to_value(&e).unwrap_or_default()),
-                &ctx,
-            )
-            .await
-            .log_error("audit log write");
-            ok_json(e)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let e = EncounterRepository::set_status(&txn, id, body.status).await?;
+        AuditLogRepository::log(
+            &txn,
+            "encounter",
+            id,
+            "set_status",
+            None,
+            Some(serde_json::to_value(&e).unwrap_or_default()),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(e)
+    };
+    match run.await {
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
@@ -124,21 +127,24 @@ pub async fn cancel_encounter(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match EncounterRepository::set_status(&state.db, id, EncounterStatus::Cancelled).await {
-        Ok(e) => {
-            AuditLogRepository::log(
-                &state.db,
-                "encounter",
-                id,
-                "cancel",
-                None,
-                Some(serde_json::to_value(&e).unwrap_or_default()),
-                &ctx,
-            )
-            .await
-            .log_error("audit log write");
-            ok_json(e)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let e = EncounterRepository::set_status(&txn, id, EncounterStatus::Cancelled).await?;
+        AuditLogRepository::log(
+            &txn,
+            "encounter",
+            id,
+            "cancel",
+            None,
+            Some(serde_json::to_value(&e).unwrap_or_default()),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(e)
+    };
+    match run.await {
+        Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }

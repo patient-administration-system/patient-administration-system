@@ -1,6 +1,7 @@
 //! Part of [`super`]: scheduling.
 
 use super::*;
+use sea_orm::TransactionTrait;
 
 #[utoipa::path(
     post,
@@ -178,28 +179,33 @@ pub async fn schedule_reschedule(
     updated.start_datetime = start;
     updated.end_datetime = end;
     updated.updated_at = chrono::Utc::now();
-    let saved = match AppointmentRepository::update(&state.db, &updated).await {
-        Ok(a) => a,
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
-    };
-    AuditLogRepository::log(
-        &state.db,
-        "appointment",
-        saved.id,
-        "reschedule_via_hl7v2_s13",
-        Some(serde_json::to_value(&existing).unwrap_or_default()),
-        Some(serde_json::to_value(&saved).unwrap_or_default()),
-        &r.audit,
-    )
+    // The change, its audit row and its event commit together, or none of them is kept (NFR-25).
+    if let Err(e) = async {
+        let txn = state.db.begin().await.map_err(crate::Error::Database)?;
+        let saved = AppointmentRepository::update(&txn, &updated).await?;
+        AuditLogRepository::log(
+            &txn,
+            "appointment",
+            saved.id,
+            "reschedule_via_hl7v2_s13",
+            Some(serde_json::to_value(&existing).unwrap_or_default()),
+            Some(serde_json::to_value(&saved).unwrap_or_default()),
+            &r.audit,
+        )
+        .await?;
+        OutboxRepository::publish(
+            &txn,
+            "AppointmentRescheduled",
+            &serde_json::json!({ "appointment_id": saved.id, "source": "hl7v2_s13" }),
+        )
+        .await?;
+        txn.commit().await.map_err(crate::Error::Database)?;
+        Ok::<_, crate::Error>(())
+    }
     .await
-    .log_error("audit log write");
-    OutboxRepository::publish(
-        &state.db,
-        "AppointmentRescheduled",
-        &serde_json::json!({ "appointment_id": saved.id, "source": "hl7v2_s13" }),
-    )
-    .await
-    .log_error("outbox event");
+    {
+        return ae(&r.sender, &r.control_id, &client_text(&e));
+    }
     aa(
         &r.sender,
         &r.control_id,
@@ -263,28 +269,33 @@ pub async fn schedule_modify(
     let mut updated = existing.clone();
     updated.reason = sch.reason.clone();
     updated.updated_at = chrono::Utc::now();
-    let saved = match AppointmentRepository::update(&state.db, &updated).await {
-        Ok(a) => a,
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
-    };
-    AuditLogRepository::log(
-        &state.db,
-        "appointment",
-        saved.id,
-        "modify_via_hl7v2_s14",
-        Some(serde_json::to_value(&existing).unwrap_or_default()),
-        Some(serde_json::to_value(&saved).unwrap_or_default()),
-        &r.audit,
-    )
+    // The change, its audit row and its event commit together, or none of them is kept (NFR-25).
+    if let Err(e) = async {
+        let txn = state.db.begin().await.map_err(crate::Error::Database)?;
+        let saved = AppointmentRepository::update(&txn, &updated).await?;
+        AuditLogRepository::log(
+            &txn,
+            "appointment",
+            saved.id,
+            "modify_via_hl7v2_s14",
+            Some(serde_json::to_value(&existing).unwrap_or_default()),
+            Some(serde_json::to_value(&saved).unwrap_or_default()),
+            &r.audit,
+        )
+        .await?;
+        OutboxRepository::publish(
+            &txn,
+            "AppointmentModified",
+            &serde_json::json!({ "appointment_id": saved.id, "source": "hl7v2_s14" }),
+        )
+        .await?;
+        txn.commit().await.map_err(crate::Error::Database)?;
+        Ok::<_, crate::Error>(())
+    }
     .await
-    .log_error("audit log write");
-    OutboxRepository::publish(
-        &state.db,
-        "AppointmentModified",
-        &serde_json::json!({ "appointment_id": saved.id, "source": "hl7v2_s14" }),
-    )
-    .await
-    .log_error("outbox event");
+    {
+        return ae(&r.sender, &r.control_id, &client_text(&e));
+    }
     aa(
         &r.sender,
         &r.control_id,

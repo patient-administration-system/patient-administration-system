@@ -5,7 +5,10 @@ use axum::{
     extract::{Path, State},
     http::HeaderMap,
 };
+use sea_orm::TransactionTrait;
 use uuid::Uuid;
+
+use crate::Error;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
@@ -13,7 +16,6 @@ use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::consent::ConsentRepository;
-use crate::error::LogErr;
 use crate::models::consent::Consent;
 
 /// `POST /api/patients/:id/consents` — record a consent.
@@ -42,21 +44,24 @@ pub async fn create_consent(
     body.created_at = chrono::Utc::now();
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match ConsentRepository::create(&state.db, &body).await {
-        Ok(c) => {
-            AuditLogRepository::log(
-                &state.db,
-                "consent",
-                c.id,
-                "create",
-                None,
-                Some(serde_json::to_value(&c).unwrap_or_default()),
-                &ctx,
-            )
-            .await
-            .log_error("audit log write");
-            ok_json(c)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let c = ConsentRepository::create(&txn, &body).await?;
+        AuditLogRepository::log(
+            &txn,
+            "consent",
+            c.id,
+            "create",
+            None,
+            Some(serde_json::to_value(&c).unwrap_or_default()),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(c)
+    };
+    match run.await {
+        Ok(c) => ok_json(c),
         Err(e) => error_to_response(e),
     }
 }
@@ -101,21 +106,24 @@ pub async fn revoke_consent(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match ConsentRepository::revoke(&state.db, id).await {
-        Ok(c) => {
-            AuditLogRepository::log(
-                &state.db,
-                "consent",
-                id,
-                "revoke",
-                None,
-                Some(serde_json::to_value(&c).unwrap_or_default()),
-                &ctx,
-            )
-            .await
-            .log_error("audit log write");
-            ok_json(c)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let c = ConsentRepository::revoke(&txn, id).await?;
+        AuditLogRepository::log(
+            &txn,
+            "consent",
+            id,
+            "revoke",
+            None,
+            Some(serde_json::to_value(&c).unwrap_or_default()),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(c)
+    };
+    match run.await {
+        Ok(c) => ok_json(c),
         Err(e) => error_to_response(e),
     }
 }

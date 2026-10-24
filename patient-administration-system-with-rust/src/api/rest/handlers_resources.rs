@@ -7,6 +7,7 @@ use axum::{
     extract::{Path, State},
     http::HeaderMap,
 };
+use sea_orm::TransactionTrait;
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
@@ -19,7 +20,6 @@ use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUserContext};
 use crate::db::repositories::bed::BedRepository;
 use crate::db::repositories::facility::{FacilityRepository, RoomRepository, WardRepository};
-use crate::error::LogErr;
 use crate::models::facility::{Bed, BedStatus, Facility, Room, Ward};
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -124,16 +124,16 @@ pub async fn get_bed(State(state): State<AppState>, Path(bed_id): Path<Uuid>) ->
 
 // ─── Facility / Ward / Room / Bed CRUD ─────────────────────────────────
 
-async fn write_audit_create(
-    db: &sea_orm::DatabaseConnection,
+/// The audit row of a create. It is written in the transaction of the create, so a failure here fails the
+/// request and keeps nothing (NFR-25).
+async fn write_audit_create<C: sea_orm::ConnectionTrait>(
+    db: &C,
     entity_type: &str,
     id: Uuid,
     payload: Value,
     ctx: &RepoUserContext,
-) {
-    AuditLogRepository::log(db, entity_type, id, "create", None, Some(payload), ctx)
-        .await
-        .log_error("audit log write");
+) -> crate::Result<()> {
+    AuditLogRepository::log(db, entity_type, id, "create", None, Some(payload), ctx).await
 }
 
 /// `POST /api/facilities` — create a facility from a `Facility` JSON body.
@@ -159,18 +159,22 @@ pub async fn create_facility(
     body.created_at = chrono::Utc::now();
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match FacilityRepository::create(&state.db, &body).await {
-        Ok(f) => {
-            write_audit_create(
-                &state.db,
-                "facility",
-                f.id,
-                serde_json::to_value(&f).unwrap_or_default(),
-                &ctx,
-            )
-            .await;
-            ok_json(f)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let f = FacilityRepository::create(&txn, &body).await?;
+        write_audit_create(
+            &txn,
+            "facility",
+            f.id,
+            serde_json::to_value(&f).unwrap_or_default(),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(f)
+    };
+    match run.await {
+        Ok(f) => ok_json(f),
         Err(e) => error_to_response(e),
     }
 }
@@ -236,18 +240,22 @@ pub async fn create_ward(
     body.created_at = chrono::Utc::now();
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match WardRepository::create(&state.db, &body).await {
-        Ok(w) => {
-            write_audit_create(
-                &state.db,
-                "ward",
-                w.id,
-                serde_json::to_value(&w).unwrap_or_default(),
-                &ctx,
-            )
-            .await;
-            ok_json(w)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let w = WardRepository::create(&txn, &body).await?;
+        write_audit_create(
+            &txn,
+            "ward",
+            w.id,
+            serde_json::to_value(&w).unwrap_or_default(),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(w)
+    };
+    match run.await {
+        Ok(w) => ok_json(w),
         Err(e) => error_to_response(e),
     }
 }
@@ -317,18 +325,22 @@ pub async fn create_room(
     body.created_at = chrono::Utc::now();
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match RoomRepository::create(&state.db, &body).await {
-        Ok(r) => {
-            write_audit_create(
-                &state.db,
-                "room",
-                r.id,
-                serde_json::to_value(&r).unwrap_or_default(),
-                &ctx,
-            )
-            .await;
-            ok_json(r)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let r = RoomRepository::create(&txn, &body).await?;
+        write_audit_create(
+            &txn,
+            "room",
+            r.id,
+            serde_json::to_value(&r).unwrap_or_default(),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(r)
+    };
+    match run.await {
+        Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),
     }
 }
@@ -398,18 +410,22 @@ pub async fn create_bed(
     body.created_at = chrono::Utc::now();
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match BedRepository::create(&state.db, &body).await {
-        Ok(b) => {
-            write_audit_create(
-                &state.db,
-                "bed",
-                b.id,
-                serde_json::to_value(&b).unwrap_or_default(),
-                &ctx,
-            )
-            .await;
-            ok_json(b)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let b = BedRepository::create(&txn, &body).await?;
+        write_audit_create(
+            &txn,
+            "bed",
+            b.id,
+            serde_json::to_value(&b).unwrap_or_default(),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(b)
+    };
+    match run.await {
+        Ok(b) => ok_json(b),
         Err(e) => error_to_response(e),
     }
 }

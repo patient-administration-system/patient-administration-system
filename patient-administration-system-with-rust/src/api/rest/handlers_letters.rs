@@ -5,6 +5,7 @@ use axum::{
     extract::{Path, State},
     http::HeaderMap,
 };
+use sea_orm::TransactionTrait;
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
@@ -17,7 +18,6 @@ use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::communication::templates;
 use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::letter::LetterRepository;
-use crate::error::LogErr;
 use crate::models::communication::{DeliveryChannel, LetterTemplate};
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -73,21 +73,24 @@ pub async fn create_template(
     body.created_at = chrono::Utc::now();
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match LetterRepository::create_template(&state.db, &body).await {
-        Ok(t) => {
-            AuditLogRepository::log(
-                &state.db,
-                "letter_template",
-                t.id,
-                "create",
-                None,
-                Some(serde_json::to_value(&t).unwrap_or_default()),
-                &ctx,
-            )
-            .await
-            .log_error("audit log write");
-            ok_json(t)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let t = LetterRepository::create_template(&txn, &body).await?;
+        AuditLogRepository::log(
+            &txn,
+            "letter_template",
+            t.id,
+            "create",
+            None,
+            Some(serde_json::to_value(&t).unwrap_or_default()),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(t)
+    };
+    match run.await {
+        Ok(t) => ok_json(t),
         Err(e) => error_to_response(e),
     }
 }
@@ -133,24 +136,27 @@ pub async fn update_template(
     }
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let before = LetterRepository::find_template_by_id(&state.db, id).await;
-    match LetterRepository::update_template(&state.db, &body).await {
-        Ok(t) => {
-            AuditLogRepository::log(
-                &state.db,
-                "letter_template",
-                t.id,
-                "update",
-                before
-                    .ok()
-                    .flatten()
-                    .and_then(|b| serde_json::to_value(b).ok()),
-                Some(serde_json::to_value(&t).unwrap_or_default()),
-                &ctx,
-            )
-            .await
-            .log_error("audit log write");
-            ok_json(t)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let t = LetterRepository::update_template(&txn, &body).await?;
+        AuditLogRepository::log(
+            &txn,
+            "letter_template",
+            t.id,
+            "update",
+            before
+                .ok()
+                .flatten()
+                .and_then(|b| serde_json::to_value(b).ok()),
+            Some(serde_json::to_value(&t).unwrap_or_default()),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(t)
+    };
+    match run.await {
+        Ok(t) => ok_json(t),
         Err(e) => error_to_response(e),
     }
 }
@@ -346,21 +352,24 @@ pub async fn mark_sent(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match LetterRepository::mark_sent(&state.db, id).await {
-        Ok(l) => {
-            AuditLogRepository::log(
-                &state.db,
-                "generated_letter",
-                id,
-                "mark_sent",
-                None,
-                Some(serde_json::to_value(&l).unwrap_or_default()),
-                &ctx,
-            )
-            .await
-            .log_error("audit log write");
-            ok_json(l)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let l = LetterRepository::mark_sent(&txn, id).await?;
+        AuditLogRepository::log(
+            &txn,
+            "generated_letter",
+            id,
+            "mark_sent",
+            None,
+            Some(serde_json::to_value(&l).unwrap_or_default()),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(l)
+    };
+    match run.await {
+        Ok(l) => ok_json(l),
         Err(e) => error_to_response(e),
     }
 }
@@ -383,21 +392,24 @@ pub async fn mark_failed(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match LetterRepository::mark_failed(&state.db, id).await {
-        Ok(l) => {
-            AuditLogRepository::log(
-                &state.db,
-                "generated_letter",
-                id,
-                "mark_failed",
-                None,
-                Some(serde_json::to_value(&l).unwrap_or_default()),
-                &ctx,
-            )
-            .await
-            .log_error("audit log write");
-            ok_json(l)
-        }
+    let run = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let l = LetterRepository::mark_failed(&txn, id).await?;
+        AuditLogRepository::log(
+            &txn,
+            "generated_letter",
+            id,
+            "mark_failed",
+            None,
+            Some(serde_json::to_value(&l).unwrap_or_default()),
+            &ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(l)
+    };
+    match run.await {
+        Ok(l) => ok_json(l),
         Err(e) => error_to_response(e),
     }
 }

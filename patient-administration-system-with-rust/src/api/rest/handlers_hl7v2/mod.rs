@@ -41,7 +41,6 @@ use crate::db::repositories::audit::{AuditLogRepository, UserContext as RepoUser
 use crate::db::repositories::bed::BedRepository;
 use crate::db::repositories::encounter::EncounterRepository;
 use crate::db::repositories::outbox::OutboxRepository;
-use crate::error::LogErr;
 use crate::error::client_text;
 use crate::hl7v2::SegmentRead;
 use crate::hl7v2::ack::{AckCode, ack};
