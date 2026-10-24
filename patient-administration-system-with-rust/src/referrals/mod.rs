@@ -280,7 +280,7 @@ impl ReferralService {
                         .query_all_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
                             "SELECT s.id FROM slots s JOIN schedules sc ON sc.id = s.schedule_id \
-                             WHERE sc.service_type = $1 AND sc.active AND s.status = 'free' AND s.capacity = 1 AND s.start_datetime > now() \
+                             WHERE sc.service_type = $1 AND sc.active AND s.status = 'free' AND s.capacity = 1 AND NOT s.ring_fenced AND s.start_datetime > now() \
                              ORDER BY s.start_datetime, s.id LIMIT $2",
                             [service.clone().into(), CANDIDATES.into()],
                         ))

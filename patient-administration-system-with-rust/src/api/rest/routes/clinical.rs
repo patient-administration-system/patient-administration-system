@@ -87,6 +87,30 @@ pub(super) fn scheduling() -> Router<AppState> {
             get(handlers_group_sessions::attendees),
         )
         .route(
+            "/api/slots/{id}/ring-fence",
+            put(handlers_clinic_templates::ring_fence),
+        )
+        .route(
+            "/api/session-templates",
+            post(handlers_clinic_templates::create).get(handlers_clinic_templates::list),
+        )
+        .route(
+            "/api/session-templates/{id}/versions",
+            post(handlers_clinic_templates::propose),
+        )
+        .route(
+            "/api/session-templates/{id}/versions/{version}/approve",
+            post(handlers_clinic_templates::approve),
+        )
+        .route(
+            "/api/session-templates/{id}/generate",
+            post(handlers_clinic_templates::generate),
+        )
+        .route(
+            "/api/capacity/report",
+            get(handlers_clinic_templates::report),
+        )
+        .route(
             "/api/proxy/appointments/{id}/cancel",
             post(handlers_proxy::cancel),
         )

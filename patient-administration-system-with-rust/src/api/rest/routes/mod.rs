@@ -21,6 +21,7 @@ use super::handlers_adt;
 use super::handlers_analytics;
 use super::handlers_audit;
 use super::handlers_billing;
+use super::handlers_clinic_templates;
 use super::handlers_clinical_priority;
 use super::handlers_consent;
 use super::handlers_contact;

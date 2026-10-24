@@ -685,3 +685,23 @@ subscription_deliveries,next_attempt_at,none,"Not personal data (structure, stat
 subscription_deliveries,last_error,none,"Not personal data (structure, status, timestamps, places, templates)",record
 subscription_deliveries,delivered_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 subscription_deliveries,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_templates,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_templates,schedule_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_templates,name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_templates,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_template_versions,template_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_template_versions,version,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_template_versions,weekday,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_template_versions,start_time,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_template_versions,slot_minutes,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_template_versions,effective_from,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_template_versions,lines,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_template_versions,proposed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_template_versions,approved_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,slot_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,ring_fenced,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,template_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slots,template_version,none,"Not personal data (structure, status, timestamps, places, templates)",record
+session_templates,created_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+session_template_versions,proposed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+session_template_versions,approved_by,staff-identifier,Attribute work to a staff member held by worker-service,record

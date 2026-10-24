@@ -32,6 +32,7 @@ pub mod api;
 pub mod audit_export;
 pub mod backfill;
 pub mod billing;
+pub mod clinic_templates;
 pub mod clinical_priority;
 pub mod clock;
 pub mod communication;

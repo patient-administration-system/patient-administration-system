@@ -90,7 +90,7 @@ impl SchedulingService {
             .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "SELECT s.id AS slot_id FROM slots s JOIN schedules sc ON sc.id = s.schedule_id \
-                 WHERE s.status = 'free' AND sc.active AND s.capacity = 1 \
+                 WHERE s.status = 'free' AND sc.active AND s.capacity = 1 AND NOT s.ring_fenced \
                    AND s.start_datetime >= $1 AND s.start_datetime < $2 \
                    AND ($3::uuid IS NULL OR (sc.owner_kind = 'practitioner' AND sc.owner_id = $3)) \
                    AND ($4::uuid IS NULL OR (sc.owner_kind IN ('room','bed') AND sc.owner_id = $4)) \

@@ -8,6 +8,7 @@ pub mod handlers_adt;
 pub mod handlers_analytics;
 pub mod handlers_audit;
 pub mod handlers_billing;
+pub mod handlers_clinic_templates;
 pub mod handlers_clinical_priority;
 pub mod handlers_consent;
 pub mod handlers_contact;

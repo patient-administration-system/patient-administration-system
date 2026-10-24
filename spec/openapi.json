@@ -1438,6 +1438,26 @@
         ]
       }
     },
+    "/api/capacity/report": {
+      "get": {
+        "operationId": "report",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/capacity/report?service_type=`: slots by type in a forward window against required slots per\nweek from recent referrals and non-attendance. Plain arithmetic stated in the response, not NHS England's\ncore model.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
     "/api/charges": {
       "post": {
         "operationId": "post_charge",
@@ -6201,6 +6221,146 @@
         ]
       }
     },
+    "/api/session-templates": {
+      "get": {
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`GET /api/session-templates?schedule_id=`: templates with every version and who proposed and approved it.",
+        "tags": [
+          "Scheduling"
+        ]
+      },
+      "post": {
+        "operationId": "create",
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/session-templates`: start a template on a schedule. It makes no slots until a version is\nproposed and approved by a second person.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/session-templates/{id}/generate": {
+      "post": {
+        "operationId": "generate",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/session-templates/{id}/generate`: make the slots for each day in the range from the approved\nversion in force. Repeating it adds nothing.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/session-templates/{id}/versions": {
+      "post": {
+        "operationId": "propose",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/session-templates/{id}/versions`: propose the next version. It generates nothing until a\ndifferent named person approves it.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/session-templates/{id}/versions/{version}/approve": {
+      "post": {
+        "operationId": "approve",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Path parameter `version`",
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`POST /api/session-templates/{id}/versions/{version}/approve`: approve a version. The approver must be\nsomeone other than the proposer; once only.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
     "/api/slot-releases": {
       "get": {
         "operationId": "list_releases",
@@ -6402,6 +6562,37 @@
           }
         },
         "summary": "`PUT /api/slots/{id}/capacity`: declare how many patients a slot still to come takes, never below the\nnumber already booked. A named person; audited.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/slots/{id}/ring-fence": {
+      "put": {
+        "operationId": "ring_fence",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "summary": "`PUT /api/slots/{id}/ring-fence`: hold a free slot out of automatic offers (first available, rebooking,\nIHE `$find`), or lift the hold. A person can still book it by choosing it.",
         "tags": [
           "Scheduling"
         ]

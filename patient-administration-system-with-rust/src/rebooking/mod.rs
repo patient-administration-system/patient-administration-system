@@ -142,7 +142,7 @@ impl RebookService {
                 DbBackend::Postgres,
                 "SELECT s.id, s.start_datetime, s.end_datetime FROM slots s \
                  WHERE s.schedule_id = (SELECT schedule_id FROM slots WHERE id = $1) \
-                   AND s.status = 'free' AND s.capacity = 1 AND s.id <> $1 \
+                   AND s.status = 'free' AND s.capacity = 1 AND NOT s.ring_fenced AND s.id <> $1 \
                    AND s.start_datetime >= $2 AND s.start_datetime < $3 \
                    AND (s.end_datetime - s.start_datetime) = ($4::timestamptz - $5::timestamptz) \
                    AND NOT EXISTS (SELECT 1 FROM appointments a \
