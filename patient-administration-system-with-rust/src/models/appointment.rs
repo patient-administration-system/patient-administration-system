@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{Error, Result};
 
 /// The lifecycle status of an appointment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AppointmentStatus {
     Proposed,
@@ -49,7 +49,7 @@ impl AppointmentStatus {
 }
 
 /// Reason an appointment was cancelled.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CancellationReason {
     PatientRequest,
@@ -81,7 +81,7 @@ impl Modality {
 
 /// Where a conversion to a video or phone consultation stands (CAP-14). A clinician can veto before
 /// the slot is confirmed as virtual; a veto restores `in_person`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ConversionState {
     PendingReview,
@@ -169,7 +169,7 @@ impl BarrierCode {
 }
 
 /// How an ended appointment relates to the chance to refill its slot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReleaseClass {
     /// Cancelled with at least [`EARLY_RELEASE_DAYS`] days' notice: the slot can be refilled.
@@ -206,7 +206,7 @@ pub fn classify_release(
 }
 
 /// An appointment scheduled for a patient.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Appointment {
     pub id: Uuid,
     pub person_id: Uuid,

@@ -21,7 +21,7 @@ pub enum Priority {
     Emergency,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum WaitlistStatus {
     Waiting,
@@ -56,7 +56,7 @@ impl Referral {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct WaitlistEntry {
     pub id: Uuid,
     pub referral_id: Option<Uuid>,

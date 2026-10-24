@@ -166,6 +166,1173 @@
         ],
         "type": "object"
       },
+      "ApiError": {
+        "description": "Machine-readable error payload carried in [`ApiResponse::error`].",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Appointment": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "An appointment scheduled for a patient.",
+            "properties": {
+              "arrived_at": {
+                "description": "When the patient arrived (CORE-4). Stamped by check-in.",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "barrier_code": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BarrierCode",
+                    "description": "The patient's barrier, when known (CAP-1). Can be recorded after a no-show too."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cancellation_reason": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CancellationReason"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cancelled_at": {
+                "description": "When it was cancelled (CAP-1).",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "cancelled_by": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CancelledBy",
+                    "description": "Who cancelled it (CAP-1)."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "completed_at": {
+                "description": "When the visit was completed (CORE-4). Stamped by complete.",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "confirmed_at": {
+                "description": "When the patient confirmed they are coming (CAP-2).",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "conversion_barrier_code": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BarrierCode",
+                    "description": "The barrier behind a conversion request (CAP-14), apart from any cancellation barrier."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "conversion_state": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ConversionState",
+                    "description": "Set once a patient has asked for a video or phone consultation (CAP-14)."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "converted_at": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "current_room": {
+                "description": "A short label for where the patient is now (CORE-4), set when a person moves them.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "end_datetime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "from_waitlist_entry_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "modality": {
+                "$ref": "#/components/schemas/Modality",
+                "description": "How it is held (CAP-14). `in_person` unless converted."
+              },
+              "notice_days": {
+                "description": "Whole days of notice given (CAP-1).",
+                "format": "int32",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "release_class": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ReleaseClass",
+                    "description": "Derived from status and notice; never stored, so it cannot disagree with them."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "series_id": {
+                "description": "Backlink to an [`crate::models::appointment_series::AppointmentSeries`]\nwhen this appointment was generated as one occurrence of a\nrecurring series (v0.9). `None` for singleton appointments.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "slot_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "start_datetime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "status": {
+                "$ref": "#/components/schemas/AppointmentStatus"
+              },
+              "updated_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "worker_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "person_id",
+              "start_datetime",
+              "end_datetime",
+              "status",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_LinkInfo": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "What the link page may show: the time and the language, never a reason or a service.",
+            "properties": {
+              "actions": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "language": {
+                "type": "string"
+              },
+              "starts_at": {
+                "description": "The start instant and the clinic's time zone, so a page can format it in whatever language it is\nshown in (the registered language is only English or Welsh).",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "state": {
+                "description": "`open`, `used` or `expired`.",
+                "type": "string"
+              },
+              "time_zone": {
+                "type": "string"
+              },
+              "when": {
+                "description": "The time in the patient's registered language, for a plain-text surface.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "state",
+              "language",
+              "when",
+              "time_zone",
+              "actions"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_LinkOutcome": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "language": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "options": {
+                "description": "For `rebook_options`: the times on offer. Choose one with `POST /api/reply-links/{token}/rebook`.",
+                "items": {
+                  "$ref": "#/components/schemas/LinkOption"
+                },
+                "type": "array"
+              },
+              "signpost": {
+                "description": "For a cancel that came with a reason (CAS-2): help that fits it, saying cancelling will not affect care.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "starts_at": {
+                "description": "For `rebooked`: when the appointment now starts, so a page can show it in its own language.",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "description": "`confirmed`, `cancelled`, `rebook_options`, `rebooked`, `held_for_call`, `reschedule_requested`, `needs_confirmation`,\n`help` or `rejected`.",
+                "type": "string"
+              },
+              "time_zone": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "language",
+              "message",
+              "time_zone"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_RTTClockEvent": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "event_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "kind": {
+                "$ref": "#/components/schemas/RTTEventKind"
+              },
+              "pathway_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "pathway_id",
+              "kind",
+              "event_at",
+              "created_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_RTTPathway": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "breach_weeks": {
+                "format": "int32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "started_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "status": {
+                "$ref": "#/components/schemas/RTTStatus"
+              },
+              "stopped_at": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "target_service": {
+                "type": "string"
+              },
+              "updated_at": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "person_id",
+              "target_service",
+              "breach_weeks",
+              "status",
+              "started_at",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_Appointment": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "An appointment scheduled for a patient.",
+              "properties": {
+                "arrived_at": {
+                  "description": "When the patient arrived (CORE-4). Stamped by check-in.",
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "barrier_code": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/BarrierCode",
+                      "description": "The patient's barrier, when known (CAP-1). Can be recorded after a no-show too."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "cancellation_reason": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/CancellationReason"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "cancelled_at": {
+                  "description": "When it was cancelled (CAP-1).",
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "cancelled_by": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/CancelledBy",
+                      "description": "Who cancelled it (CAP-1)."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "completed_at": {
+                  "description": "When the visit was completed (CORE-4). Stamped by complete.",
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "confirmed_at": {
+                  "description": "When the patient confirmed they are coming (CAP-2).",
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "conversion_barrier_code": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/BarrierCode",
+                      "description": "The barrier behind a conversion request (CAP-14), apart from any cancellation barrier."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "conversion_state": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ConversionState",
+                      "description": "Set once a patient has asked for a video or phone consultation (CAP-14)."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "converted_at": {
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "created_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "current_room": {
+                  "description": "A short label for where the patient is now (CORE-4), set when a person moves them.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "end_datetime": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "from_waitlist_entry_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "modality": {
+                  "$ref": "#/components/schemas/Modality",
+                  "description": "How it is held (CAP-14). `in_person` unless converted."
+                },
+                "notice_days": {
+                  "description": "Whole days of notice given (CAP-1).",
+                  "format": "int32",
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "release_class": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ReleaseClass",
+                      "description": "Derived from status and notice; never stored, so it cannot disagree with them."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "series_id": {
+                  "description": "Backlink to an [`crate::models::appointment_series::AppointmentSeries`]\nwhen this appointment was generated as one occurrence of a\nrecurring series (v0.9). `None` for singleton appointments.",
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "slot_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "start_datetime": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/AppointmentStatus"
+                },
+                "updated_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "worker_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "person_id",
+                "start_datetime",
+                "end_datetime",
+                "status",
+                "created_at",
+                "updated_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_WaitlistEntry": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "created_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "priority": {
+                  "$ref": "#/components/schemas/Priority"
+                },
+                "referral_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "$ref": "#/components/schemas/WaitlistStatus"
+                },
+                "target_service": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "format": "date-time",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "person_id",
+                "target_service",
+                "priority",
+                "status",
+                "created_at",
+                "updated_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_WaitlistEntry": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "priority": {
+                "$ref": "#/components/schemas/Priority"
+              },
+              "referral_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "$ref": "#/components/schemas/WaitlistStatus"
+              },
+              "target_service": {
+                "type": "string"
+              },
+              "updated_at": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "person_id",
+              "target_service",
+              "priority",
+              "status",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "Appointment": {
+        "description": "An appointment scheduled for a patient.",
+        "properties": {
+          "arrived_at": {
+            "description": "When the patient arrived (CORE-4). Stamped by check-in.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "barrier_code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BarrierCode",
+                "description": "The patient's barrier, when known (CAP-1). Can be recorded after a no-show too."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancellation_reason": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CancellationReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancelled_at": {
+            "description": "When it was cancelled (CAP-1).",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancelled_by": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CancelledBy",
+                "description": "Who cancelled it (CAP-1)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completed_at": {
+            "description": "When the visit was completed (CORE-4). Stamped by complete.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confirmed_at": {
+            "description": "When the patient confirmed they are coming (CAP-2).",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "conversion_barrier_code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BarrierCode",
+                "description": "The barrier behind a conversion request (CAP-14), apart from any cancellation barrier."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conversion_state": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ConversionState",
+                "description": "Set once a patient has asked for a video or phone consultation (CAP-14)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "converted_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "current_room": {
+            "description": "A short label for where the patient is now (CORE-4), set when a person moves them.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "end_datetime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "from_waitlist_entry_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "modality": {
+            "$ref": "#/components/schemas/Modality",
+            "description": "How it is held (CAP-14). `in_person` unless converted."
+          },
+          "notice_days": {
+            "description": "Whole days of notice given (CAP-1).",
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "release_class": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReleaseClass",
+                "description": "Derived from status and notice; never stored, so it cannot disagree with them."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "series_id": {
+            "description": "Backlink to an [`crate::models::appointment_series::AppointmentSeries`]\nwhen this appointment was generated as one occurrence of a\nrecurring series (v0.9). `None` for singleton appointments.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slot_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "start_datetime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AppointmentStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "worker_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "start_datetime",
+          "end_datetime",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "AppointmentStatus": {
+        "description": "The lifecycle status of an appointment.",
+        "enum": [
+          "proposed",
+          "booked",
+          "arrived",
+          "fulfilled",
+          "cancelled",
+          "no_show"
+        ],
+        "type": "string"
+      },
       "ApprovalBody": {
         "properties": {
           "approved_by": {
@@ -344,6 +1511,17 @@
           }
         },
         "type": "object"
+      },
+      "CancellationReason": {
+        "description": "Reason an appointment was cancelled.",
+        "enum": [
+          "patient_request",
+          "provider_request",
+          "no_show",
+          "rescheduled",
+          "other"
+        ],
+        "type": "string"
       },
       "CancelledBy": {
         "description": "Who ended an appointment.",
@@ -529,6 +1707,15 @@
           "marketing",
           "research",
           "emergency_access"
+        ],
+        "type": "string"
+      },
+      "ConversionState": {
+        "description": "Where a conversion to a video or phone consultation stands (CAP-14). A clinician can veto before\nthe slot is confirmed as virtual; a veto restores `in_person`.",
+        "enum": [
+          "pending_review",
+          "confirmed",
+          "vetoed"
         ],
         "type": "string"
       },
@@ -1216,6 +2403,116 @@
         ],
         "type": "object"
       },
+      "LinkInfo": {
+        "description": "What the link page may show: the time and the language, never a reason or a service.",
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "language": {
+            "type": "string"
+          },
+          "starts_at": {
+            "description": "The start instant and the clinic's time zone, so a page can format it in whatever language it is\nshown in (the registered language is only English or Welsh).",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "description": "`open`, `used` or `expired`.",
+            "type": "string"
+          },
+          "time_zone": {
+            "type": "string"
+          },
+          "when": {
+            "description": "The time in the patient's registered language, for a plain-text surface.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "language",
+          "when",
+          "time_zone",
+          "actions"
+        ],
+        "type": "object"
+      },
+      "LinkOption": {
+        "description": "One alternative time offered after Reschedule (CAP-5).",
+        "properties": {
+          "slot_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "when": {
+            "description": "The time in the patient's registered language, for a plain-text surface.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot_id",
+          "starts_at",
+          "when"
+        ],
+        "type": "object"
+      },
+      "LinkOutcome": {
+        "properties": {
+          "language": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "options": {
+            "description": "For `rebook_options`: the times on offer. Choose one with `POST /api/reply-links/{token}/rebook`.",
+            "items": {
+              "$ref": "#/components/schemas/LinkOption"
+            },
+            "type": "array"
+          },
+          "signpost": {
+            "description": "For a cancel that came with a reason (CAS-2): help that fits it, saying cancelling will not affect care.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "starts_at": {
+            "description": "For `rebooked`: when the appointment now starts, so a page can show it in its own language.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "description": "`confirmed`, `cancelled`, `rebook_options`, `rebooked`, `held_for_call`, `reschedule_requested`, `needs_confirmation`,\n`help` or `rejected`.",
+            "type": "string"
+          },
+          "time_zone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "language",
+          "message",
+          "time_zone"
+        ],
+        "type": "object"
+      },
       "MenuBody": {
         "properties": {
           "token": {
@@ -1363,6 +2660,31 @@
         },
         "required": [
           "channel"
+        ],
+        "type": "object"
+      },
+      "PageMeta": {
+        "description": "What a list response says about itself, under `meta` in the envelope.",
+        "properties": {
+          "limit": {
+            "description": "The limit that applied (the one asked for, or the endpoint's default).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "returned": {
+            "description": "How many rows are in `data`.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "truncated": {
+            "description": "`true` when more rows exist than were returned: ask again with a narrower question or a larger limit.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "limit",
+          "returned",
+          "truncated"
         ],
         "type": "object"
       },
@@ -1639,6 +2961,113 @@
         ],
         "type": "object"
       },
+      "RTTClockEvent": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "event_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RTTEventKind"
+          },
+          "pathway_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "pathway_id",
+          "kind",
+          "event_at",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "RTTEventKind": {
+        "enum": [
+          "started",
+          "paused",
+          "resumed",
+          "stopped"
+        ],
+        "type": "string"
+      },
+      "RTTPathway": {
+        "properties": {
+          "breach_weeks": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RTTStatus"
+          },
+          "stopped_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_service": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "target_service",
+          "breach_weeks",
+          "status",
+          "started_at",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "RTTStatus": {
+        "enum": [
+          "active",
+          "paused",
+          "stopped"
+        ],
+        "type": "string"
+      },
       "RebookBody": {
         "properties": {
           "offer_id": {
@@ -1821,6 +3250,15 @@
           "reinstated_by"
         ],
         "type": "object"
+      },
+      "ReleaseClass": {
+        "description": "How an ended appointment relates to the chance to refill its slot.",
+        "enum": [
+          "early_release",
+          "late_release",
+          "silent_miss"
+        ],
+        "type": "string"
       },
       "ReplyAction": {
         "enum": [
@@ -2259,6 +3697,61 @@
           }
         },
         "type": "object"
+      },
+      "WaitlistEntry": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/Priority"
+          },
+          "referral_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/WaitlistStatus"
+          },
+          "target_service": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "target_service",
+          "priority",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "WaitlistStatus": {
+        "enum": [
+          "waiting",
+          "booked",
+          "removed",
+          "treated"
+        ],
+        "type": "string"
       },
       "Ward": {
         "description": "A ward within a facility (e.g. \"Cardiology\", \"Maternity\").",
@@ -3989,6 +5482,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -4035,6 +5535,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -4081,6 +5588,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -4117,6 +5631,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -4153,6 +5674,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -4316,6 +5844,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -4352,6 +5887,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8582,6 +10124,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -11155,6 +12704,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LinkInfo"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -11201,6 +12757,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LinkOutcome"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -11256,6 +12819,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LinkOutcome"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -11568,6 +13138,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RTTPathway"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -11650,6 +13227,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RTTClockEvent"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -11686,6 +13270,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RTTClockEvent"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -11732,6 +13323,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RTTClockEvent"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -12273,6 +13871,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -13816,6 +15421,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_WaitlistEntry"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -13849,6 +15461,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_WaitlistEntry"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -13885,6 +15504,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_WaitlistEntry"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -13931,6 +15557,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

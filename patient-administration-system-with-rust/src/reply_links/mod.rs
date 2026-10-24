@@ -61,7 +61,7 @@ impl LinkAction {
 }
 
 /// What the link page may show: the time and the language, never a reason or a service.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct LinkInfo {
     /// `open`, `used` or `expired`.
     pub state: &'static str,
@@ -76,7 +76,7 @@ pub struct LinkInfo {
 }
 
 /// One alternative time offered after Reschedule (CAP-5).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct LinkOption {
     pub slot_id: Uuid,
     pub starts_at: DateTime<Utc>,
@@ -84,7 +84,7 @@ pub struct LinkOption {
     pub when: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct LinkOutcome {
     /// `confirmed`, `cancelled`, `rebook_options`, `rebooked`, `held_for_call`, `reschedule_requested`, `needs_confirmation`,
     /// `help` or `rejected`.

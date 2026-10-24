@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 /// Success responses set `success = true` and populate `data`. Error responses
 /// set `success = false` and populate `error`. Callers can dispatch on
 /// `success` without unwrapping HTTP status codes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ApiResponse<T> {
     pub success: bool,
     pub data: Option<T>,
@@ -25,7 +25,7 @@ pub struct ApiResponse<T> {
 }
 
 /// Machine-readable error payload carried in [`ApiResponse::error`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ApiError {
     pub code: String,
     pub message: String,

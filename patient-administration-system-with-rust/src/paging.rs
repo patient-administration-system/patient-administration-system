@@ -13,7 +13,7 @@ use crate::{Error, Result};
 pub const MAX_LIMIT: i64 = 500;
 
 /// What a list response says about itself, under `meta` in the envelope.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct PageMeta {
     /// The limit that applied (the one asked for, or the endpoint's default).
     pub limit: i64,
