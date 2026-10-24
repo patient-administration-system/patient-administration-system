@@ -3,7 +3,7 @@
 use super::*;
 
 /// Which way is worse.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Direction {
     /// A higher value is worse (waits, missed appointments).
@@ -15,7 +15,7 @@ pub enum Direction {
 }
 
 /// The tier a measure is in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Rag {
     Green,
@@ -37,7 +37,7 @@ impl Rag {
 }
 
 /// The three numbers that define a measure's tiers, in the measure's own unit.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, utoipa::ToSchema)]
 pub struct Limits {
     pub target: f64,
     pub tolerance: f64,
@@ -66,7 +66,7 @@ pub fn classify(value: f64, limits: Limits, direction: Direction) -> Rag {
 }
 
 /// What a tolerance applies to. `All` is the whole service; the others narrow it to one service or ward.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ScopeKind {
     All,

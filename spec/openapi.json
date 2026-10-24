@@ -166,6 +166,98 @@
         ],
         "type": "object"
       },
+      "Alert": {
+        "description": "An alert: a measure that went past its escalate-beyond limit. One stays open while the measure stays red.",
+        "properties": {
+          "acknowledged_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "acknowledged_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cleared_at": {
+            "description": "Set when the measure is no longer red.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "escalate_beyond": {
+            "format": "double",
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "raised_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "scope_key": {
+            "type": "string"
+          },
+          "scope_kind": {
+            "type": "string"
+          },
+          "target": {
+            "format": "double",
+            "type": "number"
+          },
+          "tolerance": {
+            "format": "double",
+            "type": "number"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "metric",
+          "scope_kind",
+          "scope_key",
+          "value",
+          "target",
+          "tolerance",
+          "escalate_beyond",
+          "raised_at",
+          "last_seen_at",
+          "note"
+        ],
+        "type": "object"
+      },
       "ApiError": {
         "description": "Machine-readable error payload carried in [`ApiResponse::error`].",
         "properties": {
@@ -415,6 +507,95 @@
         ],
         "type": "object"
       },
+      "ApiResponse_LetterTemplate": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "body_tera": {
+                "type": "string"
+              },
+              "channels": {
+                "items": {
+                  "$ref": "#/components/schemas/DeliveryChannel"
+                },
+                "type": "array"
+              },
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "locale": {
+                "description": "The language of this variant: `en-001`, `cy-001`. Templates with the same `name` are the\nlanguage variants of one message (see `communication::templates`).",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "required_variables": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "updated_at": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "subject",
+              "body_tera",
+              "required_variables",
+              "channels",
+              "active",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_LinkInfo": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -534,6 +715,133 @@
               "status",
               "language",
               "message",
+              "time_zone"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_OfferInfo": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "What the offer page may show: the time and nothing about the service or anyone else.",
+            "properties": {
+              "actions": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "expires_at": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "starts_at": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "state": {
+                "description": "`open`, `used`, `expired` or `gone` (the slot was taken).",
+                "type": "string"
+              },
+              "time_zone": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "state",
+              "time_zone",
+              "actions"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_OfferOutcome": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "starts_at": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "description": "`accepted`, `declined` or `gone`.",
+                "type": "string"
+              },
+              "time_zone": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
               "time_zone"
             ],
             "type": "object"
@@ -693,6 +1001,213 @@
               "updated_at"
             ],
             "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_ToleranceStatus": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "by_service": {
+                "description": "The measures that can be read for one service, for each service that has data (or its own tolerance).",
+                "items": {
+                  "$ref": "#/components/schemas/Reading"
+                },
+                "type": "array"
+              },
+              "by_ward": {
+                "description": "Bed occupancy for each ward.",
+                "items": {
+                  "$ref": "#/components/schemas/Reading"
+                },
+                "type": "array"
+              },
+              "from": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "overall": {
+                "$ref": "#/components/schemas/Rag",
+                "description": "The worst tier among every reading that has data; `no_data` when none do."
+              },
+              "readings": {
+                "description": "Each measure for the whole service.",
+                "items": {
+                  "$ref": "#/components/schemas/Reading"
+                },
+                "type": "array"
+              },
+              "to": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "overall",
+              "readings",
+              "by_service",
+              "by_ward"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_Alert": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "An alert: a measure that went past its escalate-beyond limit. One stays open while the measure stays red.",
+              "properties": {
+                "acknowledged_at": {
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "acknowledged_by": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "cleared_at": {
+                  "description": "Set when the measure is no longer red.",
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "escalate_beyond": {
+                  "format": "double",
+                  "type": "number"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "last_seen_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "metric": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "raised_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "scope_key": {
+                  "type": "string"
+                },
+                "scope_kind": {
+                  "type": "string"
+                },
+                "target": {
+                  "format": "double",
+                  "type": "number"
+                },
+                "tolerance": {
+                  "format": "double",
+                  "type": "number"
+                },
+                "unit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "format": "double",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "metric",
+                "scope_kind",
+                "scope_key",
+                "value",
+                "target",
+                "tolerance",
+                "escalate_beyond",
+                "raised_at",
+                "last_seen_at",
+                "note"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           },
           "error": {
             "oneOf": [
@@ -923,6 +1438,214 @@
                 "start_datetime",
                 "end_datetime",
                 "status",
+                "created_at",
+                "updated_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_GeneratedLetter": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "appointment_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "channel": {
+                  "$ref": "#/components/schemas/DeliveryChannel"
+                },
+                "created_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "locale": {
+                  "description": "Which language variant was used, so a patient's message can be shown in what they were sent.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "rendered_body": {
+                  "type": "string"
+                },
+                "rendered_subject": {
+                  "type": "string"
+                },
+                "sent_at": {
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "$ref": "#/components/schemas/LetterStatus"
+                },
+                "template_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "trigger": {
+                  "description": "Why this message was sent (CAP-6): `manual` (a person generated it), `reminder` or\n`reminder_ladder:<step>`.",
+                  "type": "string"
+                },
+                "trigger_ref": {
+                  "description": "The record the trigger refers to, for example the appointment a reminder was for.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "updated_at": {
+                  "format": "date-time",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "template_id",
+                "person_id",
+                "rendered_subject",
+                "rendered_body",
+                "channel",
+                "status",
+                "created_at",
+                "updated_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_LetterTemplate": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "active": {
+                  "type": "boolean"
+                },
+                "body_tera": {
+                  "type": "string"
+                },
+                "channels": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryChannel"
+                  },
+                  "type": "array"
+                },
+                "created_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "locale": {
+                  "description": "The language of this variant: `en-001`, `cy-001`. Templates with the same `name` are the\nlanguage variants of one message (see `communication::templates`).",
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "required_variables": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "format": "date-time",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "subject",
+                "body_tera",
+                "required_variables",
+                "channels",
+                "active",
                 "created_at",
                 "updated_at"
               ],
@@ -1934,6 +2657,15 @@
         ],
         "type": "object"
       },
+      "Direction": {
+        "description": "Which way is worse.",
+        "enum": [
+          "higher_is_worse",
+          "lower_is_worse",
+          "either"
+        ],
+        "type": "string"
+      },
       "EligibleBody": {
         "properties": {
           "basis": {
@@ -2188,6 +2920,86 @@
         ],
         "type": "object"
       },
+      "GeneratedLetter": {
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "channel": {
+            "$ref": "#/components/schemas/DeliveryChannel"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "locale": {
+            "description": "Which language variant was used, so a patient's message can be shown in what they were sent.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "rendered_body": {
+            "type": "string"
+          },
+          "rendered_subject": {
+            "type": "string"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/LetterStatus"
+          },
+          "template_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "trigger": {
+            "description": "Why this message was sent (CAP-6): `manual` (a person generated it), `reminder` or\n`reminder_ladder:<step>`.",
+            "type": "string"
+          },
+          "trigger_ref": {
+            "description": "The record the trigger refers to, for example the appointment a reminder was for.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "template_id",
+          "person_id",
+          "rendered_subject",
+          "rendered_body",
+          "channel",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "GrantBody": {
         "properties": {
           "basis": {
@@ -2327,6 +3139,14 @@
         ],
         "type": "object"
       },
+      "LetterStatus": {
+        "enum": [
+          "pending",
+          "sent",
+          "failed"
+        ],
+        "type": "string"
+      },
       "LetterTemplate": {
         "properties": {
           "active": {
@@ -2380,6 +3200,29 @@
           "active",
           "created_at",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "Limits": {
+        "description": "The three numbers that define a measure's tiers, in the measure's own unit.",
+        "properties": {
+          "escalate_beyond": {
+            "format": "double",
+            "type": "number"
+          },
+          "target": {
+            "format": "double",
+            "type": "number"
+          },
+          "tolerance": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "target",
+          "tolerance",
+          "escalate_beyond"
         ],
         "type": "object"
       },
@@ -2583,6 +3426,67 @@
         },
         "required": [
           "value"
+        ],
+        "type": "object"
+      },
+      "OfferInfo": {
+        "description": "What the offer page may show: the time and nothing about the service or anyone else.",
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "starts_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "description": "`open`, `used`, `expired` or `gone` (the slot was taken).",
+            "type": "string"
+          },
+          "time_zone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "time_zone",
+          "actions"
+        ],
+        "type": "object"
+      },
+      "OfferOutcome": {
+        "properties": {
+          "starts_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "description": "`accepted`, `declined` or `gone`.",
+            "type": "string"
+          },
+          "time_zone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "time_zone"
         ],
         "type": "object"
       },
@@ -3068,6 +3972,89 @@
         ],
         "type": "string"
       },
+      "Rag": {
+        "description": "The tier a measure is in.",
+        "enum": [
+          "green",
+          "amber",
+          "red",
+          "no_data"
+        ],
+        "type": "string"
+      },
+      "Reading": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Limits"
+          },
+          {
+            "properties": {
+              "adverse_drift": {
+                "description": "How far the value is from the target in the worse direction.",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "customised": {
+                "description": "True when this scope, or this measure, has limits a person set; false while a default applies.",
+                "type": "boolean"
+              },
+              "direction": {
+                "$ref": "#/components/schemas/Direction"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "metric": {
+                "type": "string"
+              },
+              "rag": {
+                "$ref": "#/components/schemas/Rag"
+              },
+              "sample": {
+                "description": "How many things the value is based on (appointments, pathways, slots, beds, invoices).",
+                "format": "int64",
+                "type": "integer"
+              },
+              "scope_key": {
+                "type": "string"
+              },
+              "scope_kind": {
+                "$ref": "#/components/schemas/ScopeKind"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "value": {
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "metric",
+              "kind",
+              "label",
+              "unit",
+              "direction",
+              "scope_kind",
+              "scope_key",
+              "rag",
+              "sample",
+              "customised"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "A measure's value against its tiers."
+      },
       "RebookBody": {
         "properties": {
           "offer_id": {
@@ -3456,6 +4443,15 @@
         ],
         "type": "object"
       },
+      "ScopeKind": {
+        "description": "What a tolerance applies to. `All` is the whole service; the others narrow it to one service or ward.",
+        "enum": [
+          "all",
+          "service",
+          "ward"
+        ],
+        "type": "string"
+      },
       "SentBody": {
         "properties": {
           "sent_by": {
@@ -3610,6 +4606,52 @@
         "required": [
           "target_date",
           "set_by"
+        ],
+        "type": "object"
+      },
+      "ToleranceStatus": {
+        "properties": {
+          "by_service": {
+            "description": "The measures that can be read for one service, for each service that has data (or its own tolerance).",
+            "items": {
+              "$ref": "#/components/schemas/Reading"
+            },
+            "type": "array"
+          },
+          "by_ward": {
+            "description": "Bed occupancy for each ward.",
+            "items": {
+              "$ref": "#/components/schemas/Reading"
+            },
+            "type": "array"
+          },
+          "from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "overall": {
+            "$ref": "#/components/schemas/Rag",
+            "description": "The worst tier among every reading that has data; `no_data` when none do."
+          },
+          "readings": {
+            "description": "Each measure for the whole service.",
+            "items": {
+              "$ref": "#/components/schemas/Reading"
+            },
+            "type": "array"
+          },
+          "to": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "overall",
+          "readings",
+          "by_service",
+          "by_ward"
         ],
         "type": "object"
       },
@@ -8772,6 +9814,13 @@
         "operationId": "list_templates",
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_LetterTemplate"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8876,6 +9925,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LetterTemplate"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -9608,6 +10664,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OfferInfo"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -9653,6 +10716,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OfferOutcome"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -10842,6 +11912,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_GeneratedLetter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14413,6 +15490,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Alert"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14562,6 +15646,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ToleranceStatus"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

@@ -35,7 +35,7 @@ pub enum DeliveryChannel {
     Portal,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum LetterStatus {
     Pending,
@@ -82,7 +82,7 @@ impl LetterTemplate {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct GeneratedLetter {
     pub id: Uuid,
     pub template_id: Uuid,

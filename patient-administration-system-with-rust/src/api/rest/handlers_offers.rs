@@ -24,7 +24,7 @@ use crate::db::repositories::audit::UserContext as RepoUserContext;
     tag = "Offer links",
     params(("token" = String, Path, description = "Path parameter `token`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::backfill::OfferInfo>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -43,7 +43,7 @@ pub async fn get_offer(State(state): State<AppState>, Path(token): Path<String>)
     tag = "Offer links",
     params(("token" = String, Path, description = "Path parameter `token`"), ("action" = String, Path, description = "Path parameter `action`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::backfill::OfferOutcome>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

@@ -123,7 +123,7 @@ pub struct Setting {
 }
 
 /// A measure's value against its tiers.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct Reading {
     pub metric: &'static str,
     pub kind: &'static str,
@@ -144,7 +144,8 @@ pub struct Reading {
     pub customised: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+#[schema(as = ToleranceStatus)]
 pub struct Status {
     pub from: DateTime<Utc>,
     pub to: DateTime<Utc>,
@@ -159,7 +160,7 @@ pub struct Status {
 }
 
 /// An alert: a measure that went past its escalate-beyond limit. One stays open while the measure stays red.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct Alert {
     pub id: Uuid,
     pub metric: String,

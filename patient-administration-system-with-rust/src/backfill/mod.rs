@@ -57,7 +57,7 @@ pub struct Offer {
 }
 
 /// What the offer page may show: the time and nothing about the service or anyone else.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct OfferInfo {
     /// `open`, `used`, `expired` or `gone` (the slot was taken).
     pub state: &'static str,
@@ -67,7 +67,7 @@ pub struct OfferInfo {
     pub actions: Vec<&'static str>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct OfferOutcome {
     /// `accepted`, `declined` or `gone`.
     pub status: &'static str,

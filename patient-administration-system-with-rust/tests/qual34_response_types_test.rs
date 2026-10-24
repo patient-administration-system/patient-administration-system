@@ -180,3 +180,71 @@ async fn the_appointment_routes_send_the_types_they_declare() {
     )
     .await;
 }
+
+/// A response whose type only serialises cannot be read back into it, so its fields are compared with the
+/// schema the OpenAPI document declares: every field sent is declared, and every declared required field is sent.
+fn assert_fields_match_schema(schema_name: &str, sent: &Value) {
+    use utoipa::OpenApi;
+    let doc = serde_json::to_value(patient_administration_system::api::openapi::ApiDoc::openapi())
+        .unwrap();
+    let schema = &doc["components"]["schemas"][schema_name];
+    let declared = schema["properties"]
+        .as_object()
+        .unwrap_or_else(|| panic!("no schema {schema_name}"));
+    let object = sent
+        .as_object()
+        .unwrap_or_else(|| panic!("{schema_name}: not an object: {sent}"));
+    for key in object.keys() {
+        assert!(
+            declared.contains_key(key),
+            "{schema_name}: `{key}` is sent but not declared"
+        );
+    }
+    for required in schema["required"].as_array().into_iter().flatten() {
+        let key = required.as_str().unwrap();
+        assert!(
+            object.contains_key(key),
+            "{schema_name}: required `{key}` is not sent"
+        );
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_tolerance_and_letter_template_routes_send_the_fields_they_declare() {
+    use patient_administration_system::db::repositories::letter::LetterRepository;
+    use patient_administration_system::models::communication::LetterTemplate;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+
+    let status: Value = call(&app, "GET", "/api/tolerances/status?days=30", None).await;
+    assert_fields_match_schema("ToleranceStatus", &status);
+
+    let alerts: Vec<Value> = call(&app, "GET", "/api/tolerance-alerts", None).await;
+    for a in alerts.iter().take(3) {
+        assert_fields_match_schema("Alert", a);
+    }
+
+    let t = LetterTemplate::new(
+        format!("q34-{}", Uuid::new_v4()),
+        "Hello".into(),
+        "Your appointment.".into(),
+    );
+    let t = LetterRepository::create_template(&state.db, &t)
+        .await
+        .unwrap();
+    let one: Value = call(
+        &app,
+        "GET",
+        &format!("/api/letter-templates/{}", t.id),
+        None,
+    )
+    .await;
+    assert_fields_match_schema("LetterTemplate", &one);
+    let all: Vec<Value> = call(&app, "GET", "/api/letter-templates", None).await;
+    assert!(all.iter().any(|x| x["id"] == one["id"]));
+    for x in all.iter().take(3) {
+        assert_fields_match_schema("LetterTemplate", x);
+    }
+}
