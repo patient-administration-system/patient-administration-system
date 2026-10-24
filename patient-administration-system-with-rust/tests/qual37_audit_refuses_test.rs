@@ -426,7 +426,27 @@ async fn the_other_writes_are_refused_too_and_leave_no_change() {
         1
     );
 
-    // Ward, room and bed creates, each under a parent made normally.
+    db.execute_unprepared("DROP TRIGGER IF EXISTS qual37 ON audit_log")
+        .await
+        .unwrap();
+}
+
+/// Ward, room and bed creates, each under a parent made normally.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_ward_room_or_bed_create_is_refused_when_its_audit_row_cannot_be_written() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let db = state.db.clone();
+    for sql in [
+        "CREATE OR REPLACE FUNCTION qual37_fail() RETURNS trigger AS $$ BEGIN \
+           IF NEW.user_id = 'qual37-audit-fails' THEN RAISE EXCEPTION 'audit insert refused (qual37)'; END IF; \
+           RETURN NEW; END $$ LANGUAGE plpgsql",
+        "DROP TRIGGER IF EXISTS qual37 ON audit_log",
+        "CREATE TRIGGER qual37 BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION qual37_fail()",
+    ] {
+        db.execute_unprepared(sql).await.unwrap();
+    }
+    let app = router(state.clone());
     let facility = Facility::new(
         "F".into(),
         format!("F{}", Uuid::new_v4().simple()),
