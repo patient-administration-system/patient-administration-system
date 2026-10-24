@@ -10,7 +10,8 @@ mod common;
 use std::collections::BTreeSet;
 
 use patient_administration_system::{
-    communication, contact, follow_up, identity, receipts, referrals, support, waits,
+    clinic_templates, clinical_priority, communication, contact, follow_up, identity, interpreter,
+    pifu, proxy, receipts, referrals, support, triage, waits,
 };
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 
@@ -58,6 +59,18 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         (
             "patient_communication_profiles_preferred_channel_check",
             &contact::CHANNELS,
+        ),
+        // Added with the second pass over the lists that already existed in code.
+        ("chk_slots_slot_type", &clinic_templates::SLOT_TYPES),
+        ("interpreter_requests_kind_check", &interpreter::KINDS),
+        ("pifu_requests_channel_check", &pifu::CHANNELS),
+        ("proxy_authorities_scopes_check", &proxy::SCOPES),
+        ("proxy_authorities_basis_check", &proxy::BASES),
+        ("triage_assessments_category_check", &triage::CATEGORIES),
+        ("triage_assessments_triage_system_check", &triage::SYSTEMS),
+        (
+            "waitlist_entries_clinical_priority_chk",
+            &clinical_priority::CODES,
         ),
     ];
     let mut drift = Vec::new();
