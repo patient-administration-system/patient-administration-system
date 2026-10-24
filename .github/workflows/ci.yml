@@ -81,7 +81,7 @@ jobs:
           path: lcov.info
 
   fhir-validation:
-    name: FHIR R4 responses (HL7 validator: IHE BALP and Scheduling)
+    name: FHIR R4 responses (HL7 validator, IHE BALP and Scheduling)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
