@@ -26,7 +26,7 @@ fi
 
 ( cd "$(dirname "$0")/.." && \
   PAS_DUMP_DIR="$SAMPLES" HOSTNAME="${HOSTNAME:-pas-server}" \
-  cargo test -p patient-administration-system --test fhir_samples_dump_test -- --ignored )
+  cargo test -p patient-administration-system --test fhir_samples_dump_test -- --ignored --test-threads=1 )
 
 status=0
 validate() { # profile-url, file
@@ -40,4 +40,10 @@ validate "$BALP.PatientDelete" "$SAMPLES"/balp-*-D.json
 SCHED=https://profiles.ihe.net/ITI/Scheduling/StructureDefinition
 for f in find hold book; do validate "$SCHED/ihe-sched-avail-bundle" "$SAMPLES/ihe-$f.json"; done
 validate "" "$SAMPLES/ihe-metadata.json"
+# The Wales exchange (NEW-1): fhir.r4.wales is built on UK Core STU2, which the validator fetches with it.
+WALES=https://fhir.nhs.wales/StructureDefinition/DataStandardsWales
+for kind in Appointment Encounter ServiceRequest; do
+  java -jar "$JAR" "$SAMPLES/wales-$kind.json" -version 4.0.1 -ig fhir.r4.wales#2.4.0 -tx n/a \
+    -profile "$WALES-$kind" || status=1
+done
 exit $status

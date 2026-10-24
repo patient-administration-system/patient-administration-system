@@ -76,6 +76,12 @@ pub fn router(state: AppState) -> Router {
             "/fhir/r4/Appointment/$book",
             post(super::ihe_scheduling::book),
         )
+        .route("/fhir/r4/Appointment/{id}", get(super::r4::get_appointment))
+        .route("/fhir/r4/Encounter/{id}", get(super::r4::get_encounter))
+        .route(
+            "/fhir/r4/ServiceRequest/{id}",
+            get(super::r4::get_service_request),
+        )
         .route(
             "/fhir/Observation",
             get(super::handlers::search_observations),

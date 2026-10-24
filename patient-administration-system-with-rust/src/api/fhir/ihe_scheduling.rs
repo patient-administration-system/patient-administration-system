@@ -406,7 +406,17 @@ pub async fn metadata(headers: HeaderMap) -> Response {
             "rest": [{
                 "mode": "server",
                 "resource": [{
+                    "type": "Encounter",
+                    "profile": "https://fhir.nhs.wales/StructureDefinition/DataStandardsWales-Encounter",
+                    "interaction": [{ "code": "read" }],
+                }, {
+                    "type": "ServiceRequest",
+                    "profile": "https://fhir.nhs.wales/StructureDefinition/DataStandardsWales-ServiceRequest",
+                    "interaction": [{ "code": "read" }],
+                }, {
                     "type": "Appointment",
+                    "profile": "https://fhir.nhs.wales/StructureDefinition/DataStandardsWales-Appointment",
+                    "interaction": [{ "code": "read" }],
                     "operation": [
                         { "name": "find", "definition": "https://profiles.ihe.net/ITI/Scheduling/OperationDefinition/appointment-find" },
                         { "name": "hold", "definition": "https://profiles.ihe.net/ITI/Scheduling/OperationDefinition/appointment-hold" },

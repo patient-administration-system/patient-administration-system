@@ -185,3 +185,86 @@ async fn dump_r4_samples_for_the_validator() {
         .unwrap();
     write(&dir, "ihe-metadata.json", &body(res).await);
 }
+
+/// The Wales R4 reads: a booked appointment, an encounter and a referral as a ServiceRequest.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn dump_wales_r4_reads_for_the_validator() {
+    use patient_administration_system::db::repositories::encounter::EncounterRepository;
+    use patient_administration_system::models::encounter::{Encounter, EncounterClass};
+    use patient_administration_system::referrals::NewReferral;
+
+    let Ok(dir) = std::env::var("PAS_DUMP_DIR") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let ctx = UserContext::system();
+    let person = Uuid::new_v4();
+
+    let sched = common::new_schedule(&state.db).await;
+    let slot = common::free_slot(&state.db, sched.id, 20).await;
+    let appt = state
+        .scheduling
+        .book_slot(slot.id, person, &ctx)
+        .await
+        .unwrap();
+
+    let mut enc = Encounter::new(person, EncounterClass::Outpatient);
+    enc.worker_id = Some(Uuid::new_v4());
+    enc.reason = Some("follow-up of knee pain".into());
+    let enc = EncounterRepository::create(&state.db, &enc).await.unwrap();
+
+    let (referral, _) = state
+        .referrals
+        .create(
+            NewReferral {
+                person_id: person,
+                source: "e-rs".into(),
+                external_ref: Some(format!("U{}", Uuid::new_v4().simple())),
+                target_service: "orthopaedics".into(),
+                reason: Some("knee pain for six weeks".into()),
+                referring_worker_id: Some(Uuid::new_v4()),
+                received_at: None,
+            },
+            &ctx,
+        )
+        .await
+        .unwrap();
+
+    let app = fhir_router(state.clone());
+    for (kind, id) in [
+        ("Appointment", appt.id),
+        ("Encounter", enc.id),
+        ("ServiceRequest", referral.id),
+    ] {
+        let res = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/fhir/r4/{kind}/{id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(res.status().is_success(), "{kind}");
+        let ctype = res.headers()["content-type"].to_str().unwrap().to_string();
+        assert!(ctype.contains("fhirVersion=4.0"), "{ctype}");
+        let v = body(res).await;
+        assert_eq!(v["resourceType"], kind);
+        assert_eq!(v["id"], id.to_string());
+        write(&dir, &format!("wales-{kind}.json"), &v);
+    }
+    // An id that is not there is an OperationOutcome, not a crash.
+    let res = app
+        .oneshot(
+            Request::get(format!("/fhir/r4/Appointment/{}", Uuid::new_v4()))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 404);
+    assert_eq!(body(res).await["resourceType"], "OperationOutcome");
+}
