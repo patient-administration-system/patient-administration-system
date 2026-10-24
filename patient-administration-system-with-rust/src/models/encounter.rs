@@ -48,7 +48,7 @@ pub enum EncounterClass {
 /// - `Cancelled`  -> (terminal)
 ///
 /// A same-state transition (e.g. `Arrived -> Arrived`) is invalid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum EncounterStatus {
     /// Encounter is scheduled but the patient has not yet arrived.

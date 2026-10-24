@@ -20,7 +20,7 @@ use crate::models::{Iso4217, Money};
 
 /// Body shape for money fields on the wire — keeps the amount as a
 /// string-encoded decimal so JSON-number imprecision can never bite.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct MoneyBody {
     pub amount_value: String,
     pub amount_currency: String,
@@ -37,13 +37,13 @@ impl MoneyBody {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct OpenAccountBody {
     pub person_id: Uuid,
     pub currency: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct PostChargeBody {
     pub account_id: Uuid,
     pub code: String,
@@ -56,13 +56,13 @@ pub struct PostChargeBody {
     pub appointment_id: Option<Uuid>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct FinalizeInvoiceBody {
     pub account_id: Uuid,
     pub charge_ids: Vec<Uuid>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct PostPaymentBody {
     pub invoice_id: Uuid,
     #[serde(flatten)]
@@ -77,6 +77,7 @@ pub struct PostPaymentBody {
     post,
     path = "/api/accounts",
     tag = "Accounts",
+    request_body = OpenAccountBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -108,6 +109,7 @@ pub async fn open_account(
     post,
     path = "/api/charges",
     tag = "Charges",
+    request_body = PostChargeBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -143,6 +145,7 @@ pub async fn post_charge(
     post,
     path = "/api/invoices",
     tag = "Invoices",
+    request_body = FinalizeInvoiceBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -170,6 +173,7 @@ pub async fn finalize_invoice(
     post,
     path = "/api/payments",
     tag = "Payments",
+    request_body = PostPaymentBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

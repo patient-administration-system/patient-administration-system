@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Category of consent granted by a patient.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ConsentType {
     /// Consent for general data processing.
@@ -25,7 +25,7 @@ pub enum ConsentType {
 }
 
 /// Lifecycle state of a [`Consent`] record.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ConsentStatus {
     /// Consent is active and may be relied upon.
@@ -37,7 +37,7 @@ pub enum ConsentStatus {
 }
 
 /// A consent record granted by a patient.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Consent {
     /// Internal consent identifier.
     pub id: Uuid,

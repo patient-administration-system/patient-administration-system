@@ -15,7 +15,8 @@ use crate::api::rest::handlers::{ok, ok_json};
 use crate::models::waitlist::Priority;
 use crate::referrals::NewReferral;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_referrals::CreateBody)]
 pub struct CreateBody {
     pub person_id: Uuid,
     /// `gp`, `e-rs` or `internal`.
@@ -38,6 +39,7 @@ pub struct CreateBody {
     post,
     path = "/api/referrals",
     tag = "Referrals",
+    request_body = CreateBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -154,7 +156,7 @@ pub async fn book_first_available(
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, utoipa::ToSchema)]
 pub struct WaitlistBody {
     #[serde(default)]
     pub priority: Option<Priority>,
@@ -166,6 +168,7 @@ pub struct WaitlistBody {
     path = "/api/referrals/{id}/waitlist",
     tag = "Referrals",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = WaitlistBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -189,7 +192,8 @@ pub async fn waitlist(
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_referrals::CloseBody)]
 pub struct CloseBody {
     #[serde(default)]
     pub reason: Option<String>,
@@ -201,6 +205,7 @@ pub struct CloseBody {
     path = "/api/referrals/{id}/close",
     tag = "Referrals",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = CloseBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -224,7 +229,8 @@ pub async fn close(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_referrals::TriageBody)]
 pub struct TriageBody {
     /// `returned_with_advice` or `redirected`.
     pub outcome: String,
@@ -242,6 +248,7 @@ pub struct TriageBody {
     path = "/api/referrals/{id}/triage",
     tag = "Referrals",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = TriageBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

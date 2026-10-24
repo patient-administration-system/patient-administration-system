@@ -16,7 +16,8 @@ use crate::api::rest::handlers::{
 use crate::clinic_templates::report::capacity_report;
 use crate::clinic_templates::{Line, TemplateService, VersionInput};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_clinic_templates::CreateBody)]
 pub struct CreateBody {
     pub schedule_id: Uuid,
     pub name: String,
@@ -29,6 +30,7 @@ pub struct CreateBody {
     post,
     path = "/api/session-templates",
     tag = "Scheduling",
+    request_body = CreateBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -80,7 +82,7 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> 
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ProposeBody {
     /// ISO weekday: 1 Monday to 7 Sunday.
     pub weekday: i16,
@@ -99,6 +101,7 @@ pub struct ProposeBody {
     path = "/api/session-templates/{id}/versions",
     tag = "Scheduling",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ProposeBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -128,7 +131,8 @@ pub async fn propose(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_clinic_templates::ApproveBody)]
 pub struct ApproveBody {
     pub approved_by: String,
 }
@@ -143,6 +147,7 @@ pub struct ApproveBody {
         ("id" = String, Path, description = "Path parameter `id`"),
         ("version" = String, Path, description = "Path parameter `version`"),
     ),
+    request_body = ApproveBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -170,7 +175,7 @@ pub async fn approve(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct GenerateBody {
     pub from: NaiveDate,
     pub to: NaiveDate,
@@ -184,6 +189,7 @@ pub struct GenerateBody {
     path = "/api/session-templates/{id}/generate",
     tag = "Scheduling",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = GenerateBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -212,7 +218,7 @@ pub async fn generate(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RingFenceBody {
     pub ring_fenced: bool,
     pub set_by: String,
@@ -225,6 +231,7 @@ pub struct RingFenceBody {
     path = "/api/slots/{id}/ring-fence",
     tag = "Scheduling",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = RingFenceBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

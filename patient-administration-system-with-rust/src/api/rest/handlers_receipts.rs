@@ -14,7 +14,7 @@ use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ReceiptBody {
     pub carrier: String,
     /// The carrier's id for this report. The idempotency key with the carrier name.
@@ -36,6 +36,7 @@ pub struct ReceiptBody {
     post,
     path = "/api/write-back/receipts",
     tag = "Write back",
+    request_body = ReceiptBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -119,7 +120,8 @@ pub async fn contact_problems(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_receipts::ResolveBody)]
 pub struct ResolveBody {
     pub resolved_by: String,
     #[serde(default)]
@@ -132,6 +134,7 @@ pub struct ResolveBody {
     path = "/api/contact-problems/{person_id}/resolve",
     tag = "Contact problems",
     params(("person_id" = String, Path, description = "Path parameter `person_id`")),
+    request_body = ResolveBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

@@ -27,6 +27,7 @@ use crate::models::coverage::{Coverage, CoverageStatus};
     post,
     path = "/api/coverages",
     tag = "Coverages",
+    request_body = Coverage,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -96,6 +97,7 @@ pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -
     path = "/api/coverages/{id}",
     tag = "Coverages",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = Coverage,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

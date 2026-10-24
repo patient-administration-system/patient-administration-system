@@ -14,7 +14,8 @@ use crate::api::rest::handlers::{
 };
 use crate::needs_review::{DEFAULT_MONTHS, NeedsReviewService};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_needs_review::ReviewBody)]
 pub struct ReviewBody {
     /// The person who reviewed the needs with the patient.
     pub reviewed_by: String,
@@ -27,6 +28,7 @@ pub struct ReviewBody {
     path = "/api/patients/{id}/communication-needs/review",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ReviewBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

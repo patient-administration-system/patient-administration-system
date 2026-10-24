@@ -14,7 +14,7 @@ use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct EligibleBody {
     pub eligible_by: String,
     pub basis: String,
@@ -26,6 +26,7 @@ pub struct EligibleBody {
     path = "/api/patients/{id}/transport-eligibility",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = EligibleBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -75,7 +76,7 @@ pub async fn withdraw_eligible(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ConsentBody {
     pub recorded_by: String,
     /// The lawful basis, for example "Art. 6(1)(e) and 9(2)(h)".
@@ -89,6 +90,7 @@ pub struct ConsentBody {
     path = "/api/patients/{id}/transport-consent",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ConsentBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

@@ -9,7 +9,7 @@ use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct MenuBody {
     /// The single-use token the call was placed with.
     pub token: String,
@@ -20,6 +20,7 @@ pub struct MenuBody {
     post,
     path = "/api/write-back/ivr/menu",
     tag = "Write back",
+    request_body = MenuBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -33,7 +34,7 @@ pub async fn menu(State(state): State<AppState>, Json(b): Json<MenuBody>) -> Han
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct PressBody {
     pub token: String,
     /// The `state` the last reply gave (`menu`, `times`, `cancel_sure`).
@@ -47,6 +48,7 @@ pub struct PressBody {
     post,
     path = "/api/write-back/ivr/press",
     tag = "Write back",
+    request_body = PressBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

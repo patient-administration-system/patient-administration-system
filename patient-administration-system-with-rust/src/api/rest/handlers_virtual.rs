@@ -34,7 +34,8 @@ pub async fn list_services(State(state): State<AppState>) -> HandlerResult {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_virtual::ApproveBody)]
 pub struct ApproveBody {
     pub approved_by: String,
 }
@@ -45,6 +46,7 @@ pub struct ApproveBody {
     path = "/api/virtual-ok-services/{service_type}",
     tag = "Virtual ok services",
     params(("service_type" = String, Path, description = "Path parameter `service_type`")),
+    request_body = ApproveBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

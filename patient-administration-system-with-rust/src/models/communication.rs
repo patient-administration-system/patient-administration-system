@@ -18,7 +18,7 @@ use uuid::Uuid;
 ///   or `Failed` on error. When the configured provider is
 ///   [`crate::communication::NoopSmsProvider`] (the default), the letter
 ///   stays `Pending` — the same behavior as `Print` and `Email`.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DeliveryChannel {
     Print,
@@ -43,7 +43,7 @@ pub enum LetterStatus {
     Failed,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct LetterTemplate {
     pub id: Uuid,
     pub name: String,

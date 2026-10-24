@@ -36,7 +36,7 @@ pub const MAX_SLOTS_PER_SESSION: i32 = 100;
 pub const MAX_GENERATE_DAYS: i64 = 92;
 
 /// One run of slots of the same type in a session.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Line {
     pub slot_type: String,
     pub slots: i32,

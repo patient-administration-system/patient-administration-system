@@ -14,13 +14,13 @@ use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct AdmitBody {
     pub person_id: Uuid,
     pub bed_id: Uuid,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct TransferBody {
     pub new_bed_id: Uuid,
 }
@@ -31,6 +31,7 @@ pub struct TransferBody {
     post,
     path = "/api/admissions",
     tag = "Admissions",
+    request_body = AdmitBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -56,6 +57,7 @@ pub async fn admit(
     path = "/api/admissions/{id}/transfer",
     tag = "Admissions",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = TransferBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -185,6 +187,7 @@ pub async fn cancel_transfer(
     post,
     path = "/api/admissions/pre-admit",
     tag = "Admissions",
+    request_body = AdmitBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -213,6 +216,7 @@ pub async fn pre_admit(
     post,
     path = "/api/admissions/cancel-pre-admit",
     tag = "Admissions",
+    request_body = AdmitBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -292,6 +296,7 @@ pub async fn leave_end(
     post,
     path = "/api/admissions/change-to-inpatient",
     tag = "Admissions",
+    request_body = AdmitBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

@@ -24,7 +24,8 @@ fn json<T: Serialize>(value: Result<T>) -> HandlerResult {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_subscriptions::CreateBody)]
 pub struct CreateBody {
     /// `appointment` or `waiting-list`.
     pub topic: String,
@@ -41,6 +42,7 @@ pub struct CreateBody {
     post,
     path = "/api/admin/subscriptions",
     tag = "Admin",
+    request_body = CreateBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

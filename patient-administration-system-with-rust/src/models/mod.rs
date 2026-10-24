@@ -41,7 +41,7 @@ pub enum NameUse {
     Maiden,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum AddressUse {
     Home,
@@ -51,7 +51,7 @@ pub enum AddressUse {
     Billing,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Address {
     pub use_type: Option<AddressUse>,
     pub line1: Option<String>,

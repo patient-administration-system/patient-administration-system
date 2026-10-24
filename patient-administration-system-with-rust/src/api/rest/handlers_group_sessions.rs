@@ -14,7 +14,7 @@ use crate::api::rest::handlers::{
 };
 use crate::group_sessions::GroupSessionService;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CapacityBody {
     /// How many patients the slot takes: 1 for one-to-one, up to 50 for a group session.
     pub capacity: i32,
@@ -28,6 +28,7 @@ pub struct CapacityBody {
     path = "/api/slots/{id}/capacity",
     tag = "Scheduling",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = CapacityBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

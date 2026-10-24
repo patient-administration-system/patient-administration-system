@@ -31,7 +31,7 @@ pub async fn list(State(state): State<AppState>) -> HandlerResult {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct SetBody {
     pub target: f64,
     /// The drift (in the worse direction) that is still green.
@@ -53,6 +53,7 @@ pub struct SetBody {
     path = "/api/tolerances/{metric}",
     tag = "Tolerances",
     params(("metric" = String, Path, description = "Path parameter `metric`")),
+    request_body = SetBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -199,7 +200,7 @@ pub async fn alerts(State(state): State<AppState>, Query(q): Query<AlertsQuery>)
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct AckBody {
     pub acknowledged_by: String,
     #[serde(default)]
@@ -212,6 +213,7 @@ pub struct AckBody {
     path = "/api/tolerance-alerts/{id}/acknowledge",
     tag = "Tolerance alerts",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = AckBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

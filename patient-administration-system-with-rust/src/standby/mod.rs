@@ -50,7 +50,7 @@ pub struct StandbyEntry {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 pub struct StandbyInput {
     pub person_id: Uuid,
     pub service_type: String,

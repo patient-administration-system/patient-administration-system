@@ -10,7 +10,9 @@ use uuid::Uuid;
 /// `Emergency` is the highest. `PartialOrd`/`Ord` are derived, so comparisons
 /// respect the declaration order — that is,
 /// `Routine < Urgent < TwoWeekWait < Emergency`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Priority {
     Routine,

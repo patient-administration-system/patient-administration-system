@@ -38,7 +38,7 @@ pub async fn get_link(State(state): State<AppState>, Path(token): Path<String>) 
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, utoipa::ToSchema)]
 pub struct ActBody {
     /// The second step of Cancel.
     #[serde(default)]
@@ -55,6 +55,7 @@ pub struct ActBody {
     path = "/api/reply-links/{token}/{action}",
     tag = "Reply links",
     params(("token" = String, Path, description = "Path parameter `token`"), ("action" = String, Path, description = "Path parameter `action`")),
+    request_body = ActBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -93,7 +94,7 @@ pub async fn post_link_action(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ChooseBody {
     pub slot_id: Uuid,
 }
@@ -104,6 +105,7 @@ pub struct ChooseBody {
     path = "/api/reply-links/{token}/rebook",
     tag = "Reply links",
     params(("token" = String, Path, description = "Path parameter `token`")),
+    request_body = ChooseBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -157,7 +159,7 @@ pub async fn open_calls(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CallOutcomeBody {
     pub outcome: String,
 }
@@ -168,6 +170,7 @@ pub struct CallOutcomeBody {
     path = "/api/staff-call-tasks/{id}/outcome",
     tag = "Staff call tasks",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = CallOutcomeBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

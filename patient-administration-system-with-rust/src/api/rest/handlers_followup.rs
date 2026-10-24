@@ -31,7 +31,8 @@ pub async fn policies(State(state): State<AppState>) -> HandlerResult {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_followup::ApproveBody)]
 pub struct ApproveBody {
     pub approved_by: String,
 }
@@ -42,6 +43,7 @@ pub struct ApproveBody {
     path = "/api/follow-up-policies/{service_type}",
     tag = "Follow up policies",
     params(("service_type" = String, Path, description = "Path parameter `service_type`")),
+    request_body = ApproveBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -102,7 +104,8 @@ pub async fn open_tasks(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_followup::CloseBody)]
 pub struct CloseBody {
     pub outcome: String,
     pub closed_by: String,
@@ -114,6 +117,7 @@ pub struct CloseBody {
     path = "/api/follow-up-tasks/{id}/outcome",
     tag = "Follow up tasks",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = CloseBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

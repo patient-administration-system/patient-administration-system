@@ -13,7 +13,7 @@ use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ProofBody {
     pub person_id: Uuid,
     /// `in_person`, `video_id_check`, `nhs_login` or `postal_code`.
@@ -28,6 +28,7 @@ pub struct ProofBody {
     path = "/api/identity-proofings/{subject}",
     tag = "Identity proofings",
     params(("subject" = String, Path, description = "Path parameter `subject`")),
+    request_body = ProofBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

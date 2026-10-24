@@ -46,6 +46,7 @@ pub async fn get_profile(State(state): State<AppState>, Path(id): Path<Uuid>) ->
     path = "/api/patients/{id}/communication-profile",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ProfileInput,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -68,7 +69,7 @@ pub async fn put_profile(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct VerifyBody {
     /// `staff`, `portal` or `sms_code`.
     pub method: String,
@@ -80,6 +81,7 @@ pub struct VerifyBody {
     path = "/api/patients/{id}/communication-profile/verify-mobile",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = VerifyBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -141,7 +143,7 @@ pub async fn stale_profiles(
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct OptOutBody {
     /// `sms`, `whatsapp`, `apple_messages` or `email`.
     pub channel: String,
@@ -206,6 +208,7 @@ pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -
     path = "/api/patients/{id}/channel-optouts",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = OptOutBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -270,7 +273,7 @@ pub async fn remove_optout(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct NhsNumberBody {
     pub value: String,
 }
@@ -282,6 +285,7 @@ pub struct NhsNumberBody {
     post,
     path = "/api/validate/nhs-number",
     tag = "Validate",
+    request_body = NhsNumberBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

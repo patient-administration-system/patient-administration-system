@@ -13,7 +13,8 @@ use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_experiments::StartBody)]
 pub struct StartBody {
     /// The message being tested, for example `appointment_reminder_second`.
     pub template_name: String,
@@ -27,6 +28,7 @@ pub struct StartBody {
     post,
     path = "/api/experiments",
     tag = "Experiments",
+    request_body = StartBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -71,7 +73,7 @@ pub async fn list(State(state): State<AppState>) -> HandlerResult {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct StopBody {
     pub stopped_by: String,
 }
@@ -82,6 +84,7 @@ pub struct StopBody {
     path = "/api/experiments/{id}/stop",
     tag = "Experiments",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = StopBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

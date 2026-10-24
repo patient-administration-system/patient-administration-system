@@ -60,7 +60,7 @@ pub enum CancellationReason {
 }
 
 /// How the appointment is held (CAP-14).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Modality {
     #[default]
@@ -90,7 +90,7 @@ pub enum ConversionState {
 }
 
 /// Who ended an appointment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CancelledBy {
     Patient,
@@ -111,7 +111,7 @@ impl CancelledBy {
 
 /// Why a patient could not or did not attend: the barrier, in the patient's own terms.
 /// These feed the discovery work on access barriers, so they describe the situation, not blame.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum BarrierCode {
     CannotTravel,

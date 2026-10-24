@@ -14,7 +14,7 @@ use crate::api::rest::handlers::{
 };
 use crate::interpreter::InterpreterService;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct NeedBody {
     /// `spoken`, `bsl`, `deafblind`, or null to clear.
     pub kind: Option<String>,
@@ -30,6 +30,7 @@ pub struct NeedBody {
     path = "/api/patients/{id}/interpreter-need",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = NeedBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -59,7 +60,7 @@ pub async fn set_need(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ConfirmBody {
     pub confirmed_by: String,
     /// The interpreting service's booking reference, when it gave one.
@@ -72,6 +73,7 @@ pub struct ConfirmBody {
     path = "/api/interpreter-requests/{id}/confirm",
     tag = "Scheduling",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ConfirmBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

@@ -17,7 +17,7 @@ use crate::models::appointment::{Appointment, CancelledBy};
 use crate::proxy::{NewAuthority, ProxyService, proxy_context};
 use crate::scheduling::CancelDetails;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct GrantBody {
     pub proxy_person_id: Uuid,
     /// How the proxy relates to the patient (a carer, a daughter, an attorney).
@@ -37,6 +37,7 @@ pub struct GrantBody {
     path = "/api/patients/{id}/proxies",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = GrantBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -112,7 +113,7 @@ pub async fn list(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RevokeBody {
     pub revoked_by: String,
 }
@@ -123,6 +124,7 @@ pub struct RevokeBody {
     path = "/api/proxies/{id}/revoke",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = RevokeBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -155,7 +157,7 @@ pub struct ActingQuery {
     pub proxy_person_id: Uuid,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ActingBody {
     pub proxy_person_id: Uuid,
     /// For a rebook: the slot to move to.
@@ -210,6 +212,7 @@ pub async fn appointments(
     path = "/api/proxy/appointments/{id}/cancel",
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ActingBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -259,6 +262,7 @@ pub async fn cancel(
     path = "/api/proxy/appointments/{id}/rebook",
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ActingBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

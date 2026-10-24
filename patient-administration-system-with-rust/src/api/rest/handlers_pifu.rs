@@ -16,7 +16,7 @@ use crate::api::rest::handlers::{
 };
 use crate::pifu::{Decision, NewEpisode, PifuService};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct OpenBody {
     pub service_type: String,
     /// The conditions, in words the patient can follow (10 to 1000 characters).
@@ -34,6 +34,7 @@ pub struct OpenBody {
     path = "/api/patients/{id}/pifu",
     tag = "Scheduling",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = OpenBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -66,7 +67,7 @@ pub async fn open(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RequestBody {
     /// `staff`, `phone`, `text`, `reply_link` or `portal`.
     pub channel: String,
@@ -79,6 +80,7 @@ pub struct RequestBody {
     path = "/api/pifu/{id}/request",
     tag = "Scheduling",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = RequestBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -144,7 +146,7 @@ pub async fn requests(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct HandleBody {
     pub handled_by: String,
     /// The appointment booked for the request, when there is one.
@@ -157,6 +159,7 @@ pub struct HandleBody {
     path = "/api/pifu/requests/{id}/handle",
     tag = "Scheduling",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = HandleBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -218,7 +221,8 @@ pub async fn due_reviews(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_pifu::ReviewBody)]
 pub struct ReviewBody {
     /// `discharge` or `extend`.
     pub decision: String,
@@ -233,6 +237,7 @@ pub struct ReviewBody {
     path = "/api/pifu/{id}/review",
     tag = "Scheduling",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ReviewBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

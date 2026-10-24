@@ -141,7 +141,7 @@ const COLS: &str = "person_id, mobile_e164, mobile_verified_at, mobile_verificat
     preferred_channel, preferred_language, accessibility_needs, updated_at, updated_by";
 
 /// What a caller may set. The verification state is deliberately not here.
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, utoipa::ToSchema)]
 pub struct ProfileInput {
     #[serde(default)]
     pub mobile: Option<String>,

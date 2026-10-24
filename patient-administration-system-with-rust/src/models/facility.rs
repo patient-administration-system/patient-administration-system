@@ -16,7 +16,7 @@ use crate::models::Address;
 /// - Cleaning → Available | OutOfService
 /// - Reserved → Occupied | Available | OutOfService
 /// - OutOfService → Available
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum BedStatus {
     Available,
@@ -61,7 +61,7 @@ impl BedStatus {
 }
 
 /// A physical hospital facility (campus, building).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Facility {
     pub id: Uuid,
     pub name: String,
@@ -88,7 +88,7 @@ impl Facility {
 }
 
 /// A ward within a facility (e.g. "Cardiology", "Maternity").
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Ward {
     pub id: Uuid,
     pub facility_id: Uuid,
@@ -117,7 +117,7 @@ impl Ward {
 }
 
 /// A room within a ward.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Room {
     pub id: Uuid,
     pub ward_id: Uuid,
@@ -144,7 +144,7 @@ impl Room {
 }
 
 /// A bed within a room. Carries a `BedStatus` driven by the state machine.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Bed {
     pub id: Uuid,
     pub room_id: Uuid,

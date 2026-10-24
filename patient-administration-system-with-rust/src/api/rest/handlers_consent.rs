@@ -22,6 +22,7 @@ use crate::models::consent::Consent;
     path = "/api/patients/{id}/consents",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = Consent,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

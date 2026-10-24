@@ -30,7 +30,7 @@ pub const MAX_OCCURRENCES: u32 = 200;
 
 /// Recurrence frequency. RFC 5545's `FREQ`, minus the variants v0.9
 /// does not implement (yearly, hourly, minutely, secondly).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Frequency {
     Daily,
@@ -40,7 +40,7 @@ pub enum Frequency {
 
 /// Termination condition for a recurrence rule. Exactly one of `Count`
 /// or `Until` is present; never both, never neither.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum RecurrenceEnd {
     /// Exactly N occurrences (including the first one at
@@ -54,7 +54,7 @@ pub enum RecurrenceEnd {
 /// One recurrence rule. Mirrors RFC 5545 fields but in struct form
 /// rather than the iCal string syntax — we never round-trip to the
 /// wire format.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct RecurrenceRule {
     pub frequency: Frequency,
     /// Every N units of `frequency`. `1` = every day/week/month.
@@ -64,6 +64,7 @@ pub struct RecurrenceRule {
     /// empty / `None`, the series fires on the same weekday as
     /// `start_datetime`. Ignored for Daily / Monthly.
     #[serde(default)]
+    #[schema(value_type = Option<Vec<String>>, example = json!(["Mon", "Wed"]))]
     pub by_weekday: Option<Vec<Weekday>>,
     pub end: RecurrenceEnd,
 }

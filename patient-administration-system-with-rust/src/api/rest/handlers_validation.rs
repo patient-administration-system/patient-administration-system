@@ -16,7 +16,8 @@ use crate::api::rest::handlers::{
 };
 use crate::list_validation::NewCampaign;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_validation::StartBody)]
 pub struct StartBody {
     pub name: String,
     pub started_by: String,
@@ -48,6 +49,7 @@ fn default_cohort() -> i64 {
     post,
     path = "/api/validation-campaigns",
     tag = "Validation campaigns",
+    request_body = StartBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -177,7 +179,7 @@ pub async fn items(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct AskedBody {
     pub asked_by: String,
     /// `phone`, `sms`, `whatsapp`, `email` or `in_person`.
@@ -190,6 +192,7 @@ pub struct AskedBody {
     path = "/api/validation-campaigns/{id}/items/{item}/asked",
     tag = "Validation campaigns",
     params(("id" = String, Path, description = "Path parameter `id`"), ("item" = String, Path, description = "Path parameter `item`")),
+    request_body = AskedBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -218,7 +221,8 @@ pub async fn asked(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_validation::AnswerBody)]
 pub struct AnswerBody {
     /// `still_needed`, `no_longer_needed` or `unsure`.
     pub answer: String,
@@ -231,6 +235,7 @@ pub struct AnswerBody {
     path = "/api/validation-campaigns/{id}/items/{item}/answer",
     tag = "Validation campaigns",
     params(("id" = String, Path, description = "Path parameter `id`"), ("item" = String, Path, description = "Path parameter `item`")),
+    request_body = AnswerBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -259,7 +264,7 @@ pub async fn answer(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct LetterBody {
     pub sent_by: String,
 }
@@ -271,6 +276,7 @@ pub struct LetterBody {
     path = "/api/validation-campaigns/{id}/items/{item}/letter-sent",
     tag = "Validation campaigns",
     params(("id" = String, Path, description = "Path parameter `id`"), ("item" = String, Path, description = "Path parameter `item`")),
+    request_body = LetterBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -293,7 +299,7 @@ pub async fn letter_sent(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct DecisionBody {
     /// `keep` or `remove`.
     pub decision: String,
@@ -310,6 +316,7 @@ pub struct DecisionBody {
     path = "/api/validation-campaigns/{id}/items/{item}/decision",
     tag = "Validation campaigns",
     params(("id" = String, Path, description = "Path parameter `id`"), ("item" = String, Path, description = "Path parameter `item`")),
+    request_body = DecisionBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -339,7 +346,7 @@ pub async fn decision(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ReinstateBody {
     pub reinstated_by: String,
 }
@@ -351,6 +358,7 @@ pub struct ReinstateBody {
     path = "/api/validation-campaigns/{id}/items/{item}/reinstate",
     tag = "Validation campaigns",
     params(("id" = String, Path, description = "Path parameter `id`"), ("item" = String, Path, description = "Path parameter `item`")),
+    request_body = ReinstateBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

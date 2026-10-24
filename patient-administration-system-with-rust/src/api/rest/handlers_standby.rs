@@ -20,6 +20,7 @@ use crate::standby::{CandidateFilter, StandbyInput};
     post,
     path = "/api/standby",
     tag = "Standby",
+    request_body = StandbyInput,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -90,7 +91,8 @@ pub async fn remove_standby(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_standby::BookBody)]
 pub struct BookBody {
     pub slot_id: Uuid,
 }
@@ -101,6 +103,7 @@ pub struct BookBody {
     path = "/api/standby/{id}/book",
     tag = "Standby",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = BookBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

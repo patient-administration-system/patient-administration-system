@@ -18,7 +18,7 @@ use crate::db::repositories::encounter::EncounterRepository;
 use crate::error::LogErr;
 use crate::models::encounter::EncounterStatus;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct SetStatusBody {
     pub status: EncounterStatus,
 }
@@ -71,6 +71,7 @@ pub async fn list_encounters_for_person(
     path = "/api/encounters/{id}/status",
     tag = "Encounters",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = SetStatusBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

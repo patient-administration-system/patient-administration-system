@@ -45,7 +45,7 @@ pub async fn queue(State(state): State<AppState>, Query(q): Query<QueueQuery>) -
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ExportBody {
     pub created_by: String,
     #[serde(default)]
@@ -61,6 +61,7 @@ pub struct ExportBody {
     post,
     path = "/api/print-batches",
     tag = "Print batches",
+    request_body = ExportBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -98,7 +99,7 @@ pub async fn export(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct SentBody {
     pub sent_by: String,
 }
@@ -109,6 +110,7 @@ pub struct SentBody {
     path = "/api/print-batches/{id}/sent",
     tag = "Print batches",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = SentBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

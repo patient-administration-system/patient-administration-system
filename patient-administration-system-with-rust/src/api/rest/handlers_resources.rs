@@ -22,7 +22,7 @@ use crate::db::repositories::facility::{FacilityRepository, RoomRepository, Ward
 use crate::error::LogErr;
 use crate::models::facility::{Bed, BedStatus, Facility, Room, Ward};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct SetBedStatusBody {
     pub status: BedStatus,
 }
@@ -56,6 +56,7 @@ pub async fn ward_occupancy(
     path = "/api/beds/{id}/status",
     tag = "Beds",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = SetBedStatusBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -140,6 +141,7 @@ async fn write_audit_create(
     post,
     path = "/api/facilities",
     tag = "Facilities",
+    request_body = Facility,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -216,6 +218,7 @@ pub async fn list_facilities(State(state): State<AppState>) -> HandlerResult {
     post,
     path = "/api/wards",
     tag = "Wards",
+    request_body = Ward,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -296,6 +299,7 @@ pub async fn list_wards_by_facility(
     post,
     path = "/api/rooms",
     tag = "Rooms",
+    request_body = Room,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -376,6 +380,7 @@ pub async fn list_rooms_by_ward(
     post,
     path = "/api/beds",
     tag = "Beds",
+    request_body = Bed,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

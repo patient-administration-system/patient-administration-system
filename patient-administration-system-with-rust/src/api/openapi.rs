@@ -49,11 +49,78 @@ fn alias_api_patients_search_get() {}
 )]
 fn alias_api_practitioners_search_get() {}
 
+/// Adds the credentials and says which routes need which. Every route needs a bearer token (a PASETO v4
+/// public token, or the legacy shared token where that is still allowed) except: `/api/health` (open); the
+/// signed merge webhooks under `/api/upstream/` (an HMAC of the body in `x-upstream-signature`); and the
+/// message carriers' write-backs under `/api/write-back/`, which take a bearer token or the carrier's own
+/// signed credential (`x-carrier-id`, `x-carrier-timestamp`, `x-carrier-signature`).
+struct Credentials;
+
+impl utoipa::Modify for Credentials {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        use utoipa::openapi::security::{
+            ApiKey, ApiKeyValue, HttpAuthScheme, HttpBuilder, SecurityRequirement, SecurityScheme,
+        };
+        let c = openapi.components.get_or_insert_with(Default::default);
+        c.add_security_scheme(
+            "bearer",
+            SecurityScheme::Http(
+                HttpBuilder::new()
+                    .scheme(HttpAuthScheme::Bearer)
+                    .bearer_format("PASETO v4.public")
+                    .build(),
+            ),
+        );
+        c.add_security_scheme(
+            "carrier",
+            SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::with_description(
+                "x-carrier-signature",
+                "HMAC-SHA256 over the request, with `x-carrier-id` and `x-carrier-timestamp` (PILOT-3)",
+            ))),
+        );
+        c.add_security_scheme(
+            "upstream",
+            SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::with_description(
+                "x-upstream-signature",
+                "`sha256=<hex>` HMAC-SHA256 of the body, keyed by the peer's webhook secret",
+            ))),
+        );
+        let bearer = || SecurityRequirement::new("bearer", Vec::<String>::new());
+        for (path, item) in openapi.paths.paths.iter_mut() {
+            let rule: Vec<SecurityRequirement> = if path == "/api/health" {
+                Vec::new()
+            } else if path.starts_with("/api/upstream/") {
+                vec![SecurityRequirement::new("upstream", Vec::<String>::new())]
+            } else if path.starts_with("/api/write-back/") {
+                vec![
+                    bearer(),
+                    SecurityRequirement::new("carrier", Vec::<String>::new()),
+                ]
+            } else {
+                vec![bearer()]
+            };
+            for op in [
+                &mut item.get,
+                &mut item.put,
+                &mut item.post,
+                &mut item.delete,
+                &mut item.patch,
+            ]
+            .into_iter()
+            .flatten()
+            {
+                op.security = Some(rule.clone());
+            }
+        }
+    }
+}
+
 #[derive(OpenApi)]
 #[openapi(
+    modifiers(&Credentials),
     info(
         title = "Patient Administration System",
-        description = "Administrative (not clinical) API for appointments, waiting lists, reminders and replies, transport and virtual-visit requests, analytics and tolerances. Every REST response is an `ApiResponse` envelope. Identity and workforce are held by person-service and worker-service; /api/patients and /api/practitioners proxy them. Request bodies and typed responses are not described yet (QUAL-4)."
+        description = "Administrative (not clinical) API for appointments, waiting lists, reminders and replies, transport and virtual-visit requests, analytics and tolerances. Every REST response is an `ApiResponse` envelope. Identity and workforce are held by person-service and worker-service; /api/patients and /api/practitioners proxy them. Request bodies of the REST routes are described (QUAL-34); typed responses are not yet."
     ),
     paths(
         crate::api::rest::handlers::health,
@@ -480,6 +547,69 @@ mod tests {
         );
         let extra: Vec<_> = docs.difference(&routes).collect();
         assert!(extra.is_empty(), "documented but not routed: {extra:?}");
+    }
+
+    /// A REST handler that takes a typed JSON body must say so in its `#[utoipa::path]`. A body taken as
+    /// `serde_json::Value` is free-form and may stay undescribed.
+    #[test]
+    fn a_handler_with_a_typed_json_body_documents_it() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/api/rest");
+        let mut missing = Vec::new();
+        let mut seen = 0;
+        for entry in std::fs::read_dir(&dir).expect("src/api/rest") {
+            let path = entry.expect("entry").path();
+            if path.extension().is_none_or(|x| x != "rs") {
+                continue;
+            }
+            let src = std::fs::read_to_string(&path).expect("read");
+            for block in src.split("#[utoipa::path(").skip(1) {
+                let Some((attr, rest)) = block.split_once("\n)]\n") else {
+                    continue;
+                };
+                let Some(sig) = rest.split(") ->").next() else {
+                    continue;
+                };
+                let Some(at) = sig.find("Json<") else {
+                    continue;
+                };
+                let ty: String = sig[at + 5..].chars().take_while(|c| *c != '>').collect();
+                if ty == "Value" || ty == "serde_json::Value" {
+                    continue;
+                }
+                seen += 1;
+                if !attr.contains("request_body") {
+                    let name = rest
+                        .split("fn ")
+                        .nth(1)
+                        .and_then(|f| f.split('(').next())
+                        .unwrap_or("?");
+                    missing.push(format!("{}::{name} ({ty})", path.display()));
+                }
+            }
+        }
+        assert!(
+            seen > 80,
+            "the scan found only {seen} typed bodies: it is broken"
+        );
+        assert!(
+            missing.is_empty(),
+            "typed JSON bodies not described in the OpenAPI document: {missing:#?}"
+        );
+    }
+
+    #[test]
+    fn every_route_says_what_credential_it_needs() {
+        let doc = serde_json::to_value(ApiDoc::openapi()).expect("serialize");
+        let paths = doc["paths"].as_object().expect("paths");
+        for (path, item) in paths {
+            for (method, op) in item.as_object().expect("item") {
+                let security = &op["security"];
+                assert!(security.is_array(), "{method} {path} has no security rule");
+                let open = security.as_array().expect("array").is_empty();
+                assert_eq!(open, path == "/api/health", "{method} {path}");
+            }
+        }
+        assert!(doc["components"]["securitySchemes"]["bearer"].is_object());
     }
 
     #[test]

@@ -23,6 +23,7 @@ use uuid::Uuid;
     post,
     path = "/api/write-back/replies",
     tag = "Write back",
+    request_body = ReplyRequest,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -111,6 +112,7 @@ pub fn parse_csv(body: &[u8]) -> Result<Vec<ReplyRequest>, Error> {
     post,
     path = "/api/write-back/texts",
     tag = "Write back",
+    request_body = InboundText,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

@@ -16,7 +16,7 @@ use crate::models::appointment::CancellationReason;
 use crate::models::appointment_series::RecurrenceRule;
 use crate::scheduling::series::CreateSeriesInput;
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, utoipa::ToSchema)]
 pub struct CreateSeriesBody {
     pub person_id: Uuid,
     #[serde(default)]
@@ -49,6 +49,7 @@ impl From<CreateSeriesBody> for CreateSeriesInput {
     post,
     path = "/api/appointment-series",
     tag = "Appointment series",
+    request_body = CreateSeriesBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

@@ -16,7 +16,7 @@ use crate::api::rest::handlers::{
 };
 use crate::follow_up_delay::FollowUpDelayService;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct TargetBody {
     pub target_date: NaiveDate,
     /// The person setting the target.
@@ -30,6 +30,7 @@ pub struct TargetBody {
     path = "/api/waitlist/{id}/follow-up-target",
     tag = "Waitlist",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = TargetBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

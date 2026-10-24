@@ -20,7 +20,7 @@ use crate::db::repositories::letter::LetterRepository;
 use crate::error::LogErr;
 use crate::models::communication::{DeliveryChannel, LetterTemplate};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct GenerateLetterBody {
     pub template_id: Uuid,
     pub person_id: Uuid,
@@ -36,6 +36,7 @@ pub struct GenerateLetterBody {
     post,
     path = "/api/letter-templates",
     tag = "Letter templates",
+    request_body = LetterTemplate,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -99,6 +100,7 @@ pub async fn create_template(
     path = "/api/letter-templates/{id}",
     tag = "Letter templates",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = LetterTemplate,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -230,7 +232,7 @@ pub async fn list_patient_letters(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct PreviewLetterBody {
     pub template_id: Uuid,
     pub person_id: Uuid,
@@ -244,6 +246,7 @@ pub struct PreviewLetterBody {
     post,
     path = "/api/letters/preview",
     tag = "Letters",
+    request_body = PreviewLetterBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -275,6 +278,7 @@ pub async fn preview_letter(
     post,
     path = "/api/letters/generate",
     tag = "Letters",
+    request_body = GenerateLetterBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -398,14 +402,14 @@ pub async fn mark_failed(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct VariantBody {
     pub locale: String,
     pub subject: String,
     pub body_tera: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct GroupBody {
     pub name: String,
     #[serde(default)]
@@ -423,6 +427,7 @@ pub struct GroupBody {
     post,
     path = "/api/letter-template-groups",
     tag = "Letter template groups",
+    request_body = GroupBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -528,7 +533,7 @@ pub async fn create_group(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CheckSmsBody {
     pub body_tera: String,
     #[serde(default)]
@@ -541,6 +546,7 @@ pub struct CheckSmsBody {
     post,
     path = "/api/letter-templates/check-sms",
     tag = "Letter templates",
+    request_body = CheckSmsBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

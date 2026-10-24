@@ -14,7 +14,7 @@ use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::models::waitlist::Priority;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct WaitlistAddBody {
     pub person_id: Uuid,
     pub target_service: String,
@@ -28,13 +28,13 @@ pub struct ListByServiceQuery {
     pub service: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RttStartBody {
     pub person_id: Uuid,
     pub target_service: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RttReasonBody {
     pub reason: String,
 }
@@ -46,6 +46,7 @@ pub struct RttReasonBody {
     post,
     path = "/api/waitlist",
     tag = "Waitlist",
+    request_body = WaitlistAddBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -119,7 +120,7 @@ pub async fn list_waitlist(
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, utoipa::ToSchema)]
 pub struct BookFromEntryBody {
     pub slot_id: Uuid,
 }
@@ -132,6 +133,7 @@ pub struct BookFromEntryBody {
     path = "/api/waitlist/{id}/book",
     tag = "Waitlist",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = BookFromEntryBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -162,6 +164,7 @@ pub async fn book_from_waitlist(
     post,
     path = "/api/rtt/start",
     tag = "Rtt",
+    request_body = RttStartBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -190,6 +193,7 @@ pub async fn rtt_start(
     path = "/api/rtt/{id}/pause",
     tag = "Rtt",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = RttReasonBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -239,6 +243,7 @@ pub async fn rtt_resume(
     path = "/api/rtt/{id}/stop",
     tag = "Rtt",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = RttReasonBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

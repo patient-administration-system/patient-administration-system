@@ -15,7 +15,7 @@ use crate::api::rest::handlers::{
     HandlerResult, error_to_response, ok, ok_json, ok_page, request_audit_ctx,
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RecordBody {
     /// A code from `GET /api/reasonable-adjustments/codes`.
     pub code: String,
@@ -33,6 +33,7 @@ pub struct RecordBody {
     path = "/api/patients/{id}/reasonable-adjustments",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = RecordBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -181,7 +182,7 @@ pub async fn for_appointments(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct EndBody {
     pub ended_by: String,
 }
@@ -192,6 +193,7 @@ pub struct EndBody {
     path = "/api/reasonable-adjustments/{id}/end",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = EndBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

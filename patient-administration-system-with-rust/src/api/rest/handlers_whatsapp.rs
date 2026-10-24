@@ -17,7 +17,7 @@ fn ok() -> HandlerResult {
     (StatusCode::OK, Json(ApiResponse::ok(Value::Null)))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct OptInBody {
     /// `patient_reply`, `portal`, `in_person` or `paper`.
     pub source: String,
@@ -30,6 +30,7 @@ pub struct OptInBody {
     path = "/api/patients/{id}/whatsapp-optin",
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = OptInBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -79,7 +80,7 @@ pub async fn withdraw_optin(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ApprovalBody {
     pub provider_template_id: String,
     pub approved_by: String,
@@ -91,6 +92,7 @@ pub struct ApprovalBody {
     path = "/api/letter-templates/{id}/whatsapp-approval",
     tag = "Letter templates",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ApprovalBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

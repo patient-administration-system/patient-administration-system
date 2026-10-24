@@ -46,7 +46,8 @@ pub async fn model_card() -> HandlerResult {
     ok(crate::noshow::NoShowService::model_card())
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_noshow::ReviewBody)]
 pub struct ReviewBody {
     /// `fairness` or `clinical_safety`.
     pub kind: String,
@@ -61,6 +62,7 @@ pub struct ReviewBody {
     post,
     path = "/api/noshow/reviews",
     tag = "Noshow",
+    request_body = ReviewBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -244,7 +246,7 @@ pub async fn rollout(State(state): State<AppState>) -> HandlerResult {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct StageBody {
     /// `shadow` or `live`.
     pub stage: String,
@@ -259,6 +261,7 @@ pub struct StageBody {
     path = "/api/noshow/rollout/{service_type}",
     tag = "Noshow",
     params(("service_type" = String, Path, description = "Path parameter `service_type`")),
+    request_body = StageBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

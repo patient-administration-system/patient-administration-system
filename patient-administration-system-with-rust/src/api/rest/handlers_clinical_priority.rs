@@ -15,7 +15,7 @@ use crate::api::rest::handlers::{
 };
 use crate::clinical_priority::ClinicalPriorityService;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct PriorityBody {
     /// P1a, P1b, P2, P3, P4, P5 or P6.
     pub clinical_priority: String,
@@ -32,6 +32,7 @@ pub struct PriorityBody {
     path = "/api/waitlist/{id}/clinical-priority",
     tag = "Waitlist",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = PriorityBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

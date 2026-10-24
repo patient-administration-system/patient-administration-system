@@ -46,7 +46,7 @@ pub const REMINDER_WINDOW_DAYS: i64 = 14;
 const MAX_BODY: usize = 500;
 const MAX_CANDIDATES: usize = 9;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 pub struct InboundText {
     /// The carrier's id for this message: the idempotency key.
     pub message_id: String,

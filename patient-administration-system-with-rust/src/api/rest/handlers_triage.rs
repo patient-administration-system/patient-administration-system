@@ -27,7 +27,8 @@ fn json<T: Serialize>(value: Result<T>) -> HandlerResult {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_triage::TriageBody)]
 pub struct TriageBody {
     /// The triage system; `mts` (Manchester Triage System).
     pub triage_system: String,
@@ -50,6 +51,7 @@ pub struct TriageBody {
     path = "/api/encounters/{id}/triage",
     tag = "Encounters",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = TriageBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -96,7 +98,7 @@ pub async fn list(State(state): State<AppState>, Path(id): Path<Uuid>) -> Handle
     json(TriageService::new(state.db.clone()).history(id).await)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct FirstContactBody {
     /// The clinician who first saw the patient.
     pub seen_by: String,
@@ -110,6 +112,7 @@ pub struct FirstContactBody {
     path = "/api/encounters/{id}/first-contact",
     tag = "Encounters",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = FirstContactBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

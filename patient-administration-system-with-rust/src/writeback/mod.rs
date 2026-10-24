@@ -43,7 +43,7 @@ const MAX_MESSAGE_ID: usize = 200;
 /// The reject reason for a cancel held for a person to phone first (urgent or cancer pathways).
 pub const HELD_FOR_STAFF: &str = "held_for_staff";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReplyAction {
     Confirm,
@@ -63,7 +63,7 @@ impl ReplyAction {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 pub struct ReplyRequest {
     /// The channel's own id for the message. The idempotency key.
     pub message_id: String,

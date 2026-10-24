@@ -15,12 +15,13 @@ use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_scheduling::BookBody)]
 pub struct BookBody {
     pub person_id: Uuid,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, utoipa::ToSchema)]
 pub struct CancelBody {
     /// Free text from older callers. Accepted and ignored; use `barrier_code`.
     #[serde(default)]
@@ -33,7 +34,7 @@ pub struct CancelBody {
     pub barrier_code: Option<crate::models::appointment::BarrierCode>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct BarrierBody {
     pub barrier_code: crate::models::appointment::BarrierCode,
 }
@@ -111,6 +112,7 @@ pub async fn list_patient_appointments(
     path = "/api/slots/{id}/book",
     tag = "Slots",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = BookBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -142,6 +144,7 @@ pub async fn book_slot(
     path = "/api/appointments/{id}/cancel",
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = CancelBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -173,7 +176,7 @@ pub async fn cancel_appointment(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RoomBody {
     /// Where the patient is now; empty or absent clears it.
     #[serde(default)]
@@ -186,6 +189,7 @@ pub struct RoomBody {
     path = "/api/appointments/{id}/location",
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = RoomBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -235,6 +239,7 @@ pub async fn in_facility(State(state): State<AppState>) -> HandlerResult {
     path = "/api/appointments/{id}/barrier",
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = BarrierBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -354,7 +359,7 @@ pub async fn rebook_options(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RebookBody {
     pub offer_id: Uuid,
     pub slot_id: Uuid,
@@ -368,6 +373,7 @@ pub struct RebookBody {
     path = "/api/appointments/{id}/rebook",
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = RebookBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

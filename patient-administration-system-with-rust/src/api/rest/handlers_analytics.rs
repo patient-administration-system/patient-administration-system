@@ -86,7 +86,7 @@ pub async fn outcomes(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct DemographicsBody {
     #[serde(default)]
     pub age_band: Option<String>,
@@ -167,6 +167,7 @@ pub async fn refill_rates(
     path = "/api/analytics/demographics/{person_id}",
     tag = "Analytics",
     params(("person_id" = String, Path, description = "Path parameter `person_id`")),
+    request_body = DemographicsBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

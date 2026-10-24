@@ -95,7 +95,7 @@ pub async fn due_for_check(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct AskBody {
     pub asked_by: String,
 }
@@ -106,6 +106,7 @@ pub struct AskBody {
     path = "/api/pathways/{id}/still-needed-checks",
     tag = "Pathways",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = AskBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -128,7 +129,8 @@ pub async fn ask(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_waits::AnswerBody)]
 pub struct AnswerBody {
     pub answer: String,
     pub recorded_by: String,
@@ -140,6 +142,7 @@ pub struct AnswerBody {
     path = "/api/still-needed-checks/{id}/answer",
     tag = "Still needed checks",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = AnswerBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

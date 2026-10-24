@@ -13,7 +13,7 @@ use crate::api::rest::AppState;
 use crate::api::rest::handlers::ok;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct AddBody {
     pub person_id: Uuid,
     pub kind: String,
@@ -29,6 +29,7 @@ pub struct AddBody {
     post,
     path = "/api/support-flags",
     tag = "Support flags",
+    request_body = AddBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -84,7 +85,8 @@ pub async fn open(State(state): State<AppState>, Query(q): Query<OpenQuery>) -> 
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_support::ResolveBody)]
 pub struct ResolveBody {
     pub outcome: String,
     pub resolved_by: String,
@@ -96,6 +98,7 @@ pub struct ResolveBody {
     path = "/api/support-flags/{id}/resolve",
     tag = "Support flags",
     params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ResolveBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),

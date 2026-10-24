@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 /// Lifecycle status of a coverage row. Mirrors FHIR R5
 /// `Coverage.status`. Serialised snake_case on the wire.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CoverageStatus {
     /// In force.
@@ -51,7 +51,7 @@ impl CoverageStatus {
 /// What kind of coverage this row represents. Deliberately coarse;
 /// finer-grained product type (medical / dental / vision / …) is left
 /// to the payer-supplied `payor_name` + `policy_number` strings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CoverageKind {
     /// Third-party payer (commercial insurance, Medicare/Medicaid, …).
@@ -75,7 +75,7 @@ impl CoverageKind {
 /// One coverage record. A patient may have many; an account may have
 /// many; coverage rows are never hard-deleted (status flips to
 /// `Cancelled` or `EnteredInError`).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Coverage {
     pub id: Uuid,
     /// The patient receiving care under this coverage — the *beneficiary*
