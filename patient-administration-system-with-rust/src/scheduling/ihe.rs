@@ -31,6 +31,8 @@ pub struct Proposal {
     /// The owner of the slot's schedule: `practitioner`, `room`, `bed` or `equipment`.
     pub owner_kind: String,
     pub owner_id: Uuid,
+    /// The window the `$find` asked for; `None` for a proposal made before it was kept.
+    pub requested: Option<(DateTime<Utc>, DateTime<Utc>)>,
 }
 
 /// What `$find` asks for.
@@ -46,7 +48,7 @@ pub struct FindQuery {
 }
 
 const PROPOSAL_SQL: &str = "SELECT p.id, p.slot_id, p.person_id, p.status, p.expires_at, p.appointment_id, \
-        s.start_datetime, s.end_datetime, sc.owner_kind, sc.owner_id \
+        s.start_datetime, s.end_datetime, sc.owner_kind, sc.owner_id, p.requested_start, p.requested_end \
      FROM slot_proposals p JOIN slots s ON s.id = p.slot_id JOIN schedules sc ON sc.id = s.schedule_id";
 
 fn proposal_of(r: &sea_orm::QueryResult) -> Result<Proposal> {
@@ -61,6 +63,13 @@ fn proposal_of(r: &sea_orm::QueryResult) -> Result<Proposal> {
         appointment_id: r.col("appointment_id")?,
         owner_kind: r.col("owner_kind")?,
         owner_id: r.col("owner_id")?,
+        requested: match (
+            r.col::<Option<DateTime<Utc>>>("requested_start")?,
+            r.col::<Option<DateTime<Utc>>>("requested_end")?,
+        ) {
+            (Some(a), Some(b)) => Some((a, b)),
+            _ => None,
+        },
     })
 }
 
@@ -118,13 +127,15 @@ impl SchedulingService {
             let id = Uuid::new_v4();
             txn.execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "INSERT INTO slot_proposals (id, slot_id, person_id, status, expires_at) \
-                 VALUES ($1, $2, $3, 'proposed', $4)",
+                "INSERT INTO slot_proposals (id, slot_id, person_id, status, expires_at, requested_start, requested_end) \
+                 VALUES ($1, $2, $3, 'proposed', $4, $5, $6)",
                 [
                     id.into(),
                     slot_id.into(),
                     q.patient.into(),
                     (now + Duration::minutes(PROPOSAL_MINUTES)).into(),
+                    q.start.into(),
+                    q.end.into(),
                 ],
             ))
             .await

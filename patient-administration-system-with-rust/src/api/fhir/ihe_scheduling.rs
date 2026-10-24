@@ -191,16 +191,52 @@ pub fn to_appointment(p: &Proposal) -> Value {
         "start": p.start,
         "end": p.end,
         "slot": [{ "reference": format!("Slot/{}", p.slot_id) }],
+        "requestedPeriod": [{
+            "start": p.requested.map_or(p.start, |r| r.0),
+            "end": p.requested.map_or(p.end, |r| r.1),
+        }],
         "participant": participants,
     })
 }
 
-fn bundle(appointments: &[Proposal]) -> Value {
+/// The address this R4 endpoint answers at: `PAS_FHIR_BASE_URL` (no trailing slash) when set, otherwise built
+/// from the request's `Host` (and `X-Forwarded-Proto`). A Bundle entry's `fullUrl` and the relative references
+/// inside it are resolved against it.
+fn base_url(headers: &HeaderMap) -> String {
+    if let Some(b) = crate::config::env::text("PAS_FHIR_BASE_URL") {
+        return b.trim_end_matches('/').to_string();
+    }
+    let host = headers
+        .get(header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .filter(|h| !h.trim().is_empty())
+        .unwrap_or("localhost");
+    let scheme = match headers
+        .get("x-forwarded-proto")
+        .and_then(|h| h.to_str().ok())
+    {
+        Some("https") => "https",
+        _ => "http",
+    };
+    format!("{scheme}://{host}/fhir/r4")
+}
+
+/// A `searchset` Bundle of Appointments. Each entry has the `fullUrl` and `search.mode` a searchset needs,
+/// and the Bundle a `self` link naming the operation that made it.
+fn bundle(appointments: &[Proposal], base: &str, operation: &str) -> Value {
     json!({
         "resourceType": "Bundle",
         "type": "searchset",
         "total": appointments.len(),
-        "entry": appointments.iter().map(|p| json!({ "resource": to_appointment(p) })).collect::<Vec<_>>(),
+        "link": [{ "relation": "self", "url": format!("{base}/Appointment/{operation}") }],
+        "entry": appointments.iter().map(|p| {
+            let resource = to_appointment(p);
+            json!({
+                "fullUrl": format!("{base}/Appointment/{}", resource["id"].as_str().unwrap_or_default()),
+                "resource": resource,
+                "search": { "mode": "match" },
+            })
+        }).collect::<Vec<_>>(),
     })
 }
 
@@ -259,7 +295,7 @@ pub async fn find(
             .await
     };
     match run.await {
-        Ok(found) => respond(StatusCode::OK, bundle(&found)),
+        Ok(found) => respond(StatusCode::OK, bundle(&found, &base_url(&headers), "$find")),
         Err(e) => failure(&e),
     }
 }
@@ -297,7 +333,10 @@ pub async fn hold(
             .await
     };
     match run.await {
-        Ok(held) => respond(StatusCode::OK, bundle(&[held])),
+        Ok(held) => respond(
+            StatusCode::OK,
+            bundle(&[held], &base_url(&headers), "$hold"),
+        ),
         Err(e) => failure(&e),
     }
 }
@@ -329,7 +368,10 @@ pub async fn book(
             .await
     };
     match run.await {
-        Ok((proposal, _)) => respond(StatusCode::OK, bundle(&[proposal])),
+        Ok((proposal, _)) => respond(
+            StatusCode::OK,
+            bundle(&[proposal], &base_url(&headers), "$book"),
+        ),
         Err(e) => failure(&e),
     }
 }
@@ -346,7 +388,7 @@ pub async fn book(
         (status = "5XX", description = "Server error; an OperationOutcome"),
     )
 )]
-pub async fn metadata() -> Response {
+pub async fn metadata(headers: HeaderMap) -> Response {
     respond(
         StatusCode::OK,
         json!({
@@ -355,6 +397,10 @@ pub async fn metadata() -> Response {
             "date": "2026-10-23",
             "kind": "instance",
             "software": { "name": "patient-administration-system", "version": env!("CARGO_PKG_VERSION") },
+            "implementation": {
+                "description": "Patient Administration System: IHE ITI Scheduling (FHIR R4)",
+                "url": base_url(&headers),
+            },
             "fhirVersion": "4.0.1",
             "format": ["json"],
             "rest": [{
@@ -388,6 +434,7 @@ mod tests {
             appointment_id: appointment,
             owner_kind: "practitioner".into(),
             owner_id: Uuid::new_v4(),
+            requested: None,
         }
     }
 

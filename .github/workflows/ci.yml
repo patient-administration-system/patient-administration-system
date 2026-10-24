@@ -80,6 +80,34 @@ jobs:
           name: rust-coverage
           path: lcov.info
 
+  fhir-validation:
+    name: FHIR R4 responses (HL7 validator: IHE BALP and Scheduling)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: pas
+          POSTGRES_PASSWORD: pas_dev_password
+          POSTGRES_DB: pas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pas"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://pas:pas_dev_password@localhost:5432/pas
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - run: cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
+      # Real responses of the R4 routes, checked by the official validator (pinned release and SHA-256 in the
+      # script) against the BALP and IHE Scheduling profiles. It fetches the FHIR packages from packages.fhir.org.
+      - run: java -version && scripts/validate-fhir.sh
+
   deny:
     name: Dependencies (cargo deny)
     runs-on: ubuntu-24.04
@@ -316,7 +344,7 @@ jobs:
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [rust, rust-db, deny, ui, ui-e2e, docs, workflows, restore, container, fresh-clone]
+    needs: [rust, rust-db, fhir-validation, deny, ui, ui-e2e, docs, workflows, restore, container, fresh-clone]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

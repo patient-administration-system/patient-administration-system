@@ -705,3 +705,5 @@ slots,template_version,none,"Not personal data (structure, status, timestamps, p
 session_templates,created_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 session_template_versions,proposed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 session_template_versions,approved_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+slot_proposals,requested_start,none,"Not personal data (structure, status, timestamps, places, templates)",record
+slot_proposals,requested_end,none,"Not personal data (structure, status, timestamps, places, templates)",record

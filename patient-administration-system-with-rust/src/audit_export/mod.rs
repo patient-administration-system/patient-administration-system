@@ -9,11 +9,12 @@
 //! The constraints checked are those of the BALP `Read`, `Create`, `Update` and `Delete` profiles and their
 //! `Patient` variants as published at <https://profiles.ihe.net/ITI/BALP/> (read 2026-10-23): `type` is
 //! `rest`; one `subtype` from the RESTful interaction codes; `action` `R`, `C`, `U` or `D`; `outcome` `0`;
-//! a `recorded` instant; a client agent (DICOM 110153) and a server agent (DICOM 110152), each with `who`,
+//! a `recorded` instant; a client agent and a server agent (their codes depend on the action: see [`roles`]), each with `who`,
 //! `requestor` and `network`; an optional user agent (`IRCP`, `requestor` true); `source.observer`; a data
 //! entity (type 2) with `what` and `role`; and, for the Patient variants, a patient entity (type 1, role 1).
-//! This is a structural check written from those pages, **not** the FHIR validator run against the
-//! published profiles, which has not been run.
+//! This is a structural check written from those pages. It is **not** the validator: the official HL7
+//! validator (6.10.4, with `ihe.iti.balp#1.1.4`) found that the first version had the client and server
+//! codes the wrong way round, and `scripts/validate-fhir.sh` now runs it over real exports.
 
 use serde_json::{Value, json};
 
@@ -26,10 +27,21 @@ const ENTITY_ROLE: &str = "http://terminology.hl7.org/CodeSystem/object-role";
 const INTERACTION: &str = "http://hl7.org/fhir/restful-interaction";
 const AUDIT_TYPE: &str = "http://terminology.hl7.org/CodeSystem/audit-event-type";
 const PARTICIPATION: &str = "http://terminology.hl7.org/CodeSystem/v3-ParticipationType";
-/// DICOM "Source Role ID": the client.
-const CLIENT: &str = "110153";
-/// DICOM "Destination Role ID": the server.
-const SERVER: &str = "110152";
+const PROVENANCE_PARTICIPANT: &str =
+    "http://terminology.hl7.org/CodeSystem/provenance-participant-type";
+
+/// The `(system, code)` that types the client and the server agent in each BALP profile, by action. They
+/// differ: Read has the client as DICOM 110152 and the server as 110153, Create and Update the other way
+/// round, and Delete has the client as 110150 and the server as `custodian`. These are the profile
+/// StructureDefinitions of `ihe.iti.balp#1.1.4` (`agent:client.type`, `agent:server.type`), which the
+/// validator checks; the IHE pages read differently, so the package wins.
+fn roles(action: &str) -> [(&'static str, &'static str); 2] {
+    match action {
+        "C" | "U" => [(DCM, "110153"), (DCM, "110152")],
+        "D" => [(DCM, "110150"), (PROVENANCE_PARTICIPANT, "custodian")],
+        _ => [(DCM, "110152"), (DCM, "110153")],
+    }
+}
 
 /// The name the PAS gives itself as the system that observed the event.
 pub const SYSTEM_NAME: &str = "patient-administration-system";
@@ -113,18 +125,26 @@ pub fn to_audit_event(row: &audit_log::Model, server_address: Option<&str>) -> V
         None => json!({ "reference": format!("urn:uuid:{}", row.entity_id) }),
     };
 
+    let [(client_system, client_code), (server_system, server_code)] = roles(kind.action());
     let mut client = json!({
-        "type": { "coding": [coding(DCM, CLIENT)] },
+        "type": { "coding": [coding(client_system, client_code)] },
         "requestor": false,
     });
-    if let Some(agent) = row.user_agent.as_deref().filter(|a| !a.trim().is_empty()) {
-        client["who"] = json!({ "identifier": { "value": agent } });
+    let ip = row.user_ip.as_deref().filter(|a| !a.trim().is_empty());
+    // The client is named by its user agent, or by its address when it sent none.
+    let who = row
+        .user_agent
+        .as_deref()
+        .filter(|a| !a.trim().is_empty())
+        .or(ip);
+    if let Some(who) = who {
+        client["who"] = json!({ "identifier": { "value": who } });
     }
-    if let Some(ip) = row.user_ip.as_deref().filter(|a| !a.trim().is_empty()) {
+    if let Some(ip) = ip {
         client["network"] = json!({ "address": ip, "type": "2" });
     }
     let mut server = json!({
-        "type": { "coding": [coding(DCM, SERVER)] },
+        "type": { "coding": [coding(server_system, server_code)] },
         "who": { "identifier": { "value": SYSTEM_NAME } },
         "requestor": false,
     });
@@ -227,8 +247,9 @@ pub fn violations(e: &Value) -> Vec<String> {
             .filter(|a| has_coding(&a["type"], system, code))
             .collect()
     };
-    for (role, code) in [("client", CLIENT), ("server", SERVER)] {
-        let found = of_type(DCM, code);
+    let [client_type, server_type] = roles(action);
+    for (role, (system, code)) in [("client", client_type), ("server", server_type)] {
+        let found = of_type(system, code);
         need(found.len() == 1, &format!("exactly one {role} agent"));
         if let Some(a) = found.first() {
             need(present(&a["who"]), &format!("{role} agent who"));
