@@ -446,9 +446,11 @@ impl CommunicationService {
     ) -> Result<GeneratedLetter> {
         // The portal needs no carrier: storing the message is delivering it.
         if channel == DeliveryChannel::Portal {
-            let updated = LetterRepository::mark_sent(&self.db, persisted.id).await?;
+            // Marking it sent and the audit row commit together, or neither is kept (NFR-25).
+            let txn = self.db.begin().await.map_err(Error::Database)?;
+            let updated = LetterRepository::mark_sent(&txn, persisted.id).await?;
             AuditLogRepository::log(
-                &self.db,
+                &txn,
                 "generated_letter",
                 updated.id,
                 "deliver_portal",
@@ -456,8 +458,8 @@ impl CommunicationService {
                 None,
                 ctx,
             )
-            .await
-            .log_error("audit log write");
+            .await?;
+            txn.commit().await.map_err(Error::Database)?;
             return Ok(updated);
         }
 
@@ -487,17 +489,32 @@ impl CommunicationService {
                             None,
                             ctx,
                         )
-                        .await
-                        .log_error("audit log write");
+                        .await?;
                         persisted
                     }
-                    Some(to) => match sender
-                        .send(&to, &persisted.rendered_subject, &persisted.rendered_body)
-                        .await
-                    {
-                        Ok(()) => match LetterRepository::mark_sent(&self.db, persisted.id).await {
-                            Ok(updated) => {
-                                AuditLogRepository::log(
+                    Some(to) => {
+                        // The attempt is recorded before anything leaves the building: if it cannot be
+                        // written, nothing is sent (NFR-25). The outcome rows below are written after the
+                        // send, which cannot be undone, so a failure there is logged; the attempt row means
+                        // the send is never unrecorded.
+                        AuditLogRepository::log(
+                            &self.db,
+                            "generated_letter",
+                            persisted.id,
+                            &format!("send_{label}_attempt"),
+                            None,
+                            Some(serde_json::json!({ "to": to })),
+                            ctx,
+                        )
+                        .await?;
+                        match sender
+                            .send(&to, &persisted.rendered_subject, &persisted.rendered_body)
+                            .await
+                        {
+                            Ok(()) => {
+                                match LetterRepository::mark_sent(&self.db, persisted.id).await {
+                                    Ok(updated) => {
+                                        AuditLogRepository::log(
                                     &self.db,
                                     "generated_letter",
                                     updated.id,
@@ -507,13 +524,14 @@ impl CommunicationService {
                                     ctx,
                                 )
                                 .await
-                                .log_error("audit log write");
-                                updated
+                                .log_error("audit log write of a send's outcome (its attempt row is already written)");
+                                        updated
+                                    }
+                                    Err(_) => persisted,
+                                }
                             }
-                            Err(_) => persisted,
-                        },
-                        Err(send_err) => {
-                            AuditLogRepository::log(
+                            Err(send_err) => {
+                                AuditLogRepository::log(
                                 &self.db,
                                 "generated_letter",
                                 persisted.id,
@@ -526,15 +544,16 @@ impl CommunicationService {
                                 ctx,
                             )
                             .await
-                            .log_error("audit log write");
-                            LetterRepository::mark_failed(&self.db, persisted.id)
+                            .log_error("audit log write of a send's outcome (its attempt row is already written)");
+                                LetterRepository::mark_failed(&self.db, persisted.id)
                                 .await
                                 .unwrap_or_else(|e| {
                                     tracing::error!(letter_id = %persisted.id, error = %e, "a failed send could not be recorded on the letter");
                                     persisted
                                 })
+                            }
                         }
-                    },
+                    }
                 }
             }
         };
