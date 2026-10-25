@@ -21,8 +21,24 @@ use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::validation::named_person;
 use crate::{Error, Result};
 
-/// How a request reached the PAS.
-pub const CHANNELS: [&str; 5] = ["staff", "phone", "text", "reply_link", "portal"];
+crate::string_enum! {
+    /// How a request reached the PAS.
+    pub enum RequestChannel {
+        Staff = "staff",
+        Phone = "phone",
+        Text = "text",
+        ReplyLink = "reply_link",
+        Portal = "portal",
+    }
+}
+
+crate::string_enum! {
+    /// Whether an episode is still open.
+    pub enum EpisodeStatus {
+        Active = "active",
+        Closed = "closed",
+    }
+}
 
 /// The longest window an episode may be opened or extended for.
 pub const MAX_WINDOW_DAYS: i64 = 730;
@@ -47,7 +63,7 @@ pub struct Episode {
     pub expires_at: DateTime<Utc>,
     pub urgent_override_by: Option<String>,
     pub extended_count: i32,
-    pub status: String,
+    pub status: EpisodeStatus,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -57,7 +73,7 @@ pub struct Request {
     pub person_id: Uuid,
     pub service_type: String,
     pub requested_at: DateTime<Utc>,
-    pub channel: String,
+    pub channel: RequestChannel,
     /// `booking` or `person`.
     pub route: String,
 }
@@ -96,7 +112,10 @@ fn episode(r: &sea_orm::QueryResult) -> Result<Episode> {
             .try_get("", "urgent_override_by")
             .map_err(Error::Database)?,
         extended_count: r.try_get("", "extended_count").map_err(Error::Database)?,
-        status: r.try_get("", "status").map_err(Error::Database)?,
+        status: r
+            .try_get::<String>("", "status")
+            .map_err(Error::Database)?
+            .parse()?,
     })
 }
 
@@ -212,12 +231,12 @@ impl PifuService {
         now: DateTime<Utc>,
         ctx: &UserContext,
     ) -> Result<Request> {
-        if !CHANNELS.contains(&channel) {
-            return Err(Error::validation(format!(
+        let channel: RequestChannel = channel.parse().map_err(|_| {
+            Error::validation(format!(
                 "channel must be one of {}",
-                CHANNELS.join(", ")
-            )));
-        }
+                RequestChannel::NAMES.join(", ")
+            ))
+        })?;
         let txn = self.db.begin().await.map_err(Error::Database)?;
         let ep = txn
             .query_one_raw(Statement::from_sql_and_values(
@@ -229,7 +248,7 @@ impl PifuService {
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found(format!("PIFU episode {episode_id}")))?;
         let ep = episode(&ep)?;
-        let route = if ep.status == "active" {
+        let route = if ep.status == EpisodeStatus::Active {
             route_for(now, ep.expires_at)
         } else {
             "person"
@@ -245,7 +264,7 @@ impl PifuService {
                     episode_id.into(),
                     ep.person_id.into(),
                     now.into(),
-                    channel.into(),
+                    channel.as_str().into(),
                     route.into(),
                 ],
             ))
@@ -258,7 +277,7 @@ impl PifuService {
                 id,
                 "request",
                 None,
-                Some(serde_json::json!({ "episode_id": episode_id, "channel": channel, "route": route })),
+                Some(serde_json::json!({ "episode_id": episode_id, "channel": channel.as_str(), "route": route })),
                 ctx,
             )
             .await?;
@@ -282,7 +301,10 @@ impl PifuService {
             person_id: ep.person_id,
             service_type: ep.service_type,
             requested_at: open.try_get("", "requested_at").map_err(Error::Database)?,
-            channel: open.try_get("", "channel").map_err(Error::Database)?,
+            channel: open
+                .try_get::<String>("", "channel")
+                .map_err(Error::Database)?
+                .parse()?,
             route: open.try_get("", "route").map_err(Error::Database)?,
         })
     }
@@ -311,7 +333,10 @@ impl PifuService {
                     person_id: r.try_get("", "person_id").map_err(Error::Database)?,
                     service_type: r.try_get("", "service_type").map_err(Error::Database)?,
                     requested_at: r.try_get("", "requested_at").map_err(Error::Database)?,
-                    channel: r.try_get("", "channel").map_err(Error::Database)?,
+                    channel: r
+                        .try_get::<String>("", "channel")
+                        .map_err(Error::Database)?
+                        .parse()?,
                     route: r.try_get("", "route").map_err(Error::Database)?,
                 })
             })
@@ -407,7 +432,7 @@ impl PifuService {
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found(format!("PIFU episode {episode_id}")))?;
         let ep = episode(&ep)?;
-        if ep.status != "active" {
+        if ep.status != EpisodeStatus::Active {
             return Err(Error::conflict("the episode is already closed"));
         }
         if ep.expires_at > now {

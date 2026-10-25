@@ -63,7 +63,8 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         // Added with the second pass over the lists that already existed in code.
         ("chk_slots_slot_type", &clinic_templates::SLOT_TYPES),
         ("interpreter_requests_kind_check", &interpreter::KINDS),
-        ("pifu_requests_channel_check", &pifu::CHANNELS),
+        ("pifu_requests_channel_check", pifu::RequestChannel::NAMES),
+        ("pifu_episodes_status_check", pifu::EpisodeStatus::NAMES),
         ("proxy_authorities_scopes_check", &proxy::SCOPES),
         ("proxy_authorities_basis_check", &proxy::BASES),
         ("triage_assessments_category_check", &triage::CATEGORIES),
