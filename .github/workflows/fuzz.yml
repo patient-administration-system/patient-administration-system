@@ -32,7 +32,8 @@ jobs:
         working-directory: patient-administration-system-with-rust/fuzz
         env:
           TARGET: ${{ matrix.target }}
-        run: cargo +nightly fuzz run "$TARGET" -O -- -max_total_time=300
+        # cargo-fuzz is installed as a musl binary, which makes it target musl; the sanitizer needs the gnu target.
+        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu "$TARGET" -O -- -max_total_time=300
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
