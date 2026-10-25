@@ -5463,6 +5463,33 @@ export interface components {
       code: string;
       display: string;
     };
+    /** @description A patient's placement into a bed at the start of an inpatient stay. */
+    Admission: {
+      /** Format: date-time */
+      admitted_at: string;
+      /** Format: uuid */
+      admitting_worker_id: string | null;
+      /** Format: uuid */
+      bed_id: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      encounter_id: string;
+      /** Format: uuid */
+      id: string;
+      reason: string | null;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    /**
+     * @description The combined result of a successful admission: the new encounter, the
+     *     admission record, and the active bed assignment.
+     */
+    AdmissionResult: {
+      admission: components["schemas"]["Admission"];
+      bed_assignment: components["schemas"]["BedAssignment"];
+      encounter: components["schemas"]["Encounter"];
+    };
     AdmitBody: {
       /** Format: uuid */
       bed_id: string;
@@ -5532,6 +5559,57 @@ export interface components {
         recorded_by: string;
         /** Format: date */
         review_by: string | null;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Admission: {
+      /** @description A patient's placement into a bed at the start of an inpatient stay. */
+      data?: {
+        /** Format: date-time */
+        admitted_at: string;
+        /** Format: uuid */
+        admitting_worker_id: string | null;
+        /** Format: uuid */
+        bed_id: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        encounter_id: string;
+        /** Format: uuid */
+        id: string;
+        reason: string | null;
+        /** Format: date-time */
+        updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_AdmissionResult: {
+      /**
+       * @description The combined result of a successful admission: the new encounter, the
+       *     admission record, and the active bed assignment.
+       */
+      data?: {
+        admission: components["schemas"]["Admission"];
+        bed_assignment: components["schemas"]["BedAssignment"];
+        encounter: components["schemas"]["Encounter"];
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -5753,6 +5831,67 @@ export interface components {
       data?: {
         duplicate: boolean;
         referral: components["schemas"]["Referral"];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Discharge: {
+      /** @description The end of an admission. */
+      data?: {
+        /** Format: uuid */
+        admission_id: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: date-time */
+        discharged_at: string;
+        /** Format: uuid */
+        discharging_worker_id: string | null;
+        disposition: string | null;
+        /** Format: uuid */
+        id: string;
+        notes: string | null;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Encounter: {
+      /** @description A patient's administrative interaction with the healthcare system. */
+      data?: {
+        class: components["schemas"]["EncounterClass"];
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        department_id: string | null;
+        /** Format: uuid */
+        id: string;
+        /** Format: date-time */
+        period_end: string | null;
+        /** Format: date-time */
+        period_start: string;
+        /** Format: uuid */
+        person_id: string;
+        reason: string | null;
+        status: components["schemas"]["EncounterStatus"];
+        /** Format: date-time */
+        updated_at: string;
+        /** Format: uuid */
+        worker_id: string | null;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -6019,6 +6158,42 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Reinstated: {
+      /** @description The answer to cancelling a discharge. */
+      data?: {
+        /** Format: uuid */
+        admission_id: string;
+        reinstated: boolean;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Reverted: {
+      /** @description The answer to cancelling a transfer. */
+      data?: {
+        /** Format: uuid */
+        admission_id: string;
+        reverted: boolean;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_ShownAssessments: {
       /** @description The stored no-show assessments for some appointments. `active` is false while the score is switched off. */
       data?: {
@@ -6050,6 +6225,34 @@ export interface components {
         readings: components["schemas"]["Reading"][];
         /** Format: date-time */
         to: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Transfer: {
+      /** @description A bed-to-bed move within a single admission. */
+      data?: {
+        /** Format: uuid */
+        admission_id: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        from_bed_id: string;
+        /** Format: uuid */
+        id: string;
+        reason: string | null;
+        /** Format: uuid */
+        to_bed_id: string;
+        /** Format: date-time */
+        transferred_at: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -6774,6 +6977,28 @@ export interface components {
       updated_at: string;
     };
     /**
+     * @description An occupancy interval for a bed under an encounter.
+     *
+     *     A `BedAssignment` with `released_at = None` is the currently active
+     *     assignment. Transfers close the old assignment and open a new one.
+     */
+    BedAssignment: {
+      /** Format: date-time */
+      assigned_at: string;
+      /** Format: uuid */
+      bed_id: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      encounter_id: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      released_at: string | null;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    /**
      * @description Bed status enum. Drives the bed-lifecycle state machine.
      *
      *     Valid transitions:
@@ -7028,6 +7253,21 @@ export interface components {
      * @enum {string}
      */
     Direction: "higher_is_worse" | "lower_is_worse" | "either";
+    /** @description The end of an admission. */
+    Discharge: {
+      /** Format: uuid */
+      admission_id: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      discharged_at: string;
+      /** Format: uuid */
+      discharging_worker_id: string | null;
+      disposition: string | null;
+      /** Format: uuid */
+      id: string;
+      notes: string | null;
+    };
     /** @description One long waiter nobody has asked recently whether they still need the appointment. */
     DueCheck: {
       /** Format: date-time */
@@ -7756,6 +7996,12 @@ export interface components {
     ReinstateBody: {
       reinstated_by: string;
     };
+    /** @description The answer to cancelling a discharge. */
+    Reinstated: {
+      /** Format: uuid */
+      admission_id: string;
+      reinstated: boolean;
+    };
     /**
      * @description How an ended appointment relates to the chance to refill its slot.
      * @enum {string}
@@ -7788,6 +8034,12 @@ export interface components {
     RequestBody: {
       /** @description `staff`, `phone`, `text`, `reply_link` or `portal`. */
       channel: string;
+    };
+    /** @description The answer to cancelling a transfer. */
+    Reverted: {
+      /** Format: uuid */
+      admission_id: string;
+      reverted: boolean;
     };
     RevokeBody: {
       revoked_by: string;
@@ -7914,6 +8166,22 @@ export interface components {
       readings: components["schemas"]["Reading"][];
       /** Format: date-time */
       to: string;
+    };
+    /** @description A bed-to-bed move within a single admission. */
+    Transfer: {
+      /** Format: uuid */
+      admission_id: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      from_bed_id: string;
+      /** Format: uuid */
+      id: string;
+      reason: string | null;
+      /** Format: uuid */
+      to_bed_id: string;
+      /** Format: date-time */
+      transferred_at: string;
     };
     TransferBody: {
       /** Format: uuid */
@@ -8483,7 +8751,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_AdmissionResult"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8519,7 +8789,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Encounter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8555,7 +8827,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_AdmissionResult"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8591,7 +8865,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Encounter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8626,7 +8902,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Admission"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8661,7 +8939,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Reinstated"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8696,7 +8976,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Reverted"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8731,7 +9013,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Encounter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8766,7 +9050,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Discharge"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8801,7 +9087,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Encounter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8836,7 +9124,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Encounter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -8875,7 +9165,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Transfer"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

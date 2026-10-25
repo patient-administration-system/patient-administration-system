@@ -17,13 +17,15 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// A patient's placement into a bed at the start of an inpatient stay.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Admission {
     pub id: Uuid,
     pub encounter_id: Uuid,
     pub bed_id: Uuid,
+    #[schema(required = true)]
     pub admitting_worker_id: Option<Uuid>,
     pub admitted_at: DateTime<Utc>,
+    #[schema(required = true)]
     pub reason: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -49,12 +51,13 @@ impl Admission {
 }
 
 /// A bed-to-bed move within a single admission.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Transfer {
     pub id: Uuid,
     pub admission_id: Uuid,
     pub from_bed_id: Uuid,
     pub to_bed_id: Uuid,
+    #[schema(required = true)]
     pub reason: Option<String>,
     pub transferred_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
@@ -78,13 +81,16 @@ impl Transfer {
 }
 
 /// The end of an admission.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Discharge {
     pub id: Uuid,
     pub admission_id: Uuid,
+    #[schema(required = true)]
     pub discharging_worker_id: Option<Uuid>,
     pub discharged_at: DateTime<Utc>,
+    #[schema(required = true)]
     pub disposition: Option<String>,
+    #[schema(required = true)]
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
 }
@@ -110,12 +116,13 @@ impl Discharge {
 ///
 /// A `BedAssignment` with `released_at = None` is the currently active
 /// assignment. Transfers close the old assignment and open a new one.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BedAssignment {
     pub id: Uuid,
     pub encounter_id: Uuid,
     pub bed_id: Uuid,
     pub assigned_at: DateTime<Utc>,
+    #[schema(required = true)]
     pub released_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

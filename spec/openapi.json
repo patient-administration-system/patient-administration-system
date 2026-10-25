@@ -169,6 +169,79 @@
         ],
         "type": "object"
       },
+      "Admission": {
+        "description": "A patient's placement into a bed at the start of an inpatient stay.",
+        "properties": {
+          "admitted_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "admitting_worker_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bed_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "encounter_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "encounter_id",
+          "bed_id",
+          "admitting_worker_id",
+          "admitted_at",
+          "reason",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "AdmissionResult": {
+        "description": "The combined result of a successful admission: the new encounter, the\nadmission record, and the active bed assignment.",
+        "properties": {
+          "admission": {
+            "$ref": "#/components/schemas/Admission"
+          },
+          "bed_assignment": {
+            "$ref": "#/components/schemas/BedAssignment"
+          },
+          "encounter": {
+            "$ref": "#/components/schemas/Encounter"
+          }
+        },
+        "required": [
+          "encounter",
+          "admission",
+          "bed_assignment"
+        ],
+        "type": "object"
+      },
       "AdmitBody": {
         "properties": {
           "bed_id": {
@@ -372,6 +445,145 @@
               "ended_by",
               "ended_at",
               "fhir"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Admission": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A patient's placement into a bed at the start of an inpatient stay.",
+            "properties": {
+              "admitted_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "admitting_worker_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bed_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "encounter_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "updated_at": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "encounter_id",
+              "bed_id",
+              "admitting_worker_id",
+              "admitted_at",
+              "reason",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_AdmissionResult": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "The combined result of a successful admission: the new encounter, the\nadmission record, and the active bed assignment.",
+            "properties": {
+              "admission": {
+                "$ref": "#/components/schemas/Admission"
+              },
+              "bed_assignment": {
+                "$ref": "#/components/schemas/BedAssignment"
+              },
+              "encounter": {
+                "$ref": "#/components/schemas/Encounter"
+              }
+            },
+            "required": [
+              "encounter",
+              "admission",
+              "bed_assignment"
             ],
             "type": "object"
           },
@@ -962,6 +1174,194 @@
             "required": [
               "referral",
               "duplicate"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Discharge": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "The end of an admission.",
+            "properties": {
+              "admission_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "discharged_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "discharging_worker_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "disposition": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "admission_id",
+              "discharging_worker_id",
+              "discharged_at",
+              "disposition",
+              "notes",
+              "created_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Encounter": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A patient's administrative interaction with the healthcare system.",
+            "properties": {
+              "class": {
+                "$ref": "#/components/schemas/EncounterClass"
+              },
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "department_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "period_end": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "period_start": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "$ref": "#/components/schemas/EncounterStatus"
+              },
+              "updated_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "worker_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "person_id",
+              "class",
+              "status",
+              "period_start",
+              "period_end",
+              "worker_id",
+              "department_id",
+              "reason",
+              "created_at",
+              "updated_at"
             ],
             "type": "object"
           },
@@ -1746,6 +2146,106 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Reinstated": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "The answer to cancelling a discharge.",
+            "properties": {
+              "admission_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "reinstated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "admission_id",
+              "reinstated"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Reverted": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "The answer to cancelling a transfer.",
+            "properties": {
+              "admission_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "reverted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "admission_id",
+              "reverted"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_ShownAssessments": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -1844,6 +2344,84 @@
               "readings",
               "by_service",
               "by_ward"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Transfer": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A bed-to-bed move within a single admission.",
+            "properties": {
+              "admission_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "from_bed_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "to_bed_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "transferred_at": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "admission_id",
+              "from_bed_id",
+              "to_bed_id",
+              "reason",
+              "transferred_at",
+              "created_at"
             ],
             "type": "object"
           },
@@ -3963,6 +4541,52 @@
         ],
         "type": "object"
       },
+      "BedAssignment": {
+        "description": "An occupancy interval for a bed under an encounter.\n\nA `BedAssignment` with `released_at = None` is the currently active\nassignment. Transfers close the old assignment and open a new one.",
+        "properties": {
+          "assigned_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "bed_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "encounter_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "released_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "encounter_id",
+          "bed_id",
+          "assigned_at",
+          "released_at",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "BedStatus": {
         "description": "Bed status enum. Drives the bed-lifecycle state machine.\n\nValid transitions:\n- Available → Occupied | Reserved | OutOfService\n- Occupied → Cleaning | OutOfService\n- Cleaning → Available | OutOfService\n- Reserved → Occupied | Available | OutOfService\n- OutOfService → Available",
         "enum": [
@@ -4501,6 +5125,56 @@
           "either"
         ],
         "type": "string"
+      },
+      "Discharge": {
+        "description": "The end of an admission.",
+        "properties": {
+          "admission_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "discharged_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "discharging_worker_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disposition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "admission_id",
+          "discharging_worker_id",
+          "discharged_at",
+          "disposition",
+          "notes",
+          "created_at"
+        ],
+        "type": "object"
       },
       "DueCheck": {
         "description": "One long waiter nobody has asked recently whether they still need the appointment.",
@@ -6515,6 +7189,23 @@
         ],
         "type": "object"
       },
+      "Reinstated": {
+        "description": "The answer to cancelling a discharge.",
+        "properties": {
+          "admission_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reinstated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "admission_id",
+          "reinstated"
+        ],
+        "type": "object"
+      },
       "ReleaseClass": {
         "description": "How an ended appointment relates to the chance to refill its slot.",
         "enum": [
@@ -6612,6 +7303,23 @@
         },
         "required": [
           "channel"
+        ],
+        "type": "object"
+      },
+      "Reverted": {
+        "description": "The answer to cancelling a transfer.",
+        "properties": {
+          "admission_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reverted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "admission_id",
+          "reverted"
         ],
         "type": "object"
       },
@@ -6990,6 +7698,51 @@
           "readings",
           "by_service",
           "by_ward"
+        ],
+        "type": "object"
+      },
+      "Transfer": {
+        "description": "A bed-to-bed move within a single admission.",
+        "properties": {
+          "admission_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "from_bed_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to_bed_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "transferred_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "admission_id",
+          "from_bed_id",
+          "to_bed_id",
+          "reason",
+          "transferred_at",
+          "created_at"
         ],
         "type": "object"
       },
@@ -8010,6 +8763,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AdmissionResult"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8045,6 +8805,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Encounter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8080,6 +8847,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AdmissionResult"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8115,6 +8889,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Encounter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8151,6 +8932,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Admission"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8187,6 +8975,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Reinstated"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8223,6 +9018,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Reverted"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8259,6 +9061,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Encounter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8295,6 +9104,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Discharge"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8331,6 +9147,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Encounter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8367,6 +9190,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Encounter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -8413,6 +9243,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Transfer"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

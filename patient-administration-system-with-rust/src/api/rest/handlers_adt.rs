@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
+use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -25,6 +25,20 @@ pub struct TransferBody {
     pub new_bed_id: Uuid,
 }
 
+/// The answer to cancelling a discharge.
+#[derive(Debug, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct Reinstated {
+    pub admission_id: Uuid,
+    pub reinstated: bool,
+}
+
+/// The answer to cancelling a transfer.
+#[derive(Debug, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct Reverted {
+    pub admission_id: Uuid,
+    pub reverted: bool,
+}
+
 /// `POST /api/admissions` — admit a person to a bed. Body:
 /// `{ "person_id": "<uuid>", "bed_id": "<uuid>" }`.
 #[utoipa::path(
@@ -33,7 +47,7 @@ pub struct TransferBody {
     tag = "Admissions",
     request_body = AdmitBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::adt::AdmissionResult>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -59,7 +73,7 @@ pub async fn admit(
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = TransferBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::admission::Transfer>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -89,7 +103,7 @@ pub async fn transfer(
     tag = "Admissions",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::admission::Discharge>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -114,7 +128,7 @@ pub async fn discharge(
     tag = "Admissions",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::admission::Admission>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -139,7 +153,7 @@ pub async fn cancel_admit(
     tag = "Admissions",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Reinstated>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -151,7 +165,10 @@ pub async fn cancel_discharge(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.adt.cancel_discharge(admission_id, &ctx).await {
-        Ok(_) => ok(serde_json::json!({ "admission_id": admission_id, "reinstated": true })),
+        Ok(_) => ok_json(Reinstated {
+            admission_id,
+            reinstated: true,
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -164,7 +181,7 @@ pub async fn cancel_discharge(
     tag = "Admissions",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Reverted>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -176,7 +193,10 @@ pub async fn cancel_transfer(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state.adt.cancel_transfer(admission_id, None, &ctx).await {
-        Ok(_) => ok(serde_json::json!({ "admission_id": admission_id, "reverted": true })),
+        Ok(_) => ok_json(Reverted {
+            admission_id,
+            reverted: true,
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -189,7 +209,7 @@ pub async fn cancel_transfer(
     tag = "Admissions",
     request_body = AdmitBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::encounter::Encounter>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -218,7 +238,7 @@ pub async fn pre_admit(
     tag = "Admissions",
     request_body = AdmitBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::encounter::Encounter>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -247,7 +267,7 @@ pub async fn cancel_pre_admit(
     tag = "Admissions",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::encounter::Encounter>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -272,7 +292,7 @@ pub async fn leave_start(
     tag = "Admissions",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::encounter::Encounter>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -298,7 +318,7 @@ pub async fn leave_end(
     tag = "Admissions",
     request_body = AdmitBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::adt::AdmissionResult>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -327,7 +347,7 @@ pub async fn change_to_inpatient(
     tag = "Admissions",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::encounter::Encounter>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

@@ -516,3 +516,126 @@ async fn the_patient_record_routes_send_the_types_they_declare() {
         call(&app, "GET", &format!("/api/patients/{person}/waits"), None).await;
     assert_eq!(waits.person_id, person);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_admission_routes_send_the_types_they_declare() {
+    use patient_administration_system::adt::AdmissionResult;
+    use patient_administration_system::api::rest::handlers_adt::{Reinstated, Reverted};
+    use patient_administration_system::models::Address;
+    use patient_administration_system::models::admission::{Admission, Discharge, Transfer};
+    use patient_administration_system::models::encounter::Encounter;
+    use patient_administration_system::models::facility::{Bed, Facility, Room, Ward};
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let unique = Uuid::new_v4().simple().to_string();
+    let facility = Facility::new("F".into(), format!("F{unique}"), Address::default());
+    let _: Value = call(&app, "POST", "/api/facilities", Some(json!(facility))).await;
+    let ward = Ward::new(facility.id, "W".into(), format!("W{unique}"), 4);
+    let _: Value = call(&app, "POST", "/api/wards", Some(json!(ward))).await;
+    let room = Room::new(ward.id, "R".into(), format!("R{unique}"));
+    let _: Value = call(&app, "POST", "/api/rooms", Some(json!(room))).await;
+    let mut beds = Vec::new();
+    for n in 0..4 {
+        let bed = Bed::new(room.id, format!("B{n}"), format!("B{n}{unique}"));
+        let _: Value = call(&app, "POST", "/api/beds", Some(json!(bed))).await;
+        beds.push(bed.id);
+    }
+    let person = Uuid::new_v4();
+    let at = |bed: Uuid, who: Uuid| json!({"person_id": who, "bed_id": bed});
+
+    let _: Encounter = call(
+        &app,
+        "POST",
+        "/api/admissions/pre-admit",
+        Some(at(beds[0], person)),
+    )
+    .await;
+    let _: Encounter = call(
+        &app,
+        "POST",
+        "/api/admissions/cancel-pre-admit",
+        Some(at(beds[0], person)),
+    )
+    .await;
+
+    let admitted: AdmissionResult =
+        call(&app, "POST", "/api/admissions", Some(at(beds[0], person))).await;
+    let id = admitted.admission.id;
+    let _: Encounter = call(
+        &app,
+        "POST",
+        &format!("/api/admissions/{id}/leave-start"),
+        None,
+    )
+    .await;
+    let _: Encounter = call(
+        &app,
+        "POST",
+        &format!("/api/admissions/{id}/leave-end"),
+        None,
+    )
+    .await;
+
+    let moved: Transfer = call(
+        &app,
+        "POST",
+        &format!("/api/admissions/{id}/transfer"),
+        Some(json!({"new_bed_id": beds[1]})),
+    )
+    .await;
+    assert_eq!(moved.to_bed_id, beds[1]);
+    let undone: Reverted = call(
+        &app,
+        "POST",
+        &format!("/api/admissions/{id}/cancel-transfer"),
+        None,
+    )
+    .await;
+    assert!(undone.reverted);
+
+    let out: Discharge = call(
+        &app,
+        "POST",
+        &format!("/api/admissions/{id}/discharge"),
+        None,
+    )
+    .await;
+    assert_eq!(out.admission_id, id);
+    let back: Reinstated = call(
+        &app,
+        "POST",
+        &format!("/api/admissions/{id}/cancel-discharge"),
+        None,
+    )
+    .await;
+    assert!(back.reinstated);
+
+    let _: Encounter = call(
+        &app,
+        "POST",
+        &format!("/api/admissions/{id}/change-to-outpatient"),
+        None,
+    )
+    .await;
+    let _: AdmissionResult = call(
+        &app,
+        "POST",
+        "/api/admissions/change-to-inpatient",
+        Some(at(beds[3], person)),
+    )
+    .await;
+
+    let other = Uuid::new_v4();
+    let second: AdmissionResult =
+        call(&app, "POST", "/api/admissions", Some(at(beds[2], other))).await;
+    let cancelled: Admission = call(
+        &app,
+        "POST",
+        &format!("/api/admissions/{}/cancel-admit", second.admission.id),
+        None,
+    )
+    .await;
+    assert_eq!(cancelled.id, second.admission.id);
+}

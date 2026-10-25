@@ -36,7 +36,7 @@ mod movements;
 
 /// The combined result of a successful admission: the new encounter, the
 /// admission record, and the active bed assignment.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct AdmissionResult {
     pub encounter: Encounter,
     pub admission: Admission,
