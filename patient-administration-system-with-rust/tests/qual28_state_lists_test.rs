@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 
 use patient_administration_system::{
     clinic_templates, clinical_priority, communication, contact, follow_up, identity, interpreter,
-    pifu, proxy, receipts, referrals, support, triage, waits,
+    pifu, proxy, receipts, referrals, subscriptions, support, transport, triage, waits,
 };
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 
@@ -65,6 +65,14 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ("interpreter_requests_kind_check", &interpreter::KINDS),
         ("pifu_requests_channel_check", pifu::RequestChannel::NAMES),
         ("pifu_episodes_status_check", pifu::EpisodeStatus::NAMES),
+        (
+            "transport_bookings_status_check",
+            transport::BookingStatus::NAMES,
+        ),
+        (
+            "subscriptions_status_check",
+            subscriptions::SubscriptionState::NAMES,
+        ),
         ("proxy_authorities_scopes_check", &proxy::SCOPES),
         ("proxy_authorities_basis_check", &proxy::BASES),
         ("triage_assessments_category_check", &triage::CATEGORIES),

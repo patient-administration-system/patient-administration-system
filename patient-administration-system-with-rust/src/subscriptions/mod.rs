@@ -117,13 +117,21 @@ pub fn check_secret_env(name: &str) -> Result<()> {
     }
 }
 
+crate::string_enum! {
+    /// Whether a subscription still delivers.
+    pub enum SubscriptionState {
+        Active = "active",
+        Off = "off",
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Subscription {
     pub id: Uuid,
     pub topic: String,
     pub endpoint: String,
     pub secret_env: Option<String>,
-    pub status: String,
+    pub status: SubscriptionState,
     pub created_by: String,
     pub created_at: DateTime<Utc>,
     pub ended_at: Option<DateTime<Utc>>,
@@ -192,7 +200,7 @@ fn subscription_of(r: &sea_orm::QueryResult) -> Result<Subscription> {
         topic: r.col("topic")?,
         endpoint: r.col("endpoint")?,
         secret_env: r.col("secret_env")?,
-        status: r.col("status")?,
+        status: r.col::<String>("status")?.parse()?,
         created_by: r.col("created_by")?,
         created_at: r.col("created_at")?,
         ended_at: r.col("ended_at")?,

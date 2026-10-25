@@ -105,11 +105,21 @@ pub fn pickup_address(person: &crate::upstream::Person) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join(", "))
 }
 
+crate::string_enum! {
+    /// Where a transport booking has got to.
+    pub enum BookingStatus {
+        Requested = "requested",
+        Booked = "booked",
+        Cancelled = "cancelled",
+        Failed = "failed",
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Booking {
     pub id: Uuid,
     pub appointment_id: Uuid,
-    pub status: String,
+    pub status: BookingStatus,
     pub provider_ref: Option<String>,
     pub window_start: Option<DateTime<Utc>>,
     pub window_end: Option<DateTime<Utc>>,
@@ -297,7 +307,7 @@ impl TransportService {
             Ok(Booking {
                 id: r.col("id")?,
                 appointment_id: r.col("appointment_id")?,
-                status: r.col("status")?,
+                status: r.col::<String>("status")?.parse()?,
                 provider_ref: r.col("provider_ref")?,
                 window_start: r.col("window_start")?,
                 window_end: r.col("window_end")?,
@@ -320,12 +330,12 @@ impl TransportService {
 .log_error("call task for a failed transport booking");
     }
 
-    async fn set_status(&self, id: Uuid, status: &str, error: Option<&str>) -> Result<()> {
+    async fn set_status(&self, id: Uuid, status: BookingStatus, error: Option<&str>) -> Result<()> {
         self.db
             .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 "UPDATE transport_bookings SET status = $2, last_error = $3, updated_at = now() WHERE id = $1",
-                [id.into(), status.into(), error.map(String::from).into()],
+                [id.into(), status.as_str().into(), error.map(String::from).into()],
             ))
             .await
             .map_err(Error::Database)?;
@@ -347,7 +357,7 @@ impl TransportService {
             return Ok(());
         }
         if let Some(b) = self.booking_for(appointment_id).await?
-            && matches!(b.status.as_str(), "requested" | "booked")
+            && matches!(b.status, BookingStatus::Requested | BookingStatus::Booked)
         {
             return Ok(());
         }
@@ -377,15 +387,23 @@ impl TransportService {
         let address = match people.get(appt.person_id, &ctx).await {
             Ok(p) => pickup_address(&p),
             Err(e) => {
-                self.set_status(id, "failed", Some(&format!("person lookup failed: {e}")))
-                    .await?;
+                self.set_status(
+                    id,
+                    BookingStatus::Failed,
+                    Some(&format!("person lookup failed: {e}")),
+                )
+                .await?;
                 self.call_task(appointment_id, appt.person_id).await;
                 return Ok(());
             }
         };
         let Some(address) = address else {
-            self.set_status(id, "failed", Some("no pick-up address on record"))
-                .await?;
+            self.set_status(
+                id,
+                BookingStatus::Failed,
+                Some("no pick-up address on record"),
+            )
+            .await?;
             self.call_task(appointment_id, appt.person_id).await;
             return Ok(());
         };
@@ -423,7 +441,7 @@ impl TransportService {
                 tracing::warn!(target: "pas::transport", booking_id = %id, "provider refused the ride: {e}");
                 self.set_status(
                     id,
-                    "failed",
+                    BookingStatus::Failed,
                     Some("the transport provider could not book the ride"),
                 )
                 .await?;
@@ -438,7 +456,7 @@ impl TransportService {
         let Some(b) = self.booking_for(appointment_id).await? else {
             return Ok(());
         };
-        if b.status != "booked" {
+        if b.status != BookingStatus::Booked {
             return Ok(());
         }
         let person: Uuid = self
@@ -458,7 +476,8 @@ impl TransportService {
             .await
         {
             Ok(()) => {
-                self.set_status(b.id, "cancelled", None).await?;
+                self.set_status(b.id, BookingStatus::Cancelled, None)
+                    .await?;
                 AuditLogRepository::log(
                     &self.db,
                     "appointment",
@@ -474,7 +493,7 @@ impl TransportService {
                 tracing::warn!(target: "pas::transport", booking_id = %b.id, "provider would not cancel: {e}");
                 self.set_status(
                     b.id,
-                    "failed",
+                    BookingStatus::Failed,
                     Some("the transport provider could not cancel the ride"),
                 )
                 .await?;
