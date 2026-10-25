@@ -121,7 +121,7 @@ impl ListValidationService {
         &self,
         from: DateTime<Utc>,
         to: DateTime<Utc>,
-    ) -> Result<Vec<serde_json::Value>> {
+    ) -> Result<Vec<RemovalsByService>> {
         let rows = self
             .db
             .query_all_raw(Statement::from_sql_and_values(
@@ -138,12 +138,12 @@ impl ListValidationService {
             .map_err(Error::Database)?;
         rows.iter()
             .map(|r| {
-                Ok(serde_json::json!({
-                    "service": r.col::<String>("target_service")?,
-                    "removed": r.col::<i64>("removed")?,
-                    "reinstated": r.col::<i64>("reinstated")?,
-                    "kept": r.col::<i64>("kept")?,
-                }))
+                Ok(RemovalsByService {
+                    service: r.col::<String>("target_service")?,
+                    removed: r.col::<i64>("removed")?,
+                    reinstated: r.col::<i64>("reinstated")?,
+                    kept: r.col::<i64>("kept")?,
+                })
             })
             .collect()
     }

@@ -51,7 +51,7 @@ fn default_cohort() -> i64 {
     tag = "Validation campaigns",
     request_body = StartBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::list_validation::Campaign>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -89,7 +89,7 @@ pub async fn start(
     tag = "Validation campaigns",
     params(LimitQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::list_validation::Campaign>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -124,7 +124,7 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<LimitQuery>) ->
     tag = "Validation campaigns",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::list_validation::Campaign>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -151,7 +151,7 @@ pub struct ItemsQuery {
     tag = "Validation campaigns",
     params(("id" = String, Path, description = "Path parameter `id`"), ItemsQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::list_validation::Item>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -195,7 +195,7 @@ pub struct AskedBody {
     params(("id" = String, Path, description = "Path parameter `id`"), ("item" = String, Path, description = "Path parameter `item`")),
     request_body = AskedBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::list_validation::Item>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -238,7 +238,7 @@ pub struct AnswerBody {
     params(("id" = String, Path, description = "Path parameter `id`"), ("item" = String, Path, description = "Path parameter `item`")),
     request_body = AnswerBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::list_validation::Item>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -279,7 +279,7 @@ pub struct LetterBody {
     params(("id" = String, Path, description = "Path parameter `id`"), ("item" = String, Path, description = "Path parameter `item`")),
     request_body = LetterBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::list_validation::Item>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -319,7 +319,7 @@ pub struct DecisionBody {
     params(("id" = String, Path, description = "Path parameter `id`"), ("item" = String, Path, description = "Path parameter `item`")),
     request_body = DecisionBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::list_validation::Item>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -361,7 +361,7 @@ pub struct ReinstateBody {
     params(("id" = String, Path, description = "Path parameter `id`"), ("item" = String, Path, description = "Path parameter `item`")),
     request_body = ReinstateBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::list_validation::Item>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -396,7 +396,7 @@ pub struct ReportQuery {
     tag = "Reports",
     params(ReportQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::list_validation::RemovalsReport>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -413,7 +413,11 @@ pub async fn removals_report(
         ));
     }
     match state.list_validation.report(from, to).await {
-        Ok(v) => ok_json(serde_json::json!({ "from": from, "to": to, "by_service": v })),
+        Ok(v) => ok_json(crate::list_validation::RemovalsReport {
+            from,
+            to,
+            by_service: v,
+        }),
         Err(e) => error_to_response(e),
     }
 }

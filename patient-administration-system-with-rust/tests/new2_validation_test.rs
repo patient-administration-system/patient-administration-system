@@ -9,7 +9,7 @@ use axum::{
 };
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
-use patient_administration_system::list_validation::NewCampaign;
+use patient_administration_system::list_validation::{Campaign, Item, NewCampaign, RemovalsReport};
 use patient_administration_system::models::waitlist::Priority;
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
@@ -523,7 +523,8 @@ async fn removals_are_reported_apart_from_treatment_and_the_http_surface_works()
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
-    let campaign = v["data"]["id"].as_str().unwrap().to_string();
+    let started: Campaign = serde_json::from_value(v["data"].clone()).unwrap();
+    let campaign = started.id.to_string();
     assert_eq!(v["data"]["counts"]["selected"], 2);
 
     let (_, v) = call(
@@ -533,6 +534,7 @@ async fn removals_are_reported_apart_from_treatment_and_the_http_surface_works()
     )
     .await;
     assert_eq!(v["meta"]["truncated"], true);
+    let _: Vec<Item> = serde_json::from_value(v["data"].clone()).unwrap();
     let item = v["data"][0]["id"].as_str().unwrap().to_string();
 
     let (st, v) = call(
@@ -550,6 +552,8 @@ async fn removals_are_reported_apart_from_treatment_and_the_http_surface_works()
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
     assert_eq!(v["data"]["state"], "removed");
+    let decided: Item = serde_json::from_value(v["data"].clone()).unwrap();
+    assert_eq!(decided.state, "removed");
 
     // The other patient has not been asked: a decision is a 409, not a removal.
     let (_, v) = call(
@@ -569,6 +573,8 @@ async fn removals_are_reported_apart_from_treatment_and_the_http_surface_works()
 
     let (st, v) = call("GET", "/api/reports/validation-removals".into(), None).await;
     assert_eq!(st, StatusCode::OK, "{v}");
+    let report: RemovalsReport = serde_json::from_value(v["data"].clone()).unwrap();
+    assert!(report.by_service.iter().any(|r| r.service == w.service));
     let mine = v["data"]["by_service"]
         .as_array()
         .unwrap()

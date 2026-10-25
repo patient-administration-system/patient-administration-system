@@ -6243,6 +6243,26 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_RemovalsReport: {
+      /** @description The validation removals report: the period and a row per service. */
+      data?: {
+        by_service: components["schemas"]["RemovalsByService"][];
+        /** Format: date-time */
+        from: string;
+        /** Format: date-time */
+        to: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Reverted: {
       /** @description The answer to cancelling a transfer. */
       data?: {
@@ -7052,6 +7072,74 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    "ApiResponse_Vec_list_validation.Campaign": {
+      data?: {
+        /** @description Items by state (`selected`, `asked`, ...), for the campaign page. */
+        counts: {
+          [key: string]: number;
+        };
+        /** Format: date-time */
+        created_at: string;
+        /** Format: int32 */
+        final_wait_days: number;
+        /** Format: uuid */
+        id: string;
+        /** Format: int32 */
+        min_weeks: number;
+        name: string;
+        /** Format: date */
+        reply_by: string;
+        service_type: string | null;
+        started_by: string;
+        status: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_Vec_list_validation.Item": {
+      data?: {
+        answer: string | null;
+        /** Format: date-time */
+        asked_at: string | null;
+        /** Format: uuid */
+        campaign_id: string;
+        decided_by: string | null;
+        /** Format: date */
+        final_by: string | null;
+        /** Format: uuid */
+        id: string;
+        /** Format: date-time */
+        letter_sent_at: string | null;
+        /** @description Why a person may act now, if they may: `letter_due`, `decision_due`. */
+        next: string | null;
+        /** Format: uuid */
+        pathway_id: string;
+        /** Format: uuid */
+        person_id: string;
+        /** Format: date-time */
+        removed_at: string | null;
+        state: string;
+        target_service: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_WaitlistEntry: {
       data?: {
         /** Format: date-time */
@@ -7117,6 +7205,74 @@ export interface components {
         total_beds: number;
         /** Format: uuid */
         ward_id: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_list_validation.Campaign": {
+      data?: {
+        /** @description Items by state (`selected`, `asked`, ...), for the campaign page. */
+        counts: {
+          [key: string]: number;
+        };
+        /** Format: date-time */
+        created_at: string;
+        /** Format: int32 */
+        final_wait_days: number;
+        /** Format: uuid */
+        id: string;
+        /** Format: int32 */
+        min_weeks: number;
+        name: string;
+        /** Format: date */
+        reply_by: string;
+        service_type: string | null;
+        started_by: string;
+        status: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_list_validation.Item": {
+      data?: {
+        answer: string | null;
+        /** Format: date-time */
+        asked_at: string | null;
+        /** Format: uuid */
+        campaign_id: string;
+        decided_by: string | null;
+        /** Format: date */
+        final_by: string | null;
+        /** Format: uuid */
+        id: string;
+        /** Format: date-time */
+        letter_sent_at: string | null;
+        /** @description Why a person may act now, if they may: `letter_due`, `decision_due`. */
+        next: string | null;
+        /** Format: uuid */
+        pathway_id: string;
+        /** Format: uuid */
+        person_id: string;
+        /** Format: date-time */
+        removed_at: string | null;
+        state: string;
+        target_service: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8356,6 +8512,24 @@ export interface components {
      * @enum {string}
      */
     ReleaseClass: "early_release" | "late_release" | "silent_miss";
+    /** @description Removals, reinstatements and keeps for one service in the period. No identifiers. */
+    RemovalsByService: {
+      /** Format: int64 */
+      kept: number;
+      /** Format: int64 */
+      reinstated: number;
+      /** Format: int64 */
+      removed: number;
+      service: string;
+    };
+    /** @description The validation removals report: the period and a row per service. */
+    RemovalsReport: {
+      by_service: components["schemas"]["RemovalsByService"][];
+      /** Format: date-time */
+      from: string;
+      /** Format: date-time */
+      to: string;
+    };
     /** @enum {string} */
     ReplyAction: "confirm" | "cancel" | "rebook" | "convert";
     ReplyRequest: {
@@ -8752,6 +8926,50 @@ export interface components {
     "handlers_waits.AnswerBody": {
       answer: string;
       recorded_by: string;
+    };
+    "list_validation.Campaign": {
+      /** @description Items by state (`selected`, `asked`, ...), for the campaign page. */
+      counts: {
+        [key: string]: number;
+      };
+      /** Format: date-time */
+      created_at: string;
+      /** Format: int32 */
+      final_wait_days: number;
+      /** Format: uuid */
+      id: string;
+      /** Format: int32 */
+      min_weeks: number;
+      name: string;
+      /** Format: date */
+      reply_by: string;
+      service_type: string | null;
+      started_by: string;
+      status: string;
+    };
+    "list_validation.Item": {
+      answer: string | null;
+      /** Format: date-time */
+      asked_at: string | null;
+      /** Format: uuid */
+      campaign_id: string;
+      decided_by: string | null;
+      /** Format: date */
+      final_by: string | null;
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      letter_sent_at: string | null;
+      /** @description Why a person may act now, if they may: `letter_due`, `decision_due`. */
+      next: string | null;
+      /** Format: uuid */
+      pathway_id: string;
+      /** Format: uuid */
+      person_id: string;
+      /** Format: date-time */
+      removed_at: string | null;
+      state: string;
+      target_service: string;
     };
     "noshow.Status": {
       active: boolean;
@@ -16997,7 +17215,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_RemovalsReport"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18609,7 +18829,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_list_validation.Campaign"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18645,7 +18867,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_list_validation.Campaign"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18680,7 +18904,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_list_validation.Campaign"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18719,7 +18945,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_list_validation.Item"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18760,7 +18988,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_list_validation.Item"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18801,7 +19031,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_list_validation.Item"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18842,7 +19074,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_list_validation.Item"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18883,7 +19117,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_list_validation.Item"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18924,7 +19160,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_list_validation.Item"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

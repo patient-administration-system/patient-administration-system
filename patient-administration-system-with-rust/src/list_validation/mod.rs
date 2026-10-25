@@ -18,7 +18,7 @@
 
 use chrono::{DateTime, NaiveDate, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
@@ -39,10 +39,12 @@ pub const MAX_COHORT: i64 = 500;
 pub const ANSWERS: [&str; 3] = ["still_needed", "no_longer_needed", "unsure"];
 pub const CHANNELS: [&str; 5] = ["phone", "sms", "whatsapp", "email", "in_person"];
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[schema(as = list_validation::Campaign)]
 pub struct Campaign {
     pub id: Uuid,
     pub name: String,
+    #[schema(required = true)]
     pub service_type: Option<String>,
     pub min_weeks: i32,
     pub started_by: String,
@@ -51,10 +53,12 @@ pub struct Campaign {
     pub status: String,
     pub created_at: DateTime<Utc>,
     /// Items by state (`selected`, `asked`, ...), for the campaign page.
+    #[schema(value_type = HashMap<String, i64>)]
     pub counts: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[schema(as = list_validation::Item)]
 pub struct Item {
     pub id: Uuid,
     pub campaign_id: Uuid,
@@ -62,14 +66,38 @@ pub struct Item {
     pub person_id: Uuid,
     pub target_service: String,
     pub state: String,
+    #[schema(required = true)]
     pub answer: Option<String>,
+    #[schema(required = true)]
     pub asked_at: Option<DateTime<Utc>>,
+    #[schema(required = true)]
     pub letter_sent_at: Option<DateTime<Utc>>,
+    #[schema(required = true)]
     pub final_by: Option<NaiveDate>,
+    #[schema(required = true)]
     pub decided_by: Option<String>,
+    #[schema(required = true)]
     pub removed_at: Option<DateTime<Utc>>,
     /// Why a person may act now, if they may: `letter_due`, `decision_due`.
+    #[schema(required = true)]
     pub next: Option<String>,
+}
+
+/// Removals, reinstatements and keeps for one service in the period. No identifiers.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct RemovalsByService {
+    pub service: String,
+    pub removed: i64,
+    pub reinstated: i64,
+    pub kept: i64,
+}
+
+/// The validation removals report: the period and a row per service.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct RemovalsReport {
+    pub from: DateTime<Utc>,
+    pub to: DateTime<Utc>,
+    pub by_service: Vec<RemovalsByService>,
 }
 
 #[derive(Debug, Clone)]
