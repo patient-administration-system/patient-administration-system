@@ -39,7 +39,7 @@ export default defineConfig({
       timeout: 240_000,
     },
     {
-      command: "node tests/e2e/support/pas-mock.mjs",
+      command: "node tests/e2e/support/pas-mock.ts",
       url: `http://127.0.0.1:${MOCK_PORT}/__health`,
       env: { MOCK_PORT: String(MOCK_PORT), ISSUER_URL: `http://127.0.0.1:${ISSUER_PORT}` },
       reuseExistingServer: !process.env.CI,

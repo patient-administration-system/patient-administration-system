@@ -2,18 +2,23 @@
 // at /__requests so a test can prove which patient id the BFF asked for.
 import crypto from "node:crypto";
 import http from "node:http";
+import type { components } from "../../../src/lib/server/api-types.ts";
+
+// Every payload below is typed with the schemas generated from spec/openapi.json, so a field the API adds,
+// renames or drops fails `pnpm run check` here instead of passing against a mock that no longer matches.
+type S = components["schemas"];
 
 // Another project on the same machine may hold 4181; run with MOCK_PORT=4191 (or any free port).
 const MOCK_PORT = Number(process.env.MOCK_PORT ?? 4181);
 const PATIENT = "00000000-0000-0000-0000-000000000000";
-const requests = [];
+const requests: string[] = [];
 // Who each request claimed to act for, and whether its token was genuine (see `verify`).
-const actors = [];
+const actors: { path: string; actor: unknown; sub: unknown; service: boolean }[] = [];
 // Reply links (CAP-13): any 64-hex token is a fresh, open link until it is acted on once. `0`s is unknown and
 // `e`s is expired. Every action that really changes something is recorded at /__acts.
-const links = new Map();
-const offers = new Map();
-const DEFAULT_TEMPLATE = {
+const links = new Map<string, string | undefined>();
+const offers = new Map<string, string | undefined>();
+const DEFAULT_TEMPLATE: S["LetterTemplate"] = {
   id: "22222222-2222-2222-2222-222222222222",
   name: "appointment_reminder",
   subject: "Appointment reminder",
@@ -25,30 +30,33 @@ const DEFAULT_TEMPLATE = {
   created_at: "2026-10-01T00:00:00Z",
   updated_at: "2026-10-01T00:00:00Z",
 };
-let template = { ...DEFAULT_TEMPLATE };
+let template: S["LetterTemplate"] = { ...DEFAULT_TEMPLATE };
 let proofing = true;
-const acts = [];
-const acked = new Set();
+const acts: { token: string; action: string }[] = [];
+const acked = new Set<string>();
 const ISSUER_URL = process.env.ISSUER_URL ?? null;
 const ISSUER = "authentication-service";
 const AUDIENCE = "patient-administration-system";
 
 // Verifies a PASETO v4.public token the way the real API does (Ed25519 over the pre-authentication
 // encoding), against the keys the real issuer serves. Returns the claims, or null for any defect.
-let keyCache = { at: 0, keys: {} };
+let keyCache: { at: number; keys: Record<string, string> } = { at: 0, keys: {} };
 async function keys() {
   if (Date.now() - keyCache.at < 2000) return keyCache.keys;
   const doc = await (await fetch(`${ISSUER_URL}/keys.json`)).json();
-  keyCache = { at: Date.now(), keys: Object.fromEntries(doc.keys.map((k) => [k.kid, k.x])) };
+  keyCache = {
+    at: Date.now(),
+    keys: Object.fromEntries((doc.keys as { kid: string; x: string }[]).map((k) => [k.kid, k.x])),
+  };
   return keyCache.keys;
 }
-const le64 = (n) => {
+const le64 = (n: number) => {
   const b = Buffer.alloc(8);
   b.writeBigUInt64LE(BigInt(n));
   return b;
 };
-const pae = (...parts) => Buffer.concat([le64(parts.length), ...parts.flatMap((p) => [le64(p.length), p])]);
-async function verify(header) {
+const pae = (...parts: Buffer[]) => Buffer.concat([le64(parts.length), ...parts.flatMap((p) => [le64(p.length), p])]);
+async function verify(header: string | undefined) {
   try {
     const token = (header ?? "").replace(/^Bearer /i, "").trim();
     const [version, purpose, body, footer] = token.split(".");
@@ -77,11 +85,32 @@ async function verify(header) {
 }
 let chaos = "off";
 let chaosState = 1;
-const envelope = (data) => JSON.stringify({ success: true, data });
+const envelope = <T>(data: T) => JSON.stringify({ success: true, data });
+const STAMP = "2026-10-01T00:00:00Z";
+const appointment = (
+  a: Pick<S["Appointment"], "id" | "start_datetime" | "end_datetime"> & { reason: string | null },
+): S["Appointment"] => ({ person_id: PATIENT, status: "booked", created_at: STAMP, updated_at: STAMP, ...a });
+const linkOutcome = (status: S["LinkStatus"], extra: Partial<S["LinkOutcome"]> = {}): S["LinkOutcome"] => ({
+  status,
+  language: "en",
+  message: "",
+  time_zone: "Europe/London",
+  ...extra,
+});
+// The fields of a request body this mock reads: link actions and the template editor's save.
+type RequestBody = { confirmed?: boolean; barrier_code?: string; slot_id?: string } & Partial<
+  Pick<S["LetterTemplate"], "subject" | "body_tera" | "channels" | "active">
+>;
+const readBody = (req: http.IncomingMessage) =>
+  new Promise<RequestBody>((resolve) => {
+    let b = "";
+    req.on("data", (c) => (b += c));
+    req.on("end", () => resolve(b ? JSON.parse(b) : {}));
+  });
 
 http
   .createServer(async (req, res) => {
-    const url = new URL(req.url, "http://x");
+    const url = new URL(req.url ?? "/", "http://x");
     res.setHeader("content-type", "application/json");
     if (url.pathname === "/__health") return res.end("{}");
     if (url.pathname === "/__requests") return res.end(JSON.stringify(requests));
@@ -110,7 +139,7 @@ http
         chaosState ^= chaosState << 13;
         chaosState ^= chaosState >>> 17;
         chaosState ^= chaosState << 5;
-        mode = modes[Math.abs(chaosState) % modes.length];
+        mode = modes[Math.abs(chaosState) % modes.length] ?? "off";
       }
       const leak = "panicked at src/db/repositories/appointment.rs:212 password=hunter2 SqlxError(PgDatabaseError)";
       if (mode === "500") {
@@ -145,17 +174,17 @@ http
     // PILOT-8: backfill offers. A token starting "eeee" is expired, "9999" lost the slot when accepted.
     const offer = /^\/api\/offer-links\/([^/]+)(?:\/([a-z]+))?$/.exec(url.pathname);
     if (offer) {
-      const [, token, action] = offer;
+      const [, token = "", action] = offer;
       if (!/^[0-9a-f]{64}$/.test(token) || /^0+$/.test(token)) {
         res.statusCode = 404;
         return res.end(
           JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "this link is not valid" } }),
         );
       }
-      const state = offers.get(token) ? "used" : token.startsWith("eeee") ? "expired" : "open";
+      const state: S["OfferState"] = offers.get(token) ? "used" : token.startsWith("eeee") ? "expired" : "open";
       if (req.method === "GET") {
         return res.end(
-          envelope({
+          envelope<S["OfferInfo"]>({
             state,
             starts_at: state === "open" ? "2026-11-05T14:00:00Z" : null,
             time_zone: "Europe/London",
@@ -182,9 +211,9 @@ http
       offers.set(token, action);
       acts.push({ token, action: `offer-${action}` });
       if (action === "accept" && token.startsWith("9999"))
-        return res.end(envelope({ status: "gone", starts_at: null, time_zone: "Europe/London" }));
+        return res.end(envelope<S["OfferOutcome"]>({ status: "gone", starts_at: null, time_zone: "Europe/London" }));
       return res.end(
-        envelope(
+        envelope<S["OfferOutcome"]>(
           action === "accept"
             ? { status: "accepted", starts_at: "2026-11-05T14:00:00Z", time_zone: "Europe/London" }
             : { status: "declined", starts_at: null, time_zone: "Europe/London" },
@@ -193,10 +222,10 @@ http
     }
     // DTAC-9: has staff proofed this account as this patient? On unless a test turns it off.
     const proof = /^\/api\/identity-proofings\/([^/]+)\/check$/.exec(url.pathname);
-    if (proof) return res.end(envelope({ proofed: proofing }));
+    if (proof) return res.end(envelope<S["Proofed"]>({ proofed: proofing }));
     const link = /^\/api\/reply-links\/([^/]+)(?:\/([a-z]+))?$/.exec(url.pathname);
     if (link) {
-      const [, token, action] = link;
+      const [, token = "", action = ""] = link;
       const unknown = !/^[0-9a-f]{64}$/.test(token) || /^0+$/.test(token);
       if (unknown) {
         res.statusCode = 404;
@@ -205,11 +234,11 @@ http
         );
       }
       const expired = /^e+$/.test(token);
-      const state = links.get(token) ? "used" : expired ? "expired" : "open";
+      const state: S["LinkState"] = links.get(token) ? "used" : expired ? "expired" : "open";
       const startsAt = "2026-11-03T09:30:00Z";
       if (req.method === "GET") {
         return res.end(
-          envelope({
+          envelope<S["LinkInfo"]>({
             state,
             language: "en",
             when: "Tue 3 Nov 09:30",
@@ -219,89 +248,90 @@ http
           }),
         );
       }
-      const body = await new Promise((resolve) => {
-        let b = "";
-        req.on("data", (c) => (b += c));
-        req.on("end", () => resolve(b ? JSON.parse(b) : {}));
-      });
-      const send = (code, error, message) => {
+      const body = await readBody(req);
+      const send = (code: number, error: string, message: string) => {
         res.statusCode = code;
         return res.end(JSON.stringify({ success: false, error: { code: error, message } }));
       };
       if (state === "used") return send(409, "CONFLICT", "this link has already been used");
       if (state === "expired") return send(400, "VALIDATION", "this link has expired");
-      if (action === "help") return res.end(envelope({ status: "help" }));
-      if (action === "cancel" && !body.confirmed) return res.end(envelope({ status: "needs_confirmation" }));
+      if (action === "help") return res.end(envelope(linkOutcome("help")));
+      if (action === "cancel" && !body.confirmed) return res.end(envelope(linkOutcome("needs_confirmation")));
       // CAP-5: a token starting "aaaa" has two real times to offer; Reschedule only lists them, and the
       // link is used up by choosing one. A token starting "bbbb" lets the choice fail as if the slot had just gone.
       const offered = token.startsWith("aaaa") || token.startsWith("bbbb");
       if (action === "reschedule" && offered) {
         acts.push({ token, action: "reschedule-offered" });
         return res.end(
-          envelope({
-            status: "rebook_options",
-            time_zone: "Europe/London",
-            options: [
-              {
-                slot_id: "11111111-1111-4111-8111-111111111111",
-                starts_at: "2026-11-10T14:00:00Z",
-                when: "Tue 10 Nov 14:00",
-              },
-              {
-                slot_id: "22222222-2222-4222-8222-222222222222",
-                starts_at: "2026-11-11T09:00:00Z",
-                when: "Wed 11 Nov 09:00",
-              },
-            ],
-          }),
+          envelope(
+            linkOutcome("rebook_options", {
+              options: [
+                {
+                  slot_id: "11111111-1111-4111-8111-111111111111",
+                  starts_at: "2026-11-10T14:00:00Z",
+                  when: "Tue 10 Nov 14:00",
+                },
+                {
+                  slot_id: "22222222-2222-4222-8222-222222222222",
+                  starts_at: "2026-11-11T09:00:00Z",
+                  when: "Wed 11 Nov 09:00",
+                },
+              ],
+            }),
+          ),
         );
       }
       if (action === "rebook") {
         if (token.startsWith("bbbb")) return send(409, "CONFLICT", "slot 1 is no longer free");
         links.set(token, "rebook");
         acts.push({ token, action: `rebook:${body.slot_id}` });
-        return res.end(envelope({ status: "rebooked", starts_at: "2026-11-10T14:00:00Z", time_zone: "Europe/London" }));
+        return res.end(envelope(linkOutcome("rebooked", { starts_at: "2026-11-10T14:00:00Z" })));
       }
       // CAP-7: a token starting "dddd" is on an urgent pathway, so a confirmed cancel is held for a phone call.
       if (action === "cancel" && body.confirmed && token.startsWith("dddd")) {
         links.set(token, action);
         acts.push({ token, action: "cancel-held" });
-        return res.end(envelope({ status: "held_for_call" }));
+        return res.end(envelope(linkOutcome("held_for_call")));
       }
       links.set(token, action);
       acts.push({ token, action: action === "cancel" && body.barrier_code ? `cancel:${body.barrier_code}` : action });
-      const status = { confirm: "confirmed", cancel: "cancelled", reschedule: "reschedule_requested" }[action];
+      const status = ({ confirm: "confirmed", cancel: "cancelled", reschedule: "reschedule_requested" } as const)[
+        action as "confirm" | "cancel" | "reschedule"
+      ];
       // CAS-2: a reason given when cancelling is answered with help that fits it.
       const signpost =
         action === "cancel" && body.barrier_code
           ? `Help for ${body.barrier_code}. Cancelling will not affect your care.`
           : undefined;
-      return res.end(envelope({ status, signpost }));
+      return res.end(envelope(linkOutcome(status, signpost ? { signpost } : {})));
     }
     if (url.pathname === `/api/patients/${PATIENT}/appointments`) {
       return res.end(
         envelope([
-          {
+          appointment({
             id: "11111111-1111-1111-1111-111111111111",
-            person_id: PATIENT,
             start_datetime: "2026-11-03T09:30:00Z",
             end_datetime: "2026-11-03T10:00:00Z",
-            status: "booked",
             reason: "Knee review",
-          },
+          }),
         ]),
       );
     }
     if (url.pathname === `/api/patients/${PATIENT}/letters`) {
       return res.end(
-        envelope(
+        envelope<S["GeneratedLetter"][]>(
           url.searchParams.get("channel") === "portal"
             ? [
                 {
                   id: "33333333-3333-3333-3333-333333333333",
+                  template_id: DEFAULT_TEMPLATE.id,
+                  person_id: PATIENT,
+                  channel: "portal",
+                  status: "sent",
                   rendered_subject: "Your appointment letter",
                   rendered_body: "Please bring your medication list.",
                   created_at: "2026-10-18T09:00:00Z",
+                  updated_at: "2026-10-18T09:00:00Z",
                 },
               ]
             : [],
@@ -311,12 +341,14 @@ http
     // CAP-12: the no-show support flag, for the first appointment only. `?off` is not needed: the mock is "on".
     if (url.pathname === "/api/noshow/for-appointments") {
       const wanted = (url.searchParams.get("ids") ?? "").split(",");
-      const items = wanted.includes("44444444-4444-4444-4444-444444444444")
+      const items: S["Shown"][] = wanted.includes("44444444-4444-4444-4444-444444444444")
         ? [
             {
               appointment_id: "44444444-4444-4444-4444-444444444444",
               band: "high",
               sample_size: 4,
+              model_version: "mock",
+              computed_at: STAMP,
               factors: [
                 { name: "base_rate", detail: "10%", effect_points: 10 },
                 { name: "past_visits", detail: "missed 3 of 4", effect_points: 62 },
@@ -325,20 +357,20 @@ http
             },
           ]
         : [];
-      return res.end(envelope({ active: true, items }));
+      return res.end(envelope<S["ShownAssessments"]>({ active: true, items }));
     }
     // NEW-6: reasonable adjustments, for the first appointment's patient only.
     if (url.pathname === "/api/reasonable-adjustments/for-appointments") {
       const wanted = (url.searchParams.get("ids") ?? "").split(",");
       return res.end(
-        envelope(
+        envelope<S["AppointmentAdjustments"][]>(
           wanted.includes("44444444-4444-4444-4444-444444444444")
             ? [
                 {
                   appointment_id: "44444444-4444-4444-4444-444444444444",
                   adjustments: [
-                    { code: "large_print", category: "communication" },
-                    { code: "step_free", category: "physical_access" },
+                    { code: "large_print", category: "communication", display: "Large print" },
+                    { code: "step_free", category: "physical_access", display: "Step-free access" },
                   ],
                 },
               ]
@@ -348,41 +380,37 @@ http
     }
     if (url.pathname === "/api/appointments") {
       // Two appointments in the coming days, so the calendar and the schedule chart have content.
-      const at = (days, hour) => {
+      const at = (days: number, hour: number) => {
         const d = new Date(Date.now() + days * 86_400_000);
         d.setUTCHours(hour, 0, 0, 0);
         return d.toISOString();
       };
       return res.end(
         envelope([
-          {
+          appointment({
             id: "44444444-4444-4444-4444-444444444444",
-            person_id: PATIENT,
             start_datetime: at(1, 9),
             end_datetime: at(1, 10),
-            status: "booked",
             reason: "Knee review",
-          },
-          {
+          }),
+          appointment({
             id: "55555555-5555-5555-5555-555555555555",
-            person_id: PATIENT,
             start_datetime: at(3, 14),
             end_datetime: at(3, 15),
-            status: "booked",
             reason: null,
-          },
+          }),
         ]),
       );
     }
     // CAP-6 and CAP-8 staff views.
-    const at = (days, hour) => {
+    const at = (days: number, hour: number) => {
       const d = new Date(Date.now() + days * 86_400_000);
       d.setUTCHours(hour, 0, 0, 0);
       return d.toISOString();
     };
     if (url.pathname === `/api/appointments/44444444-4444-4444-4444-444444444444/history`) {
       return res.end(
-        envelope([
+        envelope<S["HistoryRow"][]>([
           { at: at(-2, 9), kind: "audit", action: "created", by: "clerk", reason_code: null, context: null },
           {
             at: at(-1, 9),
@@ -405,11 +433,26 @@ http
     }
     if (url.pathname === `/api/patients/${PATIENT}/contact-log`) {
       return res.end(
-        envelope([{ at: at(-1, 9), kind: "message", action: "reminder", by: null, reason_code: null, context: null }]),
+        envelope<S["HistoryRow"][]>([
+          { at: at(-1, 9), kind: "message", action: "reminder", by: null, reason_code: null, context: null },
+        ]),
       );
     }
     if (url.pathname === "/api/tolerances/status") {
-      const reading = (metric, kind, unit, direction, target, tolerance, escalate_beyond, value, rag, sample) => ({
+      const reading = (
+        metric: string,
+        kind: string,
+        unit: string,
+        direction: S["Direction"],
+        target: number,
+        tolerance: number,
+        escalate_beyond: number,
+        value: number | null,
+        rag: S["Rag"],
+        sample: number,
+      ): S["Reading"] => ({
+        scope_kind: "all",
+        scope_key: "",
         metric,
         kind,
         label: metric,
@@ -425,7 +468,7 @@ http
         customised: false,
       });
       return res.end(
-        envelope({
+        envelope<S["ToleranceStatus"]>({
           from: new Date(Date.now() - 30 * 864e5).toISOString(),
           to: new Date().toISOString(),
           overall: "red",
@@ -485,9 +528,13 @@ http
     }
     if (url.pathname === "/api/tolerance-alerts") {
       return res.end(
-        envelope([
+        envelope<S["Alert"][]>([
           {
             id: "aaaaaaaa-0000-4000-8000-00000000000a",
+            label: "did_not_attend_rate",
+            last_seen_at: new Date().toISOString(),
+            cleared_at: null,
+            note: "",
             metric: "did_not_attend_rate",
             scope_kind: "service",
             scope_key: "cardiology",
@@ -504,13 +551,13 @@ http
       );
     }
     if (/^\/api\/tolerance-alerts\/[0-9a-f-]+\/acknowledge$/.test(url.pathname) && req.method === "POST") {
-      acked.add(url.pathname.split("/")[3]);
-      acts.push({ token: url.pathname.split("/")[3], action: "tolerance-alert-acknowledged" });
+      acked.add(url.pathname.split("/")[3] ?? "");
+      acts.push({ token: url.pathname.split("/")[3] ?? "", action: "tolerance-alert-acknowledged" });
       return res.end(envelope(null));
     }
     if (url.pathname === "/api/pathways/due-check") {
       return res.end(
-        envelope([
+        envelope<S["DueCheck"][]>([
           {
             pathway_id: "88888888-8888-8888-8888-888888888888",
             person_id: PATIENT,
@@ -522,18 +569,20 @@ http
       );
     }
     if (/^\/api\/pathways\/[0-9a-f-]+\/still-needed-checks$/.test(url.pathname) && req.method === "POST") {
-      acts.push({ token: url.pathname.split("/")[3], action: "still-needed-asked" });
-      return res.end(envelope({ id: "99999999-9999-9999-9999-999999999999" }));
+      acts.push({ token: url.pathname.split("/")[3] ?? "", action: "still-needed-asked" });
+      return res.end(envelope<S["Asked"]>({ id: "99999999-9999-9999-9999-999999999999" }));
     }
     if (url.pathname === "/api/waitlist") {
       return res.end(
-        envelope([
+        envelope<S["WaitlistEntry"][]>([
           {
             id: "66666666-6666-6666-6666-666666666666",
             person_id: PATIENT,
             target_service: "general",
             priority: "urgent",
             status: "waiting",
+            created_at: STAMP,
+            updated_at: STAMP,
           },
           {
             id: "77777777-7777-7777-7777-777777777777",
@@ -541,6 +590,8 @@ http
             target_service: "general",
             priority: "routine",
             status: "booked",
+            created_at: STAMP,
+            updated_at: STAMP,
           },
         ]),
       );
@@ -554,16 +605,15 @@ http
     if (url.pathname === "/api/letter-templates") return res.end(envelope([template]));
     const tpl = /^\/api\/letter-templates\/([0-9a-f-]{36})$/.exec(url.pathname);
     if (tpl && req.method === "PUT") {
-      const body = await new Promise((resolve) => {
-        let b = "";
-        req.on("data", (c) => (b += c));
-        req.on("end", () => resolve(b ? JSON.parse(b) : {}));
-      });
+      const body = await readBody(req);
       if (tpl[1] !== template.id) {
         res.statusCode = 404;
         return res.end(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "no such template" } }));
       }
-      for (const k of ["subject", "body_tera", "channels", "active"]) if (k in body) template[k] = body[k];
+      template.subject = body.subject ?? template.subject;
+      template.body_tera = body.body_tera ?? template.body_tera;
+      template.channels = body.channels ?? template.channels;
+      template.active = body.active ?? template.active;
       template.updated_at = new Date().toISOString();
       return res.end(envelope(template));
     }

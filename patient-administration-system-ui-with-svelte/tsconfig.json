@@ -6,6 +6,7 @@
     "noUncheckedIndexedAccess": true
   },
   "include": [
-    "src"
+    "src",
+    "tests/e2e/support/pas-mock.ts"
   ]
 }

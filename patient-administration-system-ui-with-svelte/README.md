@@ -42,7 +42,7 @@ pnpm test               # Vitest
 KEYCLOAK_URL=http://localhost:8180 pnpm exec playwright test   # real Keycloak, mock PAS API
 ```
 
-The Playwright suite builds the app and starts a small mock of the PAS API (`tests/e2e/support/pas-mock.mjs`), so no Rust service is needed. It requires Keycloak from step 1.
+The Playwright suite builds the app and starts a small mock of the PAS API (`tests/e2e/support/pas-mock.ts`), so no Rust service is needed. It requires Keycloak from step 1.
 
 ## Container
 
