@@ -639,3 +639,17 @@ async fn the_admission_routes_send_the_types_they_declare() {
     .await;
     assert_eq!(cancelled.id, second.admission.id);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_noshow_status_and_rollout_routes_send_what_they_declare() {
+    use patient_administration_system::noshow::RolloutRow;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+
+    let status: Value = call(&app, "GET", "/api/noshow/status", None).await;
+    assert_fields_match_schema("noshow.Status", &status);
+    let rollout: Vec<RolloutRow> = call(&app, "GET", "/api/noshow/rollout", None).await;
+    let _ = rollout;
+}

@@ -2,9 +2,24 @@
 
 use super::*;
 
+/// One clinic's stage: recording in shadow, or live, and whether it has been in shadow long enough to go live.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct RolloutRow {
+    pub service_type: String,
+    /// `shadow` or `live`.
+    pub stage: String,
+    #[schema(required = true)]
+    pub changed_by: Option<String>,
+    #[schema(required = true)]
+    pub live_since: Option<DateTime<Utc>>,
+    pub assessments: i64,
+    pub days_in_shadow: i64,
+    pub may_go_live: bool,
+}
+
 impl NoShowService {
     /// Every clinic seen so far with its stage and how long it has been recording in shadow.
-    pub async fn rollout(&self) -> Result<Vec<serde_json::Value>> {
+    pub async fn rollout(&self) -> Result<Vec<RolloutRow>> {
         let rows = self
             .db
             .query_all_raw(Statement::from_string(
@@ -23,15 +38,19 @@ impl NoShowService {
             .map(|r| {
                 let first: DateTime<Utc> = r.col("first_at")?;
                 let days = (Utc::now() - first).num_days();
-                Ok(serde_json::json!({
-                    "service_type": r.col::<String>("svc")?,
-                    "stage": r.col::<String>("stage")?,
-                    "changed_by": r.try_get::<Option<String>>("", "changed_by").map_err(Error::Database)?,
-                    "live_since": r.try_get::<Option<DateTime<Utc>>>("", "live_since").map_err(Error::Database)?,
-                    "assessments": r.col::<i64>("n")?,
-                    "days_in_shadow": days,
-                    "may_go_live": days >= min,
-                }))
+                Ok(RolloutRow {
+                    service_type: r.col::<String>("svc")?,
+                    stage: r.col::<String>("stage")?,
+                    changed_by: r
+                        .try_get::<Option<String>>("", "changed_by")
+                        .map_err(Error::Database)?,
+                    live_since: r
+                        .try_get::<Option<DateTime<Utc>>>("", "live_since")
+                        .map_err(Error::Database)?,
+                    assessments: r.col::<i64>("n")?,
+                    days_in_shadow: days,
+                    may_go_live: days >= min,
+                })
             })
             .collect()
     }

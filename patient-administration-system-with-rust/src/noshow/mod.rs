@@ -41,7 +41,9 @@ mod fairness;
 mod model;
 mod review;
 mod rollout;
+pub use call_list::CallItem;
 pub use model::*;
+pub use rollout::RolloutRow;
 
 pub const MODEL_VERSION: &str = "weighted-sum-1";
 /// A fairness review stays valid this long; clinical safety, a year.
@@ -56,14 +58,17 @@ pub enum Band {
     High,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+#[schema(as = noshow::Status)]
 pub struct Status {
+    #[schema(value_type = String)]
     pub model_version: &'static str,
     pub switched_on: bool,
     pub fairness_approved: bool,
     pub clinical_safety_approved: bool,
     pub active: bool,
     /// Why it is off, in words, when it is.
+    #[schema(required = true)]
     pub reason: Option<String>,
     pub medium_threshold: f64,
     pub call_capacity: i64,

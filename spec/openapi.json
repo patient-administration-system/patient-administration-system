@@ -2016,6 +2016,52 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Recalculated": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "How many appointments the recalculation assessed.",
+            "properties": {
+              "assessed": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "assessed"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Referral": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -3091,6 +3137,86 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Vec_CallItem": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "One booked appointment on the call list: the risk and why, and the task a person works from.",
+              "properties": {
+                "appointment_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "factors": {
+                  "items": {
+                    "$ref": "#/components/schemas/Factor"
+                  },
+                  "type": "array"
+                },
+                "probability_percent": {
+                  "description": "Present (not null) only once the weights are calibrated and the percentage is switched on.",
+                  "format": "double",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "sample_size": {
+                  "format": "int32",
+                  "type": "integer"
+                },
+                "starts_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "task_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "appointment_id",
+                "task_id",
+                "probability_percent",
+                "starts_at",
+                "sample_size",
+                "factors"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Vec_Consent": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -3950,6 +4076,88 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Vec_RolloutRow": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "One clinic's stage: recording in shadow, or live, and whether it has been in shadow long enough to go live.",
+              "properties": {
+                "assessments": {
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "changed_by": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "days_in_shadow": {
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "live_since": {
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "may_go_live": {
+                  "type": "boolean"
+                },
+                "service_type": {
+                  "type": "string"
+                },
+                "stage": {
+                  "description": "`shadow` or `live`.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "service_type",
+                "stage",
+                "changed_by",
+                "live_since",
+                "assessments",
+                "days_in_shadow",
+                "may_go_live"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Vec_WaitlistEntry": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -4078,6 +4286,99 @@
               "status",
               "created_at",
               "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_noshow.Status": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "age_in_use": {
+                "description": "Whether any age weight is in use (then the fairness approval must justify it).",
+                "type": "boolean"
+              },
+              "call_capacity": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "call_horizon_days": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "clinical_safety_approved": {
+                "type": "boolean"
+              },
+              "fairness_approved": {
+                "type": "boolean"
+              },
+              "medium_threshold": {
+                "format": "double",
+                "type": "number"
+              },
+              "model_version": {
+                "type": "string"
+              },
+              "percentage_shown": {
+                "description": "Whether the percentage is shown to staff (off until calibrated).",
+                "type": "boolean"
+              },
+              "reason": {
+                "description": "Why it is off, in words, when it is.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "switched_on": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "model_version",
+              "switched_on",
+              "fairness_approved",
+              "clinical_safety_approved",
+              "active",
+              "reason",
+              "medium_threshold",
+              "call_capacity",
+              "call_horizon_days",
+              "percentage_shown",
+              "age_in_use"
             ],
             "type": "object"
           },
@@ -4622,6 +4923,50 @@
         "required": [
           "referral",
           "appointment"
+        ],
+        "type": "object"
+      },
+      "CallItem": {
+        "description": "One booked appointment on the call list: the risk and why, and the task a person works from.",
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "factors": {
+            "items": {
+              "$ref": "#/components/schemas/Factor"
+            },
+            "type": "array"
+          },
+          "probability_percent": {
+            "description": "Present (not null) only once the weights are calibrated and the percentage is switched on.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sample_size": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appointment_id",
+          "task_id",
+          "probability_percent",
+          "starts_at",
+          "sample_size",
+          "factors"
         ],
         "type": "object"
       },
@@ -6905,6 +7250,19 @@
         ],
         "type": "object"
       },
+      "Recalculated": {
+        "description": "How many appointments the recalculation assessed.",
+        "properties": {
+          "assessed": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assessed"
+        ],
+        "type": "object"
+      },
       "ReceiptBody": {
         "properties": {
           "carrier": {
@@ -7346,6 +7704,52 @@
         "required": [
           "ring_fenced",
           "set_by"
+        ],
+        "type": "object"
+      },
+      "RolloutRow": {
+        "description": "One clinic's stage: recording in shadow, or live, and whether it has been in shadow long enough to go live.",
+        "properties": {
+          "assessments": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "changed_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "days_in_shadow": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "live_since": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "may_go_live": {
+            "type": "boolean"
+          },
+          "service_type": {
+            "type": "string"
+          },
+          "stage": {
+            "description": "`shadow` or `live`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_type",
+          "stage",
+          "changed_by",
+          "live_since",
+          "assessments",
+          "days_in_shadow",
+          "may_go_live"
         ],
         "type": "object"
       },
@@ -8370,6 +8774,66 @@
         "required": [
           "answer",
           "recorded_by"
+        ],
+        "type": "object"
+      },
+      "noshow.Status": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "age_in_use": {
+            "description": "Whether any age weight is in use (then the fairness approval must justify it).",
+            "type": "boolean"
+          },
+          "call_capacity": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "call_horizon_days": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "clinical_safety_approved": {
+            "type": "boolean"
+          },
+          "fairness_approved": {
+            "type": "boolean"
+          },
+          "medium_threshold": {
+            "format": "double",
+            "type": "number"
+          },
+          "model_version": {
+            "type": "string"
+          },
+          "percentage_shown": {
+            "description": "Whether the percentage is shown to staff (off until calibrated).",
+            "type": "boolean"
+          },
+          "reason": {
+            "description": "Why it is off, in words, when it is.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "switched_on": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "model_version",
+          "switched_on",
+          "fairness_approved",
+          "clinical_safety_approved",
+          "active",
+          "reason",
+          "medium_threshold",
+          "call_capacity",
+          "call_horizon_days",
+          "percentage_shown",
+          "age_in_use"
         ],
         "type": "object"
       }
@@ -13675,6 +14139,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_CallItem"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -13700,6 +14171,13 @@
         "operationId": "post_api_noshow_recalculate",
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Recalculated"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -13760,6 +14238,13 @@
         "operationId": "get_api_noshow_rollout",
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_RolloutRow"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -13831,6 +14316,13 @@
         "operationId": "get_api_noshow_status",
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_noshow.Status"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

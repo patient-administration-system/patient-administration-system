@@ -339,13 +339,10 @@ async fn the_call_list_is_the_top_few_matched_to_capacity_not_a_probability_cut_
     }
     assert_eq!(s.noshow.refresh_call_list().await.unwrap(), 2);
     let list = s.noshow.priority_list(500).await.unwrap();
-    let listed: Vec<&str> = list
-        .iter()
-        .map(|x| x["appointment_id"].as_str().unwrap())
-        .collect();
+    let listed: Vec<String> = list.iter().map(|x| x.appointment_id.to_string()).collect();
     assert_eq!(
         listed,
-        vec![ids[2].as_str(), ids[1].as_str()],
+        vec![ids[2].clone(), ids[1].clone()],
         "the top two, highest first"
     );
     assert_eq!(
@@ -354,13 +351,9 @@ async fn the_call_list_is_the_top_few_matched_to_capacity_not_a_probability_cut_
         "idempotent, and at capacity"
     );
     let item = &list[0];
+    assert!(item.factors.len() >= 4, "the list says why");
     assert!(
-        item["factors"].as_array().unwrap().len() >= 4,
-        "the list says why"
-    );
-    assert!(
-        item.get("probability_percent")
-            .is_some_and(sea_orm::JsonValue::is_null),
+        item.probability_percent.is_none(),
         "no number while uncalibrated"
     );
     // Listed means high; the third is low (0.30 is under the medium line), the far one is not on the list.
@@ -373,7 +366,7 @@ async fn the_call_list_is_the_top_few_matched_to_capacity_not_a_probability_cut_
     assert_eq!(band_of(&ids[0]).await, "low");
 
     // A person rings and records an outcome: capacity frees and the next one is listed.
-    let task: Uuid = item["task_id"].as_str().unwrap().parse().unwrap();
+    let task: Uuid = item.task_id;
     assert!(
         s.ladder
             .complete_call(task, "reached", Some("Nurse B"))
@@ -383,11 +376,11 @@ async fn the_call_list_is_the_top_few_matched_to_capacity_not_a_probability_cut_
     assert_eq!(s.noshow.refresh_call_list().await.unwrap(), 1);
     let list = s.noshow.priority_list(500).await.unwrap();
     assert!(
-        list.iter().any(|x| x["appointment_id"] == ids[0].as_str()),
+        list.iter().any(|x| x.appointment_id.to_string() == ids[0]),
         "{list:?}"
     );
     assert!(
-        list.iter().all(|x| x["appointment_id"] != ids[3].as_str()),
+        list.iter().all(|x| x.appointment_id.to_string() != ids[3]),
         "beyond the horizon"
     );
 
@@ -784,14 +777,8 @@ async fn a_clinic_goes_live_only_after_enough_shadow_data_by_a_named_person_and_
         "shadow creates no calls"
     );
     let r = s.noshow.rollout().await.unwrap();
-    let mine = r
-        .iter()
-        .find(|x| x["service_type"] == "test-clinic")
-        .unwrap();
-    assert_eq!(
-        (mine["stage"].as_str(), mine["may_go_live"].as_bool()),
-        (Some("shadow"), Some(false))
-    );
+    let mine = r.iter().find(|x| x.service_type == "test-clinic").unwrap();
+    assert_eq!((mine.stage.as_str(), mine.may_go_live), ("shadow", false));
 
     // Too early: refused with the reason. A note and a name are needed too.
     let why = "The first clinic, after the audit was read.";

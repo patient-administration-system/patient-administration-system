@@ -19,7 +19,7 @@ use crate::api::rest::handlers::{ok, ok_json};
     path = "/api/noshow/status",
     tag = "Noshow",
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::noshow::Status>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -183,20 +183,26 @@ pub async fn for_appointments(
     }
 }
 
+/// How many appointments the recalculation assessed.
+#[derive(Debug, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct Recalculated {
+    pub assessed: usize,
+}
+
 /// `POST /api/noshow/recalculate`: the daily job, on demand. Idempotent within a day.
 #[utoipa::path(
     post,
     path = "/api/noshow/recalculate",
     tag = "Noshow",
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Recalculated>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
 pub async fn recalculate(State(state): State<AppState>) -> HandlerResult {
     match state.noshow.recalculate_all().await {
-        Ok(n) => ok(serde_json::json!({ "assessed": n })),
+        Ok(assessed) => ok_json(Recalculated { assessed }),
         Err(e) => error_to_response(e),
     }
 }
@@ -215,7 +221,7 @@ pub struct ListQuery {
     tag = "Noshow",
     params(ListQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::noshow::CallItem>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -244,14 +250,14 @@ pub async fn priority_list(
     path = "/api/noshow/rollout",
     tag = "Noshow",
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::noshow::RolloutRow>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
 pub async fn rollout(State(state): State<AppState>) -> HandlerResult {
     match state.noshow.rollout().await {
-        Ok(v) => ok(Value::Array(v)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }

@@ -2,6 +2,19 @@
 
 use super::*;
 
+/// One booked appointment on the call list: the risk and why, and the task a person works from.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct CallItem {
+    pub appointment_id: Uuid,
+    pub task_id: Uuid,
+    /// Present (not null) only once the weights are calibrated and the percentage is switched on.
+    #[schema(required = true)]
+    pub probability_percent: Option<f64>,
+    pub starts_at: DateTime<Utc>,
+    pub sample_size: i32,
+    pub factors: Vec<Factor>,
+}
+
 impl NoShowService {
     /// Today's call list: the top few by probability among booked appointments in the next
     /// [`call_horizon_days`], as many as the clinic can phone ([`call_capacity`]) less what is still open.
@@ -32,7 +45,7 @@ impl NoShowService {
     }
 
     /// The call list: booked appointments a person has not yet dealt with, highest first, with the factors.
-    pub async fn priority_list(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
+    pub async fn priority_list(&self, limit: i64) -> Result<Vec<CallItem>> {
         self.require_active().await?;
         let rows = self
             .db
@@ -50,14 +63,19 @@ impl NoShowService {
         rows.iter()
             .map(|r| {
                 let p: f64 = r.col("probability")?;
-                Ok(serde_json::json!({
-                    "appointment_id": r.col::<Uuid>("appointment_id")?,
-                    "task_id": r.col::<Uuid>("task_id")?,
-                    "probability_percent": percent_shown().then(|| (p * 1000.0).round() / 10.0),
-                    "starts_at": r.try_get::<DateTime<Utc>>("", "start_datetime").map_err(Error::Database)?,
-                    "sample_size": r.col::<i32>("sample_size")?,
-                    "factors": r.col::<serde_json::Value>("factors")?,
-                }))
+                Ok(CallItem {
+                    appointment_id: r.col::<Uuid>("appointment_id")?,
+                    task_id: r.col::<Uuid>("task_id")?,
+                    probability_percent: percent_shown().then(|| (p * 1000.0).round() / 10.0),
+                    starts_at: r
+                        .try_get::<DateTime<Utc>>("", "start_datetime")
+                        .map_err(Error::Database)?,
+                    sample_size: r.col::<i32>("sample_size")?,
+                    factors: serde_json::from_value(r.col::<serde_json::Value>("factors")?)
+                        .map_err(|e| {
+                            Error::internal(format!("stored factors are unreadable: {e}"))
+                        })?,
+                })
             })
             .collect()
     }

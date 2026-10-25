@@ -6118,6 +6118,22 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Recalculated: {
+      /** @description How many appointments the recalculation assessed. */
+      data?: {
+        assessed: number;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Referral: {
       data?: {
         /**
@@ -6465,6 +6481,34 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_CallItem: {
+      data?: {
+        /** Format: uuid */
+        appointment_id: string;
+        factors: components["schemas"]["Factor"][];
+        /**
+         * Format: double
+         * @description Present (not null) only once the weights are calibrated and the percentage is switched on.
+         */
+        probability_percent: number | null;
+        /** Format: int32 */
+        sample_size: number;
+        /** Format: date-time */
+        starts_at: string;
+        /** Format: uuid */
+        task_id: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_Consent: {
       data?: {
         /** @description Category of consent. */
@@ -6778,6 +6822,31 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_RolloutRow: {
+      data?: {
+        /** Format: int64 */
+        assessments: number;
+        changed_by: string | null;
+        /** Format: int64 */
+        days_in_shadow: number;
+        /** Format: date-time */
+        live_since: string | null;
+        may_go_live: boolean;
+        service_type: string;
+        /** @description `shadow` or `live`. */
+        stage: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_WaitlistEntry: {
       data?: {
         /** Format: date-time */
@@ -6820,6 +6889,37 @@ export interface components {
         target_service: string;
         /** Format: date-time */
         updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_noshow.Status": {
+      data?: {
+        active: boolean;
+        /** @description Whether any age weight is in use (then the fairness approval must justify it). */
+        age_in_use: boolean;
+        /** Format: int64 */
+        call_capacity: number;
+        /** Format: int64 */
+        call_horizon_days: number;
+        clinical_safety_approved: boolean;
+        fairness_approved: boolean;
+        /** Format: double */
+        medium_threshold: number;
+        model_version: string;
+        /** @description Whether the percentage is shown to staff (off until calibrated). */
+        percentage_shown: boolean;
+        /** @description Why it is off, in words, when it is. */
+        reason: string | null;
+        switched_on: boolean;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7017,6 +7117,23 @@ export interface components {
     Booked: {
       appointment: components["schemas"]["Appointment"];
       referral: components["schemas"]["Referral"];
+    };
+    /** @description One booked appointment on the call list: the risk and why, and the task a person works from. */
+    CallItem: {
+      /** Format: uuid */
+      appointment_id: string;
+      factors: components["schemas"]["Factor"][];
+      /**
+       * Format: double
+       * @description Present (not null) only once the weights are calibrated and the percentage is switched on.
+       */
+      probability_percent: number | null;
+      /** Format: int32 */
+      sample_size: number;
+      /** Format: date-time */
+      starts_at: string;
+      /** Format: uuid */
+      task_id: string;
     };
     CallOutcomeBody: {
       outcome: string;
@@ -7885,6 +8002,10 @@ export interface components {
       /** Format: uuid */
       slot_id: string;
     };
+    /** @description How many appointments the recalculation assessed. */
+    Recalculated: {
+      assessed: number;
+    };
     ReceiptBody: {
       carrier: string;
       /** @description A short reason code for a bounce. */
@@ -8047,6 +8168,20 @@ export interface components {
     RingFenceBody: {
       ring_fenced: boolean;
       set_by: string;
+    };
+    /** @description One clinic's stage: recording in shadow, or live, and whether it has been in shadow long enough to go live. */
+    RolloutRow: {
+      /** Format: int64 */
+      assessments: number;
+      changed_by: string | null;
+      /** Format: int64 */
+      days_in_shadow: number;
+      /** Format: date-time */
+      live_since: string | null;
+      may_go_live: boolean;
+      service_type: string;
+      /** @description `shadow` or `live`. */
+      stage: string;
     };
     /** @description A room within a ward. */
     Room: {
@@ -8379,6 +8514,25 @@ export interface components {
     "handlers_waits.AnswerBody": {
       answer: string;
       recorded_by: string;
+    };
+    "noshow.Status": {
+      active: boolean;
+      /** @description Whether any age weight is in use (then the fairness approval must justify it). */
+      age_in_use: boolean;
+      /** Format: int64 */
+      call_capacity: number;
+      /** Format: int64 */
+      call_horizon_days: number;
+      clinical_safety_approved: boolean;
+      fairness_approved: boolean;
+      /** Format: double */
+      medium_threshold: number;
+      model_version: string;
+      /** @description Whether the percentage is shown to staff (off until calibrated). */
+      percentage_shown: boolean;
+      /** @description Why it is off, in words, when it is. */
+      reason: string | null;
+      switched_on: boolean;
     };
   };
   responses: never;
@@ -13262,7 +13416,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_CallItem"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13294,7 +13450,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Recalculated"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13362,7 +13520,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_RolloutRow"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13433,7 +13593,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_noshow.Status"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
