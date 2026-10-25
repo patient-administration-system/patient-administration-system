@@ -9,9 +9,11 @@ export const CHANNELS = [
   { id: "print" },
 ] as const;
 
+export type Channel = (typeof CHANNELS)[number]["id"];
+
 const KNOWN = new Set<string>(CHANNELS.map((c) => c.id));
 
 /** Keep only known channels, in the order given, without duplicates. */
-export function cleanChannels(values: string[]): string[] {
-  return [...new Set(values)].filter((v) => KNOWN.has(v));
+export function cleanChannels(values: string[]): Channel[] {
+  return [...new Set(values)].filter((v): v is Channel => KNOWN.has(v));
 }

@@ -82,6 +82,7 @@ pub struct Shown {
     pub probability: f64,
     /// Present only once the weights are calibrated and `PAS_NOSHOW_SHOW_PERCENT=true`.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
     pub probability_percent: Option<f64>,
     pub band: Band,
     pub factors: Vec<Factor>,

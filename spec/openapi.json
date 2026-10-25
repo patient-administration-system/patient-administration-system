@@ -266,6 +266,8 @@
         "required": [
           "id",
           "metric",
+          "label",
+          "unit",
           "scope_kind",
           "scope_key",
           "value",
@@ -274,6 +276,9 @@
           "escalate_beyond",
           "raised_at",
           "last_seen_at",
+          "cleared_at",
+          "acknowledged_by",
+          "acknowledged_at",
           "note"
         ],
         "type": "object"
@@ -627,6 +632,7 @@
               "required_variables",
               "channels",
               "active",
+              "locale",
               "created_at",
               "updated_at"
             ],
@@ -1358,6 +1364,8 @@
               "required": [
                 "id",
                 "metric",
+                "label",
+                "unit",
                 "scope_kind",
                 "scope_key",
                 "value",
@@ -1366,6 +1374,9 @@
                 "escalate_beyond",
                 "raised_at",
                 "last_seen_at",
+                "cleared_at",
+                "acknowledged_by",
+                "acknowledged_at",
                 "note"
               ],
               "type": "object"
@@ -1925,7 +1936,12 @@
                 }
               },
               "required": [
-                "at"
+                "at",
+                "kind",
+                "action",
+                "by",
+                "reason_code",
+                "context"
               ],
               "type": "object"
             },
@@ -2016,6 +2032,7 @@
                 "required_variables",
                 "channels",
                 "active",
+                "locale",
                 "created_at",
                 "updated_at"
               ],
@@ -3596,7 +3613,12 @@
           }
         },
         "required": [
-          "at"
+          "at",
+          "kind",
+          "action",
+          "by",
+          "reason_code",
+          "context"
         ],
         "type": "object"
       },
@@ -3710,6 +3732,7 @@
           "required_variables",
           "channels",
           "active",
+          "locale",
           "created_at",
           "updated_at"
         ],
@@ -4570,6 +4593,8 @@
               "direction",
               "scope_kind",
               "scope_key",
+              "value",
+              "adverse_drift",
               "rag",
               "sample",
               "customised"
@@ -5079,10 +5104,7 @@
           "probability_percent": {
             "description": "Present only once the weights are calibrated and `PAS_NOSHOW_SHOW_PERCENT=true`.",
             "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": "number"
           },
           "sample_size": {
             "format": "int64",
@@ -5907,7 +5929,7 @@
   "paths": {
     "/api/accounts": {
       "post": {
-        "operationId": "open_account",
+        "operationId": "post_api_accounts",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5942,7 +5964,7 @@
     },
     "/api/accounts/{id}/close": {
       "post": {
-        "operationId": "close_account",
+        "operationId": "post_api_accounts__id__close",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -5978,7 +6000,7 @@
     },
     "/api/accounts/{id}/coverages": {
       "get": {
-        "operationId": "list_coverages_for_account",
+        "operationId": "get_api_accounts__id__coverages",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6014,7 +6036,7 @@
     },
     "/api/admin/metrics": {
       "get": {
-        "operationId": "metrics",
+        "operationId": "get_api_admin_metrics",
         "responses": {
           "200": {
             "description": "Prometheus text format (`text/plain`)"
@@ -6039,7 +6061,7 @@
     },
     "/api/admin/outbox/dead-letters": {
       "get": {
-        "operationId": "list_dead_letters",
+        "operationId": "get_api_admin_outbox_dead_letters",
         "parameters": [
           {
             "in": "path",
@@ -6078,7 +6100,7 @@
     },
     "/api/admin/outbox/dead-letters/{id}/replay": {
       "post": {
-        "operationId": "replay_dead_letter",
+        "operationId": "post_api_admin_outbox_dead_letters__id__replay",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6114,7 +6136,7 @@
     },
     "/api/admin/outbox/unpublished": {
       "get": {
-        "operationId": "list_unpublished_outbox",
+        "operationId": "get_api_admin_outbox_unpublished",
         "parameters": [
           {
             "in": "path",
@@ -6153,7 +6175,7 @@
     },
     "/api/admin/subscriptions": {
       "get": {
-        "operationId": "list",
+        "operationId": "get_api_admin_subscriptions",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -6176,7 +6198,7 @@
         ]
       },
       "post": {
-        "operationId": "create",
+        "operationId": "post_api_admin_subscriptions",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6211,7 +6233,7 @@
     },
     "/api/admin/subscriptions/{id}": {
       "delete": {
-        "operationId": "end",
+        "operationId": "delete_api_admin_subscriptions__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6247,7 +6269,7 @@
     },
     "/api/admissions": {
       "post": {
-        "operationId": "admit",
+        "operationId": "post_api_admissions",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6282,7 +6304,7 @@
     },
     "/api/admissions/cancel-pre-admit": {
       "post": {
-        "operationId": "cancel_pre_admit",
+        "operationId": "post_api_admissions_cancel_pre_admit",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6317,7 +6339,7 @@
     },
     "/api/admissions/change-to-inpatient": {
       "post": {
-        "operationId": "change_to_inpatient",
+        "operationId": "post_api_admissions_change_to_inpatient",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6352,7 +6374,7 @@
     },
     "/api/admissions/pre-admit": {
       "post": {
-        "operationId": "pre_admit",
+        "operationId": "post_api_admissions_pre_admit",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6387,7 +6409,7 @@
     },
     "/api/admissions/{id}/cancel-admit": {
       "post": {
-        "operationId": "cancel_admit",
+        "operationId": "post_api_admissions__id__cancel_admit",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6423,7 +6445,7 @@
     },
     "/api/admissions/{id}/cancel-discharge": {
       "post": {
-        "operationId": "cancel_discharge",
+        "operationId": "post_api_admissions__id__cancel_discharge",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6459,7 +6481,7 @@
     },
     "/api/admissions/{id}/cancel-transfer": {
       "post": {
-        "operationId": "cancel_transfer",
+        "operationId": "post_api_admissions__id__cancel_transfer",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6495,7 +6517,7 @@
     },
     "/api/admissions/{id}/change-to-outpatient": {
       "post": {
-        "operationId": "change_to_outpatient",
+        "operationId": "post_api_admissions__id__change_to_outpatient",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6531,7 +6553,7 @@
     },
     "/api/admissions/{id}/discharge": {
       "post": {
-        "operationId": "discharge",
+        "operationId": "post_api_admissions__id__discharge",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6567,7 +6589,7 @@
     },
     "/api/admissions/{id}/leave-end": {
       "post": {
-        "operationId": "leave_end",
+        "operationId": "post_api_admissions__id__leave_end",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6603,7 +6625,7 @@
     },
     "/api/admissions/{id}/leave-start": {
       "post": {
-        "operationId": "leave_start",
+        "operationId": "post_api_admissions__id__leave_start",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6639,7 +6661,7 @@
     },
     "/api/admissions/{id}/transfer": {
       "post": {
-        "operationId": "transfer",
+        "operationId": "post_api_admissions__id__transfer",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -6685,7 +6707,7 @@
     },
     "/api/analytics/appointment-outcomes": {
       "get": {
-        "operationId": "outcomes",
+        "operationId": "get_api_analytics_appointment_outcomes",
         "parameters": [
           {
             "description": "Comma-separated: specialty, language, age_band, deprivation_quintile, time_of_day, outcome, notice.",
@@ -6770,7 +6792,7 @@
     },
     "/api/analytics/demographics/refresh": {
       "post": {
-        "operationId": "refresh_demographics",
+        "operationId": "post_api_analytics_demographics_refresh",
         "parameters": [
           {
             "in": "path",
@@ -6809,7 +6831,7 @@
     },
     "/api/analytics/demographics/{person_id}": {
       "put": {
-        "operationId": "set_demographics",
+        "operationId": "put_api_analytics_demographics__person_id",
         "parameters": [
           {
             "description": "Path parameter `person_id`",
@@ -6855,7 +6877,7 @@
     },
     "/api/analytics/deprivation-lookup": {
       "put": {
-        "operationId": "load_deprivation_lookup",
+        "operationId": "put_api_analytics_deprivation_lookup",
         "parameters": [
           {
             "description": "Which dataset the file was built from, for example `WIMD 2019 + ONSPD Aug 2026`.",
@@ -6899,7 +6921,7 @@
     },
     "/api/analytics/refill-rates": {
       "get": {
-        "operationId": "refill_rates",
+        "operationId": "get_api_analytics_refill_rates",
         "parameters": [
           {
             "description": "Comma-separated: notice_band, release_class, specialty, language, age_band, deprivation_quintile.",
@@ -6982,7 +7004,7 @@
     },
     "/api/appointment-series": {
       "post": {
-        "operationId": "create_series",
+        "operationId": "post_api_appointment_series",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7017,7 +7039,7 @@
     },
     "/api/appointment-series/{id}": {
       "get": {
-        "operationId": "get_series",
+        "operationId": "get_api_appointment_series__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7053,7 +7075,7 @@
     },
     "/api/appointment-series/{id}/cancel": {
       "post": {
-        "operationId": "cancel_series",
+        "operationId": "post_api_appointment_series__id__cancel",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7089,7 +7111,7 @@
     },
     "/api/appointments": {
       "get": {
-        "operationId": "list_appointments",
+        "operationId": "get_api_appointments",
         "parameters": [
           {
             "in": "path",
@@ -7141,7 +7163,7 @@
     },
     "/api/appointments/{id}/barrier": {
       "put": {
-        "operationId": "record_barrier",
+        "operationId": "put_api_appointments__id__barrier",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7194,7 +7216,7 @@
     },
     "/api/appointments/{id}/cancel": {
       "post": {
-        "operationId": "cancel_appointment",
+        "operationId": "post_api_appointments__id__cancel",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7247,7 +7269,7 @@
     },
     "/api/appointments/{id}/check-in": {
       "post": {
-        "operationId": "check_in_appointment",
+        "operationId": "post_api_appointments__id__check_in",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7290,7 +7312,7 @@
     },
     "/api/appointments/{id}/complete": {
       "post": {
-        "operationId": "complete_appointment",
+        "operationId": "post_api_appointments__id__complete",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7333,7 +7355,7 @@
     },
     "/api/appointments/{id}/conversion/{decision}": {
       "post": {
-        "operationId": "review",
+        "operationId": "post_api_appointments__id__conversion__decision",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7378,7 +7400,7 @@
     },
     "/api/appointments/{id}/history": {
       "get": {
-        "operationId": "appointment_history",
+        "operationId": "get_api_appointments__id__history",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7421,7 +7443,7 @@
     },
     "/api/appointments/{id}/lead-time": {
       "get": {
-        "operationId": "lead_time",
+        "operationId": "get_api_appointments__id__lead_time",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7457,7 +7479,7 @@
     },
     "/api/appointments/{id}/location": {
       "put": {
-        "operationId": "move_to_room",
+        "operationId": "put_api_appointments__id__location",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7510,7 +7532,7 @@
     },
     "/api/appointments/{id}/no-show": {
       "post": {
-        "operationId": "mark_no_show",
+        "operationId": "post_api_appointments__id__no_show",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7553,7 +7575,7 @@
     },
     "/api/appointments/{id}/noshow": {
       "get": {
-        "operationId": "for_appointment",
+        "operationId": "get_api_appointments__id__noshow",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7589,7 +7611,7 @@
     },
     "/api/appointments/{id}/rebook": {
       "post": {
-        "operationId": "rebook_appointment",
+        "operationId": "post_api_appointments__id__rebook",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7635,7 +7657,7 @@
     },
     "/api/appointments/{id}/rebook-options": {
       "get": {
-        "operationId": "rebook_options",
+        "operationId": "get_api_appointments__id__rebook_options",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7671,7 +7693,7 @@
     },
     "/api/appointments/{id}/transport": {
       "get": {
-        "operationId": "booking",
+        "operationId": "get_api_appointments__id__transport",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7707,7 +7729,7 @@
     },
     "/api/appointments/{id}/video-failed": {
       "post": {
-        "operationId": "video_failed",
+        "operationId": "post_api_appointments__id__video_failed",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7743,7 +7765,7 @@
     },
     "/api/audit/balp": {
       "get": {
-        "operationId": "export_balp",
+        "operationId": "get_api_audit_balp",
         "parameters": [
           {
             "description": "Start of the window (inclusive); defaults to 24 hours before `to`.",
@@ -7832,7 +7854,7 @@
     },
     "/api/audit/entity": {
       "get": {
-        "operationId": "list_for_entity",
+        "operationId": "get_api_audit_entity",
         "parameters": [
           {
             "in": "path",
@@ -7888,7 +7910,7 @@
     },
     "/api/audit/recent": {
       "get": {
-        "operationId": "list_recent",
+        "operationId": "get_api_audit_recent",
         "parameters": [
           {
             "in": "path",
@@ -7927,7 +7949,7 @@
     },
     "/api/beds": {
       "post": {
-        "operationId": "create_bed",
+        "operationId": "post_api_beds",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7962,7 +7984,7 @@
     },
     "/api/beds/{id}": {
       "get": {
-        "operationId": "get_bed",
+        "operationId": "get_api_beds__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -7998,7 +8020,7 @@
     },
     "/api/beds/{id}/status": {
       "put": {
-        "operationId": "set_bed_status",
+        "operationId": "put_api_beds__id__status",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8044,7 +8066,7 @@
     },
     "/api/capacity/report": {
       "get": {
-        "operationId": "report",
+        "operationId": "get_api_capacity_report",
         "parameters": [
           {
             "in": "path",
@@ -8118,7 +8140,7 @@
     },
     "/api/charges": {
       "post": {
-        "operationId": "post_charge",
+        "operationId": "post_api_charges",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8153,7 +8175,7 @@
     },
     "/api/clinical-priority-reviews/overdue": {
       "get": {
-        "operationId": "overdue",
+        "operationId": "get_api_clinical_priority_reviews_overdue",
         "parameters": [
           {
             "in": "path",
@@ -8192,7 +8214,7 @@
     },
     "/api/communication-needs/due-review": {
       "get": {
-        "operationId": "due_review",
+        "operationId": "get_api_communication_needs_due_review",
         "parameters": [
           {
             "description": "The review period in months (default 12).",
@@ -8246,7 +8268,7 @@
     },
     "/api/communication-profiles/stale": {
       "get": {
-        "operationId": "stale_profiles",
+        "operationId": "get_api_communication_profiles_stale",
         "parameters": [
           {
             "in": "path",
@@ -8297,7 +8319,7 @@
     },
     "/api/consents/{id}/revoke": {
       "post": {
-        "operationId": "revoke_consent",
+        "operationId": "post_api_consents__id__revoke",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8333,7 +8355,7 @@
     },
     "/api/contact-problems": {
       "get": {
-        "operationId": "contact_problems",
+        "operationId": "get_api_contact_problems",
         "parameters": [
           {
             "in": "path",
@@ -8384,7 +8406,7 @@
     },
     "/api/contact-problems/{person_id}/resolve": {
       "post": {
-        "operationId": "resolve_problem",
+        "operationId": "post_api_contact_problems__person_id__resolve",
         "parameters": [
           {
             "description": "Path parameter `person_id`",
@@ -8430,7 +8452,7 @@
     },
     "/api/conversions/pending": {
       "get": {
-        "operationId": "pending",
+        "operationId": "get_api_conversions_pending",
         "parameters": [
           {
             "in": "path",
@@ -8469,7 +8491,7 @@
     },
     "/api/coverages": {
       "post": {
-        "operationId": "create_coverage",
+        "operationId": "post_api_coverages",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8504,7 +8526,7 @@
     },
     "/api/coverages/{id}": {
       "delete": {
-        "operationId": "delete_coverage",
+        "operationId": "delete_api_coverages__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8538,7 +8560,7 @@
         ]
       },
       "get": {
-        "operationId": "get_coverage",
+        "operationId": "get_api_coverages__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8572,7 +8594,7 @@
         ]
       },
       "put": {
-        "operationId": "update_coverage",
+        "operationId": "put_api_coverages__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8618,7 +8640,7 @@
     },
     "/api/encounters/{id}": {
       "get": {
-        "operationId": "get_encounter",
+        "operationId": "get_api_encounters__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8654,7 +8676,7 @@
     },
     "/api/encounters/{id}/cancel": {
       "post": {
-        "operationId": "cancel_encounter",
+        "operationId": "post_api_encounters__id__cancel",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8690,7 +8712,7 @@
     },
     "/api/encounters/{id}/first-contact": {
       "post": {
-        "operationId": "first_contact",
+        "operationId": "post_api_encounters__id__first_contact",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8736,7 +8758,7 @@
     },
     "/api/encounters/{id}/status": {
       "put": {
-        "operationId": "set_status",
+        "operationId": "put_api_encounters__id__status",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8782,7 +8804,7 @@
     },
     "/api/encounters/{id}/triage": {
       "get": {
-        "operationId": "list",
+        "operationId": "get_api_encounters__id__triage",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8816,7 +8838,7 @@
         ]
       },
       "post": {
-        "operationId": "record",
+        "operationId": "post_api_encounters__id__triage",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8862,7 +8884,7 @@
     },
     "/api/experiments": {
       "get": {
-        "operationId": "list",
+        "operationId": "get_api_experiments",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -8885,7 +8907,7 @@
         ]
       },
       "post": {
-        "operationId": "start",
+        "operationId": "post_api_experiments",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8920,7 +8942,7 @@
     },
     "/api/experiments/{id}/readout": {
       "get": {
-        "operationId": "readout",
+        "operationId": "get_api_experiments__id__readout",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -8968,7 +8990,7 @@
     },
     "/api/experiments/{id}/stop": {
       "post": {
-        "operationId": "stop",
+        "operationId": "post_api_experiments__id__stop",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -9014,7 +9036,7 @@
     },
     "/api/facilities": {
       "get": {
-        "operationId": "list_facilities",
+        "operationId": "get_api_facilities",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9037,7 +9059,7 @@
         ]
       },
       "post": {
-        "operationId": "create_facility",
+        "operationId": "post_api_facilities",
         "requestBody": {
           "content": {
             "application/json": {
@@ -9072,7 +9094,7 @@
     },
     "/api/facilities/{id}": {
       "get": {
-        "operationId": "get_facility",
+        "operationId": "get_api_facilities__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -9108,7 +9130,7 @@
     },
     "/api/facilities/{id}/wards": {
       "get": {
-        "operationId": "list_wards_by_facility",
+        "operationId": "get_api_facilities__id__wards",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -9144,7 +9166,7 @@
     },
     "/api/facility/in-facility": {
       "get": {
-        "operationId": "in_facility",
+        "operationId": "get_api_facility_in_facility",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9169,7 +9191,7 @@
     },
     "/api/follow-up-policies": {
       "get": {
-        "operationId": "policies",
+        "operationId": "get_api_follow_up_policies",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9194,7 +9216,7 @@
     },
     "/api/follow-up-policies/{service_type}": {
       "put": {
-        "operationId": "approve_policy",
+        "operationId": "put_api_follow_up_policies__service_type",
         "parameters": [
           {
             "description": "Path parameter `service_type`",
@@ -9240,7 +9262,7 @@
     },
     "/api/follow-up-tasks/open": {
       "get": {
-        "operationId": "open_tasks",
+        "operationId": "get_api_follow_up_tasks_open",
         "parameters": [
           {
             "in": "path",
@@ -9279,7 +9301,7 @@
     },
     "/api/follow-up-tasks/{id}/outcome": {
       "post": {
-        "operationId": "close_task",
+        "operationId": "post_api_follow_up_tasks__id__outcome",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -9325,7 +9347,7 @@
     },
     "/api/health": {
       "get": {
-        "operationId": "health",
+        "operationId": "get_api_health",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9346,7 +9368,7 @@
     },
     "/api/hl7/v2/admit": {
       "post": {
-        "operationId": "admit",
+        "operationId": "post_api_hl7_v2_admit",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9371,7 +9393,7 @@
     },
     "/api/hl7/v2/batch": {
       "post": {
-        "operationId": "batch",
+        "operationId": "post_api_hl7_v2_batch",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9396,7 +9418,7 @@
     },
     "/api/hl7/v2/cancel-admit": {
       "post": {
-        "operationId": "cancel_admit",
+        "operationId": "post_api_hl7_v2_cancel_admit",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9421,7 +9443,7 @@
     },
     "/api/hl7/v2/cancel-discharge": {
       "post": {
-        "operationId": "cancel_discharge",
+        "operationId": "post_api_hl7_v2_cancel_discharge",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9446,7 +9468,7 @@
     },
     "/api/hl7/v2/cancel-pre-admit": {
       "post": {
-        "operationId": "cancel_pre_admit",
+        "operationId": "post_api_hl7_v2_cancel_pre_admit",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9471,7 +9493,7 @@
     },
     "/api/hl7/v2/cancel-transfer": {
       "post": {
-        "operationId": "cancel_transfer",
+        "operationId": "post_api_hl7_v2_cancel_transfer",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9496,7 +9518,7 @@
     },
     "/api/hl7/v2/change-to-inpatient": {
       "post": {
-        "operationId": "change_to_inpatient",
+        "operationId": "post_api_hl7_v2_change_to_inpatient",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9521,7 +9543,7 @@
     },
     "/api/hl7/v2/change-to-outpatient": {
       "post": {
-        "operationId": "change_to_outpatient",
+        "operationId": "post_api_hl7_v2_change_to_outpatient",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9546,7 +9568,7 @@
     },
     "/api/hl7/v2/delete-patient": {
       "post": {
-        "operationId": "delete_patient",
+        "operationId": "post_api_hl7_v2_delete_patient",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9571,7 +9593,7 @@
     },
     "/api/hl7/v2/dft": {
       "post": {
-        "operationId": "dft",
+        "operationId": "post_api_hl7_v2_dft",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9596,7 +9618,7 @@
     },
     "/api/hl7/v2/discharge": {
       "post": {
-        "operationId": "discharge",
+        "operationId": "post_api_hl7_v2_discharge",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9621,7 +9643,7 @@
     },
     "/api/hl7/v2/leave-end": {
       "post": {
-        "operationId": "leave_end",
+        "operationId": "post_api_hl7_v2_leave_end",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9646,7 +9668,7 @@
     },
     "/api/hl7/v2/leave-start": {
       "post": {
-        "operationId": "leave_start",
+        "operationId": "post_api_hl7_v2_leave_start",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9671,7 +9693,7 @@
     },
     "/api/hl7/v2/merge": {
       "post": {
-        "operationId": "merge",
+        "operationId": "post_api_hl7_v2_merge",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9696,7 +9718,7 @@
     },
     "/api/hl7/v2/mfn-location": {
       "post": {
-        "operationId": "mfn_location",
+        "operationId": "post_api_hl7_v2_mfn_location",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9721,7 +9743,7 @@
     },
     "/api/hl7/v2/mfn-staff": {
       "post": {
-        "operationId": "mfn_staff",
+        "operationId": "post_api_hl7_v2_mfn_staff",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9746,7 +9768,7 @@
     },
     "/api/hl7/v2/parse": {
       "post": {
-        "operationId": "parse",
+        "operationId": "post_api_hl7_v2_parse",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9771,7 +9793,7 @@
     },
     "/api/hl7/v2/patient": {
       "post": {
-        "operationId": "add_person",
+        "operationId": "post_api_hl7_v2_patient",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9796,7 +9818,7 @@
     },
     "/api/hl7/v2/pre-admit": {
       "post": {
-        "operationId": "pre_admit",
+        "operationId": "post_api_hl7_v2_pre_admit",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9821,7 +9843,7 @@
     },
     "/api/hl7/v2/register": {
       "post": {
-        "operationId": "register",
+        "operationId": "post_api_hl7_v2_register",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9846,7 +9868,7 @@
     },
     "/api/hl7/v2/schedule-book": {
       "post": {
-        "operationId": "schedule_book",
+        "operationId": "post_api_hl7_v2_schedule_book",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9871,7 +9893,7 @@
     },
     "/api/hl7/v2/schedule-cancel": {
       "post": {
-        "operationId": "schedule_cancel",
+        "operationId": "post_api_hl7_v2_schedule_cancel",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9896,7 +9918,7 @@
     },
     "/api/hl7/v2/schedule-modify": {
       "post": {
-        "operationId": "schedule_modify",
+        "operationId": "post_api_hl7_v2_schedule_modify",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9921,7 +9943,7 @@
     },
     "/api/hl7/v2/schedule-reschedule": {
       "post": {
-        "operationId": "schedule_reschedule",
+        "operationId": "post_api_hl7_v2_schedule_reschedule",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9946,7 +9968,7 @@
     },
     "/api/hl7/v2/transfer": {
       "post": {
-        "operationId": "transfer",
+        "operationId": "post_api_hl7_v2_transfer",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9971,7 +9993,7 @@
     },
     "/api/hl7/v2/update": {
       "post": {
-        "operationId": "update",
+        "operationId": "post_api_hl7_v2_update",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -9996,7 +10018,7 @@
     },
     "/api/identity-proofings/{subject}": {
       "delete": {
-        "operationId": "revoke",
+        "operationId": "delete_api_identity_proofings__subject",
         "parameters": [
           {
             "description": "Path parameter `subject`",
@@ -10038,7 +10060,7 @@
         ]
       },
       "get": {
-        "operationId": "get",
+        "operationId": "get_api_identity_proofings__subject",
         "parameters": [
           {
             "description": "Path parameter `subject`",
@@ -10072,7 +10094,7 @@
         ]
       },
       "put": {
-        "operationId": "record",
+        "operationId": "put_api_identity_proofings__subject",
         "parameters": [
           {
             "description": "Path parameter `subject`",
@@ -10118,7 +10140,7 @@
     },
     "/api/identity-proofings/{subject}/check": {
       "get": {
-        "operationId": "check",
+        "operationId": "get_api_identity_proofings__subject__check",
         "parameters": [
           {
             "description": "Path parameter `subject`",
@@ -10170,7 +10192,7 @@
     },
     "/api/inbound-texts/open": {
       "get": {
-        "operationId": "open_texts",
+        "operationId": "get_api_inbound_texts_open",
         "parameters": [
           {
             "in": "path",
@@ -10209,7 +10231,7 @@
     },
     "/api/inbound-texts/{id}/handled": {
       "post": {
-        "operationId": "text_handled",
+        "operationId": "post_api_inbound_texts__id__handled",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -10245,7 +10267,7 @@
     },
     "/api/interpreter-requests/unconfirmed": {
       "get": {
-        "operationId": "unconfirmed",
+        "operationId": "get_api_interpreter_requests_unconfirmed",
         "parameters": [
           {
             "description": "How far ahead to look, in hours (1 to 336, default 36: tomorrow's clinics, checked today).",
@@ -10297,7 +10319,7 @@
     },
     "/api/interpreter-requests/{id}/confirm": {
       "post": {
-        "operationId": "confirm",
+        "operationId": "post_api_interpreter_requests__id__confirm",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -10343,7 +10365,7 @@
     },
     "/api/invoices": {
       "post": {
-        "operationId": "finalize_invoice",
+        "operationId": "post_api_invoices",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10378,7 +10400,7 @@
     },
     "/api/letter-template-groups": {
       "post": {
-        "operationId": "create_group",
+        "operationId": "post_api_letter_template_groups",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10413,7 +10435,7 @@
     },
     "/api/letter-templates": {
       "get": {
-        "operationId": "list_templates",
+        "operationId": "get_api_letter_templates",
         "responses": {
           "200": {
             "content": {
@@ -10443,7 +10465,7 @@
         ]
       },
       "post": {
-        "operationId": "create_template",
+        "operationId": "post_api_letter_templates",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10478,7 +10500,7 @@
     },
     "/api/letter-templates/check-sms": {
       "post": {
-        "operationId": "check_sms",
+        "operationId": "post_api_letter_templates_check_sms",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10513,7 +10535,7 @@
     },
     "/api/letter-templates/{id}": {
       "get": {
-        "operationId": "get_template",
+        "operationId": "get_api_letter_templates__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -10554,7 +10576,7 @@
         ]
       },
       "put": {
-        "operationId": "update_template",
+        "operationId": "put_api_letter_templates__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -10607,7 +10629,7 @@
     },
     "/api/letter-templates/{id}/whatsapp-approval": {
       "delete": {
-        "operationId": "revoke_template",
+        "operationId": "delete_api_letter_templates__id__whatsapp_approval",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -10641,7 +10663,7 @@
         ]
       },
       "put": {
-        "operationId": "approve_template",
+        "operationId": "put_api_letter_templates__id__whatsapp_approval",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -10687,7 +10709,7 @@
     },
     "/api/letters/generate": {
       "post": {
-        "operationId": "generate_letter",
+        "operationId": "post_api_letters_generate",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10722,7 +10744,7 @@
     },
     "/api/letters/preview": {
       "post": {
-        "operationId": "preview_letter",
+        "operationId": "post_api_letters_preview",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10757,7 +10779,7 @@
     },
     "/api/letters/{id}": {
       "get": {
-        "operationId": "get_letter",
+        "operationId": "get_api_letters__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -10793,7 +10815,7 @@
     },
     "/api/letters/{id}/failed": {
       "post": {
-        "operationId": "mark_failed",
+        "operationId": "post_api_letters__id__failed",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -10829,7 +10851,7 @@
     },
     "/api/letters/{id}/receipts": {
       "get": {
-        "operationId": "letter_receipts",
+        "operationId": "get_api_letters__id__receipts",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -10865,7 +10887,7 @@
     },
     "/api/letters/{id}/sent": {
       "post": {
-        "operationId": "mark_sent",
+        "operationId": "post_api_letters__id__sent",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -10901,7 +10923,7 @@
     },
     "/api/noshow/evaluation": {
       "get": {
-        "operationId": "evaluation",
+        "operationId": "get_api_noshow_evaluation",
         "parameters": [
           {
             "in": "path",
@@ -10952,7 +10974,7 @@
     },
     "/api/noshow/fairness-audit": {
       "get": {
-        "operationId": "fairness_audit",
+        "operationId": "get_api_noshow_fairness_audit",
         "parameters": [
           {
             "in": "path",
@@ -11003,7 +11025,7 @@
     },
     "/api/noshow/for-appointments": {
       "get": {
-        "operationId": "for_appointments",
+        "operationId": "get_api_noshow_for_appointments",
         "parameters": [
           {
             "description": "Comma-separated appointment ids, at most 500.",
@@ -11046,7 +11068,7 @@
     },
     "/api/noshow/model-card": {
       "get": {
-        "operationId": "model_card",
+        "operationId": "get_api_noshow_model_card",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11071,7 +11093,7 @@
     },
     "/api/noshow/priority-list": {
       "get": {
-        "operationId": "priority_list",
+        "operationId": "get_api_noshow_priority_list",
         "parameters": [
           {
             "in": "path",
@@ -11110,7 +11132,7 @@
     },
     "/api/noshow/recalculate": {
       "post": {
-        "operationId": "recalculate",
+        "operationId": "post_api_noshow_recalculate",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11135,7 +11157,7 @@
     },
     "/api/noshow/reviews": {
       "post": {
-        "operationId": "record_review",
+        "operationId": "post_api_noshow_reviews",
         "requestBody": {
           "content": {
             "application/json": {
@@ -11170,7 +11192,7 @@
     },
     "/api/noshow/rollout": {
       "get": {
-        "operationId": "rollout",
+        "operationId": "get_api_noshow_rollout",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11195,7 +11217,7 @@
     },
     "/api/noshow/rollout/{service_type}": {
       "put": {
-        "operationId": "set_stage",
+        "operationId": "put_api_noshow_rollout__service_type",
         "parameters": [
           {
             "description": "Path parameter `service_type`",
@@ -11241,7 +11263,7 @@
     },
     "/api/noshow/status": {
       "get": {
-        "operationId": "status",
+        "operationId": "get_api_noshow_status",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11266,7 +11288,7 @@
     },
     "/api/offer-links/{token}": {
       "get": {
-        "operationId": "get_offer",
+        "operationId": "get_api_offer_links__token",
         "parameters": [
           {
             "description": "Path parameter `token`",
@@ -11309,7 +11331,7 @@
     },
     "/api/offer-links/{token}/{action}": {
       "post": {
-        "operationId": "post_offer_action",
+        "operationId": "post_api_offer_links__token___action",
         "parameters": [
           {
             "description": "Path parameter `token`",
@@ -11361,7 +11383,7 @@
     },
     "/api/pathways/due-check": {
       "get": {
-        "operationId": "due_for_check",
+        "operationId": "get_api_pathways_due_check",
         "parameters": [
           {
             "in": "path",
@@ -11419,7 +11441,7 @@
     },
     "/api/pathways/{id}/still-needed-checks": {
       "post": {
-        "operationId": "ask",
+        "operationId": "post_api_pathways__id__still_needed_checks",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -11472,7 +11494,7 @@
     },
     "/api/patients": {
       "get": {
-        "operationId": "search_patients",
+        "operationId": "get_api_patients",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11495,7 +11517,7 @@
         ]
       },
       "post": {
-        "operationId": "create_patient",
+        "operationId": "post_api_patients",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11520,7 +11542,7 @@
     },
     "/api/patients/export.csv": {
       "get": {
-        "operationId": "export_patients_csv",
+        "operationId": "get_api_patients_export_csv",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11545,7 +11567,7 @@
     },
     "/api/patients/export.json": {
       "get": {
-        "operationId": "export_patients_json",
+        "operationId": "get_api_patients_export_json",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11570,7 +11592,7 @@
     },
     "/api/patients/export.tsv": {
       "get": {
-        "operationId": "export_patients_tsv",
+        "operationId": "get_api_patients_export_tsv",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11595,7 +11617,7 @@
     },
     "/api/patients/export.xml": {
       "get": {
-        "operationId": "export_patients_xml",
+        "operationId": "get_api_patients_export_xml",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11620,7 +11642,7 @@
     },
     "/api/patients/import": {
       "post": {
-        "operationId": "import_patients",
+        "operationId": "post_api_patients_import",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11645,7 +11667,7 @@
     },
     "/api/patients/search": {
       "get": {
-        "operationId": "alias_api_patients_search_get",
+        "operationId": "get_api_patients_search",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -11670,7 +11692,7 @@
     },
     "/api/patients/{id}": {
       "delete": {
-        "operationId": "delete_patient",
+        "operationId": "delete_api_patients__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -11704,7 +11726,7 @@
         ]
       },
       "get": {
-        "operationId": "get_patient",
+        "operationId": "get_api_patients__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -11738,7 +11760,7 @@
         ]
       },
       "put": {
-        "operationId": "update_patient",
+        "operationId": "put_api_patients__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -11774,7 +11796,7 @@
     },
     "/api/patients/{id}/appointment-series": {
       "get": {
-        "operationId": "list_series_for_person",
+        "operationId": "get_api_patients__id__appointment_series",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -11810,7 +11832,7 @@
     },
     "/api/patients/{id}/appointments": {
       "get": {
-        "operationId": "list_patient_appointments",
+        "operationId": "get_api_patients__id__appointments",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -11853,7 +11875,7 @@
     },
     "/api/patients/{id}/audit": {
       "get": {
-        "operationId": "audit_patient",
+        "operationId": "get_api_patients__id__audit",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -11889,7 +11911,7 @@
     },
     "/api/patients/{id}/audit/local": {
       "get": {
-        "operationId": "list_local_for_person",
+        "operationId": "get_api_patients__id__audit_local",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -11937,7 +11959,7 @@
     },
     "/api/patients/{id}/channel-optouts": {
       "get": {
-        "operationId": "list_optouts",
+        "operationId": "get_api_patients__id__channel_optouts",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -11971,7 +11993,7 @@
         ]
       },
       "post": {
-        "operationId": "add_optout",
+        "operationId": "post_api_patients__id__channel_optouts",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12017,7 +12039,7 @@
     },
     "/api/patients/{id}/channel-optouts/{channel}": {
       "delete": {
-        "operationId": "remove_optout",
+        "operationId": "delete_api_patients__id__channel_optouts__channel",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12062,7 +12084,7 @@
     },
     "/api/patients/{id}/communication-needs/review": {
       "post": {
-        "operationId": "record_review",
+        "operationId": "post_api_patients__id__communication_needs_review",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12108,7 +12130,7 @@
     },
     "/api/patients/{id}/communication-profile": {
       "get": {
-        "operationId": "get_profile",
+        "operationId": "get_api_patients__id__communication_profile",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12142,7 +12164,7 @@
         ]
       },
       "put": {
-        "operationId": "put_profile",
+        "operationId": "put_api_patients__id__communication_profile",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12188,7 +12210,7 @@
     },
     "/api/patients/{id}/communication-profile/verify-mobile": {
       "post": {
-        "operationId": "verify_mobile",
+        "operationId": "post_api_patients__id__communication_profile_verify_mobile",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12234,7 +12256,7 @@
     },
     "/api/patients/{id}/consents": {
       "get": {
-        "operationId": "list_consents_for_person",
+        "operationId": "get_api_patients__id__consents",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12268,7 +12290,7 @@
         ]
       },
       "post": {
-        "operationId": "create_consent",
+        "operationId": "post_api_patients__id__consents",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12314,7 +12336,7 @@
     },
     "/api/patients/{id}/contact-log": {
       "get": {
-        "operationId": "contact_log",
+        "operationId": "get_api_patients__id__contact_log",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12369,7 +12391,7 @@
     },
     "/api/patients/{id}/coverages": {
       "get": {
-        "operationId": "list_coverages_for_person",
+        "operationId": "get_api_patients__id__coverages",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12405,7 +12427,7 @@
     },
     "/api/patients/{id}/encounters": {
       "get": {
-        "operationId": "list_encounters_for_person",
+        "operationId": "get_api_patients__id__encounters",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12441,7 +12463,7 @@
     },
     "/api/patients/{id}/export": {
       "get": {
-        "operationId": "export_patient",
+        "operationId": "get_api_patients__id__export",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12477,7 +12499,7 @@
     },
     "/api/patients/{id}/interpreter-need": {
       "put": {
-        "operationId": "set_need",
+        "operationId": "put_api_patients__id__interpreter_need",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12523,7 +12545,7 @@
     },
     "/api/patients/{id}/letters": {
       "get": {
-        "operationId": "list_patient_letters",
+        "operationId": "get_api_patients__id__letters",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12578,7 +12600,7 @@
     },
     "/api/patients/{id}/masked": {
       "get": {
-        "operationId": "masked_patient",
+        "operationId": "get_api_patients__id__masked",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12614,7 +12636,7 @@
     },
     "/api/patients/{id}/pifu": {
       "post": {
-        "operationId": "open",
+        "operationId": "post_api_patients__id__pifu",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12660,7 +12682,7 @@
     },
     "/api/patients/{id}/proxies": {
       "get": {
-        "operationId": "list",
+        "operationId": "get_api_patients__id__proxies",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12718,7 +12740,7 @@
         ]
       },
       "post": {
-        "operationId": "grant",
+        "operationId": "post_api_patients__id__proxies",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12764,7 +12786,7 @@
     },
     "/api/patients/{id}/reasonable-adjustments": {
       "get": {
-        "operationId": "list",
+        "operationId": "get_api_patients__id__reasonable_adjustments",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12822,7 +12844,7 @@
         ]
       },
       "post": {
-        "operationId": "record",
+        "operationId": "post_api_patients__id__reasonable_adjustments",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12868,7 +12890,7 @@
     },
     "/api/patients/{id}/transport-consent": {
       "delete": {
-        "operationId": "withdraw_consent",
+        "operationId": "delete_api_patients__id__transport_consent",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12902,7 +12924,7 @@
         ]
       },
       "put": {
-        "operationId": "record_consent",
+        "operationId": "put_api_patients__id__transport_consent",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12948,7 +12970,7 @@
     },
     "/api/patients/{id}/transport-eligibility": {
       "delete": {
-        "operationId": "withdraw_eligible",
+        "operationId": "delete_api_patients__id__transport_eligibility",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -12982,7 +13004,7 @@
         ]
       },
       "put": {
-        "operationId": "set_eligible",
+        "operationId": "put_api_patients__id__transport_eligibility",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13028,7 +13050,7 @@
     },
     "/api/patients/{id}/waits": {
       "get": {
-        "operationId": "patient_waits",
+        "operationId": "get_api_patients__id__waits",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13064,7 +13086,7 @@
     },
     "/api/patients/{id}/whatsapp-optin": {
       "delete": {
-        "operationId": "withdraw_optin",
+        "operationId": "delete_api_patients__id__whatsapp_optin",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13098,7 +13120,7 @@
         ]
       },
       "put": {
-        "operationId": "record_optin",
+        "operationId": "put_api_patients__id__whatsapp_optin",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13144,7 +13166,7 @@
     },
     "/api/payments": {
       "post": {
-        "operationId": "post_payment",
+        "operationId": "post_api_payments",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13179,7 +13201,7 @@
     },
     "/api/pifu/due-reviews": {
       "get": {
-        "operationId": "due_reviews",
+        "operationId": "get_api_pifu_due_reviews",
         "parameters": [
           {
             "in": "path",
@@ -13218,7 +13240,7 @@
     },
     "/api/pifu/requests": {
       "get": {
-        "operationId": "requests",
+        "operationId": "get_api_pifu_requests",
         "parameters": [
           {
             "description": "`booking` (default) or `person`.",
@@ -13269,7 +13291,7 @@
     },
     "/api/pifu/requests/{id}/handle": {
       "post": {
-        "operationId": "handle",
+        "operationId": "post_api_pifu_requests__id__handle",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13315,7 +13337,7 @@
     },
     "/api/pifu/{id}/request": {
       "post": {
-        "operationId": "request",
+        "operationId": "post_api_pifu__id__request",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13361,7 +13383,7 @@
     },
     "/api/pifu/{id}/review": {
       "post": {
-        "operationId": "review",
+        "operationId": "post_api_pifu__id__review",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13407,7 +13429,7 @@
     },
     "/api/practitioners": {
       "get": {
-        "operationId": "search_practitioners",
+        "operationId": "get_api_practitioners",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -13430,7 +13452,7 @@
         ]
       },
       "post": {
-        "operationId": "create_practitioner",
+        "operationId": "post_api_practitioners",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -13455,7 +13477,7 @@
     },
     "/api/practitioners/search": {
       "get": {
-        "operationId": "alias_api_practitioners_search_get",
+        "operationId": "get_api_practitioners_search",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -13480,7 +13502,7 @@
     },
     "/api/practitioners/{id}": {
       "delete": {
-        "operationId": "delete_practitioner",
+        "operationId": "delete_api_practitioners__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13514,7 +13536,7 @@
         ]
       },
       "get": {
-        "operationId": "get_practitioner",
+        "operationId": "get_api_practitioners__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13548,7 +13570,7 @@
         ]
       },
       "put": {
-        "operationId": "update_practitioner",
+        "operationId": "put_api_practitioners__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13584,7 +13606,7 @@
     },
     "/api/practitioners/{id}/audit": {
       "get": {
-        "operationId": "audit_practitioner",
+        "operationId": "get_api_practitioners__id__audit",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13620,7 +13642,7 @@
     },
     "/api/practitioners/{id}/export": {
       "get": {
-        "operationId": "export_practitioner",
+        "operationId": "get_api_practitioners__id__export",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13656,7 +13678,7 @@
     },
     "/api/practitioners/{id}/masked": {
       "get": {
-        "operationId": "masked_practitioner",
+        "operationId": "get_api_practitioners__id__masked",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13692,7 +13714,7 @@
     },
     "/api/print-batches": {
       "post": {
-        "operationId": "export",
+        "operationId": "post_api_print_batches",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13727,7 +13749,7 @@
     },
     "/api/print-batches/{id}/sent": {
       "post": {
-        "operationId": "mark_sent",
+        "operationId": "post_api_print_batches__id__sent",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13773,7 +13795,7 @@
     },
     "/api/print-queue": {
       "get": {
-        "operationId": "queue",
+        "operationId": "get_api_print_queue",
         "parameters": [
           {
             "in": "path",
@@ -13812,7 +13834,7 @@
     },
     "/api/proxies/{id}/revoke": {
       "post": {
-        "operationId": "revoke",
+        "operationId": "post_api_proxies__id__revoke",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13858,7 +13880,7 @@
     },
     "/api/proxy/appointments/{id}/cancel": {
       "post": {
-        "operationId": "cancel",
+        "operationId": "post_api_proxy_appointments__id__cancel",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13904,7 +13926,7 @@
     },
     "/api/proxy/appointments/{id}/rebook": {
       "post": {
-        "operationId": "rebook",
+        "operationId": "post_api_proxy_appointments__id__rebook",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13950,7 +13972,7 @@
     },
     "/api/proxy/patients/{id}/appointments": {
       "get": {
-        "operationId": "appointments",
+        "operationId": "get_api_proxy_patients__id__appointments",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -13996,7 +14018,7 @@
     },
     "/api/reasonable-adjustments/codes": {
       "get": {
-        "operationId": "codes",
+        "operationId": "get_api_reasonable_adjustments_codes",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -14018,7 +14040,7 @@
     },
     "/api/reasonable-adjustments/for-appointments": {
       "get": {
-        "operationId": "for_appointments",
+        "operationId": "get_api_reasonable_adjustments_for_appointments",
         "parameters": [
           {
             "description": "Comma-separated appointment ids, at most 500.",
@@ -14061,7 +14083,7 @@
     },
     "/api/reasonable-adjustments/{id}/end": {
       "post": {
-        "operationId": "end",
+        "operationId": "post_api_reasonable_adjustments__id__end",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -14107,7 +14129,7 @@
     },
     "/api/referrals": {
       "get": {
-        "operationId": "list",
+        "operationId": "get_api_referrals",
         "parameters": [
           {
             "in": "path",
@@ -14166,7 +14188,7 @@
         ]
       },
       "post": {
-        "operationId": "create",
+        "operationId": "post_api_referrals",
         "requestBody": {
           "content": {
             "application/json": {
@@ -14201,7 +14223,7 @@
     },
     "/api/referrals/{id}": {
       "get": {
-        "operationId": "get",
+        "operationId": "get_api_referrals__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -14237,7 +14259,7 @@
     },
     "/api/referrals/{id}/book-first-available": {
       "post": {
-        "operationId": "book_first_available",
+        "operationId": "post_api_referrals__id__book_first_available",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -14273,7 +14295,7 @@
     },
     "/api/referrals/{id}/close": {
       "post": {
-        "operationId": "close",
+        "operationId": "post_api_referrals__id__close",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -14319,7 +14341,7 @@
     },
     "/api/referrals/{id}/triage": {
       "post": {
-        "operationId": "triage",
+        "operationId": "post_api_referrals__id__triage",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -14365,7 +14387,7 @@
     },
     "/api/referrals/{id}/waitlist": {
       "post": {
-        "operationId": "waitlist",
+        "operationId": "post_api_referrals__id__waitlist",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -14411,7 +14433,7 @@
     },
     "/api/reply-links/{token}": {
       "get": {
-        "operationId": "get_link",
+        "operationId": "get_api_reply_links__token",
         "parameters": [
           {
             "description": "Path parameter `token`",
@@ -14454,7 +14476,7 @@
     },
     "/api/reply-links/{token}/rebook": {
       "post": {
-        "operationId": "post_link_rebook",
+        "operationId": "post_api_reply_links__token__rebook",
         "parameters": [
           {
             "description": "Path parameter `token`",
@@ -14507,7 +14529,7 @@
     },
     "/api/reply-links/{token}/{action}": {
       "post": {
-        "operationId": "post_link_action",
+        "operationId": "post_api_reply_links__token___action",
         "parameters": [
           {
             "description": "Path parameter `token`",
@@ -14569,7 +14591,7 @@
     },
     "/api/reports/clinic-activity": {
       "get": {
-        "operationId": "clinic_activity",
+        "operationId": "get_api_reports_clinic_activity",
         "parameters": [
           {
             "in": "path",
@@ -14644,7 +14666,7 @@
     },
     "/api/reports/follow-up-delay": {
       "get": {
-        "operationId": "delay_report",
+        "operationId": "get_api_reports_follow_up_delay",
         "parameters": [
           {
             "description": "The smallest cell shown; a caller may raise it above the configured minimum, never lower it.",
@@ -14684,7 +14706,7 @@
     },
     "/api/reports/pifu": {
       "get": {
-        "operationId": "uptake",
+        "operationId": "get_api_reports_pifu",
         "parameters": [
           {
             "description": "The smallest cell shown; a caller may raise it above the configured minimum, never lower it.",
@@ -14724,7 +14746,7 @@
     },
     "/api/reports/validation-removals": {
       "get": {
-        "operationId": "removals_report",
+        "operationId": "get_api_reports_validation_removals",
         "parameters": [
           {
             "in": "path",
@@ -14775,7 +14797,7 @@
     },
     "/api/rooms": {
       "post": {
-        "operationId": "create_room",
+        "operationId": "post_api_rooms",
         "requestBody": {
           "content": {
             "application/json": {
@@ -14810,7 +14832,7 @@
     },
     "/api/rooms/{id}": {
       "get": {
-        "operationId": "get_room",
+        "operationId": "get_api_rooms__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -14846,7 +14868,7 @@
     },
     "/api/rtt/start": {
       "post": {
-        "operationId": "rtt_start",
+        "operationId": "post_api_rtt_start",
         "requestBody": {
           "content": {
             "application/json": {
@@ -14888,7 +14910,7 @@
     },
     "/api/rtt/{id}/breaching": {
       "get": {
-        "operationId": "rtt_is_breaching",
+        "operationId": "get_api_rtt__id__breaching",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -14924,7 +14946,7 @@
     },
     "/api/rtt/{id}/pause": {
       "post": {
-        "operationId": "rtt_pause",
+        "operationId": "post_api_rtt__id__pause",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -14977,7 +14999,7 @@
     },
     "/api/rtt/{id}/resume": {
       "post": {
-        "operationId": "rtt_resume",
+        "operationId": "post_api_rtt__id__resume",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15020,7 +15042,7 @@
     },
     "/api/rtt/{id}/stop": {
       "post": {
-        "operationId": "rtt_stop",
+        "operationId": "post_api_rtt__id__stop",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15073,7 +15095,7 @@
     },
     "/api/rtt/{id}/weeks-waiting": {
       "get": {
-        "operationId": "rtt_weeks_waiting",
+        "operationId": "get_api_rtt__id__weeks_waiting",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15109,7 +15131,7 @@
     },
     "/api/session-templates": {
       "get": {
-        "operationId": "list",
+        "operationId": "get_api_session_templates",
         "parameters": [
           {
             "in": "path",
@@ -15146,7 +15168,7 @@
         ]
       },
       "post": {
-        "operationId": "create",
+        "operationId": "post_api_session_templates",
         "requestBody": {
           "content": {
             "application/json": {
@@ -15181,7 +15203,7 @@
     },
     "/api/session-templates/{id}/generate": {
       "post": {
-        "operationId": "generate",
+        "operationId": "post_api_session_templates__id__generate",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15227,7 +15249,7 @@
     },
     "/api/session-templates/{id}/versions": {
       "post": {
-        "operationId": "propose",
+        "operationId": "post_api_session_templates__id__versions",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15273,7 +15295,7 @@
     },
     "/api/session-templates/{id}/versions/{version}/approve": {
       "post": {
-        "operationId": "approve",
+        "operationId": "post_api_session_templates__id__versions__version__approve",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15328,7 +15350,7 @@
     },
     "/api/slot-releases": {
       "get": {
-        "operationId": "list_releases",
+        "operationId": "get_api_slot_releases",
         "parameters": [
           {
             "in": "path",
@@ -15391,7 +15413,7 @@
     },
     "/api/slot-releases/{id}/candidates": {
       "get": {
-        "operationId": "release_candidates",
+        "operationId": "get_api_slot_releases__id__candidates",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15460,7 +15482,7 @@
     },
     "/api/slot-releases/{id}/offer": {
       "post": {
-        "operationId": "offer_now",
+        "operationId": "post_api_slot_releases__id__offer",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15496,7 +15518,7 @@
     },
     "/api/slot-releases/{id}/offers": {
       "get": {
-        "operationId": "release_offers",
+        "operationId": "get_api_slot_releases__id__offers",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15532,7 +15554,7 @@
     },
     "/api/slots/{id}/attendees": {
       "get": {
-        "operationId": "attendees",
+        "operationId": "get_api_slots__id__attendees",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15568,7 +15590,7 @@
     },
     "/api/slots/{id}/book": {
       "post": {
-        "operationId": "book_slot",
+        "operationId": "post_api_slots__id__book",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15621,7 +15643,7 @@
     },
     "/api/slots/{id}/capacity": {
       "put": {
-        "operationId": "set_capacity",
+        "operationId": "put_api_slots__id__capacity",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15667,7 +15689,7 @@
     },
     "/api/slots/{id}/ring-fence": {
       "put": {
-        "operationId": "ring_fence",
+        "operationId": "put_api_slots__id__ring_fence",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15713,7 +15735,7 @@
     },
     "/api/staff-call-tasks/open": {
       "get": {
-        "operationId": "open_calls",
+        "operationId": "get_api_staff_call_tasks_open",
         "parameters": [
           {
             "in": "path",
@@ -15752,7 +15774,7 @@
     },
     "/api/staff-call-tasks/{id}/outcome": {
       "post": {
-        "operationId": "call_outcome",
+        "operationId": "post_api_staff_call_tasks__id__outcome",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15798,7 +15820,7 @@
     },
     "/api/standby": {
       "get": {
-        "operationId": "list_standby",
+        "operationId": "get_api_standby",
         "parameters": [
           {
             "in": "path",
@@ -15834,7 +15856,7 @@
         ]
       },
       "post": {
-        "operationId": "add_standby",
+        "operationId": "post_api_standby",
         "requestBody": {
           "content": {
             "application/json": {
@@ -15869,7 +15891,7 @@
     },
     "/api/standby/{id}": {
       "delete": {
-        "operationId": "remove_standby",
+        "operationId": "delete_api_standby__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15905,7 +15927,7 @@
     },
     "/api/standby/{id}/book": {
       "post": {
-        "operationId": "book_from_standby",
+        "operationId": "post_api_standby__id__book",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15951,7 +15973,7 @@
     },
     "/api/still-needed-checks/{id}/answer": {
       "post": {
-        "operationId": "answer",
+        "operationId": "post_api_still_needed_checks__id__answer",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -15997,7 +16019,7 @@
     },
     "/api/support-flags": {
       "post": {
-        "operationId": "add",
+        "operationId": "post_api_support_flags",
         "requestBody": {
           "content": {
             "application/json": {
@@ -16032,7 +16054,7 @@
     },
     "/api/support-flags/open": {
       "get": {
-        "operationId": "open",
+        "operationId": "get_api_support_flags_open",
         "parameters": [
           {
             "in": "path",
@@ -16071,7 +16093,7 @@
     },
     "/api/support-flags/{id}/resolve": {
       "post": {
-        "operationId": "resolve",
+        "operationId": "post_api_support_flags__id__resolve",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -16117,7 +16139,7 @@
     },
     "/api/tolerance-alerts": {
       "get": {
-        "operationId": "alerts",
+        "operationId": "get_api_tolerance_alerts",
         "parameters": [
           {
             "description": "`true` for the alerts still open; the default is all of them.",
@@ -16163,7 +16185,7 @@
     },
     "/api/tolerance-alerts/{id}/acknowledge": {
       "post": {
-        "operationId": "acknowledge",
+        "operationId": "post_api_tolerance_alerts__id__acknowledge",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -16209,7 +16231,7 @@
     },
     "/api/tolerances": {
       "get": {
-        "operationId": "list",
+        "operationId": "get_api_tolerances",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -16234,7 +16256,7 @@
     },
     "/api/tolerances/evaluate": {
       "post": {
-        "operationId": "evaluate",
+        "operationId": "post_api_tolerances_evaluate",
         "parameters": [
           {
             "in": "path",
@@ -16273,7 +16295,7 @@
     },
     "/api/tolerances/status": {
       "get": {
-        "operationId": "status",
+        "operationId": "get_api_tolerances_status",
         "parameters": [
           {
             "in": "path",
@@ -16319,7 +16341,7 @@
     },
     "/api/tolerances/{metric}": {
       "delete": {
-        "operationId": "reset",
+        "operationId": "delete_api_tolerances__metric",
         "parameters": [
           {
             "description": "Path parameter `metric`",
@@ -16375,7 +16397,7 @@
         ]
       },
       "put": {
-        "operationId": "set",
+        "operationId": "put_api_tolerances__metric",
         "parameters": [
           {
             "description": "Path parameter `metric`",
@@ -16421,7 +16443,7 @@
     },
     "/api/triage/queue": {
       "get": {
-        "operationId": "queue",
+        "operationId": "get_api_triage_queue",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -16446,7 +16468,7 @@
     },
     "/api/triage/waits": {
       "get": {
-        "operationId": "waits",
+        "operationId": "get_api_triage_waits",
         "parameters": [
           {
             "description": "Start of the window (inclusive); defaults to 24 hours before `to`.",
@@ -16499,7 +16521,7 @@
     },
     "/api/upstream/person-merged": {
       "post": {
-        "operationId": "person_merged_webhook",
+        "operationId": "post_api_upstream_person_merged",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -16524,7 +16546,7 @@
     },
     "/api/upstream/worker-merged": {
       "post": {
-        "operationId": "worker_merged_webhook",
+        "operationId": "post_api_upstream_worker_merged",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -16549,7 +16571,7 @@
     },
     "/api/validate/nhs-number": {
       "post": {
-        "operationId": "validate_nhs_number",
+        "operationId": "post_api_validate_nhs_number",
         "requestBody": {
           "content": {
             "application/json": {
@@ -16584,7 +16606,7 @@
     },
     "/api/validation-campaigns": {
       "get": {
-        "operationId": "list",
+        "operationId": "get_api_validation_campaigns",
         "parameters": [
           {
             "in": "path",
@@ -16621,7 +16643,7 @@
         ]
       },
       "post": {
-        "operationId": "start",
+        "operationId": "post_api_validation_campaigns",
         "requestBody": {
           "content": {
             "application/json": {
@@ -16656,7 +16678,7 @@
     },
     "/api/validation-campaigns/{id}": {
       "get": {
-        "operationId": "get",
+        "operationId": "get_api_validation_campaigns__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -16692,7 +16714,7 @@
     },
     "/api/validation-campaigns/{id}/items": {
       "get": {
-        "operationId": "items",
+        "operationId": "get_api_validation_campaigns__id__items",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -16763,7 +16785,7 @@
     },
     "/api/validation-campaigns/{id}/items/{item}/answer": {
       "post": {
-        "operationId": "answer",
+        "operationId": "post_api_validation_campaigns__id__items__item__answer",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -16818,7 +16840,7 @@
     },
     "/api/validation-campaigns/{id}/items/{item}/asked": {
       "post": {
-        "operationId": "asked",
+        "operationId": "post_api_validation_campaigns__id__items__item__asked",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -16873,7 +16895,7 @@
     },
     "/api/validation-campaigns/{id}/items/{item}/decision": {
       "post": {
-        "operationId": "decision",
+        "operationId": "post_api_validation_campaigns__id__items__item__decision",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -16928,7 +16950,7 @@
     },
     "/api/validation-campaigns/{id}/items/{item}/letter-sent": {
       "post": {
-        "operationId": "letter_sent",
+        "operationId": "post_api_validation_campaigns__id__items__item__letter_sent",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -16983,7 +17005,7 @@
     },
     "/api/validation-campaigns/{id}/items/{item}/reinstate": {
       "post": {
-        "operationId": "reinstate",
+        "operationId": "post_api_validation_campaigns__id__items__item__reinstate",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17038,7 +17060,7 @@
     },
     "/api/virtual-ok-services": {
       "get": {
-        "operationId": "list_services",
+        "operationId": "get_api_virtual_ok_services",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -17063,7 +17085,7 @@
     },
     "/api/virtual-ok-services/{service_type}": {
       "delete": {
-        "operationId": "remove_service",
+        "operationId": "delete_api_virtual_ok_services__service_type",
         "parameters": [
           {
             "description": "Path parameter `service_type`",
@@ -17097,7 +17119,7 @@
         ]
       },
       "put": {
-        "operationId": "approve_service",
+        "operationId": "put_api_virtual_ok_services__service_type",
         "parameters": [
           {
             "description": "Path parameter `service_type`",
@@ -17143,7 +17165,7 @@
     },
     "/api/waitlist": {
       "get": {
-        "operationId": "list_waitlist",
+        "operationId": "get_api_waitlist",
         "parameters": [
           {
             "in": "path",
@@ -17183,7 +17205,7 @@
         ]
       },
       "post": {
-        "operationId": "add_to_waitlist",
+        "operationId": "post_api_waitlist",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17225,7 +17247,7 @@
     },
     "/api/waitlist/{id}": {
       "delete": {
-        "operationId": "remove_from_waitlist",
+        "operationId": "delete_api_waitlist__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17268,7 +17290,7 @@
     },
     "/api/waitlist/{id}/book": {
       "post": {
-        "operationId": "book_from_waitlist",
+        "operationId": "post_api_waitlist__id__book",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17321,7 +17343,7 @@
     },
     "/api/waitlist/{id}/clinical-priority": {
       "put": {
-        "operationId": "set_priority",
+        "operationId": "put_api_waitlist__id__clinical_priority",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17367,7 +17389,7 @@
     },
     "/api/waitlist/{id}/follow-up-target": {
       "put": {
-        "operationId": "set_target",
+        "operationId": "put_api_waitlist__id__follow_up_target",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17413,7 +17435,7 @@
     },
     "/api/wards": {
       "post": {
-        "operationId": "create_ward",
+        "operationId": "post_api_wards",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17448,7 +17470,7 @@
     },
     "/api/wards/{id}": {
       "get": {
-        "operationId": "get_ward",
+        "operationId": "get_api_wards__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17484,7 +17506,7 @@
     },
     "/api/wards/{id}/beds": {
       "get": {
-        "operationId": "list_beds_by_ward",
+        "operationId": "get_api_wards__id__beds",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17520,7 +17542,7 @@
     },
     "/api/wards/{id}/occupancy": {
       "get": {
-        "operationId": "ward_occupancy",
+        "operationId": "get_api_wards__id__occupancy",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17556,7 +17578,7 @@
     },
     "/api/wards/{id}/rooms": {
       "get": {
-        "operationId": "list_rooms_by_ward",
+        "operationId": "get_api_wards__id__rooms",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17592,7 +17614,7 @@
     },
     "/api/write-back/batch": {
       "post": {
-        "operationId": "post_batch",
+        "operationId": "post_api_write_back_batch",
         "responses": {
           "200": {
             "description": "Success; the `ApiResponse` envelope"
@@ -17620,7 +17642,7 @@
     },
     "/api/write-back/ivr/menu": {
       "post": {
-        "operationId": "menu",
+        "operationId": "post_api_write_back_ivr_menu",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17658,7 +17680,7 @@
     },
     "/api/write-back/ivr/press": {
       "post": {
-        "operationId": "press",
+        "operationId": "post_api_write_back_ivr_press",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17696,7 +17718,7 @@
     },
     "/api/write-back/receipts": {
       "post": {
-        "operationId": "post_receipt",
+        "operationId": "post_api_write_back_receipts",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17734,7 +17756,7 @@
     },
     "/api/write-back/replies": {
       "post": {
-        "operationId": "post_reply",
+        "operationId": "post_api_write_back_replies",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17772,7 +17794,7 @@
     },
     "/api/write-back/texts": {
       "post": {
-        "operationId": "post_text",
+        "operationId": "post_api_write_back_texts",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17810,7 +17832,7 @@
     },
     "/fhir": {
       "post": {
-        "operationId": "post_bundle",
+        "operationId": "post_fhir",
         "responses": {
           "200": {
             "description": "FHIR resource, Bundle or OperationOutcome"
@@ -17835,7 +17857,7 @@
     },
     "/fhir/Appointment/{id}": {
       "get": {
-        "operationId": "get_appointment",
+        "operationId": "get_fhir_Appointment__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17871,7 +17893,7 @@
     },
     "/fhir/Coverage/{id}": {
       "get": {
-        "operationId": "get_coverage",
+        "operationId": "get_fhir_Coverage__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17907,7 +17929,7 @@
     },
     "/fhir/Encounter/{id}": {
       "get": {
-        "operationId": "get_encounter",
+        "operationId": "get_fhir_Encounter__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -17943,7 +17965,7 @@
     },
     "/fhir/Flag": {
       "get": {
-        "operationId": "search_flags",
+        "operationId": "get_fhir_Flag",
         "parameters": [
           {
             "description": "The patient, as `Patient/<id>` or the bare id (required)",
@@ -17979,7 +18001,7 @@
     },
     "/fhir/Location/{id}": {
       "get": {
-        "operationId": "get_location",
+        "operationId": "get_fhir_Location__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18015,7 +18037,7 @@
     },
     "/fhir/Observation": {
       "get": {
-        "operationId": "search_observations",
+        "operationId": "get_fhir_Observation",
         "parameters": [
           {
             "description": "The encounter, as `Encounter/<id>` or the bare id (required)",
@@ -18051,7 +18073,7 @@
     },
     "/fhir/Patient": {
       "get": {
-        "operationId": "list_patients",
+        "operationId": "get_fhir_Patient",
         "responses": {
           "200": {
             "description": "FHIR resource, Bundle or OperationOutcome"
@@ -18074,7 +18096,7 @@
         ]
       },
       "post": {
-        "operationId": "create_patient",
+        "operationId": "post_fhir_Patient",
         "responses": {
           "200": {
             "description": "FHIR resource, Bundle or OperationOutcome"
@@ -18099,7 +18121,7 @@
     },
     "/fhir/Patient/{id}": {
       "delete": {
-        "operationId": "delete_patient",
+        "operationId": "delete_fhir_Patient__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18133,7 +18155,7 @@
         ]
       },
       "get": {
-        "operationId": "get_patient",
+        "operationId": "get_fhir_Patient__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18167,7 +18189,7 @@
         ]
       },
       "put": {
-        "operationId": "update_patient",
+        "operationId": "put_fhir_Patient__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18203,7 +18225,7 @@
     },
     "/fhir/Practitioner": {
       "post": {
-        "operationId": "create_practitioner",
+        "operationId": "post_fhir_Practitioner",
         "responses": {
           "200": {
             "description": "FHIR resource, Bundle or OperationOutcome"
@@ -18228,7 +18250,7 @@
     },
     "/fhir/Practitioner/{id}": {
       "delete": {
-        "operationId": "delete_practitioner",
+        "operationId": "delete_fhir_Practitioner__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18262,7 +18284,7 @@
         ]
       },
       "get": {
-        "operationId": "get_practitioner",
+        "operationId": "get_fhir_Practitioner__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18296,7 +18318,7 @@
         ]
       },
       "put": {
-        "operationId": "update_practitioner",
+        "operationId": "put_fhir_Practitioner__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18332,7 +18354,7 @@
     },
     "/fhir/Schedule": {
       "post": {
-        "operationId": "create_schedule",
+        "operationId": "post_fhir_Schedule",
         "responses": {
           "200": {
             "description": "FHIR resource, Bundle or OperationOutcome"
@@ -18357,7 +18379,7 @@
     },
     "/fhir/Schedule/{id}": {
       "delete": {
-        "operationId": "delete_schedule",
+        "operationId": "delete_fhir_Schedule__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18391,7 +18413,7 @@
         ]
       },
       "get": {
-        "operationId": "get_schedule",
+        "operationId": "get_fhir_Schedule__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18425,7 +18447,7 @@
         ]
       },
       "put": {
-        "operationId": "update_schedule",
+        "operationId": "put_fhir_Schedule__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18461,7 +18483,7 @@
     },
     "/fhir/Slot": {
       "post": {
-        "operationId": "create_slot",
+        "operationId": "post_fhir_Slot",
         "responses": {
           "200": {
             "description": "FHIR resource, Bundle or OperationOutcome"
@@ -18486,7 +18508,7 @@
     },
     "/fhir/Slot/{id}": {
       "delete": {
-        "operationId": "delete_slot",
+        "operationId": "delete_fhir_Slot__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18520,7 +18542,7 @@
         ]
       },
       "get": {
-        "operationId": "get_slot",
+        "operationId": "get_fhir_Slot__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18554,7 +18576,7 @@
         ]
       },
       "put": {
-        "operationId": "update_slot",
+        "operationId": "put_fhir_Slot__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18590,7 +18612,7 @@
     },
     "/fhir/Subscription": {
       "get": {
-        "operationId": "search_subscriptions",
+        "operationId": "get_fhir_Subscription",
         "responses": {
           "200": {
             "description": "FHIR resource, Bundle or OperationOutcome"
@@ -18615,7 +18637,7 @@
     },
     "/fhir/SubscriptionTopic": {
       "get": {
-        "operationId": "search_subscription_topics",
+        "operationId": "get_fhir_SubscriptionTopic",
         "responses": {
           "200": {
             "description": "FHIR resource, Bundle or OperationOutcome"
@@ -18640,7 +18662,7 @@
     },
     "/fhir/metadata": {
       "get": {
-        "operationId": "metadata",
+        "operationId": "get_fhir_metadata",
         "responses": {
           "200": {
             "description": "The FHIR R5 CapabilityStatement"
@@ -18659,7 +18681,7 @@
     },
     "/fhir/r4/Appointment/$book": {
       "post": {
-        "operationId": "book",
+        "operationId": "post_fhir_r4_Appointment__book",
         "responses": {
           "200": {
             "description": "FHIR R4 resource or Bundle (`application/fhir+json; fhirVersion=4.0`)"
@@ -18684,7 +18706,7 @@
     },
     "/fhir/r4/Appointment/$find": {
       "post": {
-        "operationId": "find",
+        "operationId": "post_fhir_r4_Appointment__find",
         "responses": {
           "200": {
             "description": "FHIR R4 resource or Bundle (`application/fhir+json; fhirVersion=4.0`)"
@@ -18709,7 +18731,7 @@
     },
     "/fhir/r4/Appointment/$hold": {
       "post": {
-        "operationId": "hold",
+        "operationId": "post_fhir_r4_Appointment__hold",
         "responses": {
           "200": {
             "description": "FHIR R4 resource or Bundle (`application/fhir+json; fhirVersion=4.0`)"
@@ -18734,7 +18756,7 @@
     },
     "/fhir/r4/Appointment/{id}": {
       "get": {
-        "operationId": "get_appointment",
+        "operationId": "get_fhir_r4_Appointment__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18770,7 +18792,7 @@
     },
     "/fhir/r4/Encounter/{id}": {
       "get": {
-        "operationId": "get_encounter",
+        "operationId": "get_fhir_r4_Encounter__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18806,7 +18828,7 @@
     },
     "/fhir/r4/ServiceRequest/{id}": {
       "get": {
-        "operationId": "get_service_request",
+        "operationId": "get_fhir_r4_ServiceRequest__id",
         "parameters": [
           {
             "description": "Path parameter `id`",
@@ -18842,7 +18864,7 @@
     },
     "/fhir/r4/metadata": {
       "get": {
-        "operationId": "metadata",
+        "operationId": "get_fhir_r4_metadata",
         "responses": {
           "200": {
             "description": "FHIR R4 resource or Bundle (`application/fhir+json; fhirVersion=4.0`)"

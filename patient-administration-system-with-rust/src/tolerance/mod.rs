@@ -134,8 +134,10 @@ pub struct Reading {
     pub scope_key: String,
     #[serde(flatten)]
     pub limits: Limits,
+    #[schema(required = true)]
     pub value: Option<f64>,
     /// How far the value is from the target in the worse direction.
+    #[schema(required = true)]
     pub adverse_drift: Option<f64>,
     pub rag: Rag,
     /// How many things the value is based on (appointments, pathways, slots, beds, invoices).
@@ -164,7 +166,9 @@ pub struct Status {
 pub struct Alert {
     pub id: Uuid,
     pub metric: String,
+    #[schema(required = true)]
     pub label: Option<&'static str>,
+    #[schema(required = true)]
     pub unit: Option<&'static str>,
     pub scope_kind: String,
     pub scope_key: String,
@@ -175,8 +179,11 @@ pub struct Alert {
     pub raised_at: DateTime<Utc>,
     pub last_seen_at: DateTime<Utc>,
     /// Set when the measure is no longer red.
+    #[schema(required = true)]
     pub cleared_at: Option<DateTime<Utc>>,
+    #[schema(required = true)]
     pub acknowledged_by: Option<String>,
+    #[schema(required = true)]
     pub acknowledged_at: Option<DateTime<Utc>>,
     pub note: String,
 }

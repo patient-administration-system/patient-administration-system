@@ -99,17 +99,22 @@ impl utoipa::Modify for Credentials {
             } else {
                 vec![bearer()]
             };
-            for op in [
-                &mut item.get,
-                &mut item.put,
-                &mut item.post,
-                &mut item.delete,
-                &mut item.patch,
-            ]
-            .into_iter()
-            .flatten()
-            {
+            for (method, op) in [
+                ("get", &mut item.get),
+                ("put", &mut item.put),
+                ("post", &mut item.post),
+                ("delete", &mut item.delete),
+                ("patch", &mut item.patch),
+            ] {
+                let Some(op) = op else { continue };
                 op.security = Some(rule.clone());
+                // utoipa names an operation after its function, and function names repeat across modules;
+                // an `operationId` must be unique, and generated clients are named after it.
+                let slug: String = path
+                    .chars()
+                    .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+                    .collect();
+                op.operation_id = Some(format!("{method}{}", slug.trim_end_matches('_')));
             }
         }
     }
@@ -660,6 +665,20 @@ mod tests {
             }
         }
         assert!(doc["components"]["securitySchemes"]["bearer"].is_object());
+    }
+
+    #[test]
+    fn every_operation_has_its_own_id() {
+        let doc = serde_json::to_value(ApiDoc::openapi()).expect("serialize");
+        let mut seen = std::collections::HashMap::new();
+        for (path, item) in doc["paths"].as_object().expect("paths") {
+            for (method, op) in item.as_object().expect("item") {
+                let id = op["operationId"].as_str().expect("operationId");
+                if let Some(other) = seen.insert(id.to_string(), format!("{method} {path}")) {
+                    panic!("{id} names both {other} and {method} {path}");
+                }
+            }
+        }
     }
 
     #[test]

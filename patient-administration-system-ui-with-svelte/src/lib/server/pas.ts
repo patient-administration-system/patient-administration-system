@@ -1,7 +1,12 @@
 // The BFF's client for the PAS REST API. The bearer token lives here, on the
 // server; the browser only ever talks to this app's own routes.
 
+import type { components } from "./api-types";
 import { PAS_API_URL, serviceToken } from "./config";
+
+// The shapes below come from the API contract (`spec/openapi.json`) through `api-types.ts`, which
+// `pnpm run types` regenerates; changing a Rust response field breaks `pnpm run check`.
+type Schemas = components["schemas"];
 
 export type FetchFn = typeof fetch;
 
@@ -70,14 +75,7 @@ export async function pasArray<T>(
   return data as T[];
 }
 
-export interface Appointment {
-  id: string;
-  person_id: string;
-  start_datetime: string;
-  end_datetime: string;
-  status: "proposed" | "booked" | "arrived" | "fulfilled" | "cancelled" | "no_show";
-  reason?: string | null;
-}
+export type Appointment = Schemas["Appointment"];
 
 export const patientAppointments = (f: FetchFn, personId: string) =>
   pasArray<Appointment>(f, `/api/patients/${encodeURIComponent(personId)}/appointments`);
@@ -85,41 +83,18 @@ export const patientAppointments = (f: FetchFn, personId: string) =>
 export const appointmentsBetween = (f: FetchFn, from: string, to: string) =>
   pasArray<Appointment>(f, `/api/appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
 
-export interface LetterTemplate {
-  id: string;
-  name: string;
-  subject: string;
-  body_tera: string;
-  required_variables: string[];
-  channels: string[];
-  active: boolean;
-  /** The language of this variant, such as en-001 or cy-001. */
-  locale: string;
-  created_at: string;
-  updated_at: string;
-}
+export type LetterTemplate = Schemas["LetterTemplate"];
 
 export const letterTemplates = (f: FetchFn) => pasArray<LetterTemplate>(f, "/api/letter-templates");
 
 export const updateLetterTemplate = (f: FetchFn, t: LetterTemplate) =>
   pas<LetterTemplate>(f, `/api/letter-templates/${encodeURIComponent(t.id)}`, { method: "PUT", body: t });
 
-export interface WaitlistEntry {
-  id: string;
-  person_id: string;
-  target_service: string;
-  priority: string;
-  status: string;
-}
+export type WaitlistEntry = Schemas["WaitlistEntry"];
 
 export const waitlist = (f: FetchFn) => pasArray<WaitlistEntry>(f, "/api/waitlist");
 
-export interface PortalMessage {
-  id: string;
-  rendered_subject: string;
-  rendered_body: string;
-  created_at: string;
-}
+export type PortalMessage = Schemas["GeneratedLetter"];
 
 /** Messages delivered to one patient's secure portal inbox, newest first. */
 export const portalMessages = (f: FetchFn, personId: string) =>
@@ -127,19 +102,9 @@ export const portalMessages = (f: FetchFn, personId: string) =>
 
 // ---- No-show probability (CAP-12): support only, and off until people approve it --------------
 
-export interface NoShowFactor {
-  name: string;
-  detail: string;
-  effect_points: number;
-}
+export type NoShowFactor = Schemas["Factor"];
 
-export interface NoShowItem {
-  appointment_id: string;
-  probability_percent?: number;
-  band: "low" | "medium" | "high";
-  factors: NoShowFactor[];
-  sample_size: number;
-}
+export type NoShowItem = Schemas["Shown"];
 
 /** The stored assessments for these appointments. `active` is false while the score is switched off. */
 export const noshowFor = (f: FetchFn, ids: string[]) =>
@@ -150,10 +115,7 @@ export const noshowFor = (f: FetchFn, ids: string[]) =>
 
 // ---- Reasonable adjustments (NEW-6): shown to staff beside an appointment ---------------------
 
-export interface AppointmentAdjustments {
-  appointment_id: string;
-  adjustments: { code: string; category: string }[];
-}
+export type AppointmentAdjustments = Schemas["AppointmentAdjustments"];
 
 /** The live adjustments of each appointment's patient; only appointments whose patient has any are listed. */
 export const adjustmentsFor = (f: FetchFn, ids: string[]) =>
@@ -164,13 +126,7 @@ export const adjustmentsFor = (f: FetchFn, ids: string[]) =>
 
 // ---- History (CAP-6) and long waits (CAP-8) ---------------------------------------------------
 
-export interface HistoryRow {
-  at: string;
-  kind: string | null;
-  action: string | null;
-  by: string | null;
-  reason_code: string | null;
-}
+export type HistoryRow = Schemas["HistoryRow"];
 
 /** What happened to one appointment, oldest first. */
 export const appointmentHistory = (f: FetchFn, id: string) =>
@@ -180,13 +136,7 @@ export const appointmentHistory = (f: FetchFn, id: string) =>
 export const contactLog = (f: FetchFn, id: string) =>
   pasArray<HistoryRow>(f, `/api/patients/${encodeURIComponent(id)}/contact-log`);
 
-export interface DueCheck {
-  pathway_id: string;
-  person_id: string;
-  target_service: string;
-  weeks_waited: number;
-  last_check_at: string | null;
-}
+export type DueCheck = Schemas["DueCheck"];
 
 /** Long waiters nobody has asked recently whether they still need this, longest first. */
 export const dueChecks = (f: FetchFn) => pasArray<DueCheck>(f, "/api/pathways/due-check");
@@ -200,51 +150,14 @@ export const askStillNeeded = (f: FetchFn, pathwayId: string, askedBy: string) =
 
 // ---- Tolerances (red / amber / green) --------------------------------------------------------
 
-export type Rag = "green" | "amber" | "red" | "no_data";
+export type Rag = Schemas["Rag"];
 
-export interface ToleranceReading {
-  metric: string;
-  kind: "time" | "money" | "resources";
-  label: string;
-  unit: "weeks" | "days" | "share";
-  direction: "higher_is_worse" | "lower_is_worse" | "either";
-  /** What the reading is about: the whole service, one service (by its type), or one ward (by its code). */
-  scope_kind: "all" | "service" | "ward";
-  scope_key: string;
-  target: number;
-  tolerance: number;
-  escalate_beyond: number;
-  value: number | null;
-  adverse_drift: number | null;
-  rag: Rag;
-  sample: number;
-  customised: boolean;
-}
+export type ToleranceReading = Schemas["Reading"];
 
-export interface ToleranceStatus {
-  from: string;
-  to: string;
-  overall: Rag;
-  readings: ToleranceReading[];
-  by_service: ToleranceReading[];
-  by_ward: ToleranceReading[];
-}
+export type ToleranceStatus = Schemas["ToleranceStatus"];
 
 /** A measure that went past its red limit. Open until the measure is no longer red. */
-export interface ToleranceAlert {
-  id: string;
-  metric: string;
-  scope_kind: "all" | "service" | "ward";
-  scope_key: string;
-  value: number;
-  target: number;
-  tolerance: number;
-  escalate_beyond: number;
-  unit: "weeks" | "days" | "share" | null;
-  raised_at: string;
-  acknowledged_by: string | null;
-  acknowledged_at: string | null;
-}
+export type ToleranceAlert = Schemas["Alert"];
 
 export const toleranceAlerts = (f: FetchFn) => pasArray<ToleranceAlert>(f, "/api/tolerance-alerts?open=true");
 
@@ -272,21 +185,10 @@ export const identityProofed = async (f: FetchFn, subject: string, personId: str
 
 // ---- Reply links (CAP-13) --------------------------------------------------------------------
 
-export interface ReplyLinkInfo {
-  state: "open" | "used" | "expired";
-  language: string;
-  when: string;
-  starts_at: string | null;
-  time_zone: string;
-  actions: string[];
-}
+export type ReplyLinkInfo = Schemas["LinkInfo"];
 
 /** One alternative time offered after Reschedule (CAP-5). */
-export interface ReplyLinkOption {
-  slot_id: string;
-  starts_at: string;
-  when: string;
-}
+export type ReplyLinkOption = Schemas["LinkOption"];
 
 export type ReplyLinkStatus =
   | "confirmed"
@@ -321,13 +223,7 @@ export const replyLinkRebook = (f: FetchFn, token: string, slotId: string) =>
 
 // ---- Backfill offers (PILOT-8) ---------------------------------------------------------------
 
-export interface OfferLinkInfo {
-  state: "open" | "used" | "expired" | "gone";
-  starts_at: string | null;
-  time_zone: string;
-  expires_at: string | null;
-  actions: string[];
-}
+export type OfferLinkInfo = Schemas["OfferInfo"];
 
 /** Read-only: what the offer page may show. Opening a link never acts. */
 export const offerLinkInfo = (f: FetchFn, token: string) =>

@@ -28,11 +28,15 @@ pub struct HistoryService {
 pub struct HistoryRow {
     pub at: chrono::DateTime<chrono::Utc>,
     /// `audit`, `message`, `reply`, `text` or `reminder_step`.
+    #[schema(required = true)]
     pub kind: Option<String>,
+    #[schema(required = true)]
     pub action: Option<String>,
+    #[schema(required = true)]
     pub by: Option<String>,
+    #[schema(required = true)]
     pub reason_code: Option<String>,
-    #[schema(value_type = Option<Object>)]
+    #[schema(value_type = Option<Object>, required = true)]
     pub context: Option<Value>,
 }
 

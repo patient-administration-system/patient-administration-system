@@ -55,6 +55,7 @@ pub struct LetterTemplate {
     /// The language of this variant: `en-001`, `cy-001`. Templates with the same `name` are the
     /// language variants of one message (see `communication::templates`).
     #[serde(default = "default_locale")]
+    #[schema(required = true)]
     pub locale: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
