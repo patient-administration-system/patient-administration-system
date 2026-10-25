@@ -40,8 +40,8 @@ async fn allowed(db: &sea_orm::DatabaseConnection, constraint: &str) -> BTreeSet
 async fn every_code_side_state_list_matches_its_check_constraint() {
     let state = common::build_state(&common::database_url().unwrap()).await;
     let cases: &[(&str, &[&str])] = &[
-        ("referrals_status_chk", &referrals::STATUSES),
-        ("referrals_source_chk", &referrals::SOURCES),
+        ("referrals_status_chk", referrals::ReferralStatus::NAMES),
+        ("referrals_source_chk", referrals::ReferralSource::NAMES),
         ("support_flags_kind_check", &support::KINDS),
         ("support_flags_outcome_check", &support::OUTCOMES),
         ("follow_up_tasks_outcome_check", &follow_up::OUTCOMES),

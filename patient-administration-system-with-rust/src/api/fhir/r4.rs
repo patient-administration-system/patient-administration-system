@@ -24,7 +24,7 @@ use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::encounter::EncounterRepository;
 use crate::models::appointment::{Appointment, AppointmentStatus};
 use crate::models::encounter::{Encounter, EncounterClass, EncounterStatus};
-use crate::referrals::Referral;
+use crate::referrals::{Referral, ReferralStatus};
 
 const CONTENT_TYPE: &str = "application/fhir+json; fhirVersion=4.0";
 const WALES: &str = "https://fhir.nhs.wales/StructureDefinition/DataStandardsWales-";
@@ -161,10 +161,10 @@ pub fn encounter(e: &Encounter) -> Value {
     r
 }
 
-fn request_status(referral_status: &str) -> &'static str {
+fn request_status(referral_status: ReferralStatus) -> &'static str {
     match referral_status {
-        "closed" | "returned_with_advice" => "completed",
-        "redirected" => "revoked",
+        ReferralStatus::Closed | ReferralStatus::ReturnedWithAdvice => "completed",
+        ReferralStatus::Redirected => "revoked",
         _ => "active",
     }
 }
@@ -175,7 +175,7 @@ pub fn service_request(r: &Referral) -> Value {
         "resourceType": "ServiceRequest",
         "id": r.id,
         "meta": { "profile": [format!("{WALES}ServiceRequest")] },
-        "status": request_status(&r.status),
+        "status": request_status(r.status),
         "intent": "order",
         "subject": { "reference": format!("Patient/{}", r.person_id) },
         "authoredOn": r.received_at,
@@ -303,7 +303,9 @@ mod tests {
             ("returned_with_advice", "completed"),
             ("redirected", "revoked"),
         ] {
-            assert_eq!(request_status(s), want, "{s}");
+            assert_eq!(request_status(s.parse().unwrap()), want, "{s}");
         }
+        // Every status has a row above.
+        assert_eq!(ReferralStatus::ALL.len(), 6);
     }
 }

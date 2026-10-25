@@ -18,6 +18,7 @@ pub mod encounter;
 pub mod facility;
 pub mod rtt;
 pub mod schedule;
+pub mod states;
 pub mod waitlist;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

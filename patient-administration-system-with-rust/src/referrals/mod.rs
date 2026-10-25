@@ -26,24 +26,33 @@ use crate::scheduling::SchedulingService;
 use crate::waitlist::WaitlistService;
 use crate::{Error, Result};
 
-pub const SOURCES: [&str; 3] = ["gp", "e-rs", "internal"];
-pub const STATUSES: [&str; 6] = [
-    "received",
-    "waitlisted",
-    "booked",
-    "closed",
-    "returned_with_advice",
-    "redirected",
-];
+crate::string_enum! {
+    /// Where a referral came from.
+    pub enum ReferralSource {
+        Gp = "gp",
+        ERs = "e-rs",
+        Internal = "internal",
+    }
+}
+
+crate::string_enum! {
+    /// Where a referral has got to.
+    pub enum ReferralStatus {
+        Received = "received",
+        Waitlisted = "waitlisted",
+        Booked = "booked",
+        Closed = "closed",
+        ReturnedWithAdvice = "returned_with_advice",
+        Redirected = "redirected",
+    }
+}
 /// Triage outcomes (NEW-11). Both end the referral at this service.
 pub const TRIAGE_OUTCOMES: [&str; 2] = ["returned_with_advice", "redirected"];
 
 /// A referral in one of these states cannot be booked, waitlisted, closed or triaged again.
-fn is_ended(status: &str) -> bool {
-    matches!(
-        status,
-        "booked" | "closed" | "returned_with_advice" | "redirected"
-    )
+fn is_ended(status: ReferralStatus) -> bool {
+    use ReferralStatus::*;
+    matches!(status, Booked | Closed | ReturnedWithAdvice | Redirected)
 }
 const CANDIDATES: i64 = 25;
 
@@ -51,12 +60,12 @@ const CANDIDATES: i64 = 25;
 pub struct Referral {
     pub id: Uuid,
     pub person_id: Uuid,
-    pub source: String,
+    pub source: ReferralSource,
     pub external_ref: Option<String>,
     pub target_service: String,
     pub reason: Option<String>,
     pub referring_worker_id: Option<Uuid>,
-    pub status: String,
+    pub status: ReferralStatus,
     pub received_at: DateTime<Utc>,
     /// The appointment booked from this referral, if any.
     pub appointment_id: Option<Uuid>,
@@ -99,12 +108,12 @@ fn row_to_referral(r: &sea_orm::QueryResult) -> Result<Referral> {
     Ok(Referral {
         id: r.col("id")?,
         person_id: r.col("person_id")?,
-        source: r.col("source")?,
+        source: r.col::<String>("source")?.parse()?,
         external_ref: r.col("external_ref")?,
         target_service: r.col("target_service")?,
         reason: r.col("reason")?,
         referring_worker_id: r.col("referring_worker_id")?,
-        status: r.col("status")?,
+        status: r.col::<String>("status")?.parse()?,
         received_at: r.col("received_at")?,
         appointment_id: r.col("appointment_id")?,
         triaged_by: r.col("triaged_by")?,
@@ -139,13 +148,8 @@ impl ReferralService {
         service: Option<&str>,
         limit: i64,
     ) -> Result<Vec<Referral>> {
-        if let Some(s) = status
-            && !STATUSES.contains(&s)
-        {
-            return Err(Error::validation(format!(
-                "status must be one of {}",
-                STATUSES.join(", ")
-            )));
+        if let Some(s) = status {
+            s.parse::<ReferralStatus>()?;
         }
         let rows = self
             .db
@@ -168,9 +172,10 @@ impl ReferralService {
 
     /// Receive a referral. Returns it and whether it had already been received.
     pub async fn create(&self, n: NewReferral, ctx: &UserContext) -> Result<(Referral, bool)> {
-        if !SOURCES.contains(&n.source.as_str()) {
-            return Err(Error::validation("source must be gp, e-rs or internal"));
-        }
+        let source: ReferralSource = n
+            .source
+            .parse()
+            .map_err(|_| Error::validation("source must be gp, e-rs or internal"))?;
         let service = n.target_service.trim().to_string();
         if service.is_empty() || service.len() > 200 {
             return Err(Error::validation(
@@ -187,7 +192,7 @@ impl ReferralService {
             Some(e) => Some(e.to_string()),
             None => None,
         };
-        if n.source == "e-rs" && ext.is_none() {
+        if source == ReferralSource::ERs && ext.is_none() {
             return Err(Error::validation(
                 "an e-RS referral needs its reference (the UBRN)",
             ));
@@ -272,8 +277,8 @@ impl ReferralService {
                         .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
                     let person: Uuid = r.col("person_id")?;
                     let service: String = r.col("target_service")?;
-                    let status: String = r.col("status")?;
-                    if is_ended(&status) {
+                    let status: ReferralStatus = r.col::<String>("status")?.parse()?;
+                    if is_ended(status) {
                         return Err(Error::conflict(format!("that referral is already {status}")));
                     }
                     let slots = txn
@@ -348,7 +353,7 @@ impl ReferralService {
         ctx: &UserContext,
     ) -> Result<Referral> {
         let r = self.get(id).await?;
-        if is_ended(&r.status) || r.status == "waitlisted" {
+        if is_ended(r.status) || r.status == ReferralStatus::Waitlisted {
             return Err(Error::conflict(format!(
                 "that referral is already {}",
                 r.status
@@ -394,11 +399,7 @@ impl ReferralService {
             let r = self.get(id).await?; // not found, or already ended
             return Err(Error::conflict(format!(
                 "that referral is already {}",
-                if r.status == "closed" {
-                    "closed"
-                } else {
-                    &r.status
-                }
+                r.status
             )));
         }
         AuditLogRepository::log(
@@ -464,8 +465,8 @@ impl ReferralService {
                         .await
                         .map_err(Error::Database)?
                         .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
-                    let status: String = r.col("status")?;
-                    if status != "received" {
+                    let status: ReferralStatus = r.col::<String>("status")?.parse()?;
+                    if status != ReferralStatus::Received {
                         return Err(Error::conflict(format!(
                             "only a referral that has just been received can be triaged; this one is {status}"
                         )));
