@@ -653,3 +653,61 @@ async fn the_noshow_status_and_rollout_routes_send_what_they_declare() {
     let rollout: Vec<RolloutRow> = call(&app, "GET", "/api/noshow/rollout", None).await;
     let _ = rollout;
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_facility_ward_room_and_bed_routes_send_the_types_they_declare() {
+    use patient_administration_system::models::Address;
+    use patient_administration_system::models::facility::{Bed, Facility, Room, Ward};
+    use patient_administration_system::resources::WardOccupancy;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let unique = Uuid::new_v4().simple().to_string();
+
+    let facility = Facility::new("F".into(), format!("F{unique}"), Address::default());
+    let made: Facility = call(&app, "POST", "/api/facilities", Some(json!(facility))).await;
+    let _: Facility = call(&app, "GET", &format!("/api/facilities/{}", made.id), None).await;
+    let all: Vec<Facility> = call(&app, "GET", "/api/facilities", None).await;
+    assert!(all.iter().any(|f| f.id == made.id));
+
+    let ward = Ward::new(made.id, "W".into(), format!("W{unique}"), 4);
+    let ward: Ward = call(&app, "POST", "/api/wards", Some(json!(ward))).await;
+    let _: Ward = call(&app, "GET", &format!("/api/wards/{}", ward.id), None).await;
+    let wards: Vec<Ward> = call(
+        &app,
+        "GET",
+        &format!("/api/facilities/{}/wards", made.id),
+        None,
+    )
+    .await;
+    assert_eq!(wards.len(), 1);
+
+    let room = Room::new(ward.id, "R".into(), format!("R{unique}"));
+    let room: Room = call(&app, "POST", "/api/rooms", Some(json!(room))).await;
+    let _: Room = call(&app, "GET", &format!("/api/rooms/{}", room.id), None).await;
+    let rooms: Vec<Room> = call(&app, "GET", &format!("/api/wards/{}/rooms", ward.id), None).await;
+    assert_eq!(rooms.len(), 1);
+
+    let bed = Bed::new(room.id, "B".into(), format!("B{unique}"));
+    let bed: Bed = call(&app, "POST", "/api/beds", Some(json!(bed))).await;
+    let _: Bed = call(&app, "GET", &format!("/api/beds/{}", bed.id), None).await;
+    let beds: Vec<Bed> = call(&app, "GET", &format!("/api/wards/{}/beds", ward.id), None).await;
+    assert_eq!(beds.len(), 1);
+    let _: Bed = call(
+        &app,
+        "PUT",
+        &format!("/api/beds/{}/status", bed.id),
+        Some(json!({"status": "out_of_service"})),
+    )
+    .await;
+    let occupancy: WardOccupancy = call(
+        &app,
+        "GET",
+        &format!("/api/wards/{}/occupancy", ward.id),
+        None,
+    )
+    .await;
+    assert_eq!(occupancy.total_beds, 1);
+    assert_eq!(occupancy.out_of_service, 1);
+}

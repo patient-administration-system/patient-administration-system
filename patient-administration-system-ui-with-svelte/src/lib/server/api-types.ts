@@ -5749,6 +5749,32 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Bed: {
+      /** @description A bed within a room. Carries a `BedStatus` driven by the state machine. */
+      data?: {
+        code: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: uuid */
+        room_id: string;
+        status: components["schemas"]["BedStatus"];
+        /** Format: date-time */
+        updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Booked: {
       data?: {
         appointment: components["schemas"]["Appointment"];
@@ -5892,6 +5918,31 @@ export interface components {
         updated_at: string;
         /** Format: uuid */
         worker_id: string | null;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Facility: {
+      /** @description A physical hospital facility (campus, building). */
+      data?: {
+        active: boolean;
+        address: components["schemas"]["Address"];
+        code: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: date-time */
+        updated_at: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -6210,6 +6261,32 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Room: {
+      /** @description A room within a ward. */
+      data?: {
+        active: boolean;
+        code: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: date-time */
+        updated_at: string;
+        /** Format: uuid */
+        ward_id: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_ShownAssessments: {
       /** @description The stored no-show assessments for some appointments. `active` is false while the score is switched off. */
       data?: {
@@ -6481,6 +6558,31 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_Bed: {
+      data?: {
+        code: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: uuid */
+        room_id: string;
+        status: components["schemas"]["BedStatus"];
+        /** Format: date-time */
+        updated_at: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_CallItem: {
       data?: {
         /** Format: uuid */
@@ -6688,6 +6790,30 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_Facility: {
+      data?: {
+        active: boolean;
+        address: components["schemas"]["Address"];
+        code: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: date-time */
+        updated_at: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_GeneratedLetter: {
       data?: {
         /** Format: uuid */
@@ -6847,6 +6973,31 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_Room: {
+      data?: {
+        active: boolean;
+        code: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: date-time */
+        updated_at: string;
+        /** Format: uuid */
+        ward_id: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_WaitlistEntry: {
       data?: {
         /** Format: date-time */
@@ -6860,6 +7011,33 @@ export interface components {
         referral_id?: string | null;
         status: components["schemas"]["WaitlistStatus"];
         target_service: string;
+        /** Format: date-time */
+        updated_at: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_Ward: {
+      data?: {
+        active: boolean;
+        /** Format: int32 */
+        capacity: number;
+        code: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        facility_id: string;
+        /** Format: uuid */
+        id: string;
+        name: string;
         /** Format: date-time */
         updated_at: string;
       }[];
@@ -6889,6 +7067,56 @@ export interface components {
         target_service: string;
         /** Format: date-time */
         updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Ward: {
+      /** @description A ward within a facility (e.g. "Cardiology", "Maternity"). */
+      data?: {
+        active: boolean;
+        /** Format: int32 */
+        capacity: number;
+        code: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        facility_id: string;
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: date-time */
+        updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_WardOccupancy: {
+      data?: {
+        available: number;
+        cleaning: number;
+        occupied: number;
+        out_of_service: number;
+        reserved: number;
+        total_beds: number;
+        /** Format: uuid */
+        ward_id: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8374,6 +8602,16 @@ export interface components {
       name: string;
       /** Format: date-time */
       updated_at: string;
+    };
+    WardOccupancy: {
+      available: number;
+      cleaning: number;
+      occupied: number;
+      out_of_service: number;
+      reserved: number;
+      total_beds: number;
+      /** Format: uuid */
+      ward_id: string;
     };
     "handlers_clinic_templates.ApproveBody": {
       approved_by: string;
@@ -10322,7 +10560,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Bed"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -10357,7 +10597,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Bed"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -10396,7 +10638,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Bed"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11263,7 +11507,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Facility"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11299,7 +11545,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Facility"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11334,7 +11582,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Facility"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11369,7 +11619,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Ward"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -16781,7 +17033,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Room"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -16816,7 +17070,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Room"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19040,7 +19296,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Ward"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19075,7 +19333,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Ward"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19110,7 +19370,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Bed"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19145,7 +19407,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_WardOccupancy"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19180,7 +19444,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Room"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

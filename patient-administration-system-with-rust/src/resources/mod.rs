@@ -14,7 +14,7 @@ use crate::models::facility::{Bed, BedStatus};
 use crate::streaming::{DomainEvent, EventPublisher};
 use crate::{Error, Result};
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct WardOccupancy {
     pub ward_id: Uuid,
     pub total_beds: usize,
