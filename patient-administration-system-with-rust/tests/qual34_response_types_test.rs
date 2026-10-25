@@ -305,6 +305,23 @@ async fn the_history_due_check_adjustment_and_noshow_routes_send_the_types_they_
             .any(|d| d.pathway_id == pathway.id && d.person_id == person)
     );
 
+    let asked: patient_administration_system::api::rest::handlers_waits::Asked = call(
+        &app,
+        "POST",
+        &format!("/api/pathways/{}/still-needed-checks", pathway.id),
+        Some(json!({"asked_by": "Nurse B"})),
+    )
+    .await;
+    assert_ne!(asked.id, Uuid::nil());
+    let proofed: patient_administration_system::api::rest::handlers_identity::Proofed = call(
+        &app,
+        "GET",
+        &format!("/api/identity-proofings/qual34-{person}/check?person_id={person}"),
+        None,
+    )
+    .await;
+    assert!(!proofed.proofed, "nobody has proofed this account");
+
     let _adjustments: Vec<AppointmentAdjustments> = call(
         &app,
         "GET",

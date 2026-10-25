@@ -114,6 +114,12 @@ pub struct CheckQuery {
     pub person_id: Uuid,
 }
 
+/// The answer to the identity check.
+#[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Proofed {
+    pub proofed: bool,
+}
+
 /// `GET /api/identity-proofings/{subject}/check?person_id=`: `{ "proofed": bool }`, true only for a live
 /// proofing of exactly that account and patient. The portal asks this before every patient page.
 #[utoipa::path(
@@ -122,7 +128,7 @@ pub struct CheckQuery {
     tag = "Identity proofings",
     params(("subject" = String, Path, description = "Path parameter `subject`"), CheckQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Proofed>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -133,7 +139,7 @@ pub async fn check(
     Query(q): Query<CheckQuery>,
 ) -> HandlerResult {
     match state.identity.check(&subject, q.person_id).await {
-        Ok(p) => ok(serde_json::json!({ "proofed": p })),
+        Ok(p) => ok_json(Proofed { proofed: p }),
         Err(e) => error_to_response(e),
     }
 }

@@ -100,6 +100,12 @@ pub async fn due_for_check(
     }
 }
 
+/// The id of the check just asked.
+#[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Asked {
+    pub id: Uuid,
+}
+
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct AskBody {
     pub asked_by: String,
@@ -113,7 +119,7 @@ pub struct AskBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = AskBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Asked>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -129,7 +135,7 @@ pub async fn ask(
         .ask(id, &b.asked_by, &request_audit_ctx(&headers))
         .await
     {
-        Ok(check) => ok(serde_json::json!({ "id": check })),
+        Ok(check) => ok_json(Asked { id: check }),
         Err(e) => error_to_response(e),
     }
 }
