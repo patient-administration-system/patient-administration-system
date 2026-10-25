@@ -5650,8 +5650,7 @@ export interface components {
          *     shown in (the registered language is only English or Welsh).
          */
         starts_at?: string | null;
-        /** @description `open`, `used` or `expired`. */
-        state: string;
+        state: components["schemas"]["LinkState"];
         time_zone: string;
         /** @description The time in the patient's registered language, for a plain-text surface. */
         when: string;
@@ -5674,17 +5673,13 @@ export interface components {
         /** @description For `rebook_options`: the times on offer. Choose one with `POST /api/reply-links/{token}/rebook`. */
         options?: components["schemas"]["LinkOption"][];
         /** @description For a cancel that came with a reason (CAS-2): help that fits it, saying cancelling will not affect care. */
-        signpost?: string | null;
+        signpost?: string;
         /**
          * Format: date-time
          * @description For `rebooked`: when the appointment now starts, so a page can show it in its own language.
          */
-        starts_at?: string | null;
-        /**
-         * @description `confirmed`, `cancelled`, `rebook_options`, `rebooked`, `held_for_call`, `reschedule_requested`, `needs_confirmation`,
-         *     `help` or `rejected`.
-         */
-        status: string;
+        starts_at?: string;
+        status: components["schemas"]["LinkStatus"];
         time_zone: string;
       };
       error?: components["schemas"]["ApiError"] | null;
@@ -5706,8 +5701,8 @@ export interface components {
         expires_at?: string | null;
         /** Format: date-time */
         starts_at?: string | null;
-        /** @description `open`, `used`, `expired` or `gone` (the slot was taken). */
-        state: string;
+        /** @description `gone` means the slot was taken. */
+        state: components["schemas"]["OfferState"];
         time_zone: string;
       };
       error?: components["schemas"]["ApiError"] | null;
@@ -5725,8 +5720,7 @@ export interface components {
       data?: {
         /** Format: date-time */
         starts_at?: string | null;
-        /** @description `accepted`, `declined` or `gone`. */
-        status: string;
+        status: components["schemas"]["OfferStatus"];
         time_zone: string;
       };
       error?: components["schemas"]["ApiError"] | null;
@@ -6783,8 +6777,7 @@ export interface components {
        *     shown in (the registered language is only English or Welsh).
        */
       starts_at?: string | null;
-      /** @description `open`, `used` or `expired`. */
-      state: string;
+      state: components["schemas"]["LinkState"];
       time_zone: string;
       /** @description The time in the patient's registered language, for a plain-text surface. */
       when: string;
@@ -6804,19 +6797,34 @@ export interface components {
       /** @description For `rebook_options`: the times on offer. Choose one with `POST /api/reply-links/{token}/rebook`. */
       options?: components["schemas"]["LinkOption"][];
       /** @description For a cancel that came with a reason (CAS-2): help that fits it, saying cancelling will not affect care. */
-      signpost?: string | null;
+      signpost?: string;
       /**
        * Format: date-time
        * @description For `rebooked`: when the appointment now starts, so a page can show it in its own language.
        */
-      starts_at?: string | null;
-      /**
-       * @description `confirmed`, `cancelled`, `rebook_options`, `rebooked`, `held_for_call`, `reschedule_requested`, `needs_confirmation`,
-       *     `help` or `rejected`.
-       */
-      status: string;
+      starts_at?: string;
+      status: components["schemas"]["LinkStatus"];
       time_zone: string;
     };
+    /**
+     * @description Whether a reply link can still be used.
+     * @enum {string}
+     */
+    LinkState: "open" | "used" | "expired";
+    /**
+     * @description What came of acting on a reply link.
+     * @enum {string}
+     */
+    LinkStatus:
+      | "confirmed"
+      | "cancelled"
+      | "rebook_options"
+      | "rebooked"
+      | "held_for_call"
+      | "reschedule_requested"
+      | "needs_confirmation"
+      | "help"
+      | "rejected";
     MenuBody: {
       /** @description The single-use token the call was placed with. */
       token: string;
@@ -6851,17 +6859,26 @@ export interface components {
       expires_at?: string | null;
       /** Format: date-time */
       starts_at?: string | null;
-      /** @description `open`, `used`, `expired` or `gone` (the slot was taken). */
-      state: string;
+      /** @description `gone` means the slot was taken. */
+      state: components["schemas"]["OfferState"];
       time_zone: string;
     };
     OfferOutcome: {
       /** Format: date-time */
       starts_at?: string | null;
-      /** @description `accepted`, `declined` or `gone`. */
-      status: string;
+      status: components["schemas"]["OfferStatus"];
       time_zone: string;
     };
+    /**
+     * @description Whether an offer link can still be used.
+     * @enum {string}
+     */
+    OfferState: "open" | "used" | "expired" | "gone";
+    /**
+     * @description What came of acting on an offer link.
+     * @enum {string}
+     */
+    OfferStatus: "accepted" | "declined" | "gone";
     OpenAccountBody: {
       currency: string;
       /** Format: uuid */

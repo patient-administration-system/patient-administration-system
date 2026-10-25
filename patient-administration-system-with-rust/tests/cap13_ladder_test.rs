@@ -843,7 +843,7 @@ async fn a_reason_is_never_required_and_the_welsh_patient_gets_welsh_help() {
             .act(&t, LinkAction::Cancel, true, &sys())
             .await
             .unwrap();
-    assert_eq!((o.status, o.signpost), ("cancelled", None));
+    assert_eq!((o.status.as_str(), o.signpost), ("cancelled", None));
     // The first, unconfirmed tap still only asks, reason or not.
     let w2 = world().await;
     let t2 = link(&w2).await;

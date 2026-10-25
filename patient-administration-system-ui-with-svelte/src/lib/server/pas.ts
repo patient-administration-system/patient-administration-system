@@ -108,10 +108,7 @@ export type NoShowItem = Schemas["Shown"];
 
 /** The stored assessments for these appointments. `active` is false while the score is switched off. */
 export const noshowFor = (f: FetchFn, ids: string[]) =>
-  pas<{ active: boolean; items: NoShowItem[] }>(
-    f,
-    `/api/noshow/for-appointments?ids=${ids.map(encodeURIComponent).join(",")}`,
-  );
+  pas<Schemas["ShownAssessments"]>(f, `/api/noshow/for-appointments?ids=${ids.map(encodeURIComponent).join(",")}`);
 
 // ---- Reasonable adjustments (NEW-6): shown to staff beside an appointment ---------------------
 
@@ -143,7 +140,7 @@ export const dueChecks = (f: FetchFn) => pasArray<DueCheck>(f, "/api/pathways/du
 
 /** A person asks a patient whether they still need this. Nothing is removed. */
 export const askStillNeeded = (f: FetchFn, pathwayId: string, askedBy: string) =>
-  pas<unknown>(f, `/api/pathways/${encodeURIComponent(pathwayId)}/still-needed-checks`, {
+  pas<Schemas["Asked"]>(f, `/api/pathways/${encodeURIComponent(pathwayId)}/still-needed-checks`, {
     method: "POST",
     body: { asked_by: askedBy },
   });
@@ -177,7 +174,7 @@ export const toleranceStatus = (f: FetchFn, days: number) =>
 /** Has staff recorded checking that this sign-in account is this patient? Only a clear yes is a yes. */
 export const identityProofed = async (f: FetchFn, subject: string, personId: string): Promise<boolean> =>
   (
-    await pas<{ proofed: boolean }>(
+    await pas<Schemas["Proofed"]>(
       f,
       `/api/identity-proofings/${encodeURIComponent(subject)}/check?person_id=${encodeURIComponent(personId)}`,
     )
@@ -190,16 +187,7 @@ export type ReplyLinkInfo = Schemas["LinkInfo"];
 /** One alternative time offered after Reschedule (CAP-5). */
 export type ReplyLinkOption = Schemas["LinkOption"];
 
-export type ReplyLinkStatus =
-  | "confirmed"
-  | "cancelled"
-  | "rebook_options"
-  | "rebooked"
-  | "held_for_call"
-  | "reschedule_requested"
-  | "needs_confirmation"
-  | "help"
-  | "rejected";
+export type ReplyLinkStatus = Schemas["LinkStatus"];
 
 /** Read-only: what the link page may show. Opening a link never acts. */
 export const replyLinkInfo = (f: FetchFn, token: string) =>
@@ -207,19 +195,17 @@ export const replyLinkInfo = (f: FetchFn, token: string) =>
 
 /** A deliberate tap. The first `cancel` answers `needs_confirmation`; send it again with `confirmed`. */
 export const replyLinkAct = (f: FetchFn, token: string, action: string, confirmed = false, barrierCode?: string) =>
-  pas<{ status: ReplyLinkStatus; options?: ReplyLinkOption[]; time_zone: string; signpost?: string }>(
-    f,
-    `/api/reply-links/${encodeURIComponent(token)}/${encodeURIComponent(action)}`,
-    { method: "POST", body: barrierCode ? { confirmed, barrier_code: barrierCode } : { confirmed } },
-  );
+  pas<Schemas["LinkOutcome"]>(f, `/api/reply-links/${encodeURIComponent(token)}/${encodeURIComponent(action)}`, {
+    method: "POST",
+    body: barrierCode ? { confirmed, barrier_code: barrierCode } : { confirmed },
+  });
 
 /** The patient chose one of the times offered. Uses the link up; if the move is refused it is given back. */
 export const replyLinkRebook = (f: FetchFn, token: string, slotId: string) =>
-  pas<{ status: ReplyLinkStatus; starts_at?: string; time_zone: string }>(
-    f,
-    `/api/reply-links/${encodeURIComponent(token)}/rebook`,
-    { method: "POST", body: { slot_id: slotId } },
-  );
+  pas<Schemas["LinkOutcome"]>(f, `/api/reply-links/${encodeURIComponent(token)}/rebook`, {
+    method: "POST",
+    body: { slot_id: slotId },
+  });
 
 // ---- Backfill offers (PILOT-8) ---------------------------------------------------------------
 
@@ -231,8 +217,7 @@ export const offerLinkInfo = (f: FetchFn, token: string) =>
 
 /** A deliberate tap: `accept` books the slot, `decline` offers it to the next person. */
 export const offerLinkAct = (f: FetchFn, token: string, action: "accept" | "decline") =>
-  pas<{ status: "accepted" | "declined" | "gone"; starts_at: string | null; time_zone: string }>(
-    f,
-    `/api/offer-links/${encodeURIComponent(token)}/${action}`,
-    { method: "POST", body: {} },
-  );
+  pas<Schemas["OfferOutcome"]>(f, `/api/offer-links/${encodeURIComponent(token)}/${action}`, {
+    method: "POST",
+    body: {},
+  });

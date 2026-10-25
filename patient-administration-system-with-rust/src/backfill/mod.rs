@@ -56,11 +56,63 @@ pub struct Offer {
     pub expires_at: DateTime<Utc>,
 }
 
+/// Whether an offer link can still be used.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OfferState {
+    Open,
+    Used,
+    Expired,
+    Gone,
+}
+
+impl OfferState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Open => "open",
+            Self::Used => "used",
+            Self::Expired => "expired",
+            Self::Gone => "gone",
+        }
+    }
+}
+
+impl PartialEq<&str> for OfferState {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+/// What came of acting on an offer link.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OfferStatus {
+    Accepted,
+    Declined,
+    Gone,
+}
+
+impl OfferStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "accepted",
+            Self::Declined => "declined",
+            Self::Gone => "gone",
+        }
+    }
+}
+
+impl PartialEq<&str> for OfferStatus {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
 /// What the offer page may show: the time and nothing about the service or anyone else.
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct OfferInfo {
-    /// `open`, `used`, `expired` or `gone` (the slot was taken).
-    pub state: &'static str,
+    /// `gone` means the slot was taken.
+    pub state: OfferState,
     pub starts_at: Option<DateTime<Utc>>,
     pub time_zone: String,
     pub expires_at: Option<DateTime<Utc>>,
@@ -69,8 +121,7 @@ pub struct OfferInfo {
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct OfferOutcome {
-    /// `accepted`, `declined` or `gone`.
-    pub status: &'static str,
+    pub status: OfferStatus,
     pub starts_at: Option<DateTime<Utc>>,
     pub time_zone: String,
 }
@@ -434,18 +485,22 @@ impl BackfillService {
         let start = self.slot_start(row.slot_id).await?;
         let tz = messages::timezone().name().to_string();
         let state = match row.status.as_str() {
-            "open" if row.expires_at <= self.now() => "expired",
-            "open" => "open",
-            "missed" => "gone",
-            "expired" => "expired",
-            _ => "used",
+            "open" if row.expires_at <= self.now() => OfferState::Expired,
+            "open" => OfferState::Open,
+            "missed" => OfferState::Gone,
+            "expired" => OfferState::Expired,
+            _ => OfferState::Used,
         };
         Ok(OfferInfo {
             state,
-            starts_at: if state == "open" { start } else { None },
+            starts_at: if state == OfferState::Open {
+                start
+            } else {
+                None
+            },
             time_zone: tz,
-            expires_at: (state == "open").then_some(row.expires_at),
-            actions: if state == "open" {
+            expires_at: (state == OfferState::Open).then_some(row.expires_at),
+            actions: if state == OfferState::Open {
                 vec!["accept", "decline"]
             } else {
                 vec![]
@@ -493,7 +548,7 @@ impl BackfillService {
                     .await
                     .map_err(Error::Database)?;
                 Ok(OfferOutcome {
-                    status: "accepted",
+                    status: OfferStatus::Accepted,
                     starts_at: Some(appt.start_datetime),
                     time_zone: tz,
                 })
@@ -513,7 +568,7 @@ impl BackfillService {
                     .await
                     .log_warn("slot offer");
                 Ok(OfferOutcome {
-                    status: "gone",
+                    status: OfferStatus::Gone,
                     starts_at: None,
                     time_zone: tz,
                 })
@@ -556,7 +611,7 @@ impl BackfillService {
             .await
             .log_warn("slot offer");
         Ok(OfferOutcome {
-            status: "declined",
+            status: OfferStatus::Declined,
             starts_at: None,
             time_zone: tz,
         })

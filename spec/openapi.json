@@ -692,8 +692,7 @@
                 ]
               },
               "state": {
-                "description": "`open`, `used` or `expired`.",
-                "type": "string"
+                "$ref": "#/components/schemas/LinkState"
               },
               "time_zone": {
                 "type": "string"
@@ -762,22 +761,15 @@
               },
               "signpost": {
                 "description": "For a cancel that came with a reason (CAS-2): help that fits it, saying cancelling will not affect care.",
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               },
               "starts_at": {
                 "description": "For `rebooked`: when the appointment now starts, so a page can show it in its own language.",
                 "format": "date-time",
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               },
               "status": {
-                "description": "`confirmed`, `cancelled`, `rebook_options`, `rebooked`, `held_for_call`, `reschedule_requested`, `needs_confirmation`,\n`help` or `rejected`.",
-                "type": "string"
+                "$ref": "#/components/schemas/LinkStatus"
               },
               "time_zone": {
                 "type": "string"
@@ -848,8 +840,8 @@
                 ]
               },
               "state": {
-                "description": "`open`, `used`, `expired` or `gone` (the slot was taken).",
-                "type": "string"
+                "$ref": "#/components/schemas/OfferState",
+                "description": "`gone` means the slot was taken."
               },
               "time_zone": {
                 "type": "string"
@@ -905,8 +897,7 @@
                 ]
               },
               "status": {
-                "description": "`accepted`, `declined` or `gone`.",
-                "type": "string"
+                "$ref": "#/components/schemas/OfferStatus"
               },
               "time_zone": {
                 "type": "string"
@@ -3802,8 +3793,7 @@
             ]
           },
           "state": {
-            "description": "`open`, `used` or `expired`.",
-            "type": "string"
+            "$ref": "#/components/schemas/LinkState"
           },
           "time_zone": {
             "type": "string"
@@ -3862,22 +3852,15 @@
           },
           "signpost": {
             "description": "For a cancel that came with a reason (CAS-2): help that fits it, saying cancelling will not affect care.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": "string"
           },
           "starts_at": {
             "description": "For `rebooked`: when the appointment now starts, so a page can show it in its own language.",
             "format": "date-time",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": "string"
           },
           "status": {
-            "description": "`confirmed`, `cancelled`, `rebook_options`, `rebooked`, `held_for_call`, `reschedule_requested`, `needs_confirmation`,\n`help` or `rejected`.",
-            "type": "string"
+            "$ref": "#/components/schemas/LinkStatus"
           },
           "time_zone": {
             "type": "string"
@@ -3890,6 +3873,30 @@
           "time_zone"
         ],
         "type": "object"
+      },
+      "LinkState": {
+        "description": "Whether a reply link can still be used.",
+        "enum": [
+          "open",
+          "used",
+          "expired"
+        ],
+        "type": "string"
+      },
+      "LinkStatus": {
+        "description": "What came of acting on a reply link.",
+        "enum": [
+          "confirmed",
+          "cancelled",
+          "rebook_options",
+          "rebooked",
+          "held_for_call",
+          "reschedule_requested",
+          "needs_confirmation",
+          "help",
+          "rejected"
+        ],
+        "type": "string"
       },
       "MenuBody": {
         "properties": {
@@ -3988,8 +3995,8 @@
             ]
           },
           "state": {
-            "description": "`open`, `used`, `expired` or `gone` (the slot was taken).",
-            "type": "string"
+            "$ref": "#/components/schemas/OfferState",
+            "description": "`gone` means the slot was taken."
           },
           "time_zone": {
             "type": "string"
@@ -4012,8 +4019,7 @@
             ]
           },
           "status": {
-            "description": "`accepted`, `declined` or `gone`.",
-            "type": "string"
+            "$ref": "#/components/schemas/OfferStatus"
           },
           "time_zone": {
             "type": "string"
@@ -4024,6 +4030,25 @@
           "time_zone"
         ],
         "type": "object"
+      },
+      "OfferState": {
+        "description": "Whether an offer link can still be used.",
+        "enum": [
+          "open",
+          "used",
+          "expired",
+          "gone"
+        ],
+        "type": "string"
+      },
+      "OfferStatus": {
+        "description": "What came of acting on an offer link.",
+        "enum": [
+          "accepted",
+          "declined",
+          "gone"
+        ],
+        "type": "string"
       },
       "OpenAccountBody": {
         "properties": {

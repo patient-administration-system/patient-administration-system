@@ -60,11 +60,72 @@ impl LinkAction {
     }
 }
 
+/// Whether a reply link can still be used.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkState {
+    Open,
+    Used,
+    Expired,
+}
+
+impl LinkState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Open => "open",
+            Self::Used => "used",
+            Self::Expired => "expired",
+        }
+    }
+}
+
+impl PartialEq<&str> for LinkState {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+/// What came of acting on a reply link.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkStatus {
+    Confirmed,
+    Cancelled,
+    RebookOptions,
+    Rebooked,
+    HeldForCall,
+    RescheduleRequested,
+    NeedsConfirmation,
+    Help,
+    Rejected,
+}
+
+impl LinkStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Confirmed => "confirmed",
+            Self::Cancelled => "cancelled",
+            Self::RebookOptions => "rebook_options",
+            Self::Rebooked => "rebooked",
+            Self::HeldForCall => "held_for_call",
+            Self::RescheduleRequested => "reschedule_requested",
+            Self::NeedsConfirmation => "needs_confirmation",
+            Self::Help => "help",
+            Self::Rejected => "rejected",
+        }
+    }
+}
+
+impl PartialEq<&str> for LinkStatus {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
 /// What the link page may show: the time and the language, never a reason or a service.
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct LinkInfo {
-    /// `open`, `used` or `expired`.
-    pub state: &'static str,
+    pub state: LinkState,
     pub language: &'static str,
     /// The time in the patient's registered language, for a plain-text surface.
     pub when: String,
@@ -86,9 +147,7 @@ pub struct LinkOption {
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct LinkOutcome {
-    /// `confirmed`, `cancelled`, `rebook_options`, `rebooked`, `held_for_call`, `reschedule_requested`, `needs_confirmation`,
-    /// `help` or `rejected`.
-    pub status: &'static str,
+    pub status: LinkStatus,
     pub language: &'static str,
     pub message: String,
     /// For `rebook_options`: the times on offer. Choose one with `POST /api/reply-links/{token}/rebook`.
@@ -96,9 +155,11 @@ pub struct LinkOutcome {
     pub options: Vec<LinkOption>,
     /// For a cancel that came with a reason (CAS-2): help that fits it, saying cancelling will not affect care.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
     pub signpost: Option<String>,
     /// For `rebooked`: when the appointment now starts, so a page can show it in its own language.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
     pub starts_at: Option<DateTime<Utc>>,
     pub time_zone: String,
 }
@@ -141,7 +202,7 @@ struct View {
 }
 
 impl View {
-    fn out(&self, status: &'static str, message: String) -> LinkOutcome {
+    fn out(&self, status: LinkStatus, message: String) -> LinkOutcome {
         LinkOutcome {
             status,
             language: self.lang.code(),
@@ -217,13 +278,13 @@ impl ReplyLinks {
             .map(|a| messages::when(a.start_datetime, lang, messages::timezone()))
             .unwrap_or_default();
         let state = if row.consumed {
-            "used"
+            LinkState::Used
         } else if row.expires_at <= Utc::now() {
-            "expired"
+            LinkState::Expired
         } else {
-            "open"
+            LinkState::Open
         };
-        let actions = if state == "open" {
+        let actions = if state == LinkState::Open {
             vec!["confirm", "cancel", "reschedule", "help"]
         } else {
             vec![]
@@ -275,11 +336,17 @@ impl ReplyLinks {
         match action {
             // Help is information: it does not use the link up.
             LinkAction::Help => {
-                return Ok(view.out("help", messages::text(view.lang, Kind::Help, "", help)));
+                return Ok(view.out(
+                    LinkStatus::Help,
+                    messages::text(view.lang, Kind::Help, "", help),
+                ));
             }
             // The first Cancel tap only asks; nothing changes.
             LinkAction::Cancel if !confirmed => {
-                return Ok(view.out("needs_confirmation", messages::are_you_sure(view.lang)));
+                return Ok(view.out(
+                    LinkStatus::NeedsConfirmation,
+                    messages::are_you_sure(view.lang),
+                ));
             }
             _ => {}
         }
@@ -319,7 +386,7 @@ impl ReplyLinks {
         if offer.options.is_empty() {
             return None;
         }
-        let mut o = view.out("rebook_options", String::new());
+        let mut o = view.out(LinkStatus::RebookOptions, String::new());
         o.options = offer
             .options
             .iter()
@@ -374,7 +441,7 @@ impl ReplyLinks {
             .await
             .map_err(Error::Database)?;
         Ok(view.out(
-            "reschedule_requested",
+            LinkStatus::RescheduleRequested,
             messages::text(view.lang, Kind::NeedsStaff, when, self.help_line.as_deref()),
         ))
     }
@@ -417,9 +484,9 @@ impl ReplyLinks {
         let r = self.writeback.apply(req, ctx).await?;
         Ok(if r.status == ReplyStatus::Applied {
             let (kind, status) = if action == LinkAction::Confirm {
-                (Kind::Confirmed, "confirmed")
+                (Kind::Confirmed, LinkStatus::Confirmed)
             } else {
-                (Kind::Cancelled, "cancelled")
+                (Kind::Cancelled, LinkStatus::Cancelled)
             };
             let mut o = view.out(status, messages::text(view.lang, kind, when, help));
             if action == LinkAction::Cancel {
@@ -428,12 +495,12 @@ impl ReplyLinks {
             o
         } else if r.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) {
             view.out(
-                "held_for_call",
+                LinkStatus::HeldForCall,
                 messages::text(view.lang, Kind::HeldForCall, when, help),
             )
         } else {
             view.out(
-                "rejected",
+                LinkStatus::Rejected,
                 messages::text(view.lang, Kind::Failed, "", help),
             )
         })
@@ -484,7 +551,7 @@ impl ReplyLinks {
             .await
         {
             Ok((_, new)) => Ok(LinkOutcome {
-                status: "rebooked",
+                status: LinkStatus::Rebooked,
                 language: lang.code(),
                 message: messages::text(
                     lang,
