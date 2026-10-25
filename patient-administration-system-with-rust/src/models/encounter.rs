@@ -19,7 +19,7 @@ use uuid::Uuid;
 /// The administrative classification of an encounter.
 ///
 /// FHIR-aligned but kept narrow for v0.1.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum EncounterClass {
     /// Ambulatory clinic visit; patient is not admitted.
@@ -97,16 +97,20 @@ impl EncounterStatus {
 }
 
 /// A patient's administrative interaction with the healthcare system.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Encounter {
     pub id: Uuid,
     pub person_id: Uuid,
     pub class: EncounterClass,
     pub status: EncounterStatus,
     pub period_start: DateTime<Utc>,
+    #[schema(required = true)]
     pub period_end: Option<DateTime<Utc>>,
+    #[schema(required = true)]
     pub worker_id: Option<Uuid>,
+    #[schema(required = true)]
     pub department_id: Option<Uuid>,
+    #[schema(required = true)]
     pub reason: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

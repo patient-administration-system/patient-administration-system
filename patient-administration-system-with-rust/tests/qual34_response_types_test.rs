@@ -409,3 +409,110 @@ async fn the_referral_routes_send_the_types_they_declare() {
     assert_eq!(booked.referral.status, ReferralStatus::Booked);
     assert_eq!(booked.referral.appointment_id, Some(booked.appointment.id));
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_patient_record_routes_send_the_types_they_declare() {
+    use patient_administration_system::adjustments::Adjustment;
+    use patient_administration_system::db::repositories::{
+        coverage::CoverageRepository, encounter::EncounterRepository,
+    };
+    use patient_administration_system::models::consent::{Consent, ConsentType};
+    use patient_administration_system::models::coverage::Coverage;
+    use patient_administration_system::models::encounter::{Encounter, EncounterClass};
+    use patient_administration_system::proxy::Authority;
+    use patient_administration_system::waits::PatientWaits;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let person = Uuid::new_v4();
+    let today = chrono::Utc::now().date_naive();
+
+    let consent = Consent::new(person, ConsentType::DataProcessing, today);
+    let made: Consent = call(
+        &app,
+        "POST",
+        &format!("/api/patients/{person}/consents"),
+        Some(serde_json::to_value(&consent).unwrap()),
+    )
+    .await;
+    assert_eq!(made.person_id, person);
+    let consents: Vec<Consent> = call(
+        &app,
+        "GET",
+        &format!("/api/patients/{person}/consents"),
+        None,
+    )
+    .await;
+    assert_eq!(consents.len(), 1);
+
+    CoverageRepository::create(&state.db, &Coverage::new(person, "Payer", "P-1"))
+        .await
+        .unwrap();
+    let coverages: Vec<Coverage> = call(
+        &app,
+        "GET",
+        &format!("/api/patients/{person}/coverages"),
+        None,
+    )
+    .await;
+    assert_eq!(coverages.len(), 1);
+
+    EncounterRepository::create(
+        &state.db,
+        &Encounter::new(person, EncounterClass::Outpatient),
+    )
+    .await
+    .unwrap();
+    let encounters: Vec<Encounter> = call(
+        &app,
+        "GET",
+        &format!("/api/patients/{person}/encounters"),
+        None,
+    )
+    .await;
+    assert_eq!(encounters.len(), 1);
+
+    let granted: Authority = call(
+        &app,
+        "POST",
+        &format!("/api/patients/{person}/proxies"),
+        Some(
+            json!({"proxy_person_id": Uuid::new_v4(), "relationship": "daughter",
+                    "basis": "patient_consent", "scopes": ["receive", "confirm"],
+                    "expires_at": chrono::Utc::now() + chrono::Duration::days(30),
+                    "recorded_by": "Nurse A"}),
+        ),
+    )
+    .await;
+    assert_eq!(granted.person_id, person);
+    let proxies: Vec<Authority> = call(
+        &app,
+        "GET",
+        &format!("/api/patients/{person}/proxies"),
+        None,
+    )
+    .await;
+    assert_eq!(proxies.len(), 1);
+
+    let adjustment: Adjustment = call(
+        &app,
+        "POST",
+        &format!("/api/patients/{person}/reasonable-adjustments"),
+        Some(json!({"code": "large_print", "recorded_by": "Nurse A"})),
+    )
+    .await;
+    assert_eq!(adjustment.code, "large_print");
+    let adjustments: Vec<Adjustment> = call(
+        &app,
+        "GET",
+        &format!("/api/patients/{person}/reasonable-adjustments"),
+        None,
+    )
+    .await;
+    assert_eq!(adjustments.len(), 1);
+
+    let waits: PatientWaits =
+        call(&app, "GET", &format!("/api/patients/{person}/waits"), None).await;
+    assert_eq!(waits.person_id, person);
+}

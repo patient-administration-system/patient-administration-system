@@ -8,7 +8,7 @@
 
 use chrono::{DateTime, Duration, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
@@ -26,7 +26,7 @@ pub const BASES: [&str; 5] = [
 /// The longest an authority may run before it must be recorded again.
 pub const MAX_DAYS: i64 = 1095;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Authority {
     pub id: Uuid,
     pub person_id: Uuid,
@@ -37,7 +37,9 @@ pub struct Authority {
     pub recorded_by: String,
     pub recorded_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
+    #[schema(required = true)]
     pub revoked_by: Option<String>,
+    #[schema(required = true)]
     pub revoked_at: Option<DateTime<Utc>>,
 }
 

@@ -5512,6 +5512,38 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Adjustment: {
+      data?: {
+        category: string;
+        code: string;
+        display: string;
+        /** Format: date-time */
+        ended_at: string | null;
+        ended_by: string | null;
+        /** @description The same adjustment as a FHIR `Flag`. */
+        fhir: Record<string, never>;
+        /** Format: uuid */
+        id: string;
+        note: string | null;
+        /** Format: uuid */
+        person_id: string;
+        /** Format: date-time */
+        recorded_at: string;
+        recorded_by: string;
+        /** Format: date */
+        review_by: string | null;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Appointment: {
       /** @description An appointment scheduled for a patient. */
       data?: {
@@ -5608,10 +5640,99 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Authority: {
+      data?: {
+        basis: string;
+        /** Format: date-time */
+        expires_at: string;
+        /** Format: uuid */
+        id: string;
+        /** Format: uuid */
+        person_id: string;
+        /** Format: uuid */
+        proxy_person_id: string;
+        /** Format: date-time */
+        recorded_at: string;
+        recorded_by: string;
+        relationship: string;
+        /** Format: date-time */
+        revoked_at: string | null;
+        revoked_by: string | null;
+        scopes: string[];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Booked: {
       data?: {
         appointment: components["schemas"]["Appointment"];
         referral: components["schemas"]["Referral"];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Consent: {
+      /** @description A consent record granted by a patient. */
+      data?: {
+        /** @description Category of consent. */
+        consent_type: components["schemas"]["ConsentType"];
+        /**
+         * Format: date-time
+         * @description Row creation timestamp.
+         */
+        created_at: string;
+        /**
+         * Format: date
+         * @description Date the consent expires, if applicable.
+         */
+        expiry_date: string | null;
+        /**
+         * Format: date
+         * @description Date the consent was granted.
+         */
+        granted_date: string;
+        /**
+         * Format: uuid
+         * @description Internal consent identifier.
+         */
+        id: string;
+        /** @description How consent was obtained (e.g., "written", "electronic", "verbal"). */
+        method: string | null;
+        /**
+         * Format: uuid
+         * @description Patient who granted (or revoked) the consent.
+         */
+        person_id: string;
+        /** @description Free-text description of the purpose for which consent applies. */
+        purpose: string | null;
+        /**
+         * Format: date
+         * @description Date the consent was revoked, if applicable.
+         */
+        revoked_date: string | null;
+        /** @description Current lifecycle state. */
+        status: components["schemas"]["ConsentStatus"];
+        /**
+         * Format: date-time
+         * @description Last update timestamp.
+         */
+        updated_at: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -5758,6 +5879,24 @@ export interface components {
         starts_at?: string | null;
         status: components["schemas"]["OfferStatus"];
         time_zone: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_PatientWaits: {
+      data?: {
+        appointments: components["schemas"]["LeadTime"][];
+        pathways: components["schemas"]["PathwayWait"][];
+        /** Format: uuid */
+        person_id: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -5923,6 +6062,38 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_Adjustment: {
+      data?: {
+        category: string;
+        code: string;
+        display: string;
+        /** Format: date-time */
+        ended_at: string | null;
+        ended_by: string | null;
+        /** @description The same adjustment as a FHIR `Flag`. */
+        fhir: Record<string, never>;
+        /** Format: uuid */
+        id: string;
+        note: string | null;
+        /** Format: uuid */
+        person_id: string;
+        /** Format: date-time */
+        recorded_at: string;
+        recorded_by: string;
+        /** Format: date */
+        review_by: string | null;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_Alert: {
       data?: {
         /** Format: date-time */
@@ -6060,6 +6231,160 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_Authority: {
+      data?: {
+        basis: string;
+        /** Format: date-time */
+        expires_at: string;
+        /** Format: uuid */
+        id: string;
+        /** Format: uuid */
+        person_id: string;
+        /** Format: uuid */
+        proxy_person_id: string;
+        /** Format: date-time */
+        recorded_at: string;
+        recorded_by: string;
+        relationship: string;
+        /** Format: date-time */
+        revoked_at: string | null;
+        revoked_by: string | null;
+        scopes: string[];
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_Consent: {
+      data?: {
+        /** @description Category of consent. */
+        consent_type: components["schemas"]["ConsentType"];
+        /**
+         * Format: date-time
+         * @description Row creation timestamp.
+         */
+        created_at: string;
+        /**
+         * Format: date
+         * @description Date the consent expires, if applicable.
+         */
+        expiry_date: string | null;
+        /**
+         * Format: date
+         * @description Date the consent was granted.
+         */
+        granted_date: string;
+        /**
+         * Format: uuid
+         * @description Internal consent identifier.
+         */
+        id: string;
+        /** @description How consent was obtained (e.g., "written", "electronic", "verbal"). */
+        method: string | null;
+        /**
+         * Format: uuid
+         * @description Patient who granted (or revoked) the consent.
+         */
+        person_id: string;
+        /** @description Free-text description of the purpose for which consent applies. */
+        purpose: string | null;
+        /**
+         * Format: date
+         * @description Date the consent was revoked, if applicable.
+         */
+        revoked_date: string | null;
+        /** @description Current lifecycle state. */
+        status: components["schemas"]["ConsentStatus"];
+        /**
+         * Format: date-time
+         * @description Last update timestamp.
+         */
+        updated_at: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_Coverage: {
+      data?: {
+        /**
+         * Format: uuid
+         * @description Billing account this coverage is linked to. Optional because a
+         *     coverage may be captured before the account is opened, and may be
+         *     re-linked later via `PUT /api/coverages/{id}`.
+         */
+        account_id: string | null;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: date */
+        end_date: string | null;
+        /** @description Group number, if the policy is a group plan. */
+        group_number: string | null;
+        /** Format: uuid */
+        id: string;
+        kind: components["schemas"]["CoverageKind"];
+        /**
+         * @description Payer-supplied opaque identifier — payer EIN, plan code, etc.
+         *     Free-form string; never parsed by the PAS.
+         */
+        payor_identifier: string | null;
+        /**
+         * @description Human-readable payer / insurer name (e.g. `"Aetna"`,
+         *     `"NHS England"`, `"Self-pay"`).
+         */
+        payor_name: string;
+        /**
+         * Format: uuid
+         * @description The patient receiving care under this coverage — the *beneficiary*
+         *     in FHIR terms. Always set; coverage cannot exist without a patient.
+         */
+        person_id: string;
+        /** @description Policy / member number as printed on the patient's card. */
+        policy_number: string;
+        /**
+         * @description Relationship between the subscriber and the patient — e.g.
+         *     `"self"`, `"spouse"`, `"child"`, `"parent"`, `"other"`. Free-form
+         *     so callers can use whichever code system they prefer.
+         */
+        relationship: string;
+        /** Format: date */
+        start_date: string;
+        status: components["schemas"]["CoverageStatus"];
+        /**
+         * Format: uuid
+         * @description The policy holder. When the patient *is* the policy holder
+         *     (`relationship = "self"`), this is `Some(person_id)` — but it's
+         *     optional so callers can omit it and let the handler default it.
+         */
+        subscriber_id: string | null;
+        /** Format: date-time */
+        updated_at: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_DueCheck: {
       data?: {
         /** Format: date-time */
@@ -6071,6 +6396,39 @@ export interface components {
         target_service: string;
         /** Format: int32 */
         weeks_waited: number;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_Encounter: {
+      data?: {
+        class: components["schemas"]["EncounterClass"];
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        department_id: string | null;
+        /** Format: uuid */
+        id: string;
+        /** Format: date-time */
+        period_end: string | null;
+        /** Format: date-time */
+        period_start: string;
+        /** Format: uuid */
+        person_id: string;
+        reason: string | null;
+        status: components["schemas"]["EncounterStatus"];
+        /** Format: date-time */
+        updated_at: string;
+        /** Format: uuid */
+        worker_id: string | null;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -6359,6 +6717,25 @@ export interface components {
       /** @description `phone`, `sms`, `whatsapp`, `email` or `in_person`. */
       channel: string;
     };
+    Authority: {
+      basis: string;
+      /** Format: date-time */
+      expires_at: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      person_id: string;
+      /** Format: uuid */
+      proxy_person_id: string;
+      /** Format: date-time */
+      recorded_at: string;
+      recorded_by: string;
+      relationship: string;
+      /** Format: date-time */
+      revoked_at: string | null;
+      revoked_by: string | null;
+      scopes: string[];
+    };
     /** @enum {string} */
     Band: "low" | "medium" | "high";
     BarrierBody: {
@@ -6469,7 +6846,7 @@ export interface components {
        * Format: date
        * @description Date the consent expires, if applicable.
        */
-      expiry_date?: string | null;
+      expiry_date: string | null;
       /**
        * Format: date
        * @description Date the consent was granted.
@@ -6481,19 +6858,19 @@ export interface components {
        */
       id: string;
       /** @description How consent was obtained (e.g., "written", "electronic", "verbal"). */
-      method?: string | null;
+      method: string | null;
       /**
        * Format: uuid
        * @description Patient who granted (or revoked) the consent.
        */
       person_id: string;
       /** @description Free-text description of the purpose for which consent applies. */
-      purpose?: string | null;
+      purpose: string | null;
       /**
        * Format: date
        * @description Date the consent was revoked, if applicable.
        */
-      revoked_date?: string | null;
+      revoked_date: string | null;
       /** @description Current lifecycle state. */
       status: components["schemas"]["ConsentStatus"];
       /**
@@ -6535,13 +6912,13 @@ export interface components {
        *     coverage may be captured before the account is opened, and may be
        *     re-linked later via `PUT /api/coverages/{id}`.
        */
-      account_id?: string | null;
+      account_id: string | null;
       /** Format: date-time */
       created_at: string;
       /** Format: date */
-      end_date?: string | null;
+      end_date: string | null;
       /** @description Group number, if the policy is a group plan. */
-      group_number?: string | null;
+      group_number: string | null;
       /** Format: uuid */
       id: string;
       kind: components["schemas"]["CoverageKind"];
@@ -6549,7 +6926,7 @@ export interface components {
        * @description Payer-supplied opaque identifier — payer EIN, plan code, etc.
        *     Free-form string; never parsed by the PAS.
        */
-      payor_identifier?: string | null;
+      payor_identifier: string | null;
       /**
        * @description Human-readable payer / insurer name (e.g. `"Aetna"`,
        *     `"NHS England"`, `"Self-pay"`).
@@ -6578,7 +6955,7 @@ export interface components {
        *     (`relationship = "self"`), this is `Some(person_id)` — but it's
        *     optional so callers can omit it and let the handler default it.
        */
-      subscriber_id?: string | null;
+      subscriber_id: string | null;
       /** Format: date-time */
       updated_at: string;
     };
@@ -6667,6 +7044,35 @@ export interface components {
       basis: string;
       eligible_by: string;
     };
+    /** @description A patient's administrative interaction with the healthcare system. */
+    Encounter: {
+      class: components["schemas"]["EncounterClass"];
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      department_id: string | null;
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      period_end: string | null;
+      /** Format: date-time */
+      period_start: string;
+      /** Format: uuid */
+      person_id: string;
+      reason: string | null;
+      status: components["schemas"]["EncounterStatus"];
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: uuid */
+      worker_id: string | null;
+    };
+    /**
+     * @description The administrative classification of an encounter.
+     *
+     *     FHIR-aligned but kept narrow for v0.1.
+     * @enum {string}
+     */
+    EncounterClass: "outpatient" | "inpatient" | "emergency" | "day_case" | "home_care" | "virtual";
     /**
      * @description Lifecycle status of an encounter.
      *
@@ -6854,6 +7260,19 @@ export interface components {
       message_id: string;
       /** Format: date-time */
       received_at?: string | null;
+    };
+    LeadTime: {
+      /** Format: uuid */
+      appointment_id: string;
+      /** Format: date-time */
+      booked_at: string;
+      /**
+       * Format: int64
+       * @description Whole days from booking to the visit (negative never: an appointment starts after it is made).
+       */
+      lead_days: number;
+      /** Format: date-time */
+      starts_at: string;
     };
     LetterBody: {
       sent_by: string;
@@ -7045,6 +7464,21 @@ export interface components {
       returned: number;
       /** @description `true` when more rows exist than were returned: ask again with a narrower question or a larger limit. */
       truncated: boolean;
+    };
+    PathwayWait: {
+      /** Format: date-time */
+      last_check_at: string | null;
+      /** Format: uuid */
+      pathway_id: string;
+      target_service: string;
+      /** Format: int32 */
+      weeks_waited: number;
+    };
+    PatientWaits: {
+      appointments: components["schemas"]["LeadTime"][];
+      pathways: components["schemas"]["PathwayWait"][];
+      /** Format: uuid */
+      person_id: string;
     };
     /**
      * @description Means by which a [`Payment`] was tendered.
@@ -13663,7 +14097,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Consent"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13702,7 +14138,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Consent"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13775,7 +14213,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Coverage"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13810,7 +14250,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Encounter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14035,7 +14477,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Authority"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14074,7 +14518,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Authority"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14112,7 +14558,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Adjustment"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14151,7 +14599,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Adjustment"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14334,7 +14784,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_PatientWaits"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

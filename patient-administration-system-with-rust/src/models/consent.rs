@@ -50,12 +50,16 @@ pub struct Consent {
     /// Date the consent was granted.
     pub granted_date: NaiveDate,
     /// Date the consent expires, if applicable.
+    #[schema(required = true)]
     pub expiry_date: Option<NaiveDate>,
     /// Date the consent was revoked, if applicable.
+    #[schema(required = true)]
     pub revoked_date: Option<NaiveDate>,
     /// Free-text description of the purpose for which consent applies.
+    #[schema(required = true)]
     pub purpose: Option<String>,
     /// How consent was obtained (e.g., "written", "electronic", "verbal").
+    #[schema(required = true)]
     pub method: Option<String>,
     /// Row creation timestamp.
     pub created_at: DateTime<Utc>,

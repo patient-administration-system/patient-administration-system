@@ -10,7 +10,7 @@
 
 use chrono::{DateTime, NaiveDate, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -103,20 +103,25 @@ pub fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
         .map(|(cat, _, display)| (*cat, *display))
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Adjustment {
     pub id: Uuid,
     pub person_id: Uuid,
     pub category: String,
     pub code: String,
     pub display: String,
+    #[schema(required = true)]
     pub note: Option<String>,
+    #[schema(required = true)]
     pub review_by: Option<NaiveDate>,
     pub recorded_by: String,
     pub recorded_at: DateTime<Utc>,
+    #[schema(required = true)]
     pub ended_by: Option<String>,
+    #[schema(required = true)]
     pub ended_at: Option<DateTime<Utc>>,
     /// The same adjustment as a FHIR `Flag`.
+    #[schema(value_type = Object)]
     pub fhir: Value,
 }
 

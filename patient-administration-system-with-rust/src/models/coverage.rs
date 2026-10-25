@@ -85,6 +85,7 @@ pub struct Coverage {
     /// coverage may be captured before the account is opened, and may be
     /// re-linked later via `PUT /api/coverages/{id}`.
     #[serde(default)]
+    #[schema(required = true)]
     pub account_id: Option<Uuid>,
     pub status: CoverageStatus,
     pub kind: CoverageKind,
@@ -92,6 +93,7 @@ pub struct Coverage {
     /// (`relationship = "self"`), this is `Some(person_id)` — but it's
     /// optional so callers can omit it and let the handler default it.
     #[serde(default)]
+    #[schema(required = true)]
     pub subscriber_id: Option<Uuid>,
     /// Human-readable payer / insurer name (e.g. `"Aetna"`,
     /// `"NHS England"`, `"Self-pay"`).
@@ -99,11 +101,13 @@ pub struct Coverage {
     /// Payer-supplied opaque identifier — payer EIN, plan code, etc.
     /// Free-form string; never parsed by the PAS.
     #[serde(default)]
+    #[schema(required = true)]
     pub payor_identifier: Option<String>,
     /// Policy / member number as printed on the patient's card.
     pub policy_number: String,
     /// Group number, if the policy is a group plan.
     #[serde(default)]
+    #[schema(required = true)]
     pub group_number: Option<String>,
     /// Relationship between the subscriber and the patient — e.g.
     /// `"self"`, `"spouse"`, `"child"`, `"parent"`, `"other"`. Free-form
@@ -111,6 +115,7 @@ pub struct Coverage {
     pub relationship: String,
     pub start_date: NaiveDate,
     #[serde(default)]
+    #[schema(required = true)]
     pub end_date: Option<NaiveDate>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

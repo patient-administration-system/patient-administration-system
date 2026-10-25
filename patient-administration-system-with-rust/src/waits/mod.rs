@@ -11,7 +11,7 @@
 use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::config::env;
@@ -22,7 +22,7 @@ use crate::{Error, Result};
 
 pub const ANSWERS: [&str; 4] = ["still_needed", "no_longer_needed", "unsure", "no_reply"];
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct LeadTime {
     pub appointment_id: Uuid,
     pub booked_at: DateTime<Utc>,
@@ -31,15 +31,16 @@ pub struct LeadTime {
     pub lead_days: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct PathwayWait {
     pub pathway_id: Uuid,
     pub target_service: String,
     pub weeks_waited: u32,
+    #[schema(required = true)]
     pub last_check_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct PatientWaits {
     pub person_id: Uuid,
     pub appointments: Vec<LeadTime>,
