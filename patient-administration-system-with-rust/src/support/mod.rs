@@ -14,7 +14,13 @@ use uuid::Uuid;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::{Error, Result};
 
-pub const KINDS: [&str; 2] = ["needs_support_call", "navigator_referral"];
+crate::string_enum! {
+    /// What kind of support a flag asks for.
+    pub enum SupportKind {
+        NeedsSupportCall = "needs_support_call",
+        NavigatorReferral = "navigator_referral",
+    }
+}
 pub const OUTCOMES: [&str; 4] = ["helped", "no_answer", "declined_help", "not_needed"];
 
 #[derive(Debug, Clone, Serialize)]
@@ -22,7 +28,7 @@ pub struct SupportFlag {
     pub id: Uuid,
     pub person_id: Uuid,
     pub appointment_id: Option<Uuid>,
-    pub kind: String,
+    pub kind: SupportKind,
     pub reason_code: Option<String>,
     pub created_by: String,
     pub created_at: DateTime<Utc>,
@@ -46,12 +52,12 @@ impl SupportService {
         created_by: &str,
         ctx: &UserContext,
     ) -> Result<Uuid> {
-        if !KINDS.contains(&kind) {
-            return Err(Error::validation(format!(
+        let kind: SupportKind = kind.parse().map_err(|_| {
+            Error::validation(format!(
                 "kind must be one of {}",
-                KINDS.join(", ")
-            )));
-        }
+                SupportKind::NAMES.join(", ")
+            ))
+        })?;
         let created_by = crate::validation::named_person(
             created_by,
             "a support flag names who raised it (created_by)",
@@ -75,7 +81,7 @@ impl SupportService {
                     id.into(),
                     person_id.into(),
                     appointment_id.into(),
-                    kind.into(),
+                    kind.as_str().into(),
                     reason_code.map(String::from).into(),
                     created_by.into(),
                 ],
@@ -88,7 +94,7 @@ impl SupportService {
             id,
             "raised",
             None,
-            Some(serde_json::json!({ "kind": kind, "appointment_id": appointment_id })),
+            Some(serde_json::json!({ "kind": kind.as_str(), "appointment_id": appointment_id })),
             reason_code,
             None,
             ctx,
@@ -115,7 +121,7 @@ impl SupportService {
                     id: r.col("id")?,
                     person_id: r.col("person_id")?,
                     appointment_id: r.col("appointment_id")?,
-                    kind: r.col("kind")?,
+                    kind: r.col::<String>("kind")?.parse()?,
                     reason_code: r.col("reason_code")?,
                     created_by: r.col("created_by")?,
                     created_at: r.col("created_at")?,

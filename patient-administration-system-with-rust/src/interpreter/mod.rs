@@ -21,8 +21,14 @@ use crate::models::appointment::Appointment;
 use crate::validation::named_person;
 use crate::{Error, Result};
 
-/// The kinds of interpreting a profile can record.
-pub const KINDS: [&str; 3] = ["spoken", "bsl", "deafblind"];
+crate::string_enum! {
+    /// The kinds of interpreting a profile can record.
+    pub enum InterpreterKind {
+        Spoken = "spoken",
+        Bsl = "bsl",
+        Deafblind = "deafblind",
+    }
+}
 
 /// Raise the interpreter request for a just-booked appointment, if the patient needs one. Called from the
 /// one place every booking passes through, inside its transaction.
@@ -80,7 +86,7 @@ pub struct UnconfirmedRequest {
     pub request_id: Uuid,
     pub appointment_id: Uuid,
     pub person_id: Uuid,
-    pub kind: String,
+    pub kind: InterpreterKind,
     pub language: Option<String>,
     pub starts_at: DateTime<Utc>,
 }
@@ -125,7 +131,7 @@ impl InterpreterService {
             (Some(other), _) => {
                 return Err(Error::validation(format!(
                     "interpreter kind must be one of {}, not {other:?}",
-                    KINDS.join(", ")
+                    InterpreterKind::NAMES.join(", ")
                 )));
             }
             (None, Some(_)) => {
@@ -228,7 +234,10 @@ impl InterpreterService {
                     request_id: r.try_get("", "id").map_err(Error::Database)?,
                     appointment_id: r.try_get("", "appointment_id").map_err(Error::Database)?,
                     person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-                    kind: r.try_get("", "kind").map_err(Error::Database)?,
+                    kind: r
+                        .try_get::<String>("", "kind")
+                        .map_err(Error::Database)?
+                        .parse()?,
                     language: r.try_get("", "language").map_err(Error::Database)?,
                     starts_at: r.try_get("", "start_datetime").map_err(Error::Database)?,
                 })

@@ -42,7 +42,7 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
     let cases: &[(&str, &[&str])] = &[
         ("referrals_status_chk", referrals::ReferralStatus::NAMES),
         ("referrals_source_chk", referrals::ReferralSource::NAMES),
-        ("support_flags_kind_check", &support::KINDS),
+        ("support_flags_kind_check", support::SupportKind::NAMES),
         ("support_flags_outcome_check", &support::OUTCOMES),
         ("follow_up_tasks_outcome_check", &follow_up::OUTCOMES),
         ("identity_proofings_method_check", &identity::METHODS),
@@ -62,7 +62,10 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ),
         // Added with the second pass over the lists that already existed in code.
         ("chk_slots_slot_type", &clinic_templates::SLOT_TYPES),
-        ("interpreter_requests_kind_check", &interpreter::KINDS),
+        (
+            "interpreter_requests_kind_check",
+            interpreter::InterpreterKind::NAMES,
+        ),
         ("pifu_requests_channel_check", pifu::RequestChannel::NAMES),
         ("pifu_episodes_status_check", pifu::EpisodeStatus::NAMES),
         (
