@@ -578,6 +578,103 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Booked": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "appointment": {
+                "$ref": "#/components/schemas/Appointment"
+              },
+              "referral": {
+                "$ref": "#/components/schemas/Referral"
+              }
+            },
+            "required": [
+              "referral",
+              "appointment"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Created": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "What creating a referral answers: the referral, and whether it was one already received (same source and\nexternal reference), in which case nothing new was made.",
+            "properties": {
+              "duplicate": {
+                "type": "boolean"
+              },
+              "referral": {
+                "$ref": "#/components/schemas/Referral"
+              }
+            },
+            "required": [
+              "referral",
+              "duplicate"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_LetterTemplate": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -1107,6 +1204,136 @@
               "started_at",
               "created_at",
               "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Referral": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "appointment_id": {
+                "description": "The appointment booked from this referral, if any.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "external_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "received_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "redirected_referral_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "redirected_to_service": {
+                "description": "For a redirect: the service it went to and the new referral that carries the patient there.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "referring_worker_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source": {
+                "$ref": "#/components/schemas/ReferralSource"
+              },
+              "status": {
+                "$ref": "#/components/schemas/ReferralStatus"
+              },
+              "target_service": {
+                "type": "string"
+              },
+              "triaged_at": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "triaged_by": {
+                "description": "Set when a consultant triaged the referral (`returned_with_advice` or `redirected`).",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "person_id",
+              "source",
+              "external_ref",
+              "target_service",
+              "reason",
+              "referring_worker_id",
+              "status",
+              "received_at",
+              "appointment_id",
+              "triaged_by",
+              "triaged_at",
+              "redirected_to_service",
+              "redirected_referral_id"
             ],
             "type": "object"
           },
@@ -2061,6 +2288,139 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Vec_Referral": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "appointment_id": {
+                  "description": "The appointment booked from this referral, if any.",
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "external_ref": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "received_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "redirected_referral_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "redirected_to_service": {
+                  "description": "For a redirect: the service it went to and the new referral that carries the patient there.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "referring_worker_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source": {
+                  "$ref": "#/components/schemas/ReferralSource"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/ReferralStatus"
+                },
+                "target_service": {
+                  "type": "string"
+                },
+                "triaged_at": {
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "triaged_by": {
+                  "description": "Set when a consultant triaged the referral (`returned_with_advice` or `redirected`).",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "person_id",
+                "source",
+                "external_ref",
+                "target_service",
+                "reason",
+                "referring_worker_id",
+                "status",
+                "received_at",
+                "appointment_id",
+                "triaged_by",
+                "triaged_at",
+                "redirected_to_service",
+                "redirected_referral_id"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Vec_WaitlistEntry": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -2609,6 +2969,21 @@
         ],
         "type": "object"
       },
+      "Booked": {
+        "properties": {
+          "appointment": {
+            "$ref": "#/components/schemas/Appointment"
+          },
+          "referral": {
+            "$ref": "#/components/schemas/Referral"
+          }
+        },
+        "required": [
+          "referral",
+          "appointment"
+        ],
+        "type": "object"
+      },
       "CallOutcomeBody": {
         "properties": {
           "outcome": {
@@ -3015,6 +3390,22 @@
           "start_datetime",
           "duration_minutes",
           "rule"
+        ],
+        "type": "object"
+      },
+      "Created": {
+        "description": "What creating a referral answers: the referral, and whether it was one already received (same source and\nexternal reference), in which case nothing new was made.",
+        "properties": {
+          "duplicate": {
+            "type": "boolean"
+          },
+          "referral": {
+            "$ref": "#/components/schemas/Referral"
+          }
+        },
+        "required": [
+          "referral",
+          "duplicate"
         ],
         "type": "object"
       },
@@ -4800,6 +5191,124 @@
           "end"
         ],
         "type": "object"
+      },
+      "Referral": {
+        "properties": {
+          "appointment_id": {
+            "description": "The appointment booked from this referral, if any.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "external_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "received_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "redirected_referral_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "redirected_to_service": {
+            "description": "For a redirect: the service it went to and the new referral that carries the patient there.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "referring_worker_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReferralSource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReferralStatus"
+          },
+          "target_service": {
+            "type": "string"
+          },
+          "triaged_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triaged_by": {
+            "description": "Set when a consultant triaged the referral (`returned_with_advice` or `redirected`).",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "source",
+          "external_ref",
+          "target_service",
+          "reason",
+          "referring_worker_id",
+          "status",
+          "received_at",
+          "appointment_id",
+          "triaged_by",
+          "triaged_at",
+          "redirected_to_service",
+          "redirected_referral_id"
+        ],
+        "type": "object"
+      },
+      "ReferralSource": {
+        "description": "Where a referral came from.",
+        "enum": [
+          "Gp",
+          "ERs",
+          "Internal"
+        ],
+        "type": "string"
+      },
+      "ReferralStatus": {
+        "description": "Where a referral has got to.",
+        "enum": [
+          "Received",
+          "Waitlisted",
+          "Booked",
+          "Closed",
+          "ReturnedWithAdvice",
+          "Redirected"
+        ],
+        "type": "string"
       },
       "ReinstateBody": {
         "properties": {
@@ -14193,6 +14702,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Referral"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14226,6 +14742,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Created"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14262,6 +14785,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Referral"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14298,6 +14828,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Booked"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14344,6 +14881,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Referral"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14390,6 +14934,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Referral"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14436,6 +14987,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Referral"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

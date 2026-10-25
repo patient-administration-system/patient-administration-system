@@ -5608,6 +5608,42 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Booked: {
+      data?: {
+        appointment: components["schemas"]["Appointment"];
+        referral: components["schemas"]["Referral"];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Created: {
+      /**
+       * @description What creating a referral answers: the referral, and whether it was one already received (same source and
+       *     external reference), in which case nothing new was made.
+       */
+      data?: {
+        duplicate: boolean;
+        referral: components["schemas"]["Referral"];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_LetterTemplate: {
       data?: {
         active: boolean;
@@ -5792,6 +5828,46 @@ export interface components {
         target_service: string;
         /** Format: date-time */
         updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Referral: {
+      data?: {
+        /**
+         * Format: uuid
+         * @description The appointment booked from this referral, if any.
+         */
+        appointment_id: string | null;
+        external_ref: string | null;
+        /** Format: uuid */
+        id: string;
+        /** Format: uuid */
+        person_id: string;
+        reason: string | null;
+        /** Format: date-time */
+        received_at: string;
+        /** Format: uuid */
+        redirected_referral_id: string | null;
+        /** @description For a redirect: the service it went to and the new referral that carries the patient there. */
+        redirected_to_service: string | null;
+        /** Format: uuid */
+        referring_worker_id: string | null;
+        source: components["schemas"]["ReferralSource"];
+        status: components["schemas"]["ReferralStatus"];
+        target_service: string;
+        /** Format: date-time */
+        triaged_at: string | null;
+        /** @description Set when a consultant triaged the referral (`returned_with_advice` or `redirected`). */
+        triaged_by: string | null;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -6101,6 +6177,46 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_Referral: {
+      data?: {
+        /**
+         * Format: uuid
+         * @description The appointment booked from this referral, if any.
+         */
+        appointment_id: string | null;
+        external_ref: string | null;
+        /** Format: uuid */
+        id: string;
+        /** Format: uuid */
+        person_id: string;
+        reason: string | null;
+        /** Format: date-time */
+        received_at: string;
+        /** Format: uuid */
+        redirected_referral_id: string | null;
+        /** @description For a redirect: the service it went to and the new referral that carries the patient there. */
+        redirected_to_service: string | null;
+        /** Format: uuid */
+        referring_worker_id: string | null;
+        source: components["schemas"]["ReferralSource"];
+        status: components["schemas"]["ReferralStatus"];
+        target_service: string;
+        /** Format: date-time */
+        triaged_at: string | null;
+        /** @description Set when a consultant triaged the referral (`returned_with_advice` or `redirected`). */
+        triaged_by: string | null;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_WaitlistEntry: {
       data?: {
         /** Format: date-time */
@@ -6296,6 +6412,10 @@ export interface components {
       /** Format: uuid */
       slot_id: string;
     };
+    Booked: {
+      appointment: components["schemas"]["Appointment"];
+      referral: components["schemas"]["Referral"];
+    };
     CallOutcomeBody: {
       outcome: string;
     };
@@ -6487,6 +6607,14 @@ export interface components {
       start_datetime: string;
       /** Format: uuid */
       worker_id?: string | null;
+    };
+    /**
+     * @description What creating a referral answers: the referral, and whether it was one already received (same source and
+     *     external reference), in which case nothing new was made.
+     */
+    Created: {
+      duplicate: boolean;
+      referral: components["schemas"]["Referral"];
     };
     DecisionBody: {
       decided_by: string;
@@ -7153,6 +7281,44 @@ export interface components {
        */
       interval: number;
     };
+    Referral: {
+      /**
+       * Format: uuid
+       * @description The appointment booked from this referral, if any.
+       */
+      appointment_id: string | null;
+      external_ref: string | null;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      person_id: string;
+      reason: string | null;
+      /** Format: date-time */
+      received_at: string;
+      /** Format: uuid */
+      redirected_referral_id: string | null;
+      /** @description For a redirect: the service it went to and the new referral that carries the patient there. */
+      redirected_to_service: string | null;
+      /** Format: uuid */
+      referring_worker_id: string | null;
+      source: components["schemas"]["ReferralSource"];
+      status: components["schemas"]["ReferralStatus"];
+      target_service: string;
+      /** Format: date-time */
+      triaged_at: string | null;
+      /** @description Set when a consultant triaged the referral (`returned_with_advice` or `redirected`). */
+      triaged_by: string | null;
+    };
+    /**
+     * @description Where a referral came from.
+     * @enum {string}
+     */
+    ReferralSource: "Gp" | "ERs" | "Internal";
+    /**
+     * @description Where a referral has got to.
+     * @enum {string}
+     */
+    ReferralStatus: "Received" | "Waitlisted" | "Booked" | "Closed" | "ReturnedWithAdvice" | "Redirected";
     ReinstateBody: {
       reinstated_by: string;
     };
@@ -15171,7 +15337,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Referral"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15207,7 +15375,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Created"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15242,7 +15412,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Referral"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15277,7 +15449,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Booked"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15316,7 +15490,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Referral"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15355,7 +15531,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Referral"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15394,7 +15572,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Referral"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

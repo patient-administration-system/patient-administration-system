@@ -341,3 +341,71 @@ async fn the_history_due_check_adjustment_and_noshow_routes_send_the_types_they_
     .await;
     assert_fields_match_schema("ShownAssessments", &shown);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_referral_routes_send_the_types_they_declare() {
+    use patient_administration_system::referrals::{Booked, Created, Referral, ReferralStatus};
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let service = format!("svc-{}", Uuid::new_v4());
+    let new = |n: u32| {
+        json!({"person_id": Uuid::new_v4(), "source": "gp", "external_ref": format!("q34-{}-{n}", Uuid::new_v4()),
+               "target_service": service, "reason": "knee"})
+    };
+
+    let created: Created = call(&app, "POST", "/api/referrals", Some(new(1))).await;
+    assert!(!created.duplicate);
+    let id = created.referral.id;
+    let one: Referral = call(&app, "GET", &format!("/api/referrals/{id}"), None).await;
+    assert_eq!(one.status, ReferralStatus::Received);
+    let listed: Vec<Referral> = call(
+        &app,
+        "GET",
+        &format!("/api/referrals?service={service}"),
+        None,
+    )
+    .await;
+    assert!(listed.iter().any(|r| r.id == id));
+
+    let waitlisted: Referral = call(
+        &app,
+        "POST",
+        &format!("/api/referrals/{id}/waitlist"),
+        Some(json!({"priority": "urgent"})),
+    )
+    .await;
+    assert_eq!(waitlisted.status, ReferralStatus::Waitlisted);
+    let closed: Referral = call(
+        &app,
+        "POST",
+        &format!("/api/referrals/{id}/close"),
+        Some(json!({"reason": "no longer needed"})),
+    )
+    .await;
+    assert_eq!(closed.status, ReferralStatus::Closed);
+
+    let second: Created = call(&app, "POST", "/api/referrals", Some(new(2))).await;
+    let triaged: Referral = call(
+        &app,
+        "POST",
+        &format!("/api/referrals/{}/triage", second.referral.id),
+        Some(json!({"outcome": "returned_with_advice", "triaged_by": "Dr B"})),
+    )
+    .await;
+    assert_eq!(triaged.status, ReferralStatus::ReturnedWithAdvice);
+
+    let third: Created = call(&app, "POST", "/api/referrals", Some(new(3))).await;
+    let sched = common::new_schedule_for(&state.db, &service).await;
+    let _slot = common::free_slot(&state.db, sched.id, 20).await;
+    let booked: Booked = call(
+        &app,
+        "POST",
+        &format!("/api/referrals/{}/book-first-available", third.referral.id),
+        None,
+    )
+    .await;
+    assert_eq!(booked.referral.status, ReferralStatus::Booked);
+    assert_eq!(booked.referral.appointment_id, Some(booked.appointment.id));
+}

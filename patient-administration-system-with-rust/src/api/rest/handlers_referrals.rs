@@ -10,10 +10,10 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
+use crate::api::rest::handlers::ok_json;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
-use crate::api::rest::handlers::{ok, ok_json};
 use crate::models::waitlist::Priority;
-use crate::referrals::NewReferral;
+use crate::referrals::{Created, NewReferral};
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 #[schema(as = handlers_referrals::CreateBody)]
@@ -41,7 +41,7 @@ pub struct CreateBody {
     tag = "Referrals",
     request_body = CreateBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::referrals::Created>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -67,7 +67,10 @@ pub async fn create(
         )
         .await
     {
-        Ok((r, duplicate)) => ok(serde_json::json!({ "referral": r, "duplicate": duplicate })),
+        Ok((referral, duplicate)) => ok_json(Created {
+            referral,
+            duplicate,
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -86,7 +89,7 @@ pub struct ListQuery {
     tag = "Referrals",
     params(ListQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::referrals::Referral>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -117,7 +120,7 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> 
     tag = "Referrals",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::referrals::Referral>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -137,7 +140,7 @@ pub async fn get(State(state): State<AppState>, Path(id): Path<Uuid>) -> Handler
     tag = "Referrals",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::referrals::Booked>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -171,7 +174,7 @@ pub struct WaitlistBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = WaitlistBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::referrals::Referral>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -208,7 +211,7 @@ pub struct CloseBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = CloseBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::referrals::Referral>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -251,7 +254,7 @@ pub struct TriageBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = TriageBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::referrals::Referral>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

@@ -14,7 +14,7 @@
 use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -56,24 +56,32 @@ fn is_ended(status: ReferralStatus) -> bool {
 }
 const CANDIDATES: i64 = 25;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Referral {
     pub id: Uuid,
     pub person_id: Uuid,
     pub source: ReferralSource,
+    #[schema(required = true)]
     pub external_ref: Option<String>,
     pub target_service: String,
+    #[schema(required = true)]
     pub reason: Option<String>,
+    #[schema(required = true)]
     pub referring_worker_id: Option<Uuid>,
     pub status: ReferralStatus,
     pub received_at: DateTime<Utc>,
     /// The appointment booked from this referral, if any.
+    #[schema(required = true)]
     pub appointment_id: Option<Uuid>,
     /// Set when a consultant triaged the referral (`returned_with_advice` or `redirected`).
+    #[schema(required = true)]
     pub triaged_by: Option<String>,
+    #[schema(required = true)]
     pub triaged_at: Option<DateTime<Utc>>,
     /// For a redirect: the service it went to and the new referral that carries the patient there.
+    #[schema(required = true)]
     pub redirected_to_service: Option<String>,
+    #[schema(required = true)]
     pub redirected_referral_id: Option<Uuid>,
 }
 
@@ -87,10 +95,18 @@ pub struct NewReferral {
     pub received_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Booked {
     pub referral: Referral,
     pub appointment: Appointment,
+}
+
+/// What creating a referral answers: the referral, and whether it was one already received (same source and
+/// external reference), in which case nothing new was made.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Created {
+    pub referral: Referral,
+    pub duplicate: bool,
 }
 
 pub struct ReferralService {
