@@ -10,20 +10,23 @@
 //! Characters in the GSM extension table (`€ [ ] { } \ ^ | ~` and form feed) count as two.
 //! Characters outside the Basic Multilingual Plane (emoji) are two UCS-2 units.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Encoding {
     Gsm7,
     Ucs2,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct SmsLength {
     pub encoding: Encoding,
     /// Length in the encoding's own units (septets, or UTF-16 code units).
     pub units: usize,
     pub segments: usize,
     /// The first character that forced UCS-2, when it did.
+    #[schema(required = true)]
     pub forced_by: Option<char>,
 }
 

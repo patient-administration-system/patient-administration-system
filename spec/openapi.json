@@ -1540,6 +1540,119 @@
         ],
         "type": "object"
       },
+      "ApiResponse_GeneratedLetter": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "appointment_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "channel": {
+                "$ref": "#/components/schemas/DeliveryChannel"
+              },
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "locale": {
+                "description": "Which language variant was used, so a patient's message can be shown in what they were sent.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "rendered_body": {
+                "type": "string"
+              },
+              "rendered_subject": {
+                "type": "string"
+              },
+              "sent_at": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "$ref": "#/components/schemas/LetterStatus"
+              },
+              "template_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "trigger": {
+                "description": "Why this message was sent (CAP-6): `manual` (a person generated it), `reminder` or\n`reminder_ladder:<step>`.",
+                "type": "string"
+              },
+              "trigger_ref": {
+                "description": "The record the trigger refers to, for example the appointment a reminder was for.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "updated_at": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "template_id",
+              "person_id",
+              "rendered_subject",
+              "rendered_body",
+              "channel",
+              "status",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_LetterTemplate": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -1927,6 +2040,63 @@
               "person_id",
               "appointments",
               "pathways"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Preview": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A letter rendered for one person, not stored.",
+            "properties": {
+              "locale": {
+                "type": "string"
+              },
+              "rendered_body": {
+                "type": "string"
+              },
+              "rendered_subject": {
+                "type": "string"
+              },
+              "sms": {
+                "$ref": "#/components/schemas/SmsLength"
+              }
+            },
+            "required": [
+              "rendered_subject",
+              "rendered_body",
+              "locale",
+              "sms"
             ],
             "type": "object"
           },
@@ -2587,6 +2757,121 @@
             "required": [
               "active",
               "items"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_SmsLength": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "encoding": {
+                "$ref": "#/components/schemas/Encoding"
+              },
+              "forced_by": {
+                "description": "The first character that forced UCS-2, when it did.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "segments": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "units": {
+                "description": "Length in the encoding's own units (septets, or UTF-16 code units).",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "encoding",
+              "units",
+              "segments",
+              "forced_by"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_TemplateGroup": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "The templates created together, one per language.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "variants": {
+                "items": {
+                  "$ref": "#/components/schemas/TemplateVariant"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "variants"
             ],
             "type": "object"
           },
@@ -6752,6 +7037,13 @@
         ],
         "type": "object"
       },
+      "Encoding": {
+        "enum": [
+          "gsm7",
+          "ucs2"
+        ],
+        "type": "string"
+      },
       "Encounter": {
         "description": "A patient's administrative interaction with the healthcare system.",
         "properties": {
@@ -8039,6 +8331,30 @@
         ],
         "type": "object"
       },
+      "Preview": {
+        "description": "A letter rendered for one person, not stored.",
+        "properties": {
+          "locale": {
+            "type": "string"
+          },
+          "rendered_body": {
+            "type": "string"
+          },
+          "rendered_subject": {
+            "type": "string"
+          },
+          "sms": {
+            "$ref": "#/components/schemas/SmsLength"
+          }
+        },
+        "required": [
+          "rendered_subject",
+          "rendered_body",
+          "locale",
+          "sms"
+        ],
+        "type": "object"
+      },
       "PreviewLetterBody": {
         "properties": {
           "extra": {},
@@ -9213,6 +9529,36 @@
         ],
         "type": "object"
       },
+      "SmsLength": {
+        "properties": {
+          "encoding": {
+            "$ref": "#/components/schemas/Encoding"
+          },
+          "forced_by": {
+            "description": "The first character that forced UCS-2, when it did.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "segments": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "units": {
+            "description": "Length in the encoding's own units (septets, or UTF-16 code units).",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "encoding",
+          "units",
+          "segments",
+          "forced_by"
+        ],
+        "type": "object"
+      },
       "StageBody": {
         "properties": {
           "changed_by": {
@@ -9289,6 +9635,48 @@
         "required": [
           "target_date",
           "set_by"
+        ],
+        "type": "object"
+      },
+      "TemplateGroup": {
+        "description": "The templates created together, one per language.",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateVariant"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "variants"
+        ],
+        "type": "object"
+      },
+      "TemplateVariant": {
+        "description": "One language of a template group, with what its body would cost as a text.",
+        "properties": {
+          "sms": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SmsLength"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template": {
+            "$ref": "#/components/schemas/LetterTemplate"
+          }
+        },
+        "required": [
+          "template",
+          "sms"
         ],
         "type": "object"
       },
@@ -14918,6 +15306,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TemplateGroup"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14983,6 +15378,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LetterTemplate"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -15018,6 +15420,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SmsLength"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -15227,6 +15636,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GeneratedLetter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -15262,6 +15678,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Preview"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -15298,6 +15721,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GeneratedLetter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -15334,6 +15764,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GeneratedLetter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -15406,6 +15843,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GeneratedLetter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

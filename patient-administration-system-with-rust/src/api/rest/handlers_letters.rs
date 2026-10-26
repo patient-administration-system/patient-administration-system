@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::Error;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
+use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::communication::templates;
 use crate::db::repositories::audit::AuditLogRepository;
@@ -31,6 +31,30 @@ pub struct GenerateLetterBody {
     pub extra: Value,
 }
 
+/// A letter rendered for one person, not stored.
+#[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Preview {
+    pub rendered_subject: String,
+    pub rendered_body: String,
+    pub locale: String,
+    pub sms: crate::communication::sms_length::SmsLength,
+}
+
+/// One language of a template group, with what its body would cost as a text.
+#[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
+pub struct TemplateVariant {
+    pub template: LetterTemplate,
+    #[schema(required = true)]
+    pub sms: Option<crate::communication::sms_length::SmsLength>,
+}
+
+/// The templates created together, one per language.
+#[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
+pub struct TemplateGroup {
+    pub name: String,
+    pub variants: Vec<TemplateVariant>,
+}
+
 /// `POST /api/letter-templates` — create a template.
 #[utoipa::path(
     post,
@@ -38,7 +62,7 @@ pub struct GenerateLetterBody {
     tag = "Letter templates",
     request_body = LetterTemplate,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::communication::LetterTemplate>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -254,7 +278,7 @@ pub struct PreviewLetterBody {
     tag = "Letters",
     request_body = PreviewLetterBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Preview>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -270,10 +294,12 @@ pub async fn preview_letter(
         .preview_letter(body.template_id, body.person_id, body.extra, &ctx)
         .await
     {
-        Ok((subject, body, locale)) => ok(serde_json::json!({
-            "rendered_subject": subject, "rendered_body": body, "locale": locale,
-            "sms": crate::communication::sms_length::analyze(&body),
-        })),
+        Ok((rendered_subject, rendered_body, locale)) => ok_json(Preview {
+            sms: crate::communication::sms_length::analyze(&rendered_body),
+            rendered_subject,
+            rendered_body,
+            locale,
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -286,7 +312,7 @@ pub async fn preview_letter(
     tag = "Letters",
     request_body = GenerateLetterBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::communication::GeneratedLetter>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -321,7 +347,7 @@ pub async fn generate_letter(
     tag = "Letters",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::communication::GeneratedLetter>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -341,7 +367,7 @@ pub async fn get_letter(State(state): State<AppState>, Path(id): Path<Uuid>) -> 
     tag = "Letters",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::communication::GeneratedLetter>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -381,7 +407,7 @@ pub async fn mark_sent(
     tag = "Letters",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::communication::GeneratedLetter>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -441,7 +467,7 @@ pub struct GroupBody {
     tag = "Letter template groups",
     request_body = GroupBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<TemplateGroup>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -535,11 +561,14 @@ pub async fn create_group(
         .await;
     match saved {
         Ok(rows) => {
-            let variants: Vec<Value> = rows
-                .iter()
-                .map(|t| serde_json::json!({ "template": t, "sms": templates::sample_sms(&t.body_tera, &t.locale) }))
+            let variants = rows
+                .into_iter()
+                .map(|t| TemplateVariant {
+                    sms: templates::sample_sms(&t.body_tera, &t.locale),
+                    template: t,
+                })
                 .collect();
-            ok(serde_json::json!({ "name": name, "variants": variants }))
+            ok_json(TemplateGroup { name, variants })
         }
         Err(e) => error_to_response(Error::from(e)),
     }
@@ -560,7 +589,7 @@ pub struct CheckSmsBody {
     tag = "Letter templates",
     request_body = CheckSmsBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::communication::sms_length::SmsLength>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

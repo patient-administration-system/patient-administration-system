@@ -5955,6 +5955,47 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_GeneratedLetter: {
+      data?: {
+        /** Format: uuid */
+        appointment_id?: string | null;
+        channel: components["schemas"]["DeliveryChannel"];
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        id: string;
+        /** @description Which language variant was used, so a patient's message can be shown in what they were sent. */
+        locale?: string | null;
+        /** Format: uuid */
+        person_id: string;
+        rendered_body: string;
+        rendered_subject: string;
+        /** Format: date-time */
+        sent_at?: string | null;
+        status: components["schemas"]["LetterStatus"];
+        /** Format: uuid */
+        template_id: string;
+        /**
+         * @description Why this message was sent (CAP-6): `manual` (a person generated it), `reminder` or
+         *     `reminder_ladder:<step>`.
+         */
+        trigger?: string;
+        /** @description The record the trigger refers to, for example the appointment a reminder was for. */
+        trigger_ref?: string | null;
+        /** Format: date-time */
+        updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_LetterTemplate: {
       data?: {
         active: boolean;
@@ -6087,6 +6128,25 @@ export interface components {
         pathways: components["schemas"]["PathwayWait"][];
         /** Format: uuid */
         person_id: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Preview: {
+      /** @description A letter rendered for one person, not stored. */
+      data?: {
+        locale: string;
+        rendered_body: string;
+        rendered_subject: string;
+        sms: components["schemas"]["SmsLength"];
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -6312,6 +6372,43 @@ export interface components {
       data?: {
         active: boolean;
         items: components["schemas"]["Shown"][];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_SmsLength: {
+      data?: {
+        encoding: components["schemas"]["Encoding"];
+        /** @description The first character that forced UCS-2, when it did. */
+        forced_by: string | null;
+        segments: number;
+        /** @description Length in the encoding's own units (septets, or UTF-16 code units). */
+        units: number;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_TemplateGroup: {
+      /** @description The templates created together, one per language. */
+      data?: {
+        name: string;
+        variants: components["schemas"]["TemplateVariant"][];
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7785,6 +7882,8 @@ export interface components {
       basis: string;
       eligible_by: string;
     };
+    /** @enum {string} */
+    Encoding: "gsm7" | "ucs2";
     /** @description A patient's administrative interaction with the healthcare system. */
     Encounter: {
       class: components["schemas"]["EncounterClass"];
@@ -8249,6 +8348,13 @@ export interface components {
       state: string;
       token: string;
     };
+    /** @description A letter rendered for one person, not stored. */
+    Preview: {
+      locale: string;
+      rendered_body: string;
+      rendered_subject: string;
+      sms: components["schemas"]["SmsLength"];
+    };
     PreviewLetterBody: {
       extra?: unknown;
       /** Format: uuid */
@@ -8666,6 +8772,14 @@ export interface components {
       active: boolean;
       items: components["schemas"]["Shown"][];
     };
+    SmsLength: {
+      encoding: components["schemas"]["Encoding"];
+      /** @description The first character that forced UCS-2, when it did. */
+      forced_by: string | null;
+      segments: number;
+      /** @description Length in the encoding's own units (septets, or UTF-16 code units). */
+      units: number;
+    };
     StageBody: {
       changed_by: string;
       note: string;
@@ -8689,6 +8803,16 @@ export interface components {
       set_by: string;
       /** Format: date */
       target_date: string;
+    };
+    /** @description The templates created together, one per language. */
+    TemplateGroup: {
+      name: string;
+      variants: components["schemas"]["TemplateVariant"][];
+    };
+    /** @description One language of a template group, with what its body would cost as a text. */
+    TemplateVariant: {
+      sms: components["schemas"]["SmsLength"] | null;
+      template: components["schemas"]["LetterTemplate"];
     };
     ToleranceStatus: {
       /** @description The measures that can be read for one service, for each service that has data (or its own tolerance). */
@@ -13243,7 +13367,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_TemplateGroup"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13313,7 +13439,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_LetterTemplate"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13349,7 +13477,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_SmsLength"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13537,7 +13667,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_GeneratedLetter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13573,7 +13705,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Preview"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13608,7 +13742,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_GeneratedLetter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13643,7 +13779,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_GeneratedLetter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13713,7 +13851,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_GeneratedLetter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

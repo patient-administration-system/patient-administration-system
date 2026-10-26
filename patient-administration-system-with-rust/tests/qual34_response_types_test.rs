@@ -711,3 +711,100 @@ async fn the_facility_ward_room_and_bed_routes_send_the_types_they_declare() {
     assert_eq!(occupancy.total_beds, 1);
     assert_eq!(occupancy.out_of_service, 1);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_letter_routes_send_the_types_they_declare() {
+    use patient_administration_system::api::rest::handlers_letters::{Preview, TemplateGroup};
+    use patient_administration_system::communication::sms_length::{Encoding, SmsLength};
+    use patient_administration_system::models::communication::{
+        DeliveryChannel, GeneratedLetter, LetterTemplate,
+    };
+    use patient_administration_system::upstream::{Person, StubPersonClient};
+    use std::sync::Arc;
+
+    let person = Uuid::new_v4();
+    let mut data = serde_json::Map::new();
+    data.insert(
+        "name".into(),
+        json!({ "given": "Ada", "family": "Lovelace" }),
+    );
+    let stub = Arc::new(StubPersonClient::new());
+    stub.insert(Person { id: person, data });
+    let state = common::build_state(&common::database_url().unwrap())
+        .await
+        .with_person_client(stub);
+    let app = router(state);
+
+    let name = format!("q34-{}", Uuid::new_v4());
+    let template: LetterTemplate = call(
+        &app,
+        "POST",
+        "/api/letter-templates",
+        Some(json!({
+            "id": Uuid::nil(), "name": name, "locale": "en-001", "subject": "Hello {{ patient.name.given }}",
+            "body_tera": "See you soon.", "channels": ["print"], "required_variables": [],
+            "active": false,
+            "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+        })),
+    )
+    .await;
+    assert_eq!(template.name, name);
+
+    let preview: Preview = call(
+        &app,
+        "POST",
+        "/api/letters/preview",
+        Some(json!({"template_id": template.id, "person_id": person})),
+    )
+    .await;
+    assert_eq!(preview.rendered_subject, "Hello Ada");
+    assert_eq!(preview.sms.encoding, Encoding::Gsm7);
+
+    let letter: GeneratedLetter = call(
+        &app,
+        "POST",
+        "/api/letters/generate",
+        Some(json!({"template_id": template.id, "person_id": person, "channel": "print"})),
+    )
+    .await;
+    let again: GeneratedLetter =
+        call(&app, "GET", &format!("/api/letters/{}", letter.id), None).await;
+    assert_eq!(again.id, letter.id);
+    assert_eq!(again.channel, DeliveryChannel::Print);
+    let sent: GeneratedLetter = call(
+        &app,
+        "POST",
+        &format!("/api/letters/{}/sent", letter.id),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(sent.id, letter.id);
+
+    let sms: SmsLength = call(
+        &app,
+        "POST",
+        "/api/letter-templates/check-sms",
+        Some(json!({"body_tera": "Dydd Mawrth ŵ", "locale": "cy"})),
+    )
+    .await;
+    assert_eq!(sms.encoding, Encoding::Ucs2);
+    assert_eq!(sms.forced_by, Some('ŵ'));
+
+    let group: TemplateGroup = call(
+        &app,
+        "POST",
+        "/api/letter-template-groups",
+        Some(json!({
+            "name": format!("q34g-{}", Uuid::new_v4()),
+            "channels": ["sms"],
+            "variants": [
+                {"locale": "en-001", "subject": "Hi", "body_tera": "See you."},
+                {"locale": "cy-001", "subject": "Helo", "body_tera": "Welai chi."},
+            ],
+        })),
+    )
+    .await;
+    assert_eq!(group.variants.len(), 2);
+    assert!(group.variants.iter().all(|v| v.sms.is_some()));
+}
