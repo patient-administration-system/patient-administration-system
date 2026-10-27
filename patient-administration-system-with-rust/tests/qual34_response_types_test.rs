@@ -8,11 +8,11 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use patient_administration_system::api::ApiResponse;
 use patient_administration_system::api::rest::handlers_contact::{
     NhsNumberChecked, OptOut, OptOutState,
 };
 use patient_administration_system::api::rest::router;
+use patient_administration_system::api::{ApiResponse, Nothing};
 use patient_administration_system::contact::Profile;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::models::appointment::{Appointment, CancelledBy};
@@ -25,12 +25,7 @@ use serde_json::{Value, json};
 use tower::ServiceExt;
 use uuid::Uuid;
 
-async fn call<T: DeserializeOwned>(
-    app: &axum::Router,
-    method: &str,
-    uri: &str,
-    body: Option<Value>,
-) -> T {
+async fn send(app: &axum::Router, method: &str, uri: &str, body: Option<Value>) -> Vec<u8> {
     let mut req = Request::builder().method(method).uri(uri);
     if body.is_some() {
         req = req.header("content-type", "application/json");
@@ -51,6 +46,16 @@ async fn call<T: DeserializeOwned>(
         "{method} {uri}: {}",
         String::from_utf8_lossy(&bytes)
     );
+    bytes.to_vec()
+}
+
+async fn call<T: DeserializeOwned>(
+    app: &axum::Router,
+    method: &str,
+    uri: &str,
+    body: Option<Value>,
+) -> T {
+    let bytes = send(app, method, uri, body).await;
     let envelope: ApiResponse<T> = serde_json::from_slice(&bytes)
         .unwrap_or_else(|e| panic!("{method} {uri} is not the declared type: {e}"));
     assert!(envelope.success, "{method} {uri}");
@@ -1132,4 +1137,47 @@ async fn the_subscription_routes_send_the_types_they_declare() {
     .await;
     assert_eq!(ended.status, SubscriptionState::Off);
     assert!(ended.ended_at.is_some());
+}
+
+/// A success that has nothing to return: `data` must be `null`, as `Nothing` declares.
+async fn call_nothing(app: &axum::Router, method: &str, uri: &str, body: Option<Value>) {
+    let bytes = send(app, method, uri, body).await;
+    let envelope: ApiResponse<Nothing> = serde_json::from_slice(&bytes)
+        .unwrap_or_else(|e| panic!("{method} {uri} is not the declared type: {e}"));
+    assert!(envelope.success, "{method} {uri}");
+    assert!(envelope.data.is_none(), "{method} {uri}: data is not null");
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_routes_with_nothing_to_return_send_a_null_data() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state);
+    let person = Uuid::new_v4();
+
+    let who = |p: &str| format!("/api/patients/{person}/{p}");
+    call_nothing(
+        &app,
+        "PUT",
+        &who("transport-eligibility"),
+        Some(json!({"eligible_by": "qual34", "basis": "mobility"})),
+    )
+    .await;
+    call_nothing(&app, "DELETE", &who("transport-eligibility"), None).await;
+    call_nothing(
+        &app,
+        "PUT",
+        &who("transport-consent"),
+        Some(json!({"recorded_by": "qual34", "basis": "Art. 6(1)(e)"})),
+    )
+    .await;
+    call_nothing(&app, "DELETE", &who("transport-consent"), None).await;
+    call_nothing(
+        &app,
+        "PUT",
+        &who("whatsapp-optin"),
+        Some(json!({"source": "portal", "recorded_by": "qual34"})),
+    )
+    .await;
+    call_nothing(&app, "DELETE", &who("whatsapp-optin"), None).await;
 }

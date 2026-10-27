@@ -24,6 +24,10 @@ pub struct ApiResponse<T> {
     pub meta: Option<crate::paging::PageMeta>,
 }
 
+/// The `data` of a success that has nothing to return: it serializes to `null`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Nothing;
+
 /// Machine-readable error payload carried in [`ApiResponse::error`].
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ApiError {
