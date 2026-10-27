@@ -1231,6 +1231,138 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Coverage": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "One coverage record. A patient may have many; an account may have\nmany; coverage rows are never hard-deleted (status flips to\n`Cancelled` or `EnteredInError`).",
+            "properties": {
+              "account_id": {
+                "description": "Billing account this coverage is linked to. Optional because a\ncoverage may be captured before the account is opened, and may be\nre-linked later via `PUT /api/coverages/{id}`.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "end_date": {
+                "format": "date",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "group_number": {
+                "description": "Group number, if the policy is a group plan.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "kind": {
+                "$ref": "#/components/schemas/CoverageKind"
+              },
+              "payor_identifier": {
+                "description": "Payer-supplied opaque identifier — payer EIN, plan code, etc.\nFree-form string; never parsed by the PAS.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "payor_name": {
+                "description": "Human-readable payer / insurer name (e.g. `\"Aetna\"`,\n`\"NHS England\"`, `\"Self-pay\"`).",
+                "type": "string"
+              },
+              "person_id": {
+                "description": "The patient receiving care under this coverage — the *beneficiary*\nin FHIR terms. Always set; coverage cannot exist without a patient.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "policy_number": {
+                "description": "Policy / member number as printed on the patient's card.",
+                "type": "string"
+              },
+              "relationship": {
+                "description": "Relationship between the subscriber and the patient — e.g.\n`\"self\"`, `\"spouse\"`, `\"child\"`, `\"parent\"`, `\"other\"`. Free-form\nso callers can use whichever code system they prefer.",
+                "type": "string"
+              },
+              "start_date": {
+                "format": "date",
+                "type": "string"
+              },
+              "status": {
+                "$ref": "#/components/schemas/CoverageStatus"
+              },
+              "subscriber_id": {
+                "description": "The policy holder. When the patient *is* the policy holder\n(`relationship = \"self\"`), this is `Some(person_id)` — but it's\noptional so callers can omit it and let the handler default it.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "updated_at": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "person_id",
+              "account_id",
+              "status",
+              "kind",
+              "subscriber_id",
+              "payor_name",
+              "payor_identifier",
+              "policy_number",
+              "group_number",
+              "relationship",
+              "start_date",
+              "end_date",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Created": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -11642,6 +11774,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Coverage"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14244,6 +14383,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Coverage"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14280,6 +14426,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Coverage"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14314,6 +14467,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Coverage"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14358,6 +14518,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Coverage"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

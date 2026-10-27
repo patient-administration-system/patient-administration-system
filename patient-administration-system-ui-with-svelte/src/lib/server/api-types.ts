@@ -5849,6 +5849,77 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Coverage: {
+      /**
+       * @description One coverage record. A patient may have many; an account may have
+       *     many; coverage rows are never hard-deleted (status flips to
+       *     `Cancelled` or `EnteredInError`).
+       */
+      data?: {
+        /**
+         * Format: uuid
+         * @description Billing account this coverage is linked to. Optional because a
+         *     coverage may be captured before the account is opened, and may be
+         *     re-linked later via `PUT /api/coverages/{id}`.
+         */
+        account_id: string | null;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: date */
+        end_date: string | null;
+        /** @description Group number, if the policy is a group plan. */
+        group_number: string | null;
+        /** Format: uuid */
+        id: string;
+        kind: components["schemas"]["CoverageKind"];
+        /**
+         * @description Payer-supplied opaque identifier — payer EIN, plan code, etc.
+         *     Free-form string; never parsed by the PAS.
+         */
+        payor_identifier: string | null;
+        /**
+         * @description Human-readable payer / insurer name (e.g. `"Aetna"`,
+         *     `"NHS England"`, `"Self-pay"`).
+         */
+        payor_name: string;
+        /**
+         * Format: uuid
+         * @description The patient receiving care under this coverage — the *beneficiary*
+         *     in FHIR terms. Always set; coverage cannot exist without a patient.
+         */
+        person_id: string;
+        /** @description Policy / member number as printed on the patient's card. */
+        policy_number: string;
+        /**
+         * @description Relationship between the subscriber and the patient — e.g.
+         *     `"self"`, `"spouse"`, `"child"`, `"parent"`, `"other"`. Free-form
+         *     so callers can use whichever code system they prefer.
+         */
+        relationship: string;
+        /** Format: date */
+        start_date: string;
+        status: components["schemas"]["CoverageStatus"];
+        /**
+         * Format: uuid
+         * @description The policy holder. When the patient *is* the policy holder
+         *     (`relationship = "self"`), this is `Some(person_id)` — but it's
+         *     optional so callers can omit it and let the handler default it.
+         */
+        subscriber_id: string | null;
+        /** Format: date-time */
+        updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Created: {
       /**
        * @description What creating a referral answers: the referral, and whether it was one already received (same source and
@@ -9480,7 +9551,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Coverage"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11614,7 +11687,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Coverage"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11649,7 +11724,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Coverage"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11688,7 +11765,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Coverage"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11723,7 +11802,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Coverage"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

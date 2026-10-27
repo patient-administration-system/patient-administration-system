@@ -29,7 +29,7 @@ use crate::models::coverage::{Coverage, CoverageStatus};
     tag = "Coverages",
     request_body = Coverage,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Coverage>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -80,7 +80,7 @@ pub async fn create_coverage(
     tag = "Coverages",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Coverage>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -101,7 +101,7 @@ pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = Coverage,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Coverage>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -144,7 +144,7 @@ pub async fn update_coverage(
     tag = "Coverages",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Coverage>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -212,7 +212,7 @@ pub async fn list_coverages_for_person(
     tag = "Accounts",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<Coverage>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

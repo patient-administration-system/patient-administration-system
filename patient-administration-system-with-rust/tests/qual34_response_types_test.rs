@@ -951,3 +951,45 @@ async fn the_contact_profile_and_opt_out_routes_send_the_types_they_declare() {
     assert!(checked.valid);
     assert_eq!(checked.digits, "9434765919");
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_coverage_routes_send_the_types_they_declare() {
+    use patient_administration_system::models::coverage::{Coverage, CoverageStatus};
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state);
+    let person = Uuid::new_v4();
+
+    let mut coverage = Coverage::new(person, "Payer", "P-1");
+    let created: Coverage = call(
+        &app,
+        "POST",
+        "/api/coverages",
+        Some(serde_json::to_value(&coverage).unwrap()),
+    )
+    .await;
+    assert_eq!(created.person_id, person);
+    let url = format!("/api/coverages/{}", created.id);
+    let got: Coverage = call(&app, "GET", &url, None).await;
+    assert_eq!(got.id, created.id);
+    coverage.payor_name = "Other payer".into();
+    let updated: Coverage = call(
+        &app,
+        "PUT",
+        &url,
+        Some(serde_json::to_value(&coverage).unwrap()),
+    )
+    .await;
+    assert_eq!(updated.payor_name, "Other payer");
+    let cancelled: Coverage = call(&app, "DELETE", &url, None).await;
+    assert_eq!(cancelled.status, CoverageStatus::Cancelled);
+    let none: Vec<Coverage> = call(
+        &app,
+        "GET",
+        &format!("/api/accounts/{}/coverages", Uuid::new_v4()),
+        None,
+    )
+    .await;
+    assert!(none.is_empty());
+}
