@@ -6081,6 +6081,24 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_NhsNumberChecked: {
+      /** @description What `POST /api/validate/nhs-number` sends for a well-formed number. */
+      data?: {
+        digits: string;
+        formatted: string;
+        valid: boolean;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_OfferInfo: {
       /** @description What the offer page may show: the time and nothing about the service or anyone else. */
       data?: {
@@ -6122,6 +6140,23 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_OptOutState: {
+      /** @description Whether a patient is opted out of a channel, after a change. */
+      data?: {
+        channel: string;
+        opted_out: boolean;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_PatientWaits: {
       data?: {
         appointments: components["schemas"]["LeadTime"][];
@@ -6147,6 +6182,24 @@ export interface components {
         rendered_body: string;
         rendered_subject: string;
         sms: components["schemas"]["SmsLength"];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Profile: {
+      data?: components["schemas"]["ProfileRow"] & {
+        /** @description The same facts as a FHIR `Patient` fragment, for systems that speak FHIR. */
+        fhir: Record<string, never>;
+        /** @description True when the mobile is missing, unverified, or last verified more than a year ago. */
+        mobile_stale: boolean;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7060,6 +7113,42 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_OptOut: {
+      data?: {
+        channel: string;
+        /** Format: date-time */
+        opted_out_at: string | null;
+        source: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_Profile: {
+      data?: (components["schemas"]["ProfileRow"] & {
+        /** @description The same facts as a FHIR `Patient` fragment, for systems that speak FHIR. */
+        fhir: Record<string, never>;
+        /** @description True when the mobile is missing, unverified, or last verified more than a year ago. */
+        mobile_stale: boolean;
+      })[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -8314,6 +8403,12 @@ export interface components {
     NhsNumberBody: {
       value: string;
     };
+    /** @description What `POST /api/validate/nhs-number` sends for a well-formed number. */
+    NhsNumberChecked: {
+      digits: string;
+      formatted: string;
+      valid: boolean;
+    };
     /** @description What the offer page may show: the time and nothing about the service or anyone else. */
     OfferInfo: {
       actions: string[];
@@ -8364,9 +8459,21 @@ export interface components {
       /** @description `patient_reply`, `portal`, `in_person` or `paper`. */
       source: string;
     };
+    /** @description One channel a patient has asked us not to use. */
+    OptOut: {
+      channel: string;
+      /** Format: date-time */
+      opted_out_at: string | null;
+      source: string;
+    };
     OptOutBody: {
       /** @description `sms`, `whatsapp`, `apple_messages` or `email`. */
       channel: string;
+    };
+    /** @description Whether a patient is opted out of a channel, after a change. */
+    OptOutState: {
+      channel: string;
+      opted_out: boolean;
     };
     /** @description What a list response says about itself, under `meta` in the envelope. */
     PageMeta: {
@@ -8458,6 +8565,12 @@ export interface components {
       /** @description The clinician setting it. */
       set_by: string;
     };
+    Profile: components["schemas"]["ProfileRow"] & {
+      /** @description The same facts as a FHIR `Patient` fragment, for systems that speak FHIR. */
+      fhir: Record<string, never>;
+      /** @description True when the mobile is missing, unverified, or last verified more than a year ago. */
+      mobile_stale: boolean;
+    };
     /** @description What a caller may set. The verification state is deliberately not here. */
     ProfileInput: {
       accessibility_needs?: string[];
@@ -8470,6 +8583,26 @@ export interface components {
       mobile?: string | null;
       preferred_channel?: string | null;
       preferred_language?: string | null;
+    };
+    ProfileRow: {
+      accessibility_needs: string[];
+      alternate_email?: string | null;
+      alternate_is_carer: boolean;
+      alternate_is_emergency: boolean;
+      alternate_name?: string | null;
+      alternate_phone_e164?: string | null;
+      alternate_relationship?: string | null;
+      mobile_e164?: string | null;
+      mobile_verification_method?: string | null;
+      /** Format: date-time */
+      mobile_verified_at?: string | null;
+      /** Format: uuid */
+      person_id: string;
+      preferred_channel?: string | null;
+      preferred_language?: string | null;
+      /** Format: date-time */
+      updated_at: string;
+      updated_by?: string | null;
     };
     ProofBody: {
       /** @description `in_person`, `video_id_check`, `nhs_login` or `postal_code`. */
@@ -11300,7 +11433,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Profile"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15034,7 +15169,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_OptOut"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15073,7 +15210,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_OptOutState"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15110,7 +15249,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_OptOutState"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15184,7 +15325,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Profile"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15223,7 +15366,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Profile"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15262,7 +15407,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Profile"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19081,7 +19228,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_NhsNumberChecked"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

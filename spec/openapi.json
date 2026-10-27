@@ -1888,6 +1888,59 @@
         ],
         "type": "object"
       },
+      "ApiResponse_NhsNumberChecked": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "What `POST /api/validate/nhs-number` sends for a well-formed number.",
+            "properties": {
+              "digits": {
+                "type": "string"
+              },
+              "formatted": {
+                "type": "string"
+              },
+              "valid": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "valid",
+              "digits",
+              "formatted"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_OfferInfo": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -2014,6 +2067,55 @@
         ],
         "type": "object"
       },
+      "ApiResponse_OptOutState": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "Whether a patient is opted out of a channel, after a change.",
+            "properties": {
+              "channel": {
+                "type": "string"
+              },
+              "opted_out": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "channel",
+              "opted_out"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_PatientWaits": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -2099,6 +2201,63 @@
               "sms"
             ],
             "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Profile": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfileRow"
+              },
+              {
+                "properties": {
+                  "fhir": {
+                    "description": "The same facts as a FHIR `Patient` fragment, for systems that speak FHIR.",
+                    "type": "object"
+                  },
+                  "mobile_stale": {
+                    "description": "True when the mobile is missing, unverified, or last verified more than a year ago.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "mobile_stale",
+                  "fhir"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "error": {
             "oneOf": [
@@ -4761,6 +4920,126 @@
                 "updated_at"
               ],
               "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_OptOut": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "One channel a patient has asked us not to use.",
+              "properties": {
+                "channel": {
+                  "type": "string"
+                },
+                "opted_out_at": {
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "channel",
+                "opted_out_at",
+                "source"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_Profile": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ProfileRow"
+                },
+                {
+                  "properties": {
+                    "fhir": {
+                      "description": "The same facts as a FHIR `Patient` fragment, for systems that speak FHIR.",
+                      "type": "object"
+                    },
+                    "mobile_stale": {
+                      "description": "True when the mobile is missing, unverified, or last verified more than a year ago.",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "mobile_stale",
+                    "fhir"
+                  ],
+                  "type": "object"
+                }
+              ]
             },
             "type": "array"
           },
@@ -8221,6 +8500,26 @@
         ],
         "type": "object"
       },
+      "NhsNumberChecked": {
+        "description": "What `POST /api/validate/nhs-number` sends for a well-formed number.",
+        "properties": {
+          "digits": {
+            "type": "string"
+          },
+          "formatted": {
+            "type": "string"
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "digits",
+          "formatted"
+        ],
+        "type": "object"
+      },
       "OfferInfo": {
         "description": "What the offer page may show: the time and nothing about the service or anyone else.",
         "properties": {
@@ -8365,6 +8664,30 @@
         ],
         "type": "object"
       },
+      "OptOut": {
+        "description": "One channel a patient has asked us not to use.",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "opted_out_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel",
+          "opted_out_at",
+          "source"
+        ],
+        "type": "object"
+      },
       "OptOutBody": {
         "properties": {
           "channel": {
@@ -8374,6 +8697,22 @@
         },
         "required": [
           "channel"
+        ],
+        "type": "object"
+      },
+      "OptOutState": {
+        "description": "Whether a patient is opted out of a channel, after a change.",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "opted_out": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "channel",
+          "opted_out"
         ],
         "type": "object"
       },
@@ -8635,6 +8974,30 @@
         ],
         "type": "object"
       },
+      "Profile": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ProfileRow"
+          },
+          {
+            "properties": {
+              "fhir": {
+                "description": "The same facts as a FHIR `Patient` fragment, for systems that speak FHIR.",
+                "type": "object"
+              },
+              "mobile_stale": {
+                "description": "True when the mobile is missing, unverified, or last verified more than a year ago.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "mobile_stale",
+              "fhir"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "ProfileInput": {
         "description": "What a caller may set. The verification state is deliberately not here.",
         "properties": {
@@ -8693,6 +9056,99 @@
             ]
           }
         },
+        "type": "object"
+      },
+      "ProfileRow": {
+        "properties": {
+          "accessibility_needs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "alternate_email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "alternate_is_carer": {
+            "type": "boolean"
+          },
+          "alternate_is_emergency": {
+            "type": "boolean"
+          },
+          "alternate_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "alternate_phone_e164": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "alternate_relationship": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mobile_e164": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mobile_verification_method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mobile_verified_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "preferred_channel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "preferred_language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "person_id",
+          "alternate_is_carer",
+          "alternate_is_emergency",
+          "accessibility_needs",
+          "updated_at"
+        ],
         "type": "object"
       },
       "ProofBody": {
@@ -13574,6 +14030,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Profile"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17362,6 +17825,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_OptOut"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17406,6 +17876,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OptOutState"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17451,6 +17928,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OptOutState"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17533,6 +18017,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Profile"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17577,6 +18068,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Profile"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17623,6 +18121,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Profile"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -22141,6 +22646,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NhsNumberChecked"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

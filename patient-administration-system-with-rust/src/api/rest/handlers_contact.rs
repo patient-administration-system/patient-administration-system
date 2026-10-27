@@ -3,17 +3,16 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
-use serde::Deserialize;
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
-use crate::api::rest::handlers::{ok, ok_json};
+use crate::api::rest::handlers::{
+    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
+};
 use crate::contact::{DEFAULT_STALE_DAYS, ProfileInput};
 
 /// `GET /api/patients/{id}/communication-profile`: how to reach this patient well. Includes a
@@ -24,7 +23,7 @@ use crate::contact::{DEFAULT_STALE_DAYS, ProfileInput};
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::contact::Profile>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -48,7 +47,7 @@ pub async fn get_profile(State(state): State<AppState>, Path(id): Path<Uuid>) ->
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = ProfileInput,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::contact::Profile>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -83,7 +82,7 @@ pub struct VerifyBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = VerifyBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::contact::Profile>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -118,7 +117,7 @@ pub struct StaleQuery {
     tag = "Communication profiles",
     params(StaleQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::contact::Profile>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -150,6 +149,30 @@ pub struct OptOutBody {
     pub channel: String,
 }
 
+/// One channel a patient has asked us not to use.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct OptOut {
+    pub channel: String,
+    #[schema(required = true)]
+    pub opted_out_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub source: String,
+}
+
+/// Whether a patient is opted out of a channel, after a change.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct OptOutState {
+    pub channel: String,
+    pub opted_out: bool,
+}
+
+/// What `POST /api/validate/nhs-number` sends for a well-formed number.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct NhsNumberChecked {
+    pub valid: bool,
+    pub digits: String,
+    pub formatted: String,
+}
+
 const OPTOUT_CHANNELS: [&str; 4] = ["sms", "whatsapp", "apple_messages", "email"];
 
 fn check_channel(c: &str) -> Result<(), Error> {
@@ -169,7 +192,7 @@ fn check_channel(c: &str) -> Result<(), Error> {
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<OptOut>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -186,17 +209,17 @@ pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -
         .await;
     match rows {
         Ok(rows) => {
-            let list: Vec<Value> = rows
+            let list: Vec<OptOut> = rows
                 .iter()
-                .map(|r| {
-                    serde_json::json!({
-                        "channel": r.try_get::<String>("", "channel").unwrap_or_default(),
-                        "opted_out_at": r.try_get::<chrono::DateTime<chrono::Utc>>("", "opted_out_at").ok(),
-                        "source": r.try_get::<String>("", "source").unwrap_or_default(),
-                    })
+                .map(|r| OptOut {
+                    channel: r.try_get::<String>("", "channel").unwrap_or_default(),
+                    opted_out_at: r
+                        .try_get::<chrono::DateTime<chrono::Utc>>("", "opted_out_at")
+                        .ok(),
+                    source: r.try_get::<String>("", "source").unwrap_or_default(),
                 })
                 .collect();
-            ok(Value::Array(list))
+            ok_json(list)
         }
         Err(e) => error_to_response(Error::Database(e)),
     }
@@ -211,7 +234,7 @@ pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = OptOutBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<OptOutState>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -235,7 +258,10 @@ pub async fn add_optout(
     )
     .await
     {
-        Ok(()) => ok(serde_json::json!({ "channel": body.channel, "opted_out": true })),
+        Ok(()) => ok_json(OptOutState {
+            channel: body.channel,
+            opted_out: true,
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -247,7 +273,7 @@ pub async fn add_optout(
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`"), ("channel" = String, Path, description = "Path parameter `channel`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<OptOutState>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -266,7 +292,10 @@ pub async fn remove_optout(
     )
     .await
     {
-        Ok(true) => ok(serde_json::json!({ "channel": channel, "opted_out": false })),
+        Ok(true) => ok_json(OptOutState {
+            channel,
+            opted_out: false,
+        }),
         Ok(false) => error_to_response(Error::not_found(
             "that patient has not opted out of that channel",
         )),
@@ -288,21 +317,18 @@ pub struct NhsNumberBody {
     tag = "Validate",
     request_body = NhsNumberBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<NhsNumberChecked>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
 pub async fn validate_nhs_number(Json(b): Json<NhsNumberBody>) -> HandlerResult {
     match crate::validation::validate_nhs_number(&b.value) {
-        Ok(n) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(serde_json::json!({
-                "valid": true,
-                "digits": n,
-                "formatted": crate::validation::format_nhs_number(&n),
-            }))),
-        ),
+        Ok(n) => ok_json(NhsNumberChecked {
+            valid: true,
+            formatted: crate::validation::format_nhs_number(&n),
+            digits: n,
+        }),
         Err(e) => error_to_response(e),
     }
 }

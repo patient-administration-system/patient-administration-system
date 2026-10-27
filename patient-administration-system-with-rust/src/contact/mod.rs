@@ -117,7 +117,7 @@ pub fn is_stale(
 
 // --- the profile ------------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, FromQueryResult)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromQueryResult, utoipa::ToSchema)]
 pub struct ProfileRow {
     pub person_id: Uuid,
     pub mobile_e164: Option<String>,
@@ -165,13 +165,14 @@ pub struct ProfileInput {
     pub accessibility_needs: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Profile {
     #[serde(flatten)]
     pub row: ProfileRow,
     /// True when the mobile is missing, unverified, or last verified more than a year ago.
     pub mobile_stale: bool,
     /// The same facts as a FHIR `Patient` fragment, for systems that speak FHIR.
+    #[schema(value_type = Object)]
     pub fhir: serde_json::Value,
 }
 

@@ -9,7 +9,11 @@ use axum::{
     http::{Request, StatusCode},
 };
 use patient_administration_system::api::ApiResponse;
+use patient_administration_system::api::rest::handlers_contact::{
+    NhsNumberChecked, OptOut, OptOutState,
+};
 use patient_administration_system::api::rest::router;
+use patient_administration_system::contact::Profile;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::models::appointment::{Appointment, CancelledBy};
 use patient_administration_system::models::rtt::{RTTClockEvent, RTTPathway};
@@ -893,4 +897,57 @@ async fn the_standby_and_slot_release_routes_send_the_types_they_declare() {
     )
     .await;
     assert_eq!(booked.person_id, entry.person_id);
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_contact_profile_and_opt_out_routes_send_the_types_they_declare() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state);
+    let person = Uuid::new_v4();
+    let url = format!("/api/patients/{person}/communication-profile");
+
+    let put: Profile = call(
+        &app,
+        "PUT",
+        &url,
+        Some(json!({"mobile": "+44 7700 900123", "accessibility_needs": ["audio"]})),
+    )
+    .await;
+    assert_eq!(put.row.person_id, person);
+    let got: Profile = call(&app, "GET", &url, None).await;
+    assert_eq!(got.row.mobile_e164, put.row.mobile_e164);
+    let verified: Profile = call(
+        &app,
+        "POST",
+        &format!("{url}/verify-mobile"),
+        Some(json!({"method": "portal"})),
+    )
+    .await;
+    assert!(!verified.mobile_stale);
+    let _: Vec<Profile> = call(
+        &app,
+        "GET",
+        "/api/communication-profiles/stale?older_than_days=365&limit=5",
+        None,
+    )
+    .await;
+
+    let optouts = format!("/api/patients/{person}/channel-optouts");
+    let added: OptOutState = call(&app, "POST", &optouts, Some(json!({"channel": "sms"}))).await;
+    assert!(added.opted_out);
+    let listed: Vec<OptOut> = call(&app, "GET", &optouts, None).await;
+    assert!(listed.iter().any(|o| o.channel == "sms"));
+    let removed: OptOutState = call(&app, "DELETE", &format!("{optouts}/sms"), None).await;
+    assert!(!removed.opted_out);
+
+    let checked: NhsNumberChecked = call(
+        &app,
+        "POST",
+        "/api/validate/nhs-number",
+        Some(json!({"value": "943 476 5919"})),
+    )
+    .await;
+    assert!(checked.valid);
+    assert_eq!(checked.digits, "9434765919");
 }
