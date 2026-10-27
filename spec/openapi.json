@@ -1363,6 +1363,58 @@
         ],
         "type": "object"
       },
+      "ApiResponse_CreateSeriesResult": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "Result of [`SeriesService::create`] — the persisted series + its\nconcrete appointment rows.",
+            "properties": {
+              "appointments": {
+                "items": {
+                  "$ref": "#/components/schemas/Appointment"
+                },
+                "type": "array"
+              },
+              "series": {
+                "$ref": "#/components/schemas/AppointmentSeries"
+              }
+            },
+            "required": [
+              "series",
+              "appointments"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Created": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -3081,6 +3133,58 @@
         ],
         "type": "object"
       },
+      "ApiResponse_SeriesWithOccurrences": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "Result of [`SeriesService::get_with_occurrences`] and the cancel\nendpoint. Shape mirrors `CreateSeriesResult`.",
+            "properties": {
+              "appointments": {
+                "items": {
+                  "$ref": "#/components/schemas/Appointment"
+                },
+                "type": "array"
+              },
+              "series": {
+                "$ref": "#/components/schemas/AppointmentSeries"
+              }
+            },
+            "required": [
+              "series",
+              "appointments"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_ShownAssessments": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -3991,6 +4095,110 @@
               "required": [
                 "appointment_id",
                 "adjustments"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_AppointmentSeries": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "The series record. A series row plus N appointment rows are written\nin one DB transaction at create time.",
+              "properties": {
+                "created_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "duration_minutes": {
+                  "description": "Per-occurrence duration. Each generated appointment ends at\n`start + duration_minutes`.",
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "rule": {
+                  "$ref": "#/components/schemas/RecurrenceRule"
+                },
+                "service_type": {
+                  "type": "string"
+                },
+                "start_datetime": {
+                  "description": "First occurrence's start time. Subsequent occurrences are\ncomputed as offsets from this.",
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/SeriesStatus"
+                },
+                "updated_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "worker_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "person_id",
+                "worker_id",
+                "service_type",
+                "start_datetime",
+                "duration_minutes",
+                "rule",
+                "status",
+                "reason",
+                "created_at",
+                "updated_at"
               ],
               "type": "object"
             },
@@ -6738,6 +6946,74 @@
         ],
         "type": "object"
       },
+      "AppointmentSeries": {
+        "description": "The series record. A series row plus N appointment rows are written\nin one DB transaction at create time.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "duration_minutes": {
+            "description": "Per-occurrence duration. Each generated appointment ends at\n`start + duration_minutes`.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rule": {
+            "$ref": "#/components/schemas/RecurrenceRule"
+          },
+          "service_type": {
+            "type": "string"
+          },
+          "start_datetime": {
+            "description": "First occurrence's start time. Subsequent occurrences are\ncomputed as offsets from this.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SeriesStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "worker_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "worker_id",
+          "service_type",
+          "start_datetime",
+          "duration_minutes",
+          "rule",
+          "status",
+          "reason",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "AppointmentStatus": {
         "description": "The lifecycle status of an appointment.",
         "enum": [
@@ -7491,6 +7767,25 @@
           "start_datetime",
           "duration_minutes",
           "rule"
+        ],
+        "type": "object"
+      },
+      "CreateSeriesResult": {
+        "description": "Result of [`SeriesService::create`] — the persisted series + its\nconcrete appointment rows.",
+        "properties": {
+          "appointments": {
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            },
+            "type": "array"
+          },
+          "series": {
+            "$ref": "#/components/schemas/AppointmentSeries"
+          }
+        },
+        "required": [
+          "series",
+          "appointments"
         ],
         "type": "object"
       },
@@ -10272,6 +10567,33 @@
         ],
         "type": "object"
       },
+      "SeriesStatus": {
+        "description": "Status of an appointment series. Individual occurrence statuses live\non the [`Appointment`] rows themselves.",
+        "enum": [
+          "active",
+          "cancelled"
+        ],
+        "type": "string"
+      },
+      "SeriesWithOccurrences": {
+        "description": "Result of [`SeriesService::get_with_occurrences`] and the cancel\nendpoint. Shape mirrors `CreateSeriesResult`.",
+        "properties": {
+          "appointments": {
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            },
+            "type": "array"
+          },
+          "series": {
+            "$ref": "#/components/schemas/AppointmentSeries"
+          }
+        },
+        "required": [
+          "series",
+          "appointments"
+        ],
+        "type": "object"
+      },
       "SetBedStatusBody": {
         "properties": {
           "status": {
@@ -12868,6 +13190,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CreateSeriesResult"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -12904,6 +13233,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SeriesWithOccurrences"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -12940,6 +13276,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SeriesWithOccurrences"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14212,6 +14555,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Consent"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17850,6 +18200,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_AppointmentSeries"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

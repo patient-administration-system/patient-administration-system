@@ -5920,6 +5920,26 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_CreateSeriesResult: {
+      /**
+       * @description Result of [`SeriesService::create`] — the persisted series + its
+       *     concrete appointment rows.
+       */
+      data?: {
+        appointments: components["schemas"]["Appointment"][];
+        series: components["schemas"]["AppointmentSeries"];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Created: {
       /**
        * @description What creating a referral answers: the referral, and whether it was one already received (same source and
@@ -6508,6 +6528,26 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_SeriesWithOccurrences: {
+      /**
+       * @description Result of [`SeriesService::get_with_occurrences`] and the cancel
+       *     endpoint. Shape mirrors `CreateSeriesResult`.
+       */
+      data?: {
+        appointments: components["schemas"]["Appointment"][];
+        series: components["schemas"]["AppointmentSeries"];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_ShownAssessments: {
       /** @description The stored no-show assessments for some appointments. `active` is false while the score is switched off. */
       data?: {
@@ -6802,6 +6842,46 @@ export interface components {
         adjustments: components["schemas"]["Adjustment"][];
         /** Format: uuid */
         appointment_id: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_AppointmentSeries: {
+      data?: {
+        /** Format: date-time */
+        created_at: string;
+        /**
+         * Format: int32
+         * @description Per-occurrence duration. Each generated appointment ends at
+         *     `start + duration_minutes`.
+         */
+        duration_minutes: number;
+        /** Format: uuid */
+        id: string;
+        /** Format: uuid */
+        person_id: string;
+        reason: string | null;
+        rule: components["schemas"]["RecurrenceRule"];
+        service_type: string;
+        /**
+         * Format: date-time
+         * @description First occurrence's start time. Subsequent occurrences are
+         *     computed as offsets from this.
+         */
+        start_datetime: string;
+        status: components["schemas"]["SeriesStatus"];
+        /** Format: date-time */
+        updated_at: string;
+        /** Format: uuid */
+        worker_id: string | null;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7715,6 +7795,38 @@ export interface components {
       appointment_id: string;
     };
     /**
+     * @description The series record. A series row plus N appointment rows are written
+     *     in one DB transaction at create time.
+     */
+    AppointmentSeries: {
+      /** Format: date-time */
+      created_at: string;
+      /**
+       * Format: int32
+       * @description Per-occurrence duration. Each generated appointment ends at
+       *     `start + duration_minutes`.
+       */
+      duration_minutes: number;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      person_id: string;
+      reason: string | null;
+      rule: components["schemas"]["RecurrenceRule"];
+      service_type: string;
+      /**
+       * Format: date-time
+       * @description First occurrence's start time. Subsequent occurrences are
+       *     computed as offsets from this.
+       */
+      start_datetime: string;
+      status: components["schemas"]["SeriesStatus"];
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: uuid */
+      worker_id: string | null;
+    };
+    /**
      * @description The lifecycle status of an appointment.
      * @enum {string}
      */
@@ -8042,6 +8154,14 @@ export interface components {
       start_datetime: string;
       /** Format: uuid */
       worker_id?: string | null;
+    };
+    /**
+     * @description Result of [`SeriesService::create`] — the persisted series + its
+     *     concrete appointment rows.
+     */
+    CreateSeriesResult: {
+      appointments: components["schemas"]["Appointment"][];
+      series: components["schemas"]["AppointmentSeries"];
     };
     /**
      * @description What creating a referral answers: the referral, and whether it was one already received (same source and
@@ -9023,6 +9143,20 @@ export interface components {
     ScopeKind: "all" | "service" | "ward";
     SentBody: {
       sent_by: string;
+    };
+    /**
+     * @description Status of an appointment series. Individual occurrence statuses live
+     *     on the [`Appointment`] rows themselves.
+     * @enum {string}
+     */
+    SeriesStatus: "active" | "cancelled";
+    /**
+     * @description Result of [`SeriesService::get_with_occurrences`] and the cancel
+     *     endpoint. Shape mirrors `CreateSeriesResult`.
+     */
+    SeriesWithOccurrences: {
+      appointments: components["schemas"]["Appointment"][];
+      series: components["schemas"]["AppointmentSeries"];
     };
     SetBedStatusBody: {
       status: components["schemas"]["BedStatus"];
@@ -10468,7 +10602,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_CreateSeriesResult"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -10503,7 +10639,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_SeriesWithOccurrences"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -10538,7 +10676,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_SeriesWithOccurrences"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11543,7 +11683,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Consent"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15113,7 +15255,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_AppointmentSeries"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

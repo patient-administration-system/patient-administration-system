@@ -1037,3 +1037,67 @@ async fn the_encounter_routes_send_the_types_they_declare() {
     .await;
     assert_eq!(cancelled.status, EncounterStatus::Cancelled);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_series_and_consent_revoke_routes_send_the_types_they_declare() {
+    use patient_administration_system::models::appointment_series::{
+        AppointmentSeries, SeriesStatus,
+    };
+    use patient_administration_system::models::consent::{Consent, ConsentStatus, ConsentType};
+    use patient_administration_system::scheduling::series::{
+        CreateSeriesResult, SeriesWithOccurrences,
+    };
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state);
+    let person = Uuid::new_v4();
+
+    let start = (chrono::Utc::now() + chrono::Duration::days(30)).to_rfc3339();
+    let created: CreateSeriesResult = call(
+        &app,
+        "POST",
+        "/api/appointment-series",
+        Some(json!({
+            "person_id": person,
+            "service_type": "physio",
+            "start_datetime": start,
+            "duration_minutes": 30,
+            "rule": {"frequency": "weekly", "interval": 1, "end": {"kind": "count", "count": 3}},
+        })),
+    )
+    .await;
+    assert_eq!(created.appointments.len(), 3);
+    let url = format!("/api/appointment-series/{}", created.series.id);
+    let got: SeriesWithOccurrences = call(&app, "GET", &url, None).await;
+    assert_eq!(got.appointments.len(), 3);
+    let listed: Vec<AppointmentSeries> = call(
+        &app,
+        "GET",
+        &format!("/api/patients/{person}/appointment-series"),
+        None,
+    )
+    .await;
+    assert_eq!(listed.len(), 1);
+    let cancelled: SeriesWithOccurrences = call(&app, "POST", &format!("{url}/cancel"), None).await;
+    assert_eq!(cancelled.series.status, SeriesStatus::Cancelled);
+
+    let today = chrono::Utc::now().date_naive();
+    let consent: Consent = call(
+        &app,
+        "POST",
+        &format!("/api/patients/{person}/consents"),
+        Some(
+            serde_json::to_value(Consent::new(person, ConsentType::DataProcessing, today)).unwrap(),
+        ),
+    )
+    .await;
+    let revoked: Consent = call(
+        &app,
+        "POST",
+        &format!("/api/consents/{}/revoke", consent.id),
+        None,
+    )
+    .await;
+    assert_eq!(revoked.status, ConsentStatus::Revoked);
+}

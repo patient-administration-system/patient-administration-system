@@ -96,7 +96,7 @@ impl RecurrenceRule {
 
 /// Status of an appointment series. Individual occurrence statuses live
 /// on the [`Appointment`] rows themselves.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SeriesStatus {
     Active,
@@ -105,10 +105,11 @@ pub enum SeriesStatus {
 
 /// The series record. A series row plus N appointment rows are written
 /// in one DB transaction at create time.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct AppointmentSeries {
     pub id: Uuid,
     pub person_id: Uuid,
+    #[schema(required = true)]
     pub worker_id: Option<Uuid>,
     pub service_type: String,
     /// First occurrence's start time. Subsequent occurrences are
@@ -119,6 +120,7 @@ pub struct AppointmentSeries {
     pub duration_minutes: u32,
     pub rule: RecurrenceRule,
     pub status: SeriesStatus,
+    #[schema(required = true)]
     pub reason: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

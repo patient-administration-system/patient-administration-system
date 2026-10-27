@@ -66,7 +66,7 @@ pub struct PreviewResult {
 
 /// Result of [`SeriesService::create`] — the persisted series + its
 /// concrete appointment rows.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct CreateSeriesResult {
     pub series: AppointmentSeries,
     pub appointments: Vec<Appointment>,
@@ -74,7 +74,7 @@ pub struct CreateSeriesResult {
 
 /// Result of [`SeriesService::get_with_occurrences`] and the cancel
 /// endpoint. Shape mirrors `CreateSeriesResult`.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct SeriesWithOccurrences {
     pub series: AppointmentSeries,
     pub appointments: Vec<Appointment>,
