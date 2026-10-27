@@ -35,7 +35,7 @@ fn db_err(e: sea_orm::DbErr) -> Error {
 
 // --- the standby list -------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, FromQueryResult)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromQueryResult, utoipa::ToSchema)]
 pub struct StandbyEntry {
     pub id: Uuid,
     pub person_id: Uuid,
@@ -104,7 +104,7 @@ pub enum ReleaseStatus {
     Expired,
 }
 
-#[derive(Debug, Clone, Serialize, FromQueryResult)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromQueryResult, utoipa::ToSchema)]
 pub struct SlotRelease {
     pub id: Uuid,
     pub slot_id: Uuid,
@@ -121,7 +121,7 @@ pub struct SlotRelease {
     pub seconds_to_refill: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize, FromQueryResult)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromQueryResult, utoipa::ToSchema)]
 pub struct ReleaseSummary {
     pub total: i64,
     pub open: i64,
@@ -129,6 +129,13 @@ pub struct ReleaseSummary {
     pub expired: i64,
     /// Median seconds from release to refill, over refilled releases. `None` when there are none.
     pub median_seconds_to_refill: Option<f64>,
+}
+
+/// What `GET /api/slot-releases` sends: the counts and the releases they count.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Releases {
+    pub summary: ReleaseSummary,
+    pub releases: Vec<SlotRelease>,
 }
 
 const RELEASE_SELECT: &str = "SELECT r.id, r.slot_id, r.appointment_id, r.service_type, r.start_datetime, \

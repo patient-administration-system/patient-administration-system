@@ -6303,6 +6303,23 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Releases: {
+      /** @description What `GET /api/slot-releases` sends: the counts and the releases they count. */
+      data?: {
+        releases: components["schemas"]["SlotRelease"][];
+        summary: components["schemas"]["ReleaseSummary"];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_RemovalsReport: {
       /** @description The validation removals report: the period and a row per service. */
       data?: {
@@ -6392,6 +6409,35 @@ export interface components {
         segments: number;
         /** @description Length in the encoding's own units (septets, or UTF-16 code units). */
         units: number;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_StandbyEntry: {
+      data?: {
+        active: boolean;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        id: string;
+        /** @description A locale code such as `cy-001`: the language the patient wants to be offered care in. */
+        language?: string | null;
+        needs_transport: boolean;
+        /** Format: uuid */
+        person_id: string;
+        phone_only: boolean;
+        service_type: string;
+        short_notice_ok: boolean;
+        /** Format: date-time */
+        updated_at: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7103,6 +7149,35 @@ export interface components {
         updated_at: string;
         /** Format: uuid */
         ward_id: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_StandbyEntry: {
+      data?: {
+        active: boolean;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: uuid */
+        id: string;
+        /** @description A locale code such as `cy-001`: the language the patient wants to be offered care in. */
+        language?: string | null;
+        needs_transport: boolean;
+        /** Format: uuid */
+        person_id: string;
+        phone_only: boolean;
+        service_type: string;
+        short_notice_ok: boolean;
+        /** Format: date-time */
+        updated_at: string;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8618,6 +8693,26 @@ export interface components {
      * @enum {string}
      */
     ReleaseClass: "early_release" | "late_release" | "silent_miss";
+    ReleaseSummary: {
+      /** Format: int64 */
+      expired: number;
+      /**
+       * Format: double
+       * @description Median seconds from release to refill, over refilled releases. `None` when there are none.
+       */
+      median_seconds_to_refill?: number | null;
+      /** Format: int64 */
+      open: number;
+      /** Format: int64 */
+      refilled: number;
+      /** Format: int64 */
+      total: number;
+    };
+    /** @description What `GET /api/slot-releases` sends: the counts and the releases they count. */
+    Releases: {
+      releases: components["schemas"]["SlotRelease"][];
+      summary: components["schemas"]["ReleaseSummary"];
+    };
     /** @description Removals, reinstatements and keeps for one service in the period. No identifiers. */
     RemovalsByService: {
       /** Format: int64 */
@@ -8772,6 +8867,30 @@ export interface components {
       active: boolean;
       items: components["schemas"]["Shown"][];
     };
+    SlotRelease: {
+      /** Format: uuid */
+      appointment_id: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: int32 */
+      notice_days?: number | null;
+      /** Format: date-time */
+      refilled_at?: string | null;
+      /** Format: uuid */
+      refilled_by_appointment_id?: string | null;
+      release_class: string;
+      /** Format: date-time */
+      released_at: string;
+      /** Format: int64 */
+      seconds_to_refill?: number | null;
+      service_type?: string | null;
+      /** Format: uuid */
+      slot_id: string;
+      /** Format: date-time */
+      start_datetime: string;
+      /** @description `open`, `refilled` or `expired` (derived). */
+      status: string;
+    };
     SmsLength: {
       encoding: components["schemas"]["Encoding"];
       /** @description The first character that forced UCS-2, when it did. */
@@ -8785,6 +8904,23 @@ export interface components {
       note: string;
       /** @description `shadow` or `live`. */
       stage: string;
+    };
+    StandbyEntry: {
+      active: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      id: string;
+      /** @description A locale code such as `cy-001`: the language the patient wants to be offered care in. */
+      language?: string | null;
+      needs_transport: boolean;
+      /** Format: uuid */
+      person_id: string;
+      phone_only: boolean;
+      service_type: string;
+      short_notice_ok: boolean;
+      /** Format: date-time */
+      updated_at: string;
     };
     StandbyInput: {
       language?: string | null;
@@ -17885,7 +18021,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Releases"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -17923,7 +18061,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_StandbyEntry"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18254,7 +18394,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_StandbyEntry"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18290,7 +18432,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_StandbyEntry"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18364,7 +18508,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Appointment"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

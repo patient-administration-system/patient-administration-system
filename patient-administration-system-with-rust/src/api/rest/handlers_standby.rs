@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
-use crate::standby::{CandidateFilter, StandbyInput};
+use crate::standby::{CandidateFilter, Releases, StandbyInput};
 
 /// `POST /api/standby`: put a patient on standby for a service (or update their tags).
 #[utoipa::path(
@@ -22,7 +22,7 @@ use crate::standby::{CandidateFilter, StandbyInput};
     tag = "Standby",
     request_body = StandbyInput,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::standby::StandbyEntry>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -50,7 +50,7 @@ pub struct ListStandbyQuery {
     tag = "Standby",
     params(ListStandbyQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::standby::StandbyEntry>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -106,7 +106,7 @@ pub struct BookBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = BookBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::appointment::Appointment>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -143,7 +143,7 @@ pub struct ReleasesQuery {
     tag = "Slot releases",
     params(ReleasesQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::standby::Releases>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -155,9 +155,7 @@ pub async fn list_releases(
     let to = q.to.unwrap_or_else(|| Utc::now() + Duration::minutes(1));
     let from = q.from.unwrap_or(to - Duration::days(30));
     match state.standby.releases(from, to, q.status.as_deref()).await {
-        Ok((summary, releases)) => {
-            ok(serde_json::json!({ "summary": summary, "releases": releases }))
-        }
+        Ok((summary, releases)) => ok_json(Releases { summary, releases }),
         Err(e) => error_to_response(e),
     }
 }
@@ -170,7 +168,7 @@ pub async fn list_releases(
     tag = "Slot releases",
     params(("id" = String, Path, description = "Path parameter `id`"), CandidateFilter),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::standby::StandbyEntry>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

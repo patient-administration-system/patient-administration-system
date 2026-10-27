@@ -10,9 +10,12 @@ use axum::{
 };
 use patient_administration_system::api::ApiResponse;
 use patient_administration_system::api::rest::router;
-use patient_administration_system::models::appointment::Appointment;
+use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::models::appointment::{Appointment, CancelledBy};
 use patient_administration_system::models::rtt::{RTTClockEvent, RTTPathway};
 use patient_administration_system::models::waitlist::WaitlistEntry;
+use patient_administration_system::scheduling::CancelDetails;
+use patient_administration_system::standby::{Releases, StandbyEntry};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -807,4 +810,87 @@ async fn the_letter_routes_send_the_types_they_declare() {
     .await;
     assert_eq!(group.variants.len(), 2);
     assert!(group.variants.iter().all(|v| v.sms.is_some()));
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_standby_and_slot_release_routes_send_the_types_they_declare() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let service = format!("svc-{}", Uuid::new_v4());
+    let schedule = common::new_schedule_for(&state.db, &service).await.id;
+    let ctx = UserContext::system();
+
+    let entry: StandbyEntry = call(
+        &app,
+        "POST",
+        "/api/standby",
+        Some(json!({"person_id": Uuid::new_v4(), "service_type": service})),
+    )
+    .await;
+    let listed: Vec<StandbyEntry> = call(
+        &app,
+        "GET",
+        &format!("/api/standby?service_type={service}"),
+        None,
+    )
+    .await;
+    assert!(listed.iter().any(|e| e.id == entry.id));
+
+    // A cancelled booking releases its slot.
+    let slot = common::free_slot(&state.db, schedule, 6).await;
+    let appointment = state
+        .scheduling
+        .book_slot(slot.id, Uuid::new_v4(), &ctx)
+        .await
+        .unwrap();
+    state
+        .scheduling
+        .cancel_with(
+            appointment.id,
+            CancelDetails {
+                cancelled_by: CancelledBy::Patient,
+                barrier_code: None,
+                legacy_reason: None,
+            },
+            &ctx,
+        )
+        .await
+        .unwrap();
+    // A window of the last minute keeps the body small however much the database holds.
+    let from = (chrono::Utc::now() - chrono::Duration::minutes(1)).to_rfc3339();
+    let releases: Releases = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/slot-releases?status=open&from={}",
+            from.replace('+', "%2B")
+        ),
+        None,
+    )
+    .await;
+    let release = releases
+        .releases
+        .iter()
+        .find(|r| r.slot_id == slot.id)
+        .expect("the cancelled slot is released");
+    assert!(releases.summary.total >= 1);
+
+    let candidates: Vec<StandbyEntry> = call(
+        &app,
+        "GET",
+        &format!("/api/slot-releases/{}/candidates", release.id),
+        None,
+    )
+    .await;
+    assert!(candidates.iter().all(|c| c.active));
+
+    let booked: Appointment = call(
+        &app,
+        "POST",
+        &format!("/api/standby/{}/book", entry.id),
+        Some(json!({"slot_id": slot.id})),
+    )
+    .await;
+    assert_eq!(booked.person_id, entry.person_id);
 }
