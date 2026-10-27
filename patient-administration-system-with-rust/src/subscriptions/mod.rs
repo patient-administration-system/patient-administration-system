@@ -125,15 +125,17 @@ crate::string_enum! {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Subscription {
     pub id: Uuid,
     pub topic: String,
     pub endpoint: String,
+    #[schema(required = true)]
     pub secret_env: Option<String>,
     pub status: SubscriptionState,
     pub created_by: String,
     pub created_at: DateTime<Utc>,
+    #[schema(required = true)]
     pub ended_at: Option<DateTime<Utc>>,
     pub pending: i64,
     pub delivered: i64,

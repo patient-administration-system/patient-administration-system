@@ -6614,6 +6614,37 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Subscription: {
+      data?: {
+        /** Format: date-time */
+        created_at: string;
+        created_by: string;
+        /** Format: int64 */
+        delivered: number;
+        /** Format: date-time */
+        ended_at: string | null;
+        endpoint: string;
+        /** Format: int64 */
+        failed: number;
+        /** Format: uuid */
+        id: string;
+        /** Format: int64 */
+        pending: number;
+        secret_env: string | null;
+        status: components["schemas"]["SubscriptionState"];
+        topic: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_TemplateGroup: {
       /** @description The templates created together, one per language. */
       data?: {
@@ -7418,6 +7449,37 @@ export interface components {
         short_notice_ok: boolean;
         /** Format: date-time */
         updated_at: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_Subscription: {
+      data?: {
+        /** Format: date-time */
+        created_at: string;
+        created_by: string;
+        /** Format: int64 */
+        delivered: number;
+        /** Format: date-time */
+        ended_at: string | null;
+        endpoint: string;
+        /** Format: int64 */
+        failed: number;
+        /** Format: uuid */
+        id: string;
+        /** Format: int64 */
+        pending: number;
+        secret_env: string | null;
+        status: components["schemas"]["SubscriptionState"];
+        topic: string;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -9272,6 +9334,30 @@ export interface components {
     StopBody: {
       stopped_by: string;
     };
+    Subscription: {
+      /** Format: date-time */
+      created_at: string;
+      created_by: string;
+      /** Format: int64 */
+      delivered: number;
+      /** Format: date-time */
+      ended_at: string | null;
+      endpoint: string;
+      /** Format: int64 */
+      failed: number;
+      /** Format: uuid */
+      id: string;
+      /** Format: int64 */
+      pending: number;
+      secret_env: string | null;
+      status: components["schemas"]["SubscriptionState"];
+      topic: string;
+    };
+    /**
+     * @description Whether a subscription still delivers.
+     * @enum {string}
+     */
+    SubscriptionState: "Active" | "Off";
     TargetBody: {
       /** @description The person setting the target. */
       set_by: string;
@@ -9854,7 +9940,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Subscription"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -9890,7 +9978,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Subscription"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -9925,7 +10015,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Subscription"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

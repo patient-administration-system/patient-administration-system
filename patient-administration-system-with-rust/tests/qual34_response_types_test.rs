@@ -1101,3 +1101,35 @@ async fn the_series_and_consent_revoke_routes_send_the_types_they_declare() {
     .await;
     assert_eq!(revoked.status, ConsentStatus::Revoked);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_subscription_routes_send_the_types_they_declare() {
+    use patient_administration_system::subscriptions::{Subscription, SubscriptionState};
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state);
+    let created: Subscription = call(
+        &app,
+        "POST",
+        "/api/admin/subscriptions",
+        Some(json!({
+            "topic": "appointment",
+            "endpoint": "https://example.org/hook",
+            "created_by": "qual34",
+        })),
+    )
+    .await;
+    assert_eq!(created.status, SubscriptionState::Active);
+    let listed: Vec<Subscription> = call(&app, "GET", "/api/admin/subscriptions", None).await;
+    assert!(listed.iter().any(|s| s.id == created.id));
+    let ended: Subscription = call(
+        &app,
+        "DELETE",
+        &format!("/api/admin/subscriptions/{}", created.id),
+        None,
+    )
+    .await;
+    assert_eq!(ended.status, SubscriptionState::Off);
+    assert!(ended.ended_at.is_some());
+}
