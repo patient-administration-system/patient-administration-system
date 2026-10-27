@@ -993,3 +993,47 @@ async fn the_coverage_routes_send_the_types_they_declare() {
     .await;
     assert!(none.is_empty());
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_encounter_routes_send_the_types_they_declare() {
+    use patient_administration_system::db::repositories::encounter::EncounterRepository;
+    use patient_administration_system::models::encounter::{
+        Encounter, EncounterClass, EncounterStatus,
+    };
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let person = Uuid::new_v4();
+    let first = EncounterRepository::create(
+        &state.db,
+        &Encounter::new(person, EncounterClass::Outpatient),
+    )
+    .await
+    .unwrap();
+    let second = EncounterRepository::create(
+        &state.db,
+        &Encounter::new(person, EncounterClass::Outpatient),
+    )
+    .await
+    .unwrap();
+
+    let got: Encounter = call(&app, "GET", &format!("/api/encounters/{}", first.id), None).await;
+    assert_eq!(got.id, first.id);
+    let arrived: Encounter = call(
+        &app,
+        "PUT",
+        &format!("/api/encounters/{}/status", first.id),
+        Some(json!({"status": "arrived"})),
+    )
+    .await;
+    assert_eq!(arrived.status, EncounterStatus::Arrived);
+    let cancelled: Encounter = call(
+        &app,
+        "POST",
+        &format!("/api/encounters/{}/cancel", second.id),
+        None,
+    )
+    .await;
+    assert_eq!(cancelled.status, EncounterStatus::Cancelled);
+}
