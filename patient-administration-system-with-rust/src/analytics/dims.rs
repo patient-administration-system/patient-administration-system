@@ -64,11 +64,13 @@ impl Dim {
 pub struct Cell {
     pub dims: Vec<(String, String)>,
     /// `None` when the cell is suppressed.
+    #[schema(required = true)]
     pub count: Option<i64>,
     pub suppressed: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[schema(as = analytics::Report)]
 pub struct Report {
     pub group_by: Vec<String>,
     pub k: i64,
@@ -191,26 +193,32 @@ impl RefillDim {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct RefillCell {
     pub dims: Vec<(String, String)>,
     /// Releases whose outcome is known: refilled, or the slot's time has passed unfilled.
+    #[schema(required = true)]
     pub resolved: Option<i64>,
+    #[schema(required = true)]
     pub refilled: Option<i64>,
     /// `refilled / resolved`, to three places.
+    #[schema(required = true)]
     pub refill_rate: Option<f64>,
     /// The share of those releases that were early (three or more days' notice).
+    #[schema(required = true)]
     pub early_release_share: Option<f64>,
     pub suppressed: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[schema(as = analytics::RefillReport)]
 pub struct RefillReport {
     pub group_by: Vec<String>,
     pub k: i64,
     pub from: DateTime<Utc>,
     pub to: DateTime<Utc>,
     pub total_resolved: i64,
+    #[schema(required = true)]
     pub overall_refill_rate: Option<f64>,
     pub suppressed_cells: usize,
     pub cells: Vec<RefillCell>,

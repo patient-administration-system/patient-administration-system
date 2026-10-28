@@ -1705,3 +1705,60 @@ async fn the_audit_routes_send_the_types_they_declare() {
             .all(|r| r.entity_id == person && r.entity_type == "patient")
     );
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_analytics_routes_send_the_types_they_declare() {
+    use patient_administration_system::analytics::{RefillReport, Report};
+    use patient_administration_system::api::rest::handlers_analytics::DeprivationLoaded;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+
+    let outcomes: Report = call(
+        &app,
+        "GET",
+        "/api/analytics/appointment-outcomes?group_by=specialty",
+        None,
+    )
+    .await;
+    assert_eq!(outcomes.group_by, vec!["specialty".to_string()]);
+    assert!(
+        outcomes
+            .cells
+            .iter()
+            .all(|c| c.suppressed == c.count.is_none())
+    );
+
+    let refill: RefillReport = call(
+        &app,
+        "GET",
+        "/api/analytics/refill-rates?group_by=notice_band",
+        None,
+    )
+    .await;
+    assert!(
+        refill
+            .cells
+            .iter()
+            .all(|c| c.suppressed == c.resolved.is_none())
+    );
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/api/analytics/deprivation-lookup?dataset=qual34%20test&loaded_by=qual34")
+                .header("content-type", "text/csv")
+                .body(Body::from("postcode,quintile\nZZ99 9ZZ,3\nnot a line\n"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = to_bytes(res.into_body(), 1 << 20).await.unwrap();
+    let envelope: ApiResponse<DeprivationLoaded> = serde_json::from_slice(&bytes).unwrap();
+    let loaded = envelope.data.unwrap();
+    assert_eq!((loaded.loaded, loaded.rejected), (1, 1));
+}

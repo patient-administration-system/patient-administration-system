@@ -2137,6 +2137,59 @@
         ],
         "type": "object"
       },
+      "ApiResponse_DeprivationLoaded": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "How many lookup lines were loaded and how many were skipped as bad.",
+            "properties": {
+              "loaded": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rejected": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "loaded",
+              "rejected"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Discharge": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -4471,6 +4524,53 @@
               "triaged_at",
               "redirected_to_service",
               "redirected_referral_id"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Refreshed": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "How many people had their bands filled.",
+            "properties": {
+              "updated": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "updated"
             ],
             "type": "object"
           },
@@ -10022,6 +10122,173 @@
         ],
         "type": "object"
       },
+      "ApiResponse_analytics.RefillReport": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "cells": {
+                "items": {
+                  "$ref": "#/components/schemas/RefillCell"
+                },
+                "type": "array"
+              },
+              "from": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "group_by": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "k": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "overall_refill_rate": {
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "suppressed_cells": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "to": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "total_resolved": {
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "group_by",
+              "k",
+              "from",
+              "to",
+              "total_resolved",
+              "overall_refill_rate",
+              "suppressed_cells",
+              "cells"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_analytics.Report": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "cells": {
+                "items": {
+                  "$ref": "#/components/schemas/Cell"
+                },
+                "type": "array"
+              },
+              "from": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "group_by": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "k": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "suppressed_cells": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "to": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "total": {
+                "description": "Every appointment in the range, counted or not: what the cells reconcile to.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "group_by",
+              "k",
+              "from",
+              "to",
+              "total",
+              "suppressed_cells",
+              "cells"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_list_validation.Campaign": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -11648,6 +11915,7 @@
         },
         "required": [
           "dims",
+          "count",
           "suppressed"
         ],
         "type": "object"
@@ -12225,6 +12493,26 @@
         },
         "required": [
           "source"
+        ],
+        "type": "object"
+      },
+      "DeprivationLoaded": {
+        "description": "How many lookup lines were loaded and how many were skipped as bad.",
+        "properties": {
+          "loaded": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rejected": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "loaded",
+          "rejected"
         ],
         "type": "object"
       },
@@ -15241,6 +15529,82 @@
         ],
         "type": "string"
       },
+      "RefillCell": {
+        "properties": {
+          "dims": {
+            "items": {
+              "items": false,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "early_release_share": {
+            "description": "The share of those releases that were early (three or more days' notice).",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "refill_rate": {
+            "description": "`refilled / resolved`, to three places.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "refilled": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "resolved": {
+            "description": "Releases whose outcome is known: refilled, or the slot's time has passed unfilled.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "suppressed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dims",
+          "resolved",
+          "refilled",
+          "refill_rate",
+          "early_release_share",
+          "suppressed"
+        ],
+        "type": "object"
+      },
+      "Refreshed": {
+        "description": "How many people had their bands filled.",
+        "properties": {
+          "updated": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "updated"
+        ],
+        "type": "object"
+      },
       "ReinstateBody": {
         "properties": {
           "reinstated_by": {
@@ -17039,6 +17403,107 @@
           "age",
           "weekday",
           "period"
+        ],
+        "type": "object"
+      },
+      "analytics.RefillReport": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/RefillCell"
+            },
+            "type": "array"
+          },
+          "from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "group_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "k": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "overall_refill_rate": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "suppressed_cells": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "to": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "total_resolved": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "group_by",
+          "k",
+          "from",
+          "to",
+          "total_resolved",
+          "overall_refill_rate",
+          "suppressed_cells",
+          "cells"
+        ],
+        "type": "object"
+      },
+      "analytics.Report": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/Cell"
+            },
+            "type": "array"
+          },
+          "from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "group_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "k": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "suppressed_cells": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "to": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "total": {
+            "description": "Every appointment in the range, counted or not: what the cells reconcile to.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "group_by",
+          "k",
+          "from",
+          "to",
+          "total",
+          "suppressed_cells",
+          "cells"
         ],
         "type": "object"
       },
@@ -19070,7 +19535,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Success; the `ApiResponse` envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_analytics.Report"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope (`text/csv` with `format=csv`)"
           },
           "4XX": {
             "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
@@ -19109,6 +19581,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Refreshed"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -19206,6 +19685,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DeprivationLoaded"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -19289,7 +19775,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Success; the `ApiResponse` envelope"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_analytics.RefillReport"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope (`text/csv` with `format=csv`)"
           },
           "4XX": {
             "description": "Client error; the `ApiResponse` envelope with a machine-readable code"

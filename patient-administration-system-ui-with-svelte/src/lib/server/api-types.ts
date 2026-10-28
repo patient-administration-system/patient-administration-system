@@ -6263,6 +6263,25 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_DeprivationLoaded: {
+      /** @description How many lookup lines were loaded and how many were skipped as bad. */
+      data?: {
+        /** Format: int64 */
+        loaded: number;
+        /** Format: int64 */
+        rejected: number;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Discharge: {
       /** @description The end of an admission. */
       data?: {
@@ -7093,6 +7112,23 @@ export interface components {
         triaged_at: string | null;
         /** @description Set when a consultant triaged the referral (`returned_with_advice` or `redirected`). */
         triaged_by: string | null;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Refreshed: {
+      /** @description How many people had their bands filled. */
+      data?: {
+        /** Format: int64 */
+        updated: number;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8962,6 +8998,61 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    "ApiResponse_analytics.RefillReport": {
+      data?: {
+        cells: components["schemas"]["RefillCell"][];
+        /** Format: date-time */
+        from: string;
+        group_by: string[];
+        /** Format: int64 */
+        k: number;
+        /** Format: double */
+        overall_refill_rate: number | null;
+        suppressed_cells: number;
+        /** Format: date-time */
+        to: string;
+        /** Format: int64 */
+        total_resolved: number;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_analytics.Report": {
+      data?: {
+        cells: components["schemas"]["Cell"][];
+        /** Format: date-time */
+        from: string;
+        group_by: string[];
+        /** Format: int64 */
+        k: number;
+        suppressed_cells: number;
+        /** Format: date-time */
+        to: string;
+        /**
+         * Format: int64
+         * @description Every appointment in the range, counted or not: what the cells reconcile to.
+         */
+        total: number;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     "ApiResponse_list_validation.Campaign": {
       data?: {
         /** @description Items by state (`selected`, `asked`, ...), for the campaign page. */
@@ -9522,7 +9613,7 @@ export interface components {
        * Format: int64
        * @description `None` when the cell is suppressed.
        */
-      count?: number | null;
+      count: number | null;
       dims: [string, string][];
       suppressed: boolean;
     };
@@ -9805,6 +9896,13 @@ export interface components {
       /** Format: int32 */
       deprivation_quintile?: number | null;
       source: string;
+    };
+    /** @description How many lookup lines were loaded and how many were skipped as bad. */
+    DeprivationLoaded: {
+      /** Format: int64 */
+      loaded: number;
+      /** Format: int64 */
+      rejected: number;
     };
     /**
      * @description Which way is worse.
@@ -10896,6 +10994,32 @@ export interface components {
      * @enum {string}
      */
     ReferralStatus: "Received" | "Waitlisted" | "Booked" | "Closed" | "ReturnedWithAdvice" | "Redirected";
+    RefillCell: {
+      dims: [string, string][];
+      /**
+       * Format: double
+       * @description The share of those releases that were early (three or more days' notice).
+       */
+      early_release_share: number | null;
+      /**
+       * Format: double
+       * @description `refilled / resolved`, to three places.
+       */
+      refill_rate: number | null;
+      /** Format: int64 */
+      refilled: number | null;
+      /**
+       * Format: int64
+       * @description Releases whose outcome is known: refilled, or the slot's time has passed unfilled.
+       */
+      resolved: number | null;
+      suppressed: boolean;
+    };
+    /** @description How many people had their bands filled. */
+    Refreshed: {
+      /** Format: int64 */
+      updated: number;
+    };
     ReinstateBody: {
       reinstated_by: string;
     };
@@ -11472,6 +11596,37 @@ export interface components {
       /** Format: double */
       prior_visits: number;
       weekday: number[];
+    };
+    "analytics.RefillReport": {
+      cells: components["schemas"]["RefillCell"][];
+      /** Format: date-time */
+      from: string;
+      group_by: string[];
+      /** Format: int64 */
+      k: number;
+      /** Format: double */
+      overall_refill_rate: number | null;
+      suppressed_cells: number;
+      /** Format: date-time */
+      to: string;
+      /** Format: int64 */
+      total_resolved: number;
+    };
+    "analytics.Report": {
+      cells: components["schemas"]["Cell"][];
+      /** Format: date-time */
+      from: string;
+      group_by: string[];
+      /** Format: int64 */
+      k: number;
+      suppressed_cells: number;
+      /** Format: date-time */
+      to: string;
+      /**
+       * Format: int64
+       * @description Every appointment in the range, counted or not: what the cells reconcile to.
+       */
+      total: number;
     };
     "audit.Entry": {
       action: string;
@@ -12657,12 +12812,14 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Success; the `ApiResponse` envelope */
+      /** @description Success; the `ApiResponse` envelope (`text/csv` with `format=csv`) */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_analytics.Report"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -12696,7 +12853,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Refreshed"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -12773,7 +12932,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_DeprivationLoaded"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -12807,12 +12968,14 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Success; the `ApiResponse` envelope */
+      /** @description Success; the `ApiResponse` envelope (`text/csv` with `format=csv`) */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_analytics.RefillReport"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

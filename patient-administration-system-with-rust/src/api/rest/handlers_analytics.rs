@@ -39,7 +39,7 @@ pub struct OutcomesQuery {
     tag = "Analytics",
     params(OutcomesQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope (`text/csv` with `format=csv`)", body = crate::api::ApiResponse<crate::analytics::Report>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -115,7 +115,7 @@ pub struct RefillQuery {
     tag = "Analytics",
     params(RefillQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope (`text/csv` with `format=csv`)", body = crate::api::ApiResponse<crate::analytics::RefillReport>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -204,6 +204,19 @@ pub async fn set_demographics(
     }
 }
 
+/// How many lookup lines were loaded and how many were skipped as bad.
+#[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
+pub struct DeprivationLoaded {
+    pub loaded: u64,
+    pub rejected: u64,
+}
+
+/// How many people had their bands filled.
+#[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Refreshed {
+    pub updated: u64,
+}
+
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct LookupQuery {
     /// Which dataset the file was built from, for example `WIMD 2019 + ONSPD Aug 2026`.
@@ -219,7 +232,7 @@ pub struct LookupQuery {
     tag = "Analytics",
     params(LookupQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<DeprivationLoaded>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -241,12 +254,7 @@ pub async fn load_deprivation_lookup(
         .load_deprivation_lookup(&body, &q.dataset, &q.loaded_by, &ctx)
         .await
     {
-        Ok((loaded, rejected)) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(
-                serde_json::json!({ "loaded": loaded, "rejected": rejected }),
-            )),
-        ),
+        Ok((loaded, rejected)) => ok_json(DeprivationLoaded { loaded, rejected }),
         Err(e) => error_to_response(e),
     }
 }
@@ -264,7 +272,7 @@ pub struct RefreshQuery {
     tag = "Analytics",
     params(RefreshQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Refreshed>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -290,10 +298,7 @@ pub async fn refresh_demographics(
         .refresh_demographics(people.as_ref(), q.limit.unwrap_or(500), &uc, &ctx)
         .await
     {
-        Ok(n) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(serde_json::json!({ "updated": n }))),
-        ),
+        Ok(updated) => ok_json(Refreshed { updated }),
         Err(e) => error_to_response(e),
     }
 }
