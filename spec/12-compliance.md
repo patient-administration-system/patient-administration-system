@@ -5,6 +5,7 @@ Honest status. The full assessment against the NHS Digital Technology Assessment
 | Regime | Position |
 |---|---|
 | UK GDPR / Data Protection Act 2018 | Technical controls exist (audit, consent records, subject-access export, masking). DPIA and privacy notice: not written. See [`governance/`](../governance/dpia.md) |
+| ISO 14971 risk management | Not done, and may not apply (not judged a medical device). Mapping and gaps: [`governance/risk-management-iso-14971.md`](../governance/risk-management-iso-14971.md) |
 | DCB0129 / DCB0160 clinical safety | Not done. No Clinical Safety Officer or hazard log. See [`governance/clinical-safety.md`](../governance/clinical-safety.md) |
 | DTAC | Self-assessed; fails C1, C2, C3 on missing artefacts |
 | WCAG 2.2 AA | Automated checks only (NFR-6); no manual audit or published statement |

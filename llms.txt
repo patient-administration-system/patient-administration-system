@@ -43,6 +43,7 @@ Behaviour is defined by the specification in spec/, and a change is spec + code 
 - [NHS DTAC v2.0 self-assessment](docs/united-kingdom/national-health-service/digital-technology-assessment-criteria/2.0/index.md): Question-by-question answers; concludes the product would not pass today
 - [DPIA](governance/dpia.md): Data protection impact assessment draft
 - [Clinical safety hazard log](governance/clinical-safety.md): Hazards found in the design, for a Clinical Safety Officer to score
+- [ISO 14971 mapping](governance/risk-management-iso-14971.md): How the hazard log lines up with ISO 14971, and what is missing
 - [Personal-data inventory](governance/personal-data-inventory.csv): Every database column classified; a test fails if one is missing
 - [Retention schedule](governance/retention-schedule.md): Placeholders; no retention job exists yet
 - [Translation review](governance/translation-review.md): Non-English catalogues are AI drafts awaiting first-language review

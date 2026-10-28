@@ -166,6 +166,11 @@
           "description": "Hazards found in the design, for a Clinical Safety Officer to score"
         },
         {
+          "title": "ISO 14971 mapping",
+          "path": "governance/risk-management-iso-14971.md",
+          "description": "How the hazard log lines up with ISO 14971, and what is missing"
+        },
+        {
           "title": "Personal-data inventory",
           "path": "governance/personal-data-inventory.csv",
           "description": "Every database column classified; a test fails if one is missing"

@@ -21,5 +21,7 @@ Scope: an administrative system whose events (admissions, bed status, appointmen
 | H-12 | Wrong person's data shown to a patient | Wrong `person_id` mapping on the account | Server-side scope; tested | Proofing process (DTAC-9) | | |
 | H-14 | A patient who still needs care is removed from a waiting list by validation, or a removal goes unreported | Validation campaign (NEW-2): a patient who does not reply, cannot reply, or replies through someone else | Removal only by a named person after a letter and a wait; never for "still needed", "unsure" or an urgent service; reversible for 90 days with the clock kept; reported per service apart from treatment (`tests/new2_validation_test.rs`) | Reach people with accessible-communication needs their way before "no reply"; letter wording; who may decide; clinical safety officer review of the process (`governance/waiting-list-validation.md`) | | |
 
+How this log lines up with the ISO 14971 process, and what that process would still need: [`risk-management-iso-14971.md`](risk-management-iso-14971.md).
+
 ## Process still required
 Name a CSO; agree a risk-scoring scheme; review and score the above; add hazards from clinicians; produce the Clinical Safety Case Report; keep the log under change control.

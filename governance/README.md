@@ -12,6 +12,7 @@ Working drafts that feed the [DTAC self-assessment](../docs/united-kingdom/natio
 | [`messaging-rules.md`](messaging-rules.md) | DTAC C3.1, PECR | STOP, opt-out and quiet hours, enforced and tested |
 | [`personal-data-inventory.csv`](personal-data-inventory.csv) | NFR-12 | Every column, test-enforced |
 | [`clinical-safety.md`](clinical-safety.md) | DTAC C1.2.4 | Draft hazard log, needs a CSO |
+| [`risk-management-iso-14971.md`](risk-management-iso-14971.md) | DTAC C1.1.1, C1.2.4 | Draft mapping of the hazard log onto ISO 14971; not a risk management file |
 | [`accessibility-statement.md`](accessibility-statement.md) | DTAC D1.4.3 | Draft, not published |
 | [`language-statement.md`](language-statement.md) | Welsh Language Standards | Draft |
 | [`translation-review.md`](translation-review.md) | NFR-5 | Open: no human review yet |
