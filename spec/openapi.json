@@ -2325,6 +2325,78 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Evaluation": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "calibration": {
+                "items": {
+                  "$ref": "#/components/schemas/CalibrationCell"
+                },
+                "type": "array"
+              },
+              "clinics": {
+                "items": {
+                  "$ref": "#/components/schemas/ClinicEffect"
+                },
+                "type": "array"
+              },
+              "days": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "how_to_read": {
+                "type": "string"
+              },
+              "k": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "model_version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "model_version",
+              "days",
+              "k",
+              "calibration",
+              "clinics",
+              "how_to_read"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Facility": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -2364,6 +2436,88 @@
               "active",
               "created_at",
               "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_FairnessAudit": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "cells": {
+                "items": {
+                  "$ref": "#/components/schemas/FairnessCell"
+                },
+                "type": "array"
+              },
+              "days": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "how_to_read": {
+                "type": "string"
+              },
+              "k": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "model_version": {
+                "type": "string"
+              },
+              "overall": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FairnessOverall",
+                    "description": "`null` when there were no appointments with an outcome in the period."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "top_tenth_cutoff": {
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "required": [
+              "model_version",
+              "days",
+              "k",
+              "top_tenth_cutoff",
+              "overall",
+              "cells",
+              "how_to_read"
             ],
             "type": "object"
           },
@@ -3054,6 +3208,100 @@
               "language",
               "message",
               "time_zone"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_ModelCard": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A plain description of the model for a reviewer.",
+            "properties": {
+              "bands": {
+                "$ref": "#/components/schemas/ModelBands"
+              },
+              "factors": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "gate": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "limits": {
+                "type": "string"
+              },
+              "model_version": {
+                "type": "string"
+              },
+              "never": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "not_built": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "percentage": {
+                "type": "string"
+              },
+              "purpose": {
+                "type": "string"
+              },
+              "weights": {
+                "$ref": "#/components/schemas/WeightsCard"
+              }
+            },
+            "required": [
+              "model_version",
+              "kind",
+              "purpose",
+              "factors",
+              "weights",
+              "bands",
+              "percentage",
+              "never",
+              "gate",
+              "not_built",
+              "limits"
             ],
             "type": "object"
           },
@@ -4793,6 +5041,81 @@
             "required": [
               "series",
               "appointments"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Shown": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "appointment_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "band": {
+                "$ref": "#/components/schemas/Band"
+              },
+              "computed_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "factors": {
+                "items": {
+                  "$ref": "#/components/schemas/Factor"
+                },
+                "type": "array"
+              },
+              "model_version": {
+                "type": "string"
+              },
+              "probability_percent": {
+                "description": "Present only once the weights are calibrated and `PAS_NOSHOW_SHOW_PERCENT=true`.",
+                "format": "double",
+                "type": "number"
+              },
+              "sample_size": {
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "appointment_id",
+              "band",
+              "factors",
+              "sample_size",
+              "model_version",
+              "computed_at"
             ],
             "type": "object"
           },
@@ -10666,6 +10989,38 @@
         ],
         "type": "string"
       },
+      "CalibrationCell": {
+        "description": "Predicted against observed for one tenth of predicted probability. A tenth under the minimum size is\nlisted with `suppressed: true` and none of the figures.",
+        "properties": {
+          "appointments": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "gap": {
+            "format": "double",
+            "type": "number"
+          },
+          "mean_predicted": {
+            "format": "double",
+            "type": "number"
+          },
+          "observed_no_show_rate": {
+            "format": "double",
+            "type": "number"
+          },
+          "predicted_tenth": {
+            "type": "string"
+          },
+          "suppressed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "predicted_tenth",
+          "suppressed"
+        ],
+        "type": "object"
+      },
       "CallItem": {
         "description": "One booked appointment on the call list: the risk and why, and the task a person works from.",
         "properties": {
@@ -11067,6 +11422,38 @@
         },
         "required": [
           "slot_id"
+        ],
+        "type": "object"
+      },
+      "ClinicEffect": {
+        "description": "One clinic's rate before and after it went live, beside the clinics still in shadow.",
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/RateWindow"
+          },
+          "before": {
+            "$ref": "#/components/schemas/RateWindow"
+          },
+          "live_since": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "same_period_clinics_still_in_shadow": {
+            "$ref": "#/components/schemas/RateWindow"
+          },
+          "service_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_type",
+          "live_since",
+          "before",
+          "after",
+          "same_period_clinics_still_in_shadow"
         ],
         "type": "object"
       },
@@ -11751,6 +12138,45 @@
         ],
         "type": "string"
       },
+      "Evaluation": {
+        "properties": {
+          "calibration": {
+            "items": {
+              "$ref": "#/components/schemas/CalibrationCell"
+            },
+            "type": "array"
+          },
+          "clinics": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicEffect"
+            },
+            "type": "array"
+          },
+          "days": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "how_to_read": {
+            "type": "string"
+          },
+          "k": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "model_version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_version",
+          "days",
+          "k",
+          "calibration",
+          "clinics",
+          "how_to_read"
+        ],
+        "type": "object"
+      },
       "ExportBody": {
         "properties": {
           "created_by": {
@@ -11862,6 +12288,123 @@
           "name",
           "detail",
           "effect_points"
+        ],
+        "type": "object"
+      },
+      "FairnessAudit": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/FairnessCell"
+            },
+            "type": "array"
+          },
+          "days": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "how_to_read": {
+            "type": "string"
+          },
+          "k": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "model_version": {
+            "type": "string"
+          },
+          "overall": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FairnessOverall",
+                "description": "`null` when there were no appointments with an outcome in the period."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "top_tenth_cutoff": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "model_version",
+          "days",
+          "k",
+          "top_tenth_cutoff",
+          "overall",
+          "cells",
+          "how_to_read"
+        ],
+        "type": "object"
+      },
+      "FairnessCell": {
+        "description": "One group in the fairness audit. A cell under the minimum size is listed with `suppressed: true` and\nnone of the figures.",
+        "properties": {
+          "appointments": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "calibration_gap": {
+            "format": "double",
+            "type": "number"
+          },
+          "deprivation_quintile": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "mean_predicted": {
+            "format": "double",
+            "type": "number"
+          },
+          "observed_no_show_rate": {
+            "format": "double",
+            "type": "number"
+          },
+          "share_in_top_tenth": {
+            "format": "double",
+            "type": "number"
+          },
+          "suppressed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deprivation_quintile",
+          "language",
+          "suppressed"
+        ],
+        "type": "object"
+      },
+      "FairnessOverall": {
+        "description": "The audit over every appointment in the period.",
+        "properties": {
+          "appointments": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "mean_predicted": {
+            "format": "double",
+            "type": "number"
+          },
+          "observed_no_show_rate": {
+            "format": "double",
+            "type": "number"
+          },
+          "share_in_top_tenth": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "appointments",
+          "mean_predicted",
+          "observed_no_show_rate",
+          "share_in_top_tenth"
         ],
         "type": "object"
       },
@@ -12767,6 +13310,84 @@
           "phone"
         ],
         "type": "string"
+      },
+      "ModelBands": {
+        "description": "How the risk bands are cut.",
+        "properties": {
+          "high": {
+            "type": "string"
+          },
+          "medium_above": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "medium_above",
+          "high"
+        ],
+        "type": "object"
+      },
+      "ModelCard": {
+        "description": "A plain description of the model for a reviewer.",
+        "properties": {
+          "bands": {
+            "$ref": "#/components/schemas/ModelBands"
+          },
+          "factors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "gate": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "limits": {
+            "type": "string"
+          },
+          "model_version": {
+            "type": "string"
+          },
+          "never": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "not_built": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "percentage": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "weights": {
+            "$ref": "#/components/schemas/WeightsCard"
+          }
+        },
+        "required": [
+          "model_version",
+          "kind",
+          "purpose",
+          "factors",
+          "weights",
+          "bands",
+          "percentage",
+          "never",
+          "gate",
+          "not_built",
+          "limits"
+        ],
+        "type": "object"
       },
       "Money": {
         "properties": {
@@ -13873,6 +14494,30 @@
         },
         "required": [
           "id"
+        ],
+        "type": "object"
+      },
+      "RateWindow": {
+        "description": "A no-show rate over a period, or `null` for either figure when a count behind it is under the minimum.",
+        "properties": {
+          "appointments": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "no_show_rate": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "no_show_rate",
+          "appointments"
         ],
         "type": "object"
       },
@@ -16000,6 +16645,61 @@
           "cleaning",
           "reserved",
           "out_of_service"
+        ],
+        "type": "object"
+      },
+      "WeightsCard": {
+        "description": "The live weights, as the model card shows them. The fields are those of [`Weights`].",
+        "properties": {
+          "age": {
+            "additionalProperties": {
+              "format": "double",
+              "type": "number"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "base": {
+            "format": "double",
+            "type": "number"
+          },
+          "history": {
+            "format": "double",
+            "type": "number"
+          },
+          "lead": {
+            "format": "double",
+            "type": "number"
+          },
+          "period": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "prior_visits": {
+            "format": "double",
+            "type": "number"
+          },
+          "weekday": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "base",
+          "history",
+          "prior_visits",
+          "lead",
+          "age",
+          "weekday",
+          "period"
         ],
         "type": "object"
       },
@@ -18702,6 +19402,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Shown"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -22387,6 +23094,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Evaluation"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -22438,6 +23152,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_FairnessAudit"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -22506,6 +23227,13 @@
         "operationId": "get_api_noshow_model_card",
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ModelCard"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

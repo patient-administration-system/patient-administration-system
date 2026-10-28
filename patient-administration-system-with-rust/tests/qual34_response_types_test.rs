@@ -655,7 +655,7 @@ async fn the_admission_routes_send_the_types_they_declare() {
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn the_noshow_status_and_rollout_routes_send_what_they_declare() {
-    use patient_administration_system::noshow::RolloutRow;
+    use patient_administration_system::noshow::{Evaluation, FairnessAudit, ModelCard, RolloutRow};
 
     let state = common::build_state(&common::database_url().unwrap()).await;
     let app = router(state.clone());
@@ -664,6 +664,25 @@ async fn the_noshow_status_and_rollout_routes_send_what_they_declare() {
     assert_fields_match_schema("noshow.Status", &status);
     let rollout: Vec<RolloutRow> = call(&app, "GET", "/api/noshow/rollout", None).await;
     let _ = rollout;
+
+    // The reviewer's documents. They work while the score is off: evidence comes before approval.
+    let card: ModelCard = call(&app, "GET", "/api/noshow/model-card", None).await;
+    assert!(card.never.iter().any(|x| x.contains("overbook")));
+    assert_eq!(card.weights.weekday.len(), 7);
+    let audit: FairnessAudit = call(&app, "GET", "/api/noshow/fairness-audit?days=30", None).await;
+    assert_eq!(audit.days, 30);
+    for cell in &audit.cells {
+        // A hidden cell carries none of the figures; a shown one carries all of them.
+        assert_eq!(cell.suppressed, cell.appointments.is_none(), "{cell:?}");
+        assert_eq!(cell.suppressed, cell.calibration_gap.is_none(), "{cell:?}");
+    }
+    let evaluation: Evaluation = call(&app, "GET", "/api/noshow/evaluation?days=30", None).await;
+    assert_eq!(evaluation.days, 30);
+    for cell in &evaluation.calibration {
+        assert_eq!(cell.suppressed, cell.appointments.is_none(), "{cell:?}");
+    }
+    // `GET /api/appointments/{id}/noshow` is typed (`Shown`) but refused while the score is off, and
+    // switching it on needs the two approvals, so it is not read back here.
 }
 
 #[tokio::test]

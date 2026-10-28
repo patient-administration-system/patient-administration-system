@@ -42,8 +42,9 @@ mod model;
 mod review;
 mod rollout;
 pub use call_list::CallItem;
+pub use fairness::{FairnessAudit, FairnessCell, FairnessOverall, ModelBands, ModelCard};
 pub use model::*;
-pub use rollout::RolloutRow;
+pub use rollout::{CalibrationCell, ClinicEffect, Evaluation, RateWindow, RolloutRow};
 
 pub const MODEL_VERSION: &str = "weighted-sum-1";
 /// A fairness review stays valid this long; clinical safety, a year.

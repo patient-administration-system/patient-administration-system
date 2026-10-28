@@ -6324,6 +6324,28 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Evaluation: {
+      data?: {
+        calibration: components["schemas"]["CalibrationCell"][];
+        clinics: components["schemas"]["ClinicEffect"][];
+        /** Format: int64 */
+        days: number;
+        how_to_read: string;
+        /** Format: int64 */
+        k: number;
+        model_version: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Facility: {
       /** @description A physical hospital facility (campus, building). */
       data?: {
@@ -6337,6 +6359,30 @@ export interface components {
         name: string;
         /** Format: date-time */
         updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_FairnessAudit: {
+      data?: {
+        cells: components["schemas"]["FairnessCell"][];
+        /** Format: int64 */
+        days: number;
+        how_to_read: string;
+        /** Format: int64 */
+        k: number;
+        model_version: string;
+        overall: components["schemas"]["FairnessOverall"] | null;
+        /** Format: double */
+        top_tenth_cutoff: number;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -6613,6 +6659,32 @@ export interface components {
         starts_at?: string;
         status: components["schemas"]["LinkStatus"];
         time_zone: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_ModelCard: {
+      /** @description A plain description of the model for a reviewer. */
+      data?: {
+        bands: components["schemas"]["ModelBands"];
+        factors: string[];
+        gate: string;
+        kind: string;
+        limits: string;
+        model_version: string;
+        never: string[];
+        not_built: string[];
+        percentage: string;
+        purpose: string;
+        weights: components["schemas"]["WeightsCard"];
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7216,6 +7288,34 @@ export interface components {
       data?: {
         appointments: components["schemas"]["Appointment"][];
         series: components["schemas"]["AppointmentSeries"];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Shown: {
+      data?: {
+        /** Format: uuid */
+        appointment_id: string;
+        band: components["schemas"]["Band"];
+        /** Format: date-time */
+        computed_at: string;
+        factors: components["schemas"]["Factor"][];
+        model_version: string;
+        /**
+         * Format: double
+         * @description Present only once the weights are calibrated and `PAS_NOSHOW_SHOW_PERCENT=true`.
+         */
+        probability_percent?: number;
+        /** Format: int64 */
+        sample_size: number;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -9168,6 +9268,22 @@ export interface components {
      * @enum {string}
      */
     BookingStatus: "Requested" | "Booked" | "Cancelled" | "Failed";
+    /**
+     * @description Predicted against observed for one tenth of predicted probability. A tenth under the minimum size is
+     *     listed with `suppressed: true` and none of the figures.
+     */
+    CalibrationCell: {
+      /** Format: int64 */
+      appointments?: number;
+      /** Format: double */
+      gap?: number;
+      /** Format: double */
+      mean_predicted?: number;
+      /** Format: double */
+      observed_no_show_rate?: number;
+      predicted_tenth: string;
+      suppressed: boolean;
+    };
     /** @description One booked appointment on the call list: the risk and why, and the task a person works from. */
     CallItem: {
       /** Format: uuid */
@@ -9326,6 +9442,15 @@ export interface components {
     ChooseBody: {
       /** Format: uuid */
       slot_id: string;
+    };
+    /** @description One clinic's rate before and after it went live, beside the clinics still in shadow. */
+    ClinicEffect: {
+      after: components["schemas"]["RateWindow"];
+      before: components["schemas"]["RateWindow"];
+      /** Format: date-time */
+      live_since: string | null;
+      same_period_clinics_still_in_shadow: components["schemas"]["RateWindow"];
+      service_type: string;
     };
     ConfirmBody: {
       /** @description The interpreting service's booking reference, when it gave one. */
@@ -9637,6 +9762,16 @@ export interface components {
      * @enum {string}
      */
     EpisodeStatus: "Active" | "Closed";
+    Evaluation: {
+      calibration: components["schemas"]["CalibrationCell"][];
+      clinics: components["schemas"]["ClinicEffect"][];
+      /** Format: int64 */
+      days: number;
+      how_to_read: string;
+      /** Format: int64 */
+      k: number;
+      model_version: string;
+    };
     ExportBody: {
       created_by: string;
       /** @description `csv` for the mail house's file; JSON otherwise. */
@@ -9674,6 +9809,48 @@ export interface components {
        */
       effect_points: number;
       name: string;
+    };
+    FairnessAudit: {
+      cells: components["schemas"]["FairnessCell"][];
+      /** Format: int64 */
+      days: number;
+      how_to_read: string;
+      /** Format: int64 */
+      k: number;
+      model_version: string;
+      overall: components["schemas"]["FairnessOverall"] | null;
+      /** Format: double */
+      top_tenth_cutoff: number;
+    };
+    /**
+     * @description One group in the fairness audit. A cell under the minimum size is listed with `suppressed: true` and
+     *     none of the figures.
+     */
+    FairnessCell: {
+      /** Format: int64 */
+      appointments?: number;
+      /** Format: double */
+      calibration_gap?: number;
+      deprivation_quintile: string;
+      language: string;
+      /** Format: double */
+      mean_predicted?: number;
+      /** Format: double */
+      observed_no_show_rate?: number;
+      /** Format: double */
+      share_in_top_tenth?: number;
+      suppressed: boolean;
+    };
+    /** @description The audit over every appointment in the period. */
+    FairnessOverall: {
+      /** Format: int64 */
+      appointments: number;
+      /** Format: double */
+      mean_predicted: number;
+      /** Format: double */
+      observed_no_show_rate: number;
+      /** Format: double */
+      share_in_top_tenth: number;
     };
     /** @description FHIR Bundle request body. */
     FhirBundleRequest: {
@@ -10035,6 +10212,26 @@ export interface components {
      * @enum {string}
      */
     Modality: "in_person" | "video" | "phone";
+    /** @description How the risk bands are cut. */
+    ModelBands: {
+      high: string;
+      /** Format: double */
+      medium_above: number;
+    };
+    /** @description A plain description of the model for a reviewer. */
+    ModelCard: {
+      bands: components["schemas"]["ModelBands"];
+      factors: string[];
+      gate: string;
+      kind: string;
+      limits: string;
+      model_version: string;
+      never: string[];
+      not_built: string[];
+      percentage: string;
+      purpose: string;
+      weights: components["schemas"]["WeightsCard"];
+    };
     Money: {
       /** @description A decimal in a string, so no precision is lost. */
       amount: string;
@@ -10406,6 +10603,13 @@ export interface components {
     Raised: {
       /** Format: uuid */
       id: string;
+    };
+    /** @description A no-show rate over a period, or `null` for either figure when a count behind it is under the minimum. */
+    RateWindow: {
+      /** Format: int64 */
+      appointments: number | null;
+      /** Format: double */
+      no_show_rate: number | null;
     };
     /** @description A measure's value against its tiers. */
     Reading: components["schemas"]["Limits"] & {
@@ -11110,6 +11314,22 @@ export interface components {
       total_beds: number;
       /** Format: uuid */
       ward_id: string;
+    };
+    /** @description The live weights, as the model card shows them. The fields are those of [`Weights`]. */
+    WeightsCard: {
+      age: {
+        [key: string]: number;
+      };
+      /** Format: double */
+      base: number;
+      /** Format: double */
+      history: number;
+      /** Format: double */
+      lead: number;
+      period: number[];
+      /** Format: double */
+      prior_visits: number;
+      weekday: number[];
     };
     "handlers_clinic_templates.ApproveBody": {
       approved_by: string;
@@ -12893,7 +13113,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Shown"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -16232,7 +16454,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Evaluation"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -16267,7 +16491,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_FairnessAudit"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -16336,7 +16562,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ModelCard"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

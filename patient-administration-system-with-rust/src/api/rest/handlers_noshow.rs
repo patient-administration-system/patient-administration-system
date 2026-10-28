@@ -37,13 +37,13 @@ pub async fn status(State(state): State<AppState>) -> HandlerResult {
     path = "/api/noshow/model-card",
     tag = "Noshow",
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::noshow::ModelCard>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
 pub async fn model_card() -> HandlerResult {
-    ok(crate::noshow::NoShowService::model_card())
+    ok_json(crate::noshow::NoShowService::model_card())
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -104,7 +104,7 @@ pub struct AuditQuery {
     tag = "Noshow",
     params(AuditQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::noshow::FairnessAudit>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -118,7 +118,7 @@ pub async fn fairness_audit(
         .fairness_audit(q.days.unwrap_or(365), q.k)
         .await
     {
-        Ok(v) => ok(v),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -130,7 +130,7 @@ pub async fn fairness_audit(
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::noshow::Shown>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -314,7 +314,7 @@ pub async fn set_stage(
     tag = "Noshow",
     params(AuditQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::noshow::Evaluation>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -324,7 +324,7 @@ pub async fn evaluation(
     Query(q): Query<AuditQuery>,
 ) -> HandlerResult {
     match state.noshow.evaluation(q.days.unwrap_or(180), q.k).await {
-        Ok(v) => ok(v),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }

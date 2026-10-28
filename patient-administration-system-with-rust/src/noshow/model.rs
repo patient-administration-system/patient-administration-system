@@ -169,11 +169,28 @@ pub fn compute(i: &Inputs, w: &Weights) -> Assessment {
 }
 
 impl Weights {
-    pub(super) fn from_env_for_card() -> serde_json::Value {
+    pub(super) fn from_env_for_card() -> WeightsCard {
         let w = Weights::from_env();
-        serde_json::json!({
-            "base": w.base, "history": w.history, "prior_visits": w.prior_visits, "lead": w.lead,
-            "age": w.age, "weekday": w.weekday, "period": w.period,
-        })
+        WeightsCard {
+            base: w.base,
+            history: w.history,
+            prior_visits: w.prior_visits,
+            lead: w.lead,
+            age: w.age,
+            weekday: w.weekday,
+            period: w.period,
+        }
     }
+}
+
+/// The live weights, as the model card shows them. The fields are those of [`Weights`].
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct WeightsCard {
+    pub base: f64,
+    pub history: f64,
+    pub prior_visits: f64,
+    pub lead: f64,
+    pub age: BTreeMap<String, f64>,
+    pub weekday: [f64; 7],
+    pub period: [f64; 3],
 }

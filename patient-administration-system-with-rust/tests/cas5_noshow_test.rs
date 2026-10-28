@@ -634,7 +634,8 @@ async fn the_fairness_audit_backtests_by_quintile_and_language_withholds_small_c
             history(&s, person, if missed { "no_show" } else { "fulfilled" }, 1).await;
         }
     }
-    let audit = s.noshow.fairness_audit(365, Some(1)).await.unwrap();
+    // Checked as the JSON the route sends, so the wire shape (a withheld cell has no figures) is what is tested.
+    let audit = serde_json::to_value(s.noshow.fairness_audit(365, Some(1)).await.unwrap()).unwrap();
     assert_eq!(audit["k"], 10, "k cannot be lowered");
     let cells = audit["cells"].as_array().unwrap();
     let cell = |q: &str| {
@@ -891,7 +892,7 @@ async fn the_evaluation_reports_calibration_and_before_after_against_clinics_sti
         .unwrap();
     }
     let _ = Duration::zero();
-    let v = s.noshow.evaluation(180, None).await.unwrap();
+    let v = serde_json::to_value(s.noshow.evaluation(180, None).await.unwrap()).unwrap();
     let cal: Vec<&serde_json::Value> = v["calibration"]
         .as_array()
         .unwrap()

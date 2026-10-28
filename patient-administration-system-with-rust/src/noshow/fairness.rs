@@ -7,7 +7,7 @@ impl NoShowService {
     /// them with only what was known then, split by deprivation quintile and language. For a reviewer: it
     /// shows whether the model's predictions fall harder on one group than the outcomes do. Cells under k are
     /// withheld. This runs whether or not the score is switched on: evidence comes before approval.
-    pub async fn fairness_audit(&self, days: i64, k: Option<i64>) -> Result<serde_json::Value> {
+    pub async fn fairness_audit(&self, days: i64, k: Option<i64>) -> Result<FairnessAudit> {
         let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
         let tz = crate::inbound::messages::timezone();
         let rows = self
@@ -92,51 +92,142 @@ impl NoShowService {
             .collect();
         let shown = suppress(counts, k);
         let r3 = |x: f64| (x * 1000.0).round() / 1000.0;
-        let out: Vec<serde_json::Value> = shown
+        let out: Vec<FairnessCell> = shown
             .into_iter()
             .zip(keys)
             .map(|(c, key)| {
                 let a = &cells[&key];
                 if c.suppressed {
-                    serde_json::json!({ "deprivation_quintile": key.0, "language": key.1, "suppressed": true })
+                    FairnessCell {
+                        deprivation_quintile: key.0,
+                        language: key.1,
+                        appointments: None,
+                        mean_predicted: None,
+                        observed_no_show_rate: None,
+                        calibration_gap: None,
+                        share_in_top_tenth: None,
+                        suppressed: true,
+                    }
                 } else {
                     let observed = a.missed as f64 / a.n as f64;
                     let predicted = a.predicted / a.n as f64;
-                    serde_json::json!({
-                        "deprivation_quintile": key.0, "language": key.1, "appointments": a.n,
-                        "mean_predicted": r3(predicted), "observed_no_show_rate": r3(observed),
-                        "calibration_gap": r3(predicted - observed),
-                        "share_in_top_tenth": r3(a.high as f64 / a.n as f64), "suppressed": false,
-                    })
+                    FairnessCell {
+                        deprivation_quintile: key.0,
+                        language: key.1,
+                        appointments: Some(a.n),
+                        mean_predicted: Some(r3(predicted)),
+                        observed_no_show_rate: Some(r3(observed)),
+                        calibration_gap: Some(r3(predicted - observed)),
+                        share_in_top_tenth: Some(r3(a.high as f64 / a.n as f64)),
+                        suppressed: false,
+                    }
                 }
             })
             .collect();
-        Ok(serde_json::json!({
-            "model_version": MODEL_VERSION, "days": days, "k": k, "top_tenth_cutoff": r3(cutoff),
-            "overall": if all.n == 0 { serde_json::Value::Null } else { serde_json::json!({
-                "appointments": all.n, "mean_predicted": r3(all.predicted / all.n as f64),
-                "observed_no_show_rate": r3(all.missed as f64 / all.n as f64),
-                "share_in_top_tenth": r3(all.high as f64 / all.n as f64) }) },
-            "cells": out,
-            "how_to_read": "calibration_gap is mean predicted minus observed no-show rate. A group with a much larger share in the top tenth than its observed rate supports, or a large gap of either sign, is a reason to reject the model or change its weights. Support only: this model never removes or reorders a slot.",
-        }))
+        Ok(FairnessAudit {
+            model_version: MODEL_VERSION.into(),
+            days,
+            k,
+            top_tenth_cutoff: r3(cutoff),
+            overall: (all.n > 0).then(|| FairnessOverall {
+                appointments: all.n,
+                mean_predicted: r3(all.predicted / all.n as f64),
+                observed_no_show_rate: r3(all.missed as f64 / all.n as f64),
+                share_in_top_tenth: r3(all.high as f64 / all.n as f64),
+            }),
+            cells: out,
+            how_to_read: "calibration_gap is mean predicted minus observed no-show rate. A group with a much larger share in the top tenth than its observed rate supports, or a large gap of either sign, is a reason to reject the model or change its weights. Support only: this model never removes or reorders a slot.".into(),
+        })
     }
 
     /// A plain description of the model for a reviewer, with the live weights.
-    pub fn model_card() -> serde_json::Value {
+    pub fn model_card() -> ModelCard {
         let medium = medium_threshold();
-        serde_json::json!({
-            "model_version": MODEL_VERSION,
-            "kind": "transparent weighted sum (not trained, not a black box)",
-            "purpose": "to tell staff which upcoming appointments may need a supportive phone call; it never changes a booking",
-            "factors": ["past completed visits missed (shrunk towards the base rate)", "lead time", "age band (zero by default: not an input unless a fairness reviewer justifies it)", "day of week and part of day (zero by default)"],
-            "weights": serde_json::to_value(Weights::from_env_for_card()).unwrap_or_default(),
-            "bands": { "medium_above": medium, "high": "on today's call list: the top few by probability, as many as the clinic can phone (PAS_NOSHOW_CALL_CAPACITY, default 10) among appointments in the next PAS_NOSHOW_CALL_HORIZON_DAYS (7); not a probability cut-off" },
-            "percentage": "hidden from staff until the weights are calibrated on real outcomes and PAS_NOSHOW_SHOW_PERCENT=true; staff see the band word and the reasons",
-            "never": ["remove, reorder away or withhold a slot", "overbook", "delay a contact", "act without a person deciding"],
-            "gate": "off unless PAS_NOSHOW_SCORE=true and a named person has approved a fairness review and a clinical safety review of this version",
-            "not_built": ["distance from the clinic", "clinic type", "weather or travel forecast"],
-            "limits": "built from rules, not trained on this population: its numbers are estimates to prompt a conversation, not predictions to rely on",
-        })
+        let words = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        ModelCard {
+            model_version: MODEL_VERSION.into(),
+            kind: "transparent weighted sum (not trained, not a black box)".into(),
+            purpose: "to tell staff which upcoming appointments may need a supportive phone call; it never changes a booking".into(),
+            factors: words(&["past completed visits missed (shrunk towards the base rate)", "lead time", "age band (zero by default: not an input unless a fairness reviewer justifies it)", "day of week and part of day (zero by default)"]),
+            weights: Weights::from_env_for_card(),
+            bands: ModelBands {
+                medium_above: medium,
+                high: "on today's call list: the top few by probability, as many as the clinic can phone (PAS_NOSHOW_CALL_CAPACITY, default 10) among appointments in the next PAS_NOSHOW_CALL_HORIZON_DAYS (7); not a probability cut-off".into(),
+            },
+            percentage: "hidden from staff until the weights are calibrated on real outcomes and PAS_NOSHOW_SHOW_PERCENT=true; staff see the band word and the reasons".into(),
+            never: words(&["remove, reorder away or withhold a slot", "overbook", "delay a contact", "act without a person deciding"]),
+            gate: "off unless PAS_NOSHOW_SCORE=true and a named person has approved a fairness review and a clinical safety review of this version".into(),
+            not_built: words(&["distance from the clinic", "clinic type", "weather or travel forecast"]),
+            limits: "built from rules, not trained on this population: its numbers are estimates to prompt a conversation, not predictions to rely on".into(),
+        }
     }
+}
+
+/// One group in the fairness audit. A cell under the minimum size is listed with `suppressed: true` and
+/// none of the figures.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct FairnessCell {
+    pub deprivation_quintile: String,
+    pub language: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
+    pub appointments: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
+    pub mean_predicted: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
+    pub observed_no_show_rate: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
+    pub calibration_gap: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
+    pub share_in_top_tenth: Option<f64>,
+    pub suppressed: bool,
+}
+
+/// The audit over every appointment in the period.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct FairnessOverall {
+    pub appointments: i64,
+    pub mean_predicted: f64,
+    pub observed_no_show_rate: f64,
+    pub share_in_top_tenth: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct FairnessAudit {
+    pub model_version: String,
+    pub days: i64,
+    pub k: i64,
+    pub top_tenth_cutoff: f64,
+    /// `null` when there were no appointments with an outcome in the period.
+    #[schema(required = true)]
+    pub overall: Option<FairnessOverall>,
+    pub cells: Vec<FairnessCell>,
+    pub how_to_read: String,
+}
+
+/// How the risk bands are cut.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ModelBands {
+    pub medium_above: f64,
+    pub high: String,
+}
+
+/// A plain description of the model for a reviewer.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ModelCard {
+    pub model_version: String,
+    pub kind: String,
+    pub purpose: String,
+    pub factors: Vec<String>,
+    pub weights: WeightsCard,
+    pub bands: ModelBands,
+    pub percentage: String,
+    pub never: Vec<String>,
+    pub gate: String,
+    pub not_built: Vec<String>,
+    pub limits: String,
 }

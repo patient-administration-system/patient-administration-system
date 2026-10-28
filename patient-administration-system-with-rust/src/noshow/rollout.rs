@@ -137,7 +137,7 @@ impl NoShowService {
     ///   clinics still in shadow over the same period. The stepped rollout makes the not-yet-live clinics the
     ///   comparison, so nobody is held back from support to make one. A difference that shows in the live
     ///   clinics and not in the others is the evidence the score raises attendance; a drift in both is not.
-    pub async fn evaluation(&self, days: i64, k: Option<i64>) -> Result<serde_json::Value> {
+    pub async fn evaluation(&self, days: i64, k: Option<i64>) -> Result<Evaluation> {
         let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
         let days = days.clamp(7, 1825) as i32;
         let r3 = |x: f64| (x * 1000.0).round() / 1000.0;
@@ -165,17 +165,33 @@ impl NoShowService {
             })
             .collect::<Result<_>>()?;
         let cells = suppress(counts, k);
-        let calibration: Vec<serde_json::Value> = rows
+        let calibration: Vec<CalibrationCell> = rows
             .iter()
             .zip(cells)
             .map(|(r, c)| {
-                let t = &c.dims[0].1;
+                let t = c.dims[0].1.clone();
                 if c.suppressed {
-                    serde_json::json!({ "predicted_tenth": t, "suppressed": true })
+                    CalibrationCell {
+                        predicted_tenth: t,
+                        appointments: None,
+                        mean_predicted: None,
+                        observed_no_show_rate: None,
+                        gap: None,
+                        suppressed: true,
+                    }
                 } else {
-                    let (p, o): (f64, f64) = (r.try_get("", "predicted").unwrap_or(0.0), r.try_get("", "observed").unwrap_or(0.0));
-                    serde_json::json!({ "predicted_tenth": t, "appointments": c.count, "mean_predicted": r3(p),
-                        "observed_no_show_rate": r3(o), "gap": r3(p - o), "suppressed": false })
+                    let (p, o): (f64, f64) = (
+                        r.try_get("", "predicted").unwrap_or(0.0),
+                        r.try_get("", "observed").unwrap_or(0.0),
+                    );
+                    CalibrationCell {
+                        predicted_tenth: t,
+                        appointments: c.count,
+                        mean_predicted: Some(r3(p)),
+                        observed_no_show_rate: Some(r3(o)),
+                        gap: Some(r3(p - o)),
+                        suppressed: false,
+                    }
                 }
             })
             .collect();
@@ -205,33 +221,82 @@ impl NoShowService {
             ))
             .await
             .map_err(Error::Database)?;
-        let rate = |m: i64, n: i64, ok: bool| {
-            if ok && n > 0 {
-                serde_json::json!(r3(m as f64 / n as f64))
-            } else {
-                serde_json::Value::Null
-            }
+        let window = |m: i64, n: i64| RateWindow {
+            // A rate is shown only if every count behind it is at least k, so a hidden figure cannot be
+            // recovered from a published one.
+            no_show_rate: (n >= k && n > 0).then(|| r3(m as f64 / n as f64)),
+            appointments: (n >= k).then_some(n),
         };
-        let clinics: Vec<serde_json::Value> = clinic_rows
+        let clinics: Vec<ClinicEffect> = clinic_rows
             .iter()
             .map(|r| {
                 let g = |c: &str| r.try_get::<i64>("", c).unwrap_or(0);
-                // A rate is shown only if every count behind it is at least k, so a hidden figure cannot be
-                // recovered from a published one.
-                let (bn, an, sn) = (g("before_n"), g("after_n"), g("shadow_n"));
-                serde_json::json!({
-                    "service_type": r.try_get::<String>("", "svc").unwrap_or_default(),
-                    "live_since": r.try_get::<DateTime<Utc>>("", "live_since").ok(),
-                    "before": { "no_show_rate": rate(g("before_missed"), bn, bn >= k), "appointments": (bn >= k).then_some(bn) },
-                    "after": { "no_show_rate": rate(g("after_missed"), an, an >= k), "appointments": (an >= k).then_some(an) },
-                    "same_period_clinics_still_in_shadow": { "no_show_rate": rate(g("shadow_missed"), sn, sn >= k), "appointments": (sn >= k).then_some(sn) },
-                })
+                ClinicEffect {
+                    service_type: r.try_get::<String>("", "svc").unwrap_or_default(),
+                    live_since: r.try_get::<DateTime<Utc>>("", "live_since").ok(),
+                    before: window(g("before_missed"), g("before_n")),
+                    after: window(g("after_missed"), g("after_n")),
+                    same_period_clinics_still_in_shadow: window(g("shadow_missed"), g("shadow_n")),
+                }
             })
             .collect();
-        Ok(serde_json::json!({
-            "model_version": MODEL_VERSION, "days": days, "k": k,
-            "calibration": calibration, "clinics": clinics,
-            "how_to_read": "Calibration compares the probability recorded before each visit with what happened; read it before showing any percentage. Clinics compares the no-show rate before and after a clinic went live with the clinics still in shadow over the same period; a fall in the live clinics that is not matched in the others is the evidence the score helps. Nobody is withheld from support to make a comparison: the standard reminders apply everywhere and the score only adds calls.",
-        }))
+        Ok(Evaluation {
+            model_version: MODEL_VERSION.into(),
+            days: i64::from(days),
+            k,
+            calibration,
+            clinics,
+            how_to_read: "Calibration compares the probability recorded before each visit with what happened; read it before showing any percentage. Clinics compares the no-show rate before and after a clinic went live with the clinics still in shadow over the same period; a fall in the live clinics that is not matched in the others is the evidence the score helps. Nobody is withheld from support to make a comparison: the standard reminders apply everywhere and the score only adds calls.".into(),
+        })
     }
+}
+
+/// Predicted against observed for one tenth of predicted probability. A tenth under the minimum size is
+/// listed with `suppressed: true` and none of the figures.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct CalibrationCell {
+    pub predicted_tenth: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
+    pub appointments: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
+    pub mean_predicted: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
+    pub observed_no_show_rate: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
+    pub gap: Option<f64>,
+    pub suppressed: bool,
+}
+
+/// A no-show rate over a period, or `null` for either figure when a count behind it is under the minimum.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct RateWindow {
+    #[schema(required = true)]
+    pub no_show_rate: Option<f64>,
+    #[schema(required = true)]
+    pub appointments: Option<i64>,
+}
+
+/// One clinic's rate before and after it went live, beside the clinics still in shadow.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ClinicEffect {
+    pub service_type: String,
+    #[schema(required = true)]
+    pub live_since: Option<DateTime<Utc>>,
+    pub before: RateWindow,
+    pub after: RateWindow,
+    pub same_period_clinics_still_in_shadow: RateWindow,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Evaluation {
+    pub model_version: String,
+    pub days: i64,
+    pub k: i64,
+    pub calibration: Vec<CalibrationCell>,
+    pub clinics: Vec<ClinicEffect>,
+    pub how_to_read: String,
 }
