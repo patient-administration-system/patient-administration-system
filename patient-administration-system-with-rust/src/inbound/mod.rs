@@ -62,7 +62,7 @@ pub struct InboundText {
     pub received_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct InboundOutcome {
     pub message_id: String,
     /// `applied`, `rejected`, `asked`, `needs_staff`, `stop`, `help`, `unknown`, `unmatched`,
@@ -70,21 +70,27 @@ pub struct InboundOutcome {
     pub outcome: String,
     pub intent: String,
     /// What to text back, or none (never to an unmatched or shared number).
+    #[schema(required = true)]
     pub reply_text: Option<String>,
+    #[schema(required = true)]
     pub language: Option<String>,
+    #[schema(required = true)]
     pub person_id: Option<Uuid>,
+    #[schema(required = true)]
     pub appointment_id: Option<Uuid>,
     pub duplicate: bool,
 }
 
 /// A row for the staff list.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct StaffItem {
     pub id: Uuid,
     pub received_at: DateTime<Utc>,
     pub outcome: String,
     pub intent: String,
+    #[schema(required = true)]
     pub person_id: Option<Uuid>,
+    #[schema(required = true)]
     pub appointment_id: Option<Uuid>,
     /// The patient's words. Staff need them to act; they are personal data (see the inventory).
     pub body: String,

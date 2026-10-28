@@ -7,6 +7,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
+use patient_administration_system::api::ApiResponse;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
@@ -15,7 +16,9 @@ use patient_administration_system::models::appointment::{
     Appointment, AppointmentStatus, BarrierCode, CancellationReason, ReleaseClass,
 };
 use patient_administration_system::models::schedule::SlotStatus;
-use patient_administration_system::writeback::{ReplyAction, ReplyRequest, ReplyStatus};
+use patient_administration_system::writeback::{
+    BatchItem, ReplyAction, ReplyRequest, ReplyResult, ReplyStatus,
+};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -407,6 +410,9 @@ async fn the_http_api_takes_one_reply_and_a_json_or_csv_batch_with_per_row_resul
     let (s, v) = http(app.clone(), "application/json", uri, one.to_string()).await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(v["data"]["status"], "applied");
+    // QUAL-34: the answer is the type the route declares.
+    let one_back: ApiResponse<ReplyResult> = serde_json::from_value(v).unwrap();
+    assert_eq!(one_back.data.unwrap().status, ReplyStatus::Applied);
 
     // A refusal is 200 with status rejected (do not retry); malformed input is 400.
     let bad_person = serde_json::json!({ "message_id": format!("bp-{}", Uuid::new_v4()), "action": "cancel", "appointment_id": w.appt.id, "person_id": Uuid::new_v4() });
@@ -442,6 +448,8 @@ async fn the_http_api_takes_one_reply_and_a_json_or_csv_batch_with_per_row_resul
     )
     .await;
     assert_eq!(s, StatusCode::OK);
+    let items: ApiResponse<Vec<BatchItem>> = serde_json::from_value(v.clone()).unwrap();
+    assert_eq!(items.data.unwrap().len(), 3);
     let rows = v["data"].as_array().unwrap();
     assert_eq!(rows.len(), 3);
     assert_eq!(rows[0]["result"]["status"], "applied");

@@ -8,11 +8,13 @@ use axum::{
     http::{Request, StatusCode},
 };
 use chrono::{Duration, Utc};
+use patient_administration_system::api::ApiResponse;
 use patient_administration_system::api::rest::AppState;
+use patient_administration_system::api::rest::handlers_writeback::TextHandled;
 use patient_administration_system::contact::ProfileInput;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
-use patient_administration_system::inbound::InboundText;
+use patient_administration_system::inbound::{InboundOutcome, InboundText, StaffItem};
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
@@ -466,6 +468,9 @@ async fn the_http_endpoint_takes_a_text_and_the_staff_list_is_readable() {
     let v: serde_json::Value =
         serde_json::from_slice(&to_bytes(r.into_body(), 1 << 20).await.unwrap()).unwrap();
     assert_eq!(v["data"]["outcome"], "needs_staff");
+    // QUAL-34: the answer is the type the route declares.
+    let outcome: ApiResponse<InboundOutcome> = serde_json::from_value(v).unwrap();
+    assert_eq!(outcome.data.unwrap().outcome, "needs_staff");
 
     let r = app
         .clone()
@@ -480,11 +485,26 @@ async fn the_http_endpoint_takes_a_text_and_the_staff_list_is_readable() {
     assert_eq!(r.status(), StatusCode::OK);
     let v: serde_json::Value =
         serde_json::from_slice(&to_bytes(r.into_body(), 1 << 20).await.unwrap()).unwrap();
-    assert!(
-        v["data"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|i| i["appointment_id"] == a.id.to_string())
-    );
+    let open: ApiResponse<Vec<StaffItem>> = serde_json::from_value(v).unwrap();
+    let item = open
+        .data
+        .unwrap()
+        .into_iter()
+        .find(|i| i.appointment_id == Some(a.id))
+        .expect("the open text is listed");
+
+    let r = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/inbound-texts/{}/handled", item.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    let handled: ApiResponse<TextHandled> =
+        serde_json::from_slice(&to_bytes(r.into_body(), 1 << 20).await.unwrap()).unwrap();
+    assert!(handled.data.unwrap().handled);
 }

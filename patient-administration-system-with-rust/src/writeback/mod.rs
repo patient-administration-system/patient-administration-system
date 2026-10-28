@@ -86,33 +86,39 @@ pub struct ReplyRequest {
     pub received_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReplyStatus {
     Applied,
     Rejected,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct ReplyResult {
     pub message_id: String,
     pub status: ReplyStatus,
     /// True when this `message_id` had already been handled and this is the stored outcome.
     pub duplicate: bool,
+    #[schema(required = true)]
     pub reject_reason: Option<String>,
     /// The appointment as it now stands (after a cancel or rebook: the old, cancelled one).
     /// Absent when the reply was refused because it named the wrong patient or appointment.
+    #[schema(required = true)]
     pub appointment: Option<Appointment>,
     /// For `rebook`: the new appointment.
+    #[schema(required = true)]
     pub new_appointment: Option<Appointment>,
 }
 
 /// One row of a batch: the result, or why that row could not be processed at all.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct BatchItem {
     pub index: usize,
+    #[schema(required = true)]
     pub message_id: Option<String>,
+    #[schema(required = true)]
     pub result: Option<ReplyResult>,
+    #[schema(required = true)]
     pub error: Option<String>,
 }
 

@@ -9,8 +9,8 @@ use axum::{
 
 use crate::Error;
 use crate::api::rest::AppState;
+use crate::api::rest::handlers::ok_json;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
-use crate::api::rest::handlers::{ok, ok_json};
 use crate::inbound::InboundText;
 use crate::writeback::{MAX_BATCH, ReplyRequest};
 use axum::extract::Path;
@@ -25,7 +25,7 @@ use uuid::Uuid;
     tag = "Write back",
     request_body = ReplyRequest,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::writeback::ReplyResult>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -54,7 +54,7 @@ pub async fn post_reply(
     path = "/api/write-back/batch",
     tag = "Write back",
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::writeback::BatchItem>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -114,7 +114,7 @@ pub fn parse_csv(body: &[u8]) -> Result<Vec<ReplyRequest>, Error> {
     tag = "Write back",
     request_body = InboundText,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::inbound::InboundOutcome>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -141,7 +141,7 @@ pub async fn post_text(
     tag = "Inbound texts",
     params(crate::api::rest::handlers::LimitQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::inbound::StaffItem>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -164,6 +164,12 @@ pub async fn open_texts(
     }
 }
 
+/// An inbound text a person has dealt with.
+#[derive(Debug, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct TextHandled {
+    pub handled: bool,
+}
+
 /// `POST /api/inbound-texts/{id}/handled`: a person dealt with it.
 #[utoipa::path(
     post,
@@ -171,14 +177,14 @@ pub async fn open_texts(
     tag = "Inbound texts",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<TextHandled>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
 pub async fn text_handled(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     match state.inbound.mark_handled(id).await {
-        Ok(true) => ok(serde_json::json!({ "handled": true })),
+        Ok(true) => ok_json(TextHandled { handled: true }),
         Ok(false) => error_to_response(Error::not_found("no open inbound text with that id")),
         Err(e) => error_to_response(e),
     }

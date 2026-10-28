@@ -6460,6 +6460,35 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_InboundOutcome: {
+      data?: {
+        /** Format: uuid */
+        appointment_id: string | null;
+        duplicate: boolean;
+        intent: string;
+        language: string | null;
+        message_id: string;
+        /**
+         * @description `applied`, `rejected`, `asked`, `needs_staff`, `stop`, `help`, `unknown`, `unmatched`,
+         *     `ambiguous_number` or `no_open_reminder`.
+         */
+        outcome: string;
+        /** Format: uuid */
+        person_id: string | null;
+        /** @description What to text back, or none (never to an unmatched or shared number). */
+        reply_text: string | null;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Invoice: {
       /**
        * @description A snapshot of charges presented to the patient for payment.
@@ -7059,6 +7088,27 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_ReplyResult: {
+      data?: {
+        appointment: components["schemas"]["Appointment"] | null;
+        /** @description True when this `message_id` had already been handled and this is the stored outcome. */
+        duplicate: boolean;
+        message_id: string;
+        new_appointment: components["schemas"]["Appointment"] | null;
+        reject_reason: string | null;
+        status: components["schemas"]["ReplyStatus"];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Reverted: {
       /** @description The answer to cancelling a transfer. */
       data?: {
@@ -7316,6 +7366,22 @@ export interface components {
         id: string;
         /** Format: int32 */
         version: number;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_TextHandled: {
+      /** @description An inbound text a person has dealt with. */
+      data?: {
+        handled: boolean;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7672,6 +7738,24 @@ export interface components {
         revoked_at: string | null;
         revoked_by: string | null;
         scopes: string[];
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_BatchItem: {
+      data?: {
+        error: string | null;
+        index: number;
+        message_id: string | null;
+        result: components["schemas"]["ReplyResult"] | null;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8170,6 +8254,32 @@ export interface components {
         updated_at: string;
         /** Format: uuid */
         ward_id: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_StaffItem: {
+      data?: {
+        /** Format: uuid */
+        appointment_id: string | null;
+        /** @description The patient's words. Staff need them to act; they are personal data (see the inventory). */
+        body: string;
+        /** Format: uuid */
+        id: string;
+        intent: string;
+        outcome: string;
+        /** Format: uuid */
+        person_id: string | null;
+        /** Format: date-time */
+        received_at: string;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8973,6 +9083,13 @@ export interface components {
       /** @description Queued letters left out because the patient has no postal address on record. */
       skipped_no_address: number;
     };
+    /** @description One row of a batch: the result, or why that row could not be processed at all. */
+    BatchItem: {
+      error: string | null;
+      index: number;
+      message_id: string | null;
+      result: components["schemas"]["ReplyResult"] | null;
+    };
     /** @description How many letters a batch flipped to sent. */
     BatchSent: {
       letters_sent: number;
@@ -9716,6 +9833,23 @@ export interface components {
       /** @description `audit`, `message`, `reply`, `text` or `reminder_step`. */
       kind: string | null;
       reason_code: string | null;
+    };
+    InboundOutcome: {
+      /** Format: uuid */
+      appointment_id: string | null;
+      duplicate: boolean;
+      intent: string;
+      language: string | null;
+      message_id: string;
+      /**
+       * @description `applied`, `rejected`, `asked`, `needs_staff`, `stop`, `help`, `unknown`, `unmatched`,
+       *     `ambiguous_number` or `no_open_reminder`.
+       */
+      outcome: string;
+      /** Format: uuid */
+      person_id: string | null;
+      /** @description What to text back, or none (never to an unmatched or shared number). */
+      reply_text: string | null;
     };
     InboundText: {
       body: string;
@@ -10499,6 +10633,17 @@ export interface components {
       /** Format: date-time */
       received_at?: string | null;
     };
+    ReplyResult: {
+      appointment: components["schemas"]["Appointment"] | null;
+      /** @description True when this `message_id` had already been handled and this is the stored outcome. */
+      duplicate: boolean;
+      message_id: string;
+      new_appointment: components["schemas"]["Appointment"] | null;
+      reject_reason: string | null;
+      status: components["schemas"]["ReplyStatus"];
+    };
+    /** @enum {string} */
+    ReplyStatus: "applied" | "rejected";
     RequestBody: {
       /** @description `staff`, `phone`, `text`, `reply_link` or `portal`. */
       channel: string;
@@ -10681,6 +10826,21 @@ export interface components {
       /** @description Length in the encoding's own units (septets, or UTF-16 code units). */
       units: number;
     };
+    /** @description A row for the staff list. */
+    StaffItem: {
+      /** Format: uuid */
+      appointment_id: string | null;
+      /** @description The patient's words. Staff need them to act; they are personal data (see the inventory). */
+      body: string;
+      /** Format: uuid */
+      id: string;
+      intent: string;
+      outcome: string;
+      /** Format: uuid */
+      person_id: string | null;
+      /** Format: date-time */
+      received_at: string;
+    };
     StageBody: {
       changed_by: string;
       note: string;
@@ -10793,6 +10953,10 @@ export interface components {
       /** Format: uuid */
       schedule_id: string;
       versions: components["schemas"]["VersionView"][];
+    };
+    /** @description An inbound text a person has dealt with. */
+    TextHandled: {
+      handled: boolean;
     };
     ToleranceStatus: {
       /** @description The measures that can be read for one service, for each service that has data (or its own tolerance). */
@@ -15351,7 +15515,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_StaffItem"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15386,7 +15552,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_TextHandled"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -22144,7 +22312,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_BatchItem"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -22290,7 +22460,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ReplyResult"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -22326,7 +22498,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_InboundOutcome"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

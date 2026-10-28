@@ -2671,6 +2671,94 @@
         ],
         "type": "object"
       },
+      "ApiResponse_InboundOutcome": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "appointment_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "duplicate": {
+                "type": "boolean"
+              },
+              "intent": {
+                "type": "string"
+              },
+              "language": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "outcome": {
+                "description": "`applied`, `rejected`, `asked`, `needs_staff`, `stop`, `help`, `unknown`, `unmatched`,\n`ambiguous_number` or `no_open_reminder`.",
+                "type": "string"
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reply_text": {
+                "description": "What to text back, or none (never to an unmatched or shared number).",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "message_id",
+              "outcome",
+              "intent",
+              "reply_text",
+              "language",
+              "person_id",
+              "appointment_id",
+              "duplicate"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Invoice": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -4328,6 +4416,90 @@
         ],
         "type": "object"
       },
+      "ApiResponse_ReplyResult": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "appointment": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Appointment",
+                    "description": "The appointment as it now stands (after a cancel or rebook: the old, cancelled one).\nAbsent when the reply was refused because it named the wrong patient or appointment."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "duplicate": {
+                "description": "True when this `message_id` had already been handled and this is the stored outcome.",
+                "type": "boolean"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "new_appointment": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Appointment",
+                    "description": "For `rebook`: the new appointment."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reject_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "$ref": "#/components/schemas/ReplyStatus"
+              }
+            },
+            "required": [
+              "message_id",
+              "status",
+              "duplicate",
+              "reject_reason",
+              "appointment",
+              "new_appointment"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Reverted": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -5068,6 +5240,51 @@
             "required": [
               "id",
               "version"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_TextHandled": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "An inbound text a person has dealt with.",
+            "properties": {
+              "handled": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "handled"
             ],
             "type": "object"
           },
@@ -6160,6 +6377,80 @@
                 "expires_at",
                 "revoked_by",
                 "revoked_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_BatchItem": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "One row of a batch: the result, or why that row could not be processed at all.",
+              "properties": {
+                "error": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "index": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "message_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "result": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ReplyResult"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "index",
+                "message_id",
+                "result",
+                "error"
               ],
               "type": "object"
             },
@@ -7597,6 +7888,89 @@
                 "active",
                 "created_at",
                 "updated_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_StaffItem": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "A row for the staff list.",
+              "properties": {
+                "appointment_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "body": {
+                  "description": "The patient's words. Staff need them to act; they are personal data (see the inventory).",
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "intent": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string"
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "received_at": {
+                  "format": "date-time",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "received_at",
+                "outcome",
+                "intent",
+                "person_id",
+                "appointment_id",
+                "body"
               ],
               "type": "object"
             },
@@ -10056,6 +10430,44 @@
         ],
         "type": "object"
       },
+      "BatchItem": {
+        "description": "One row of a batch: the result, or why that row could not be processed at all.",
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "index": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "message_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReplyResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "index",
+          "message_id",
+          "result",
+          "error"
+        ],
+        "type": "object"
+      },
       "BatchSent": {
         "description": "How many letters a batch flipped to sent.",
         "properties": {
@@ -11881,6 +12293,61 @@
           "by",
           "reason_code",
           "context"
+        ],
+        "type": "object"
+      },
+      "InboundOutcome": {
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "outcome": {
+            "description": "`applied`, `rejected`, `asked`, `needs_staff`, `stop`, `help`, `unknown`, `unmatched`,\n`ambiguous_number` or `no_open_reminder`.",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reply_text": {
+            "description": "What to text back, or none (never to an unmatched or shared number).",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "message_id",
+          "outcome",
+          "intent",
+          "reply_text",
+          "language",
+          "person_id",
+          "appointment_id",
+          "duplicate"
         ],
         "type": "object"
       },
@@ -14030,6 +14497,64 @@
         ],
         "type": "object"
       },
+      "ReplyResult": {
+        "properties": {
+          "appointment": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Appointment",
+                "description": "The appointment as it now stands (after a cancel or rebook: the old, cancelled one).\nAbsent when the reply was refused because it named the wrong patient or appointment."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "duplicate": {
+            "description": "True when this `message_id` had already been handled and this is the stored outcome.",
+            "type": "boolean"
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "new_appointment": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Appointment",
+                "description": "For `rebook`: the new appointment."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reject_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReplyStatus"
+          }
+        },
+        "required": [
+          "message_id",
+          "status",
+          "duplicate",
+          "reject_reason",
+          "appointment",
+          "new_appointment"
+        ],
+        "type": "object"
+      },
+      "ReplyStatus": {
+        "enum": [
+          "applied",
+          "rejected"
+        ],
+        "type": "string"
+      },
       "RequestBody": {
         "properties": {
           "channel": {
@@ -14553,6 +15078,53 @@
         ],
         "type": "object"
       },
+      "StaffItem": {
+        "description": "A row for the staff list.",
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "description": "The patient's words. Staff need them to act; they are personal data (see the inventory).",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "received_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "received_at",
+          "outcome",
+          "intent",
+          "person_id",
+          "appointment_id",
+          "body"
+        ],
+        "type": "object"
+      },
       "StageBody": {
         "properties": {
           "changed_by": {
@@ -14908,6 +15480,18 @@
           "schedule_id",
           "name",
           "versions"
+        ],
+        "type": "object"
+      },
+      "TextHandled": {
+        "description": "An inbound text a person has dealt with.",
+        "properties": {
+          "handled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "handled"
         ],
         "type": "object"
       },
@@ -20955,6 +21539,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_StaffItem"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -20991,6 +21582,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TextHandled"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -29105,6 +29703,13 @@
         "operationId": "post_api_write_back_batch",
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_BatchItem"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -29264,6 +29869,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ReplyResult"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -29302,6 +29914,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_InboundOutcome"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
