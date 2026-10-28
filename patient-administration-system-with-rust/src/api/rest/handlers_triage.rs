@@ -53,7 +53,7 @@ pub struct TriageBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = TriageBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::triage::TriageAssessment>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -89,13 +89,19 @@ pub async fn record(
     tag = "Encounters",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::triage::TriageAssessment>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
 pub async fn list(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
     json(TriageService::new(state.db.clone()).history(id).await)
+}
+
+/// The encounter whose first contact was recorded.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct FirstContact {
+    pub encounter_id: Uuid,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -114,7 +120,7 @@ pub struct FirstContactBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = FirstContactBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<FirstContact>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -136,7 +142,7 @@ pub async fn first_contact(
                 &request_audit_ctx(&headers),
             )
             .await
-            .map(|()| serde_json::json!({ "encounter_id": id })),
+            .map(|()| FirstContact { encounter_id: id }),
     )
 }
 
@@ -156,7 +162,7 @@ pub struct WindowQuery {
     tag = "Encounters",
     params(WindowQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::triage::waits::WaitsReport>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -179,7 +185,7 @@ pub async fn waits(State(state): State<AppState>, Query(q): Query<WindowQuery>) 
     path = "/api/triage/queue",
     tag = "Encounters",
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::triage::waits::QueueEntry>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

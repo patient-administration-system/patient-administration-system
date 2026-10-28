@@ -44,14 +44,17 @@ pub fn colour(category: &str) -> Option<&'static str> {
 
 const MAX_TEXT: usize = 100;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct TriageAssessment {
     pub id: Uuid,
     pub encounter_id: Uuid,
     pub triage_system: String,
+    #[schema(required = true)]
     pub system_version: Option<String>,
     pub category: String,
+    #[schema(required = true)]
     pub colour: Option<&'static str>,
+    #[schema(required = true)]
     pub flowchart: Option<String>,
     pub assessed_by: String,
     pub assessed_at: DateTime<Utc>,

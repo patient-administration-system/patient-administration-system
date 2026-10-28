@@ -2344,6 +2344,52 @@
         ],
         "type": "object"
       },
+      "ApiResponse_FirstContact": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "The encounter whose first contact was recorded.",
+            "properties": {
+              "encounter_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "encounter_id"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Generated": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -5159,6 +5205,94 @@
         ],
         "type": "object"
       },
+      "ApiResponse_TriageAssessment": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "assessed_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "assessed_by": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "colour": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "encounter_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "flowchart": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "system_version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "triage_system": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "encounter_id",
+              "triage_system",
+              "system_version",
+              "category",
+              "colour",
+              "flowchart",
+              "assessed_by",
+              "assessed_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_UptakeReport": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -7723,6 +7857,97 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Vec_TriageAssessment": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "assessed_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "assessed_by": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "colour": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "encounter_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "flowchart": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "system_version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "triage_system": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "encounter_id",
+                "triage_system",
+                "system_version",
+                "category",
+                "colour",
+                "flowchart",
+                "assessed_by",
+                "assessed_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Vec_UnconfirmedRequest": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -8317,6 +8542,91 @@
                 "requested_at",
                 "channel",
                 "route"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_triage.QueueEntry": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "arrived_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "category": {
+                  "description": "`None` when not yet triaged; those are listed last.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "colour": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "encounter_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "past_target": {
+                  "type": "boolean"
+                },
+                "target_minutes": {
+                  "format": "int64",
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "waiting_minutes": {
+                  "format": "int64",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "encounter_id",
+                "category",
+                "colour",
+                "arrived_at",
+                "waiting_minutes",
+                "target_minutes",
+                "past_target"
               ],
               "type": "object"
             },
@@ -9024,6 +9334,83 @@
               "requested_at",
               "channel",
               "route"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_triage.WaitsReport": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "attendances": {
+                "format": "int32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "by_category": {
+                "items": {
+                  "$ref": "#/components/schemas/CategoryWaits"
+                },
+                "type": "array"
+              },
+              "excluded_without_category": {
+                "description": "Attendances with no triage category: left out of every figure below, not guessed.",
+                "format": "int32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "from": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "past_target": {
+                "items": {
+                  "$ref": "#/components/schemas/PastTarget"
+                },
+                "type": "array"
+              },
+              "to": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "attendances",
+              "excluded_without_category",
+              "by_category",
+              "past_target"
             ],
             "type": "object"
           },
@@ -9957,6 +10344,59 @@
           "gap_per_week",
           "method",
           "not_computed"
+        ],
+        "type": "object"
+      },
+      "CategoryWaits": {
+        "properties": {
+          "attended": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "category": {
+            "type": "string"
+          },
+          "colour": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "seen_past": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "seen_within": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "target_minutes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "waiting_past": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "waiting_within": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "colour",
+          "target_minutes",
+          "attended",
+          "seen_within",
+          "seen_past",
+          "waiting_within",
+          "waiting_past"
         ],
         "type": "object"
       },
@@ -10954,6 +11394,19 @@
         "required": [
           "account_id",
           "charge_ids"
+        ],
+        "type": "object"
+      },
+      "FirstContact": {
+        "description": "The encounter whose first contact was recorded.",
+        "properties": {
+          "encounter_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "encounter_id"
         ],
         "type": "object"
       },
@@ -12056,6 +12509,46 @@
           "limit",
           "returned",
           "truncated"
+        ],
+        "type": "object"
+      },
+      "PastTarget": {
+        "properties": {
+          "arrived_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "encounter_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "first_contact_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "minutes": {
+            "description": "Minutes from arrival to first contact, or to now when not yet seen.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "target_minutes": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "encounter_id",
+          "category",
+          "arrived_at",
+          "first_contact_at",
+          "minutes",
+          "target_minutes"
         ],
         "type": "object"
       },
@@ -14392,6 +14885,61 @@
         ],
         "type": "object"
       },
+      "TriageAssessment": {
+        "properties": {
+          "assessed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "assessed_by": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "colour": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "encounter_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "flowchart": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "system_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triage_system": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "encounter_id",
+          "triage_system",
+          "system_version",
+          "category",
+          "colour",
+          "flowchart",
+          "assessed_by",
+          "assessed_at"
+        ],
+        "type": "object"
+      },
       "TypeRow": {
         "properties": {
           "free": {
@@ -15487,6 +16035,99 @@
           "requested_at",
           "channel",
           "route"
+        ],
+        "type": "object"
+      },
+      "triage.QueueEntry": {
+        "properties": {
+          "arrived_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "category": {
+            "description": "`None` when not yet triaged; those are listed last.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "colour": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "encounter_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "past_target": {
+            "type": "boolean"
+          },
+          "target_minutes": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "waiting_minutes": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "encounter_id",
+          "category",
+          "colour",
+          "arrived_at",
+          "waiting_minutes",
+          "target_minutes",
+          "past_target"
+        ],
+        "type": "object"
+      },
+      "triage.WaitsReport": {
+        "properties": {
+          "attendances": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "by_category": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryWaits"
+            },
+            "type": "array"
+          },
+          "excluded_without_category": {
+            "description": "Attendances with no triage category: left out of every figure below, not guessed.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "past_target": {
+            "items": {
+              "$ref": "#/components/schemas/PastTarget"
+            },
+            "type": "array"
+          },
+          "to": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "attendances",
+          "excluded_without_category",
+          "by_category",
+          "past_target"
         ],
         "type": "object"
       }
@@ -18600,6 +19241,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_FirstContact"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -18689,6 +19337,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_TriageAssessment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -18733,6 +19388,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TriageAssessment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -26982,6 +27644,13 @@
         "operationId": "get_api_triage_queue",
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_triage.QueueEntry"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -27035,6 +27704,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_triage.WaitsReport"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

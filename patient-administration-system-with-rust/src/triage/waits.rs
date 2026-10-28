@@ -17,9 +17,10 @@ use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::validation::named_person;
 use crate::{Error, Result};
 
-#[derive(Debug, Serialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct CategoryWaits {
     pub category: &'static str,
+    #[schema(required = true)]
     pub colour: Option<&'static str>,
     pub target_minutes: i64,
     pub attended: u32,
@@ -29,18 +30,20 @@ pub struct CategoryWaits {
     pub waiting_past: u32,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct PastTarget {
     pub encounter_id: Uuid,
     pub category: String,
     pub arrived_at: DateTime<Utc>,
+    #[schema(required = true)]
     pub first_contact_at: Option<DateTime<Utc>>,
     /// Minutes from arrival to first contact, or to now when not yet seen.
     pub minutes: i64,
     pub target_minutes: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+#[schema(as = triage::WaitsReport)]
 pub struct WaitsReport {
     pub from: DateTime<Utc>,
     pub to: DateTime<Utc>,
@@ -51,14 +54,18 @@ pub struct WaitsReport {
     pub past_target: Vec<PastTarget>,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, PartialEq, Eq, utoipa::ToSchema)]
+#[schema(as = triage::QueueEntry)]
 pub struct QueueEntry {
     pub encounter_id: Uuid,
     /// `None` when not yet triaged; those are listed last.
+    #[schema(required = true)]
     pub category: Option<String>,
+    #[schema(required = true)]
     pub colour: Option<&'static str>,
     pub arrived_at: DateTime<Utc>,
     pub waiting_minutes: i64,
+    #[schema(required = true)]
     pub target_minutes: Option<i64>,
     pub past_target: bool,
 }

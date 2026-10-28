@@ -1383,6 +1383,69 @@ async fn the_billing_routes_send_the_types_they_declare() {
     assert!(closed.closed_at.is_some());
 }
 
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_triage_routes_send_the_types_they_declare() {
+    use patient_administration_system::api::rest::handlers_triage::FirstContact;
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let db = state.db.clone();
+    let app = router(state);
+    let enc = Uuid::new_v4();
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
+         VALUES ($1, $2, 'emergency', 'arrived', now() - interval '5 minutes', now(), now())",
+        [enc.into(), Uuid::new_v4().into()],
+    ))
+    .await
+    .unwrap();
+
+    // These types only serialise (they hold `&'static str`), so their fields are compared with the schema.
+    let recorded: Value = call(
+        &app,
+        "POST",
+        &format!("/api/encounters/{enc}/triage"),
+        Some(json!({
+            "triage_system": "mts",
+            "category": "urgent",
+            "assessed_by": "Nurse Hall",
+        })),
+    )
+    .await;
+    assert_fields_match_schema("TriageAssessment", &recorded);
+    let history: Vec<Value> =
+        call(&app, "GET", &format!("/api/encounters/{enc}/triage"), None).await;
+    assert_eq!(history.len(), 1);
+    assert_fields_match_schema("TriageAssessment", &history[0]);
+
+    let queue: Vec<Value> = call(&app, "GET", "/api/triage/queue", None).await;
+    let mine = queue
+        .iter()
+        .find(|e| e["encounter_id"] == json!(enc))
+        .expect("the encounter is in the queue");
+    assert_fields_match_schema("triage.QueueEntry", mine);
+
+    let first: FirstContact = call(
+        &app,
+        "POST",
+        &format!("/api/encounters/{enc}/first-contact"),
+        Some(json!({ "seen_by": "Dr Evans" })),
+    )
+    .await;
+    assert_eq!(first.encounter_id, enc);
+
+    let waits: Value = call(&app, "GET", "/api/triage/waits", None).await;
+    assert_fields_match_schema("triage.WaitsReport", &waits);
+    for row in waits["by_category"].as_array().unwrap() {
+        assert_fields_match_schema("CategoryWaits", row);
+    }
+    for row in waits["past_target"].as_array().unwrap() {
+        assert_fields_match_schema("PastTarget", row);
+    }
+}
+
 /// A success that has nothing to return: `data` must be `null`, as `Nothing` declares.
 async fn call_nothing(app: &axum::Router, method: &str, uri: &str, body: Option<Value>) {
     let bytes = send(app, method, uri, body).await;

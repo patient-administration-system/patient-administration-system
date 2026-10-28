@@ -6331,6 +6331,23 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_FirstContact: {
+      /** @description The encounter whose first contact was recorded. */
+      data?: {
+        /** Format: uuid */
+        encounter_id: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Generated: {
       data?: {
         /**
@@ -7347,6 +7364,32 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_TriageAssessment: {
+      data?: {
+        /** Format: date-time */
+        assessed_at: string;
+        assessed_by: string;
+        category: string;
+        colour: string | null;
+        /** Format: uuid */
+        encounter_id: string;
+        flowchart: string | null;
+        /** Format: uuid */
+        id: string;
+        system_version: string | null;
+        triage_system: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_UptakeReport: {
       /** @description The uptake report: counts only, no identifiers, small cells withheld. */
       data?: {
@@ -8208,6 +8251,32 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_TriageAssessment: {
+      data?: {
+        /** Format: date-time */
+        assessed_at: string;
+        assessed_by: string;
+        category: string;
+        colour: string | null;
+        /** Format: uuid */
+        encounter_id: string;
+        flowchart: string | null;
+        /** Format: uuid */
+        id: string;
+        system_version: string | null;
+        triage_system: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_UnconfirmedRequest: {
       data?: {
         /** Format: uuid */
@@ -8397,6 +8466,32 @@ export interface components {
         /** @description `booking` or `person`. */
         route: string;
         service_type: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_Vec_triage.QueueEntry": {
+      data?: {
+        /** Format: date-time */
+        arrived_at: string;
+        /** @description `None` when not yet triaged; those are listed last. */
+        category: string | null;
+        colour: string | null;
+        /** Format: uuid */
+        encounter_id: string;
+        past_target: boolean;
+        /** Format: int64 */
+        target_minutes: number | null;
+        /** Format: int64 */
+        waiting_minutes: number;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8628,6 +8723,33 @@ export interface components {
         /** @description `booking` or `person`. */
         route: string;
         service_type: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_triage.WaitsReport": {
+      data?: {
+        /** Format: int32 */
+        attendances: number;
+        by_category: components["schemas"]["CategoryWaits"][];
+        /**
+         * Format: int32
+         * @description Attendances with no triage category: left out of every figure below, not guessed.
+         */
+        excluded_without_category: number;
+        /** Format: date-time */
+        from: string;
+        past_target: components["schemas"]["PastTarget"][];
+        /** Format: date-time */
+        to: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8968,6 +9090,22 @@ export interface components {
       /** Format: int64 */
       ring_fenced_slots: number;
       service_type: string;
+    };
+    CategoryWaits: {
+      /** Format: int32 */
+      attended: number;
+      category: string;
+      colour: string | null;
+      /** Format: int32 */
+      seen_past: number;
+      /** Format: int32 */
+      seen_within: number;
+      /** Format: int64 */
+      target_minutes: number;
+      /** Format: int32 */
+      waiting_past: number;
+      /** Format: int32 */
+      waiting_within: number;
     };
     Cell: {
       /**
@@ -9400,6 +9538,11 @@ export interface components {
       /** Format: uuid */
       account_id: string;
       charge_ids: string[];
+    };
+    /** @description The encounter whose first contact was recorded. */
+    FirstContact: {
+      /** Format: uuid */
+      encounter_id: string;
     };
     FirstContactBody: {
       /**
@@ -9834,6 +9977,22 @@ export interface components {
       returned: number;
       /** @description `true` when more rows exist than were returned: ask again with a narrower question or a larger limit. */
       truncated: boolean;
+    };
+    PastTarget: {
+      /** Format: date-time */
+      arrived_at: string;
+      category: string;
+      /** Format: uuid */
+      encounter_id: string;
+      /** Format: date-time */
+      first_contact_at: string | null;
+      /**
+       * Format: int64
+       * @description Minutes from arrival to first contact, or to now when not yet seen.
+       */
+      minutes: number;
+      /** Format: int64 */
+      target_minutes: number;
     };
     PathwayWait: {
       /** Format: date-time */
@@ -10627,6 +10786,20 @@ export interface components {
       /** Format: uuid */
       new_bed_id: string;
     };
+    TriageAssessment: {
+      /** Format: date-time */
+      assessed_at: string;
+      assessed_by: string;
+      category: string;
+      colour: string | null;
+      /** Format: uuid */
+      encounter_id: string;
+      flowchart: string | null;
+      /** Format: uuid */
+      id: string;
+      system_version: string | null;
+      triage_system: string;
+    };
     TypeRow: {
       /** Format: int64 */
       free: number;
@@ -10965,6 +11138,35 @@ export interface components {
       /** @description `booking` or `person`. */
       route: string;
       service_type: string;
+    };
+    "triage.QueueEntry": {
+      /** Format: date-time */
+      arrived_at: string;
+      /** @description `None` when not yet triaged; those are listed last. */
+      category: string | null;
+      colour: string | null;
+      /** Format: uuid */
+      encounter_id: string;
+      past_target: boolean;
+      /** Format: int64 */
+      target_minutes: number | null;
+      /** Format: int64 */
+      waiting_minutes: number;
+    };
+    "triage.WaitsReport": {
+      /** Format: int32 */
+      attendances: number;
+      by_category: components["schemas"]["CategoryWaits"][];
+      /**
+       * Format: int32
+       * @description Attendances with no triage category: left out of every figure below, not guessed.
+       */
+      excluded_without_category: number;
+      /** Format: date-time */
+      from: string;
+      past_target: components["schemas"]["PastTarget"][];
+      /** Format: date-time */
+      to: string;
     };
   };
   responses: never;
@@ -13459,7 +13661,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_FirstContact"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13535,7 +13739,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_TriageAssessment"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13574,7 +13780,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_TriageAssessment"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -20818,7 +21026,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_triage.QueueEntry"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -20855,7 +21065,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_triage.WaitsReport"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
