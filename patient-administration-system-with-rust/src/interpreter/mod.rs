@@ -81,12 +81,13 @@ pub async fn on_cancelled(txn: &DatabaseTransaction, appointment_id: Uuid) -> Re
     Ok(())
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct UnconfirmedRequest {
     pub request_id: Uuid,
     pub appointment_id: Uuid,
     pub person_id: Uuid,
     pub kind: InterpreterKind,
+    #[schema(required = true)]
     pub language: Option<String>,
     pub starts_at: DateTime<Utc>,
 }

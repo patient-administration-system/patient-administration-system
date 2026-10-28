@@ -6,16 +6,23 @@ use axum::{
     http::HeaderMap,
 };
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok, ok_json, ok_page, request_audit_ctx,
+    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
 };
 use crate::models::appointment::{Appointment, CancelledBy};
 use crate::proxy::{NewAuthority, ProxyService, proxy_context};
 use crate::scheduling::CancelDetails;
+
+/// An authority that is now withdrawn.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Revoked {
+    pub id: Uuid,
+    pub status: String,
+}
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct GrantBody {
@@ -126,7 +133,7 @@ pub struct RevokeBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = RevokeBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Revoked>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -146,7 +153,10 @@ pub async fn revoke(
         )
         .await
     {
-        Ok(()) => ok(serde_json::json!({ "id": id, "status": "revoked" })),
+        Ok(()) => ok_json(Revoked {
+            id,
+            status: "revoked".into(),
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -179,7 +189,7 @@ async fn appointment(state: &AppState, id: Uuid) -> crate::Result<Appointment> {
     tag = "Patients",
     params(("id" = String, Path, description = "Path parameter `id`"), ActingQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<Appointment>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -214,7 +224,7 @@ pub async fn appointments(
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = ActingBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Appointment>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -264,7 +274,7 @@ pub async fn cancel(
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = ActingBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Appointment>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

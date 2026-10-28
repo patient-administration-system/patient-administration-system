@@ -115,14 +115,18 @@ crate::string_enum! {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Booking {
     pub id: Uuid,
     pub appointment_id: Uuid,
     pub status: BookingStatus,
+    #[schema(required = true)]
     pub provider_ref: Option<String>,
+    #[schema(required = true)]
     pub window_start: Option<DateTime<Utc>>,
+    #[schema(required = true)]
     pub window_end: Option<DateTime<Utc>>,
+    #[schema(required = true)]
     pub last_error: Option<String>,
 }
 

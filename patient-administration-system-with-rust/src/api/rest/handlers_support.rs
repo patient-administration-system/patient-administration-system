@@ -5,12 +5,13 @@ use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::ok;
+use crate::api::rest::handlers::ok_json;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -31,7 +32,7 @@ pub struct AddBody {
     tag = "Support flags",
     request_body = AddBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Raised>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -53,9 +54,15 @@ pub async fn add(
         )
         .await
     {
-        Ok(id) => ok(serde_json::json!({ "id": id })),
+        Ok(id) => ok_json(Raised { id }),
         Err(e) => error_to_response(e),
     }
+}
+
+/// The id of the flag just raised.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Raised {
+    pub id: Uuid,
 }
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
@@ -70,7 +77,7 @@ pub struct OpenQuery {
     tag = "Support flags",
     params(OpenQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::support::SupportFlag>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

@@ -5,14 +5,31 @@ use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok, ok_page, request_audit_ctx,
+    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
 };
 use crate::interpreter::InterpreterService;
+
+/// The interpreting need now on record; both fields are null when it was cleared.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct NeedRecorded {
+    pub person_id: Uuid,
+    #[schema(required = true)]
+    pub kind: Option<String>,
+    #[schema(required = true)]
+    pub language: Option<String>,
+}
+
+/// An interpreter request that is now confirmed.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Confirmed {
+    pub id: Uuid,
+    pub status: String,
+}
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct NeedBody {
@@ -32,7 +49,7 @@ pub struct NeedBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = NeedBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<NeedRecorded>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -53,9 +70,11 @@ pub async fn set_need(
         )
         .await
     {
-        Ok(()) => {
-            ok(serde_json::json!({ "person_id": id, "kind": b.kind, "language": b.language }))
-        }
+        Ok(()) => ok_json(NeedRecorded {
+            person_id: id,
+            kind: b.kind,
+            language: b.language,
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -75,7 +94,7 @@ pub struct ConfirmBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = ConfirmBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Confirmed>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -96,7 +115,10 @@ pub async fn confirm(
         )
         .await
     {
-        Ok(()) => ok(serde_json::json!({ "id": id, "status": "confirmed" })),
+        Ok(()) => ok_json(Confirmed {
+            id,
+            status: "confirmed".into(),
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -116,7 +138,7 @@ pub struct UnconfirmedQuery {
     tag = "Scheduling",
     params(UnconfirmedQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::interpreter::UnconfirmedRequest>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

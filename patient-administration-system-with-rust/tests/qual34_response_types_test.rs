@@ -1181,3 +1181,100 @@ async fn the_routes_with_nothing_to_return_send_a_null_data() {
     .await;
     call_nothing(&app, "DELETE", &who("whatsapp-optin"), None).await;
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_print_queue_support_and_interpreter_routes_send_the_types_they_declare() {
+    use patient_administration_system::api::rest::handlers_interpreter::NeedRecorded;
+    use patient_administration_system::api::rest::handlers_print::PrintQueue;
+    use patient_administration_system::api::rest::handlers_support::Raised;
+    use patient_administration_system::interpreter::UnconfirmedRequest;
+    use patient_administration_system::support::SupportFlag;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state);
+    let person = Uuid::new_v4();
+
+    let queue: PrintQueue = call(&app, "GET", "/api/print-queue?limit=5", None).await;
+    assert!(queue.waiting >= queue.letters.len() as i64);
+
+    let raised: Raised = call(
+        &app,
+        "POST",
+        "/api/support-flags",
+        Some(json!({"person_id": person, "kind": "needs_support_call", "created_by": "qual34"})),
+    )
+    .await;
+    let open: Vec<SupportFlag> = call(&app, "GET", "/api/support-flags/open?limit=100", None).await;
+    assert!(open.iter().all(|f| f.id != Uuid::nil()));
+    assert_ne!(raised.id, Uuid::nil());
+
+    let need: NeedRecorded = call(
+        &app,
+        "PUT",
+        &format!("/api/patients/{person}/interpreter-need"),
+        Some(json!({"kind": "spoken", "language": "pl", "recorded_by": "qual34"})),
+    )
+    .await;
+    assert_eq!(need.person_id, person);
+    assert_eq!(need.language.as_deref(), Some("pl"));
+    let _: Vec<UnconfirmedRequest> = call(
+        &app,
+        "GET",
+        "/api/interpreter-requests/unconfirmed?limit=5",
+        None,
+    )
+    .await;
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_proxy_and_identity_proofing_routes_send_the_types_they_declare() {
+    use patient_administration_system::api::rest::handlers_proxy::Revoked;
+    use patient_administration_system::identity::Proofing;
+    use patient_administration_system::proxy::Authority;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state);
+    let person = Uuid::new_v4();
+    let proxy = Uuid::new_v4();
+
+    let granted: Authority = call(
+        &app,
+        "POST",
+        &format!("/api/patients/{person}/proxies"),
+        Some(json!({"proxy_person_id": proxy, "relationship": "daughter",
+                    "basis": "patient_consent", "scopes": ["receive"],
+                    "expires_at": chrono::Utc::now() + chrono::Duration::days(30),
+                    "recorded_by": "Nurse A"})),
+    )
+    .await;
+    let seen: Vec<Appointment> = call(
+        &app,
+        "GET",
+        &format!("/api/proxy/patients/{person}/appointments?proxy_person_id={proxy}"),
+        None,
+    )
+    .await;
+    assert!(seen.is_empty());
+    let revoked: Revoked = call(
+        &app,
+        "POST",
+        &format!("/api/proxies/{}/revoke", granted.id),
+        Some(json!({"revoked_by": "Nurse A"})),
+    )
+    .await;
+    assert_eq!(revoked.id, granted.id);
+
+    let subject = format!("sub-{}", Uuid::new_v4());
+    let url = format!("/api/identity-proofings/{subject}");
+    call_nothing(
+        &app,
+        "PUT",
+        &url,
+        Some(json!({"person_id": person, "method": "in_person", "proofed_by": "Nurse A"})),
+    )
+    .await;
+    let proofing: Proofing = call(&app, "GET", &url, None).await;
+    assert_eq!(proofing.person_id, person);
+}

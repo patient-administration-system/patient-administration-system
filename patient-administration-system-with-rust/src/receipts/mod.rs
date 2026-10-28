@@ -35,7 +35,7 @@ pub fn retry_delay(failed_attempts: i64) -> Duration {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Receipt {
     pub letter_id: Uuid,
     pub event: String,
@@ -43,12 +43,13 @@ pub struct Receipt {
     pub duplicate: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct ContactProblem {
     pub person_id: Uuid,
     pub bounces: i64,
     pub last_bounce_at: DateTime<Utc>,
     pub last_channel: String,
+    #[schema(required = true)]
     pub last_reason: Option<String>,
 }
 

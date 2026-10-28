@@ -23,12 +23,14 @@ crate::string_enum! {
 }
 pub const OUTCOMES: [&str; 4] = ["helped", "no_answer", "declined_help", "not_needed"];
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct SupportFlag {
     pub id: Uuid,
     pub person_id: Uuid,
+    #[schema(required = true)]
     pub appointment_id: Option<Uuid>,
     pub kind: SupportKind,
+    #[schema(required = true)]
     pub reason_code: Option<String>,
     pub created_by: String,
     pub created_at: DateTime<Utc>,

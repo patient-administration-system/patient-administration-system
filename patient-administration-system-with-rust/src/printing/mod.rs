@@ -26,14 +26,14 @@ use crate::{Error, Result};
 
 pub const MAX_BATCH: i64 = 500;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct QueuedLetter {
     pub letter_id: Uuid,
     pub created_at: DateTime<Utc>,
     pub subject: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct ExportRow {
     pub reference: Uuid,
     pub name: String,
@@ -42,7 +42,7 @@ pub struct ExportRow {
     pub body: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Batch {
     pub batch_id: Uuid,
     pub rows: Vec<ExportRow>,

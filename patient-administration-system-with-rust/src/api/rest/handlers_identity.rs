@@ -97,7 +97,7 @@ pub async fn revoke(
     tag = "Identity proofings",
     params(("subject" = String, Path, description = "Path parameter `subject`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::identity::Proofing>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

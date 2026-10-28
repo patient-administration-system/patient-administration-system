@@ -6,10 +6,9 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 
@@ -25,7 +24,7 @@ pub struct QueueQuery {
     tag = "Print queue",
     params(QueueQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<PrintQueue>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -36,14 +35,25 @@ pub async fn queue(State(state): State<AppState>, Query(q): Query<QueueQuery>) -
         Err(e) => return error_to_response(e),
     };
     match state.printing.queue(limit).await {
-        Ok((total, items)) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(
-                serde_json::json!({ "waiting": total, "letters": items }),
-            )),
-        ),
+        Ok((total, items)) => ok_json(PrintQueue {
+            waiting: total,
+            letters: items,
+        }),
         Err(e) => error_to_response(e),
     }
+}
+
+/// The letters waiting to be posted.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct PrintQueue {
+    pub waiting: i64,
+    pub letters: Vec<crate::printing::QueuedLetter>,
+}
+
+/// How many letters a batch flipped to sent.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BatchSent {
+    pub letters_sent: usize,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -64,7 +74,7 @@ pub struct ExportBody {
     tag = "Print batches",
     request_body = ExportBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::printing::Batch>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -113,7 +123,7 @@ pub struct SentBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = SentBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<BatchSent>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -129,10 +139,7 @@ pub async fn mark_sent(
         .mark_sent(id, &b.sent_by, &request_audit_ctx(&headers))
         .await
     {
-        Ok(n) => (
-            StatusCode::OK,
-            Json(ApiResponse::ok(serde_json::json!({ "letters_sent": n }))),
-        ),
+        Ok(n) => ok_json(BatchSent { letters_sent: n }),
         Err(e) => error_to_response(e),
     }
 }

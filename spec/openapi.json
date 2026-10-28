@@ -995,6 +995,110 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Batch": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "batch_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "rows": {
+                "items": {
+                  "$ref": "#/components/schemas/ExportRow"
+                },
+                "type": "array"
+              },
+              "skipped_no_address": {
+                "description": "Queued letters left out because the patient has no postal address on record.",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "batch_id",
+              "rows",
+              "skipped_no_address"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_BatchSent": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "How many letters a batch flipped to sent.",
+            "properties": {
+              "letters_sent": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "letters_sent"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Bed": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -1083,6 +1187,140 @@
             "required": [
               "referral",
               "appointment"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Booking": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "appointment_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "last_error": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "provider_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "$ref": "#/components/schemas/BookingStatus"
+              },
+              "window_end": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "window_start": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "appointment_id",
+              "status",
+              "provider_ref",
+              "window_start",
+              "window_end",
+              "last_error"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Confirmed": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "An interpreter request that is now confirmed.",
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status"
             ],
             "type": "object"
           },
@@ -2072,6 +2310,66 @@
         ],
         "type": "object"
       },
+      "ApiResponse_NeedRecorded": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "The interpreting need now on record; both fields are null when it was cleared.",
+            "properties": {
+              "kind": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "language": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "person_id",
+              "kind",
+              "language"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_NhsNumberChecked": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -2453,6 +2751,59 @@
         ],
         "type": "object"
       },
+      "ApiResponse_PrintQueue": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "The letters waiting to be posted.",
+            "properties": {
+              "letters": {
+                "items": {
+                  "$ref": "#/components/schemas/QueuedLetter"
+                },
+                "type": "array"
+              },
+              "waiting": {
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "waiting",
+              "letters"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Profile": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -2522,6 +2873,64 @@
             },
             "required": [
               "proofed"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Proofing": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "method": {
+                "type": "string"
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "proofed_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "proofed_by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "person_id",
+              "method",
+              "proofed_by",
+              "proofed_at"
             ],
             "type": "object"
           },
@@ -2711,6 +3120,52 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Raised": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "The id of the flag just raised.",
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Recalculated": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -2724,6 +3179,60 @@
             },
             "required": [
               "assessed"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Receipt": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "duplicate": {
+                "description": "True when this receipt had been stored before and nothing changed.",
+                "type": "boolean"
+              },
+              "event": {
+                "type": "string"
+              },
+              "letter_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "letter_id",
+              "event",
+              "duplicate"
             ],
             "type": "object"
           },
@@ -3064,6 +3573,56 @@
             "required": [
               "admission_id",
               "reverted"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Revoked": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "An authority that is now withdrawn.",
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status"
             ],
             "type": "object"
           },
@@ -4743,6 +5302,75 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Vec_ContactProblem": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "bounces": {
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "last_bounce_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "last_channel": {
+                  "type": "string"
+                },
+                "last_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "person_id",
+                "bounces",
+                "last_bounce_at",
+                "last_channel",
+                "last_reason"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Vec_Coverage": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -5991,6 +6619,161 @@
                 "pending",
                 "delivered",
                 "failed"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_SupportFlag": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "appointment_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "created_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "created_by": {
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/SupportKind"
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "reason_code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "person_id",
+                "appointment_id",
+                "kind",
+                "reason_code",
+                "created_by",
+                "created_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_UnconfirmedRequest": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "appointment_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/InterpreterKind"
+                },
+                "language": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "request_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "starts_at": {
+                  "format": "date-time",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "request_id",
+                "appointment_id",
+                "person_id",
+                "kind",
+                "language",
+                "starts_at"
               ],
               "type": "object"
             },
@@ -7416,6 +8199,44 @@
         ],
         "type": "string"
       },
+      "Batch": {
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ExportRow"
+            },
+            "type": "array"
+          },
+          "skipped_no_address": {
+            "description": "Queued letters left out because the patient has no postal address on record.",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch_id",
+          "rows",
+          "skipped_no_address"
+        ],
+        "type": "object"
+      },
+      "BatchSent": {
+        "description": "How many letters a batch flipped to sent.",
+        "properties": {
+          "letters_sent": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "letters_sent"
+        ],
+        "type": "object"
+      },
       "Bed": {
         "description": "A bed within a room. Carries a `BedStatus` driven by the state machine.",
         "properties": {
@@ -7539,6 +8360,67 @@
           "appointment"
         ],
         "type": "object"
+      },
+      "Booking": {
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/BookingStatus"
+          },
+          "window_end": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "window_start": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "appointment_id",
+          "status",
+          "provider_ref",
+          "window_start",
+          "window_end",
+          "last_error"
+        ],
+        "type": "object"
+      },
+      "BookingStatus": {
+        "description": "Where a transport booking has got to.",
+        "enum": [
+          "Requested",
+          "Booked",
+          "Cancelled",
+          "Failed"
+        ],
+        "type": "string"
       },
       "CallItem": {
         "description": "One booked appointment on the call list: the risk and why, and the task a person works from.",
@@ -7713,6 +8595,23 @@
         ],
         "type": "object"
       },
+      "Confirmed": {
+        "description": "An interpreter request that is now confirmed.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "type": "object"
+      },
       "Consent": {
         "description": "A consent record granted by a patient.",
         "properties": {
@@ -7830,6 +8729,39 @@
           "emergency_access"
         ],
         "type": "string"
+      },
+      "ContactProblem": {
+        "properties": {
+          "bounces": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_bounce_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "last_channel": {
+            "type": "string"
+          },
+          "last_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "bounces",
+          "last_bounce_at",
+          "last_channel",
+          "last_reason"
+        ],
+        "type": "object"
       },
       "ConversionState": {
         "description": "Where a conversion to a video or phone consultation stands (CAP-14). A clinician can veto before\nthe slot is confirmed as virtual; a veto restores `in_person`.",
@@ -8343,6 +9275,34 @@
         ],
         "type": "object"
       },
+      "ExportRow": {
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reference": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "name",
+          "address",
+          "subject",
+          "body"
+        ],
+        "type": "object"
+      },
       "Facility": {
         "description": "A physical hospital facility (campus, building).",
         "properties": {
@@ -8813,6 +9773,15 @@
         ],
         "type": "object"
       },
+      "InterpreterKind": {
+        "description": "The kinds of interpreting a profile can record.",
+        "enum": [
+          "Spoken",
+          "Bsl",
+          "Deafblind"
+        ],
+        "type": "string"
+      },
       "LeadTime": {
         "properties": {
           "appointment_id": {
@@ -9145,6 +10114,33 @@
         },
         "required": [
           "recorded_by"
+        ],
+        "type": "object"
+      },
+      "NeedRecorded": {
+        "description": "The interpreting need now on record; both fields are null when it was cleared.",
+        "properties": {
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "kind",
+          "language"
         ],
         "type": "object"
       },
@@ -9604,6 +10600,26 @@
         ],
         "type": "object"
       },
+      "PrintQueue": {
+        "description": "The letters waiting to be posted.",
+        "properties": {
+          "letters": {
+            "items": {
+              "$ref": "#/components/schemas/QueuedLetter"
+            },
+            "type": "array"
+          },
+          "waiting": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "waiting",
+          "letters"
+        ],
+        "type": "object"
+      },
       "Priority": {
         "description": "Clinical priority for a waitlist entry.\n\nVariant order is meaningful: `Routine` is the lowest priority and\n`Emergency` is the highest. `PartialOrd`/`Ord` are derived, so comparisons\nrespect the declaration order — that is,\n`Routine < Urgent < TwoWeekWait < Emergency`.",
         "enum": [
@@ -9847,6 +10863,31 @@
         ],
         "type": "object"
       },
+      "Proofing": {
+        "properties": {
+          "method": {
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "proofed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "proofed_by": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "method",
+          "proofed_by",
+          "proofed_at"
+        ],
+        "type": "object"
+      },
       "ProposeBody": {
         "properties": {
           "effective_from": {
@@ -9883,6 +10924,27 @@
           "effective_from",
           "lines",
           "proposed_by"
+        ],
+        "type": "object"
+      },
+      "QueuedLetter": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "letter_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "letter_id",
+          "created_at",
+          "subject"
         ],
         "type": "object"
       },
@@ -10003,6 +11065,19 @@
         ],
         "type": "string"
       },
+      "Raised": {
+        "description": "The id of the flag just raised.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "Reading": {
         "allOf": [
           {
@@ -10105,6 +11180,27 @@
         },
         "required": [
           "assessed"
+        ],
+        "type": "object"
+      },
+      "Receipt": {
+        "properties": {
+          "duplicate": {
+            "description": "True when this receipt had been stored before and nothing changed.",
+            "type": "boolean"
+          },
+          "event": {
+            "type": "string"
+          },
+          "letter_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "letter_id",
+          "event",
+          "duplicate"
         ],
         "type": "object"
       },
@@ -10640,6 +11736,23 @@
         },
         "required": [
           "revoked_by"
+        ],
+        "type": "object"
+      },
+      "Revoked": {
+        "description": "An authority that is now withdrawn.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
         ],
         "type": "object"
       },
@@ -11250,6 +12363,59 @@
         ],
         "type": "string"
       },
+      "SupportFlag": {
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SupportKind"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reason_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "appointment_id",
+          "kind",
+          "reason_code",
+          "created_by",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "SupportKind": {
+        "description": "What kind of support a flag asks for.",
+        "enum": [
+          "NeedsSupportCall",
+          "NavigatorReferral"
+        ],
+        "type": "string"
+      },
       "TargetBody": {
         "properties": {
           "set_by": {
@@ -11409,6 +12575,44 @@
         },
         "required": [
           "new_bed_id"
+        ],
+        "type": "object"
+      },
+      "UnconfirmedRequest": {
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/InterpreterKind"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "appointment_id",
+          "person_id",
+          "kind",
+          "language",
+          "starts_at"
         ],
         "type": "object"
       },
@@ -14236,6 +15440,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Booking"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14948,6 +16159,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_ContactProblem"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -16743,6 +17961,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Proofing"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -16973,6 +18198,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_UnconfirmedRequest"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17019,6 +18251,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Confirmed"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -19388,6 +20627,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NeedRecorded"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -20669,6 +21915,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Batch"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -20715,6 +21968,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BatchSent"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -20754,6 +22014,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PrintQueue"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -20800,6 +22067,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Revoked"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -20846,6 +22120,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -20892,6 +22173,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -20938,6 +22226,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -23093,6 +24388,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Raised"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -23132,6 +24434,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_SupportFlag"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -24932,6 +26241,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Receipt"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

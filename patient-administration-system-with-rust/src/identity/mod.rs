@@ -17,7 +17,7 @@ use crate::{Error, Result};
 
 pub const METHODS: [&str; 4] = ["in_person", "video_id_check", "nhs_login", "postal_code"];
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Proofing {
     pub person_id: Uuid,
     pub method: String,
