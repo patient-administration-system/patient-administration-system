@@ -122,7 +122,7 @@ pub fn plan_session(
     Some(out)
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct VersionView {
     pub version: i32,
     pub weekday: i16,
@@ -131,10 +131,11 @@ pub struct VersionView {
     pub effective_from: NaiveDate,
     pub lines: Vec<Line>,
     pub proposed_by: String,
+    #[schema(required = true)]
     pub approved_by: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct TemplateView {
     pub id: Uuid,
     pub schedule_id: Uuid,
@@ -142,7 +143,7 @@ pub struct TemplateView {
     pub versions: Vec<VersionView>,
 }
 
-#[derive(Debug, Default, Serialize, PartialEq)]
+#[derive(Debug, Default, Serialize, serde::Deserialize, utoipa::ToSchema, PartialEq)]
 pub struct Generated {
     /// Slots made by this call.
     pub created: i64,

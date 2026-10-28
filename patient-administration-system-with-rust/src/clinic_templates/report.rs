@@ -39,7 +39,7 @@ fn round1(x: f64) -> f64 {
     (x * 10.0).round() / 10.0
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct TypeRow {
     /// `new`, `follow_up`, `urgent`, `pifu`, or `untyped` for slots made without a template.
     pub slot_type: String,
@@ -48,7 +48,7 @@ pub struct TypeRow {
     pub ring_fenced: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CapacityReport {
     pub service_type: String,
     pub forward_from: DateTime<Utc>,
@@ -63,6 +63,7 @@ pub struct CapacityReport {
     pub attended: i64,
     pub missed: i64,
     /// Missed over attended plus missed; `None` when there were none to measure.
+    #[schema(required = true)]
     pub non_attendance_rate: Option<f64>,
     pub required_per_week: f64,
     /// Available minus required, per week. Negative means demand is not covered.

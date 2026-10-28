@@ -5851,6 +5851,56 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_CapacityReport: {
+      data?: {
+        /** Format: int64 */
+        attended: number;
+        /** Format: double */
+        available_per_week: number;
+        /** Format: int64 */
+        available_slots: number;
+        by_type: components["schemas"]["TypeRow"][];
+        /** Format: double */
+        demand_per_week: number;
+        /** Format: date-time */
+        forward_from: string;
+        /** Format: date-time */
+        forward_to: string;
+        /**
+         * Format: double
+         * @description Available minus required, per week. Negative means demand is not covered.
+         */
+        gap_per_week: number;
+        /** Format: date-time */
+        lookback_from: string;
+        method: string;
+        /** Format: int64 */
+        missed: number;
+        /**
+         * Format: double
+         * @description Missed over attended plus missed; `None` when there were none to measure.
+         */
+        non_attendance_rate: number | null;
+        not_computed: string;
+        /** Format: int64 */
+        referrals_in_lookback: number;
+        /** Format: double */
+        required_per_week: number;
+        /** Format: int64 */
+        ring_fenced_slots: number;
+        service_type: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Confirmed: {
       /** @description An interpreter request that is now confirmed. */
       data?: {
@@ -6112,6 +6162,40 @@ export interface components {
         name: string;
         /** Format: date-time */
         updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Generated: {
+      data?: {
+        /**
+         * Format: int64
+         * @description Slots the template had already made for these days: left alone.
+         */
+        already_there: number;
+        /**
+         * Format: int64
+         * @description Slots made by this call.
+         */
+        created: number;
+        /**
+         * Format: int64
+         * @description Days skipped because the session's start time does not exist that day (clocks going forward).
+         */
+        days_skipped_clock_change: number;
+        /**
+         * Format: int64
+         * @description Days in the range on which no approved version applies.
+         */
+        days_without_approved_version: number;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -6746,6 +6830,24 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_RingFenced: {
+      /** @description A slot whose ring-fence was set or lifted. */
+      data?: {
+        ring_fenced: boolean;
+        /** Format: uuid */
+        slot_id: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Room: {
       /** @description A room within a ward. */
       data?: {
@@ -6889,11 +6991,47 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_TemplateCreated: {
+      /** @description The template that was started. */
+      data?: {
+        /** Format: uuid */
+        id: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_TemplateGroup: {
       /** @description The templates created together, one per language. */
       data?: {
         name: string;
         variants: components["schemas"]["TemplateVariant"][];
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_TemplateVersion: {
+      /** @description A template version that was proposed or approved. */
+      data?: {
+        /** Format: uuid */
+        id: string;
+        /** Format: int32 */
+        version: number;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7801,6 +7939,26 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_TemplateView: {
+      data?: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: uuid */
+        schedule_id: string;
+        versions: components["schemas"]["VersionView"][];
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_UnconfirmedRequest: {
       data?: {
         /** Format: uuid */
@@ -8524,6 +8682,44 @@ export interface components {
       capacity: number;
       set_by: string;
     };
+    CapacityReport: {
+      /** Format: int64 */
+      attended: number;
+      /** Format: double */
+      available_per_week: number;
+      /** Format: int64 */
+      available_slots: number;
+      by_type: components["schemas"]["TypeRow"][];
+      /** Format: double */
+      demand_per_week: number;
+      /** Format: date-time */
+      forward_from: string;
+      /** Format: date-time */
+      forward_to: string;
+      /**
+       * Format: double
+       * @description Available minus required, per week. Negative means demand is not covered.
+       */
+      gap_per_week: number;
+      /** Format: date-time */
+      lookback_from: string;
+      method: string;
+      /** Format: int64 */
+      missed: number;
+      /**
+       * Format: double
+       * @description Missed over attended plus missed; `None` when there were none to measure.
+       */
+      non_attendance_rate: number | null;
+      not_computed: string;
+      /** Format: int64 */
+      referrals_in_lookback: number;
+      /** Format: double */
+      required_per_week: number;
+      /** Format: int64 */
+      ring_fenced_slots: number;
+      service_type: string;
+    };
     Cell: {
       /**
        * Format: int64
@@ -8943,6 +9139,28 @@ export interface components {
       person_id: string;
       /** Format: uuid */
       template_id: string;
+    };
+    Generated: {
+      /**
+       * Format: int64
+       * @description Slots the template had already made for these days: left alone.
+       */
+      already_there: number;
+      /**
+       * Format: int64
+       * @description Slots made by this call.
+       */
+      created: number;
+      /**
+       * Format: int64
+       * @description Days skipped because the session's start time does not exist that day (clocks going forward).
+       */
+      days_skipped_clock_change: number;
+      /**
+       * Format: int64
+       * @description Days in the range on which no approved version applies.
+       */
+      days_without_approved_version: number;
     };
     GeneratedLetter: {
       /** Format: uuid */
@@ -9743,6 +9961,12 @@ export interface components {
       ring_fenced: boolean;
       set_by: string;
     };
+    /** @description A slot whose ring-fence was set or lifted. */
+    RingFenced: {
+      ring_fenced: boolean;
+      /** Format: uuid */
+      slot_id: string;
+    };
     /** @description One clinic's stage: recording in shadow, or live, and whether it has been in shadow long enough to go live. */
     RolloutRow: {
       /** Format: int64 */
@@ -9967,6 +10191,11 @@ export interface components {
       /** Format: date */
       target_date: string;
     };
+    /** @description The template that was started. */
+    TemplateCreated: {
+      /** Format: uuid */
+      id: string;
+    };
     /** @description The templates created together, one per language. */
     TemplateGroup: {
       name: string;
@@ -9976,6 +10205,21 @@ export interface components {
     TemplateVariant: {
       sms: components["schemas"]["SmsLength"] | null;
       template: components["schemas"]["LetterTemplate"];
+    };
+    /** @description A template version that was proposed or approved. */
+    TemplateVersion: {
+      /** Format: uuid */
+      id: string;
+      /** Format: int32 */
+      version: number;
+    };
+    TemplateView: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** Format: uuid */
+      schedule_id: string;
+      versions: components["schemas"]["VersionView"][];
     };
     ToleranceStatus: {
       /** @description The measures that can be read for one service, for each service that has data (or its own tolerance). */
@@ -10011,6 +10255,16 @@ export interface components {
       /** Format: uuid */
       new_bed_id: string;
     };
+    TypeRow: {
+      /** Format: int64 */
+      free: number;
+      /** Format: int64 */
+      ring_fenced: number;
+      /** @description `new`, `follow_up`, `urgent`, `pifu`, or `untyped` for slots made without a template. */
+      slot_type: string;
+      /** Format: int64 */
+      slots: number;
+    };
     UnconfirmedRequest: {
       /** Format: uuid */
       appointment_id: string;
@@ -10037,6 +10291,20 @@ export interface components {
     VerifyBody: {
       /** @description `staff`, `portal` or `sms_code`. */
       method: string;
+    };
+    VersionView: {
+      approved_by: string | null;
+      /** Format: date */
+      effective_from: string;
+      lines: components["schemas"]["Line"][];
+      proposed_by: string;
+      /** Format: int32 */
+      slot_minutes: number;
+      start_time: string;
+      /** Format: int32 */
+      version: number;
+      /** Format: int32 */
+      weekday: number;
     };
     WaitlistAddBody: {
       /** Format: uuid */
@@ -12252,7 +12520,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_CapacityReport"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19023,7 +19293,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_TemplateView"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19059,7 +19331,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_TemplateCreated"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19098,7 +19372,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Generated"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19137,7 +19413,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_TemplateVersion"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19178,7 +19456,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_TemplateVersion"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -19481,7 +19761,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_RingFenced"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

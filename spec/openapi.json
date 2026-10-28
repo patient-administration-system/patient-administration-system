@@ -1304,6 +1304,135 @@
         ],
         "type": "object"
       },
+      "ApiResponse_CapacityReport": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "attended": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "available_per_week": {
+                "format": "double",
+                "type": "number"
+              },
+              "available_slots": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "by_type": {
+                "items": {
+                  "$ref": "#/components/schemas/TypeRow"
+                },
+                "type": "array"
+              },
+              "demand_per_week": {
+                "format": "double",
+                "type": "number"
+              },
+              "forward_from": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "forward_to": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "gap_per_week": {
+                "description": "Available minus required, per week. Negative means demand is not covered.",
+                "format": "double",
+                "type": "number"
+              },
+              "lookback_from": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "missed": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "non_attendance_rate": {
+                "description": "Missed over attended plus missed; `None` when there were none to measure.",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "not_computed": {
+                "type": "string"
+              },
+              "referrals_in_lookback": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "required_per_week": {
+                "format": "double",
+                "type": "number"
+              },
+              "ring_fenced_slots": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "service_type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "service_type",
+              "forward_from",
+              "forward_to",
+              "lookback_from",
+              "by_type",
+              "available_slots",
+              "ring_fenced_slots",
+              "available_per_week",
+              "referrals_in_lookback",
+              "demand_per_week",
+              "attended",
+              "missed",
+              "non_attendance_rate",
+              "required_per_week",
+              "gap_per_week",
+              "method",
+              "not_computed"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Confirmed": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -1929,6 +2058,70 @@
               "active",
               "created_at",
               "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Generated": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "already_there": {
+                "description": "Slots the template had already made for these days: left alone.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "created": {
+                "description": "Slots made by this call.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "days_skipped_clock_change": {
+                "description": "Days skipped because the session's start time does not exist that day (clocks going forward).",
+                "format": "int64",
+                "type": "integer"
+              },
+              "days_without_approved_version": {
+                "description": "Days in the range on which no approved version applies.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "created",
+              "already_there",
+              "days_without_approved_version",
+              "days_skipped_clock_change"
             ],
             "type": "object"
           },
@@ -3758,6 +3951,56 @@
         ],
         "type": "object"
       },
+      "ApiResponse_RingFenced": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A slot whose ring-fence was set or lifted.",
+            "properties": {
+              "ring_fenced": {
+                "type": "boolean"
+              },
+              "slot_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "slot_id",
+              "ring_fenced"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Room": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -4181,6 +4424,52 @@
         ],
         "type": "object"
       },
+      "ApiResponse_TemplateCreated": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "The template that was started.",
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_TemplateGroup": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -4200,6 +4489,57 @@
             "required": [
               "name",
               "variants"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_TemplateVersion": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A template version that was proposed or approved.",
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "version": {
+                "format": "int32",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "version"
             ],
             "type": "object"
           },
@@ -6890,6 +7230,70 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Vec_TemplateView": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "schedule_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "versions": {
+                  "items": {
+                    "$ref": "#/components/schemas/VersionView"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "id",
+                "schedule_id",
+                "name",
+                "versions"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Vec_UnconfirmedRequest": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -9031,6 +9435,102 @@
         ],
         "type": "object"
       },
+      "CapacityReport": {
+        "properties": {
+          "attended": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "available_per_week": {
+            "format": "double",
+            "type": "number"
+          },
+          "available_slots": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "by_type": {
+            "items": {
+              "$ref": "#/components/schemas/TypeRow"
+            },
+            "type": "array"
+          },
+          "demand_per_week": {
+            "format": "double",
+            "type": "number"
+          },
+          "forward_from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "forward_to": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "gap_per_week": {
+            "description": "Available minus required, per week. Negative means demand is not covered.",
+            "format": "double",
+            "type": "number"
+          },
+          "lookback_from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "missed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "non_attendance_rate": {
+            "description": "Missed over attended plus missed; `None` when there were none to measure.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "not_computed": {
+            "type": "string"
+          },
+          "referrals_in_lookback": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "required_per_week": {
+            "format": "double",
+            "type": "number"
+          },
+          "ring_fenced_slots": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "service_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_type",
+          "forward_from",
+          "forward_to",
+          "lookback_from",
+          "by_type",
+          "available_slots",
+          "ring_fenced_slots",
+          "available_per_week",
+          "referrals_in_lookback",
+          "demand_per_week",
+          "attended",
+          "missed",
+          "non_attendance_rate",
+          "required_per_week",
+          "gap_per_week",
+          "method",
+          "not_computed"
+        ],
+        "type": "object"
+      },
       "Cell": {
         "properties": {
           "count": {
@@ -10039,6 +10539,37 @@
           "template_id",
           "person_id",
           "channel"
+        ],
+        "type": "object"
+      },
+      "Generated": {
+        "properties": {
+          "already_there": {
+            "description": "Slots the template had already made for these days: left alone.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "created": {
+            "description": "Slots made by this call.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "days_skipped_clock_change": {
+            "description": "Days skipped because the session's start time does not exist that day (clocks going forward).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "days_without_approved_version": {
+            "description": "Days in the range on which no approved version applies.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "already_there",
+          "days_without_approved_version",
+          "days_skipped_clock_change"
         ],
         "type": "object"
       },
@@ -12344,6 +12875,23 @@
         ],
         "type": "object"
       },
+      "RingFenced": {
+        "description": "A slot whose ring-fence was set or lifted.",
+        "properties": {
+          "ring_fenced": {
+            "type": "boolean"
+          },
+          "slot_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot_id",
+          "ring_fenced"
+        ],
+        "type": "object"
+      },
       "RolloutRow": {
         "description": "One clinic's stage: recording in shadow, or live, and whether it has been in shadow long enough to go live.",
         "properties": {
@@ -13006,6 +13554,19 @@
         ],
         "type": "object"
       },
+      "TemplateCreated": {
+        "description": "The template that was started.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "TemplateGroup": {
         "description": "The templates created together, one per language.",
         "properties": {
@@ -13045,6 +13606,52 @@
         "required": [
           "template",
           "sms"
+        ],
+        "type": "object"
+      },
+      "TemplateVersion": {
+        "description": "A template version that was proposed or approved.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "version": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ],
+        "type": "object"
+      },
+      "TemplateView": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/VersionView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "schedule_id",
+          "name",
+          "versions"
         ],
         "type": "object"
       },
@@ -13151,6 +13758,33 @@
         ],
         "type": "object"
       },
+      "TypeRow": {
+        "properties": {
+          "free": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "ring_fenced": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "slot_type": {
+            "description": "`new`, `follow_up`, `urgent`, `pifu`, or `untyped` for slots made without a template.",
+            "type": "string"
+          },
+          "slots": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "slot_type",
+          "slots",
+          "free",
+          "ring_fenced"
+        ],
+        "type": "object"
+      },
       "UnconfirmedRequest": {
         "properties": {
           "appointment_id": {
@@ -13237,6 +13871,55 @@
         },
         "required": [
           "method"
+        ],
+        "type": "object"
+      },
+      "VersionView": {
+        "properties": {
+          "approved_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "effective_from": {
+            "format": "date",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/Line"
+            },
+            "type": "array"
+          },
+          "proposed_by": {
+            "type": "string"
+          },
+          "slot_minutes": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "start_time": {
+            "type": "string"
+          },
+          "version": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "weekday": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "weekday",
+          "start_time",
+          "slot_minutes",
+          "effective_from",
+          "lines",
+          "proposed_by",
+          "approved_by"
         ],
         "type": "object"
       },
@@ -16567,6 +17250,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CapacityReport"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -24192,6 +24882,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_TemplateView"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -24225,6 +24922,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TemplateCreated"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -24271,6 +24975,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Generated"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -24317,6 +25028,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TemplateVersion"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -24372,6 +25090,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TemplateVersion"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -24771,6 +25496,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RingFenced"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

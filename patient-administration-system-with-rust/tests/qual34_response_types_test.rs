@@ -1209,6 +1209,116 @@ async fn the_pifu_routes_send_the_types_they_declare() {
     assert_eq!(reviewed.decision, "discharge");
 }
 
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_session_template_routes_send_the_types_they_declare() {
+    use patient_administration_system::api::rest::handlers_clinic_templates::{
+        RingFenced, TemplateCreated, TemplateVersion,
+    };
+    use patient_administration_system::clinic_templates::{Generated, TemplateView};
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let db = state.db.clone();
+    let schedule = common::new_schedule(&db).await;
+    let app = router(state);
+    let day = (chrono::Utc::now() + chrono::Duration::days(14)).date_naive();
+
+    let created: TemplateCreated = call(
+        &app,
+        "POST",
+        "/api/session-templates",
+        Some(json!({ "schedule_id": schedule.id, "name": "qual34", "created_by": "Manager A" })),
+    )
+    .await;
+    let proposed: TemplateVersion = call(
+        &app,
+        "POST",
+        &format!("/api/session-templates/{}/versions", created.id),
+        Some(json!({
+            "weekday": chrono::Datelike::weekday(&day).number_from_monday(),
+            "start_time": "09:00:00",
+            "slot_minutes": 20,
+            "effective_from": day,
+            "lines": [{ "slot_type": "new", "slots": 2, "ring_fenced": false }],
+            "proposed_by": "Manager A",
+        })),
+    )
+    .await;
+    assert_eq!(proposed.id, created.id);
+    let approved: TemplateVersion = call(
+        &app,
+        "POST",
+        &format!(
+            "/api/session-templates/{}/versions/{}/approve",
+            created.id, proposed.version
+        ),
+        Some(json!({ "approved_by": "Manager B" })),
+    )
+    .await;
+    assert_eq!(approved.version, proposed.version);
+    let listed: Vec<TemplateView> = call(
+        &app,
+        "GET",
+        &format!("/api/session-templates?schedule_id={}", schedule.id),
+        None,
+    )
+    .await;
+    assert_eq!(listed.len(), 1);
+    assert_eq!(
+        listed[0].versions[0].approved_by.as_deref(),
+        Some("Manager B")
+    );
+    let generated: Generated = call(
+        &app,
+        "POST",
+        &format!("/api/session-templates/{}/generate", created.id),
+        Some(json!({ "from": day, "to": day, "generated_by": "Manager B" })),
+    )
+    .await;
+    assert_eq!(generated.created, 2);
+
+    let slot: Uuid = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT id FROM slots WHERE template_id = $1 LIMIT 1",
+            [created.id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "id")
+        .unwrap();
+    let held: RingFenced = call(
+        &app,
+        "PUT",
+        &format!("/api/slots/{slot}/ring-fence"),
+        Some(json!({ "ring_fenced": true, "set_by": "Manager B" })),
+    )
+    .await;
+    assert!(held.ring_fenced);
+
+    // The report only serialises (`method` is a `&'static str`), so its fields are compared with the schema.
+    let bytes = send(
+        &app,
+        "GET",
+        &format!(
+            "/api/capacity/report?service_type={}&from={}&to={}",
+            schedule.service_type,
+            chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ"),
+            (chrono::Utc::now() + chrono::Duration::days(28)).format("%Y-%m-%dT%H:%M:%SZ"),
+        ),
+        None,
+    )
+    .await;
+    let envelope: ApiResponse<Value> = serde_json::from_slice(&bytes).unwrap();
+    let report = envelope.data.expect("a report");
+    assert_fields_match_schema("CapacityReport", &report);
+    for row in report["by_type"].as_array().unwrap() {
+        assert_fields_match_schema("TypeRow", row);
+    }
+}
+
 /// A success that has nothing to return: `data` must be `null`, as `Nothing` declares.
 async fn call_nothing(app: &axum::Router, method: &str, uri: &str, body: Option<Value>) {
     let bytes = send(app, method, uri, body).await;

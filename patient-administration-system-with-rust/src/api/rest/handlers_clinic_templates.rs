@@ -6,15 +6,33 @@ use axum::{
     http::HeaderMap,
 };
 use chrono::{DateTime, Duration, NaiveDate, NaiveTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok, ok_json, request_audit_ctx,
-};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 use crate::clinic_templates::report::capacity_report;
 use crate::clinic_templates::{Line, TemplateService, VersionInput};
+
+/// The template that was started.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct TemplateCreated {
+    pub id: Uuid,
+}
+
+/// A template version that was proposed or approved.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct TemplateVersion {
+    pub id: Uuid,
+    pub version: i32,
+}
+
+/// A slot whose ring-fence was set or lifted.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct RingFenced {
+    pub slot_id: Uuid,
+    pub ring_fenced: bool,
+}
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 #[schema(as = handlers_clinic_templates::CreateBody)]
@@ -32,7 +50,7 @@ pub struct CreateBody {
     tag = "Scheduling",
     request_body = CreateBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<TemplateCreated>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -51,7 +69,7 @@ pub async fn create(
         )
         .await
     {
-        Ok(id) => ok(serde_json::json!({ "id": id })),
+        Ok(id) => ok_json(TemplateCreated { id }),
         Err(e) => error_to_response(e),
     }
 }
@@ -68,7 +86,7 @@ pub struct ListQuery {
     tag = "Scheduling",
     params(ListQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::clinic_templates::TemplateView>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -104,7 +122,7 @@ pub struct ProposeBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = ProposeBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<TemplateVersion>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -127,7 +145,7 @@ pub async fn propose(
         .propose(id, &input, state.clock.now(), &request_audit_ctx(&headers))
         .await
     {
-        Ok(version) => ok(serde_json::json!({ "id": id, "version": version })),
+        Ok(version) => ok_json(TemplateVersion { id, version }),
         Err(e) => error_to_response(e),
     }
 }
@@ -150,7 +168,7 @@ pub struct ApproveBody {
     ),
     request_body = ApproveBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<TemplateVersion>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -171,7 +189,7 @@ pub async fn approve(
         )
         .await
     {
-        Ok(()) => ok(serde_json::json!({ "id": id, "version": version })),
+        Ok(()) => ok_json(TemplateVersion { id, version }),
         Err(e) => error_to_response(e),
     }
 }
@@ -192,7 +210,7 @@ pub struct GenerateBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = GenerateBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::clinic_templates::Generated>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -234,7 +252,7 @@ pub struct RingFenceBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = RingFenceBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<RingFenced>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -249,7 +267,10 @@ pub async fn ring_fence(
         .set_ring_fence(id, b.ring_fenced, &b.set_by, &request_audit_ctx(&headers))
         .await
     {
-        Ok(()) => ok(serde_json::json!({ "slot_id": id, "ring_fenced": b.ring_fenced })),
+        Ok(()) => ok_json(RingFenced {
+            slot_id: id,
+            ring_fenced: b.ring_fenced,
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -274,7 +295,7 @@ pub struct ReportQuery {
     tag = "Scheduling",
     params(ReportQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::clinic_templates::report::CapacityReport>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
