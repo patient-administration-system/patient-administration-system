@@ -9,13 +9,14 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
+use patient_administration_system::api::ApiResponse;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::models::appointment::{
     Appointment, AppointmentStatus, BarrierCode, ConversionState, Modality,
 };
-use patient_administration_system::virtual_visits::Review;
+use patient_administration_system::virtual_visits::{ApprovedService, Review};
 use patient_administration_system::writeback::{ReplyAction, ReplyRequest, ReplyStatus};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -343,6 +344,19 @@ async fn the_http_endpoints_approve_review_and_list() {
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
     assert_eq!(v["data"]["approved_by"], "Dr A. Clinician");
+    // QUAL-34: the answer is the type the route declares.
+    let approved: ApiResponse<ApprovedService> = serde_json::from_value(v).unwrap();
+    assert_eq!(approved.data.unwrap().service_type, w.service);
+    let (st, v) = call("GET", "/api/virtual-ok-services".into(), None).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let listed: ApiResponse<Vec<ApprovedService>> = serde_json::from_value(v).unwrap();
+    assert!(
+        listed
+            .data
+            .unwrap()
+            .iter()
+            .any(|s| s.service_type == w.service)
+    );
 
     // The reply goes in through the write-back endpoint like any other.
     let (st, v) = call(
@@ -361,13 +375,8 @@ async fn the_http_endpoints_approve_review_and_list() {
 
     let (st, v) = call("GET", "/api/conversions/pending?limit=500".into(), None).await;
     assert_eq!(st, StatusCode::OK);
-    assert!(
-        v["data"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|a| a["id"] == w.appt.id.to_string())
-    );
+    let pending: ApiResponse<Vec<Appointment>> = serde_json::from_value(v).unwrap();
+    assert!(pending.data.unwrap().iter().any(|a| a.id == w.appt.id));
     let (st, _) = call(
         "POST",
         format!("/api/appointments/{}/conversion/maybe", w.appt.id),
@@ -382,7 +391,8 @@ async fn the_http_endpoints_approve_review_and_list() {
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
-    assert_eq!(v["data"]["modality"], "in_person");
+    let vetoed: ApiResponse<Appointment> = serde_json::from_value(v).unwrap();
+    assert_eq!(vetoed.data.unwrap().modality, Modality::InPerson);
 
     // Withdrawing the approval stops further conversions.
     let (st, _) = call("DELETE", uri, None).await;
@@ -487,6 +497,8 @@ async fn a_video_visit_that_fails_falls_back_to_a_phone_call_once() {
         .await
         .unwrap();
     assert_eq!(r.status(), StatusCode::OK);
-    let _ = to_bytes(r.into_body(), 1 << 20).await;
+    let fell_back: ApiResponse<Appointment> =
+        serde_json::from_slice(&to_bytes(r.into_body(), 1 << 20).await.unwrap()).unwrap();
+    assert_eq!(fell_back.data.unwrap().modality, Modality::Phone);
     assert_eq!(reload(&w2).await.modality, Modality::Phone);
 }

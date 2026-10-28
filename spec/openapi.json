@@ -1005,6 +1005,59 @@
         ],
         "type": "object"
       },
+      "ApiResponse_ApprovedService": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "properties": {
+              "approved_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "approved_by": {
+                "type": "string"
+              },
+              "service_type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "service_type",
+              "approved_by",
+              "approved_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Asked": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -5984,6 +6037,62 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Vec_ApprovedService": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "approved_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "approved_by": {
+                  "type": "string"
+                },
+                "service_type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "service_type",
+                "approved_by",
+                "approved_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Vec_Authority": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -9756,6 +9865,26 @@
         "required": [
           "provider_template_id",
           "approved_by"
+        ],
+        "type": "object"
+      },
+      "ApprovedService": {
+        "properties": {
+          "approved_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "approved_by": {
+            "type": "string"
+          },
+          "service_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_type",
+          "approved_by",
+          "approved_at"
         ],
         "type": "object"
       },
@@ -17771,6 +17900,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -18143,6 +18279,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -18932,6 +19075,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Appointment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -28345,6 +28495,13 @@
         "operationId": "get_api_virtual_ok_services",
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_ApprovedService"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -28432,6 +28589,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApprovedService"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

@@ -5802,6 +5802,24 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_ApprovedService: {
+      data?: {
+        /** Format: date-time */
+        approved_at: string;
+        approved_by: string;
+        service_type: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Asked: {
       /** @description The id of the check just asked. */
       data?: {
@@ -7617,6 +7635,24 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_ApprovedService: {
+      data?: {
+        /** Format: date-time */
+        approved_at: string;
+        approved_by: string;
+        service_type: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_Authority: {
       data?: {
         basis: string;
@@ -8868,6 +8904,12 @@ export interface components {
     ApprovalBody: {
       approved_by: string;
       provider_template_id: string;
+    };
+    ApprovedService: {
+      /** Format: date-time */
+      approved_at: string;
+      approved_by: string;
+      service_type: string;
     };
     AskBody: {
       asked_by: string;
@@ -12500,7 +12542,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Appointment"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -12831,7 +12875,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Appointment"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13395,7 +13441,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Appointment"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -21568,7 +21616,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_ApprovedService"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -21607,7 +21657,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ApprovedService"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

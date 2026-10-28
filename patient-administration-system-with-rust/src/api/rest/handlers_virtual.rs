@@ -22,7 +22,7 @@ use crate::virtual_visits::Review;
     path = "/api/virtual-ok-services",
     tag = "Virtual ok services",
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::virtual_visits::ApprovedService>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -48,7 +48,7 @@ pub struct ApproveBody {
     params(("service_type" = String, Path, description = "Path parameter `service_type`")),
     request_body = ApproveBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::virtual_visits::ApprovedService>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -113,7 +113,7 @@ pub struct PendingQuery {
     tag = "Conversions",
     params(PendingQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::models::appointment::Appointment>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -143,7 +143,7 @@ pub async fn pending(
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`"), ("decision" = String, Path, description = "Path parameter `decision`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::appointment::Appointment>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -174,7 +174,7 @@ pub async fn review(
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::appointment::Appointment>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

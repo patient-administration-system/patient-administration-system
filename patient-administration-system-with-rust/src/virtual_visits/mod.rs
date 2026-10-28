@@ -53,7 +53,7 @@ pub async fn service_is_virtual_ok<C: ConnectionTrait>(
     Ok(row.is_some())
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct ApprovedService {
     pub service_type: String,
     pub approved_by: String,
