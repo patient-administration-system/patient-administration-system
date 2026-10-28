@@ -1139,6 +1139,76 @@ async fn the_subscription_routes_send_the_types_they_declare() {
     assert!(ended.ended_at.is_some());
 }
 
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_pifu_routes_send_the_types_they_declare() {
+    use patient_administration_system::api::rest::handlers_pifu::{Handled, Reviewed};
+    use patient_administration_system::pifu::{
+        Episode, EpisodeStatus, Request as PifuRequest, UptakeReport,
+    };
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let db = state.db.clone();
+    let app = router(state);
+    let person = Uuid::new_v4();
+    let episode: Episode = call(
+        &app,
+        "POST",
+        &format!("/api/patients/{person}/pifu"),
+        Some(json!({
+            "service_type": "qual34-pifu",
+            "conditions": "Ring us if the pain returns or you cannot walk to the shops.",
+            "expires_at": chrono::Utc::now() + chrono::Duration::days(60),
+            "opened_by": "Dr Evans",
+        })),
+    )
+    .await;
+    assert_eq!(episode.status, EpisodeStatus::Active);
+    let requested: PifuRequest = call(
+        &app,
+        "POST",
+        &format!("/api/pifu/{}/request", episode.id),
+        Some(json!({ "channel": "text" })),
+    )
+    .await;
+    assert_eq!(requested.episode_id, episode.id);
+    let queue: Vec<PifuRequest> = call(&app, "GET", "/api/pifu/requests", None).await;
+    assert!(queue.iter().any(|r| r.id == requested.id));
+    let handled: Handled = call(
+        &app,
+        "POST",
+        &format!("/api/pifu/requests/{}/handle", requested.id),
+        Some(json!({ "handled_by": "Booker" })),
+    )
+    .await;
+    assert_eq!(handled.status, "handled");
+    let _due: Vec<Episode> = call(&app, "GET", "/api/pifu/due-reviews", None).await;
+    let report: UptakeReport = call(&app, "GET", "/api/reports/pifu", None).await;
+    assert!(!report.cells.is_empty());
+
+    // The window has not ended, so a review is refused; end it, then discharge.
+    sea_orm::ConnectionTrait::execute_unprepared(
+        &db,
+        &format!(
+            "UPDATE pifu_episodes SET opened_at = now() - interval '2 days', \
+             expires_at = now() - interval '1 day' WHERE id = '{}'",
+            episode.id
+        ),
+    )
+    .await
+    .unwrap();
+    let due: Vec<Episode> = call(&app, "GET", "/api/pifu/due-reviews", None).await;
+    assert!(due.iter().any(|e| e.id == episode.id));
+    let reviewed: Reviewed = call(
+        &app,
+        "POST",
+        &format!("/api/pifu/{}/review", episode.id),
+        Some(json!({ "decision": "discharge", "reviewed_by": "Dr Evans" })),
+    )
+    .await;
+    assert_eq!(reviewed.decision, "discharge");
+}
+
 /// A success that has nothing to return: `data` must be `null`, as `Nothing` declares.
 async fn call_nothing(app: &axum::Router, method: &str, uri: &str, body: Option<Value>) {
     let bytes = send(app, method, uri, body).await;

@@ -60,7 +60,7 @@ impl Dim {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Cell {
     pub dims: Vec<(String, String)>,
     /// `None` when the cell is suppressed.

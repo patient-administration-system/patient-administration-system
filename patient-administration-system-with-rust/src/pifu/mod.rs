@@ -52,7 +52,8 @@ pub fn route_for(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> &'static str 
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[schema(as = pifu::Episode)]
 pub struct Episode {
     pub id: Uuid,
     pub person_id: Uuid,
@@ -61,12 +62,14 @@ pub struct Episode {
     pub opened_by: String,
     pub opened_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
+    #[schema(required = true)]
     pub urgent_override_by: Option<String>,
     pub extended_count: i32,
     pub status: EpisodeStatus,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[schema(as = pifu::Request)]
 pub struct Request {
     pub id: Uuid,
     pub episode_id: Uuid,
@@ -120,7 +123,7 @@ fn episode(r: &sea_orm::QueryResult) -> Result<Episode> {
 }
 
 /// The uptake report: counts only, no identifiers, small cells withheld.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct UptakeReport {
     pub k: i64,
     pub cells: Vec<Cell>,

@@ -6,13 +6,13 @@ use axum::{
     http::HeaderMap,
 };
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::analytics::AnalyticsService;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok, ok_json, ok_page, request_audit_ctx,
+    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
 };
 use crate::pifu::{Decision, NewEpisode, PifuService};
 
@@ -36,7 +36,7 @@ pub struct OpenBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = OpenBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::pifu::Episode>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -82,7 +82,7 @@ pub struct RequestBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = RequestBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::pifu::Request>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -107,6 +107,22 @@ pub async fn request(
     }
 }
 
+/// A request that has been dealt with.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Handled {
+    pub id: Uuid,
+    /// Always `handled`.
+    pub status: String,
+}
+
+/// An episode that has been reviewed.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Reviewed {
+    pub id: Uuid,
+    /// `discharge` or `extend`.
+    pub decision: String,
+}
+
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct RequestsQuery {
     /// `booking` (default) or `person`.
@@ -122,7 +138,7 @@ pub struct RequestsQuery {
     tag = "Scheduling",
     params(RequestsQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::pifu::Request>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -162,7 +178,7 @@ pub struct HandleBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = HandleBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Handled>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -183,7 +199,10 @@ pub async fn handle(
         )
         .await
     {
-        Ok(()) => ok(serde_json::json!({ "id": id, "status": "handled" })),
+        Ok(()) => ok_json(Handled {
+            id,
+            status: "handled".into(),
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -201,7 +220,7 @@ pub struct ReviewsQuery {
     tag = "Scheduling",
     params(ReviewsQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::pifu::Episode>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -241,7 +260,7 @@ pub struct ReviewBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = ReviewBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Reviewed>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -277,7 +296,10 @@ pub async fn review(
         )
         .await
     {
-        Ok(()) => ok(serde_json::json!({ "id": id, "decision": b.decision })),
+        Ok(()) => ok_json(Reviewed {
+            id,
+            decision: b.decision,
+        }),
         Err(e) => error_to_response(e),
     }
 }
@@ -295,7 +317,7 @@ pub struct UptakeQuery {
     tag = "Reports",
     params(UptakeQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::pifu::UptakeReport>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

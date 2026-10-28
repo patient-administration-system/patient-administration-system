@@ -6165,6 +6165,25 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Handled: {
+      /** @description A request that has been dealt with. */
+      data?: {
+        /** Format: uuid */
+        id: string;
+        /** @description Always `handled`. */
+        status: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_LetterTemplate: {
       data?: {
         active: boolean;
@@ -6690,6 +6709,25 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Reviewed: {
+      /** @description An episode that has been reviewed. */
+      data?: {
+        /** @description `discharge` or `extend`. */
+        decision: string;
+        /** Format: uuid */
+        id: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Revoked: {
       /** @description An authority that is now withdrawn. */
       data?: {
@@ -6910,6 +6948,24 @@ export interface components {
         to_bed_id: string;
         /** Format: date-time */
         transferred_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_UptakeReport: {
+      /** @description The uptake report: counts only, no identifiers, small cells withheld. */
+      data?: {
+        cells: components["schemas"]["Cell"][];
+        /** Format: int64 */
+        k: number;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7891,6 +7947,61 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    "ApiResponse_Vec_pifu.Episode": {
+      data?: {
+        conditions: string;
+        /** Format: date-time */
+        expires_at: string;
+        /** Format: int32 */
+        extended_count: number;
+        /** Format: uuid */
+        id: string;
+        /** Format: date-time */
+        opened_at: string;
+        opened_by: string;
+        /** Format: uuid */
+        person_id: string;
+        service_type: string;
+        status: components["schemas"]["EpisodeStatus"];
+        urgent_override_by: string | null;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_Vec_pifu.Request": {
+      data?: {
+        channel: components["schemas"]["RequestChannel"];
+        /** Format: uuid */
+        episode_id: string;
+        /** Format: uuid */
+        id: string;
+        /** Format: uuid */
+        person_id: string;
+        /** Format: date-time */
+        requested_at: string;
+        /** @description `booking` or `person`. */
+        route: string;
+        service_type: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_WaitlistEntry: {
       data?: {
         /** Format: date-time */
@@ -8055,6 +8166,61 @@ export interface components {
         /** @description Why it is off, in words, when it is. */
         reason: string | null;
         switched_on: boolean;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_pifu.Episode": {
+      data?: {
+        conditions: string;
+        /** Format: date-time */
+        expires_at: string;
+        /** Format: int32 */
+        extended_count: number;
+        /** Format: uuid */
+        id: string;
+        /** Format: date-time */
+        opened_at: string;
+        opened_by: string;
+        /** Format: uuid */
+        person_id: string;
+        service_type: string;
+        status: components["schemas"]["EpisodeStatus"];
+        urgent_override_by: string | null;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_pifu.Request": {
+      data?: {
+        channel: components["schemas"]["RequestChannel"];
+        /** Format: uuid */
+        episode_id: string;
+        /** Format: uuid */
+        id: string;
+        /** Format: uuid */
+        person_id: string;
+        /** Format: date-time */
+        requested_at: string;
+        /** @description `booking` or `person`. */
+        route: string;
+        service_type: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8357,6 +8523,15 @@ export interface components {
        */
       capacity: number;
       set_by: string;
+    };
+    Cell: {
+      /**
+       * Format: int64
+       * @description `None` when the cell is suppressed.
+       */
+      count?: number | null;
+      dims: [string, string][];
+      suppressed: boolean;
     };
     CheckSmsBody: {
       body_tera: string;
@@ -8671,6 +8846,11 @@ export interface components {
     EndBody: {
       ended_by: string;
     };
+    /**
+     * @description Whether an episode is still open.
+     * @enum {string}
+     */
+    EpisodeStatus: "Active" | "Closed";
     ExportBody: {
       created_by: string;
       /** @description `csv` for the mail house's file; JSON otherwise. */
@@ -8819,6 +8999,13 @@ export interface components {
        */
       appointment_id?: string | null;
       handled_by: string;
+    };
+    /** @description A request that has been dealt with. */
+    Handled: {
+      /** Format: uuid */
+      id: string;
+      /** @description Always `handled`. */
+      status: string;
     };
     /**
      * @description One line of an appointment's history or a patient's contact log: when, what kind of thing it was, what
@@ -9525,11 +9712,23 @@ export interface components {
       /** @description `staff`, `phone`, `text`, `reply_link` or `portal`. */
       channel: string;
     };
+    /**
+     * @description How a request reached the PAS.
+     * @enum {string}
+     */
+    RequestChannel: "Staff" | "Phone" | "Text" | "ReplyLink" | "Portal";
     /** @description The answer to cancelling a transfer. */
     Reverted: {
       /** Format: uuid */
       admission_id: string;
       reverted: boolean;
+    };
+    /** @description An episode that has been reviewed. */
+    Reviewed: {
+      /** @description `discharge` or `extend`. */
+      decision: string;
+      /** Format: uuid */
+      id: string;
     };
     RevokeBody: {
       revoked_by: string;
@@ -9824,6 +10023,12 @@ export interface components {
       /** Format: date-time */
       starts_at: string;
     };
+    /** @description The uptake report: counts only, no identifiers, small cells withheld. */
+    UptakeReport: {
+      cells: components["schemas"]["Cell"][];
+      /** Format: int64 */
+      k: number;
+    };
     VariantBody: {
       body_tera: string;
       locale: string;
@@ -10089,6 +10294,37 @@ export interface components {
       /** @description Why it is off, in words, when it is. */
       reason: string | null;
       switched_on: boolean;
+    };
+    "pifu.Episode": {
+      conditions: string;
+      /** Format: date-time */
+      expires_at: string;
+      /** Format: int32 */
+      extended_count: number;
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      opened_at: string;
+      opened_by: string;
+      /** Format: uuid */
+      person_id: string;
+      service_type: string;
+      status: components["schemas"]["EpisodeStatus"];
+      urgent_override_by: string | null;
+    };
+    "pifu.Request": {
+      channel: components["schemas"]["RequestChannel"];
+      /** Format: uuid */
+      episode_id: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      person_id: string;
+      /** Format: date-time */
+      requested_at: string;
+      /** @description `booking` or `person`. */
+      route: string;
+      service_type: string;
     };
   };
   responses: never;
@@ -16557,7 +16793,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_pifu.Episode"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -17060,7 +17298,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_pifu.Episode"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -17096,7 +17336,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_pifu.Request"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -17135,7 +17377,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Handled"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -17174,7 +17418,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_pifu.Request"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -17213,7 +17459,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Reviewed"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -18400,7 +18648,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_UptakeReport"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
