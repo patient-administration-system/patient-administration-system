@@ -9,7 +9,7 @@ vi.mock("$app/env/private", () => ({
   PAS_API_TOKEN_FILE: "",
 }));
 
-const { PasError, identityProofed, pas, pasArray } = await import("#lib/server/pas.js");
+const { PasError, identityProofed, pas, pasArray, toleranceStatus } = await import("#lib/server/pas.js");
 
 type Call = { url: string; init: RequestInit };
 
@@ -83,6 +83,22 @@ describe("pasArray()", () => {
     for (const body of [JSON.stringify({ data: { not: "a list" } }), JSON.stringify({ data: null }), "not json"]) {
       const { fetch } = fake(200, body);
       await expect(pasArray(fetch, "/api/x"), body).rejects.toMatchObject({ status: 502 });
+    }
+  });
+});
+
+describe("toleranceStatus()", () => {
+  const good = { overall: "green", from: "a", to: "b", readings: [], by_service: [], by_ward: [] };
+
+  it("returns a status that has its three lists", async () => {
+    const { fetch } = fake(200, JSON.stringify({ data: good }));
+    await expect(toleranceStatus(fetch, 30)).resolves.toEqual(good);
+  });
+
+  it("treats a body without them as a broken answer (502), so the page never renders it", async () => {
+    for (const data of [null, {}, { ...good, readings: undefined }, { ...good, by_ward: "none" }, [1]]) {
+      const { fetch } = fake(200, JSON.stringify({ data }));
+      await expect(toleranceStatus(fetch, 30), JSON.stringify(data)).rejects.toMatchObject({ status: 502 });
     }
   });
 });

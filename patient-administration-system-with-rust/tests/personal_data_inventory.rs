@@ -62,6 +62,51 @@ fn inventory_rows_are_well_formed_and_unique() {
     }
 }
 
+/// The retention classes `governance/retention-schedule.md` defines: the first cell of each table row.
+fn scheduled_classes() -> BTreeSet<String> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("governance/retention-schedule.md");
+    let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    text.lines()
+        .filter_map(|l| l.strip_prefix("| `"))
+        .filter_map(|l| l.split_once('`'))
+        .map(|(class, _)| class.to_string())
+        .collect()
+}
+
+/// A class that is not in the schedule has no stated retention, so it must not be used. Not a database
+/// column, so `session` (browser sessions, kept in server memory or Redis) is the one class with no rows.
+#[test]
+fn every_retention_class_in_the_inventory_is_one_the_schedule_defines() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("governance/personal-data-inventory.csv");
+    let text = fs::read_to_string(&path).unwrap();
+    let used: BTreeSet<String> = text
+        .lines()
+        .skip(1)
+        .map(|l| l.rsplit_once(',').expect("a retention_class").1.to_string())
+        .collect();
+    let scheduled = scheduled_classes();
+    assert!(!scheduled.is_empty(), "the schedule lists no classes");
+    let undefined: Vec<_> = used.difference(&scheduled).collect();
+    assert!(
+        undefined.is_empty(),
+        "retention classes with no entry in retention-schedule.md: {undefined:?}"
+    );
+    let unused: Vec<_> = scheduled
+        .difference(&used)
+        .filter(|c| c.as_str() != "session")
+        .collect();
+    assert!(
+        unused.is_empty(),
+        "retention-schedule.md classes that no column uses: {unused:?}"
+    );
+}
+
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn every_database_column_is_classified_and_no_stale_row_remains() {

@@ -5,7 +5,7 @@ The full orientation for this repository is in [`AGENTS.md`](AGENTS.md). Read it
 ## Working here
 
 - **Keep going until the queue is honest.** `tasks.md` is the queue. When you finish a thing, mark it, add the FR and its test, and say what is *not* built. The remaining open items need a person or an outside party; report those rather than faking them.
-- **Verification before you say it is done:** `cargo fmt --all -- --check` (from the root), workspace clippy with `-D warnings`, unit tests, the `--ignored --test-threads=1` database tests on the dev database **and** a freshly created empty one, `npm run check && npm test` and Playwright for UI changes, the three generator scripts in `AGENTS.md`, then push and check `gh run list`. Report failures with their output.
+- **Verification before you say it is done:** `cargo fmt --all -- --check` (from the root), workspace clippy with `-D warnings`, unit tests, the `--ignored --test-threads=1` database tests on the dev database **and** a freshly created empty one, `npm run check && npm run lint && npm test` and Playwright for UI changes, the three generator scripts in `AGENTS.md`, then push and check `gh run list`. Report failures with their output.
 - **Do not take outward actions** (publish, tag, version bump, repository settings, external services) without an explicit instruction in the current conversation. Merging or closing dependency pull requests counts when it was asked for.
 - **Translations are yours to write, serially.** No subagents for them. Mark first drafts as such.
 - **Use background tasks or Monitor** for anything long; do not chain `sleep`.

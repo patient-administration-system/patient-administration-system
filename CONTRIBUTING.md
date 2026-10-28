@@ -19,7 +19,7 @@ cargo deny check
 The UI (`patient-administration-system-ui-with-svelte`):
 
 ```sh
-pnpm install && pnpm run check && pnpm test
+pnpm install && pnpm run check && pnpm run lint && pnpm test
 KEYCLOAK_URL=http://localhost:8180 pnpm exec playwright test     # needs podman compose -f podman/compose.yml up -d
 ```
 

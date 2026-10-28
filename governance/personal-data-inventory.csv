@@ -21,7 +21,7 @@ appointment_series,worker_id,staff-identifier,Attribute work to a staff member h
 appointment_series,service_type,health,"Administrative care information (why, where, what service, outcome)",record
 appointment_series,start_datetime,none,"Not personal data (structure, status, timestamps, places, templates)",record
 appointment_series,duration_minutes,none,"Not personal data (structure, status, timestamps, places, templates)",record
-appointment_series,rule,free-text,May contain personal data copied from the record it describes,audit-or-message
+appointment_series,rule,free-text,May contain personal data copied from the record it describes,record
 appointment_series,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
 appointment_series,reason,health,"Administrative care information (why, where, what service, outcome)",record
 appointment_series,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -49,8 +49,8 @@ audit_log,id,none,"Not personal data (structure, status, timestamps, places, tem
 audit_log,entity_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
 audit_log,entity_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 audit_log,action,none,"Not personal data (structure, status, timestamps, places, templates)",record
-audit_log,old_value,free-text,May contain personal data copied from the record it describes,audit-or-message
-audit_log,new_value,free-text,May contain personal data copied from the record it describes,audit-or-message
+audit_log,old_value,free-text,May contain personal data copied from the record it describes,audit
+audit_log,new_value,free-text,May contain personal data copied from the record it describes,audit
 audit_log,user_id,staff-trace,"Audit of who did what, from where",audit
 audit_log,user_ip,staff-trace,"Audit of who did what, from where",audit
 audit_log,user_agent,staff-trace,"Audit of who did what, from where",audit
@@ -74,7 +74,7 @@ charges,account_id,none,"Not personal data (structure, status, timestamps, place
 charges,encounter_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 charges,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 charges,code,financial,Billing and insurance,billing
-charges,description,free-text,May contain personal data copied from the record it describes,audit-or-message
+charges,description,free-text,May contain personal data copied from the record it describes,billing
 charges,amount_value,financial,Billing and insurance,billing
 charges,amount_currency,none,"Not personal data (structure, status, timestamps, places, templates)",record
 charges,posted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -135,8 +135,8 @@ generated_letters,id,none,"Not personal data (structure, status, timestamps, pla
 generated_letters,template_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 generated_letters,person_id,identifier,Link a record to a person held by person-service,record
 generated_letters,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
-generated_letters,rendered_subject,free-text,May contain personal data copied from the record it describes,audit-or-message
-generated_letters,rendered_body,free-text,May contain personal data copied from the record it describes,audit-or-message
+generated_letters,rendered_subject,free-text,May contain personal data copied from the record it describes,message
+generated_letters,rendered_body,free-text,May contain personal data copied from the record it describes,message
 generated_letters,channel,none,"Not personal data (structure, status, timestamps, places, templates)",record
 generated_letters,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
 generated_letters,sent_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -176,19 +176,19 @@ letter_templates,updated_at,none,"Not personal data (structure, status, timestam
 outbox_dead_letters,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_dead_letters,original_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_dead_letters,event_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
-outbox_dead_letters,payload,free-text,May contain personal data copied from the record it describes,audit-or-message
+outbox_dead_letters,payload,free-text,May contain personal data copied from the record it describes,audit
 outbox_dead_letters,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_dead_letters,dead_lettered_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_dead_letters,retry_count,none,"Not personal data (structure, status, timestamps, places, templates)",record
-outbox_dead_letters,last_error,free-text,May contain personal data copied from the record it describes,audit-or-message
+outbox_dead_letters,last_error,free-text,May contain personal data copied from the record it describes,audit
 outbox_events,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_events,event_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
-outbox_events,payload,free-text,May contain personal data copied from the record it describes,audit-or-message
+outbox_events,payload,free-text,May contain personal data copied from the record it describes,audit
 outbox_events,published,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_events,at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_events,retry_count,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_events,last_attempted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
-outbox_events,last_error,free-text,May contain personal data copied from the record it describes,audit-or-message
+outbox_events,last_error,free-text,May contain personal data copied from the record it describes,audit
 patient_communication_profiles,person_id,identifier,Link a record to a person held by person-service,record
 patient_communication_profiles,mobile_e164,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
 patient_communication_profiles,mobile_verified_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -213,7 +213,7 @@ payments,invoice_id,none,"Not personal data (structure, status, timestamps, plac
 payments,amount_value,financial,Billing and insurance,billing
 payments,amount_currency,none,"Not personal data (structure, status, timestamps, places, templates)",record
 payments,method,none,"Not personal data (structure, status, timestamps, places, templates)",record
-payments,reference,free-text,May contain personal data copied from the record it describes,audit-or-message
+payments,reference,free-text,May contain personal data copied from the record it describes,billing
 payments,posted_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 payments,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 referrals,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -318,7 +318,7 @@ inbound_texts,id,none,"Not personal data (structure, status, timestamps, places,
 inbound_texts,message_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 inbound_texts,carrier,none,"Not personal data (structure, status, timestamps, places, templates)",record
 inbound_texts,from_e164,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
-inbound_texts,body,free-text,May contain personal data copied from the record it describes,audit-or-message
+inbound_texts,body,free-text,May contain personal data copied from the record it describes,message
 inbound_texts,received_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 inbound_texts,person_id,identifier,Link a record to a person held by person-service,record
 inbound_texts,intent,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -326,7 +326,7 @@ inbound_texts,outcome,none,"Not personal data (structure, status, timestamps, pl
 inbound_texts,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 inbound_texts,candidates,none,"Not personal data (structure, status, timestamps, places, templates)",record
 inbound_texts,pending_intent,none,"Not personal data (structure, status, timestamps, places, templates)",record
-inbound_texts,reply_text,free-text,May contain personal data copied from the record it describes,audit-or-message
+inbound_texts,reply_text,free-text,May contain personal data copied from the record it describes,message
 inbound_texts,handled_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 inbound_texts,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 message_optouts,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -392,7 +392,7 @@ follow_up_tasks,outcome,health,"Administrative care information (why, where, wha
 follow_up_tasks,closed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 follow_up_tasks,closed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 audit_log,reason_code,none,"Not personal data (structure, status, timestamps, places, templates)",record
-audit_log,context,free-text,May contain personal data copied from the record it describes,audit-or-message
+audit_log,context,free-text,May contain personal data copied from the record it describes,audit
 generated_letters,trigger,none,"Not personal data (structure, status, timestamps, places, templates)",record
 generated_letters,trigger_ref,none,"Not personal data (structure, status, timestamps, places, templates)",record
 support_flags,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -467,7 +467,7 @@ message_receipts,created_at,none,"Not personal data (structure, status, timestam
 contact_problem_resolutions,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 contact_problem_resolutions,person_id,identifier,Link a record to a person held by person-service,record
 contact_problem_resolutions,resolved_by,staff-identifier,Attribute work to a staff member held by worker-service,record
-contact_problem_resolutions,note,free-text,A short note a person wrote about fixing the contact details,audit-or-message
+contact_problem_resolutions,note,free-text,A short note a person wrote about fixing the contact details,record
 contact_problem_resolutions,resolved_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 print_batches,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 print_batches,created_by,staff-identifier,Attribute work to a staff member held by worker-service,record
@@ -508,7 +508,7 @@ noshow_reviews,id,none,"Not personal data (structure, status, timestamps, places
 noshow_reviews,kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
 noshow_reviews,reviewer,staff-identifier,Attribute work to a staff member held by worker-service,record
 noshow_reviews,outcome,none,"Not personal data (structure, status, timestamps, places, templates)",record
-noshow_reviews,notes,free-text,A reviewer's notes on the model; may name groups of patients but no individual,audit-or-message
+noshow_reviews,notes,free-text,A reviewer's notes on the model; may name groups of patients but no individual,audit
 noshow_reviews,model_version,none,"Not personal data (structure, status, timestamps, places, templates)",record
 noshow_reviews,reviewed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 whatsapp_optins,person_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -531,14 +531,14 @@ noshow_rollout,stage,none,"Not personal data (structure, status, timestamps, pla
 noshow_rollout,changed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 noshow_rollout,live_since,none,"Not personal data (structure, status, timestamps, places, templates)",record
 noshow_rollout,changed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
-noshow_rollout,note,free-text,A named person's reason for moving a clinic; no patient details,audit-or-message
+noshow_rollout,note,free-text,A named person's reason for moving a clinic; no patient details,audit
 tolerances,metric,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerances,target,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerances,tolerance,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerances,escalate_beyond,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerances,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerances,set_by,staff-identifier,Attribute work to a staff member held by worker-service,record
-tolerances,note,free-text,A named person's reason for a tolerance; no patient details,audit-or-message
+tolerances,note,free-text,A named person's reason for a tolerance; no patient details,audit
 tolerances,scope_kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerances,scope_key,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerance_alerts,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -554,7 +554,7 @@ tolerance_alerts,last_seen_at,none,"Not personal data (structure, status, timest
 tolerance_alerts,cleared_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerance_alerts,acknowledged_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 tolerance_alerts,acknowledged_by,staff-identifier,Attribute work to a staff member held by worker-service,record
-tolerance_alerts,note,free-text,A named person's note on an alert; no patient details,audit-or-message
+tolerance_alerts,note,free-text,A named person's note on an alert; no patient details,audit
 referrals,triaged_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 referrals,triaged_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 referrals,redirected_to_service,health,"Administrative care information (why, where, what service, outcome)",record
@@ -587,7 +587,7 @@ validation_items,letter_sent_at,none,"Not personal data (structure, status, time
 validation_items,final_by,none,"Not personal data (structure, status, timestamps, places, templates)",record
 validation_items,decided_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 validation_items,decided_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
-validation_items,decision_note,free-text,A named person's reason for a validation decision; no patient details,audit-or-message
+validation_items,decision_note,free-text,A named person's reason for a validation decision; no patient details,record
 validation_items,removed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 validation_items,rtt_stop_event_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 validation_items,removed_waitlist_ids,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -677,7 +677,7 @@ subscription_deliveries,id,none,"Not personal data (structure, status, timestamp
 subscription_deliveries,subscription_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 subscription_deliveries,outbox_event_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 subscription_deliveries,event_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
-subscription_deliveries,payload,free-text,May contain personal data copied from the record it describes,audit-or-message
+subscription_deliveries,payload,free-text,May contain personal data copied from the record it describes,audit
 subscription_deliveries,event_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 subscription_deliveries,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
 subscription_deliveries,attempts,none,"Not personal data (structure, status, timestamps, places, templates)",record

@@ -14,6 +14,7 @@ const STAFF_PAGES = [
   "/patients?q=ada",
   "/history?appointment=44444444-4444-4444-4444-444444444444",
   "/waits",
+  "/tolerances",
   "/admin/reminders",
 ];
 const MODES = ["500", "garbage", "html", "empty", "wrongshape", "null"];

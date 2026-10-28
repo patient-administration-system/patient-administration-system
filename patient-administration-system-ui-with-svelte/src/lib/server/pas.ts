@@ -166,8 +166,17 @@ export const acknowledgeToleranceAlert = (f: FetchFn, id: string, by: string) =>
   });
 
 /** Each measure against its target and tolerances, and the worst tier overall. */
-export const toleranceStatus = (f: FetchFn, days: number) =>
-  pas<ToleranceStatus>(f, `/api/tolerances/status?days=${encodeURIComponent(String(days))}`);
+export async function toleranceStatus(f: FetchFn, days: number): Promise<ToleranceStatus> {
+  const data = await pas<Partial<ToleranceStatus> | null>(
+    f,
+    `/api/tolerances/status?days=${encodeURIComponent(String(days))}`,
+  );
+  // The page reads the three lists; a body without them is a broken answer (502), not a render error.
+  if (!data || ![data.readings, data.by_service, data.by_ward].every(Array.isArray)) {
+    throw new PasError(502, "the PAS API answered with an unexpected shape");
+  }
+  return data as ToleranceStatus;
+}
 
 // ---- Identity proofing (DTAC-9) --------------------------------------------------------------
 

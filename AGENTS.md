@@ -43,7 +43,7 @@ cargo test --workspace -- --ignored --test-threads=1
 # Also run them on a freshly created empty database: migrations must build the schema from nothing.
 
 # UI (patient-administration-system-ui-with-svelte)
-pnpm install && npm run check && npm test       # svelte-check, Vitest
+pnpm install && npm run check && npm run lint && npm test   # svelte-check, Prettier + ESLint, Vitest
 MOCK_PORT=4191 KEYCLOAK_URL=http://localhost:8190 npx playwright test   # needs Keycloak up (PAS_KEYCLOAK_PORT=8190)
 
 # Docs (after ANY docs, spec or test-file change; CI fails if generated files are stale)
