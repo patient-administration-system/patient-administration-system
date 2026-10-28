@@ -1663,3 +1663,45 @@ async fn the_outbox_admin_routes_send_the_types_they_declare() {
         .await
         .unwrap();
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_audit_routes_send_the_types_they_declare() {
+    use patient_administration_system::db::entities::audit_log;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let person = Uuid::new_v4();
+    let _: Value = call(
+        &app,
+        "POST",
+        "/api/waitlist",
+        Some(json!({"person_id": person, "target_service": "audit-qual34", "priority": "urgent"})),
+    )
+    .await;
+
+    let recent: Vec<audit_log::Model> = call(&app, "GET", "/api/audit/recent?limit=20", None).await;
+    assert!(!recent.is_empty());
+    let local: Vec<audit_log::Model> = call(
+        &app,
+        "GET",
+        &format!("/api/patients/{person}/audit/local"),
+        None,
+    )
+    .await;
+    assert!(local.iter().all(|r| r.entity_id == person));
+    let by_entity: Vec<audit_log::Model> = call(
+        &app,
+        "GET",
+        &format!("/api/audit/entity?entity_type=patient&entity_id={person}"),
+        None,
+    )
+    .await;
+    // Reading a person's audit is itself audited against that person, so the second read sees the first.
+    assert!(by_entity.len() >= local.len());
+    assert!(
+        by_entity
+            .iter()
+            .all(|r| r.entity_id == person && r.entity_type == "patient")
+    );
+}

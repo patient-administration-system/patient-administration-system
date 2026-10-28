@@ -8620,6 +8620,35 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    "ApiResponse_Vec_audit.Entry": {
+      data?: {
+        action: string;
+        /** Format: date-time */
+        at: string;
+        context: unknown;
+        /** Format: uuid */
+        entity_id: string;
+        entity_type: string;
+        /** Format: uuid */
+        id: string;
+        new_value: unknown;
+        old_value: unknown;
+        reason_code: string | null;
+        user_agent: string | null;
+        user_id: string | null;
+        user_ip: string | null;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     "ApiResponse_Vec_list_validation.Campaign": {
       data?: {
         /** @description Items by state (`selected`, `asked`, ...), for the campaign page. */
@@ -11444,6 +11473,23 @@ export interface components {
       prior_visits: number;
       weekday: number[];
     };
+    "audit.Entry": {
+      action: string;
+      /** Format: date-time */
+      at: string;
+      context: unknown;
+      /** Format: uuid */
+      entity_id: string;
+      entity_type: string;
+      /** Format: uuid */
+      id: string;
+      new_value: unknown;
+      old_value: unknown;
+      reason_code: string | null;
+      user_agent: string | null;
+      user_id: string | null;
+      user_ip: string | null;
+    };
     "handlers_clinic_templates.ApproveBody": {
       approved_by: string;
     };
@@ -13522,7 +13568,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_audit.Entry"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13556,7 +13604,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_audit.Entry"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -17623,7 +17673,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_audit.Entry"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
