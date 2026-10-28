@@ -5419,6 +5419,53 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /**
+     * @description A patient billing account.
+     *
+     *     One open account per patient at a time; a new account opens after the
+     *     previous one is closed. Currency is fixed at account creation.
+     */
+    Account: {
+      /**
+       * Format: date-time
+       * @description When the account was closed, if applicable.
+       */
+      closed_at: string | null;
+      /**
+       * Format: date-time
+       * @description Row creation timestamp.
+       */
+      created_at: string;
+      /** @description ISO 4217 currency of all charges/invoices on this account. */
+      currency: components["schemas"]["Iso4217"];
+      /**
+       * Format: uuid
+       * @description Internal account identifier.
+       */
+      id: string;
+      /**
+       * Format: date-time
+       * @description When the account was opened.
+       */
+      opened_at: string;
+      /**
+       * Format: uuid
+       * @description Patient who owns the account.
+       */
+      person_id: string;
+      /** @description Current lifecycle status. */
+      status: components["schemas"]["AccountStatus"];
+      /**
+       * Format: date-time
+       * @description Last update timestamp.
+       */
+      updated_at: string;
+    };
+    /**
+     * @description Lifecycle state of a patient billing [`Account`].
+     * @enum {string}
+     */
+    AccountStatus: "open" | "closed";
     AckBody: {
       acknowledged_by: string;
       note?: string;
@@ -5531,6 +5578,60 @@ export interface components {
     ApiError: {
       code: string;
       message: string;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Account: {
+      /**
+       * @description A patient billing account.
+       *
+       *     One open account per patient at a time; a new account opens after the
+       *     previous one is closed. Currency is fixed at account creation.
+       */
+      data?: {
+        /**
+         * Format: date-time
+         * @description When the account was closed, if applicable.
+         */
+        closed_at: string | null;
+        /**
+         * Format: date-time
+         * @description Row creation timestamp.
+         */
+        created_at: string;
+        /** @description ISO 4217 currency of all charges/invoices on this account. */
+        currency: components["schemas"]["Iso4217"];
+        /**
+         * Format: uuid
+         * @description Internal account identifier.
+         */
+        id: string;
+        /**
+         * Format: date-time
+         * @description When the account was opened.
+         */
+        opened_at: string;
+        /**
+         * Format: uuid
+         * @description Patient who owns the account.
+         */
+        person_id: string;
+        /** @description Current lifecycle status. */
+        status: components["schemas"]["AccountStatus"];
+        /**
+         * Format: date-time
+         * @description Last update timestamp.
+         */
+        updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
     };
     /**
      * @description Envelope for every JSON response from the PAS REST API.
@@ -5889,6 +5990,62 @@ export interface components {
         /** Format: int64 */
         ring_fenced_slots: number;
         service_type: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Charge: {
+      /**
+       * @description A single financial charge posted against an [`Account`].
+       *
+       *     Charges may optionally reference the originating encounter and/or
+       *     appointment. Amounts are externally supplied — no pricing engine.
+       */
+      data?: {
+        /**
+         * Format: uuid
+         * @description Account against which the charge is posted.
+         */
+        account_id: string;
+        /** @description Amount and currency of the charge. */
+        amount: components["schemas"]["Money"];
+        /**
+         * Format: uuid
+         * @description Originating appointment, if any.
+         */
+        appointment_id: string | null;
+        /** @description Billing code (CPT/HCPCS/local). */
+        code: string;
+        /**
+         * Format: date-time
+         * @description Row creation timestamp.
+         */
+        created_at: string;
+        /** @description Human-readable description of the charge. */
+        description: string;
+        /**
+         * Format: uuid
+         * @description Originating encounter, if any.
+         */
+        encounter_id: string | null;
+        /**
+         * Format: uuid
+         * @description Internal charge identifier.
+         */
+        id: string;
+        /**
+         * Format: date-time
+         * @description When the charge was posted.
+         */
+        posted_at: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -6268,6 +6425,57 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Invoice: {
+      /**
+       * @description A snapshot of charges presented to the patient for payment.
+       *
+       *     `total` is the sum of the referenced charges; it is set by the billing
+       *     service when charges are attached and frozen at finalization.
+       */
+      data?: {
+        /**
+         * Format: uuid
+         * @description Account the invoice belongs to.
+         */
+        account_id: string;
+        /** @description Charges included in this invoice. */
+        charge_ids: string[];
+        /**
+         * Format: date-time
+         * @description Row creation timestamp.
+         */
+        created_at: string;
+        /**
+         * Format: date-time
+         * @description When the invoice was finalized, if it has been.
+         */
+        finalized_at: string | null;
+        /**
+         * Format: uuid
+         * @description Internal invoice identifier.
+         */
+        id: string;
+        /** @description Current lifecycle status. */
+        status: components["schemas"]["InvoiceStatus"];
+        /** @description Sum of charges (matching the account's currency). */
+        total: components["schemas"]["Money"];
+        /**
+         * Format: date-time
+         * @description Last update timestamp.
+         */
+        updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_LetterTemplate: {
       data?: {
         active: boolean;
@@ -6471,6 +6679,47 @@ export interface components {
         pathways: components["schemas"]["PathwayWait"][];
         /** Format: uuid */
         person_id: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Payment: {
+      /** @description A payment posted against an [`Invoice`]. */
+      data?: {
+        /** @description Amount tendered. */
+        amount: components["schemas"]["Money"];
+        /**
+         * Format: date-time
+         * @description Row creation timestamp.
+         */
+        created_at: string;
+        /**
+         * Format: uuid
+         * @description Internal payment identifier.
+         */
+        id: string;
+        /**
+         * Format: uuid
+         * @description Invoice the payment is applied to.
+         */
+        invoice_id: string;
+        /** @description How the payment was tendered. */
+        method: components["schemas"]["PaymentMethod"];
+        /**
+         * Format: date-time
+         * @description When the payment was posted.
+         */
+        posted_at: string;
+        /** @description External reference (e.g., transaction id, check number). */
+        reference: string | null;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8729,6 +8978,50 @@ export interface components {
       dims: [string, string][];
       suppressed: boolean;
     };
+    /**
+     * @description A single financial charge posted against an [`Account`].
+     *
+     *     Charges may optionally reference the originating encounter and/or
+     *     appointment. Amounts are externally supplied — no pricing engine.
+     */
+    Charge: {
+      /**
+       * Format: uuid
+       * @description Account against which the charge is posted.
+       */
+      account_id: string;
+      /** @description Amount and currency of the charge. */
+      amount: components["schemas"]["Money"];
+      /**
+       * Format: uuid
+       * @description Originating appointment, if any.
+       */
+      appointment_id: string | null;
+      /** @description Billing code (CPT/HCPCS/local). */
+      code: string;
+      /**
+       * Format: date-time
+       * @description Row creation timestamp.
+       */
+      created_at: string;
+      /** @description Human-readable description of the charge. */
+      description: string;
+      /**
+       * Format: uuid
+       * @description Originating encounter, if any.
+       */
+      encounter_id: string | null;
+      /**
+       * Format: uuid
+       * @description Internal charge identifier.
+       */
+      id: string;
+      /**
+       * Format: date-time
+       * @description When the charge was posted.
+       */
+      posted_at: string;
+    };
     CheckSmsBody: {
       body_tera: string;
       locale?: string | null;
@@ -9258,6 +9551,51 @@ export interface components {
      * @enum {string}
      */
     InterpreterKind: "Spoken" | "Bsl" | "Deafblind";
+    /**
+     * @description A snapshot of charges presented to the patient for payment.
+     *
+     *     `total` is the sum of the referenced charges; it is set by the billing
+     *     service when charges are attached and frozen at finalization.
+     */
+    Invoice: {
+      /**
+       * Format: uuid
+       * @description Account the invoice belongs to.
+       */
+      account_id: string;
+      /** @description Charges included in this invoice. */
+      charge_ids: string[];
+      /**
+       * Format: date-time
+       * @description Row creation timestamp.
+       */
+      created_at: string;
+      /**
+       * Format: date-time
+       * @description When the invoice was finalized, if it has been.
+       */
+      finalized_at: string | null;
+      /**
+       * Format: uuid
+       * @description Internal invoice identifier.
+       */
+      id: string;
+      /** @description Current lifecycle status. */
+      status: components["schemas"]["InvoiceStatus"];
+      /** @description Sum of charges (matching the account's currency). */
+      total: components["schemas"]["Money"];
+      /**
+       * Format: date-time
+       * @description Last update timestamp.
+       */
+      updated_at: string;
+    };
+    /**
+     * @description Lifecycle state of an [`Invoice`].
+     * @enum {string}
+     */
+    InvoiceStatus: "draft" | "finalized" | "paid" | "partially_paid" | "void";
+    Iso4217: string;
     LeadTime: {
       /** Format: uuid */
       appointment_id: string;
@@ -9378,6 +9716,11 @@ export interface components {
      * @enum {string}
      */
     Modality: "in_person" | "video" | "phone";
+    Money: {
+      /** @description A decimal in a string, so no precision is lost. */
+      amount: string;
+      currency: components["schemas"]["Iso4217"];
+    };
     /**
      * @description Body shape for money fields on the wire — keeps the amount as a
      *     string-encoded decimal so JSON-number imprecision can never bite.
@@ -9506,6 +9849,35 @@ export interface components {
       pathways: components["schemas"]["PathwayWait"][];
       /** Format: uuid */
       person_id: string;
+    };
+    /** @description A payment posted against an [`Invoice`]. */
+    Payment: {
+      /** @description Amount tendered. */
+      amount: components["schemas"]["Money"];
+      /**
+       * Format: date-time
+       * @description Row creation timestamp.
+       */
+      created_at: string;
+      /**
+       * Format: uuid
+       * @description Internal payment identifier.
+       */
+      id: string;
+      /**
+       * Format: uuid
+       * @description Invoice the payment is applied to.
+       */
+      invoice_id: string;
+      /** @description How the payment was tendered. */
+      method: components["schemas"]["PaymentMethod"];
+      /**
+       * Format: date-time
+       * @description When the payment was posted.
+       */
+      posted_at: string;
+      /** @description External reference (e.g., transaction id, check number). */
+      reference: string | null;
     };
     /**
      * @description Means by which a [`Payment`] was tendered.
@@ -10621,7 +10993,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Account"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -10656,7 +11030,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Account"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -12558,7 +12934,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Charge"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14867,7 +15245,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Invoice"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -17534,7 +17914,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Payment"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

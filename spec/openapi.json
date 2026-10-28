@@ -1,6 +1,71 @@
 {
   "components": {
     "schemas": {
+      "Account": {
+        "description": "A patient billing account.\n\nOne open account per patient at a time; a new account opens after the\nprevious one is closed. Currency is fixed at account creation.",
+        "properties": {
+          "closed_at": {
+            "description": "When the account was closed, if applicable.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "description": "Row creation timestamp.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/Iso4217",
+            "description": "ISO 4217 currency of all charges/invoices on this account."
+          },
+          "id": {
+            "description": "Internal account identifier.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "opened_at": {
+            "description": "When the account was opened.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "person_id": {
+            "description": "Patient who owns the account.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AccountStatus",
+            "description": "Current lifecycle status."
+          },
+          "updated_at": {
+            "description": "Last update timestamp.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "status",
+          "currency",
+          "opened_at",
+          "closed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "AccountStatus": {
+        "description": "Lifecycle state of a patient billing [`Account`].",
+        "enum": [
+          "open",
+          "closed"
+        ],
+        "type": "string"
+      },
       "AckBody": {
         "properties": {
           "acknowledged_by": {
@@ -369,6 +434,96 @@
         "required": [
           "code",
           "message"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Account": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A patient billing account.\n\nOne open account per patient at a time; a new account opens after the\nprevious one is closed. Currency is fixed at account creation.",
+            "properties": {
+              "closed_at": {
+                "description": "When the account was closed, if applicable.",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created_at": {
+                "description": "Row creation timestamp.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "currency": {
+                "$ref": "#/components/schemas/Iso4217",
+                "description": "ISO 4217 currency of all charges/invoices on this account."
+              },
+              "id": {
+                "description": "Internal account identifier.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "opened_at": {
+                "description": "When the account was opened.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "person_id": {
+                "description": "Patient who owns the account.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "status": {
+                "$ref": "#/components/schemas/AccountStatus",
+                "description": "Current lifecycle status."
+              },
+              "updated_at": {
+                "description": "Last update timestamp.",
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "person_id",
+              "status",
+              "currency",
+              "opened_at",
+              "closed_at",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
         ],
         "type": "object"
       },
@@ -1433,6 +1588,104 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Charge": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A single financial charge posted against an [`Account`].\n\nCharges may optionally reference the originating encounter and/or\nappointment. Amounts are externally supplied — no pricing engine.",
+            "properties": {
+              "account_id": {
+                "description": "Account against which the charge is posted.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "amount": {
+                "$ref": "#/components/schemas/Money",
+                "description": "Amount and currency of the charge."
+              },
+              "appointment_id": {
+                "description": "Originating appointment, if any.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "code": {
+                "description": "Billing code (CPT/HCPCS/local).",
+                "type": "string"
+              },
+              "created_at": {
+                "description": "Row creation timestamp.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "description": {
+                "description": "Human-readable description of the charge.",
+                "type": "string"
+              },
+              "encounter_id": {
+                "description": "Originating encounter, if any.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "description": "Internal charge identifier.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "posted_at": {
+                "description": "When the charge was posted.",
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "account_id",
+              "encounter_id",
+              "appointment_id",
+              "code",
+              "description",
+              "amount",
+              "posted_at",
+              "created_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Confirmed": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -2319,6 +2572,99 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Invoice": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A snapshot of charges presented to the patient for payment.\n\n`total` is the sum of the referenced charges; it is set by the billing\nservice when charges are attached and frozen at finalization.",
+            "properties": {
+              "account_id": {
+                "description": "Account the invoice belongs to.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "charge_ids": {
+                "description": "Charges included in this invoice.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "created_at": {
+                "description": "Row creation timestamp.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "finalized_at": {
+                "description": "When the invoice was finalized, if it has been.",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "description": "Internal invoice identifier.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "status": {
+                "$ref": "#/components/schemas/InvoiceStatus",
+                "description": "Current lifecycle status."
+              },
+              "total": {
+                "$ref": "#/components/schemas/Money",
+                "description": "Sum of charges (matching the account's currency)."
+              },
+              "updated_at": {
+                "description": "Last update timestamp.",
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "account_id",
+              "status",
+              "total",
+              "charge_ids",
+              "finalized_at",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_LetterTemplate": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -2905,6 +3251,89 @@
               "person_id",
               "appointments",
               "pathways"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Payment": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "A payment posted against an [`Invoice`].",
+            "properties": {
+              "amount": {
+                "$ref": "#/components/schemas/Money",
+                "description": "Amount tendered."
+              },
+              "created_at": {
+                "description": "Row creation timestamp.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "id": {
+                "description": "Internal payment identifier.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "invoice_id": {
+                "description": "Invoice the payment is applied to.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "method": {
+                "$ref": "#/components/schemas/PaymentMethod",
+                "description": "How the payment was tendered."
+              },
+              "posted_at": {
+                "description": "When the payment was posted.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "reference": {
+                "description": "External reference (e.g., transaction id, check number).",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "invoice_id",
+              "amount",
+              "method",
+              "reference",
+              "posted_at",
+              "created_at"
             ],
             "type": "object"
           },
@@ -9566,6 +9995,71 @@
         ],
         "type": "object"
       },
+      "Charge": {
+        "description": "A single financial charge posted against an [`Account`].\n\nCharges may optionally reference the originating encounter and/or\nappointment. Amounts are externally supplied — no pricing engine.",
+        "properties": {
+          "account_id": {
+            "description": "Account against which the charge is posted.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money",
+            "description": "Amount and currency of the charge."
+          },
+          "appointment_id": {
+            "description": "Originating appointment, if any.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code": {
+            "description": "Billing code (CPT/HCPCS/local).",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "Row creation timestamp.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "description": "Human-readable description of the charge.",
+            "type": "string"
+          },
+          "encounter_id": {
+            "description": "Originating encounter, if any.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Internal charge identifier.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "posted_at": {
+            "description": "When the charge was posted.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "account_id",
+          "encounter_id",
+          "appointment_id",
+          "code",
+          "description",
+          "amount",
+          "posted_at",
+          "created_at"
+        ],
+        "type": "object"
+      },
       "CheckSmsBody": {
         "properties": {
           "body_tera": {
@@ -10857,6 +11351,80 @@
         ],
         "type": "string"
       },
+      "Invoice": {
+        "description": "A snapshot of charges presented to the patient for payment.\n\n`total` is the sum of the referenced charges; it is set by the billing\nservice when charges are attached and frozen at finalization.",
+        "properties": {
+          "account_id": {
+            "description": "Account the invoice belongs to.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "charge_ids": {
+            "description": "Charges included in this invoice.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "created_at": {
+            "description": "Row creation timestamp.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "finalized_at": {
+            "description": "When the invoice was finalized, if it has been.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Internal invoice identifier.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InvoiceStatus",
+            "description": "Current lifecycle status."
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money",
+            "description": "Sum of charges (matching the account's currency)."
+          },
+          "updated_at": {
+            "description": "Last update timestamp.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "account_id",
+          "status",
+          "total",
+          "charge_ids",
+          "finalized_at",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "InvoiceStatus": {
+        "description": "Lifecycle state of an [`Invoice`].",
+        "enum": [
+          "draft",
+          "finalized",
+          "paid",
+          "partially_paid",
+          "void"
+        ],
+        "type": "string"
+      },
+      "Iso4217": {
+        "type": "string"
+      },
       "LeadTime": {
         "properties": {
           "appointment_id": {
@@ -11150,6 +11718,22 @@
           "phone"
         ],
         "type": "string"
+      },
+      "Money": {
+        "properties": {
+          "amount": {
+            "description": "A decimal in a string, so no precision is lost.",
+            "type": "string"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/Iso4217"
+          }
+        },
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "type": "object"
       },
       "MoneyBody": {
         "description": "Body shape for money fields on the wire — keeps the amount as a\nstring-encoded decimal so JSON-number imprecision can never bite.",
@@ -11528,6 +12112,56 @@
           "person_id",
           "appointments",
           "pathways"
+        ],
+        "type": "object"
+      },
+      "Payment": {
+        "description": "A payment posted against an [`Invoice`].",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money",
+            "description": "Amount tendered."
+          },
+          "created_at": {
+            "description": "Row creation timestamp.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "description": "Internal payment identifier.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "invoice_id": {
+            "description": "Invoice the payment is applied to.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "method": {
+            "$ref": "#/components/schemas/PaymentMethod",
+            "description": "How the payment was tendered."
+          },
+          "posted_at": {
+            "description": "When the payment was posted.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "reference": {
+            "description": "External reference (e.g., transaction id, check number).",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "invoice_id",
+          "amount",
+          "method",
+          "reference",
+          "posted_at",
+          "created_at"
         ],
         "type": "object"
       },
@@ -14906,6 +15540,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Account"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -14942,6 +15583,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Account"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17292,6 +17940,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Charge"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -19671,6 +20326,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Invoice"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -22752,6 +23414,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Payment"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

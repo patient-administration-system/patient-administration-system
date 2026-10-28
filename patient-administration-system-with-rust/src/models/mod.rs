@@ -92,7 +92,7 @@ pub struct ContactPoint {
     pub use_type: Option<ContactPointUse>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct Iso4217(pub String);
 
 impl Iso4217 {
@@ -112,8 +112,10 @@ impl Iso4217 {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Money {
+    /// A decimal in a string, so no precision is lost.
+    #[schema(value_type = String)]
     pub amount: Decimal,
     pub currency: Iso4217,
 }

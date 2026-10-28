@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Lifecycle state of a patient billing [`Account`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountStatus {
     /// Account is open and can receive new charges.
@@ -19,7 +19,7 @@ pub enum AccountStatus {
 }
 
 /// Lifecycle state of an [`Invoice`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum InvoiceStatus {
     /// Invoice is being assembled; charges may be added.
@@ -54,7 +54,7 @@ pub enum PaymentMethod {
 ///
 /// One open account per patient at a time; a new account opens after the
 /// previous one is closed. Currency is fixed at account creation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Account {
     /// Internal account identifier.
     pub id: Uuid,
@@ -67,6 +67,7 @@ pub struct Account {
     /// When the account was opened.
     pub opened_at: DateTime<Utc>,
     /// When the account was closed, if applicable.
+    #[schema(required = true)]
     pub closed_at: Option<DateTime<Utc>>,
     /// Row creation timestamp.
     pub created_at: DateTime<Utc>,
@@ -95,15 +96,17 @@ impl Account {
 ///
 /// Charges may optionally reference the originating encounter and/or
 /// appointment. Amounts are externally supplied — no pricing engine.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Charge {
     /// Internal charge identifier.
     pub id: Uuid,
     /// Account against which the charge is posted.
     pub account_id: Uuid,
     /// Originating encounter, if any.
+    #[schema(required = true)]
     pub encounter_id: Option<Uuid>,
     /// Originating appointment, if any.
+    #[schema(required = true)]
     pub appointment_id: Option<Uuid>,
     /// Billing code (CPT/HCPCS/local).
     pub code: String,
@@ -144,7 +147,7 @@ impl Charge {
 ///
 /// `total` is the sum of the referenced charges; it is set by the billing
 /// service when charges are attached and frozen at finalization.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Invoice {
     /// Internal invoice identifier.
     pub id: Uuid,
@@ -157,6 +160,7 @@ pub struct Invoice {
     /// Charges included in this invoice.
     pub charge_ids: Vec<Uuid>,
     /// When the invoice was finalized, if it has been.
+    #[schema(required = true)]
     pub finalized_at: Option<DateTime<Utc>>,
     /// Row creation timestamp.
     pub created_at: DateTime<Utc>,
@@ -198,7 +202,7 @@ impl Invoice {
 }
 
 /// A payment posted against an [`Invoice`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Payment {
     /// Internal payment identifier.
     pub id: Uuid,
@@ -209,6 +213,7 @@ pub struct Payment {
     /// How the payment was tendered.
     pub method: PaymentMethod,
     /// External reference (e.g., transaction id, check number).
+    #[schema(required = true)]
     pub reference: Option<String>,
     /// When the payment was posted.
     pub posted_at: DateTime<Utc>,

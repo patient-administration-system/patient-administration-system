@@ -1319,6 +1319,70 @@ async fn the_session_template_routes_send_the_types_they_declare() {
     }
 }
 
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_billing_routes_send_the_types_they_declare() {
+    use patient_administration_system::models::billing::{
+        Account, AccountStatus, Charge, Invoice, InvoiceStatus, Payment,
+    };
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state);
+    let account: Account = call(
+        &app,
+        "POST",
+        "/api/accounts",
+        Some(json!({ "person_id": Uuid::new_v4(), "currency": "GBP" })),
+    )
+    .await;
+    assert_eq!(account.status, AccountStatus::Open);
+    let charge: Charge = call(
+        &app,
+        "POST",
+        "/api/charges",
+        Some(json!({
+            "account_id": account.id,
+            "code": "OPA01",
+            "description": "Outpatient appointment",
+            "amount_value": "12.50",
+            "amount_currency": "GBP",
+        })),
+    )
+    .await;
+    assert_eq!(charge.amount.currency.0, "GBP");
+    let invoice: Invoice = call(
+        &app,
+        "POST",
+        "/api/invoices",
+        Some(json!({ "account_id": account.id, "charge_ids": [charge.id] })),
+    )
+    .await;
+    assert_eq!(invoice.status, InvoiceStatus::Finalized);
+    assert_eq!(invoice.charge_ids, vec![charge.id]);
+    let payment: Payment = call(
+        &app,
+        "POST",
+        "/api/payments",
+        Some(json!({
+            "invoice_id": invoice.id,
+            "amount_value": "12.50",
+            "amount_currency": "GBP",
+            "method": "card",
+        })),
+    )
+    .await;
+    assert_eq!(payment.invoice_id, invoice.id);
+    let closed: Account = call(
+        &app,
+        "POST",
+        &format!("/api/accounts/{}/close", account.id),
+        None,
+    )
+    .await;
+    assert_eq!(closed.status, AccountStatus::Closed);
+    assert!(closed.closed_at.is_some());
+}
+
 /// A success that has nothing to return: `data` must be `null`, as `Nothing` declares.
 async fn call_nothing(app: &axum::Router, method: &str, uri: &str, body: Option<Value>) {
     let bytes = send(app, method, uri, body).await;
