@@ -148,7 +148,14 @@ async fn the_in_facility_list_shows_minutes_waiting_longest_first_and_drops_the_
         .unwrap();
     s.scheduling.complete(gone.id, &staff()).await.unwrap();
 
-    let list = s.scheduling.in_facility().await.unwrap();
+    let list: Vec<serde_json::Value> = s
+        .scheduling
+        .in_facility()
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|e| serde_json::to_value(e).unwrap())
+        .collect();
     let ours: Vec<&serde_json::Value> = list
         .iter()
         .filter(|e| {

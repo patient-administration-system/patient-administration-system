@@ -2,6 +2,7 @@
 
 pub mod series;
 
+pub use attendance::InFacility;
 pub use series::{
     CreateSeriesInput, CreateSeriesResult, PreviewResult, SeriesService, SeriesWithOccurrences,
 };

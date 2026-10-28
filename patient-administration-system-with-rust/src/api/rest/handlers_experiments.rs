@@ -23,6 +23,12 @@ pub struct StartBody {
     pub started_by: String,
 }
 
+/// The experiment that was started.
+#[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Started {
+    pub id: Uuid,
+}
+
 /// `POST /api/experiments`: compare wordings of one message. Each variant must be a complete template group.
 #[utoipa::path(
     post,
@@ -30,7 +36,7 @@ pub struct StartBody {
     tag = "Experiments",
     request_body = StartBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Started>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -50,7 +56,7 @@ pub async fn start(
         )
         .await
     {
-        Ok(id) => ok(serde_json::json!({ "id": id })),
+        Ok(id) => ok_json(Started { id }),
         Err(e) => error_to_response(e),
     }
 }
@@ -61,7 +67,7 @@ pub async fn start(
     path = "/api/experiments",
     tag = "Experiments",
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::experiments::Experiment>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -120,7 +126,7 @@ pub struct ReadoutQuery {
     tag = "Experiments",
     params(("id" = String, Path, description = "Path parameter `id`"), ReadoutQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::experiments::Readout>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )

@@ -2,6 +2,18 @@
 
 use super::*;
 
+/// Someone who has arrived and not been completed.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct InFacility {
+    pub appointment_id: Uuid,
+    pub person_id: Uuid,
+    #[schema(required = true)]
+    pub room: Option<String>,
+    pub arrived_at: DateTime<Utc>,
+    pub appointment_start: DateTime<Utc>,
+    pub waiting_minutes: i64,
+}
+
 impl SchedulingService {
     /// Record the barrier for an appointment that has already ended in a cancellation or a miss,
     /// for example after a welfare call. Refused for an appointment that is still to happen.
@@ -99,7 +111,7 @@ impl SchedulingService {
 
     /// Everyone who has arrived and not yet been completed, longest waiting first, with the minutes
     /// they have been in the facility (CORE-4).
-    pub async fn in_facility(&self) -> Result<Vec<serde_json::Value>> {
+    pub async fn in_facility(&self) -> Result<Vec<InFacility>> {
         let rows = self
             .db
             .query_all_raw(Statement::from_string(
@@ -114,14 +126,20 @@ impl SchedulingService {
             .map_err(Error::Database)?;
         rows.iter()
             .map(|r| {
-                Ok(serde_json::json!({
-                    "appointment_id": r.col::<Uuid>("id")?,
-                    "person_id": r.col::<Uuid>("person_id")?,
-                    "room": r.try_get::<Option<String>>("", "current_room").map_err(Error::Database)?,
-                    "arrived_at": r.try_get::<DateTime<Utc>>("", "arrived_at").map_err(Error::Database)?,
-                    "appointment_start": r.try_get::<DateTime<Utc>>("", "start_datetime").map_err(Error::Database)?,
-                    "waiting_minutes": r.col::<i64>("waiting_minutes")?.max(0),
-                }))
+                Ok(InFacility {
+                    appointment_id: r.col::<Uuid>("id")?,
+                    person_id: r.col::<Uuid>("person_id")?,
+                    room: r
+                        .try_get::<Option<String>>("", "current_room")
+                        .map_err(Error::Database)?,
+                    arrived_at: r
+                        .try_get::<DateTime<Utc>>("", "arrived_at")
+                        .map_err(Error::Database)?,
+                    appointment_start: r
+                        .try_get::<DateTime<Utc>>("", "start_datetime")
+                        .map_err(Error::Database)?,
+                    waiting_minutes: r.col::<i64>("waiting_minutes")?.max(0),
+                })
             })
             .collect()
     }

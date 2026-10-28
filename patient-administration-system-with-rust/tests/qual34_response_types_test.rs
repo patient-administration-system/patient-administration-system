@@ -1762,3 +1762,20 @@ async fn the_analytics_routes_send_the_types_they_declare() {
     let loaded = envelope.data.unwrap();
     assert_eq!((loaded.loaded, loaded.rejected), (1, 1));
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_follow_up_experiment_and_facility_lists_send_the_types_they_declare() {
+    use patient_administration_system::experiments::Experiment;
+    use patient_administration_system::follow_up::{Policy, Task};
+    use patient_administration_system::scheduling::InFacility;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+
+    let policies: Vec<Policy> = call(&app, "GET", "/api/follow-up-policies", None).await;
+    let _tasks: Vec<Task> = call(&app, "GET", "/api/follow-up-tasks/open?limit=20", None).await;
+    let _experiments: Vec<Experiment> = call(&app, "GET", "/api/experiments", None).await;
+    let _here: Vec<InFacility> = call(&app, "GET", "/api/facility/in-facility", None).await;
+    assert!(policies.iter().all(|p| !p.service_type.is_empty()));
+}

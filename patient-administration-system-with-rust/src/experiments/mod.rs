@@ -95,31 +95,37 @@ pub async fn resolve_name<C: ConnectionTrait>(
     Ok(name)
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Experiment {
     pub id: Uuid,
     pub template_name: String,
     pub variants: Vec<(String, String)>,
     pub started_by: String,
     pub started_at: DateTime<Utc>,
+    #[schema(required = true)]
     pub stopped_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct ReadoutCell {
     pub variant: String,
     pub deprivation_quintile: String,
     pub language: String,
+    #[schema(required = true)]
     pub assigned: Option<i64>,
+    #[schema(required = true)]
     pub confirmed: Option<i64>,
+    #[schema(required = true)]
     pub attended: Option<i64>,
+    #[schema(required = true)]
     pub did_not_attend: Option<i64>,
     /// attended / (attended + did not attend), to three places, over appointments whose outcome is known.
+    #[schema(required = true)]
     pub attendance_rate: Option<f64>,
     pub suppressed: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Readout {
     pub experiment_id: Uuid,
     pub k: i64,

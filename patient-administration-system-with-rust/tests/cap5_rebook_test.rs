@@ -432,7 +432,9 @@ async fn the_http_endpoints_offer_and_rebook() {
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
-    let offer = v["data"]["offer_id"].as_str().unwrap().to_string();
+    let made: patient_administration_system::rebooking::Offer =
+        serde_json::from_value(v["data"].clone()).unwrap();
+    let offer = made.offer_id.unwrap().to_string();
     assert_eq!(v["data"]["options"][0]["slot_id"], a.id.to_string());
 
     let (st, _) = call(
@@ -449,7 +451,9 @@ async fn the_http_endpoints_offer_and_rebook() {
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
-    assert_eq!(v["data"]["new"]["slot_id"], a.id.to_string());
+    let done: patient_administration_system::api::rest::handlers_scheduling::Rebooked =
+        serde_json::from_value(v["data"].clone()).unwrap();
+    assert_eq!(done.new.slot_id, Some(a.id));
     let (st, _) = call(
         "POST",
         format!("/api/appointments/{}/rebook", w.appt.id),

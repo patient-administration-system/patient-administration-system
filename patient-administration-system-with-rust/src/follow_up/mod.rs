@@ -117,14 +117,14 @@ pub(crate) async fn on_no_show<C: ConnectionTrait>(
     Ok(())
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Policy {
     pub service_type: String,
     pub approved_by: String,
     pub approved_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Task {
     pub id: Uuid,
     pub appointment_id: Uuid,

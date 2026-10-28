@@ -452,8 +452,13 @@ async fn the_http_endpoints_start_list_read_out_and_stop() {
     assert_eq!(st, StatusCode::BAD_REQUEST);
     let (st, v) = call("POST", "/api/experiments".into(), Some(serde_json::json!({ "template_name": name, "variants": { "A": a, "B": b }, "started_by": "Dr A" }))).await;
     assert_eq!(st, StatusCode::OK, "{v}");
-    let id = v["data"]["id"].as_str().unwrap().to_string();
+    let started: patient_administration_system::api::rest::handlers_experiments::Started =
+        serde_json::from_value(v["data"].clone()).unwrap();
+    let id = started.id.to_string();
     let (_, v) = call("GET", "/api/experiments".into(), None).await;
+    let listed: Vec<patient_administration_system::experiments::Experiment> =
+        serde_json::from_value(v["data"].clone()).unwrap();
+    assert!(listed.iter().any(|e| e.id == started.id));
     assert!(
         v["data"]
             .as_array()
@@ -462,6 +467,9 @@ async fn the_http_endpoints_start_list_read_out_and_stop() {
             .any(|e| e["id"] == id.as_str())
     );
     let (st, v) = call("GET", format!("/api/experiments/{id}/readout"), None).await;
+    let readout: patient_administration_system::experiments::Readout =
+        serde_json::from_value(v["data"].clone()).unwrap();
+    assert_eq!(readout.experiment_id, started.id);
     assert_eq!(
         (st, v["data"]["total_assigned"].as_i64()),
         (StatusCode::OK, Some(0))

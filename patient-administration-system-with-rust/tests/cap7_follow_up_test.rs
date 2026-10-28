@@ -320,6 +320,9 @@ async fn the_http_endpoints_list_policies_and_close_tasks() {
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
+    let policy: patient_administration_system::follow_up::Policy =
+        serde_json::from_value(v["data"].clone()).unwrap();
+    assert_eq!(policy.service_type, w.service);
 
     let a = w.book(Uuid::new_v4()).await;
     w.s.scheduling.mark_no_show(a.id, &sys()).await.unwrap();

@@ -34,18 +34,20 @@ use crate::{Error, Result};
 /// How many alternatives to offer.
 pub const OFFER_SIZE: usize = 3;
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema, PartialEq, Eq)]
 pub struct OfferedSlot {
     pub slot_id: Uuid,
     pub starts_at: DateTime<Utc>,
     pub ends_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Offer {
     /// `None` when there was nothing to offer; the caller then hands the patient to a person.
+    #[schema(required = true)]
     pub offer_id: Option<Uuid>,
     pub appointment_id: Uuid,
+    #[schema(required = true)]
     pub expires_at: Option<DateTime<Utc>>,
     pub time_zone: String,
     pub options: Vec<OfferedSlot>,

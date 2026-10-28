@@ -7,12 +7,11 @@ use axum::{
     http::HeaderMap,
 };
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
-use crate::api::rest::handlers::{audit_ctx, ok, ok_json};
+use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -221,14 +220,14 @@ pub async fn move_to_room(
     path = "/api/facility/in-facility",
     tag = "Facility",
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::scheduling::InFacility>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
 )]
 pub async fn in_facility(State(state): State<AppState>) -> HandlerResult {
     match state.scheduling.in_facility().await {
-        Ok(v) => ok(Value::Array(v)),
+        Ok(v) => ok_json(v),
         Err(e) => error_to_response(e),
     }
 }
@@ -345,7 +344,7 @@ pub async fn mark_no_show(
     tag = "Appointments",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::rebooking::Offer>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -358,6 +357,13 @@ pub async fn rebook_options(
         Ok(o) => ok_json(o),
         Err(e) => error_to_response(e),
     }
+}
+
+/// The appointment that was released and the one that replaced it.
+#[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Rebooked {
+    pub old: crate::models::appointment::Appointment,
+    pub new: crate::models::appointment::Appointment,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -376,7 +382,7 @@ pub struct RebookBody {
     params(("id" = String, Path, description = "Path parameter `id`")),
     request_body = RebookBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Rebooked>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -393,7 +399,7 @@ pub async fn rebook_appointment(
         .choose(appointment_id, body.offer_id, body.slot_id, &ctx)
         .await
     {
-        Ok((old, new)) => ok(serde_json::json!({ "old": old, "new": new })),
+        Ok((old, new)) => ok_json(Rebooked { old, new }),
         Err(e) => error_to_response(e),
     }
 }

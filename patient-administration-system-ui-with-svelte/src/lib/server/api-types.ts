@@ -6770,6 +6770,31 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Offer: {
+      data?: {
+        /** Format: uuid */
+        appointment_id: string;
+        /** Format: date-time */
+        expires_at: string | null;
+        /**
+         * Format: uuid
+         * @description `None` when there was nothing to offer; the caller then hands the patient to a person.
+         */
+        offer_id: string | null;
+        options: components["schemas"]["OfferedSlot"][];
+        time_zone: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_OfferInfo: {
       /** @description What the offer page may show: the time and nothing about the service or anyone else. */
       data?: {
@@ -6875,6 +6900,24 @@ export interface components {
         posted_at: string;
         /** @description External reference (e.g., transaction id, check number). */
         reference: string | null;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Policy: {
+      data?: {
+        /** Format: date-time */
+        approved_at: string;
+        approved_by: string;
+        service_type: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7037,6 +7080,45 @@ export interface components {
       data?: {
         /** Format: uuid */
         id: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Readout: {
+      data?: {
+        cells: components["schemas"]["ReadoutCell"][];
+        /** Format: uuid */
+        experiment_id: string;
+        /** Format: int64 */
+        k: number;
+        suppressed_cells: number;
+        /** Format: int64 */
+        total_assigned: number;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Rebooked: {
+      /** @description The appointment that was released and the one that replaced it. */
+      data?: {
+        new: components["schemas"]["Appointment"];
+        old: components["schemas"]["Appointment"];
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -7437,6 +7519,23 @@ export interface components {
         short_notice_ok: boolean;
         /** Format: date-time */
         updated_at: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Started: {
+      /** @description The experiment that was started. */
+      data?: {
+        /** Format: uuid */
+        id: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8177,6 +8276,29 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_Experiment: {
+      data?: {
+        /** Format: uuid */
+        id: string;
+        /** Format: date-time */
+        started_at: string;
+        started_by: string;
+        /** Format: date-time */
+        stopped_at: string | null;
+        template_name: string;
+        variants: [string, string][];
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_Facility: {
       data?: {
         active: boolean;
@@ -8264,6 +8386,31 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_InFacility: {
+      data?: {
+        /** Format: uuid */
+        appointment_id: string;
+        /** Format: date-time */
+        appointment_start: string;
+        /** Format: date-time */
+        arrived_at: string;
+        /** Format: uuid */
+        person_id: string;
+        room: string | null;
+        /** Format: int64 */
+        waiting_minutes: number;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_LetterTemplate: {
       data?: {
         active: boolean;
@@ -8301,6 +8448,24 @@ export interface components {
         /** Format: date-time */
         opted_out_at: string | null;
         source: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_Policy: {
+      data?: {
+        /** Format: date-time */
+        approved_at: string;
+        approved_by: string;
+        service_type: string;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8520,6 +8685,32 @@ export interface components {
         /** Format: uuid */
         person_id: string;
         reason_code: string | null;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    ApiResponse_Vec_Task: {
+      data?: {
+        /** Format: uuid */
+        appointment_id: string;
+        /** Format: date-time */
+        appointment_start: string;
+        /** Format: date-time */
+        due_at: string;
+        /** Format: uuid */
+        id: string;
+        overdue: boolean;
+        /** Format: uuid */
+        person_id: string;
+        service_type: string;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -10005,6 +10196,17 @@ export interface components {
       k: number;
       model_version: string;
     };
+    Experiment: {
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      started_at: string;
+      started_by: string;
+      /** Format: date-time */
+      stopped_at: string | null;
+      template_name: string;
+      variants: [string, string][];
+    };
     ExportBody: {
       created_by: string;
       /** @description `csv` for the mail house's file; JSON otherwise. */
@@ -10243,6 +10445,20 @@ export interface components {
       /** @description `audit`, `message`, `reply`, `text` or `reminder_step`. */
       kind: string | null;
       reason_code: string | null;
+    };
+    /** @description Someone who has arrived and not been completed. */
+    InFacility: {
+      /** Format: uuid */
+      appointment_id: string;
+      /** Format: date-time */
+      appointment_start: string;
+      /** Format: date-time */
+      arrived_at: string;
+      /** Format: uuid */
+      person_id: string;
+      room: string | null;
+      /** Format: int64 */
+      waiting_minutes: number;
     };
     InboundOutcome: {
       /** Format: uuid */
@@ -10506,6 +10722,19 @@ export interface components {
      * @default null
      */
     Nothing: unknown;
+    Offer: {
+      /** Format: uuid */
+      appointment_id: string;
+      /** Format: date-time */
+      expires_at: string | null;
+      /**
+       * Format: uuid
+       * @description `None` when there was nothing to offer; the caller then hands the patient to a person.
+       */
+      offer_id: string | null;
+      options: components["schemas"]["OfferedSlot"][];
+      time_zone: string;
+    };
     /** @description What the offer page may show: the time and nothing about the service or anyone else. */
     OfferInfo: {
       actions: string[];
@@ -10533,6 +10762,14 @@ export interface components {
      * @enum {string}
      */
     OfferStatus: "accepted" | "declined" | "gone";
+    OfferedSlot: {
+      /** Format: date-time */
+      ends_at: string;
+      /** Format: uuid */
+      slot_id: string;
+      /** Format: date-time */
+      starts_at: string;
+    };
     OpenAccountBody: {
       currency: string;
       /** Format: uuid */
@@ -10649,6 +10886,12 @@ export interface components {
      * @enum {string}
      */
     PaymentMethod: "cash" | "card" | "bank_transfer" | "insurance" | "other";
+    Policy: {
+      /** Format: date-time */
+      approved_at: string;
+      approved_by: string;
+      service_type: string;
+    };
     PostChargeBody: components["schemas"]["MoneyBody"] & {
       /** Format: uuid */
       account_id: string;
@@ -10869,11 +11112,45 @@ export interface components {
       /** Format: double */
       value: number | null;
     };
+    Readout: {
+      cells: components["schemas"]["ReadoutCell"][];
+      /** Format: uuid */
+      experiment_id: string;
+      /** Format: int64 */
+      k: number;
+      suppressed_cells: number;
+      /** Format: int64 */
+      total_assigned: number;
+    };
+    ReadoutCell: {
+      /** Format: int64 */
+      assigned: number | null;
+      /**
+       * Format: double
+       * @description attended / (attended + did not attend), to three places, over appointments whose outcome is known.
+       */
+      attendance_rate: number | null;
+      /** Format: int64 */
+      attended: number | null;
+      /** Format: int64 */
+      confirmed: number | null;
+      deprivation_quintile: string;
+      /** Format: int64 */
+      did_not_attend: number | null;
+      language: string;
+      suppressed: boolean;
+      variant: string;
+    };
     RebookBody: {
       /** Format: uuid */
       offer_id: string;
       /** Format: uuid */
       slot_id: string;
+    };
+    /** @description The appointment that was released and the one that replaced it. */
+    Rebooked: {
+      new: components["schemas"]["Appointment"];
+      old: components["schemas"]["Appointment"];
     };
     /** @description How many appointments the recalculation assessed. */
     Recalculated: {
@@ -11343,6 +11620,11 @@ export interface components {
       service_type: string;
       short_notice_ok?: boolean;
     };
+    /** @description The experiment that was started. */
+    Started: {
+      /** Format: uuid */
+      id: string;
+    };
     StopBody: {
       stopped_by: string;
     };
@@ -11393,6 +11675,20 @@ export interface components {
       set_by: string;
       /** Format: date */
       target_date: string;
+    };
+    Task: {
+      /** Format: uuid */
+      appointment_id: string;
+      /** Format: date-time */
+      appointment_start: string;
+      /** Format: date-time */
+      due_at: string;
+      /** Format: uuid */
+      id: string;
+      overdue: boolean;
+      /** Format: uuid */
+      person_id: string;
+      service_type: string;
     };
     /** @description The template that was started. */
     TemplateCreated: {
@@ -13545,7 +13841,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Rebooked"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -13580,7 +13878,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Offer"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14643,7 +14943,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Experiment"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14679,7 +14981,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Started"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14715,7 +15019,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Readout"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14934,7 +15240,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_InFacility"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -14966,7 +15274,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Policy"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15005,7 +15315,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Policy"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -15039,7 +15351,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Task"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
