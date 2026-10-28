@@ -7,6 +7,32 @@ use axum::{
 
 use crate::api::rest::AppState;
 
+/// FHIR media type for R5 JSON (`fhirVersion` is optional in the specification; sent so a client can tell the
+/// release without reading the body).
+pub const R5_CONTENT_TYPE: &str = "application/fhir+json; fhirVersion=5.0";
+
+/// The handlers answer with `Json(..)`, which is `application/json`. FHIR servers answer `application/fhir+json`
+/// (QUAL-39). The R4 routes set their own type and are left alone, as are non-JSON replies.
+async fn fhir_media_type(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let r4 = req.uri().path().starts_with("/fhir/r4/");
+    let mut res = next.run(req).await;
+    if !r4
+        && res
+            .headers()
+            .get(axum::http::header::CONTENT_TYPE)
+            .is_some_and(|v| v == "application/json")
+    {
+        res.headers_mut().insert(
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static(R5_CONTENT_TYPE),
+        );
+    }
+    res
+}
+
 /// Build the FHIR R5 sub-router and attach the shared [`AppState`].
 pub fn router(state: AppState) -> Router {
     Router::new()
@@ -91,5 +117,6 @@ pub fn router(state: AppState) -> Router {
             state.clone(),
             crate::api::rest::read_audit::read_audit_middleware,
         ))
+        .layer(axum::middleware::from_fn(fhir_media_type))
         .with_state(state)
 }

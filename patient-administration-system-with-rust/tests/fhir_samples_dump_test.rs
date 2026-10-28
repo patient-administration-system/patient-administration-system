@@ -1,4 +1,4 @@
-//! Writes real responses of the R4 routes to files so the official HL7 validator can check them
+//! Writes real responses of the R4 and R5 routes to files so the official HL7 validator can check them
 //! (`scripts/validate-fhir.sh`). Does nothing unless `PAS_DUMP_DIR` names a directory. Needs PostgreSQL:
 //! `PAS_DUMP_DIR=/some/dir HOSTNAME=pas cargo test --test fhir_samples_dump_test -- --ignored`.
 
@@ -267,4 +267,66 @@ async fn dump_wales_r4_reads_for_the_validator() {
         .unwrap();
     assert_eq!(res.status(), 404);
     assert_eq!(body(res).await["resourceType"], "OperationOutcome");
+}
+
+/// The R5 routes: the CapabilityStatement and a read of each resource type that works by id.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn dump_r5_reads_for_the_validator() {
+    use patient_administration_system::db::repositories::encounter::EncounterRepository;
+    use patient_administration_system::models::encounter::{Encounter, EncounterClass};
+
+    let Ok(dir) = std::env::var("PAS_DUMP_DIR") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let ctx = UserContext::system();
+    let person = Uuid::new_v4();
+
+    let sched = common::new_schedule(&state.db).await;
+    let slot = common::free_slot(&state.db, sched.id, 20).await;
+    let appt = state
+        .scheduling
+        .book_slot(slot.id, person, &ctx)
+        .await
+        .unwrap();
+    let mut enc = Encounter::new(person, EncounterClass::Outpatient);
+    enc.worker_id = Some(Uuid::new_v4());
+    enc.reason = Some("follow-up of knee pain".into());
+    let enc = EncounterRepository::create(&state.db, &enc).await.unwrap();
+
+    let app = fhir_router(state.clone());
+    let res = app
+        .clone()
+        .oneshot(Request::get("/fhir/metadata").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert!(res.status().is_success());
+    write(&dir, "r5-metadata.json", &body(res).await);
+
+    for (kind, id) in [
+        ("Appointment", appt.id),
+        ("Encounter", enc.id),
+        ("Slot", slot.id),
+        ("Schedule", sched.id),
+    ] {
+        let res = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/fhir/{kind}/{id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(res.status().is_success(), "{kind}");
+        let ctype = res.headers()["content-type"].to_str().unwrap().to_string();
+        assert!(ctype.contains("fhirVersion=5.0"), "{ctype}");
+        let v = body(res).await;
+        assert_eq!(v["resourceType"], kind);
+        assert_eq!(v["id"], id.to_string());
+        write(&dir, &format!("r5-{kind}.json"), &v);
+    }
 }
