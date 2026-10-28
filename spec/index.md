@@ -25,7 +25,7 @@
 | 17 | [References](17-references.md) |
 | 18 | [Change control](18-change-control.md) |
 
-Cross-cutting chapters: [Locales](locales.md).
+Cross-cutting chapters: [Locales](locales.md). Safety: [Hazards, who may remove one and on what evidence](hazard/index.md).
 
 Per-subproject detail:
 

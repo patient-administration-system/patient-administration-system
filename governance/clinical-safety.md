@@ -23,5 +23,7 @@ Scope: an administrative system whose events (admissions, bed status, appointmen
 
 How this log lines up with the ISO 14971 process, and what that process would still need: [`risk-management-iso-14971.md`](risk-management-iso-14971.md).
 
+Who may close a hazard, and on what evidence: [`spec/hazard/index.md`](../spec/hazard/index.md). Until a CSO is named, none can be closed.
+
 ## Process still required
 Name a CSO; agree a risk-scoring scheme; review and score the above; add hazards from clinicians; produce the Clinical Safety Case Report; keep the log under change control.

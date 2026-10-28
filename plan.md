@@ -235,3 +235,20 @@ The Wong-Baker FACES® Pain Rating Scale is a self-report tool: six cartoon face
 **Not proposed.** A pain-scale widget or score capture in the SvelteKit UI (clinical record territory, licence, clinical safety under DTAC-1); embedding the images or any recolouring; a pain trend chart; using FACES for patient satisfaction or mood on reminders or portal pages (the licence forbids use for emotion, mood or comfort, and it would tempt a "smiley" survey; any experience survey needs a different instrument).
 
 **Order.** NEW-26 (a vocabulary check, small) when NEW-6 is next touched; NEW-27 is a written decision, not code, and only if a consumer asks.
+
+## 13. Hazard closure: research and assessment 2026-10-28
+
+The request: only the Clinical Safety Officer can remove a hazard, and must put in evidence that it has been removed. The rule, reworded, is in [`spec/hazard/index.md`](spec/hazard/index.md). The assessment:
+
+- **Right in substance.** Secondary summaries of DCB0129 say the CSO approves hazard assessments and risk acceptability, that each hazard is re-scored after controls, and that entries trace to the requirement, design decision, test or code change behind each control. Evidence-before-closure is the same idea. Sources (commentary, not the standard; check against it): <https://presencis.com/regulations/dcb0129/article-hazard-log/>, <https://presencis.com/regulations/dcb0129/article-risk-evaluation/>, and the standard itself, <https://digital.nhs.uk/data-and-information/information-standards/governance/latest-activity/standards-and-collections/dcb0129-clinical-risk-management-its-application-in-the-manufacture-of-health-it-systems>.
+- **Wording changed.** The role is the *Clinical* Safety Officer; the rule says *close*, not *remove*, because a log that loses rows cannot show what was known at the time of an incident.
+- **"Removed" has four meanings** (eliminated, controlled, accepted, not applicable), each needing different evidence. Treating them as one is how a hazard gets "removed" while the risk stays.
+- **A single approver is a risk, not only a control.** The CSO is the only person who may close, but should not be the only person who checks. The repository already uses proposer-differs-from-approver for templates, no-show reviews and validation decisions; the same pattern applies. A CSO who wrote the control gets a second clinician.
+- **Evidence has to outlast the link.** Commit hash, test name with CI run, content hash for documents; never edited, only corrected by a later entry.
+- **Cumulative risk.** Many acceptable risks can add up to an unacceptable whole; the case report must consider the total.
+- **No CSO today, so nothing can close.** That is the right failure. SAFE-1 is a person and a decision, and it gates the rest.
+- **Where the register should live is open.** In git it has history and review for free. In the database (SAFE-4) it needs a CSO role claim, append-only events and its own tests, and it would put a safety document inside the system it describes. Recommendation: do SAFE-1 to SAFE-3 and SAFE-5 first and decide on SAFE-4 only if a CSO asks for it.
+
+**Not proposed.** A route that lets any administrator close a hazard "on the CSO's behalf"; a closure with a free-text "see ticket" as the only evidence; automatic closure when a linked test passes (a passing test is evidence, not a clinical judgement); scoring likelihood and severity in code (a clinician's job).
+
+**Order.** SAFE-1 (a person), then SAFE-2 and SAFE-3, then SAFE-5 and SAFE-6, and SAFE-4 only on request.
