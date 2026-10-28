@@ -3,6 +3,7 @@
 // page: no stack trace, no SQL, no secret, no uncaught exception in the browser, no hang. When the API recovers,
 // so do the pages. A random mode picks a fault per request from a seed (`CHAOS_SEED`, default 1) so a failing run
 // can be repeated.
+import { randomBytes } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { keycloakLogin } from "./support/login";
 import { MOCK_URL } from "./support/ports";
@@ -17,6 +18,11 @@ const STAFF_PAGES = [
   "/tolerances",
   "/admin/reminders",
 ];
+// Every page lives in one of these four lists; `tests/unit/error-page-coverage.test.ts` reads them and fails
+// on a page that is in none.
+const PATIENT_PAGES = ["/my/appointments", "/my/messages"];
+// Public: no sign-in. `[token]` is replaced by a fresh link token (the mock accepts any 64 hex digits).
+const PUBLIC_PAGES = ["/signin", "/r/[token]", "/o/[token]"];
 const MODES = ["500", "garbage", "html", "empty", "wrongshape", "null"];
 const LEAKS = [
   "hunter2",
@@ -84,11 +90,28 @@ test("a patient's pages fail cleanly too", async ({ page, request }) => {
   await keycloakLogin(page, "patient");
   for (const mode of MODES) {
     await setChaos(request, mode);
-    for (const path of ["/my/appointments", "/my/messages"]) {
+    for (const path of PATIENT_PAGES) {
       await page.goto(`/en-001${path}`, { timeout: 20_000 });
       const html = await page.content();
       for (const leak of LEAKS) expect(html, `${path} (${mode}) leaks "${leak}"`).not.toContain(leak);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     }
   }
+});
+
+test("the public pages, sign-in and the two link pages, fail cleanly too", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const uncaught: string[] = [];
+  page.on("pageerror", (e) => uncaught.push(e.message));
+  for (const mode of [...MODES, "random"]) {
+    await setChaos(request, mode);
+    for (const route of PUBLIC_PAGES) {
+      const path = route.replace("[token]", randomBytes(32).toString("hex"));
+      await page.goto(`/en-001${path}`, { timeout: 20_000 });
+      const html = await page.content();
+      for (const leak of LEAKS) expect(html, `${route} (${mode}) leaks "${leak}"`).not.toContain(leak);
+      await expect(page.getByRole("heading", { level: 1 }), `${route} (${mode}) has no heading`).toBeVisible();
+    }
+  }
+  expect(uncaught, "uncaught exceptions in the browser").toEqual([]);
 });
