@@ -54,7 +54,7 @@ submission, an attestation, or legal advice, and nobody has audited it.
 
 | Code | Answer | Status |
 |---|---|---|
-| C1.1.1 | **No**, as an engineering judgement. The system administers records and schedules. It computes no diagnosis, dose, triage or risk score that drives care. *Not formally determined by a clinician or regulator.* A future no-show risk score (see `plan.md`) would need this re-asked | Unable to confirm |
+| C1.1.1 | **No**, as an engineering judgement. The system administers records and schedules. It computes no diagnosis, dose, triage or risk score that drives care. *Not formally determined by a clinician or regulator* (the regulator for medical devices is the [MHRA](https://www.gov.uk/government/organisations/medicines-and-healthcare-products-regulatory-agency)). A future no-show risk score (see `plan.md`) would need this re-asked | Unable to confirm |
 | C1.1.2 | No | Not applicable |
 | C1.2 | **Yes, probably.** Admission, transfer, discharge, bed status and appointment events feed clinical systems in near real time (HL7 v2 and an event stream), and a wrong bed or appointment is a patient-safety hazard | Unable to confirm |
 | C1.2.2 | **No** | Not met |
