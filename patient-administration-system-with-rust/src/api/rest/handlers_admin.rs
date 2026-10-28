@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::Error;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
-use crate::api::rest::handlers::{audit_ctx, ok};
+use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::AuditLogRepository;
 use crate::db::repositories::outbox::{DeadLetterRepository, OutboxRepository};
@@ -21,6 +21,13 @@ pub struct LimitQuery {
     pub limit: Option<i64>,
 }
 
+/// What replaying a dead letter made.
+#[derive(Debug, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct Replayed {
+    pub dead_letter_id: Uuid,
+    pub new_outbox_id: Uuid,
+}
+
 /// `GET /api/admin/outbox/unpublished?limit=N`.
 #[utoipa::path(
     get,
@@ -28,7 +35,7 @@ pub struct LimitQuery {
     tag = "Admin",
     params(LimitQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::db::entities::outbox_event::Model>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -55,7 +62,7 @@ pub async fn list_unpublished_outbox(
     tag = "Admin",
     params(LimitQuery),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::db::entities::outbox_dead_letter::Model>>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -84,7 +91,7 @@ pub async fn list_dead_letters(
     tag = "Admin",
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Replayed>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
         (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
     )
@@ -117,10 +124,10 @@ pub async fn replay_dead_letter(
         })
         .await;
     match result {
-        Ok(new_id) => ok(serde_json::json!({
-            "dead_letter_id": dl_id,
-            "new_outbox_id": new_id,
-        })),
+        Ok(new_id) => ok_json(Replayed {
+            dead_letter_id: dl_id,
+            new_outbox_id: new_id,
+        }),
         Err(e) => error_to_response(Error::from(e)),
     }
 }

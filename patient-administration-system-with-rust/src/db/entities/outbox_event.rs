@@ -9,14 +9,16 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize, utoipa::ToSchema)]
 #[sea_orm(table_name = "outbox_events")]
+#[schema(as = outbox::Event)]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub event_type: String,
     pub payload: serde_json::Value,
     pub published: bool,
+    #[schema(value_type = String, format = DateTime)]
     pub at: DateTimeWithTimeZone,
     /// Count of publish attempts that failed. Reset to 0 when the row is
     /// replayed from the dead-letter queue. Compared against
@@ -24,10 +26,12 @@ pub struct Model {
     pub retry_count: i32,
     /// Timestamp of the most recent publish attempt (success or failure).
     /// `None` until the dispatcher first touches the row.
+    #[schema(value_type = String, format = DateTime, required = true, nullable = true)]
     pub last_attempted_at: Option<DateTimeWithTimeZone>,
     /// Diagnostic from the most recent failed publish attempt. Cleared when
     /// the row is replayed; never set when the most recent attempt
     /// succeeded.
+    #[schema(required = true)]
     pub last_error: Option<String>,
 }
 

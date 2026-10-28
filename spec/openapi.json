@@ -4664,6 +4664,57 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Replayed": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "description": "What replaying a dead letter made.",
+            "properties": {
+              "dead_letter_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "new_outbox_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "dead_letter_id",
+              "new_outbox_id"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_ReplyResult": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -9181,6 +9232,176 @@
                 "decided_by",
                 "removed_at",
                 "next"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_outbox.DeadLetter": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "created_at": {
+                  "description": "Original `outbox_events.at` — the moment the producing transaction\ncommitted the event.",
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "dead_lettered_at": {
+                  "description": "Moment the row was moved into the DLQ. Index-ordered.",
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "event_type": {
+                  "type": "string"
+                },
+                "id": {
+                  "description": "New UUID for the dead-letter row. Not the same as `original_id`.",
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "last_error": {
+                  "description": "Last error the publisher returned before the move. Never empty.",
+                  "type": "string"
+                },
+                "original_id": {
+                  "description": "The `id` the row carried while it was in `outbox_events`. Preserved\nso an operator can correlate against application logs that recorded\nthe original outbox id.",
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "payload": {},
+                "retry_count": {
+                  "description": "Final retry_count when the move happened — equal to the configured\n`PAS_OUTBOX_MAX_RETRIES` at that time.",
+                  "format": "int32",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "original_id",
+                "event_type",
+                "payload",
+                "created_at",
+                "dead_lettered_at",
+                "retry_count",
+                "last_error"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_outbox.Event": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "event_type": {
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "last_attempted_at": {
+                  "description": "Timestamp of the most recent publish attempt (success or failure).\n`None` until the dispatcher first touches the row.",
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "last_error": {
+                  "description": "Diagnostic from the most recent failed publish attempt. Cleared when\nthe row is replayed; never set when the most recent attempt\nsucceeded.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "payload": {},
+                "published": {
+                  "type": "boolean"
+                },
+                "retry_count": {
+                  "description": "Count of publish attempts that failed. Reset to 0 when the row is\nreplayed from the dead-letter queue. Compared against\n`PAS_OUTBOX_MAX_RETRIES` by the dispatcher.",
+                  "format": "int32",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "event_type",
+                "payload",
+                "published",
+                "at",
+                "retry_count",
+                "last_attempted_at",
+                "last_error"
               ],
               "type": "object"
             },
@@ -15063,6 +15284,24 @@
         ],
         "type": "object"
       },
+      "Replayed": {
+        "description": "What replaying a dead letter made.",
+        "properties": {
+          "dead_letter_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "new_outbox_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dead_letter_id",
+          "new_outbox_id"
+        ],
+        "type": "object"
+      },
       "ReplyAction": {
         "enum": [
           "confirm",
@@ -17356,6 +17595,104 @@
         ],
         "type": "object"
       },
+      "outbox.DeadLetter": {
+        "properties": {
+          "created_at": {
+            "description": "Original `outbox_events.at` — the moment the producing transaction\ncommitted the event.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "dead_lettered_at": {
+            "description": "Moment the row was moved into the DLQ. Index-ordered.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "id": {
+            "description": "New UUID for the dead-letter row. Not the same as `original_id`.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "last_error": {
+            "description": "Last error the publisher returned before the move. Never empty.",
+            "type": "string"
+          },
+          "original_id": {
+            "description": "The `id` the row carried while it was in `outbox_events`. Preserved\nso an operator can correlate against application logs that recorded\nthe original outbox id.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "payload": {},
+          "retry_count": {
+            "description": "Final retry_count when the move happened — equal to the configured\n`PAS_OUTBOX_MAX_RETRIES` at that time.",
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "original_id",
+          "event_type",
+          "payload",
+          "created_at",
+          "dead_lettered_at",
+          "retry_count",
+          "last_error"
+        ],
+        "type": "object"
+      },
+      "outbox.Event": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "last_attempted_at": {
+            "description": "Timestamp of the most recent publish attempt (success or failure).\n`None` until the dispatcher first touches the row.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_error": {
+            "description": "Diagnostic from the most recent failed publish attempt. Cleared when\nthe row is replayed; never set when the most recent attempt\nsucceeded.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payload": {},
+          "published": {
+            "type": "boolean"
+          },
+          "retry_count": {
+            "description": "Count of publish attempts that failed. Reset to 0 when the row is\nreplayed from the dead-letter queue. Compared against\n`PAS_OUTBOX_MAX_RETRIES` by the dispatcher.",
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "event_type",
+          "payload",
+          "published",
+          "at",
+          "retry_count",
+          "last_attempted_at",
+          "last_error"
+        ],
+        "type": "object"
+      },
       "pifu.Episode": {
         "properties": {
           "conditions": {
@@ -17751,6 +18088,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_outbox.DeadLetter"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17787,6 +18131,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Replayed"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {
@@ -17826,6 +18177,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_outbox.Event"
+                }
+              }
+            },
             "description": "Success; the `ApiResponse` envelope"
           },
           "4XX": {

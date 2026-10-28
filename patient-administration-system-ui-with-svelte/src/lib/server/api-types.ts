@@ -7160,6 +7160,25 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Replayed: {
+      /** @description What replaying a dead letter made. */
+      data?: {
+        /** Format: uuid */
+        dead_letter_id: string;
+        /** Format: uuid */
+        new_outbox_id: string;
+      };
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_ReplyResult: {
       data?: {
         appointment: components["schemas"]["Appointment"] | null;
@@ -8657,6 +8676,93 @@ export interface components {
         removed_at: string | null;
         state: string;
         target_service: string;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_Vec_outbox.DeadLetter": {
+      data?: {
+        /**
+         * Format: date-time
+         * @description Original `outbox_events.at` — the moment the producing transaction
+         *     committed the event.
+         */
+        created_at: string;
+        /**
+         * Format: date-time
+         * @description Moment the row was moved into the DLQ. Index-ordered.
+         */
+        dead_lettered_at: string;
+        event_type: string;
+        /**
+         * Format: uuid
+         * @description New UUID for the dead-letter row. Not the same as `original_id`.
+         */
+        id: string;
+        /** @description Last error the publisher returned before the move. Never empty. */
+        last_error: string;
+        /**
+         * Format: uuid
+         * @description The `id` the row carried while it was in `outbox_events`. Preserved
+         *     so an operator can correlate against application logs that recorded
+         *     the original outbox id.
+         */
+        original_id: string;
+        payload: unknown;
+        /**
+         * Format: int32
+         * @description Final retry_count when the move happened — equal to the configured
+         *     `PAS_OUTBOX_MAX_RETRIES` at that time.
+         */
+        retry_count: number;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
+    "ApiResponse_Vec_outbox.Event": {
+      data?: {
+        /** Format: date-time */
+        at: string;
+        event_type: string;
+        /** Format: uuid */
+        id: string;
+        /**
+         * Format: date-time
+         * @description Timestamp of the most recent publish attempt (success or failure).
+         *     `None` until the dispatcher first touches the row.
+         */
+        last_attempted_at: string | null;
+        /**
+         * @description Diagnostic from the most recent failed publish attempt. Cleared when
+         *     the row is replayed; never set when the most recent attempt
+         *     succeeded.
+         */
+        last_error: string | null;
+        payload: unknown;
+        published: boolean;
+        /**
+         * Format: int32
+         * @description Count of publish attempts that failed. Reset to 0 when the row is
+         *     replayed from the dead-letter queue. Compared against
+         *     `PAS_OUTBOX_MAX_RETRIES` by the dispatcher.
+         */
+        retry_count: number;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -10813,6 +10919,13 @@ export interface components {
       /** Format: date-time */
       to: string;
     };
+    /** @description What replaying a dead letter made. */
+    Replayed: {
+      /** Format: uuid */
+      dead_letter_id: string;
+      /** Format: uuid */
+      new_outbox_id: string;
+    };
     /** @enum {string} */
     ReplyAction: "confirm" | "cancel" | "rebook" | "convert";
     ReplyRequest: {
@@ -11534,6 +11647,69 @@ export interface components {
       reason: string | null;
       switched_on: boolean;
     };
+    "outbox.DeadLetter": {
+      /**
+       * Format: date-time
+       * @description Original `outbox_events.at` — the moment the producing transaction
+       *     committed the event.
+       */
+      created_at: string;
+      /**
+       * Format: date-time
+       * @description Moment the row was moved into the DLQ. Index-ordered.
+       */
+      dead_lettered_at: string;
+      event_type: string;
+      /**
+       * Format: uuid
+       * @description New UUID for the dead-letter row. Not the same as `original_id`.
+       */
+      id: string;
+      /** @description Last error the publisher returned before the move. Never empty. */
+      last_error: string;
+      /**
+       * Format: uuid
+       * @description The `id` the row carried while it was in `outbox_events`. Preserved
+       *     so an operator can correlate against application logs that recorded
+       *     the original outbox id.
+       */
+      original_id: string;
+      payload: unknown;
+      /**
+       * Format: int32
+       * @description Final retry_count when the move happened — equal to the configured
+       *     `PAS_OUTBOX_MAX_RETRIES` at that time.
+       */
+      retry_count: number;
+    };
+    "outbox.Event": {
+      /** Format: date-time */
+      at: string;
+      event_type: string;
+      /** Format: uuid */
+      id: string;
+      /**
+       * Format: date-time
+       * @description Timestamp of the most recent publish attempt (success or failure).
+       *     `None` until the dispatcher first touches the row.
+       */
+      last_attempted_at: string | null;
+      /**
+       * @description Diagnostic from the most recent failed publish attempt. Cleared when
+       *     the row is replayed; never set when the most recent attempt
+       *     succeeded.
+       */
+      last_error: string | null;
+      payload: unknown;
+      published: boolean;
+      /**
+       * Format: int32
+       * @description Count of publish attempts that failed. Reset to 0 when the row is
+       *     replayed from the dead-letter queue. Compared against
+       *     `PAS_OUTBOX_MAX_RETRIES` by the dispatcher.
+       */
+      retry_count: number;
+    };
     "pifu.Episode": {
       conditions: string;
       /** Format: date-time */
@@ -11763,7 +11939,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_outbox.DeadLetter"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11798,7 +11976,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Replayed"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {
@@ -11832,7 +12012,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_outbox.Event"];
+        };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
       "4XX": {

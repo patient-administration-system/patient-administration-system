@@ -1604,3 +1604,62 @@ async fn the_proxy_and_identity_proofing_routes_send_the_types_they_declare() {
     let proofing: Proofing = call(&app, "GET", &url, None).await;
     assert_eq!(proofing.person_id, person);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_outbox_admin_routes_send_the_types_they_declare() {
+    use patient_administration_system::api::rest::handlers_admin::Replayed;
+    use patient_administration_system::db::entities::{outbox_dead_letter, outbox_event};
+    use sea_orm::{ActiveModelTrait, EntityTrait, Set};
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let now = chrono::Utc::now().fixed_offset();
+    let dead = outbox_dead_letter::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        original_id: Set(Uuid::new_v4()),
+        event_type: Set("qual34.test".into()),
+        payload: Set(json!({"k": 1})),
+        created_at: Set(now),
+        dead_lettered_at: Set(now),
+        retry_count: Set(5),
+        last_error: Set("refused".into()),
+    }
+    .insert(&state.db)
+    .await
+    .unwrap();
+
+    let dead_letters: Vec<outbox_dead_letter::Model> = call(
+        &app,
+        "GET",
+        "/api/admin/outbox/dead-letters?limit=200",
+        None,
+    )
+    .await;
+    assert!(dead_letters.iter().any(|d| d.id == dead.id));
+
+    let replayed: Replayed = call(
+        &app,
+        "POST",
+        &format!("/api/admin/outbox/dead-letters/{}/replay", dead.id),
+        None,
+    )
+    .await;
+    assert_eq!(replayed.dead_letter_id, dead.id);
+
+    let waiting: Vec<outbox_event::Model> =
+        call(&app, "GET", "/api/admin/outbox/unpublished?limit=200", None).await;
+    // The list is oldest first and other tests leave unpublished rows, so the new one may be past the page.
+    assert!(waiting.len() <= 200);
+    let made = outbox_event::Entity::find_by_id(replayed.new_outbox_id)
+        .one(&state.db)
+        .await
+        .unwrap()
+        .expect("the replayed event is in the outbox");
+    assert_eq!(made.event_type, "qual34.test");
+    assert_eq!(made.retry_count, 0);
+    outbox_event::Entity::delete_by_id(made.id)
+        .exec(&state.db)
+        .await
+        .unwrap();
+}

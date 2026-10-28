@@ -8,8 +8,9 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize, utoipa::ToSchema)]
 #[sea_orm(table_name = "outbox_dead_letters")]
+#[schema(as = outbox::DeadLetter)]
 pub struct Model {
     /// New UUID for the dead-letter row. Not the same as `original_id`.
     #[sea_orm(primary_key, auto_increment = false)]
@@ -22,8 +23,10 @@ pub struct Model {
     pub payload: serde_json::Value,
     /// Original `outbox_events.at` — the moment the producing transaction
     /// committed the event.
+    #[schema(value_type = String, format = DateTime)]
     pub created_at: DateTimeWithTimeZone,
     /// Moment the row was moved into the DLQ. Index-ordered.
+    #[schema(value_type = String, format = DateTime)]
     pub dead_lettered_at: DateTimeWithTimeZone,
     /// Final retry_count when the move happened — equal to the configured
     /// `PAS_OUTBOX_MAX_RETRIES` at that time.
