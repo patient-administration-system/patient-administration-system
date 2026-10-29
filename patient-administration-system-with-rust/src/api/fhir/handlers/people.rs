@@ -22,7 +22,11 @@ pub async fn get_patient(
     let client = need_person_client(&state).map_err(error_to_response)?;
     let ctx = user_context_from_headers(&headers);
     let person = client.get(id, &ctx).await.map_err(error_to_response)?;
-    json_of(person)
+    Ok(Json(crate::api::fhir::r5::person(
+        "Patient",
+        person.id,
+        &person.data,
+    )))
 }
 
 #[utoipa::path(
@@ -147,7 +151,11 @@ pub async fn get_practitioner(
     let client = need_worker_client(&state).map_err(error_to_response)?;
     let ctx = user_context_from_headers(&headers);
     let worker = client.get(id, &ctx).await.map_err(error_to_response)?;
-    json_of(worker)
+    Ok(Json(crate::api::fhir::r5::person(
+        "Practitioner",
+        worker.id,
+        &worker.data,
+    )))
 }
 
 #[utoipa::path(

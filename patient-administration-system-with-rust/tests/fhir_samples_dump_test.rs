@@ -330,3 +330,166 @@ async fn dump_r5_reads_for_the_validator() {
         write(&dir, &format!("r5-{kind}.json"), &v);
     }
 }
+
+/// The other R5 reads (QUAL-39): a bed as a Location, a coverage, a flag and a triage Observation search, a
+/// Patient and a Practitioner through stub upstreams.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn dump_the_other_r5_reads_for_the_validator() {
+    use patient_administration_system::db::repositories::encounter::EncounterRepository;
+    use patient_administration_system::models::encounter::{Encounter, EncounterClass};
+
+    let Ok(dir) = std::env::var("PAS_DUMP_DIR") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let ctx = UserContext::system();
+    let person = Uuid::new_v4();
+    use patient_administration_system::adjustments::{AdjustmentService, NewAdjustment};
+    use patient_administration_system::db::repositories::bed::BedRepository;
+    use patient_administration_system::db::repositories::coverage::CoverageRepository;
+    use patient_administration_system::db::repositories::facility::{
+        FacilityRepository, RoomRepository, WardRepository,
+    };
+    use patient_administration_system::models::Address;
+    use patient_administration_system::models::coverage::Coverage;
+    use patient_administration_system::models::facility::{Bed, Facility, Room, Ward};
+    use patient_administration_system::triage::TriageService;
+    use patient_administration_system::upstream::{
+        Person, StubPersonClient, StubWorkerClient, Worker,
+    };
+
+    let unique = Uuid::new_v4().simple().to_string();
+    let facility = Facility::new("F".into(), format!("F{unique}"), Address::default());
+    FacilityRepository::create(&state.db, &facility)
+        .await
+        .unwrap();
+    let ward = Ward::new(facility.id, "W".into(), format!("W{unique}"), 4);
+    WardRepository::create(&state.db, &ward).await.unwrap();
+    let room = Room::new(ward.id, "R".into(), format!("R{unique}"));
+    RoomRepository::create(&state.db, &room).await.unwrap();
+    let bed = Bed::new(room.id, "B1".into(), format!("B{unique}"));
+    let bed = BedRepository::create(&state.db, &bed).await.unwrap();
+    let mut cover = Coverage::new(person, "Self-pay", "P-1");
+    cover.payor_identifier = Some("PAYER-9".into());
+    let cover = CoverageRepository::create(&state.db, &cover).await.unwrap();
+
+    AdjustmentService::new(state.db.clone())
+        .record(
+            person,
+            &NewAdjustment {
+                code: "easy_read",
+                note: Some("prefers the front entrance"),
+                review_by: None,
+                recorded_by: "Nurse Okafor",
+            },
+            Utc::now(),
+            &ctx,
+        )
+        .await
+        .unwrap();
+    let er = EncounterRepository::create(
+        &state.db,
+        &Encounter::new(person, EncounterClass::Emergency),
+    )
+    .await
+    .unwrap();
+    let now = Utc::now();
+    TriageService::new(state.db.clone())
+        .record(
+            er.id,
+            "mts",
+            Some("3.8"),
+            "urgent",
+            None,
+            "Nurse Okafor",
+            now - Duration::minutes(5),
+            now,
+            &ctx,
+        )
+        .await
+        .unwrap();
+
+    let people = StubPersonClient::new();
+    let patient_id = Uuid::new_v4();
+    people.insert(Person {
+        id: patient_id,
+        data: json!({
+            "name": { "family": "Doe", "given": ["Jane"] },
+            "gender": "female",
+            "birth_date": "1990-01-15",
+            "identifiers": [{ "value": "MRN-99" }],
+            "telecom": [{ "system": "phone", "value": "+44 20 7946 0000" }],
+            "active": true
+        })
+        .as_object()
+        .unwrap()
+        .clone(),
+    });
+    let workers = StubWorkerClient::new();
+    let worker_id = Uuid::new_v4();
+    workers.insert(Worker {
+        id: worker_id,
+        data: json!({ "name": { "family": "Evans", "given": ["Rhys"] }, "active": true })
+            .as_object()
+            .unwrap()
+            .clone(),
+    });
+    let app = fhir_router(
+        state
+            .clone()
+            .with_person_client(std::sync::Arc::new(people))
+            .with_worker_client(std::sync::Arc::new(workers)),
+    );
+    for (name, uri) in [
+        ("Location", format!("/fhir/Location/{}", bed.id)),
+        ("Coverage", format!("/fhir/Coverage/{}", cover.id)),
+        ("Flag", format!("/fhir/Flag?patient=Patient/{person}")),
+        (
+            "Observation",
+            format!("/fhir/Observation?encounter=Encounter/{}", er.id),
+        ),
+        ("Patient", format!("/fhir/Patient/{patient_id}")),
+        ("Practitioner", format!("/fhir/Practitioner/{worker_id}")),
+    ] {
+        let res = app
+            .clone()
+            .oneshot(Request::get(&uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert!(res.status().is_success(), "{name}: {}", res.status());
+        write(&dir, &format!("r5-{name}.json"), &body(res).await);
+    }
+    // The error replies are OperationOutcomes: a read of nothing, and a Bundle post, which refuses every entry
+    // today (Patient and Practitioner belong to their services; the rest have no creator yet).
+    let res = app
+        .clone()
+        .oneshot(
+            Request::get(format!("/fhir/Slot/{}", Uuid::new_v4()))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 404);
+    write(&dir, "r5-OperationOutcome-not-found.json", &body(res).await);
+    let res = app
+        .oneshot(
+            Request::post("/fhir")
+                .header("content-type", "application/fhir+json")
+                .body(Body::from(
+                    json!({ "resourceType": "Bundle", "type": "transaction", "entry": [
+                        { "resource": { "resourceType": "Patient" } },
+                        { "resource": { "resourceType": "Encounter" } },
+                    ] })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 400);
+    write(&dir, "r5-OperationOutcome-bundle.json", &body(res).await);
+}

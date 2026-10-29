@@ -72,7 +72,7 @@ pub async fn get_appointment(State(state): State<AppState>, Path(id): Path<Uuid>
 )]
 pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match CoverageRepository::find_by_id(&state.db, id).await {
-        Ok(Some(c)) => fhir_of("Coverage", c),
+        Ok(Some(c)) => Ok(Json(crate::api::fhir::r5::coverage(&c))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Coverage/{id}"))),
@@ -141,7 +141,7 @@ pub async fn get_slot(State(state): State<AppState>, Path(id): Path<Uuid>) -> Fh
 )]
 pub async fn get_location(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match BedRepository::find_by_id(&state.db, id).await {
-        Ok(Some(b)) => fhir_of("Location", b),
+        Ok(Some(b)) => Ok(Json(crate::api::fhir::r5::location(&b))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Location/{id}"))),
@@ -164,6 +164,7 @@ pub async fn get_location(State(state): State<AppState>, Path(id): Path<Uuid>) -
 )]
 pub async fn search_flags(
     State(state): State<AppState>,
+    headers: HeaderMap,
     axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> FhirResult {
     let patient = q
@@ -185,17 +186,20 @@ pub async fn search_flags(
         .for_patient(patient, status != Some("active"), 201)
         .await
         .map_err(error_to_response)?;
-    let entries: Vec<Value> = all
+    let flags: Vec<Value> = all
         .iter()
         .filter(|a| status != Some("inactive") || a.ended_at.is_some())
-        .map(|a| serde_json::json!({ "resource": a.fhir }))
+        .map(|a| a.fhir.clone())
         .collect();
-    Ok(Json(serde_json::json!({
-        "resourceType": "Bundle",
-        "type": "searchset",
-        "total": entries.len(),
-        "entry": entries,
-    })))
+    let mut self_url = format!("/Flag?patient=Patient/{patient}");
+    if let Some(s) = status {
+        self_url.push_str(&format!("&status={s}"));
+    }
+    Ok(Json(crate::api::fhir::r5::searchset(
+        &crate::api::fhir::r5::base_url(&headers),
+        &self_url,
+        flags,
+    )))
 }
 
 #[utoipa::path(
@@ -212,6 +216,7 @@ pub async fn search_flags(
 )]
 pub async fn search_observations(
     State(state): State<AppState>,
+    headers: HeaderMap,
     axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> FhirResult {
     let encounter = q
@@ -227,16 +232,11 @@ pub async fn search_observations(
         .observations(encounter)
         .await
         .map_err(error_to_response)?;
-    let entries: Vec<Value> = all
-        .into_iter()
-        .map(|o| serde_json::json!({ "resource": o }))
-        .collect();
-    Ok(Json(serde_json::json!({
-        "resourceType": "Bundle",
-        "type": "searchset",
-        "total": entries.len(),
-        "entry": entries,
-    })))
+    Ok(Json(crate::api::fhir::r5::searchset(
+        &crate::api::fhir::r5::base_url(&headers),
+        &format!("/Observation?encounter=Encounter/{encounter}"),
+        all,
+    )))
 }
 
 #[utoipa::path(

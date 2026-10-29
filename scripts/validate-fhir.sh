@@ -47,8 +47,11 @@ for kind in Appointment Encounter ServiceRequest; do
     -profile "$WALES-$kind" || status=1
 done
 # The R5 endpoint (/fhir), against the base R5 resource definitions, no implementation guide (QUAL-39). Each read
-# is mapped to R5 in `api/fhir/r5.rs`; every one must validate.
-for f in metadata Appointment Encounter Slot Schedule; do
+# is mapped to R5 in `api/fhir/r5.rs`; every one must validate: the CapabilityStatement, the four scheduling
+# reads, a Location, a Coverage, a Patient and a Practitioner, the Flag and Observation searches, and the error
+# replies (a read of nothing and a refused Bundle post).
+for f in metadata Appointment Encounter Slot Schedule Location Coverage Flag Observation Patient Practitioner \
+  OperationOutcome-not-found OperationOutcome-bundle; do
   java -jar "$JAR" "$SAMPLES/r5-$f.json" -version 5.0.0 -tx n/a || status=1
 done
 exit $status
