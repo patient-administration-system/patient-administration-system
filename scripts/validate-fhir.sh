@@ -46,12 +46,9 @@ for kind in Appointment Encounter ServiceRequest; do
   java -jar "$JAR" "$SAMPLES/wales-$kind.json" -version 4.0.1 -ig fhir.r4.wales#2.4.0 -tx n/a \
     -profile "$WALES-$kind" || status=1
 done
-# The R5 endpoint (/fhir), against the base R5 resource definitions, no implementation guide (QUAL-39). The
-# CapabilityStatement conforms and must keep doing so. The four reads below answer with the stored row's own
-# field names, not FHIR elements, so they fail; that is a known gap (QUAL-39), shown here and not yet a failure.
-java -jar "$JAR" "$SAMPLES/r5-metadata.json" -version 5.0.0 -tx n/a || status=1
-for f in Appointment Encounter Slot Schedule; do
-  java -jar "$JAR" "$SAMPLES/r5-$f.json" -version 5.0.0 -tx n/a \
-    || echo "KNOWN GAP (QUAL-39): the R5 $f read is not a valid FHIR R5 resource" >&2
+# The R5 endpoint (/fhir), against the base R5 resource definitions, no implementation guide (QUAL-39). Each read
+# is mapped to R5 in `api/fhir/r5.rs`; every one must validate.
+for f in metadata Appointment Encounter Slot Schedule; do
+  java -jar "$JAR" "$SAMPLES/r5-$f.json" -version 5.0.0 -tx n/a || status=1
 done
 exit $status

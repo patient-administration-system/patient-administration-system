@@ -26,7 +26,7 @@ pub(super) fn wrap_fhir(resource_type: &str, mut value: Value) -> Value {
 )]
 pub async fn get_encounter(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match EncounterRepository::find_by_id(&state.db, id).await {
-        Ok(Some(e)) => fhir_of("Encounter", e),
+        Ok(Some(e)) => Ok(Json(crate::api::fhir::r5::encounter(&e))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Encounter/{id}"))),
@@ -49,7 +49,7 @@ pub async fn get_encounter(State(state): State<AppState>, Path(id): Path<Uuid>) 
 )]
 pub async fn get_appointment(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match AppointmentRepository::find_by_id(&state.db, id).await {
-        Ok(Some(a)) => fhir_of("Appointment", a),
+        Ok(Some(a)) => Ok(Json(crate::api::fhir::r5::appointment(&a))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Appointment/{id}"))),
@@ -95,7 +95,7 @@ pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -
 )]
 pub async fn get_schedule(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match ScheduleRepository::find_by_id(&state.db, id).await {
-        Ok(Some(s)) => fhir_of("Schedule", s),
+        Ok(Some(s)) => Ok(Json(crate::api::fhir::r5::schedule(&s))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Schedule/{id}"))),
@@ -118,7 +118,7 @@ pub async fn get_schedule(State(state): State<AppState>, Path(id): Path<Uuid>) -
 )]
 pub async fn get_slot(State(state): State<AppState>, Path(id): Path<Uuid>) -> FhirResult {
     match SlotRepository::find_by_id(&state.db, id).await {
-        Ok(Some(s)) => fhir_of("Slot", s),
+        Ok(Some(s)) => Ok(Json(crate::api::fhir::r5::slot(&s))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(operation_outcome::not_found(format!("Slot/{id}"))),

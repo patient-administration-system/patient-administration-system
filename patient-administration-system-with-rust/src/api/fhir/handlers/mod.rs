@@ -91,11 +91,9 @@ fn body_to_fields(body: Value) -> Result<serde_json::Map<String, Value>, Error> 
 
 // ─── PAS-owned FHIR reads ───────────────────────────────────────────────
 //
-// These return JSON wrapped in a minimal FHIR-shaped envelope. They
-// don't translate to typed FhirEncounter / FhirAppointment / FhirCoverage
-// shapes. The wire shape is the underlying PAS row JSON with a
-// `resourceType` field added so basic FHIR client type-routing works.
-// A real translator (and the R4 form Wales uses) is NEW-1 in `tasks.md`.
+// Appointment, Encounter, Slot and Schedule are mapped to R5 in `api/fhir/r5.rs` (QUAL-39). Coverage and
+// Location still return the stored row with a `resourceType` added; checking them is the rest of QUAL-39.
+// The R4 form Wales uses is `api/fhir/r4.rs`.
 
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::bed::BedRepository;
