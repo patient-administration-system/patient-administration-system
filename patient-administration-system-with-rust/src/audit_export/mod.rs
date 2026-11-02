@@ -356,6 +356,29 @@ mod tests {
     }
 
     #[test]
+    fn a_search_read_exports_as_a_plain_read_that_names_no_patient() {
+        // OFH-2: a batch read is audited under entity type patient_search with the nil id and the parameter
+        // names in the context. It is not a read of one patient, so it must not claim the Patient profile
+        // or point at a Patient resource.
+        let mut r = row("patient_search", "read", None, None);
+        r.entity_id = Uuid::nil();
+        r.context = Some(json!({
+            "route": "/api/patients/search", "status": 200, "query_params": ["family", "given"]
+        }));
+        let e = to_audit_event(&r, Some("pas-1"));
+        assert_eq!(e["action"], "R");
+        assert!(violations(&e).is_empty(), "{:?}", violations(&e));
+        assert!(
+            !e.to_string().contains("PatientRead") && !e.to_string().contains("\"Patient/"),
+            "{e}"
+        );
+        assert_eq!(
+            e["entity"][0]["what"]["reference"],
+            format!("urn:uuid:{}", Uuid::nil())
+        );
+    }
+
+    #[test]
     fn create_update_and_delete_follow_the_old_and_new_values() {
         let v = Some(json!({"a": 1}));
         for (old, new, action, sub, profile_name) in [
