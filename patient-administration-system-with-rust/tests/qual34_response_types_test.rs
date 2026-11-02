@@ -26,7 +26,10 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 async fn send(app: &axum::Router, method: &str, uri: &str, body: Option<Value>) -> Vec<u8> {
-    let mut req = Request::builder().method(method).uri(uri);
+    let mut req = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("if-match", "*");
     if body.is_some() {
         req = req.header("content-type", "application/json");
     }

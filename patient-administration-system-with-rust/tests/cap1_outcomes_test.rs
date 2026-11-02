@@ -136,6 +136,7 @@ async fn post(app: axum::Router, uri: &str, body: serde_json::Value) -> StatusCo
         Request::builder()
             .method("POST")
             .uri(uri)
+            .header("if-match", "*")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_vec(&body).unwrap()))
             .unwrap(),

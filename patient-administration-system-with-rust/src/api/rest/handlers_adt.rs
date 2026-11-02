@@ -85,12 +85,47 @@ pub async fn transfer(
     Json(body): Json<TransferBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "admission") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .adt
-        .transfer(admission_id, body.new_bed_id, &ctx)
+        .transfer_if_unchanged(admission_id, body.new_bed_id, expected, &ctx)
         .await
     {
         Ok(transfer) => ok_json(transfer),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `GET /api/admissions/:id` — one admission. The response carries `ETag`, the version to send back in
+/// `If-Match` on a transfer, discharge, leave or cancel of it. The version moves on every one of those (OFH-1).
+#[utoipa::path(
+    get,
+    path = "/api/admissions/{id}",
+    tag = "Admissions",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope. The `ETag` header is the admission's version", body = crate::api::ApiResponse<crate::models::admission::Admission>),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+pub async fn get_admission(
+    State(state): State<AppState>,
+    Path(admission_id): Path<Uuid>,
+) -> HandlerResult {
+    match crate::db::repositories::admission::AdmissionRepository::find_by_id(
+        &state.db,
+        admission_id,
+    )
+    .await
+    {
+        Ok(Some(a)) => ok_json(a),
+        Ok(None) => error_to_response(crate::error::Error::not_found(format!(
+            "admission {admission_id}"
+        ))),
         Err(e) => error_to_response(e),
     }
 }
@@ -114,7 +149,15 @@ pub async fn discharge(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.adt.discharge(admission_id, &ctx).await {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "admission") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .adt
+        .discharge_if_unchanged(admission_id, expected, &ctx)
+        .await
+    {
         Ok(discharge) => ok_json(discharge),
         Err(e) => error_to_response(e),
     }
@@ -139,7 +182,15 @@ pub async fn cancel_admit(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.adt.cancel_admission(admission_id, None, &ctx).await {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "admission") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .adt
+        .cancel_admission_if_unchanged(admission_id, None, expected, &ctx)
+        .await
+    {
         Ok(adm) => ok_json(adm),
         Err(e) => error_to_response(e),
     }
@@ -164,7 +215,15 @@ pub async fn cancel_discharge(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.adt.cancel_discharge(admission_id, &ctx).await {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "admission") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .adt
+        .cancel_discharge_if_unchanged(admission_id, expected, &ctx)
+        .await
+    {
         Ok(_) => ok_json(Reinstated {
             admission_id,
             reinstated: true,
@@ -192,7 +251,15 @@ pub async fn cancel_transfer(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.adt.cancel_transfer(admission_id, None, &ctx).await {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "admission") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .adt
+        .cancel_transfer_if_unchanged(admission_id, None, expected, &ctx)
+        .await
+    {
         Ok(_) => ok_json(Reverted {
             admission_id,
             reverted: true,
@@ -278,7 +345,15 @@ pub async fn leave_start(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.adt.start_leave(admission_id, None, &ctx).await {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "admission") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .adt
+        .start_leave_if_unchanged(admission_id, None, expected, &ctx)
+        .await
+    {
         Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
@@ -303,7 +378,15 @@ pub async fn leave_end(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.adt.end_leave(admission_id, None, &ctx).await {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "admission") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .adt
+        .end_leave_if_unchanged(admission_id, None, expected, &ctx)
+        .await
+    {
         Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
@@ -358,9 +441,13 @@ pub async fn change_to_outpatient(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "admission") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .adt
-        .change_to_outpatient(admission_id, None, &ctx)
+        .change_to_outpatient_if_unchanged(admission_id, None, expected, &ctx)
         .await
     {
         Ok(e) => ok_json(e),

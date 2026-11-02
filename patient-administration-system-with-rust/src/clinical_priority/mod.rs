@@ -47,6 +47,22 @@ impl ClinicalPriorityService {
         clinician: &str,
         ctx: &UserContext,
     ) -> Result<()> {
+        self.set_if_unchanged(entry_id, code, review_by, clinician, None, ctx)
+            .await
+            .map(|_| ())
+    }
+
+    /// [`Self::set`] for a caller that read the entry (OFH-1): `expected` is the `updated_at` it saw, and a
+    /// different version is refused with `412` before anything changes. Returns the entry's new `updated_at`.
+    pub async fn set_if_unchanged(
+        &self,
+        entry_id: Uuid,
+        code: &str,
+        review_by: NaiveDate,
+        clinician: &str,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<chrono::DateTime<chrono::Utc>> {
         if !CODES.contains(&code) {
             return Err(Error::validation(format!(
                 "clinical priority must be one of {}",
@@ -61,7 +77,7 @@ impl ClinicalPriorityService {
         let before = txn
             .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "SELECT clinical_priority, clinical_priority_review_by FROM waitlist_entries \
+                "SELECT clinical_priority, clinical_priority_review_by, updated_at FROM waitlist_entries \
                  WHERE id = $1 AND status IN ('waiting','booked') FOR UPDATE",
                 [entry_id.into()],
             ))
@@ -70,16 +86,24 @@ impl ClinicalPriorityService {
             .ok_or_else(|| {
                 Error::not_found(format!("waiting or booked waiting-list entry {entry_id}"))
             })?;
+        let seen: chrono::DateTime<chrono::Utc> =
+            before.try_get("", "updated_at").map_err(Error::Database)?;
+        if !crate::api::rest::concurrency::is_current(seen, expected) {
+            return Err(Error::precondition_failed(
+                "the waiting-list entry has changed since it was read; read it again",
+            ));
+        }
         let old_code: Option<String> = before
             .try_get("", "clinical_priority")
             .map_err(Error::Database)?;
         let old_review: Option<NaiveDate> = before
             .try_get("", "clinical_priority_review_by")
             .map_err(Error::Database)?;
-        txn.execute_raw(Statement::from_sql_and_values(
+        let updated = txn
+            .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "UPDATE waitlist_entries SET clinical_priority = $2, clinical_priority_set_by = $3, \
-               clinical_priority_review_by = $4, updated_at = now() WHERE id = $1",
+               clinical_priority_review_by = $4, updated_at = now() WHERE id = $1 RETURNING updated_at",
             [
                 entry_id.into(),
                 code.into(),
@@ -88,7 +112,10 @@ impl ClinicalPriorityService {
             ],
         ))
         .await
-        .map_err(Error::Database)?;
+        .map_err(Error::Database)?
+        .ok_or_else(|| Error::not_found(format!("waitlist entry {entry_id}")))?;
+        let new_version: chrono::DateTime<chrono::Utc> =
+            updated.try_get("", "updated_at").map_err(Error::Database)?;
         AuditLogRepository::log(
             &txn,
             "waitlist_entry",
@@ -99,7 +126,8 @@ impl ClinicalPriorityService {
             ctx,
         )
         .await?;
-        txn.commit().await.map_err(Error::Database)
+        txn.commit().await.map_err(Error::Database)?;
+        Ok(new_version)
     }
 
     /// Waiting or booked entries whose priority review date is before `today`, the longest overdue first.

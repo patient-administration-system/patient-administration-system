@@ -7,6 +7,7 @@ pub(super) fn adt() -> Router<AppState> {
     Router::new()
         // ADT — admit / transfer / discharge / cancel-admit / cancel-discharge.
         .route("/api/admissions", post(handlers_adt::admit))
+        .route("/api/admissions/{id}", get(handlers_adt::get_admission))
         .route(
             "/api/admissions/{id}/transfer",
             post(handlers_adt::transfer),
@@ -139,6 +140,10 @@ pub(super) fn scheduling() -> Router<AppState> {
         .route(
             "/api/appointments",
             get(handlers_scheduling::list_appointments),
+        )
+        .route(
+            "/api/appointments/{id}",
+            get(handlers_scheduling::get_appointment),
         )
         .route(
             "/api/appointments/{id}/cancel",

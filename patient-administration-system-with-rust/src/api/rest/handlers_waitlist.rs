@@ -93,8 +93,47 @@ pub async fn remove_from_waitlist(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.waitlist.remove(entry_id, &ctx).await {
+    let expected =
+        match crate::api::rest::concurrency::require_if_match(&headers, "waiting-list entry") {
+            Ok(t) => t,
+            Err(e) => return error_to_response(e),
+        };
+    match state
+        .waitlist
+        .remove_if_unchanged(entry_id, expected, &ctx)
+        .await
+    {
         Ok(e) => ok_json(e),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `GET /api/waitlist/:id` — one waiting-list entry. The response carries `ETag`, the version to send back
+/// in `If-Match` on a remove, a book or a clinical-priority change (OFH-1).
+#[utoipa::path(
+    get,
+    path = "/api/waitlist/{id}",
+    tag = "Waitlist",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope. The `ETag` header is the entry's version", body = crate::api::ApiResponse<crate::models::waitlist::WaitlistEntry>),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+pub async fn get_waitlist_entry(
+    State(state): State<AppState>,
+    Path(entry_id): Path<Uuid>,
+) -> HandlerResult {
+    match crate::db::repositories::waitlist::WaitlistRepository::find_entry_by_id(
+        &state.db, entry_id,
+    )
+    .await
+    {
+        Ok(Some(e)) => ok_json(e),
+        Ok(None) => error_to_response(crate::error::Error::not_found(format!(
+            "waitlist entry {entry_id}"
+        ))),
         Err(e) => error_to_response(e),
     }
 }
@@ -148,9 +187,14 @@ pub async fn book_from_waitlist(
     Json(body): Json<BookFromEntryBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let expected =
+        match crate::api::rest::concurrency::require_if_match(&headers, "waiting-list entry") {
+            Ok(t) => t,
+            Err(e) => return error_to_response(e),
+        };
     match state
         .scheduling
-        .book_for_entry(entry_id, body.slot_id, &ctx)
+        .book_for_entry_if_unchanged(entry_id, body.slot_id, expected, &ctx)
         .await
     {
         Ok(a) => ok_json(a),

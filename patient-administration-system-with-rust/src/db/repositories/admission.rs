@@ -28,6 +28,41 @@ impl AdmissionRepository {
         m.map(admission_from_model).transpose()
     }
 
+    /// Lock the admission's row for the rest of the transaction, check it is the version the caller read, and
+    /// move its `updated_at` (OFH-1). Every movement of an admission (transfer, discharge, leave, a cancel of
+    /// one of them) starts here, so the admission's `updated_at` is a version that moves whenever the admission
+    /// does, which no other column of it would. `expected` `None` (the caller sent `*`) skips the comparison.
+    /// A movement that then fails rolls the bump back with the rest of the transaction.
+    pub async fn lock_and_bump_if_current<C: ConnectionTrait>(
+        conn: &C,
+        id: Uuid,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<Admission> {
+        use sea_orm::QuerySelect;
+        let m = admission::Entity::find_by_id(id)
+            .lock_exclusive()
+            .one(conn)
+            .await
+            .map_err(Error::Database)?
+            .ok_or_else(|| Error::not_found(format!("admission {id}")))?;
+        let adm = admission_from_model(m)?;
+        if !crate::api::rest::concurrency::is_current(adm.updated_at, expected) {
+            return Err(Error::precondition_failed(
+                "the admission has changed since it was read; read it again",
+            ));
+        }
+        conn.execute_raw(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            "UPDATE admissions SET updated_at = clock_timestamp() WHERE id = $1",
+            [id.into()],
+        ))
+        .await
+        .map_err(Error::Database)?;
+        Self::find_by_id(conn, id)
+            .await?
+            .ok_or_else(|| Error::not_found(format!("admission {id}")))
+    }
+
     /// Find the currently-active bed assignment for an encounter, if any.
     ///
     /// "Active" means `released_at IS NULL`. There can be at most one active

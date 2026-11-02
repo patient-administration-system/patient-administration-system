@@ -15,14 +15,28 @@ impl AdtService {
         new_bed_id: Uuid,
         ctx: &UserContext,
     ) -> Result<Transfer> {
+        self.transfer_if_unchanged(admission_id, new_bed_id, None, ctx)
+            .await
+    }
+
+    /// [`Self::transfer`] for a caller that read the admission (OFH-1): `expected` is the `updated_at` it saw.
+    /// The admission's row is locked first; a different version is refused with `412`, changing nothing.
+    /// Every successful movement moves the admission's `updated_at`.
+    pub async fn transfer_if_unchanged(
+        &self,
+        admission_id: Uuid,
+        new_bed_id: Uuid,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Transfer> {
         let ctx_clone = ctx.clone();
         let res = self
             .db
             .transaction::<_, Transfer, Error>(|txn| {
                 Box::pin(async move {
-                    let adm = AdmissionRepository::find_by_id(txn, admission_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("admission {admission_id}")))?;
+                    let adm =
+                        AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected)
+                            .await?;
                     let active_ba =
                         AdmissionRepository::find_active_by_encounter(txn, adm.encounter_id)
                             .await?
@@ -226,6 +240,20 @@ impl AdtService {
         source: Option<&str>,
         ctx: &UserContext,
     ) -> Result<Encounter> {
+        self.change_to_outpatient_if_unchanged(admission_id, source, None, ctx)
+            .await
+    }
+
+    /// [`Self::change_to_outpatient`] for a caller that read the admission (OFH-1): `expected` is the `updated_at` it saw.
+    /// The admission's row is locked first; a different version is refused with `412`, changing nothing.
+    /// Every successful movement moves the admission's `updated_at`.
+    pub async fn change_to_outpatient_if_unchanged(
+        &self,
+        admission_id: Uuid,
+        source: Option<&str>,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Encounter> {
         let ctx_clone = ctx.clone();
         let source_owned = source.map(std::string::ToString::to_string);
         let res = self
@@ -233,9 +261,9 @@ impl AdtService {
             .transaction::<_, Encounter, Error>(|txn| {
                 let source_for_txn = source_owned.clone();
                 Box::pin(async move {
-                    let adm = AdmissionRepository::find_by_id(txn, admission_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("admission {admission_id}")))?;
+                    let adm =
+                        AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected)
+                            .await?;
                     let ba = AdmissionRepository::find_active_by_encounter(txn, adm.encounter_id)
                         .await?
                         .ok_or_else(|| {
@@ -317,6 +345,20 @@ impl AdtService {
         source: Option<&str>,
         ctx: &UserContext,
     ) -> Result<Admission> {
+        self.cancel_transfer_if_unchanged(admission_id, source, None, ctx)
+            .await
+    }
+
+    /// [`Self::cancel_transfer`] for a caller that read the admission (OFH-1): `expected` is the `updated_at` it saw.
+    /// The admission's row is locked first; a different version is refused with `412`, changing nothing.
+    /// Every successful movement moves the admission's `updated_at`.
+    pub async fn cancel_transfer_if_unchanged(
+        &self,
+        admission_id: Uuid,
+        source: Option<&str>,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Admission> {
         let ctx_clone = ctx.clone();
         let source_owned = source.map(std::string::ToString::to_string);
         let res = self
@@ -324,9 +366,7 @@ impl AdtService {
             .transaction::<_, Admission, Error>(|txn| {
                 let source_for_txn = source_owned.clone();
                 Box::pin(async move {
-                    let adm = AdmissionRepository::find_by_id(txn, admission_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("admission {admission_id}")))?;
+                    let adm = AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected).await?;
 
                     let last = AdmissionRepository::find_latest_transfer_for_admission(
                         txn,

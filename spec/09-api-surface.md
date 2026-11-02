@@ -5,7 +5,10 @@ The generated contract is the OpenAPI document served at `/api-docs/openapi.json
 | Method and path | Purpose |
 |---|---|
 | `GET /api/health` | Liveness and database check |
-| `POST /api/appointments/{id}/cancel` | Optional `If-Match: "<updated_at>"`; `412` when the appointment has changed since (FR-195, OFH-1) |
+| `POST /api/appointments/{id}/cancel`, `/rebook` | `If-Match` required (`428` without, `412` when stale; FR-195, FR-199) |
+| `GET /api/appointments/{id}`, `GET /api/waitlist/{id}`, `GET /api/admissions/{id}` | One record, with its version as `ETag` (FR-199) |
+| `DELETE /api/waitlist/{id}`, `POST /api/waitlist/{id}/book`, `PUT /api/waitlist/{id}/clinical-priority` | `If-Match` required (FR-195) |
+| `POST /api/admissions/{id}/transfer`, `/discharge`, `/cancel-admit`, `/cancel-discharge`, `/cancel-transfer`, `/change-to-outpatient`, `/leave-start`, `/leave-end` | `If-Match` required (FR-195) |
 | `GET /api/appointments?from&to` | Appointments starting in `[from, to)`, at most 366 days |
 | `GET /api/patients/{id}/appointments` | One patient's appointments, earliest first |
 | `GET /api/patients/{id}/letters?channel=` | One patient's letters, newest first; `channel=portal` is the portal inbox |
@@ -21,7 +24,7 @@ Routes use `{param}` syntax (axum 0.8).
 **Versioning.** The API has one path, `/api`. A client asks for a version with the `Accept-Version` request header (for example `Accept-Version: 2`); a request without the header gets the current version. Paths MUST NOT carry a version: there is no `/api/v1`, `/api/v2` and so on. A version the server does not support is refused with 406 and a body naming the versions it does. The server states the version it used in an `API-Version` response header. (NFR-17)
 
 
-**Concurrent edits** prefer optimistic concurrency (NFR-27): a write may carry `If-Match` with the version it read, and a stale one gets `412` and changes nothing. Today only `POST /api/appointments/{id}/cancel` checks it (FR-195); no read returns an `ETag` yet, and every other write route is last-writer-wins.
+**Concurrent edits** prefer optimistic concurrency (NFR-27): a read of one record returns its version as `ETag`, and a write sends it back as `If-Match`. Missing is `428`, stale is `412`, and neither changes anything. The routes that check a version are in the table above (FR-199); **every other write route is last-writer-wins**, and so are writes that arrive over HL7 v2 or FHIR, which carry no version (hazard H-15).
 ## Triage category interchange (NEW-24)
 
 `GET /fhir/Observation?encounter=Encounter/<id>` returns each triage assessment of an emergency encounter as a FHIR R5 `Observation` (searchset, oldest first). Round trip: `triage::interchange::category_of_observation` reads the category back (unit test for all five).

@@ -292,6 +292,20 @@ impl AdtService {
         reason: Option<&str>,
         ctx: &UserContext,
     ) -> Result<Admission> {
+        self.cancel_admission_if_unchanged(admission_id, reason, None, ctx)
+            .await
+    }
+
+    /// [`Self::cancel_admission`] for a caller that read the admission (OFH-1): `expected` is the `updated_at` it saw.
+    /// The admission's row is locked first; a different version is refused with `412`, changing nothing.
+    /// Every successful movement moves the admission's `updated_at`.
+    pub async fn cancel_admission_if_unchanged(
+        &self,
+        admission_id: Uuid,
+        reason: Option<&str>,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Admission> {
         let ctx_clone = ctx.clone();
         let reason_owned = reason.map(std::string::ToString::to_string);
         let res = self
@@ -299,9 +313,9 @@ impl AdtService {
             .transaction::<_, Admission, Error>(|txn| {
                 let reason_for_txn = reason_owned.clone();
                 Box::pin(async move {
-                    let adm = AdmissionRepository::find_by_id(txn, admission_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("admission {admission_id}")))?;
+                    let adm =
+                        AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected)
+                            .await?;
 
                     // Release the active bed assignment (if any) and free
                     // the bed by walking it through Cleaning. We respect

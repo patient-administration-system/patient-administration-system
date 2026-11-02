@@ -20035,6 +20035,49 @@
         ]
       }
     },
+    "/api/admissions/{id}": {
+      "get": {
+        "operationId": "get_api_admissions__id",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Admission"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope. The `ETag` header is the admission's version"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/admissions/:id` — one admission. The response carries `ETag`, the version to send back in\n`If-Match` on a transfer, discharge, leave or cancel of it. The version moves on every one of those (OFH-1).",
+        "tags": [
+          "Admissions"
+        ]
+      }
+    },
     "/api/admissions/{id}/cancel-admit": {
       "post": {
         "operationId": "post_api_admissions__id__cancel_admit",
@@ -20896,6 +20939,49 @@
           }
         ],
         "summary": "`GET /api/appointments?from=<rfc3339>&to=<rfc3339>` — appointments\nstarting in `[from, to)`. The range is capped at 366 days.",
+        "tags": [
+          "Appointments"
+        ]
+      }
+    },
+    "/api/appointments/{id}": {
+      "get": {
+        "operationId": "get_api_appointments__id",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Appointment"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope. The `ETag` header is the appointment's version"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/appointments/:id` — one appointment. The response carries `ETag`, the version to send back in\n`If-Match` on a cancel or a rebook (OFH-1).",
         "tags": [
           "Appointments"
         ]
@@ -32080,6 +32166,47 @@
           }
         ],
         "summary": "`DELETE /api/waitlist/:id`.",
+        "tags": [
+          "Waitlist"
+        ]
+      },
+      "get": {
+        "operationId": "get_api_waitlist__id",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_WaitlistEntry"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope. The `ETag` header is the entry's version"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/waitlist/:id` — one waiting-list entry. The response carries `ETag`, the version to send back\nin `If-Match` on a remove, a book or a clinical-priority change (OFH-1).",
         "tags": [
           "Waitlist"
         ]

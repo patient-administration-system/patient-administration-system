@@ -78,14 +78,24 @@ impl WaitlistService {
     }
 
     pub async fn remove(&self, entry_id: Uuid, ctx: &UserContext) -> Result<WaitlistEntry> {
+        self.remove_if_unchanged(entry_id, None, ctx).await
+    }
+
+    /// [`Self::remove`] for a caller that read the entry (OFH-1): `expected` is the `updated_at` it saw. The row
+    /// is locked first; a different version is refused with `412`, changing nothing.
+    pub async fn remove_if_unchanged(
+        &self,
+        entry_id: Uuid,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<WaitlistEntry> {
         let ctx_clone = ctx.clone();
         let res = self
             .db
             .transaction::<_, WaitlistEntry, Error>(|txn| {
                 Box::pin(async move {
-                    let mut e = WaitlistRepository::find_entry_by_id(txn, entry_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("waitlist entry {entry_id}")))?;
+                    let mut e =
+                        WaitlistRepository::lock_entry_if_current(txn, entry_id, expected).await?;
                     e.status = WaitlistStatus::Removed;
                     e.updated_at = chrono::Utc::now();
                     let e = WaitlistRepository::update_entry(txn, &e).await?;

@@ -1,6 +1,7 @@
 //! REST API
 pub mod auth;
 pub mod carrier_auth;
+pub mod concurrency;
 pub mod handlers;
 pub mod handlers_adjustments;
 pub mod handlers_admin;

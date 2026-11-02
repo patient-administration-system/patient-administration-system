@@ -234,6 +234,7 @@ async fn the_http_endpoint_books_from_an_entry_and_refuses_a_second_time() {
                 Request::builder()
                     .method("POST")
                     .uri(uri)
+                    .header("if-match", "*")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::json!({ "slot_id": slot }).to_string(),

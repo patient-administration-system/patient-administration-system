@@ -406,7 +406,10 @@ async fn the_http_endpoints_offer_and_rebook() {
     let call = |method: &'static str, uri: String, body: Option<serde_json::Value>| {
         let app = app.clone();
         async move {
-            let mut b = Request::builder().method(method).uri(uri);
+            let mut b = Request::builder()
+                .method(method)
+                .uri(uri)
+                .header("if-match", "*");
             let body = match body {
                 Some(v) => {
                     b = b.header("content-type", "application/json");

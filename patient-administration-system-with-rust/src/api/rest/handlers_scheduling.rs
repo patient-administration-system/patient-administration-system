@@ -136,6 +136,37 @@ pub async fn book_slot(
     }
 }
 
+/// `GET /api/appointments/:id` — one appointment. The response carries `ETag`, the version to send back in
+/// `If-Match` on a cancel or a rebook (OFH-1).
+#[utoipa::path(
+    get,
+    path = "/api/appointments/{id}",
+    tag = "Appointments",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope. The `ETag` header is the appointment's version", body = crate::api::ApiResponse<crate::models::appointment::Appointment>),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+pub async fn get_appointment(
+    State(state): State<AppState>,
+    Path(appointment_id): Path<Uuid>,
+) -> HandlerResult {
+    match crate::db::repositories::appointment::AppointmentRepository::find_by_id(
+        &state.db,
+        appointment_id,
+    )
+    .await
+    {
+        Ok(Some(a)) => ok_json(a),
+        Ok(None) => error_to_response(crate::error::Error::not_found(format!(
+            "appointment {appointment_id}"
+        ))),
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `POST /api/appointments/:id/cancel` — cancel a booked appointment.
 /// Body: `{ "reason": "<free text>" }` (optional; defaults to
 /// `PatientRequest`).
@@ -166,7 +197,7 @@ pub async fn cancel_appointment(
         barrier_code: body.barrier_code,
         legacy_reason: None,
     };
-    let expected = match if_match_time(&headers) {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "appointment") {
         Ok(t) => t,
         Err(e) => return error_to_response(e),
     };
@@ -178,30 +209,6 @@ pub async fn cancel_appointment(
         Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }
-}
-
-/// The `updated_at` a caller names in `If-Match` (OFH-1): the value from the appointment they read,
-/// quoted or not, optionally weak (`W/"..."`). Absent means no check; `*` means any; anything else that
-/// is not an RFC 3339 time is a `400`, not a silent skip.
-fn if_match_time(
-    headers: &HeaderMap,
-) -> Result<Option<chrono::DateTime<chrono::Utc>>, crate::error::Error> {
-    let Some(raw) = headers.get(axum::http::header::IF_MATCH) else {
-        return Ok(None);
-    };
-    let text = raw
-        .to_str()
-        .map_err(|_| crate::error::Error::validation("If-Match is not text"))?
-        .trim();
-    if text == "*" {
-        return Ok(None);
-    }
-    let text = text.strip_prefix("W/").unwrap_or(text).trim_matches('"');
-    chrono::DateTime::parse_from_rfc3339(text)
-        .map(|t| Some(t.with_timezone(&chrono::Utc)))
-        .map_err(|_| {
-            crate::error::Error::validation("If-Match must be the appointment's updated_at")
-        })
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -422,9 +429,13 @@ pub async fn rebook_appointment(
     Json(body): Json<RebookBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "appointment") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .rebooking
-        .choose(appointment_id, body.offer_id, body.slot_id, &ctx)
+        .choose_if_unchanged(appointment_id, body.offer_id, body.slot_id, expected, &ctx)
         .await
     {
         Ok((old, new)) => ok_json(Rebooked { old, new }),

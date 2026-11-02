@@ -24,14 +24,27 @@ impl AdtService {
         admission_id: Uuid,
         ctx: &UserContext,
     ) -> Result<Admission> {
+        self.cancel_discharge_if_unchanged(admission_id, None, ctx)
+            .await
+    }
+
+    /// [`Self::cancel_discharge`] for a caller that read the admission (OFH-1): `expected` is the `updated_at` it saw.
+    /// The admission's row is locked first; a different version is refused with `412`, changing nothing.
+    /// Every successful movement moves the admission's `updated_at`.
+    pub async fn cancel_discharge_if_unchanged(
+        &self,
+        admission_id: Uuid,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Admission> {
         let ctx_clone = ctx.clone();
         let res = self
             .db
             .transaction::<_, Admission, Error>(|txn| {
                 Box::pin(async move {
-                    let adm = AdmissionRepository::find_by_id(txn, admission_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("admission {admission_id}")))?;
+                    let adm =
+                        AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected)
+                            .await?;
 
                     let prior_ba = AdmissionRepository::find_latest_bed_assignment_for_encounter(
                         txn,
@@ -136,14 +149,26 @@ impl AdtService {
     /// assignment (if any), flip the bed to `Cleaning`, insert the
     /// `Discharge` record, and write audit and outbox rows.
     pub async fn discharge(&self, admission_id: Uuid, ctx: &UserContext) -> Result<Discharge> {
+        self.discharge_if_unchanged(admission_id, None, ctx).await
+    }
+
+    /// [`Self::discharge`] for a caller that read the admission (OFH-1): `expected` is the `updated_at` it saw.
+    /// The admission's row is locked first; a different version is refused with `412`, changing nothing.
+    /// Every successful movement moves the admission's `updated_at`.
+    pub async fn discharge_if_unchanged(
+        &self,
+        admission_id: Uuid,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Discharge> {
         let ctx_clone = ctx.clone();
         let res = self
             .db
             .transaction::<_, Discharge, Error>(|txn| {
                 Box::pin(async move {
-                    let adm = AdmissionRepository::find_by_id(txn, admission_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("admission {admission_id}")))?;
+                    let adm =
+                        AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected)
+                            .await?;
 
                     // End the encounter.
                     EncounterRepository::set_status(

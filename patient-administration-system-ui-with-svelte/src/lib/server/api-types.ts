@@ -247,6 +247,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admissions/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/admissions/:id` — one admission. The response carries `ETag`, the version to send back in
+     *     `If-Match` on a transfer, discharge, leave or cancel of it. The version moves on every one of those (OFH-1).
+     */
+    get: operations["get_api_admissions__id"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admissions/{id}/cancel-admit": {
     parameters: {
       query?: never;
@@ -574,6 +594,26 @@ export interface paths {
      *     starting in `[from, to)`. The range is capped at 366 days.
      */
     get: operations["get_api_appointments"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/appointments/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/appointments/:id` — one appointment. The response carries `ETag`, the version to send back in
+     *     `If-Match` on a cancel or a rebook (OFH-1).
+     */
+    get: operations["get_api_appointments__id"];
     put?: never;
     post?: never;
     delete?: never;
@@ -4700,7 +4740,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * `GET /api/waitlist/:id` — one waiting-list entry. The response carries `ETag`, the version to send back
+     *     in `If-Match` on a remove, a book or a clinical-priority change (OFH-1).
+     */
+    get: operations["get_api_waitlist__id"];
     put?: never;
     post?: never;
     /** `DELETE /api/waitlist/:id`. */
@@ -12790,6 +12834,43 @@ export interface operations {
       };
     };
   };
+  get_api_admissions__id: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope. The `ETag` header is the admission's version */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Admission"];
+        };
+      };
+      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; the `ApiResponse` envelope */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   post_api_admissions__id__cancel_admit: {
     parameters: {
       query?: never;
@@ -13420,6 +13501,43 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponse_Vec_Appointment"];
+        };
+      };
+      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; the `ApiResponse` envelope */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_appointments__id: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope. The `ETag` header is the appointment's version */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
@@ -22871,6 +22989,43 @@ export interface operations {
     };
     responses: {
       /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_WaitlistEntry"];
+        };
+      };
+      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; the `ApiResponse` envelope */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_waitlist__id: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope. The `ETag` header is the entry's version */
       200: {
         headers: {
           [name: string]: unknown;

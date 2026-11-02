@@ -224,7 +224,8 @@ pub(super) fn waiting() -> Router<AppState> {
         )
         .route(
             "/api/waitlist/{id}",
-            delete(handlers_waitlist::remove_from_waitlist),
+            get(handlers_waitlist::get_waitlist_entry)
+                .delete(handlers_waitlist::remove_from_waitlist),
         )
         .route(
             "/api/waitlist/{id}/book",

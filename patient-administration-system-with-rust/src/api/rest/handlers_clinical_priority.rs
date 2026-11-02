@@ -45,20 +45,27 @@ pub async fn set_priority(
     headers: HeaderMap,
     Json(b): Json<PriorityBody>,
 ) -> HandlerResult {
+    let expected =
+        match crate::api::rest::concurrency::require_if_match(&headers, "waiting-list entry") {
+            Ok(t) => t,
+            Err(e) => return error_to_response(e),
+        };
     match ClinicalPriorityService::new(state.db.clone())
-        .set(
+        .set_if_unchanged(
             id,
             &b.clinical_priority,
             b.review_by,
             &b.set_by,
+            expected,
             &request_audit_ctx(&headers),
         )
         .await
     {
-        Ok(()) => ok(serde_json::json!({
+        Ok(updated_at) => ok(serde_json::json!({
             "id": id,
             "clinical_priority": b.clinical_priority,
             "review_by": b.review_by,
+            "updated_at": updated_at,
         })),
         Err(e) => error_to_response(e),
     }

@@ -27,6 +27,10 @@ pub enum Error {
     #[error("Precondition failed: {0}")]
     PreconditionFailed(String),
 
+    /// The caller must say which version of the record it read (`If-Match`) and did not. Maps to 428 (OFH-1).
+    #[error("Precondition required: {0}")]
+    PreconditionRequired(String),
+
     /// The caller may not do this: a consent it needs is not there (DTAC-7). Maps to 403.
     #[error("Forbidden: {0}")]
     Forbidden(String),
@@ -106,6 +110,11 @@ impl Error {
         Error::PreconditionFailed(msg.into())
     }
 
+    /// Build a `PreconditionRequired` error (428).
+    pub fn precondition_required(msg: impl Into<String>) -> Self {
+        Error::PreconditionRequired(msg.into())
+    }
+
     pub fn upstream(msg: impl Into<String>) -> Self {
         Error::Upstream(msg.into())
     }
@@ -124,6 +133,7 @@ impl Error {
             | Error::InvalidStateTransition(_)
             | Error::Conflict(_)
             | Error::PreconditionFailed(_)
+            | Error::PreconditionRequired(_)
             | Error::Forbidden(_)
             | Error::Fhir(_) => return self.to_string(),
             Error::Database(_) => "Database error",

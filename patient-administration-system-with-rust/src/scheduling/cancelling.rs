@@ -241,9 +241,8 @@ impl SchedulingService {
 
     /// [`Self::cancel_with`] that refuses, with `PreconditionFailed`, when the appointment has changed
     /// since the caller read it (OFH-1). `expected` is the `updated_at` the caller saw, compared to the
-    /// microsecond (the precision the database keeps). `None` skips the check. The check and the
-    /// cancel share one transaction, but without a row lock two requests that pass the check at the
-    /// same instant can both proceed; the second then fails the state transition (already cancelled).
+    /// microsecond (the precision the database keeps). `None` skips the comparison. The row is locked
+    /// first, so two requests that read the same version cannot both pass: the second waits, then gets `412`.
     pub async fn cancel_if_unchanged(
         &self,
         appointment_id: Uuid,
@@ -256,18 +255,7 @@ impl SchedulingService {
             .db
             .transaction::<_, Appointment, Error>(|txn| {
                 Box::pin(async move {
-                    if let Some(seen) = expected {
-                        let now = AppointmentRepository::find_by_id(txn, appointment_id)
-                            .await?
-                            .ok_or_else(|| {
-                                Error::not_found(format!("appointment {appointment_id}"))
-                            })?;
-                        if now.updated_at.timestamp_micros() != seen.timestamp_micros() {
-                            return Err(Error::precondition_failed(
-                                "the appointment has changed since it was read; read it again",
-                            ));
-                        }
-                    }
+                    AppointmentRepository::lock_if_current(txn, appointment_id, expected).await?;
                     Self::cancel_tx(txn, appointment_id, details, &ctx).await
                 })
             })

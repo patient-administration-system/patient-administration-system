@@ -29,6 +29,31 @@ impl AppointmentRepository {
         m.map(from_model).transpose()
     }
 
+    /// Lock the appointment's row for the rest of the transaction and check it is the version the caller read
+    /// (OFH-1). `expected` is the `updated_at` the caller saw; `None` (the caller sent `*`) skips the
+    /// comparison but still takes the lock. Compared to the microsecond, the precision the database keeps.
+    /// With the lock held a second writer waits, then sees the new `updated_at` and gets `412`.
+    pub async fn lock_if_current<C: ConnectionTrait>(
+        conn: &C,
+        id: Uuid,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<Appointment> {
+        use sea_orm::QuerySelect;
+        let m = appointment::Entity::find_by_id(id)
+            .lock_exclusive()
+            .one(conn)
+            .await
+            .map_err(Error::Database)?
+            .ok_or_else(|| Error::not_found(format!("appointment {id}")))?;
+        let appt = from_model(m)?;
+        if !crate::api::rest::concurrency::is_current(appt.updated_at, expected) {
+            return Err(Error::precondition_failed(
+                "the appointment has changed since it was read; read it again",
+            ));
+        }
+        Ok(appt)
+    }
+
     pub async fn update<C: ConnectionTrait>(conn: &C, a: &Appointment) -> Result<Appointment> {
         let mut am = to_active_model(a);
         am.created_at = NotSet;

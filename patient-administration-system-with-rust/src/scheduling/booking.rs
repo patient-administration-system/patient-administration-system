@@ -180,14 +180,26 @@ impl SchedulingService {
         slot_id: Uuid,
         ctx: &UserContext,
     ) -> Result<Appointment> {
+        self.book_for_entry_if_unchanged(entry_id, slot_id, None, ctx)
+            .await
+    }
+
+    /// [`Self::book_for_entry`] for a caller that read the entry (OFH-1): `expected` is the `updated_at` it saw.
+    /// The entry's row is locked first; a different version is refused with `412`, changing nothing.
+    pub async fn book_for_entry_if_unchanged(
+        &self,
+        entry_id: Uuid,
+        slot_id: Uuid,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
         let ctx = ctx.clone();
         let appt = self
             .db
             .transaction::<_, Appointment, Error>(|txn| {
                 Box::pin(async move {
-                    let entry = WaitlistRepository::find_entry_by_id(txn, entry_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("waitlist entry {entry_id}")))?;
+                    let entry =
+                        WaitlistRepository::lock_entry_if_current(txn, entry_id, expected).await?;
                     Self::book_inner(
                         txn,
                         slot_id,

@@ -274,11 +274,27 @@ impl RebookService {
         slot_id: Uuid,
         ctx: &UserContext,
     ) -> Result<(Appointment, Appointment)> {
+        self.choose_if_unchanged(appointment_id, offer_id, slot_id, None, ctx)
+            .await
+    }
+
+    /// [`Self::choose`] for a caller that read the appointment (OFH-1): `expected` is the `updated_at` it saw.
+    /// The appointment's row is locked first; a different version is refused with `412`, changing nothing.
+    /// `None` takes the lock and skips the comparison.
+    pub async fn choose_if_unchanged(
+        &self,
+        appointment_id: Uuid,
+        offer_id: Uuid,
+        slot_id: Uuid,
+        expected: Option<DateTime<Utc>>,
+        ctx: &UserContext,
+    ) -> Result<(Appointment, Appointment)> {
         let ctx = ctx.clone();
         let (old, new) = self
             .db
             .transaction::<_, (Appointment, Appointment), Error>(|txn| {
                 Box::pin(async move {
+                    AppointmentRepository::lock_if_current(txn, appointment_id, expected).await?;
                     let row = txn
                         .query_one_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,

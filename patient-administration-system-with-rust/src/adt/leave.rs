@@ -2,6 +2,14 @@
 
 use super::*;
 
+/// What a leave-of-absence movement does: the encounter status it moves to, and the names of its audit row and
+/// outbox event.
+pub(super) struct LeaveMove {
+    target: EncounterStatus,
+    audit_action: &'static str,
+    event_type: &'static str,
+}
+
 impl AdtService {
     /// Mark a patient as on temporary leave of absence (HL7 v2
     /// ADT^A21 semantics): the encounter moves `InProgress → OnLeave`.
@@ -13,13 +21,28 @@ impl AdtService {
         source: Option<&str>,
         ctx: &UserContext,
     ) -> Result<Encounter> {
+        self.start_leave_if_unchanged(admission_id, source, None, ctx)
+            .await
+    }
+
+    /// [`Self::start_leave`] for a caller that read the admission (OFH-1): `expected` is the `updated_at` it saw.
+    pub async fn start_leave_if_unchanged(
+        &self,
+        admission_id: Uuid,
+        source: Option<&str>,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Encounter> {
         self.transition_loa(
             admission_id,
             source,
+            expected,
             ctx,
-            EncounterStatus::OnLeave,
-            "start_leave",
-            "EncounterLeaveStarted",
+            LeaveMove {
+                target: EncounterStatus::OnLeave,
+                audit_action: "start_leave",
+                event_type: "EncounterLeaveStarted",
+            },
         )
         .await
     }
@@ -32,13 +55,28 @@ impl AdtService {
         source: Option<&str>,
         ctx: &UserContext,
     ) -> Result<Encounter> {
+        self.end_leave_if_unchanged(admission_id, source, None, ctx)
+            .await
+    }
+
+    /// [`Self::end_leave`] for a caller that read the admission (OFH-1): `expected` is the `updated_at` it saw.
+    pub async fn end_leave_if_unchanged(
+        &self,
+        admission_id: Uuid,
+        source: Option<&str>,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Encounter> {
         self.transition_loa(
             admission_id,
             source,
+            expected,
             ctx,
-            EncounterStatus::InProgress,
-            "end_leave",
-            "EncounterLeaveEnded",
+            LeaveMove {
+                target: EncounterStatus::InProgress,
+                audit_action: "end_leave",
+                event_type: "EncounterLeaveEnded",
+            },
         )
         .await
     }
@@ -47,11 +85,15 @@ impl AdtService {
         &self,
         admission_id: Uuid,
         source: Option<&str>,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
         ctx: &UserContext,
-        target: EncounterStatus,
-        audit_action: &'static str,
-        event_type: &'static str,
+        movement: LeaveMove,
     ) -> Result<Encounter> {
+        let LeaveMove {
+            target,
+            audit_action,
+            event_type,
+        } = movement;
         let ctx_clone = ctx.clone();
         let source_owned = source.map(std::string::ToString::to_string);
         let res = self
@@ -59,9 +101,9 @@ impl AdtService {
             .transaction::<_, Encounter, Error>(|txn| {
                 let source_for_txn = source_owned.clone();
                 Box::pin(async move {
-                    let adm = AdmissionRepository::find_by_id(txn, admission_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("admission {admission_id}")))?;
+                    let adm =
+                        AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected)
+                            .await?;
                     // set_status validates the state-machine transition.
                     let enc =
                         EncounterRepository::set_status(txn, adm.encounter_id, target).await?;

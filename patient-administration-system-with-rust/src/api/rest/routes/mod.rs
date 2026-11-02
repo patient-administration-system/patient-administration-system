@@ -96,5 +96,8 @@ pub fn router(state: AppState) -> Router {
             state.clone(),
             super::read_audit::read_audit_middleware,
         ))
+        .layer(axum::middleware::from_fn(
+            super::concurrency::etag_middleware,
+        ))
         .with_state(state)
 }

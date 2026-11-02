@@ -19,6 +19,29 @@ impl WaitlistRepository {
         Ok(e.clone())
     }
 
+    /// Lock the entry's row for the rest of the transaction and check it is the version the caller read
+    /// (OFH-1); `None` (the caller sent `*`) takes the lock and skips the comparison.
+    pub async fn lock_entry_if_current<C: ConnectionTrait>(
+        conn: &C,
+        id: Uuid,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<WaitlistEntry> {
+        use sea_orm::QuerySelect;
+        let m = waitlist_entry::Entity::find_by_id(id)
+            .lock_exclusive()
+            .one(conn)
+            .await
+            .map_err(Error::Database)?
+            .ok_or_else(|| Error::not_found(format!("waitlist entry {id}")))?;
+        let entry = from_model(m)?;
+        if !crate::api::rest::concurrency::is_current(entry.updated_at, expected) {
+            return Err(Error::precondition_failed(
+                "the waiting-list entry has changed since it was read; read it again",
+            ));
+        }
+        Ok(entry)
+    }
+
     pub async fn find_entry_by_id<C: ConnectionTrait>(
         conn: &C,
         id: Uuid,
