@@ -470,3 +470,81 @@ async fn an_appointment_names_the_referral_it_was_booked_from() {
         None
     );
 }
+
+/// PCC-2: the lifecycle table in `referrals::is_legal_move` is what the operations actually do. For every
+/// from-state and every move, put a referral in the from-state and try the move.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn every_move_of_the_lifecycle_table_is_allowed_or_refused_as_written() {
+    use patient_administration_system::referrals::{ReferralStatus as St, is_legal_move};
+    let w = world().await;
+    let other = format!("other-{}", Uuid::new_v4());
+    for from in St::ALL {
+        for to in St::ALL {
+            if *to == St::Received {
+                continue; // no operation moves a referral back to received
+            }
+            let (r, _) =
+                w.s.referrals
+                    .create(
+                        new(
+                            &w,
+                            Uuid::new_v4(),
+                            Some(&format!("U{}", Uuid::new_v4().simple())),
+                        ),
+                        &sys(),
+                    )
+                    .await
+                    .unwrap();
+            w.s.db
+                .execute_raw(Statement::from_sql_and_values(
+                    DbBackend::Postgres,
+                    "UPDATE referrals SET status = $2, \
+                       triaged_by = CASE WHEN $2 IN ('returned_with_advice','redirected') THEN 'Mr R' END, \
+                       triaged_at = CASE WHEN $2 IN ('returned_with_advice','redirected') THEN now() END, \
+                       redirected_to_service = CASE WHEN $2 = 'redirected' THEN 'elsewhere' END, \
+                       redirected_referral_id = CASE WHEN $2 = 'redirected' THEN id END \
+                       WHERE id = $1",
+                    [r.id.into(), from.as_str().into()],
+                ))
+                .await
+                .unwrap();
+            let done = match to {
+                St::Waitlisted => {
+                    w.s.referrals
+                        .waitlist(r.id, Priority::Routine, &sys())
+                        .await
+                        .map(|_| ())
+                }
+                St::Booked => {
+                    slot_in(&w, 5).await;
+                    w.s.referrals
+                        .book_first_available(r.id, &sys())
+                        .await
+                        .map(|_| ())
+                }
+                St::Closed => w.s.referrals.close(r.id, None, &sys()).await.map(|_| ()),
+                St::ReturnedWithAdvice => {
+                    w.s.referrals
+                        .triage(r.id, "returned_with_advice", "Mr R", None, &sys())
+                        .await
+                        .map(|_| ())
+                }
+                St::Redirected => {
+                    w.s.referrals
+                        .triage(r.id, "redirected", "Mr R", Some(&other), &sys())
+                        .await
+                        .map(|_| ())
+                }
+                St::Received => unreachable!(),
+            };
+            assert_eq!(
+                done.is_ok(),
+                is_legal_move(*from, *to),
+                "{from} to {to}: the table says {}, the operation said {:?}",
+                is_legal_move(*from, *to),
+                done.err()
+            );
+        }
+    }
+}

@@ -54,6 +54,25 @@ fn is_ended(status: ReferralStatus) -> bool {
     use ReferralStatus::*;
     matches!(status, Booked | Closed | ReturnedWithAdvice | Redirected)
 }
+/// The legal moves of a referral (PCC-2), as one table. The operations keep their own checks; the database test
+/// `every_move_of_the_lifecycle_table_is_allowed_or_refused_as_written` holds them to this.
+///
+/// - `received` goes to `waitlisted`, `booked`, `closed`, `returned_with_advice` or `redirected`.
+/// - `waitlisted` goes to `booked` or `closed` (not back to `received`, not waitlisted twice, not triaged).
+/// - `booked` goes to `closed` only.
+/// - `closed`, `returned_with_advice` and `redirected` are final.
+pub fn is_legal_move(from: ReferralStatus, to: ReferralStatus) -> bool {
+    use ReferralStatus::*;
+    matches!(
+        (from, to),
+        (
+            Received,
+            Waitlisted | Booked | Closed | ReturnedWithAdvice | Redirected
+        ) | (Waitlisted, Booked | Closed)
+            | (Booked, Closed)
+    )
+}
+
 const CANDIDATES: i64 = 25;
 
 /// The referral an appointment was booked from, if any (PCC-1): its id and the sender's own reference.
@@ -560,5 +579,34 @@ impl ReferralService {
             .await
             .map_err(Error::from)?;
         self.get(id).await
+    }
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::{ReferralStatus, ReferralStatus::*, is_ended, is_legal_move};
+
+    #[test]
+    fn the_table_has_eight_legal_moves_and_nothing_leaves_a_final_state() {
+        let legal = ReferralStatus::ALL
+            .iter()
+            .flat_map(|f| ReferralStatus::ALL.iter().map(move |t| (*f, *t)))
+            .filter(|(f, t)| is_legal_move(*f, *t))
+            .count();
+        assert_eq!(legal, 5 + 2 + 1);
+        for f in [Closed, ReturnedWithAdvice, Redirected] {
+            assert!(ReferralStatus::ALL.iter().all(|t| !is_legal_move(f, *t)));
+        }
+        assert!(
+            ReferralStatus::ALL
+                .iter()
+                .all(|s| !is_legal_move(*s, Received))
+        );
+        assert!(ReferralStatus::ALL.iter().all(|s| !is_legal_move(*s, *s)));
+    }
+
+    #[test]
+    fn a_booked_referral_is_ended_for_booking_but_can_still_be_closed() {
+        assert!(is_ended(Booked) && is_legal_move(Booked, Closed));
     }
 }
