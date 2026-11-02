@@ -23,6 +23,15 @@ People are not modelled here. Rows carry `person_id` (patient) and `worker_id` (
 
 `proposed → booked → arrived → fulfilled`, with `cancelled` and `no_show` as terminal states. A transition to the same state, or out of a terminal state, MUST be rejected.
 
+## Planned encounters (PCC-8)
+
+The Care Coordination guide (a draft proof of concept) says future activity is an `Appointment` and a registration never holds a `planned` encounter. We keep one narrow exception: **`pre_admit` creates an inpatient encounter in `Planned`** (HL7 v2 `ADT^A05`, undone by `ADT^A38`, `cancel_pre_admit`). Decided 2026-11-02, by me from the code, not yet by a records owner.
+
+- **Why it stays.** A pre-admission is not a booked slot: it has no schedule and no slot, it holds a bed (`Reserved`), and it has its own message pair. An `Appointment` would have to invent a slot to carry it. `Planned → Arrived` and `Planned → Cancelled` are the states `admit` and `cancel_pre_admit` already use.
+- **What is not allowed.** Nothing else creates a `Planned` encounter: an outpatient or clinic visit that is in the future is an `Appointment` and only becomes an encounter when the patient arrives. A new feature that books a future visit MUST use an `Appointment`.
+- **Cost.** Anything that counts encounters must count by status, or it counts pre-admissions that never happened. I have not checked the reports for this.
+- **Open.** The guide's reason for the rule was not read, only its statement of it (`spec/compare/patient-care-coordination/`). OFH-4 (a hold with an expiry on the bed) would also settle what happens to a `Planned` encounter whose reservation lapses.
+
 ## Referral status (PCC-2)
 
 A referral has six states. `received` is where every referral starts; `closed`, `returned_with_advice` and `redirected` are final. The code holds the table as `referrals::is_legal_move`, and the database test `every_move_of_the_lifecycle_table_is_allowed_or_refused_as_written` tries every from-state against every move through the real operations.
