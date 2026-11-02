@@ -24,6 +24,7 @@
 | 16 | [Open questions](16-open-questions.md) |
 | 17 | [References](17-references.md) |
 | 18 | [Change control](18-change-control.md) |
+| 19 | [Schema map](19-schema-map.md) (generated) |
 
 Cross-cutting chapters: [Locales](locales.md). Safety: [Hazards, who may remove one and on what evidence](hazard/index.md).
 

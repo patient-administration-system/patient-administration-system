@@ -238,6 +238,7 @@ jobs:
       - run: python3 scripts/check-links.py
       - run: scripts/generate-status.sh --check
       - run: python3 scripts/generate-llms.py --check
+      - run: python3 scripts/generate-schema-map.py --check
       - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           args: --offline --config lychee.toml .

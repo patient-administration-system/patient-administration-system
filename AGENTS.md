@@ -15,12 +15,12 @@ Current state is generated, not written: [`spec/14-implementation-status.md`](sp
 | `patient-administration-system-with-rust/` | The API (Axum, SeaORM, `src/`, `tests/`, `benches/`, `migrations/` crate). Has its own `AGENTS.md` and `AGENTS/` |
 | `patient-administration-system-ui-with-svelte/` | The UI: SvelteKit 3, Svelte 5, Lily Design System, Keycloak sign-in, 10 locales, Playwright + Vitest |
 | `patient-administration-system-frontend/` | A Loco server-rendered ops dashboard that runs in parallel to the SvelteKit UI. Has its own `AGENTS.md` |
-| `spec/` | The specification (18 chapters). **Single source of truth** for behaviour. FRs are in `06`, NFRs in `07` |
+| `spec/` | The specification (19 chapters). **Single source of truth** for behaviour. FRs are in `06`, NFRs in `07` |
 | `tasks.md`, `plan.md` | Work queue and research. `tasks.md` is current; update it with every change |
 | `governance/` | Clinical safety, DPIA, data inventory (`personal-data-inventory.csv`), model cards, chaos testing, data routes |
 | `operations/` | Deployment, runbook, backup. Every switch an operator must know is in `runbook.md` |
 | `podman/` | Postgres 18, Keycloak 26.8, Redis 8 for development; realm in `podman/keycloak/pas-realm.json` |
-| `scripts/` | `generate-status.sh`, `generate-llms.py`, `check-links.py`, `dev-auth.sh`, `chaos-podman.sh` |
+| `scripts/` | `generate-status.sh`, `generate-llms.py`, `generate-schema-map.py`, `check-links.py`, `dev-auth.sh`, `chaos-podman.sh` |
 | `llms.txt`, `llms.json` | Generated index for language models (`python3 scripts/generate-llms.py`) |
 
 ## The three-part rule
@@ -50,6 +50,7 @@ MOCK_PORT=4191 KEYCLOAK_URL=http://localhost:8190 npx playwright test   # needs 
 scripts/generate-status.sh && scripts/generate-status.sh --check
 python3 scripts/check-links.py
 python3 scripts/generate-llms.py
+python3 scripts/generate-schema-map.py --check
 ```
 
 Before you push: all of the above is green. **After you push, check `gh run list` and fix a red run before moving on.** A past run of six red pushes was caused by one unformatted file in the migrations crate.
