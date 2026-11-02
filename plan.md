@@ -265,3 +265,17 @@ Source: <https://github.com/openshiporg/openfront-hospital> (read from the publi
 - **Order.** OFH-1 and OFH-2 first (a real lost-update hazard and a gap we already admit); then OFH-3, OFH-4, OFH-7; the rest wait for a person to ask (OFH-5, OFH-6) or a decision (OFH-8, OFH-9).
 - **Limit.** Our "not found" findings are text searches of `src/` and `migrations/`; each OFH task begins with a proper check.
 
+## 15. Care Coordination and 360 Referrals: research and advice 2026-11-02
+
+Source: <https://kevinmayfield.github.io/PatientCareCoordination/en/index.html> (five pages read; the rest not). Full comparison: [`spec/compare/patient-care-coordination/index.md`](spec/compare/patient-care-coordination/index.md). Tasks: `PCC-1` to `PCC-8`.
+
+- **What it is.** An FHIR R4 implementation guide, v0.1.0, one author, a draft build dated today, that restates IHE 360X (the closed loop referral) for NHS England. It says it is a proof of concept, not authoritative, not endorsed, and not for implementation. England only; nothing Welsh.
+- **Not a standard to build to.** Take the *rules* and check each against IHE 360X and the real NHS and Welsh sources before building.
+- **The finding that matters.** The PAS is the recipient-side system. It receives, triages, waits, books and closes referrals, but **nothing tells the referrer**. A referral that is booked, returned with advice, redirected, closed or missed is known only inside the PAS. The loop is open at our end.
+- **Cheap and real.** The HL7 v2 publisher already sends SIU S12, S13, S14, S15 and S26, and `appointments.referral_id` exists, but SCH-26 (the referral ID) is left empty. Filling it is one small change (PCC-1).
+- **Worth taking as rules.** Decline can follow acceptance; a cancel can lose to an outcome that arrived first; a no-show leaves the referral open; one sender-assigned referral ID in every message; label every identifier's type and assigner; no planned encounters (we create one in `pre_admit`: PCC-8); keep an external standard behind an anti-corruption layer and keep the raw bundle.
+- **Not taken.** The clinical halves (consultation note, outcome document, discharge report, care plans): out of scope. Extra states (`information_requested`, `deferred`, `cancel_requested`) until a referral-handling service asks (PCC-3). Plan-pointer flags until a consumer appears (PCC-6).
+- **Risks.** Building to a draft; cancelling a referral already acted on; a new outbound message needs a named recipient and agreement; England-shaped codes (ODS, UBRN) must stay out of the core (QUAL-40).
+- **Order.** PCC-1 and PCC-2 first; PCC-5 and PCC-8 are small; PCC-4 waits for a recipient; PCC-3, PCC-6 and PCC-7 wait for a person or a consumer.
+- **Limit.** "Not found" statements are text searches of `src/` and `migrations/`.
+
