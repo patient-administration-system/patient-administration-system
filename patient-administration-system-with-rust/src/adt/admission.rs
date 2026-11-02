@@ -124,6 +124,22 @@ impl AdtService {
         source: Option<&str>,
         ctx: &UserContext,
     ) -> Result<Encounter> {
+        self.pre_admit_held(person_id, bed_id, source, None, ctx)
+            .await
+    }
+
+    /// [`Self::pre_admit`] with a hold time (OFH-4): `hold_minutes` says how long the bed stays reserved, then
+    /// [`Self::release_expired_holds`] gives it back. `None` uses `PAS_BED_HOLD_MINUTES`; if that is 0 or unset
+    /// the hold does not expire. The reservation records who it is for and who made it.
+    pub async fn pre_admit_held(
+        &self,
+        person_id: Uuid,
+        bed_id: Uuid,
+        source: Option<&str>,
+        hold_minutes: Option<i64>,
+        ctx: &UserContext,
+    ) -> Result<Encounter> {
+        let expires_in = Self::hold_for(hold_minutes)?;
         let ctx_clone = ctx.clone();
         let source_owned = source.map(std::string::ToString::to_string);
         let res = self
@@ -143,6 +159,15 @@ impl AdtService {
                     BedRepository::update_status(txn, bed_id, BedStatus::Reserved).await?;
                     let enc = Encounter::new(person_id, EncounterClass::Inpatient);
                     let enc = EncounterRepository::create(txn, &enc).await?;
+                    Self::open_reservation(
+                        txn,
+                        bed_id,
+                        person_id,
+                        enc.id,
+                        expires_in,
+                        ctx_clone.user_id.as_deref(),
+                    )
+                    .await?;
                     AuditLogRepository::log(
                         txn,
                         "encounter",
@@ -233,6 +258,8 @@ impl AdtService {
                         EncounterStatus::Cancelled,
                     )
                     .await?;
+                    Self::close_reservation(txn, bed_id, "cancelled", ctx_clone.user_id.as_deref())
+                        .await?;
                     AuditLogRepository::log(
                         txn,
                         "encounter",

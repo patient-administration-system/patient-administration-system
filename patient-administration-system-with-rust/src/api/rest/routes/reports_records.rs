@@ -164,6 +164,10 @@ pub(super) fn records() -> Router<AppState> {
         )
         .route("/api/beds/{id}", get(handlers_resources::get_bed))
         .route(
+            "/api/beds/{id}/occupancy-events",
+            get(super::super::handlers_adt::bed_occupancy_events),
+        )
+        .route(
             "/api/beds/{id}/status",
             put(handlers_resources::set_bed_status),
         )

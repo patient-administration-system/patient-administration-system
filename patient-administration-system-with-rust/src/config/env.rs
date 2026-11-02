@@ -76,6 +76,8 @@ pub const VARS: &[Var] = &[
     // 0 turns the limiter off (documented in operations/deployment.md), so 0 must stay valid.
     int_var("PAS_RATE_LIMIT_RPM", 600, 0, 1_000_000),
     int_var("PAS_RATE_LIMIT_BURST", 60, 0, 1_000_000),
+    // How long a pre-admission holds a bed, in minutes. 0 (the default) means no expiry, as before OFH-4.
+    int_var("PAS_BED_HOLD_MINUTES", 0, 0, 10_080),
     int_var("PAS_WEBHOOK_TIMEOUT_SECS", 10, 1, 3_600),
     int_var("UPSTREAM_TIMEOUT_SECS", 10, 1, 600),
     int_var("PAS_PASETO_KEYS_REFRESH_SECS", 300, 30, 86_400),

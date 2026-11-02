@@ -259,6 +259,7 @@ fn spawn_jobs(
     spawn_tolerance(jobs, state);
     spawn_noshow(jobs, state);
     spawn_backfill(jobs, state);
+    spawn_bed_holds(jobs, state);
     spawn_reminders(jobs, db, state)
 }
 
@@ -359,6 +360,27 @@ fn spawn_noshow(jobs: &mut Jobs, state: &AppState) {
             }
         });
     }
+}
+
+fn spawn_bed_holds(jobs: &mut Jobs, state: &AppState) {
+    // Bed holds (OFH-4): every minute, give back a bed whose pre-admission hold has lapsed. A hold lapses only
+    // when it was made with a hold time (a `hold_minutes` on the request, or PAS_BED_HOLD_MINUTES above 0), so
+    // with neither this finds nothing.
+    let adt = state.adt.clone();
+    let clock = state.clock.clone();
+    jobs.spawn("bed-holds", std::time::Duration::from_secs(60), move || {
+        let adt = adt.clone();
+        let clock = clock.clone();
+        async move {
+            match adt.release_expired_holds(clock.now()).await {
+                Ok(n) if n > 0 => {
+                    tracing::info!(target: "pas::adt", released = n, "bed holds lapsed");
+                }
+                Ok(_) => {}
+                Err(e) => tracing::warn!(target: "pas::adt", "bed hold sweep failed: {e}"),
+            }
+        }
+    });
 }
 
 fn spawn_backfill(jobs: &mut Jobs, state: &AppState) {

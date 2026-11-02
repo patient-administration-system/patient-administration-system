@@ -32,6 +32,18 @@ The Care Coordination guide (a draft proof of concept) says future activity is a
 - **Cost.** Anything that counts encounters must count by status, or it counts pre-admissions that never happened. I have not checked the reports for this.
 - **Open.** The guide's reason for the rule was not read, only its statement of it (`spec/compare/patient-care-coordination/`). OFH-4 (a hold with an expiry on the bed) would also settle what happens to a `Planned` encounter whose reservation lapses.
 
+## Bed reservations (OFH-4)
+
+A pre-admission (`ADT^A05`) reserves a bed (`Available → Reserved`) and opens a `Planned` inpatient encounter. Since OFH-4 it also records a **reservation**: the bed, the person, the planned encounter, who made it, when, and an optional `expires_at`.
+
+| Reservation | Meaning |
+|---|---|
+| open (`released_at` empty) | The bed is held. At most one open reservation per bed. |
+| `released`, reason `cancelled` | `cancel-pre-admit` (`ADT^A38`) closed it; bed `Available`, encounter `Cancelled`. |
+| `released`, reason `expired` | `expires_at` passed; a job gave the bed back and cancelled the planned encounter. |
+
+`expires_at` is set from the request's `hold_minutes`, else `PAS_BED_HOLD_MINUTES`; with neither the hold never lapses, as before. Every change is a row in `bed_occupancy_events` (`reserved`, `cancelled`, `expired`, with the person and the actor). **Not covered:** `admit` still accepts only an `Available` bed, so a reservation is never closed by the admission it was for; the occupancy log holds reservations only, not admissions, transfers or discharges (those are in `bed_assignments`).
+
 ## Referral status (PCC-2)
 
 A referral has six states. `received` is where every referral starts; `closed`, `returned_with_advice` and `redirected` are final. The code holds the table as `referrals::is_legal_move`, and the database test `every_move_of_the_lifecycle_table_is_allowed_or_refused_as_written` tries every from-state against every move through the real operations.

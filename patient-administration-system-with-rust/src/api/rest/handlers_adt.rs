@@ -20,6 +20,17 @@ pub struct AdmitBody {
     pub bed_id: Uuid,
 }
 
+/// The body of `POST /api/admissions/pre-admit` (OFH-4).
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct PreAdmitBody {
+    pub person_id: Uuid,
+    pub bed_id: Uuid,
+    /// How many minutes to hold the bed, 1 to 10080. Absent uses `PAS_BED_HOLD_MINUTES`; if that is 0 or unset
+    /// the hold does not expire.
+    #[serde(default)]
+    pub hold_minutes: Option<i64>,
+}
+
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct TransferBody {
     pub new_bed_id: Uuid,
@@ -269,12 +280,12 @@ pub async fn cancel_transfer(
 }
 
 /// `POST /api/admissions/pre-admit` — reserve a bed + open a Planned
-/// inpatient encounter (no admission row yet). Body: `{ person_id, bed_id }`.
+/// inpatient encounter (no admission row yet). Body: `{ person_id, bed_id, hold_minutes? }`; with a hold time the bed is given back when it lapses (OFH-4).
 #[utoipa::path(
     post,
     path = "/api/admissions/pre-admit",
     tag = "Admissions",
-    request_body = AdmitBody,
+    request_body = PreAdmitBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::encounter::Encounter>),
         (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
@@ -284,12 +295,12 @@ pub async fn cancel_transfer(
 pub async fn pre_admit(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(body): Json<AdmitBody>,
+    Json(body): Json<PreAdmitBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     match state
         .adt
-        .pre_admit(body.person_id, body.bed_id, None, &ctx)
+        .pre_admit_held(body.person_id, body.bed_id, None, body.hold_minutes, &ctx)
         .await
     {
         Ok(e) => ok_json(e),
@@ -451,6 +462,38 @@ pub async fn change_to_outpatient(
         .await
     {
         Ok(e) => ok_json(e),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `GET /api/beds/:id/occupancy-events` — what happened to a bed's hold (reserved, cancelled, expired), newest
+/// first; paged (NFR-23) (OFH-4).
+#[utoipa::path(
+    get,
+    path = "/api/beds/{id}/occupancy-events",
+    tag = "Admissions",
+    params(("id" = String, Path, description = "Path parameter `id`"), crate::api::rest::handlers::LimitQuery),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::adt::OccupancyEvent>>),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+pub async fn bed_occupancy_events(
+    State(state): State<AppState>,
+    Path(bed_id): Path<Uuid>,
+    axum::extract::Query(q): axum::extract::Query<crate::api::rest::handlers::LimitQuery>,
+) -> HandlerResult {
+    let limit = match crate::paging::limit(q.limit, 100) {
+        Ok(l) => l,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .adt
+        .occupancy_events(bed_id, crate::paging::ask_for(limit))
+        .await
+    {
+        Ok(rows) => crate::api::rest::handlers::ok_page(rows, limit),
         Err(e) => error_to_response(e),
     }
 }

@@ -155,6 +155,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_adt::admit,
         crate::api::rest::handlers_adt::transfer,
         crate::api::rest::handlers_adt::get_admission,
+        crate::api::rest::handlers_adt::bed_occupancy_events,
         crate::api::rest::handlers_adt::discharge,
         crate::api::rest::handlers_adt::cancel_admit,
         crate::api::rest::handlers_adt::cancel_discharge,

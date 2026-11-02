@@ -6,6 +6,8 @@ The generated contract is the OpenAPI document served at `/api-docs/openapi.json
 |---|---|
 | `GET /api/health` | Liveness and database check |
 | `POST /api/appointments/{id}/cancel`, `/rebook` | `If-Match` required (`428` without, `412` when stale; FR-195, FR-199) |
+| `POST /api/admissions/pre-admit` | Optional `hold_minutes` (1 to 10080); the bed is given back when it lapses (FR-200) |
+| `GET /api/beds/{id}/occupancy-events` | What happened to a bed's hold: reserved, cancelled, expired; newest first, paged (FR-200) |
 | `GET /api/appointments/{id}`, `GET /api/waitlist/{id}`, `GET /api/admissions/{id}` | One record, with its version as `ETag` (FR-199) |
 | `DELETE /api/waitlist/{id}`, `POST /api/waitlist/{id}/book`, `PUT /api/waitlist/{id}/clinical-priority` | `If-Match` required (FR-195) |
 | `POST /api/admissions/{id}/transfer`, `/discharge`, `/cancel-admit`, `/cancel-discharge`, `/cancel-transfer`, `/change-to-outpatient`, `/leave-start`, `/leave-end` | `If-Match` required (FR-195) |

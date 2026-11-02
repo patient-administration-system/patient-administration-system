@@ -8435,6 +8435,94 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Vec_OccupancyEvent": {
+        "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "One thing that happened to a bed's hold (OFH-4).",
+              "properties": {
+                "actor": {
+                  "description": "The member of staff, or `system` for the sweep.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "bed_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "event": {
+                  "description": "`reserved`, `cancelled` or `expired`.",
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "reservation_id": {
+                  "format": "uuid",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "bed_id",
+                "event",
+                "reservation_id",
+                "person_id",
+                "actor",
+                "at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Vec_OptOut": {
         "description": "Envelope for every JSON response from the PAS REST API.\n\nSuccess responses set `success = true` and populate `data`. Error responses\nset `success = false` and populate `error`. Callers can dispatch on\n`success` without unwrapping HTTP status codes.",
         "properties": {
@@ -14787,6 +14875,58 @@
         "default": null,
         "description": "The `data` of a success that has nothing to return: it serializes to `null`."
       },
+      "OccupancyEvent": {
+        "description": "One thing that happened to a bed's hold (OFH-4).",
+        "properties": {
+          "actor": {
+            "description": "The member of staff, or `system` for the sweep.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "bed_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "event": {
+            "description": "`reserved`, `cancelled` or `expired`.",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reservation_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "bed_id",
+          "event",
+          "reservation_id",
+          "person_id",
+          "actor",
+          "at"
+        ],
+        "type": "object"
+      },
       "Offer": {
         "properties": {
           "appointment_id": {
@@ -15316,6 +15456,32 @@
             "type": "object"
           }
         ]
+      },
+      "PreAdmitBody": {
+        "description": "The body of `POST /api/admissions/pre-admit` (OFH-4).",
+        "properties": {
+          "bed_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "hold_minutes": {
+            "description": "How many minutes to hold the bed, 1 to 10080. Absent uses `PAS_BED_HOLD_MINUTES`; if that is 0 or unset\nthe hold does not expire.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "bed_id"
+        ],
+        "type": "object"
       },
       "PressBody": {
         "properties": {
@@ -20000,7 +20166,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AdmitBody"
+                "$ref": "#/components/schemas/PreAdmitBody"
               }
             }
           },
@@ -20029,7 +20195,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/admissions/pre-admit` — reserve a bed + open a Planned\ninpatient encounter (no admission row yet). Body: `{ person_id, bed_id }`.",
+        "summary": "`POST /api/admissions/pre-admit` — reserve a bed + open a Planned\ninpatient encounter (no admission row yet). Body: `{ person_id, bed_id, hold_minutes? }`; with a hold time the bed is given back when it lapses (OFH-4).",
         "tags": [
           "Admissions"
         ]
@@ -21911,6 +22077,61 @@
         "summary": "`GET /api/beds/:id` — fetch a bed by id.",
         "tags": [
           "Beds"
+        ]
+      }
+    },
+    "/api/beds/{id}/occupancy-events": {
+      "get": {
+        "operationId": "get_api_beds__id__occupancy_events",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_OccupancyEvent"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/beds/:id/occupancy-events` — what happened to a bed's hold (reserved, cancelled, expired), newest\nfirst; paged (NFR-23) (OFH-4).",
+        "tags": [
+          "Admissions"
         ]
       }
     },

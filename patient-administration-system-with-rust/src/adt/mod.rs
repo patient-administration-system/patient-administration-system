@@ -33,6 +33,9 @@ mod admission;
 mod discharge;
 mod leave;
 mod movements;
+mod reservations;
+
+pub use reservations::OccupancyEvent;
 
 /// The combined result of a successful admission: the new encounter, the
 /// admission record, and the active bed assignment.

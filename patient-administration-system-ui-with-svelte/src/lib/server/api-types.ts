@@ -238,7 +238,7 @@ export interface paths {
     put?: never;
     /**
      * `POST /api/admissions/pre-admit` — reserve a bed + open a Planned
-     *     inpatient encounter (no admission row yet). Body: `{ person_id, bed_id }`.
+     *     inpatient encounter (no admission row yet). Body: `{ person_id, bed_id, hold_minutes? }`; with a hold time the bed is given back when it lapses (OFH-4).
      */
     post: operations["post_api_admissions_pre_admit"];
     delete?: never;
@@ -962,6 +962,26 @@ export interface paths {
     };
     /** `GET /api/beds/:id` — fetch a bed by id. */
     get: operations["get_api_beds__id"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/beds/{id}/occupancy-events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/beds/:id/occupancy-events` — what happened to a bed's hold (reserved, cancelled, expired), newest
+     *     first; paged (NFR-23) (OFH-4).
+     */
+    get: operations["get_api_beds__id__occupancy_events"];
     put?: never;
     post?: never;
     delete?: never;
@@ -8486,6 +8506,34 @@ export interface components {
      *     set `success = false` and populate `error`. Callers can dispatch on
      *     `success` without unwrapping HTTP status codes.
      */
+    ApiResponse_Vec_OccupancyEvent: {
+      data?: {
+        /** @description The member of staff, or `system` for the sweep. */
+        actor: string | null;
+        /** Format: date-time */
+        at: string;
+        /** Format: uuid */
+        bed_id: string;
+        /** @description `reserved`, `cancelled` or `expired`. */
+        event: string;
+        /** Format: uuid */
+        id: string;
+        /** Format: uuid */
+        person_id: string | null;
+        /** Format: uuid */
+        reservation_id: string | null;
+      }[];
+      error?: components["schemas"]["ApiError"] | null;
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every JSON response from the PAS REST API.
+     *
+     *     Success responses set `success = true` and populate `data`. Error responses
+     *     set `success = false` and populate `error`. Callers can dispatch on
+     *     `success` without unwrapping HTTP status codes.
+     */
     ApiResponse_Vec_OptOut: {
       data?: {
         channel: string;
@@ -10766,6 +10814,23 @@ export interface components {
      * @default null
      */
     Nothing: unknown;
+    /** @description One thing that happened to a bed's hold (OFH-4). */
+    OccupancyEvent: {
+      /** @description The member of staff, or `system` for the sweep. */
+      actor: string | null;
+      /** Format: date-time */
+      at: string;
+      /** Format: uuid */
+      bed_id: string;
+      /** @description `reserved`, `cancelled` or `expired`. */
+      event: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      person_id: string | null;
+      /** Format: uuid */
+      reservation_id: string | null;
+    };
     Offer: {
       /** Format: uuid */
       appointment_id: string;
@@ -10951,6 +11016,19 @@ export interface components {
       invoice_id: string;
       method: components["schemas"]["PaymentMethod"];
       reference?: string | null;
+    };
+    /** @description The body of `POST /api/admissions/pre-admit` (OFH-4). */
+    PreAdmitBody: {
+      /** Format: uuid */
+      bed_id: string;
+      /**
+       * Format: int64
+       * @description How many minutes to hold the bed, 1 to 10080. Absent uses `PAS_BED_HOLD_MINUTES`; if that is 0 or unset
+       *     the hold does not expire.
+       */
+      hold_minutes?: number | null;
+      /** Format: uuid */
+      person_id: string;
     };
     PressBody: {
       /** @description One key: 0 to 9. */
@@ -12805,7 +12883,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["AdmitBody"];
+        "application/json": components["schemas"]["PreAdmitBody"];
       };
     };
     responses: {
@@ -14262,6 +14340,44 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponse_Bed"];
+        };
+      };
+      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; the `ApiResponse` envelope */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_beds__id__occupancy_events: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+        limit: number | null;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_OccupancyEvent"];
         };
       };
       /** @description Client error; the `ApiResponse` envelope with a machine-readable code */

@@ -62,6 +62,22 @@ bed_assignments,assigned_at,none,"Not personal data (structure, status, timestam
 bed_assignments,released_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 bed_assignments,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 bed_assignments,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_occupancy_events,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_occupancy_events,bed_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_occupancy_events,event,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_occupancy_events,reservation_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_occupancy_events,person_id,identifier,Link a record to a person held by person-service,record
+bed_occupancy_events,actor,staff-identifier,Attribute work to a staff member held by worker-service,record
+bed_occupancy_events,at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_reservations,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_reservations,bed_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_reservations,person_id,identifier,Link a record to a person held by person-service,record
+bed_reservations,encounter_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_reservations,held_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+bed_reservations,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_reservations,expires_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_reservations,released_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+bed_reservations,release_reason,none,"Not personal data (structure, status, timestamps, places, templates)",record
 beds,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 beds,room_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 beds,name,none,"Not personal data (structure, status, timestamps, places, templates)",record

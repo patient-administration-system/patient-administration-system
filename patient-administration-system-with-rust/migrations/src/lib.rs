@@ -59,6 +59,7 @@ mod m20260714_000053_slot_proposals;
 mod m20260715_000054_subscriptions;
 mod m20260716_000055_clinic_templates;
 mod m20260717_000056_proposal_requested_period;
+mod m20260718_000057_bed_reservations;
 
 pub struct Migrator;
 
@@ -122,6 +123,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260715_000054_subscriptions::Migration),
             Box::new(m20260716_000055_clinic_templates::Migration),
             Box::new(m20260717_000056_proposal_requested_period::Migration),
+            Box::new(m20260718_000057_bed_reservations::Migration),
         ]
     }
 }
