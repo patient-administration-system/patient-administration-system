@@ -395,6 +395,10 @@ pub fn person(resource_type: &str, id: uuid::Uuid, data: &Map<String, Value>) ->
             } else if let Some(t) = text(i, "system").or_else(|| text(i, "type")) {
                 o["type"] = json!({ "text": t });
             }
+            // Who assigned it, only when the upstream says (PCC-5); never filled in.
+            if let Some(a) = text(i, "assigner") {
+                o["assigner"] = json!({ "display": a });
+            }
             Some(o)
         })
         .collect();
@@ -525,6 +529,20 @@ mod tests {
         assert_eq!(v["identifier"][1]["system"], "urn:oid:1.2.3");
         assert_eq!(v["telecom"][0]["system"], "other");
         assert_eq!(v["address"][0]["postalCode"], "10110");
+        assert!(
+            v["identifier"][0].get("assigner").is_none(),
+            "an assigner is never invented"
+        );
+    }
+
+    #[test]
+    fn an_identifier_names_its_assigner_only_when_the_upstream_does() {
+        let data = json!({ "identifiers": [{ "system": "MR", "value": "M-1", "assigner": "General Hospital" }] });
+        let v = person("Patient", Uuid::nil(), data.as_object().unwrap());
+        assert_eq!(
+            v["identifier"][0]["assigner"]["display"],
+            "General Hospital"
+        );
     }
 
     #[test]

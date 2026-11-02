@@ -69,19 +69,59 @@ pub fn build_evn(trigger: &str, recorded: DateTime<Utc>) -> Segment {
     segment("EVN", vec![trigger.into(), fmt_ts(recorded)])
 }
 
+/// HL7 table 0203 style type codes are two to five capitals or digits (`MR`, `NH`, `PI`).
+fn is_type_code(s: &str) -> bool {
+    (2..=5).contains(&s.len())
+        && s.bytes()
+            .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
+}
+
+fn field<'a>(i: &'a serde_json::Value, k: &str) -> Option<&'a str> {
+    i.get(k)
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+}
+
+/// PID-3 (PCC-5): every identifier on the person, each as `value^^^assigner^type`, repeated with `~`.
+///
+/// The type is the identifier's own `type`, or its `system` when that is a type code; nothing is guessed
+/// from the value. The assigner is the identifier's own `assigner`, or the OID in a `urn:oid:` system
+/// (`&oid&ISO`). When the identifier does not say, that part is left empty: an assigner is never invented.
+pub fn pid3_identifiers(identifiers: Option<&serde_json::Value>) -> String {
+    let Some(list) = identifiers.and_then(|v| v.as_array()) else {
+        return String::new();
+    };
+    list.iter()
+        .filter_map(|i| {
+            let value = field(i, "value")?;
+            let system = field(i, "system");
+            let kind = field(i, "type")
+                .or(system)
+                .filter(|t| is_type_code(t))
+                .unwrap_or_default();
+            let assigner = match (field(i, "assigner"), system) {
+                (Some(a), _) => super::escape_value(a),
+                (None, Some(sys)) if sys.starts_with("urn:oid:") => {
+                    format!("&{}&ISO", super::escape_value(&sys["urn:oid:".len()..]))
+                }
+                _ => String::new(),
+            };
+            Some(format!(
+                "{}^^^{assigner}^{kind}",
+                super::escape_value(value)
+            ))
+        })
+        .collect::<Vec<_>>()
+        .join("~")
+}
+
 /// Build a minimal PID for a hydrated upstream Person. Reads
 /// `identifiers[0]` (CX), `name[0]` (XPN), `birth_date`, `gender`,
 /// `address[0]` (XAD), `telecom[0]` (XTN). Missing fields are left
 /// empty — the EMR side is expected to tolerate empty optional fields.
 pub fn build_pid(person: &crate::upstream::Person) -> Segment {
     let data = &person.data;
-    let mrn = data
-        .get("identifiers")
-        .and_then(|v| v.as_array())
-        .and_then(|a| a.first())
-        .and_then(|i| i.get("value"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
     let (family, given, middle) = name_components(data.get("name").or_else(|| data.get("names")));
     let dob = data
         .get("birth_date")
@@ -95,11 +135,7 @@ pub fn build_pid(person: &crate::upstream::Person) -> Segment {
         .unwrap_or_default();
     let address = address_xad(data.get("addresses").or_else(|| data.get("address")));
     let phone = telecom_xtn(data.get("telecom").or_else(|| data.get("phone")));
-    let pid3 = if mrn.is_empty() {
-        String::new()
-    } else {
-        format!("{mrn}^^^FAC^MR")
-    };
+    let pid3 = pid3_identifiers(data.get("identifiers"));
     let pid5 = match (family.as_deref(), given.as_deref(), middle.as_deref()) {
         (Some(f), Some(g), Some(m)) => format!("{f}^{g}^{m}"),
         (Some(f), Some(g), None) => format!("{f}^{g}"),
@@ -507,6 +543,21 @@ mod tests {
     }
 
     #[test]
+    fn an_identifier_says_its_type_and_its_assigner_and_never_an_invented_one() {
+        let v = json!([
+            { "system": "MR", "value": "MRN-1", "assigner": "General Hospital" },
+            { "system": "urn:oid:1.2.3", "type": "NH", "value": "N&1" },
+            { "system": "https://example.org/id", "value": "X-9" },
+        ]);
+        assert_eq!(
+            pid3_identifiers(Some(&v)),
+            "MRN-1^^^General Hospital^MR~N\\T\\1^^^&1.2.3&ISO^NH~X-9^^^^"
+        );
+        assert_eq!(pid3_identifiers(None), "");
+        assert!(!pid3_identifiers(Some(&json!([{ "value": "A" }]))).contains("FAC"));
+    }
+
+    #[test]
     fn test_build_evn_shape() {
         let s = build_evn("A01", at(2026, 5, 31, 12, 0, 0));
         let wire = encode_message(&message(vec![s]));
@@ -518,7 +569,7 @@ mod tests {
         let p = sample_person();
         let s = build_pid(&p);
         let wire = encode_message(&message(vec![s]));
-        assert!(wire.contains("|MRN-99^^^FAC^MR|"));
+        assert!(wire.contains("|MRN-99^^^^MR|"));
         assert!(wire.contains("|Doe^Jane^M|"));
         assert!(wire.contains("|19900115|F|"));
         assert!(wire.contains("123 Elm^^Springfield^IL^62701^US"));
