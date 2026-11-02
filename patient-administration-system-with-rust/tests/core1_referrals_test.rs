@@ -430,3 +430,43 @@ async fn the_http_endpoints_receive_book_and_report() {
     assert_eq!(st, StatusCode::OK);
     assert_eq!(v["data"].as_array().unwrap().len(), 1);
 }
+
+/// PCC-1: the lookup behind SCH-26 and SCH-27 finds the referral an appointment was booked from, with the
+/// sender's reference, and finds nothing for an appointment booked another way.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn an_appointment_names_the_referral_it_was_booked_from() {
+    let w = world().await;
+    slot_in(&w, 3).await;
+    let ubrn = format!("U{}", Uuid::new_v4().simple());
+    let (r, _) =
+        w.s.referrals
+            .create(new(&w, Uuid::new_v4(), Some(&ubrn)), &sys())
+            .await
+            .unwrap();
+    let b =
+        w.s.referrals
+            .book_first_available(r.id, &sys())
+            .await
+            .unwrap();
+    let found = patient_administration_system::referrals::referral_of_appointment(
+        &w.s.db,
+        b.appointment.id,
+    )
+    .await
+    .unwrap();
+    assert_eq!(found, Some((r.id, Some(ubrn))));
+
+    let direct = common::free_slot(&w.s.db, w.schedule, 5).await;
+    let appt =
+        w.s.scheduling
+            .book_slot(direct.id, Uuid::new_v4(), &sys())
+            .await
+            .unwrap();
+    assert_eq!(
+        patient_administration_system::referrals::referral_of_appointment(&w.s.db, appt.id)
+            .await
+            .unwrap(),
+        None
+    );
+}

@@ -56,6 +56,23 @@ fn is_ended(status: ReferralStatus) -> bool {
 }
 const CANDIDATES: i64 = 25;
 
+/// The referral an appointment was booked from, if any (PCC-1): its id and the sender's own reference.
+pub async fn referral_of_appointment(
+    db: &DatabaseConnection,
+    appointment_id: Uuid,
+) -> Result<Option<(Uuid, Option<String>)>> {
+    let row = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT r.id, r.external_ref FROM referrals r \
+             JOIN appointments a ON a.referral_id = r.id WHERE a.id = $1",
+            [appointment_id.into()],
+        ))
+        .await?;
+    row.map(|r| Ok((r.col("id")?, r.col("external_ref")?)))
+        .transpose()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Referral {
     pub id: Uuid,

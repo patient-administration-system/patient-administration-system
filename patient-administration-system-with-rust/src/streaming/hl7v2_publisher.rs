@@ -36,7 +36,7 @@ use uuid::Uuid;
 use crate::db::repositories::appointment::AppointmentRepository;
 use crate::db::repositories::bed::BedRepository;
 use crate::db::repositories::encounter::EncounterRepository;
-use crate::hl7v2::encode::{EncodeContext, encode_adt, encode_siu};
+use crate::hl7v2::encode::{EncodeContext, ReferralRef, encode_adt, encode_siu_for_referral};
 use crate::hl7v2::mllp;
 use crate::hl7v2::{SegmentRead, parse_message};
 use crate::streaming::{DomainEvent, EventPublisher};
@@ -220,7 +220,16 @@ impl Hl7v2MllpPublisher {
             control_id,
             now,
         };
-        Ok(Some(encode_siu(enc_ctx, &person, &appt, None)))
+        let referral = crate::referrals::referral_of_appointment(&self.db, appt.id)
+            .await?
+            .map(|(id, external_ref)| ReferralRef { id, external_ref });
+        Ok(Some(encode_siu_for_referral(
+            enc_ctx,
+            &person,
+            &appt,
+            None,
+            referral.as_ref(),
+        )))
     }
 }
 

@@ -180,6 +180,26 @@ pub fn build_pv1(enc: &Encounter, bed: Option<&Bed>) -> Segment {
 /// SCH-2 (filler appt id, also the appointment uuid), SCH-7 (reason),
 /// SCH-11 (appointment timing range), SCH-25 (status).
 pub fn build_sch(appt: &crate::models::appointment::Appointment) -> Segment {
+    build_sch_for_referral(appt, None)
+}
+
+/// The referral an appointment was booked from, as the SIU names it (PCC-1).
+#[derive(Debug, Clone)]
+pub struct ReferralRef {
+    /// This service's id for the referral.
+    pub id: Uuid,
+    /// The sender's own reference (an e-RS UBRN, say), when the referral came with one.
+    pub external_ref: Option<String>,
+}
+
+/// [`build_sch`] that also names the referral: SCH-26 (placer order number) is the sender's reference when
+/// there is one, and SCH-27 (filler order number) is this service's referral id, because a placer number
+/// needs a filler number beside it. Both are bare `EI` ids with no assigning authority: this service does
+/// not invent one (PCC-5). An appointment with no referral leaves both empty.
+pub fn build_sch_for_referral(
+    appt: &crate::models::appointment::Appointment,
+    referral: Option<&ReferralRef>,
+) -> Segment {
     let appt_id = appt.id.to_string();
     let reason = appt.reason.clone().unwrap_or_default();
     let timing = format!(
@@ -217,6 +237,11 @@ pub fn build_sch(appt: &crate::models::appointment::Appointment) -> Segment {
             String::new(),
             String::new(),
             status,
+            referral
+                .and_then(|r| r.external_ref.as_deref())
+                .map(super::escape_value)
+                .unwrap_or_default(),
+            referral.map(|r| r.id.to_string()).unwrap_or_default(),
         ],
     )
 }
@@ -289,6 +314,17 @@ pub fn encode_siu(
     appt: &crate::models::appointment::Appointment,
     bed: Option<&Bed>,
 ) -> String {
+    encode_siu_for_referral(ctx, person, appt, bed, None)
+}
+
+/// [`encode_siu`] that names the referral the appointment was booked from (PCC-1).
+pub fn encode_siu_for_referral(
+    ctx: EncodeContext<'_>,
+    person: &crate::upstream::Person,
+    appt: &crate::models::appointment::Appointment,
+    bed: Option<&Bed>,
+    referral: Option<&ReferralRef>,
+) -> String {
     let msh = build_msh(
         ctx.sender,
         ctx.receiver,
@@ -297,7 +333,7 @@ pub fn encode_siu(
         ctx.control_id,
         ctx.now,
     );
-    let sch = build_sch(appt);
+    let sch = build_sch_for_referral(appt, referral);
     let pid = build_pid(person);
     let ais = build_ais(appt);
     let ail = build_ail(bed);
@@ -573,6 +609,70 @@ mod tests {
         assert!(wire.contains("\rAIS|1|A|"));
         assert!(wire.contains("\rAIL|1|A|"));
         assert!(wire.contains("\rAIP|1|A|"));
+    }
+
+    /// PCC-1: the referral is named in SCH-26 (the sender's reference) and SCH-27 (our id); without one
+    /// both are empty; a reference holding separators is escaped and cannot break the segment.
+    #[test]
+    fn the_siu_names_the_referral_in_sch_26_and_27() {
+        let person = sample_person();
+        let appt = crate::models::appointment::Appointment::new(
+            Uuid::new_v4(),
+            at(2026, 6, 1, 9, 0, 0),
+            at(2026, 6, 1, 10, 0, 0),
+        );
+        let sch_fields = |wire: &str| -> Vec<String> {
+            wire.split('\r')
+                .find(|s| s.starts_with("SCH|"))
+                .unwrap()
+                .split('|')
+                .map(str::to_string)
+                .collect()
+        };
+        let none = encode_siu(
+            ctx("S12", "OUT-4", at(2026, 5, 31, 12, 0, 0)),
+            &person,
+            &appt,
+            None,
+        );
+        let f = sch_fields(&none);
+        // Index 0 is the segment name, so SCH-n is at index n.
+        assert!(!f[25].is_empty(), "SCH-25 is the status, always set");
+        assert!(f.get(26).is_none_or(|v| v.is_empty()) && f.get(27).is_none_or(|v| v.is_empty()));
+
+        let id = Uuid::new_v4();
+        let with = encode_siu_for_referral(
+            ctx("S12", "OUT-5", at(2026, 5, 31, 12, 0, 0)),
+            &person,
+            &appt,
+            None,
+            Some(&ReferralRef {
+                id,
+                external_ref: Some("UBRN|1&2^3".into()),
+            }),
+        );
+        let f = sch_fields(&with);
+        assert_eq!(
+            f[26], "UBRN\\F\\1\\T\\2\\S\\3",
+            "SCH-26, escaped: {}",
+            f[26]
+        );
+        assert_eq!(f[27], id.to_string(), "SCH-27");
+        assert_eq!(f.len(), 28, "no stray separators");
+
+        let internal = encode_siu_for_referral(
+            ctx("S12", "OUT-6", at(2026, 5, 31, 12, 0, 0)),
+            &person,
+            &appt,
+            None,
+            Some(&ReferralRef {
+                id,
+                external_ref: None,
+            }),
+        );
+        let f = sch_fields(&internal);
+        assert_eq!(f[26], "");
+        assert_eq!(f[27], id.to_string());
     }
 
     #[test]

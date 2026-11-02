@@ -40,7 +40,9 @@ pub mod pid_translation;
 
 pub use ack::{AckCode, ack};
 pub use batch::{Batch, MAX_BATCH_MESSAGES, encode_batch_ack, looks_like_batch, parse_batch};
-pub use encode::{EncodeContext, encode_adt, encode_siu, fmt_ts};
+pub use encode::{
+    EncodeContext, ReferralRef, encode_adt, encode_siu, encode_siu_for_referral, fmt_ts,
+};
 pub use encoder::encode_message;
 pub use escape::{escape_value, unescape_value};
 pub use listener::MllpServer;

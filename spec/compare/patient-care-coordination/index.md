@@ -59,7 +59,7 @@ Tolerances, fairness measurement, the safety case, DTAC, accessibility, ten lang
 
 In this order (details and acceptance in `tasks.md`, series `PCC`):
 
-1. **PCC-1 (S):** put the referral ID in **SCH-26** of the SIU messages the PAS already sends, and as `basedOn` in the FHIR Appointment, when the appointment has a referral.
+1. **PCC-1 (S), landed 2026-11-02:** put the referral ID in **SCH-26** (and our id in SCH-27) of the SIU messages the PAS already sends, and as `basedOn` in the FHIR Appointment, when the appointment has a referral.
 2. **PCC-2 (M):** write the referral lifecycle in the spec as one state table with the guide's edge rules (decline after acceptance, cancel losing to completion, no-show rebooks or ends, deferred resumes), mapped to the six states we have, and say which of the guide's states we do not have and why.
 3. **PCC-3 (M):** add `information_requested`, `deferred` and `cancel_requested` only if a service wants them; start by asking a referral-handling service. Do not add states on the strength of a draft.
 4. **PCC-4 (M):** an outbound **referral status notice** (booked, declined, redirected, closed, no-show), as an outbox topic a referrer can subscribe to (the machinery exists: `POST /api/admin/subscriptions`), carrying the referrer's referral ID and ours. Needs a named recipient first.
