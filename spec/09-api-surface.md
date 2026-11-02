@@ -5,6 +5,7 @@ The generated contract is the OpenAPI document served at `/api-docs/openapi.json
 | Method and path | Purpose |
 |---|---|
 | `GET /api/health` | Liveness and database check |
+| `POST /api/appointments/{id}/cancel` | Optional `If-Match: "<updated_at>"`; `412` when the appointment has changed since (FR-195, OFH-1) |
 | `GET /api/appointments?from&to` | Appointments starting in `[from, to)`, at most 366 days |
 | `GET /api/patients/{id}/appointments` | One patient's appointments, earliest first |
 | `GET /api/patients/{id}/letters?channel=` | One patient's letters, newest first; `channel=portal` is the portal inbox |

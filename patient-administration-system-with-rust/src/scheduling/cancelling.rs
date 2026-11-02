@@ -239,6 +239,44 @@ impl SchedulingService {
         Ok(appt)
     }
 
+    /// [`Self::cancel_with`] that refuses, with `PreconditionFailed`, when the appointment has changed
+    /// since the caller read it (OFH-1). `expected` is the `updated_at` the caller saw, compared to the
+    /// microsecond (the precision the database keeps). `None` skips the check. The check and the
+    /// cancel share one transaction, but without a row lock two requests that pass the check at the
+    /// same instant can both proceed; the second then fails the state transition (already cancelled).
+    pub async fn cancel_if_unchanged(
+        &self,
+        appointment_id: Uuid,
+        details: CancelDetails,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
+        let ctx = ctx.clone();
+        let appt = self
+            .db
+            .transaction::<_, Appointment, Error>(|txn| {
+                Box::pin(async move {
+                    if let Some(seen) = expected {
+                        let now = AppointmentRepository::find_by_id(txn, appointment_id)
+                            .await?
+                            .ok_or_else(|| {
+                                Error::not_found(format!("appointment {appointment_id}"))
+                            })?;
+                        if now.updated_at.timestamp_micros() != seen.timestamp_micros() {
+                            return Err(Error::precondition_failed(
+                                "the appointment has changed since it was read; read it again",
+                            ));
+                        }
+                    }
+                    Self::cancel_tx(txn, appointment_id, details, &ctx).await
+                })
+            })
+            .await
+            .map_err(Error::from)?;
+        self.publish_cancelled(&appt).await;
+        Ok(appt)
+    }
+
     /// Move an appointment to another free slot, atomically. See [`Self::rebook_tx`].
     pub async fn rebook(
         &self,

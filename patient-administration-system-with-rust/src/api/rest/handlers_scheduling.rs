@@ -166,14 +166,42 @@ pub async fn cancel_appointment(
         barrier_code: body.barrier_code,
         legacy_reason: None,
     };
+    let expected = match if_match_time(&headers) {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .scheduling
-        .cancel_with(appointment_id, details, &ctx)
+        .cancel_if_unchanged(appointment_id, details, expected, &ctx)
         .await
     {
         Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }
+}
+
+/// The `updated_at` a caller names in `If-Match` (OFH-1): the value from the appointment they read,
+/// quoted or not, optionally weak (`W/"..."`). Absent means no check; `*` means any; anything else that
+/// is not an RFC 3339 time is a `400`, not a silent skip.
+fn if_match_time(
+    headers: &HeaderMap,
+) -> Result<Option<chrono::DateTime<chrono::Utc>>, crate::error::Error> {
+    let Some(raw) = headers.get(axum::http::header::IF_MATCH) else {
+        return Ok(None);
+    };
+    let text = raw
+        .to_str()
+        .map_err(|_| crate::error::Error::validation("If-Match is not text"))?
+        .trim();
+    if text == "*" {
+        return Ok(None);
+    }
+    let text = text.strip_prefix("W/").unwrap_or(text).trim_matches('"');
+    chrono::DateTime::parse_from_rfc3339(text)
+        .map(|t| Some(t.with_timezone(&chrono::Utc)))
+        .map_err(|_| {
+            crate::error::Error::validation("If-Match must be the appointment's updated_at")
+        })
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]

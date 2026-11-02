@@ -23,6 +23,10 @@ pub enum Error {
     #[error("Conflict: {0}")]
     Conflict(String),
 
+    /// An `If-Match` precondition no longer holds: someone else changed the record (OFH-1).
+    #[error("Precondition failed: {0}")]
+    PreconditionFailed(String),
+
     /// The caller may not do this: a consent it needs is not there (DTAC-7). Maps to 403.
     #[error("Forbidden: {0}")]
     Forbidden(String),
@@ -97,6 +101,11 @@ impl Error {
     }
 
     /// Build an `Upstream` error.
+    /// Build a `PreconditionFailed` error.
+    pub fn precondition_failed(msg: impl Into<String>) -> Self {
+        Error::PreconditionFailed(msg.into())
+    }
+
     pub fn upstream(msg: impl Into<String>) -> Self {
         Error::Upstream(msg.into())
     }
@@ -114,6 +123,7 @@ impl Error {
             | Error::Validation(_)
             | Error::InvalidStateTransition(_)
             | Error::Conflict(_)
+            | Error::PreconditionFailed(_)
             | Error::Forbidden(_)
             | Error::Fhir(_) => return self.to_string(),
             Error::Database(_) => "Database error",

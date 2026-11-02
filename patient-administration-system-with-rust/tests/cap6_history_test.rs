@@ -157,3 +157,39 @@ async fn a_manually_generated_letter_is_marked_manual_and_the_http_views_work() 
 fn rows(v: Vec<patient_administration_system::history::HistoryRow>) -> Vec<serde_json::Value> {
     serde_json::to_value(v).unwrap().as_array().unwrap().clone()
 }
+
+/// OFH-1: a cancel that names the `updated_at` it read is refused with 412 when the appointment has
+/// since changed, and changes nothing; with the current value it goes through.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_cancel_with_a_stale_if_match_is_refused_and_changes_nothing() {
+    let (s, a) = booked().await;
+    let app = patient_administration_system::api::rest::router(s.clone());
+    let call = |tag: String| {
+        let app = app.clone();
+        let id = a.id;
+        async move {
+            let r = app
+                .oneshot(
+                    Request::post(format!("/api/appointments/{id}/cancel"))
+                        .header("if-match", tag)
+                        .header("content-type", "application/json")
+                        .body(Body::from("{}"))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            r.status()
+        }
+    };
+    let stale = (a.updated_at - chrono::Duration::seconds(5)).to_rfc3339();
+    assert_eq!(
+        call(format!("\"{stale}\"")).await,
+        StatusCode::PRECONDITION_FAILED
+    );
+    assert_eq!(call("garbage".into()).await, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        call(format!("\"{}\"", a.updated_at.to_rfc3339())).await,
+        StatusCode::OK
+    );
+}

@@ -252,3 +252,16 @@ The request: only the Clinical Safety Officer can remove a hazard, and must put 
 **Not proposed.** A route that lets any administrator close a hazard "on the CSO's behalf"; a closure with a free-text "see ticket" as the only evidence; automatic closure when a linked test passes (a passing test is evidence, not a clinical judgement); scoring likelihood and severity in code (a clinician's job).
 
 **Order.** SAFE-1 (a person), then SAFE-2 and SAFE-3, then SAFE-5 and SAFE-6, and SAFE-4 only on request.
+
+## 14. Openfront Hospital: research and advice 2026-11-02
+
+Source: <https://github.com/openshiporg/openfront-hospital> (read from the public repository; nothing was run). Full comparison: [`spec/compare/openfront-hospital/index.md`](spec/compare/openfront-hospital/index.md). Tasks: `OFH-1` to `OFH-9`.
+
+- **What it is.** A whole-hospital app (63 lists: storefront, scheduling, encounters, inpatient, orders, labs, claims, inventory) in Next.js, KeystoneJS and Prisma, MIT, one star and 30 commits, built from a starter shared by about 30 sibling "Openfront" apps. Early, fast-moving, thinly tested in the repository (three test files visible), US-shaped, no FHIR or HL7.
+- **Not a fork or a dependency.** Other stack, clinical and billing scope that we exclude, no standards interchange.
+- **Worth borrowing as ideas.** Optimistic concurrency with an operation key on every controlled write; auditing that a *search* resolved personal data, without the values; legal hold and recorded disposition; timed bed reservation with an occupancy log; an arrival queue; per-area capability flags; a once-only bootstrap; a schema map page.
+- **Where we lead.** Standards, safety case, DTAC, fairness measurement, languages and accessibility, CI that cannot silently skip, delegated identity.
+- **Risk.** Its anonymous booking creates patients from visitors; weigh before copying (OFH-8).
+- **Order.** OFH-1 and OFH-2 first (a real lost-update hazard and a gap we already admit); then OFH-3, OFH-4, OFH-7; the rest wait for a person to ask (OFH-5, OFH-6) or a decision (OFH-8, OFH-9).
+- **Limit.** Our "not found" findings are text searches of `src/` and `migrations/`; each OFH task begins with a proper check.
+
