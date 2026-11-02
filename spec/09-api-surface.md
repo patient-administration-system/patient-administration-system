@@ -20,6 +20,8 @@ Routes use `{param}` syntax (axum 0.8).
 
 **Versioning.** The API has one path, `/api`. A client asks for a version with the `Accept-Version` request header (for example `Accept-Version: 2`); a request without the header gets the current version. Paths MUST NOT carry a version: there is no `/api/v1`, `/api/v2` and so on. A version the server does not support is refused with 406 and a body naming the versions it does. The server states the version it used in an `API-Version` response header. (NFR-17)
 
+
+**Concurrent edits** prefer optimistic concurrency (NFR-27): a write may carry `If-Match` with the version it read, and a stale one gets `412` and changes nothing. Today only `POST /api/appointments/{id}/cancel` checks it (FR-195); no read returns an `ETag` yet, and every other write route is last-writer-wins.
 ## Triage category interchange (NEW-24)
 
 `GET /fhir/Observation?encounter=Encounter/<id>` returns each triage assessment of an emergency encounter as a FHIR R5 `Observation` (searchset, oldest first). Round trip: `triage::interchange::category_of_observation` reads the category back (unit test for all five).
