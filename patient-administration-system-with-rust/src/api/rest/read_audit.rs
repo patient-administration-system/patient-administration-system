@@ -3,10 +3,14 @@
 //! A successful `GET` of `/api/patients/{id}` or anything under it, or of `/fhir/Patient/{id}`, writes one
 //! `read` row to `audit_log` for that patient, with the route (never the query string, which can carry
 //! names and dates) and the status in `context`. A failed read writes nothing. If the row cannot be written
-//! the read is refused rather than served unrecorded. **Not covered:** reads by search or batch that do not
-//! name one patient in the path (`/api/patients/search`, `/fhir/Flag?patient=`,
-//! `/api/reasonable-adjustments/for-appointments`, the report and export routes). The retention is in
-//! `governance/retention-schedule.md`.
+//! the read is refused rather than served unrecorded.
+//!
+//! **Searches and batch reads (OFH-2).** A successful `GET` of `/api/patients/search`, `/api/patients`,
+//! `/fhir/Patient`, `/fhir/Flag` or `/api/reasonable-adjustments/for-appointments` writes one `read` row of
+//! entity type `patient_search` (entity id the nil UUID, because no one patient is named) whose context is
+//! the route, the status and the *names* of the query parameters, sorted. Never the values, which carry
+//! names, dates and ids. **Not covered:** how many records came back (that needs the body), the report and
+//! export routes, and any other list route. The retention is in `governance/retention-schedule.md`.
 
 use axum::{
     body::Body,
@@ -46,6 +50,40 @@ pub fn patient_read_target(method: &Method, path: &str) -> Option<(Uuid, String)
     ))
 }
 
+/// The routes that read many patients' data at once, by exact path (OFH-2).
+const SEARCH_ROUTES: [&str; 5] = [
+    "/api/patients/search",
+    "/api/patients",
+    "/fhir/Patient",
+    "/fhir/Flag",
+    "/api/reasonable-adjustments/for-appointments",
+];
+
+/// For a search or batch read: the route and the sorted, de-duplicated names of its query parameters
+/// (never the values). `None` for any other request. Pure, so it is tested without a database.
+pub fn search_read_target(
+    method: &Method,
+    path: &str,
+    query: Option<&str>,
+) -> Option<(String, Vec<String>)> {
+    if method != Method::GET && method != Method::HEAD {
+        return None;
+    }
+    if !SEARCH_ROUTES.contains(&path) {
+        return None;
+    }
+    let mut names: Vec<String> = query
+        .unwrap_or_default()
+        .split('&')
+        .filter_map(|pair| pair.split('=').next())
+        .filter(|n| !n.is_empty())
+        .map(str::to_string)
+        .collect();
+    names.sort();
+    names.dedup();
+    Some((path.to_string(), names))
+}
+
 /// Record the read when it succeeded; refuse the response if the record cannot be written.
 pub async fn read_audit_middleware(
     State(state): State<AppState>,
@@ -53,23 +91,38 @@ pub async fn read_audit_middleware(
     next: Next,
 ) -> Response {
     let target = patient_read_target(req.method(), req.uri().path());
+    let search = search_read_target(req.method(), req.uri().path(), req.uri().query());
     let ctx = request_audit_ctx(req.headers());
     let res = next.run(req).await;
-    let Some((patient, route)) = target else {
-        return res;
-    };
     if !res.status().is_success() {
         return res;
     }
+    let (entity_type, entity_id, context) = match (target, search) {
+        (Some((patient, route)), _) => (
+            "patient",
+            patient,
+            serde_json::json!({ "route": route, "status": res.status().as_u16() }),
+        ),
+        (None, Some((route, params))) => (
+            "patient_search",
+            Uuid::nil(),
+            serde_json::json!({
+                "route": route,
+                "status": res.status().as_u16(),
+                "query_params": params,
+            }),
+        ),
+        (None, None) => return res,
+    };
     let logged = AuditLogRepository::log_with(
         &state.db,
-        "patient",
-        patient,
+        entity_type,
+        entity_id,
         "read",
         None,
         None,
         None,
-        Some(serde_json::json!({ "route": route, "status": res.status().as_u16() })),
+        Some(context),
         &ctx,
     )
     .await;
@@ -102,6 +155,23 @@ mod tests {
             t(&format!("/fhir/Patient/{ID}")).unwrap().1,
             "/fhir/Patient/{id}"
         );
+    }
+
+    #[test]
+    fn a_search_records_the_parameter_names_and_never_the_values() {
+        let t = |p: &str, q: Option<&str>| search_read_target(&Method::GET, p, q);
+        let (route, names) = t(
+            "/api/patients/search",
+            Some("family=Jones&dob=1980-01-02&family=Smith&"),
+        )
+        .unwrap();
+        assert_eq!(route, "/api/patients/search");
+        assert_eq!(names, vec!["dob", "family"]);
+        assert!(!format!("{names:?}").contains("Jones"));
+        assert_eq!(t("/fhir/Flag", None).unwrap().1, Vec::<String>::new());
+        assert!(t("/api/patients/export.json", None).is_none());
+        assert!(t(&format!("/api/patients/{ID}"), None).is_none());
+        assert!(search_read_target(&Method::POST, "/api/patients/search", None).is_none());
     }
 
     #[test]

@@ -166,3 +166,45 @@ async fn reading_a_patients_appointments_writes_one_read_event_and_it_exports_as
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+/// OFH-2: a batch read writes one `patient_search` row naming the route and the parameter names, and
+/// never the values (the ids a caller asked about).
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_batch_read_is_audited_by_parameter_names_and_not_by_values() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let asked = Uuid::new_v4();
+    let user = format!("auditor-{}", Uuid::new_v4());
+
+    let (status, _, _) = call(
+        &app,
+        Request::get(format!(
+            "/api/reasonable-adjustments/for-appointments?ids={asked}"
+        ))
+        .header("x-user-id", &user)
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let rows = state
+        .db
+        .query_all_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT context::text AS c FROM audit_log \
+             WHERE entity_type = 'patient_search' AND action = 'read' AND user_id = $1",
+            [user.clone().into()],
+        ))
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1, "one batch read, one event");
+    let context: String = rows[0].try_get("", "c").unwrap();
+    assert!(context.contains("/api/reasonable-adjustments/for-appointments"));
+    assert!(context.contains("\"ids\""), "the parameter name: {context}");
+    assert!(
+        !context.contains(&asked.to_string()),
+        "never the value: {context}"
+    );
+}
