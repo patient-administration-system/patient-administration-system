@@ -56,11 +56,17 @@ pub fn is_current(stored: DateTime<Utc>, seen: Option<DateTime<Utc>>) -> bool {
 
 /// The id a versioned path names (`/api/appointments/{id}...`), if it is one.
 fn versioned_id(path: &str) -> Option<&str> {
-    ["/api/appointments/", "/api/waitlist/", "/api/admissions/"]
-        .iter()
-        .find_map(|p| path.strip_prefix(p))
-        .and_then(|rest| rest.split('/').next())
-        .filter(|id| !id.is_empty())
+    [
+        "/api/appointments/",
+        "/api/waitlist/",
+        "/api/admissions/",
+        "/api/encounters/",
+        "/api/beds/",
+    ]
+    .iter()
+    .find_map(|p| path.strip_prefix(p))
+    .and_then(|rest| rest.split('/').next())
+    .filter(|id| !id.is_empty())
 }
 
 /// Adds `ETag` to a successful JSON response that is the record the path names: `data` an object whose `id`
@@ -174,6 +180,8 @@ mod tests {
         assert_eq!(versioned_id("/api/appointments/abc"), Some("abc"));
         assert_eq!(versioned_id("/api/waitlist/abc/book"), Some("abc"));
         assert_eq!(versioned_id("/api/admissions/abc/discharge"), Some("abc"));
+        assert_eq!(versioned_id("/api/encounters/abc/status"), Some("abc"));
+        assert_eq!(versioned_id("/api/beds/abc/status"), Some("abc"));
         assert_eq!(versioned_id("/api/patients/abc"), None);
         assert_eq!(versioned_id("/api/admissions/"), None);
     }

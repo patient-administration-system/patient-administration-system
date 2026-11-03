@@ -5,10 +5,11 @@ The generated contract is the OpenAPI document served at `/api-docs/openapi.json
 | Method and path | Purpose |
 |---|---|
 | `GET /api/health` | Liveness and database check |
-| `POST /api/appointments/{id}/cancel`, `/rebook` | `If-Match` required (`428` without, `412` when stale; FR-195, FR-199) |
+| `POST /api/appointments/{id}/cancel`, `/rebook`, `/check-in`, `/complete`, `/no-show`; `PUT /api/appointments/{id}/location`, `/barrier` | `If-Match` required (`428` without, `412` when stale; FR-195, FR-199) |
+| `PUT /api/encounters/{id}/status`, `POST /api/encounters/{id}/cancel`; `PUT /api/beds/{id}/status` | `If-Match` required (FR-195, FR-199) |
 | `POST /api/admissions/pre-admit` | Optional `hold_minutes` (1 to 10080); the bed is given back when it lapses (FR-200) |
 | `GET /api/beds/{id}/occupancy-events` | What happened to a bed's hold: reserved, cancelled, expired; newest first, paged (FR-200) |
-| `GET /api/appointments/{id}`, `GET /api/waitlist/{id}`, `GET /api/admissions/{id}` | One record, with its version as `ETag` (FR-199) |
+| `GET /api/appointments/{id}`, `/api/waitlist/{id}`, `/api/admissions/{id}`, `/api/encounters/{id}`, `/api/beds/{id}` | One record, with its version as `ETag` (FR-199) |
 | `DELETE /api/waitlist/{id}`, `POST /api/waitlist/{id}/book`, `PUT /api/waitlist/{id}/clinical-priority` | `If-Match` required (FR-195) |
 | `POST /api/admissions/{id}/transfer`, `/discharge`, `/cancel-admit`, `/cancel-discharge`, `/cancel-transfer`, `/change-to-outpatient`, `/leave-start`, `/leave-end` | `If-Match` required (FR-195) |
 | `GET /api/appointments?from&to` | Appointments starting in `[from, to)`, at most 366 days |
@@ -26,7 +27,17 @@ Routes use `{param}` syntax (axum 0.8).
 **Versioning.** The API has one path, `/api`. A client asks for a version with the `Accept-Version` request header (for example `Accept-Version: 2`); a request without the header gets the current version. Paths MUST NOT carry a version: there is no `/api/v1`, `/api/v2` and so on. A version the server does not support is refused with 406 and a body naming the versions it does. The server states the version it used in an `API-Version` response header. (NFR-17)
 
 
-**Concurrent edits** prefer optimistic concurrency (NFR-27): a read of one record returns its version as `ETag`, and a write sends it back as `If-Match`. Missing is `428`, stale is `412`, and neither changes anything. The routes that check a version are in the table above (FR-199); **every other write route is last-writer-wins**, and so are writes that arrive over HL7 v2 or FHIR, which carry no version (hazard H-15).
+**Concurrent edits** prefer optimistic concurrency (NFR-27): a read of one record returns its version as `ETag`, and a write sends it back as `If-Match`. Missing is `428`, stale is `412`, and neither changes anything. The routes that check a version are in the tables above (FR-199). Every other write route is listed below with the reason it does not (hazard H-15, OFH-10).
+
+| Write routes (197 in `openapi.json`) | Checks a version? | Why not, or what protects it |
+|---|---|---|
+| 21 routes: appointment cancel, rebook, check-in, complete, no-show, location, barrier; waiting-list remove, book, clinical priority; eight by-id admission movements; encounter status and cancel; bed status | **Yes** (FR-195) | |
+| `POST` that **creates** a record: `/api/admissions`, `/api/admissions/pre-admit`, `/api/patients`, `/api/practitioners`, `/api/coverages`, `/api/facilities`, `/api/wards`, `/api/rooms`, `/api/beds`, `/api/accounts`, `/api/charges`, `/api/invoices`, `/api/payments`, `/api/waitlist`, `/api/referrals`, `/api/standby`, `/api/appointment-series`, `/api/session-templates` (and `/versions`), `/api/letter-template-groups`, `/api/letter-templates`, `/api/support-flags`, `/api/print-batches`, `/api/rtt/start`, `/api/validation-campaigns`, `/api/experiments` | No | There is no earlier version to have read. Where two creates can collide the database decides: a bed is locked and must be `Available` (two admissions or two pre-admissions into one bed: one succeeds, the other is `409`; `tests/ofh10_versions_test.rs`), a bed has one open hold (partial unique index), a slot is locked when booked |
+| `POST` that **records something that happened** and replaces no earlier value: triage and first contact, task outcomes, answers, `acknowledge`, `handled`, `resolve`, `sent`, `failed`, `generate`, `preview`, receipts, replies, texts, IVR, patient and reply links, offers, `/api/validate/nhs-number` | No | The row it writes is new (an outcome, a reply, a receipt). Two people recording the same thing leave two rows, not a lost one. A second outcome on a task already closed is refused by the task's own state |
+| `HL7 v2` (`/api/hl7/v2/*`, 26 routes), `/fhir/*` writes (16), `/api/upstream/*` (2) | No (decision, OFH-10) | The sender has no version to send. They are **accepted as if `If-Match: *`**: the change is applied under the same row lock as a screen's, so two do not interleave, but a stale view is not refused. Refusing them would stop every feed. Not logged separately: the audit row already records the change and its channel |
+| In-place edits and state changes with no version: `PUT`/`DELETE` of a patient, practitioner, coverage, identity proofing, letter template, tolerance, rollout, follow-up policy, virtual-OK service, slot capacity and ring-fence, waiting-list follow-up target; closing or triaging a referral; RTT pause, resume and stop; PIFU request, review and handle; validation-campaign items; consent and proxy revoke; reasonable-adjustment end; interpreter confirm; session-template approve; account close; series cancel; appointment conversion; standby remove and book; slot release offer; subscription and dead-letter admin | **No: last writer wins** | Each refuses an illegal state change where it has a state machine, but none compares a version. Open: OFH-11 |
+
+HL7 v2 and FHIR writes that change an appointment's status without going through the routes above (`cancel_with`, for one) take no row lock either.
 ## Triage category interchange (NEW-24)
 
 `GET /fhir/Observation?encounter=Encounter/<id>` returns each triage assessment of an emergency encounter as a FHIR R5 `Observation` (searchset, oldest first). Round trip: `triage::interchange::category_of_observation` reads the category back (unit test for all five).

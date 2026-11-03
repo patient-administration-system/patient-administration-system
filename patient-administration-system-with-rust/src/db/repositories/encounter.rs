@@ -99,11 +99,31 @@ impl EncounterRepository {
         id: Uuid,
         new_status: EncounterStatus,
     ) -> Result<Encounter> {
+        Self::set_status_if_current(conn, id, new_status, None).await
+    }
+
+    /// [`Self::set_status`] that locks the encounter's row first and refuses with `PreconditionFailed` when
+    /// it has changed since the caller read it (OFH-10). `expected` `None` skips the comparison.
+    pub async fn set_status_if_current<C: ConnectionTrait>(
+        conn: &C,
+        id: Uuid,
+        new_status: EncounterStatus,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<Encounter> {
         let m = encounter::Entity::find_by_id(id)
+            .lock_exclusive()
             .one(conn)
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found(format!("encounter {id}")))?;
+        if !crate::api::rest::concurrency::is_current(
+            m.updated_at.with_timezone(&chrono::Utc),
+            expected,
+        ) {
+            return Err(Error::precondition_failed(
+                "the encounter has changed since it was read; read it again",
+            ));
+        }
         let current = encounter_status_from_str(&m.status)?;
         current.try_transition_to(new_status)?;
         let mut am: encounter::ActiveModel = m.into();

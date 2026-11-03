@@ -46,12 +46,28 @@ impl ResourcesService {
         new_status: BedStatus,
         ctx: &UserContext,
     ) -> Result<Bed> {
+        self.set_bed_status_if_unchanged(bed_id, new_status, None, ctx)
+            .await
+    }
+
+    /// [`Self::set_bed_status`] that refuses with `PreconditionFailed` when the bed has changed since the
+    /// caller read it (OFH-10). The bed's row is locked first.
+    pub async fn set_bed_status_if_unchanged(
+        &self,
+        bed_id: Uuid,
+        new_status: BedStatus,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Bed> {
         let ctx_clone = ctx.clone();
         let bed = self
             .db
             .transaction::<_, Bed, Error>(|txn| {
                 Box::pin(async move {
-                    let bed = BedRepository::update_status(txn, bed_id, new_status).await?;
+                    let bed = BedRepository::update_status_if_current(
+                        txn, bed_id, new_status, expected, true,
+                    )
+                    .await?;
                     AuditLogRepository::log(
                         txn,
                         "bed",

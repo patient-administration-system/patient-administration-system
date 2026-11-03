@@ -238,9 +238,13 @@ pub async fn move_to_room(
     Json(body): Json<RoomBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "appointment") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .scheduling
-        .move_to_room(appointment_id, body.room.as_deref(), &ctx)
+        .move_to_room_if_unchanged(appointment_id, body.room.as_deref(), expected, &ctx)
         .await
     {
         Ok(a) => ok_json(a),
@@ -288,9 +292,13 @@ pub async fn record_barrier(
     Json(body): Json<BarrierBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "appointment") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .scheduling
-        .record_barrier(appointment_id, body.barrier_code, &ctx)
+        .record_barrier_if_unchanged(appointment_id, body.barrier_code, expected, &ctx)
         .await
     {
         Ok(appt) => ok_json(appt),
@@ -316,7 +324,15 @@ pub async fn check_in_appointment(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.scheduling.check_in(appointment_id, &ctx).await {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "appointment") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .scheduling
+        .check_in_if_unchanged(appointment_id, expected, &ctx)
+        .await
+    {
         Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }
@@ -340,7 +356,15 @@ pub async fn complete_appointment(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.scheduling.complete(appointment_id, &ctx).await {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "appointment") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .scheduling
+        .complete_if_unchanged(appointment_id, expected, &ctx)
+        .await
+    {
         Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }
@@ -364,7 +388,15 @@ pub async fn mark_no_show(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.scheduling.mark_no_show(appointment_id, &ctx).await {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "appointment") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
+    match state
+        .scheduling
+        .mark_no_show_if_unchanged(appointment_id, expected, &ctx)
+        .await
+    {
         Ok(appt) => ok_json(appt),
         Err(e) => error_to_response(e),
     }

@@ -43,6 +43,7 @@ async fn send(
     let mut req = Request::builder()
         .method(method)
         .uri(uri)
+        .header("if-match", "*")
         .header("x-user-id", user);
     if body.is_some() {
         req = req.header("content-type", "application/json");

@@ -70,9 +70,13 @@ pub async fn set_bed_status(
     Json(body): Json<SetBedStatusBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "bed") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .resources
-        .set_bed_status(bed_id, body.status, &ctx)
+        .set_bed_status_if_unchanged(bed_id, body.status, expected, &ctx)
         .await
     {
         Ok(bed) => ok_json(bed),

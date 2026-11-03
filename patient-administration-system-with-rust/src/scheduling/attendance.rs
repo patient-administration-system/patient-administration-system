@@ -23,13 +23,26 @@ impl SchedulingService {
         barrier: BarrierCode,
         ctx: &UserContext,
     ) -> Result<Appointment> {
+        self.record_barrier_if_unchanged(appointment_id, barrier, None, ctx)
+            .await
+    }
+
+    /// [`Self::record_barrier`] that refuses with `PreconditionFailed` when the appointment has changed since
+    /// the caller read it (OFH-10). `None` skips the comparison; the row is locked either way.
+    pub async fn record_barrier_if_unchanged(
+        &self,
+        appointment_id: Uuid,
+        barrier: BarrierCode,
+        expected: Option<DateTime<Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
         let ctx_clone = ctx.clone();
         self.db
             .transaction::<_, Appointment, Error>(|txn| {
                 Box::pin(async move {
-                    let mut appt = AppointmentRepository::find_by_id(txn, appointment_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
+                    let mut appt =
+                        AppointmentRepository::lock_if_current(txn, appointment_id, expected)
+                            .await?;
                     if !matches!(appt.status, AppointmentStatus::Cancelled | AppointmentStatus::NoShow) {
                         return Err(Error::invalid_transition(
                             "a barrier can only be recorded for a cancelled appointment or a no-show",
@@ -64,6 +77,19 @@ impl SchedulingService {
         room: Option<&str>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
+        self.move_to_room_if_unchanged(appointment_id, room, None, ctx)
+            .await
+    }
+
+    /// [`Self::move_to_room`] that refuses with `PreconditionFailed` when the appointment has changed since
+    /// the caller read it (OFH-10).
+    pub async fn move_to_room_if_unchanged(
+        &self,
+        appointment_id: Uuid,
+        room: Option<&str>,
+        expected: Option<DateTime<Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
         let room = match room.map(str::trim) {
             Some("") | None => None,
             Some(r) if r.chars().count() > 60 || r.chars().any(char::is_control) => {
@@ -77,9 +103,9 @@ impl SchedulingService {
         self.db
             .transaction::<_, Appointment, Error>(|txn| {
                 Box::pin(async move {
-                    let mut appt = AppointmentRepository::find_by_id(txn, appointment_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
+                    let mut appt =
+                        AppointmentRepository::lock_if_current(txn, appointment_id, expected)
+                            .await?;
                     if appt.status != AppointmentStatus::Arrived {
                         return Err(Error::invalid_transition(format!(
                             "appointment {appointment_id} is {:?}; only a patient who has arrived can be moved",
@@ -145,8 +171,24 @@ impl SchedulingService {
     }
 
     pub async fn check_in(&self, appointment_id: Uuid, ctx: &UserContext) -> Result<Appointment> {
-        self.transition(appointment_id, AppointmentStatus::Arrived, "check_in", ctx)
-            .await
+        self.check_in_if_unchanged(appointment_id, None, ctx).await
+    }
+
+    /// [`Self::check_in`] that refuses with `PreconditionFailed` when the appointment has changed (OFH-10).
+    pub async fn check_in_if_unchanged(
+        &self,
+        appointment_id: Uuid,
+        expected: Option<DateTime<Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
+        self.transition(
+            appointment_id,
+            AppointmentStatus::Arrived,
+            "check_in",
+            expected,
+            ctx,
+        )
+        .await
     }
 
     pub async fn mark_no_show(
@@ -154,14 +196,25 @@ impl SchedulingService {
         appointment_id: Uuid,
         ctx: &UserContext,
     ) -> Result<Appointment> {
+        self.mark_no_show_if_unchanged(appointment_id, None, ctx)
+            .await
+    }
+
+    /// [`Self::mark_no_show`] that refuses with `PreconditionFailed` when the appointment has changed (OFH-10).
+    pub async fn mark_no_show_if_unchanged(
+        &self,
+        appointment_id: Uuid,
+        expected: Option<DateTime<Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
         let ctx_clone = ctx.clone();
         let appt = self
             .db
             .transaction::<_, Appointment, Error>(|txn| {
                 Box::pin(async move {
-                    let mut appt = AppointmentRepository::find_by_id(txn, appointment_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
+                    let mut appt =
+                        AppointmentRepository::lock_if_current(txn, appointment_id, expected)
+                            .await?;
                     appt.status = appt.status.try_transition_to(AppointmentStatus::NoShow)?;
                     appt.updated_at = chrono::Utc::now();
                     let appt = AppointmentRepository::update(txn, &appt).await?;
@@ -202,10 +255,21 @@ impl SchedulingService {
     }
 
     pub async fn complete(&self, appointment_id: Uuid, ctx: &UserContext) -> Result<Appointment> {
+        self.complete_if_unchanged(appointment_id, None, ctx).await
+    }
+
+    /// [`Self::complete`] that refuses with `PreconditionFailed` when the appointment has changed (OFH-10).
+    pub async fn complete_if_unchanged(
+        &self,
+        appointment_id: Uuid,
+        expected: Option<DateTime<Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
         self.transition(
             appointment_id,
             AppointmentStatus::Fulfilled,
             "complete",
+            expected,
             ctx,
         )
         .await
@@ -216,6 +280,7 @@ impl SchedulingService {
         appointment_id: Uuid,
         next: AppointmentStatus,
         action: &'static str,
+        expected: Option<DateTime<Utc>>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         let ctx_clone = ctx.clone();
@@ -223,9 +288,9 @@ impl SchedulingService {
             .db
             .transaction::<_, Appointment, Error>(|txn| {
                 Box::pin(async move {
-                    let mut appt = AppointmentRepository::find_by_id(txn, appointment_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
+                    let mut appt =
+                        AppointmentRepository::lock_if_current(txn, appointment_id, expected)
+                            .await?;
                     appt.status = appt.status.try_transition_to(next)?;
                     appt.updated_at = chrono::Utc::now();
                     // Stamp the time (CORE-4). Arriving or finishing is the first time it is recorded.

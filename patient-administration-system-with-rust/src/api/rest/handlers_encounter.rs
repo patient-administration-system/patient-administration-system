@@ -85,9 +85,13 @@ pub async fn set_status(
     Json(body): Json<SetStatusBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "encounter") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     let run = async {
         let txn = state.db.begin().await.map_err(Error::Database)?;
-        let e = EncounterRepository::set_status(&txn, id, body.status).await?;
+        let e = EncounterRepository::set_status_if_current(&txn, id, body.status, expected).await?;
         AuditLogRepository::log(
             &txn,
             "encounter",
@@ -127,9 +131,19 @@ pub async fn cancel_encounter(
     headers: HeaderMap,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "encounter") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     let run = async {
         let txn = state.db.begin().await.map_err(Error::Database)?;
-        let e = EncounterRepository::set_status(&txn, id, EncounterStatus::Cancelled).await?;
+        let e = EncounterRepository::set_status_if_current(
+            &txn,
+            id,
+            EncounterStatus::Cancelled,
+            expected,
+        )
+        .await?;
         AuditLogRepository::log(
             &txn,
             "encounter",

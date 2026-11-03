@@ -66,11 +66,37 @@ impl BedRepository {
         id: Uuid,
         new_status: BedStatus,
     ) -> Result<Bed> {
-        let m = bed::Entity::find_by_id(id)
+        Self::update_status_if_current(conn, id, new_status, None, false).await
+    }
+
+    /// [`Self::update_status`] that, with `lock` set, takes the bed's row lock first and refuses with
+    /// `PreconditionFailed` when the bed has changed since the caller read it (OFH-10). `expected` `None`
+    /// skips the comparison. The lock is the same one `select_for_update` takes, so it also orders this
+    /// against an admission or a hold on the same bed.
+    pub async fn update_status_if_current<C: ConnectionTrait>(
+        conn: &C,
+        id: Uuid,
+        new_status: BedStatus,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        lock: bool,
+    ) -> Result<Bed> {
+        let mut q = bed::Entity::find_by_id(id);
+        if lock {
+            q = q.lock_exclusive();
+        }
+        let m = q
             .one(conn)
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found(format!("bed {id}")))?;
+        if !crate::api::rest::concurrency::is_current(
+            m.updated_at.with_timezone(&chrono::Utc),
+            expected,
+        ) {
+            return Err(Error::precondition_failed(
+                "the bed has changed since it was read; read it again",
+            ));
+        }
         let current = bed_status_from_str(&m.status)?;
         current.try_transition_to(new_status)?;
         let now = chrono::Utc::now().fixed_offset();
