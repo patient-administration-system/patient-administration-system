@@ -51,7 +51,10 @@ async fn call(
     uri: &str,
     body: Option<serde_json::Value>,
 ) -> (StatusCode, serde_json::Value) {
-    let mut b = Request::builder().method(method).uri(uri);
+    let mut b = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("if-match", "*");
     let body = match body {
         Some(v) => {
             b = b.header("content-type", "application/json");

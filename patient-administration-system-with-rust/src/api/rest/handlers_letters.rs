@@ -122,6 +122,8 @@ pub async fn create_template(
 /// `PUT /api/letter-templates/{id}` — administrators edit a template's
 /// subject, body, channels, required variables and active flag. The Tera
 /// source is validated before it is stored so a typo cannot break reminders.
+/// Needs `If-Match` with the template's version, the `ETag` of `GET /api/letter-templates/{id}`: none is `428`,
+/// a stale one `412` (OFH-11).
 #[utoipa::path(
     put,
     path = "/api/letter-templates/{id}",
@@ -140,6 +142,11 @@ pub async fn update_template(
     Path(id): Path<Uuid>,
     Json(mut body): Json<LetterTemplate>,
 ) -> HandlerResult {
+    let expected =
+        match crate::api::rest::concurrency::require_if_match(&headers, "letter template") {
+            Ok(t) => t,
+            Err(e) => return error_to_response(e),
+        };
     body.id = id;
     if let Err(e) = crate::communication::validate_template_syntax(&body.subject, &body.body_tera) {
         return error_to_response(e);
@@ -162,6 +169,7 @@ pub async fn update_template(
     let before = LetterRepository::find_template_by_id(&state.db, id).await;
     let run = async {
         let txn = state.db.begin().await.map_err(Error::Database)?;
+        LetterRepository::lock_template_if_current(&txn, id, expected).await?;
         let t = LetterRepository::update_template(&txn, &body).await?;
         AuditLogRepository::log(
             &txn,

@@ -30,13 +30,37 @@ impl CoverageRepository {
         m.map(from_model).transpose()
     }
 
+    /// Lock the coverage's row for the rest of the transaction and check it is the version the caller read
+    /// (OFH-11). `expected` is the `updated_at` the caller saw; `None` (the caller sent `*`) skips the
+    /// comparison but still takes the lock, so a second writer waits and then gets `412`.
+    pub async fn lock_if_current<C: ConnectionTrait>(
+        conn: &C,
+        id: Uuid,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<Coverage> {
+        let m = coverage::Entity::find_by_id(id)
+            .lock_exclusive()
+            .one(conn)
+            .await
+            .map_err(Error::Database)?
+            .ok_or_else(|| Error::not_found(format!("coverage {id}")))?;
+        let c = from_model(m)?;
+        if !crate::api::rest::concurrency::is_current(c.updated_at, expected) {
+            return Err(Error::precondition_failed(
+                "the coverage has changed since it was read; read it again",
+            ));
+        }
+        Ok(c)
+    }
+
     /// Replace the row in place. Caller is expected to have produced a
-    /// merged record (existing-row + patch) before calling.
+    /// merged record (existing-row + patch) before calling. Returns the row as stored, so its `updated_at`
+    /// (to the microsecond) is the version the next write must send.
     pub async fn update<C: ConnectionTrait>(conn: &C, c: &Coverage) -> Result<Coverage> {
         let mut am = to_active_model(c);
         am.updated_at = Set(chrono::Utc::now().fixed_offset());
-        am.update(conn).await.map_err(Error::Database)?;
-        Ok(c.clone())
+        let stored = am.update(conn).await.map_err(Error::Database)?;
+        from_model(stored)
     }
 
     /// Flip just the status column. Used by the soft-cancel endpoint

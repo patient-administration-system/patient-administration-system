@@ -60,6 +60,28 @@ impl LetterRepository {
         rows.into_iter().map(template_from_model).collect()
     }
 
+    /// Lock a template's row for the rest of the transaction and check it is the version the caller read
+    /// (OFH-11). `expected` `None` (the caller sent `*`) skips the comparison but still takes the lock.
+    pub async fn lock_template_if_current<C: ConnectionTrait>(
+        conn: &C,
+        id: Uuid,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<LetterTemplate> {
+        let m = letter_template::Entity::find_by_id(id)
+            .lock_exclusive()
+            .one(conn)
+            .await
+            .map_err(Error::Database)?
+            .ok_or_else(|| Error::not_found(format!("letter template {id}")))?;
+        let t = template_from_model(m)?;
+        if !crate::api::rest::concurrency::is_current(t.updated_at, expected) {
+            return Err(Error::precondition_failed(
+                "the letter template has changed since it was read; read it again",
+            ));
+        }
+        Ok(t)
+    }
+
     /// Replace the editable fields of a template (administrator edit).
     pub async fn update_template<C: ConnectionTrait>(
         conn: &C,

@@ -507,3 +507,110 @@ async fn referral_close_and_triage_check_the_referral_version() {
     .await;
     assert_eq!(status_of(id).await, "closed");
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn coverage_and_letter_template_edits_check_the_record_version() {
+    let (s, app) = world().await;
+    // A coverage: create, then edit and cancel with the version just read.
+    let (st, _, v) = call(
+        &app,
+        "POST",
+        "/api/coverages",
+        None,
+        serde_json::to_value(
+            patient_administration_system::models::coverage::Coverage::new(
+                Uuid::new_v4(),
+                "Real Ltd",
+                "P-1",
+            ),
+        )
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let mut coverage = v["data"].clone();
+    let id = coverage["id"].as_str().unwrap().to_string();
+    let uri = format!("/api/coverages/{id}");
+    coverage["payor_name"] = "Changed Ltd".into();
+    let payor = || async {
+        s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            "SELECT payor_name FROM coverages WHERE id = $1",
+            [id.parse::<Uuid>().unwrap().into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<String>("", "payor_name")
+        .unwrap()
+    };
+    three_answers(&app, &uri, "PUT", &uri, coverage, || async {
+        payor().await == "Real Ltd"
+    })
+    .await;
+    assert_eq!(payor().await, "Changed Ltd");
+    // The PUT answer carries the stored version, so it can be sent straight back.
+    three_answers(
+        &app,
+        &uri,
+        "DELETE",
+        &uri,
+        serde_json::json!({}),
+        || async {
+            s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
+                sea_orm::DbBackend::Postgres,
+                "SELECT status FROM coverages WHERE id = $1",
+                [id.parse::<Uuid>().unwrap().into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get::<String>("", "status")
+            .unwrap()
+                != "cancelled"
+        },
+    )
+    .await;
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_letter_template_edit_checks_the_template_version() {
+    let (s, app) = world().await;
+    let name = format!("ofh11-{}", Uuid::new_v4());
+    let template = |body: &str| {
+        serde_json::json!({
+            "id": Uuid::nil(), "name": name, "subject": "Hello", "body_tera": body,
+            "required_variables": [], "channels": ["sms"], "active": false,
+            "created_at": Utc::now(), "updated_at": Utc::now(),
+        })
+    };
+    let (st, _, v) = call(
+        &app,
+        "POST",
+        "/api/letter-templates",
+        None,
+        template("First"),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let id: Uuid = v["data"]["id"].as_str().unwrap().parse().unwrap();
+    let uri = format!("/api/letter-templates/{id}");
+    let mut edit = template("Second");
+    edit["id"] = id.to_string().into();
+    three_answers(&app, &uri, "PUT", &uri, edit, || async {
+        s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            "SELECT body_tera FROM letter_templates WHERE id = $1",
+            [id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<String>("", "body_tera")
+        .unwrap()
+            == "First"
+    })
+    .await;
+}

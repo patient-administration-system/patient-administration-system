@@ -1219,10 +1219,16 @@ export interface paths {
     };
     /** `GET /api/coverages/:id`. */
     get: operations["get_api_coverages__id"];
-    /** `PUT /api/coverages/:id`. */
+    /**
+     * `PUT /api/coverages/:id`. Needs `If-Match` with the coverage's version, the `ETag` of
+     *     `GET /api/coverages/{id}`: none is `428`, a stale one `412` (OFH-11).
+     */
     put: operations["put_api_coverages__id"];
     post?: never;
-    /** `DELETE /api/coverages/:id` — soft-cancel: flips status to Cancelled. */
+    /**
+     * `DELETE /api/coverages/:id` — soft-cancel: flips status to Cancelled. Needs `If-Match` with the coverage's
+     *     version, as `PUT` does (OFH-11).
+     */
     delete: operations["delete_api_coverages__id"];
     options?: never;
     head?: never;
@@ -2186,6 +2192,8 @@ export interface paths {
      * `PUT /api/letter-templates/{id}` — administrators edit a template's
      *     subject, body, channels, required variables and active flag. The Tera
      *     source is validated before it is stored so a typo cannot break reminders.
+     *     Needs `If-Match` with the template's version, the `ETag` of `GET /api/letter-templates/{id}`: none is `428`,
+     *     a stale one `412` (OFH-11).
      */
     put: operations["put_api_letter_templates__id"];
     post?: never;

@@ -93,7 +93,8 @@ pub async fn get_coverage(State(state): State<AppState>, Path(id): Path<Uuid>) -
     }
 }
 
-/// `PUT /api/coverages/:id`.
+/// `PUT /api/coverages/:id`. Needs `If-Match` with the coverage's version, the `ETag` of
+/// `GET /api/coverages/{id}`: none is `428`, a stale one `412` (OFH-11).
 #[utoipa::path(
     put,
     path = "/api/coverages/{id}",
@@ -112,11 +113,16 @@ pub async fn update_coverage(
     headers: HeaderMap,
     Json(mut body): Json<Coverage>,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "coverage") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     body.id = id;
     body.updated_at = chrono::Utc::now();
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
         let txn = state.db.begin().await.map_err(Error::Database)?;
+        CoverageRepository::lock_if_current(&txn, id, expected).await?;
         let c = CoverageRepository::update(&txn, &body).await?;
         AuditLogRepository::log(
             &txn,
@@ -137,7 +143,8 @@ pub async fn update_coverage(
     }
 }
 
-/// `DELETE /api/coverages/:id` — soft-cancel: flips status to Cancelled.
+/// `DELETE /api/coverages/:id` — soft-cancel: flips status to Cancelled. Needs `If-Match` with the coverage's
+/// version, as `PUT` does (OFH-11).
 #[utoipa::path(
     delete,
     path = "/api/coverages/{id}",
@@ -154,9 +161,14 @@ pub async fn delete_coverage(
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "coverage") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
         let txn = state.db.begin().await.map_err(Error::Database)?;
+        CoverageRepository::lock_if_current(&txn, id, expected).await?;
         let c = CoverageRepository::set_status(&txn, id, CoverageStatus::Cancelled).await?;
         AuditLogRepository::log(
             &txn,

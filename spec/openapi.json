@@ -22759,7 +22759,7 @@
             "bearer": []
           }
         ],
-        "summary": "`DELETE /api/coverages/:id` — soft-cancel: flips status to Cancelled.",
+        "summary": "`DELETE /api/coverages/:id` — soft-cancel: flips status to Cancelled. Needs `If-Match` with the coverage's\nversion, as `PUT` does (OFH-11).",
         "tags": [
           "Coverages"
         ]
@@ -22851,7 +22851,7 @@
             "bearer": []
           }
         ],
-        "summary": "`PUT /api/coverages/:id`.",
+        "summary": "`PUT /api/coverages/:id`. Needs `If-Match` with the coverage's version, the `ETag` of\n`GET /api/coverages/{id}`: none is `428`, a stale one `412` (OFH-11).",
         "tags": [
           "Coverages"
         ]
@@ -25050,7 +25050,7 @@
             "bearer": []
           }
         ],
-        "summary": "`PUT /api/letter-templates/{id}` — administrators edit a template's\nsubject, body, channels, required variables and active flag. The Tera\nsource is validated before it is stored so a typo cannot break reminders.",
+        "summary": "`PUT /api/letter-templates/{id}` — administrators edit a template's\nsubject, body, channels, required variables and active flag. The Tera\nsource is validated before it is stored so a typo cannot break reminders.\nNeeds `If-Match` with the template's version, the `ETag` of `GET /api/letter-templates/{id}`: none is `428`,\na stale one `412` (OFH-11).",
         "tags": [
           "Letter templates"
         ]
