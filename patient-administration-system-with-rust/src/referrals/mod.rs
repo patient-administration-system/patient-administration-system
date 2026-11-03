@@ -119,6 +119,8 @@ pub struct Referral {
     pub redirected_to_service: Option<String>,
     #[schema(required = true)]
     pub redirected_referral_id: Option<Uuid>,
+    /// The record's version (OFH-11): sent back as `If-Match` to close or triage it. Also returned as `ETag`.
+    pub updated_at: DateTime<Utc>,
 }
 
 pub struct NewReferral {
@@ -152,7 +154,7 @@ pub struct ReferralService {
 
 const COLS: &str = "r.id, r.person_id, r.source, r.external_ref, r.target_service, r.reason, \
     r.referring_worker_id, r.status, r.received_at, \
-    r.triaged_by, r.triaged_at, r.redirected_to_service, r.redirected_referral_id, \
+    r.triaged_by, r.triaged_at, r.redirected_to_service, r.redirected_referral_id, r.updated_at, \
     (SELECT a.id FROM appointments a WHERE a.referral_id = r.id AND a.deleted_at IS NULL \
        AND a.status NOT IN ('cancelled','no_show') ORDER BY a.created_at DESC LIMIT 1) AS appointment_id";
 
@@ -172,6 +174,7 @@ fn row_to_referral(r: &sea_orm::QueryResult) -> Result<Referral> {
         triaged_at: r.col("triaged_at")?,
         redirected_to_service: r.col("redirected_to_service")?,
         redirected_referral_id: r.col("redirected_referral_id")?,
+        updated_at: r.col("updated_at")?,
     })
 }
 
@@ -431,39 +434,78 @@ impl ReferralService {
         self.get(id).await
     }
 
+    /// Close a referral. No version is compared; see [`Self::close_if_unchanged`].
     pub async fn close(
         &self,
         id: Uuid,
         reason: Option<&str>,
         ctx: &UserContext,
     ) -> Result<Referral> {
-        let r = self
-            .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE referrals SET status = 'closed', updated_at = now() \
-                 WHERE id = $1 AND status NOT IN ('closed','returned_with_advice','redirected')",
-                [id.into()],
-            ))
+        self.close_if_unchanged(id, reason, None, ctx).await
+    }
+
+    /// [`Self::close`] that refuses with `PreconditionFailed` when the referral has changed since the caller read
+    /// it (OFH-11). The row is locked, the version compared, then the status moved, in one transaction.
+    pub async fn close_if_unchanged(
+        &self,
+        id: Uuid,
+        reason: Option<&str>,
+        expected: Option<DateTime<Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Referral> {
+        let (reason, ctx) = (reason.map(str::to_string), ctx.clone());
+        self.db
+            .transaction::<_, (), Error>(|txn| {
+                Box::pin(async move {
+                    let r = txn
+                        .query_one_raw(Statement::from_sql_and_values(
+                            DbBackend::Postgres,
+                            "SELECT status, updated_at FROM referrals WHERE id = $1 FOR UPDATE",
+                            [id.into()],
+                        ))
+                        .await
+                        .map_err(Error::Database)?
+                        .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
+                    let stored: DateTime<Utc> = r.col("updated_at")?;
+                    if !crate::api::rest::concurrency::is_current(stored, expected) {
+                        return Err(Error::precondition_failed(
+                            "that referral has changed since you read it; read it again",
+                        ));
+                    }
+                    let status: ReferralStatus = r.col::<String>("status")?.parse()?;
+                    // A booked referral can still be closed; one that has ended cannot.
+                    if matches!(
+                        status,
+                        ReferralStatus::Closed
+                            | ReferralStatus::ReturnedWithAdvice
+                            | ReferralStatus::Redirected
+                    ) {
+                        return Err(Error::conflict(format!(
+                            "that referral is already {status}"
+                        )));
+                    }
+                    txn.execute_raw(Statement::from_sql_and_values(
+                        DbBackend::Postgres,
+                        "UPDATE referrals SET status = 'closed', updated_at = now() WHERE id = $1",
+                        [id.into()],
+                    ))
+                    .await
+                    .map_err(Error::Database)?;
+                    AuditLogRepository::log(
+                        txn,
+                        "referral",
+                        id,
+                        "closed",
+                        None,
+                        Some(serde_json::json!({ "reason": reason })),
+                        &ctx,
+                    )
+                    .await?;
+                    Ok(())
+                })
+            })
             .await
-            .map_err(Error::Database)?;
-        if r.rows_affected() == 0 {
-            let r = self.get(id).await?; // not found, or already ended
-            return Err(Error::conflict(format!(
-                "that referral is already {}",
-                r.status
-            )));
-        }
-        AuditLogRepository::log(
-            &self.db,
-            "referral",
-            id,
-            "closed",
-            None,
-            Some(serde_json::json!({ "reason": reason })),
-            ctx,
-        )
-        .await?;
+            .map_err(Error::from)?;
         self.get(id).await
     }
 
@@ -477,6 +519,21 @@ impl ReferralService {
         outcome: &str,
         triaged_by: &str,
         redirect_to_service: Option<&str>,
+        ctx: &UserContext,
+    ) -> Result<Referral> {
+        self.triage_if_unchanged(id, outcome, triaged_by, redirect_to_service, None, ctx)
+            .await
+    }
+
+    /// [`Self::triage`] that refuses with `PreconditionFailed` when the referral has changed since the caller read
+    /// it (OFH-11). The version is compared under the row lock the triage already takes.
+    pub async fn triage_if_unchanged(
+        &self,
+        id: Uuid,
+        outcome: &str,
+        triaged_by: &str,
+        redirect_to_service: Option<&str>,
+        expected: Option<DateTime<Utc>>,
         ctx: &UserContext,
     ) -> Result<Referral> {
         if !TRIAGE_OUTCOMES.contains(&outcome) {
@@ -511,12 +568,18 @@ impl ReferralService {
                     let r = txn
                         .query_one_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
-                            "SELECT person_id, target_service, reason, status FROM referrals WHERE id = $1 FOR UPDATE",
+                            "SELECT person_id, target_service, reason, status, updated_at FROM referrals WHERE id = $1 FOR UPDATE",
                             [id.into()],
                         ))
                         .await
                         .map_err(Error::Database)?
                         .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
+                    let stored: DateTime<Utc> = r.col("updated_at")?;
+                    if !crate::api::rest::concurrency::is_current(stored, expected) {
+                        return Err(Error::precondition_failed(
+                            "that referral has changed since you read it; read it again",
+                        ));
+                    }
                     let status: ReferralStatus = r.col::<String>("status")?.parse()?;
                     if status != ReferralStatus::Received {
                         return Err(Error::conflict(format!(

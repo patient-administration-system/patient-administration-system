@@ -240,6 +240,7 @@ async fn the_http_endpoint_triages_once_and_refuses_the_repeat() {
                         .method("POST")
                         .uri(format!("/api/referrals/{id}/triage"))
                         .header("content-type", "application/json")
+                        .header("if-match", "*")
                         .body(Body::from(body.to_string()))
                         .unwrap(),
                 )

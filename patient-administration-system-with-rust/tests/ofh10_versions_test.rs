@@ -440,3 +440,70 @@ async fn slot_capacity_and_ring_fence_check_the_slot_version() {
     )
     .await;
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn referral_close_and_triage_check_the_referral_version() {
+    use patient_administration_system::referrals::NewReferral;
+    let (s, app) = world().await;
+    let service = format!("svc-{}", Uuid::new_v4());
+    common::new_schedule_for(&s.db, &service).await;
+    let new_referral = || async {
+        s.referrals
+            .create(
+                NewReferral {
+                    person_id: Uuid::new_v4(),
+                    source: "gp".into(),
+                    external_ref: None,
+                    target_service: service.clone(),
+                    reason: Some("needs a view".into()),
+                    referring_worker_id: None,
+                    received_at: None,
+                },
+                &UserContext::system(),
+            )
+            .await
+            .unwrap()
+            .0
+            .id
+    };
+    let status_of = |id: Uuid| {
+        let db = s.db.clone();
+        async move {
+            db.query_one_raw(sea_orm::Statement::from_sql_and_values(
+                sea_orm::DbBackend::Postgres,
+                "SELECT status FROM referrals WHERE id = $1",
+                [id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get::<String>("", "status")
+            .unwrap()
+        }
+    };
+    let id = new_referral().await;
+    let uri = format!("/api/referrals/{id}");
+    three_answers(
+        &app,
+        &uri,
+        "POST",
+        &format!("{uri}/triage"),
+        serde_json::json!({"outcome": "returned_with_advice", "triaged_by": "Mr R"}),
+        || async { status_of(id).await == "received" },
+    )
+    .await;
+    assert_eq!(status_of(id).await, "returned_with_advice");
+    let id = new_referral().await;
+    let uri = format!("/api/referrals/{id}");
+    three_answers(
+        &app,
+        &uri,
+        "POST",
+        &format!("{uri}/close"),
+        serde_json::json!({"reason": "no longer needed"}),
+        || async { status_of(id).await == "received" },
+    )
+    .await;
+    assert_eq!(status_of(id).await, "closed");
+}

@@ -204,6 +204,7 @@ pub struct CloseBody {
 }
 
 /// `POST /api/referrals/{id}/close`.
+/// Needs `If-Match` with the referral's version, the `ETag` of `GET /api/referrals/{id}`: none is `428`, a stale one `412` (OFH-11).
 #[utoipa::path(
     post,
     path = "/api/referrals/{id}/close",
@@ -222,10 +223,19 @@ pub async fn close(
     Path(id): Path<Uuid>,
     body: Option<Json<CloseBody>>,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "referral") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     let reason = body.and_then(|b| b.0.reason);
     match state
         .referrals
-        .close(id, reason.as_deref(), &request_audit_ctx(&headers))
+        .close_if_unchanged(
+            id,
+            reason.as_deref(),
+            expected,
+            &request_audit_ctx(&headers),
+        )
         .await
     {
         Ok(r) => ok_json(r),
@@ -247,6 +257,7 @@ pub struct TriageBody {
 
 /// `POST /api/referrals/{id}/triage`: a consultant returns the referral with advice or redirects it to
 /// another service (a redirect creates the new referral). Only a referral just received can be triaged.
+/// Needs `If-Match` with the referral's version, the `ETag` of `GET /api/referrals/{id}`: none is `428`, a stale one `412` (OFH-11).
 #[utoipa::path(
     post,
     path = "/api/referrals/{id}/triage",
@@ -265,13 +276,18 @@ pub async fn triage(
     Path(id): Path<Uuid>,
     Json(b): Json<TriageBody>,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "referral") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .referrals
-        .triage(
+        .triage_if_unchanged(
             id,
             &b.outcome,
             &b.triaged_by,
             b.redirect_to_service.as_deref(),
+            expected,
             &request_audit_ctx(&headers),
         )
         .await

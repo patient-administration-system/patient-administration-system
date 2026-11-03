@@ -4749,6 +4749,11 @@
                   "string",
                   "null"
                 ]
+              },
+              "updated_at": {
+                "description": "The record's version (OFH-11): sent back as `If-Match` to close or triage it. Also returned as `ETag`.",
+                "format": "date-time",
+                "type": "string"
               }
             },
             "required": [
@@ -4765,7 +4770,8 @@
               "triaged_by",
               "triaged_at",
               "redirected_to_service",
-              "redirected_referral_id"
+              "redirected_referral_id",
+              "updated_at"
             ],
             "type": "object"
           },
@@ -8780,6 +8786,11 @@
                     "string",
                     "null"
                   ]
+                },
+                "updated_at": {
+                  "description": "The record's version (OFH-11): sent back as `If-Match` to close or triage it. Also returned as `ETag`.",
+                  "format": "date-time",
+                  "type": "string"
                 }
               },
               "required": [
@@ -8796,7 +8807,8 @@
                 "triaged_by",
                 "triaged_at",
                 "redirected_to_service",
-                "redirected_referral_id"
+                "redirected_referral_id",
+                "updated_at"
               ],
               "type": "object"
             },
@@ -16520,6 +16532,11 @@
               "string",
               "null"
             ]
+          },
+          "updated_at": {
+            "description": "The record's version (OFH-11): sent back as `If-Match` to close or triage it. Also returned as `ETag`.",
+            "format": "date-time",
+            "type": "string"
           }
         },
         "required": [
@@ -16536,7 +16553,8 @@
           "triaged_by",
           "triaged_at",
           "redirected_to_service",
-          "redirected_referral_id"
+          "redirected_referral_id",
+          "updated_at"
         ],
         "type": "object"
       },
@@ -29157,7 +29175,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/referrals/{id}/close`.",
+        "summary": "`POST /api/referrals/{id}/close`.\nNeeds `If-Match` with the referral's version, the `ETag` of `GET /api/referrals/{id}`: none is `428`, a stale one `412` (OFH-11).",
         "tags": [
           "Referrals"
         ]
@@ -29210,7 +29228,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/referrals/{id}/triage`: a consultant returns the referral with advice or redirects it to\nanother service (a redirect creates the new referral). Only a referral just received can be triaged.",
+        "summary": "`POST /api/referrals/{id}/triage`: a consultant returns the referral with advice or redirects it to\nanother service (a redirect creates the new referral). Only a referral just received can be triaged.\nNeeds `If-Match` with the referral's version, the `ETag` of `GET /api/referrals/{id}`: none is `428`, a stale one `412` (OFH-11).",
         "tags": [
           "Referrals"
         ]

@@ -130,6 +130,7 @@ fn versioned_id(path: &str) -> Option<&str> {
         "/api/encounters/",
         "/api/beds/",
         "/api/slots/",
+        "/api/referrals/",
     ]
     .iter()
     .find_map(|p| path.strip_prefix(p))
@@ -259,6 +260,7 @@ mod tests {
         assert_eq!(versioned_id("/api/encounters/abc/status"), Some("abc"));
         assert_eq!(versioned_id("/api/beds/abc/status"), Some("abc"));
         assert_eq!(versioned_id("/api/slots/abc/capacity"), Some("abc"));
+        assert_eq!(versioned_id("/api/referrals/abc/close"), Some("abc"));
         assert_eq!(versioned_id("/api/patients/abc"), None);
         assert_eq!(versioned_id("/api/admissions/"), None);
     }

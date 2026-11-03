@@ -3648,7 +3648,10 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** `POST /api/referrals/{id}/close`. */
+    /**
+     * `POST /api/referrals/{id}/close`.
+     *     Needs `If-Match` with the referral's version, the `ETag` of `GET /api/referrals/{id}`: none is `428`, a stale one `412` (OFH-11).
+     */
     post: operations["post_api_referrals__id__close"];
     delete?: never;
     options?: never;
@@ -3668,6 +3671,7 @@ export interface paths {
     /**
      * `POST /api/referrals/{id}/triage`: a consultant returns the referral with advice or redirects it to
      *     another service (a redirect creates the new referral). Only a referral just received can be triaged.
+     *     Needs `If-Match` with the referral's version, the `ETag` of `GET /api/referrals/{id}`: none is `428`, a stale one `412` (OFH-11).
      */
     post: operations["post_api_referrals__id__triage"];
     delete?: never;
@@ -7299,6 +7303,11 @@ export interface components {
         triaged_at: string | null;
         /** @description Set when a consultant triaged the referral (`returned_with_advice` or `redirected`). */
         triaged_by: string | null;
+        /**
+         * Format: date-time
+         * @description The record's version (OFH-11): sent back as `If-Match` to close or triage it. Also returned as `ETag`.
+         */
+        updated_at: string;
       };
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8657,6 +8666,11 @@ export interface components {
         triaged_at: string | null;
         /** @description Set when a consultant triaged the referral (`returned_with_advice` or `redirected`). */
         triaged_by: string | null;
+        /**
+         * Format: date-time
+         * @description The record's version (OFH-11): sent back as `If-Match` to close or triage it. Also returned as `ETag`.
+         */
+        updated_at: string;
       }[];
       error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
@@ -11423,6 +11437,11 @@ export interface components {
       triaged_at: string | null;
       /** @description Set when a consultant triaged the referral (`returned_with_advice` or `redirected`). */
       triaged_by: string | null;
+      /**
+       * Format: date-time
+       * @description The record's version (OFH-11): sent back as `If-Match` to close or triage it. Also returned as `ETag`.
+       */
+      updated_at: string;
     };
     /**
      * @description Where a referral came from.
