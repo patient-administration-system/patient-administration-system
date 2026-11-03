@@ -51,6 +51,7 @@ pub async fn ward_occupancy(
 
 /// `PUT /api/beds/:id/status` — state-machine-checked bed status change.
 /// Body: `{ "status": "Available" }`.
+/// Needs `If-Match` with the bed's version, the `ETag` of `GET /api/beds/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     put,
     path = "/api/beds/{id}/status",

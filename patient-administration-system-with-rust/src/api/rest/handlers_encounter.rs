@@ -66,6 +66,7 @@ pub async fn list_encounters_for_person(
 }
 
 /// `PUT /api/encounters/:id/status` — state-machine-checked status flip.
+/// Needs `If-Match` with the encounter's version, the `ETag` of `GET /api/encounters/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     put,
     path = "/api/encounters/{id}/status",
@@ -114,6 +115,7 @@ pub async fn set_status(
 /// `POST /api/encounters/:id/cancel` — convenience: set status to
 /// Cancelled. Equivalent to `PUT /api/encounters/:id/status` with
 /// `{"status":"Cancelled"}`.
+/// Needs `If-Match` with the encounter's version, the `ETag` of `GET /api/encounters/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     post,
     path = "/api/encounters/{id}/cancel",

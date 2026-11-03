@@ -216,7 +216,7 @@ pub struct Ft1 {
 }
 
 /// Parse one FT1 segment. The 1-based `set_id` is the FT1-1 set-id field
-/// (mostly for diagnostics — "FT1[2]-11.1 ..."). Returns
+/// (mostly for diagnostics — "FT1\[2\]-11.1 ..."). Returns
 /// `Err(Error::Validation)` when a required field is missing.
 pub fn parse_ft1(ft1: &Segment) -> crate::Result<Ft1> {
     let set_id_text = ft1.raw(1);

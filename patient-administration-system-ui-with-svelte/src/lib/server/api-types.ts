@@ -633,6 +633,7 @@ export interface paths {
     /**
      * `PUT /api/appointments/{id}/barrier` — record why a cancelled or missed appointment happened,
      *     typically after a welfare call (CAP-1).
+     *     Needs `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).
      */
     put: operations["put_api_appointments__id__barrier"];
     post?: never;
@@ -672,7 +673,10 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** `POST /api/appointments/:id/check-in` — `Booked → Arrived`. */
+    /**
+     * `POST /api/appointments/:id/check-in` — `Booked → Arrived`.
+     *     Needs `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).
+     */
     post: operations["post_api_appointments__id__check_in"];
     delete?: never;
     options?: never;
@@ -689,7 +693,10 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** `POST /api/appointments/:id/complete` — `Arrived → Fulfilled`. */
+    /**
+     * `POST /api/appointments/:id/complete` — `Arrived → Fulfilled`.
+     *     Needs `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).
+     */
     post: operations["post_api_appointments__id__complete"];
     delete?: never;
     options?: never;
@@ -759,7 +766,10 @@ export interface paths {
       cookie?: never;
     };
     get?: never;
-    /** `PUT /api/appointments/{id}/location` — move a patient who has arrived to a room (CORE-4). Audited. */
+    /**
+     * `PUT /api/appointments/{id}/location` — move a patient who has arrived to a room (CORE-4). Audited.
+     *     Needs `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).
+     */
     put: operations["put_api_appointments__id__location"];
     post?: never;
     delete?: never;
@@ -777,7 +787,10 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** `POST /api/appointments/:id/no-show` — `Booked → NoShow`. */
+    /**
+     * `POST /api/appointments/:id/no-show` — `Booked → NoShow`.
+     *     Needs `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).
+     */
     post: operations["post_api_appointments__id__no_show"];
     delete?: never;
     options?: never;
@@ -1001,6 +1014,7 @@ export interface paths {
     /**
      * `PUT /api/beds/:id/status` — state-machine-checked bed status change.
      *     Body: `{ "status": "Available" }`.
+     *     Needs `If-Match` with the bed's version, the `ETag` of `GET /api/beds/{id}`: none is `428`, a stale one `412` (OFH-10).
      */
     put: operations["put_api_beds__id__status"];
     post?: never;
@@ -1245,6 +1259,7 @@ export interface paths {
      * `POST /api/encounters/:id/cancel` — convenience: set status to
      *     Cancelled. Equivalent to `PUT /api/encounters/:id/status` with
      *     `{"status":"Cancelled"}`.
+     *     Needs `If-Match` with the encounter's version, the `ETag` of `GET /api/encounters/{id}`: none is `428`, a stale one `412` (OFH-10).
      */
     post: operations["post_api_encounters__id__cancel"];
     delete?: never;
@@ -1278,7 +1293,10 @@ export interface paths {
       cookie?: never;
     };
     get?: never;
-    /** `PUT /api/encounters/:id/status` — state-machine-checked status flip. */
+    /**
+     * `PUT /api/encounters/:id/status` — state-machine-checked status flip.
+     *     Needs `If-Match` with the encounter's version, the `ETag` of `GET /api/encounters/{id}`: none is `428`, a stale one `412` (OFH-10).
+     */
     put: operations["put_api_encounters__id__status"];
     post?: never;
     delete?: never;
@@ -4100,6 +4118,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/slots/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/slots/:id` — one slot. The response carries `ETag`, the version to send back in `If-Match` on a
+     *     change of capacity or ring-fence (OFH-11).
+     */
+    get: operations["get_api_slots__id"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/slots/{id}/attendees": {
     parameters: {
       query?: never;
@@ -4151,6 +4189,7 @@ export interface paths {
     /**
      * `PUT /api/slots/{id}/capacity`: declare how many patients a slot still to come takes, never below the
      *     number already booked. A named person; audited.
+     *     Needs `If-Match` with the slot's version, the `ETag` of `GET /api/slots/{id}`: none is `428`, a stale one `412` (OFH-10).
      */
     put: operations["put_api_slots__id__capacity"];
     post?: never;
@@ -4171,6 +4210,7 @@ export interface paths {
     /**
      * `PUT /api/slots/{id}/ring-fence`: hold a free slot out of automatic offers (first available, rebooking,
      *     IHE `$find`), or lift the hold. A person can still book it by choosing it.
+     *     Needs `If-Match` with the slot's version, the `ETag` of `GET /api/slots/{id}`: none is `428`, a stale one `412` (OFH-10).
      */
     put: operations["put_api_slots__id__ring_fence"];
     post?: never;
@@ -4826,6 +4866,7 @@ export interface paths {
     /**
      * `PUT /api/waitlist/{id}/follow-up-target`: the date by which a waiting or booked entry's follow-up is
      *     due. A named person is required; the change is audited.
+     *     Needs `If-Match` with the waiting-list entry's version, the `ETag` of `GET /api/waitlist/{id}`: none is `428`, a stale one `412` (OFH-10).
      */
     put: operations["put_api_waitlist__id__follow_up_target"];
     post?: never;
@@ -11604,7 +11645,7 @@ export interface components {
     };
     /**
      * @description Status of an appointment series. Individual occurrence statuses live
-     *     on the [`Appointment`] rows themselves.
+     *     on the [`Appointment`](crate::models::appointment::Appointment) rows themselves.
      * @enum {string}
      */
     SeriesStatus: "active" | "cancelled";
@@ -21582,6 +21623,41 @@ export interface operations {
     requestBody?: never;
     responses: {
       /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; the `ApiResponse` envelope */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_slots__id: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope. The `ETag` header is the slot's version */
       200: {
         headers: {
           [name: string]: unknown;

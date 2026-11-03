@@ -265,7 +265,7 @@ impl SchedulingService {
         Ok(appt)
     }
 
-    /// Move an appointment to another free slot, atomically. See [`Self::rebook_tx`].
+    /// Move an appointment to another free slot, atomically. See `Self::rebook_tx`.
     pub async fn rebook(
         &self,
         appointment_id: Uuid,

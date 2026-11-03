@@ -95,7 +95,7 @@ impl RecurrenceRule {
 }
 
 /// Status of an appointment series. Individual occurrence statuses live
-/// on the [`Appointment`] rows themselves.
+/// on the [`Appointment`](crate::models::appointment::Appointment) rows themselves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SeriesStatus {

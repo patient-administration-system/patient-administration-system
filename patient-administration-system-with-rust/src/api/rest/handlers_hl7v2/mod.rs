@@ -9,12 +9,12 @@
 //!   handler either reuses the matched person id or creates a new one
 //!   via [`PersonClient::create`].
 //! - `POST /api/hl7/v2/admit` — ADT^A01. Same PID resolve, then look
-//!   up the bed by PV1-3.3 code, then call [`AdtService::admit`].
+//!   up the bed by PV1-3.3 code, then call [`AdtService::admit`](crate::adt::AdtService::admit).
 //! - `POST /api/hl7/v2/transfer` — ADT^A02. Resolve PID to person id,
 //!   find the open admission for that person, look up the destination
-//!   bed by PV1-3.3, call [`AdtService::transfer`].
+//!   bed by PV1-3.3, call [`AdtService::transfer`](crate::adt::AdtService::transfer).
 //! - `POST /api/hl7/v2/discharge` — ADT^A03. Resolve PID → person, find
-//!   open admission, call [`AdtService::discharge`].
+//!   open admission, call [`AdtService::discharge`](crate::adt::AdtService::discharge).
 //!
 //! Every handler returns a v2 ACK envelope (HTTP 200 + `text/plain`)
 //! using the existing [`crate::hl7v2::ack::ack`] builder. AA/AE/AR

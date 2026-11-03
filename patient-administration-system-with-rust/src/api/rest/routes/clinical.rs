@@ -136,6 +136,7 @@ pub(super) fn scheduling() -> Router<AppState> {
             get(handlers_interpreter::unconfirmed),
         )
         // Scheduling — book / cancel / check-in / complete.
+        .route("/api/slots/{id}", get(handlers_scheduling::get_slot))
         .route("/api/slots/{id}/book", post(handlers_scheduling::book_slot))
         .route(
             "/api/appointments",

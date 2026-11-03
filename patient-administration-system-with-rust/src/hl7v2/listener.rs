@@ -1,5 +1,5 @@
 //! TCP listener that accepts MLLP-framed HL7 v2 messages and dispatches
-//! them to the existing HTTP handlers via [`axum::Router::oneshot`].
+//! them to the existing HTTP handlers via `tower::ServiceExt::oneshot`.
 //!
 //! Design: zero handler refactoring. The listener inspects the message
 //! type, picks the right `/api/hl7/v2/...` endpoint, builds a synthetic

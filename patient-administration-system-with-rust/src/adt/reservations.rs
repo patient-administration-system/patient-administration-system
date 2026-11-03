@@ -49,6 +49,8 @@ impl AdtService {
         Ok((minutes > 0).then(|| Duration::minutes(minutes)))
     }
 
+    /// Append one row to `bed_occupancy_events`. Always called in the same transaction as the change it
+    /// records, so an event exists exactly when the change committed.
     async fn event(
         txn: &DatabaseTransaction,
         bed_id: Uuid,
@@ -130,7 +132,7 @@ impl AdtService {
 
     /// Give back every bed whose hold has lapsed at `now` (OFH-4): the bed goes `Reserved → Available`, the
     /// planned encounter is cancelled, the reservation closes as `expired`, and an audit row, an occupancy
-    /// event and an outbox event are written, each hold in its own transaction. At most [`SWEEP_BATCH`] a
+    /// event and an outbox event are written, each hold in its own transaction. At most `SWEEP_BATCH` (100) a
     /// pass. Returns how many were released. A hold whose bed is no longer `Reserved` is closed without
     /// touching the bed.
     pub async fn release_expired_holds(&self, now: DateTime<Utc>) -> Result<u64> {
@@ -155,8 +157,19 @@ impl AdtService {
         Ok(released)
     }
 
+    /// Release one lapsed hold in a transaction of its own. Returns `false` when there was nothing to do.
+    ///
+    /// The order matters. The bed is locked **first**, as `admit`, `pre_admit` and `cancel_pre_admit` lock it,
+    /// so a sweep and a cancel on the same bed queue behind each other and cannot deadlock. The reservation is
+    /// then re-read under that lock with its conditions repeated (`released_at IS NULL`, `expires_at <= now`):
+    /// the sweep chose it a moment ago, and a cancel may have closed it since. If so, this returns `false`
+    /// and writes nothing.
+    ///
+    /// A bed that is no longer `Reserved` is left alone and only the reservation is closed, so the sweep never
+    /// frees a bed that something else has since taken.
     async fn release_one(&self, id: Uuid, bed_id: Uuid, now: DateTime<Utc>) -> Result<bool> {
         let ctx = UserContext::system();
+        // `Some((person, encounter))` when a hold was released; `None` when a cancel got there first.
         let done = self
             .db
             .transaction::<_, Option<(Uuid, Uuid)>, Error>(|txn| {
@@ -179,9 +192,13 @@ impl AdtService {
                     };
                     let (person_id, encounter_id): (Uuid, Uuid) =
                         (r.col("person_id")?, r.col("encounter_id")?);
+                    // Give the bed back only if it is still held. If it has been admitted to, taken out of service
+                    // or cleaned since, it is not ours to change.
                     if bed.status == BedStatus::Reserved {
                         BedRepository::update_status(txn, bed_id, BedStatus::Available).await?;
                     }
+                    // The planned encounter is cancelled only while it is still `Planned`: one that has
+                    // already moved on is a real encounter and stays.
                     let enc = EncounterRepository::find_by_id(txn, encounter_id).await?;
                     if enc.is_some_and(|e| e.status == EncounterStatus::Planned) {
                         EncounterRepository::set_status(
@@ -220,6 +237,8 @@ impl AdtService {
         let Some((person_id, encounter_id)) = done else {
             return Ok(false);
         };
+        // The in-process event goes out only after the transaction has committed, and a failure to publish it
+        // is logged, not raised: the outbox row written above is the durable record.
         self.publisher
             .publish(DomainEvent::new(
                 "BedHoldExpired",

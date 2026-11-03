@@ -25,6 +25,7 @@ pub struct TargetBody {
 
 /// `PUT /api/waitlist/{id}/follow-up-target`: the date by which a waiting or booked entry's follow-up is
 /// due. A named person is required; the change is audited.
+/// Needs `If-Match` with the waiting-list entry's version, the `ETag` of `GET /api/waitlist/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     put,
     path = "/api/waitlist/{id}/follow-up-target",

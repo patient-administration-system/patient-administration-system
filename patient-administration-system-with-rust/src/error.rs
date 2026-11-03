@@ -104,17 +104,19 @@ impl Error {
         Error::Render(msg.into())
     }
 
-    /// Build an `Upstream` error.
-    /// Build a `PreconditionFailed` error.
+    /// Build a `PreconditionFailed` error (412): the caller's `If-Match` version is no longer the stored one,
+    /// so the write was refused and nothing changed. See [`crate::api::rest::concurrency`].
     pub fn precondition_failed(msg: impl Into<String>) -> Self {
         Error::PreconditionFailed(msg.into())
     }
 
-    /// Build a `PreconditionRequired` error (428).
+    /// Build a `PreconditionRequired` error (428): the route needs an `If-Match` version and the request sent
+    /// none. See [`crate::api::rest::concurrency::require_if_match`].
     pub fn precondition_required(msg: impl Into<String>) -> Self {
         Error::PreconditionRequired(msg.into())
     }
 
+    /// Build an `Upstream` error.
     pub fn upstream(msg: impl Into<String>) -> Self {
         Error::Upstream(msg.into())
     }

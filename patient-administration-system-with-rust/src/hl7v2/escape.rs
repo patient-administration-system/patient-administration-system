@@ -24,7 +24,7 @@
 //! These deliberately do NOT touch the raw segment bytes or the
 //! `Segment::fields` storage in [`crate::hl7v2::Segment`] — that storage is
 //! still the literal wire bytes between delimiters. Callers in
-//! [`crate::hl7v2::mapping`] apply the escapes when crossing the boundary.
+//! `crate::hl7v2::mapping` apply the escapes when crossing the boundary.
 
 use er7::Separators;
 

@@ -2,8 +2,8 @@
 //!
 //! v0.8 wires the long-dormant `DeliveryChannel::Sms` variant. The PAS
 //! itself does not speak to any real SMS gateway (Twilio, MessageBird,
-//! Plivo, …); instead [`CommunicationService::generate_letter`] looks up
-//! the configured [`SmsProvider`] in [`AppState`] and calls
+//! Plivo, …); instead `CommunicationService::generate_letter` looks up
+//! the configured [`SmsProvider`] in `AppState` and calls
 //! [`SmsProvider::send`] when a letter's `channel == Sms` and the provider
 //! reports `is_enabled()`. Consumers swap in a real provider by
 //! implementing the trait against their gateway of choice.

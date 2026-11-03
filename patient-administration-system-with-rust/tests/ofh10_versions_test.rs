@@ -401,3 +401,42 @@ async fn two_admissions_into_one_bed_at_once_admit_one() {
         );
     }
 }
+
+/// OFH-11: a slot's capacity and ring-fence need the slot's version (read from `GET /api/slots/{id}`).
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn slot_capacity_and_ring_fence_check_the_slot_version() {
+    let (s, app) = world().await;
+    let schedule = common::new_schedule(&s.db).await.id;
+    let slot = common::free_slot(&s.db, schedule, 12).await;
+    let uri = format!("/api/slots/{}", slot.id);
+    let stored = || async {
+        s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            "SELECT capacity, ring_fenced FROM slots WHERE id = $1",
+            [slot.id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+    };
+    let before = stored().await.try_get::<i32>("", "capacity").unwrap();
+    three_answers(
+        &app,
+        &uri,
+        "PUT",
+        &format!("{uri}/capacity"),
+        serde_json::json!({"capacity": before + 3, "set_by": "Clinic lead"}),
+        || async { stored().await.try_get::<i32>("", "capacity").unwrap() == before },
+    )
+    .await;
+    three_answers(
+        &app,
+        &uri,
+        "PUT",
+        &format!("{uri}/ring-fence"),
+        serde_json::json!({"ring_fenced": true, "set_by": "Clinic lead"}),
+        || async { !stored().await.try_get::<bool>("", "ring_fenced").unwrap() },
+    )
+    .await;
+}

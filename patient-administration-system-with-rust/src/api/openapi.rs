@@ -189,6 +189,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_scheduling::list_patient_appointments,
         crate::api::rest::handlers_scheduling::cancel_appointment,
         crate::api::rest::handlers_scheduling::get_appointment,
+        crate::api::rest::handlers_scheduling::get_slot,
         crate::api::rest::handlers_scheduling::rebook_options,
         crate::api::rest::handlers_scheduling::rebook_appointment,
         crate::api::rest::handlers_history::appointment_history,

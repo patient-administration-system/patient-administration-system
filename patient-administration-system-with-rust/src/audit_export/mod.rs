@@ -9,7 +9,7 @@
 //! The constraints checked are those of the BALP `Read`, `Create`, `Update` and `Delete` profiles and their
 //! `Patient` variants as published at <https://profiles.ihe.net/ITI/BALP/> (read 2026-10-23): `type` is
 //! `rest`; one `subtype` from the RESTful interaction codes; `action` `R`, `C`, `U` or `D`; `outcome` `0`;
-//! a `recorded` instant; a client agent and a server agent (their codes depend on the action: see [`roles`]), each with `who`,
+//! a `recorded` instant; a client agent and a server agent (their codes depend on the action: see `roles`), each with `who`,
 //! `requestor` and `network`; an optional user agent (`IRCP`, `requestor` true); `source.observer`; a data
 //! entity (type 2) with `what` and `role`; and, for the Patient variants, a patient entity (type 1, role 1).
 //! This is a structural check written from those pages. It is **not** the validator: the official HL7

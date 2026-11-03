@@ -1,13 +1,38 @@
-//! Optimistic concurrency (OFH-1, NFR-27): the version a caller read, and the check that it is still current.
+//! Optimistic concurrency (OFH-1, OFH-10, OFH-11, NFR-27): the version a caller read, and the check that it is
+//! still current.
+//!
+//! # The idea
+//!
+//! Two people open the same record. One acts. The other, still looking at a view that is no longer true, acts
+//! on it. Rather than hold a lock while a person looks at a screen (NFR-27 forbids that), every record has a
+//! *version* and a write says which version it was based on. If the stored version has moved, the write is
+//! refused and nothing changes (hazard H-15).
+//!
+//! # The version
 //!
 //! A record's version is its `updated_at`, to the microsecond (the precision the database keeps). A single
-//! record in a response from `/api/appointments/`, `/api/waitlist/` or `/api/admissions/` carries it as
-//! `ETag: "<updated_at>"`. A write sends it back as `If-Match`:
+//! record in a response from `/api/appointments/`, `/api/waitlist/`, `/api/admissions/`, `/api/encounters/`,
+//! `/api/beds/` or `/api/slots/` carries it as `ETag: "<updated_at>"`. A write sends it back as `If-Match`:
 //!
 //! - absent: `428 PRECONDITION_REQUIRED`, nothing changed;
-//! - `*`: any version (a caller that does not care says so);
+//! - `*`: any version (a caller that does not care says so; inbound HL7 v2 and FHIR writes are treated so);
 //! - a version that is no longer current: `412 PRECONDITION_FAILED`, nothing changed;
 //! - not a time: `400`.
+//!
+//! # Where the check runs
+//!
+//! Not in this module. The handler calls [`require_if_match`] to read the header, then passes the version to a
+//! service method named `*_if_unchanged`. That method opens a transaction, locks the record's row
+//! (`SELECT ... FOR UPDATE`) and calls [`is_current`] on what it found, **before** it changes anything. The lock
+//! is what makes two simultaneous writers safe: the second waits, then sees the new `updated_at` and gets `412`.
+//! A check made *outside* the transaction would leave a gap in which both pass.
+//!
+//! The lock is held only for the length of one transaction, never across requests.
+//!
+//! # What it does not cover
+//!
+//! The routes that check a version are listed in `spec/09-api-surface.md`. Every other write route is
+//! last-writer-wins, and so are patients and practitioners, which this service only proxies.
 
 use axum::{
     body::{Body, to_bytes},
@@ -21,6 +46,14 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use crate::{Error, Result};
 
 /// The tag for a version: the time to the microsecond, in quotes.
+///
+/// ```
+/// use chrono::{TimeZone, Utc};
+/// use patient_administration_system::api::rest::concurrency::etag;
+///
+/// let t = Utc.with_ymd_and_hms(2026, 11, 2, 10, 0, 0).unwrap();
+/// assert_eq!(etag(t), "\"2026-11-02T10:00:00.000000Z\"");
+/// ```
 pub fn etag(updated_at: DateTime<Utc>) -> String {
     format!(
         "\"{}\"",
@@ -30,6 +63,23 @@ pub fn etag(updated_at: DateTime<Utc>) -> String {
 
 /// The version named in `If-Match`. `Ok(None)` means the caller said `*` (any version).
 /// A missing header is `428`; a value that is not a time is `400`.
+///
+/// `what` names the record in the message the caller sees ("send If-Match with the appointment's ETag ...").
+/// A weak tag (`W/"..."`) is accepted and treated as strong, because the version is compared exactly.
+///
+/// ```
+/// use axum::http::{HeaderMap, HeaderValue, header};
+/// use patient_administration_system::api::rest::concurrency::require_if_match;
+///
+/// let mut h = HeaderMap::new();
+/// assert!(require_if_match(&h, "appointment").is_err(), "no header is 428");
+///
+/// h.insert(header::IF_MATCH, HeaderValue::from_static("*"));
+/// assert_eq!(require_if_match(&h, "appointment").unwrap(), None, "any version");
+///
+/// h.insert(header::IF_MATCH, HeaderValue::from_static("\"2026-11-02T10:00:00.000000Z\""));
+/// assert!(require_if_match(&h, "appointment").unwrap().is_some());
+/// ```
 pub fn require_if_match(headers: &HeaderMap, what: &str) -> Result<Option<DateTime<Utc>>> {
     let Some(raw) = headers.get(header::IF_MATCH) else {
         return Err(Error::precondition_required(format!(
@@ -50,11 +100,28 @@ pub fn require_if_match(headers: &HeaderMap, what: &str) -> Result<Option<DateTi
 }
 
 /// Is the stored version the one the caller read? `None` (sent `*`) always is.
+///
+/// Both sides are compared as whole microseconds. The database keeps microseconds, but a `DateTime<Utc>` made
+/// in Rust carries nanoseconds, so comparing them as they are would call a record stale the moment it was
+/// read back.
+///
+/// ```
+/// use chrono::{Duration, Utc};
+/// use patient_administration_system::api::rest::concurrency::is_current;
+///
+/// let stored = Utc::now();
+/// assert!(is_current(stored, Some(stored)));
+/// assert!(is_current(stored, None), "`*` accepts any version");
+/// assert!(!is_current(stored, Some(stored - Duration::microseconds(1))));
+/// ```
 pub fn is_current(stored: DateTime<Utc>, seen: Option<DateTime<Utc>>) -> bool {
     seen.is_none_or(|s| s.timestamp_micros() == stored.timestamp_micros())
 }
 
 /// The id a versioned path names (`/api/appointments/{id}...`), if it is one.
+///
+/// This list is the set of record types that return an `ETag`. Adding a type here is only half of giving it a
+/// version: its write routes must also take the lock and compare (see the module docs).
 fn versioned_id(path: &str) -> Option<&str> {
     [
         "/api/appointments/",
@@ -62,6 +129,7 @@ fn versioned_id(path: &str) -> Option<&str> {
         "/api/admissions/",
         "/api/encounters/",
         "/api/beds/",
+        "/api/slots/",
     ]
     .iter()
     .find_map(|p| path.strip_prefix(p))
@@ -74,6 +142,7 @@ fn versioned_id(path: &str) -> Option<&str> {
 /// new appointment from a rebook, a list) passes through untouched, so a tag is never the version of a
 /// different record than the one the client asked about.
 pub async fn etag_middleware(req: Request, next: Next) -> Response {
+    // Only paths that name a versioned record are looked at; everything else passes straight through.
     let named = versioned_id(req.uri().path()).map(str::to_owned);
     let wanted = named.is_some()
         && matches!(
@@ -92,6 +161,8 @@ pub async fn etag_middleware(req: Request, next: Next) -> Response {
     if !is_json {
         return res;
     }
+    // The body has to be read to find `data.id` and `data.updated_at`, then put back unchanged. 4 MiB is far more
+    // than any one record; a larger body is dropped rather than buffered.
     let (mut parts, body) = res.into_parts();
     let Ok(bytes) = to_bytes(body, 4 * 1024 * 1024).await else {
         return Response::from_parts(parts, Body::empty());
@@ -101,11 +172,16 @@ pub async fn etag_middleware(req: Request, next: Next) -> Response {
     {
         parts.headers.insert(header::ETAG, tag);
     }
+    // The body was re-buffered, so any length the handler set is no longer to be trusted.
     parts.headers.remove(header::CONTENT_LENGTH);
     Response::from_parts(parts, Body::from(bytes))
 }
 
 /// The `updated_at` of the record in an envelope, if its `id` is `id`.
+///
+/// The `id` test is the safety of the whole tag: a response to `POST /api/appointments/{id}/rebook` holds two
+/// *other* appointments, and a tag taken from either would be the version of a record the client did not ask
+/// about. Only a body that is the very record the path names is tagged.
 fn version_of(bytes: &[u8], id: &str) -> Option<DateTime<Utc>> {
     let v: serde_json::Value = serde_json::from_slice(bytes).ok()?;
     let data = v.get("data")?.as_object()?;
@@ -182,6 +258,7 @@ mod tests {
         assert_eq!(versioned_id("/api/admissions/abc/discharge"), Some("abc"));
         assert_eq!(versioned_id("/api/encounters/abc/status"), Some("abc"));
         assert_eq!(versioned_id("/api/beds/abc/status"), Some("abc"));
+        assert_eq!(versioned_id("/api/slots/abc/capacity"), Some("abc"));
         assert_eq!(versioned_id("/api/patients/abc"), None);
         assert_eq!(versioned_id("/api/admissions/"), None);
     }

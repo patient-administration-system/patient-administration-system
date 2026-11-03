@@ -72,7 +72,7 @@ pub struct AppState {
 impl AppState {
     /// Construct a new `AppState`, building one of each service from the
     /// shared database connection and event publisher. The
-    /// [`CommunicationService`] starts with [`NoopSmsProvider`] — call
+    /// [`CommunicationService`] starts with `NoopSmsProvider` — call
     /// [`Self::with_sms_provider`] before serving requests to enable
     /// real auto-send.
     pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {

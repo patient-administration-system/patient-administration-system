@@ -27,7 +27,7 @@ pub struct Config {
     pub rust_log: String,
     /// Optional OTLP collector endpoint for OpenTelemetry export.
     /// `None` when the env var is unset — OTLP export is then disabled
-    /// (only the fmt layer is wired). When set, [`observability::init`]
+    /// (only the fmt layer is wired). When set, `observability::init`
     /// builds an OTLP HTTP/protobuf exporter pointed at this URL and
     /// installs a `tracing_opentelemetry` layer alongside fmt.
     pub otlp_endpoint: Option<String>,

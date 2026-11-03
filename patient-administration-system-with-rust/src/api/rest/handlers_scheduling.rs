@@ -167,6 +167,27 @@ pub async fn get_appointment(
     }
 }
 
+/// `GET /api/slots/:id` — one slot. The response carries `ETag`, the version to send back in `If-Match` on a
+/// change of capacity or ring-fence (OFH-11).
+#[utoipa::path(
+    get,
+    path = "/api/slots/{id}",
+    tag = "Scheduling",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope. The `ETag` header is the slot's version"),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+pub async fn get_slot(State(state): State<AppState>, Path(slot_id): Path<Uuid>) -> HandlerResult {
+    match crate::db::repositories::slot::SlotRepository::find_by_id(&state.db, slot_id).await {
+        Ok(Some(s)) => ok_json(s),
+        Ok(None) => error_to_response(crate::error::Error::not_found(format!("slot {slot_id}"))),
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `POST /api/appointments/:id/cancel` — cancel a booked appointment.
 /// Body: `{ "reason": "<free text>" }` (optional; defaults to
 /// `PatientRequest`).
@@ -219,6 +240,7 @@ pub struct RoomBody {
 }
 
 /// `PUT /api/appointments/{id}/location` — move a patient who has arrived to a room (CORE-4). Audited.
+/// Needs `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     put,
     path = "/api/appointments/{id}/location",
@@ -273,6 +295,7 @@ pub async fn in_facility(State(state): State<AppState>) -> HandlerResult {
 
 /// `PUT /api/appointments/{id}/barrier` — record why a cancelled or missed appointment happened,
 /// typically after a welfare call (CAP-1).
+/// Needs `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     put,
     path = "/api/appointments/{id}/barrier",
@@ -307,6 +330,7 @@ pub async fn record_barrier(
 }
 
 /// `POST /api/appointments/:id/check-in` — `Booked → Arrived`.
+/// Needs `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     post,
     path = "/api/appointments/{id}/check-in",
@@ -339,6 +363,7 @@ pub async fn check_in_appointment(
 }
 
 /// `POST /api/appointments/:id/complete` — `Arrived → Fulfilled`.
+/// Needs `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     post,
     path = "/api/appointments/{id}/complete",
@@ -371,6 +396,7 @@ pub async fn complete_appointment(
 }
 
 /// `POST /api/appointments/:id/no-show` — `Booked → NoShow`.
+/// Needs `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     post,
     path = "/api/appointments/{id}/no-show",

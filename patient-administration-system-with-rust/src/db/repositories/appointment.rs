@@ -203,7 +203,7 @@ impl AppointmentRepository {
         rows.into_iter().map(from_model).collect()
     }
 
-    /// Same as [`find_overlapping_for_patient`] but excludes the row with
+    /// Same as [`Self::find_overlapping_for_patient`] but excludes the row with
     /// `exclude_id`. Used by the SIU^S13 reschedule path (v0.17) to check
     /// whether the *new* time window collides with any *other* appointment
     /// for the patient — the reschedule itself naturally overlaps the row

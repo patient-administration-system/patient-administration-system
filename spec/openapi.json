@@ -17199,7 +17199,7 @@
         "type": "object"
       },
       "SeriesStatus": {
-        "description": "Status of an appointment series. Individual occurrence statuses live\non the [`Appointment`] rows themselves.",
+        "description": "Status of an appointment series. Individual occurrence statuses live\non the [`Appointment`](crate::models::appointment::Appointment) rows themselves.",
         "enum": [
           "active",
           "cancelled"
@@ -21200,7 +21200,7 @@
             "bearer": []
           }
         ],
-        "summary": "`PUT /api/appointments/{id}/barrier` — record why a cancelled or missed appointment happened,\ntypically after a welfare call (CAP-1).",
+        "summary": "`PUT /api/appointments/{id}/barrier` — record why a cancelled or missed appointment happened,\ntypically after a welfare call (CAP-1).\nNeeds `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Appointments"
         ]
@@ -21296,7 +21296,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/appointments/:id/check-in` — `Booked → Arrived`.",
+        "summary": "`POST /api/appointments/:id/check-in` — `Booked → Arrived`.\nNeeds `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Appointments"
         ]
@@ -21339,7 +21339,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/appointments/:id/complete` — `Arrived → Fulfilled`.",
+        "summary": "`POST /api/appointments/:id/complete` — `Arrived → Fulfilled`.\nNeeds `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Appointments"
         ]
@@ -21523,7 +21523,7 @@
             "bearer": []
           }
         ],
-        "summary": "`PUT /api/appointments/{id}/location` — move a patient who has arrived to a room (CORE-4). Audited.",
+        "summary": "`PUT /api/appointments/{id}/location` — move a patient who has arrived to a room (CORE-4). Audited.\nNeeds `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Appointments"
         ]
@@ -21566,7 +21566,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/appointments/:id/no-show` — `Booked → NoShow`.",
+        "summary": "`POST /api/appointments/:id/no-show` — `Booked → NoShow`.\nNeeds `If-Match` with the appointment's version, the `ETag` of `GET /api/appointments/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Appointments"
         ]
@@ -22182,7 +22182,7 @@
             "bearer": []
           }
         ],
-        "summary": "`PUT /api/beds/:id/status` — state-machine-checked bed status change.\nBody: `{ \"status\": \"Available\" }`.",
+        "summary": "`PUT /api/beds/:id/status` — state-machine-checked bed status change.\nBody: `{ \"status\": \"Available\" }`.\nNeeds `If-Match` with the bed's version, the `ETag` of `GET /api/beds/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Beds"
         ]
@@ -22919,7 +22919,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/encounters/:id/cancel` — convenience: set status to\nCancelled. Equivalent to `PUT /api/encounters/:id/status` with\n`{\"status\":\"Cancelled\"}`.",
+        "summary": "`POST /api/encounters/:id/cancel` — convenience: set status to\nCancelled. Equivalent to `PUT /api/encounters/:id/status` with\n`{\"status\":\"Cancelled\"}`.\nNeeds `If-Match` with the encounter's version, the `ETag` of `GET /api/encounters/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Encounters"
         ]
@@ -23025,7 +23025,7 @@
             "bearer": []
           }
         ],
-        "summary": "`PUT /api/encounters/:id/status` — state-machine-checked status flip.",
+        "summary": "`PUT /api/encounters/:id/status` — state-machine-checked status flip.\nNeeds `If-Match` with the encounter's version, the `ETag` of `GET /api/encounters/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Encounters"
         ]
@@ -30467,6 +30467,42 @@
         ]
       }
     },
+    "/api/slots/{id}": {
+      "get": {
+        "operationId": "get_api_slots__id",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope. The `ETag` header is the slot's version"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/slots/:id` — one slot. The response carries `ETag`, the version to send back in `If-Match` on a\nchange of capacity or ring-fence (OFH-11).",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
     "/api/slots/{id}/attendees": {
       "get": {
         "operationId": "get_api_slots__id__attendees",
@@ -30596,7 +30632,7 @@
             "bearer": []
           }
         ],
-        "summary": "`PUT /api/slots/{id}/capacity`: declare how many patients a slot still to come takes, never below the\nnumber already booked. A named person; audited.",
+        "summary": "`PUT /api/slots/{id}/capacity`: declare how many patients a slot still to come takes, never below the\nnumber already booked. A named person; audited.\nNeeds `If-Match` with the slot's version, the `ETag` of `GET /api/slots/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Scheduling"
         ]
@@ -30649,7 +30685,7 @@
             "bearer": []
           }
         ],
-        "summary": "`PUT /api/slots/{id}/ring-fence`: hold a free slot out of automatic offers (first available, rebooking,\nIHE `$find`), or lift the hold. A person can still book it by choosing it.",
+        "summary": "`PUT /api/slots/{id}/ring-fence`: hold a free slot out of automatic offers (first available, rebooking,\nIHE `$find`), or lift the hold. A person can still book it by choosing it.\nNeeds `If-Match` with the slot's version, the `ETag` of `GET /api/slots/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Scheduling"
         ]
@@ -32572,7 +32608,7 @@
             "bearer": []
           }
         ],
-        "summary": "`PUT /api/waitlist/{id}/follow-up-target`: the date by which a waiting or booked entry's follow-up is\ndue. A named person is required; the change is audited.",
+        "summary": "`PUT /api/waitlist/{id}/follow-up-target`: the date by which a waiting or booked entry's follow-up is\ndue. A named person is required; the change is audited.\nNeeds `If-Match` with the waiting-list entry's version, the `ETag` of `GET /api/waitlist/{id}`: none is `428`, a stale one `412` (OFH-10).",
         "tags": [
           "Waitlist"
         ]

@@ -23,6 +23,7 @@ pub struct CapacityBody {
 
 /// `PUT /api/slots/{id}/capacity`: declare how many patients a slot still to come takes, never below the
 /// number already booked. A named person; audited.
+/// Needs `If-Match` with the slot's version, the `ETag` of `GET /api/slots/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     put,
     path = "/api/slots/{id}/capacity",
@@ -41,8 +42,18 @@ pub async fn set_capacity(
     headers: HeaderMap,
     Json(b): Json<CapacityBody>,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "slot") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match GroupSessionService::new(state.db.clone())
-        .set_capacity(id, b.capacity, &b.set_by, &request_audit_ctx(&headers))
+        .set_capacity_if_unchanged(
+            id,
+            b.capacity,
+            &b.set_by,
+            expected,
+            &request_audit_ctx(&headers),
+        )
         .await
     {
         Ok(()) => ok(serde_json::json!({ "slot_id": id, "capacity": b.capacity })),

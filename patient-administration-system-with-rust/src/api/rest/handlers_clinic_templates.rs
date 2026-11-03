@@ -245,6 +245,7 @@ pub struct RingFenceBody {
 
 /// `PUT /api/slots/{id}/ring-fence`: hold a free slot out of automatic offers (first available, rebooking,
 /// IHE `$find`), or lift the hold. A person can still book it by choosing it.
+/// Needs `If-Match` with the slot's version, the `ETag` of `GET /api/slots/{id}`: none is `428`, a stale one `412` (OFH-10).
 #[utoipa::path(
     put,
     path = "/api/slots/{id}/ring-fence",
@@ -263,8 +264,18 @@ pub async fn ring_fence(
     headers: HeaderMap,
     Json(b): Json<RingFenceBody>,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "slot") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match TemplateService::new(state.db.clone())
-        .set_ring_fence(id, b.ring_fenced, &b.set_by, &request_audit_ctx(&headers))
+        .set_ring_fence_if_unchanged(
+            id,
+            b.ring_fenced,
+            &b.set_by,
+            expected,
+            &request_audit_ctx(&headers),
+        )
         .await
     {
         Ok(()) => ok_json(RingFenced {

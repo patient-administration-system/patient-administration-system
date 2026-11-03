@@ -170,6 +170,7 @@ impl SchedulingService {
             .collect()
     }
 
+    /// `Booked → Arrived`. Stamps `arrived_at`. No version is compared; see [`Self::check_in_if_unchanged`].
     pub async fn check_in(&self, appointment_id: Uuid, ctx: &UserContext) -> Result<Appointment> {
         self.check_in_if_unchanged(appointment_id, None, ctx).await
     }
@@ -191,6 +192,9 @@ impl SchedulingService {
         .await
     }
 
+    /// `Booked → NoShow`: frees the slot, returns the patient to the waiting list (never removes them, CAP-7),
+    /// records the release for the standby list and raises any follow-up task. No version is compared; see
+    /// [`Self::mark_no_show_if_unchanged`].
     pub async fn mark_no_show(
         &self,
         appointment_id: Uuid,
@@ -254,6 +258,8 @@ impl SchedulingService {
         Ok(appt)
     }
 
+    /// `Arrived → Fulfilled`. Stamps `completed_at` and marks the waiting-list entry treated. No version is
+    /// compared; see [`Self::complete_if_unchanged`].
     pub async fn complete(&self, appointment_id: Uuid, ctx: &UserContext) -> Result<Appointment> {
         self.complete_if_unchanged(appointment_id, None, ctx).await
     }
@@ -275,6 +281,9 @@ impl SchedulingService {
         .await
     }
 
+    /// The shared body of check-in and complete: lock the appointment, compare `expected`, move the status
+    /// along the state machine, stamp the time, sync the waiting list, and write the audit and outbox rows, all
+    /// in one transaction. `action` is the audit action; `expected` `None` skips the comparison but still locks.
     pub(super) async fn transition(
         &self,
         appointment_id: Uuid,

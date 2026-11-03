@@ -4,7 +4,7 @@
 //! A proposal is a free slot offered to one patient. `$find` records proposals in time order and nothing
 //! else (no score, no reordering: NFR-11). `$hold` keeps a proposal's slot for `PAS_HOLD_MINUTES`: another
 //! patient's booking of that slot, through any route, is refused while the hold runs, and `$find` leaves a
-//! held slot out. `$book` books the slot through [`SchedulingService::book_inner`], the code behind
+//! held slot out. `$book` books the slot through `SchedulingService::book_inner`, the code behind
 //! `POST /api/slots/{id}/book`, so the owner clash, patient overlap, group-session and interpreter rules
 //! are the same. Holds are checked against the database clock when a booking is made, and against the
 //! caller's `now` when one is made or listed, so a test passes real times.

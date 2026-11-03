@@ -550,6 +550,20 @@ impl TemplateService {
         set_by: &str,
         ctx: &UserContext,
     ) -> Result<()> {
+        self.set_ring_fence_if_unchanged(slot_id, ring_fenced, set_by, None, ctx)
+            .await
+    }
+
+    /// [`Self::set_ring_fence`] that refuses with `PreconditionFailed` when the slot has changed since the
+    /// caller read it (OFH-11). `expected` `None` skips the comparison; the row is locked either way.
+    pub async fn set_ring_fence_if_unchanged(
+        &self,
+        slot_id: Uuid,
+        ring_fenced: bool,
+        set_by: &str,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<()> {
         let by = named_person(
             set_by,
             "set_by: the person changing the ring-fence is required",
@@ -558,7 +572,7 @@ impl TemplateService {
         let row = txn
             .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "SELECT ring_fenced, status, start_datetime > now() AS future FROM slots \
+                "SELECT ring_fenced, status, updated_at, start_datetime > now() AS future FROM slots \
                  WHERE id = $1 FOR UPDATE",
                 [slot_id.into()],
             ))
@@ -566,6 +580,13 @@ impl TemplateService {
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found(format!("slot {slot_id}")))?;
         let old: bool = row.col("ring_fenced")?;
+        let stored: chrono::DateTime<chrono::Utc> =
+            row.try_get("", "updated_at").map_err(Error::Database)?;
+        if !crate::api::rest::concurrency::is_current(stored, expected) {
+            return Err(Error::precondition_failed(
+                "the slot has changed since it was read; read it again",
+            ));
+        }
         let status: String = row.col("status")?;
         let future: bool = row.col("future")?;
         if status != "free" || !future {
