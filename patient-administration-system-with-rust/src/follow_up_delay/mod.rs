@@ -73,12 +73,26 @@ impl FollowUpDelayService {
         set_by: &str,
         ctx: &UserContext,
     ) -> Result<()> {
+        self.set_target_if_unchanged(entry_id, target, set_by, None, ctx)
+            .await
+    }
+
+    /// [`Self::set_target`] that refuses with `PreconditionFailed` when the entry has changed since the caller
+    /// read it (OFH-11). `expected` `None` skips the comparison; the row is locked either way.
+    pub async fn set_target_if_unchanged(
+        &self,
+        entry_id: Uuid,
+        target: NaiveDate,
+        set_by: &str,
+        expected: Option<chrono::DateTime<chrono::Utc>>,
+        ctx: &UserContext,
+    ) -> Result<()> {
         let set_by = named_person(set_by, "set_by: the person setting the target is required")?;
         let txn = self.db.begin().await.map_err(Error::Database)?;
         let before = txn
             .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "SELECT follow_up_target FROM waitlist_entries WHERE id = $1 AND status IN ('waiting','booked') FOR UPDATE",
+                "SELECT follow_up_target, updated_at FROM waitlist_entries WHERE id = $1 AND status IN ('waiting','booked') FOR UPDATE",
                 [entry_id.into()],
             ))
             .await
@@ -87,6 +101,13 @@ impl FollowUpDelayService {
         let old: Option<NaiveDate> = before
             .try_get("", "follow_up_target")
             .map_err(Error::Database)?;
+        let stored: chrono::DateTime<chrono::Utc> =
+            before.try_get("", "updated_at").map_err(Error::Database)?;
+        if !crate::api::rest::concurrency::is_current(stored, expected) {
+            return Err(Error::precondition_failed(
+                "the waiting-list entry has changed since it was read; read it again",
+            ));
+        }
         txn.execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "UPDATE waitlist_entries SET follow_up_target = $2, follow_up_target_set_by = $3, updated_at = now() \

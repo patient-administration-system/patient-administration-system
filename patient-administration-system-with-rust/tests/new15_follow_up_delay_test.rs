@@ -115,6 +115,7 @@ async fn setting_a_target_needs_a_named_person_and_is_audited() {
         Request::builder()
             .method("PUT")
             .uri(format!("/api/waitlist/{id}/follow-up-target"))
+            .header("if-match", "*")
             .header("content-type", "application/json")
             .body(Body::from(body.to_string()))
             .unwrap()
@@ -179,4 +180,75 @@ async fn setting_a_target_needs_a_named_person_and_is_audited() {
             .await
             .is_err()
     );
+}
+
+/// OFH-11: the follow-up target needs the entry's version. None is 428, an old one is 412 and changes nothing,
+/// the one just read is 200.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn setting_a_target_needs_the_entrys_version() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let id = entry(&state.db, 3, false).await;
+    let app = patient_administration_system::api::rest::router(state.clone());
+    let target = (Utc::now() + Duration::days(30)).date_naive();
+    let body =
+        serde_json::json!({ "target_date": target, "set_by": "Clinic coordinator" }).to_string();
+    let put = |if_match: Option<&str>| {
+        let mut b = Request::builder()
+            .method("PUT")
+            .uri(format!("/api/waitlist/{id}/follow-up-target"))
+            .header("content-type", "application/json");
+        if let Some(t) = if_match {
+            b = b.header("if-match", t);
+        }
+        b.body(Body::from(body.clone())).unwrap()
+    };
+    let unset = || async {
+        state
+            .db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT follow_up_target IS NULL AS unset FROM waitlist_entries WHERE id = $1",
+                [id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get::<bool>("", "unset")
+            .unwrap()
+    };
+
+    let read = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/waitlist/{id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let tag = read
+        .headers()
+        .get("etag")
+        .expect("a read carries the version")
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    let none = app.clone().oneshot(put(None)).await.unwrap();
+    assert_eq!(none.status(), 428);
+    let old = app
+        .clone()
+        .oneshot(put(Some("\"2000-01-01T00:00:00.000000Z\"")))
+        .await
+        .unwrap();
+    assert_eq!(old.status(), 412);
+    assert!(unset().await, "a refused request changes nothing");
+
+    let ok = app.clone().oneshot(put(Some(&tag))).await.unwrap();
+    assert_eq!(ok.status(), 200);
+    assert!(!unset().await);
+    let again = app.oneshot(put(Some(&tag))).await.unwrap();
+    assert_eq!(again.status(), 412, "the version moved");
 }

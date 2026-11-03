@@ -44,8 +44,19 @@ pub async fn set_target(
     Json(b): Json<TargetBody>,
 ) -> HandlerResult {
     let svc = FollowUpDelayService::new(state.db.clone());
+    let expected =
+        match crate::api::rest::concurrency::require_if_match(&headers, "waiting-list entry") {
+            Ok(t) => t,
+            Err(e) => return error_to_response(e),
+        };
     match svc
-        .set_target(id, b.target_date, &b.set_by, &request_audit_ctx(&headers))
+        .set_target_if_unchanged(
+            id,
+            b.target_date,
+            &b.set_by,
+            expected,
+            &request_audit_ctx(&headers),
+        )
         .await
     {
         Ok(()) => ok(serde_json::json!({ "id": id, "follow_up_target": b.target_date })),
