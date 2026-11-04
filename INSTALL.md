@@ -15,7 +15,7 @@ cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
 sh scripts/dev-auth.sh
 #    ...then the PAS API (http://localhost:8080, Swagger UI at /swagger-ui/) requiring those tokens
 PAS_PASETO_KEYS_URL=http://127.0.0.1:8195/keys.json PAS_REQUIRE_AUTH=true \
-  cargo run -p patient-administration-system
+  cargo run -p patient-administration-system --bin patient-administration-system
 #    Without the two variables the API runs in trusted-caller mode: fine on a laptop, never in a pilot.
 
 # 4. The UI (http://localhost:5173)

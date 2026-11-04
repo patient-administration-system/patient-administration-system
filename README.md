@@ -44,7 +44,7 @@ Needs the Rust toolchain in `rust-toolchain.toml`, Node 26 with pnpm, and Podman
 podman compose -f podman/compose.yml up -d        # PAS_PG_PORT=5442 PAS_KEYCLOAK_PORT=8190 if ports are busy
 export DATABASE_URL=postgres://pas:pas_dev_password@localhost:5432/pas
 cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
-cargo run -p patient-administration-system          # API on :8080, Swagger UI at /swagger-ui/
+cargo run -p patient-administration-system --bin patient-administration-system   # API on :8080, Swagger UI at /swagger-ui/
 cd patient-administration-system-ui-with-svelte && pnpm install && pnpm run dev   # UI on :5173
 ```
 

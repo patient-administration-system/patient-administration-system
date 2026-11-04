@@ -16,7 +16,7 @@ fi
 cat >&2 <<MSG
 
 Start the API with:
-  PAS_PASETO_KEYS_URL=http://127.0.0.1:8195/keys.json PAS_REQUIRE_AUTH=true cargo run -p patient-administration-system
+  PAS_PASETO_KEYS_URL=http://127.0.0.1:8195/keys.json PAS_REQUIRE_AUTH=true cargo run -p patient-administration-system --bin patient-administration-system
 Start the UI with:
   PAS_API_TOKEN_FILE=$PWD/$DIR/service.token pnpm run dev
 
