@@ -4,6 +4,8 @@ A Patient Administration System for the NHS in Wales: appointments, reminders an
 
 Identity (`Patient`) and workforce (`Practitioner`) are **delegated over HTTP** to two other services, `person-service` (`:5180`) and `worker-service` (`:5181`); the PAS holds only opaque `person_id` / `worker_id` UUIDs. REST, FHIR R5 and HL7 v2 (HTTP and MLLP) are all supported.
 
+**Website:** <https://patient-administration-system.github.io>
+
 **Status.** Built and tested; not yet in production use. What remains is mostly people and contracts: a Clinical Safety Officer (DCB0129), DPIA sign-off, real carrier contracts, an external penetration test, usability testing with patients and staff, and fluent review of the translations. [`tasks.md`](tasks.md) lists every open item and [`spec/14-implementation-status.md`](spec/14-implementation-status.md) gives the current counts (generated from the repository). Read [`governance/production-readiness.md`](governance/production-readiness.md) before running it for real. Nothing has been published to a registry; releasing is a deliberate step (REL-1).
 
 ## What it does
