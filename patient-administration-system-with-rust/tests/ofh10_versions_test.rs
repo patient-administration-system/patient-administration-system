@@ -763,3 +763,124 @@ async fn pifu_review_request_and_handle_are_safe_without_a_version() {
     );
     assert_eq!(h1.is_ok() as u8 + h2.is_ok() as u8, 1, "{h1:?} {h2:?}");
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn closing_an_account_twice_is_refused_and_moves_nothing() {
+    let (s, app) = world().await;
+    let (st, _, v) = call(
+        &app,
+        "POST",
+        "/api/accounts",
+        None,
+        serde_json::json!({"person_id": Uuid::new_v4(), "currency": "GBP"}),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let id: Uuid = v["data"]["id"].as_str().unwrap().parse().unwrap();
+    let uri = format!("/api/accounts/{id}/close");
+    let closed_at = || async {
+        s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            "SELECT closed_at::text AS v FROM accounts WHERE id = $1",
+            [id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<String>("", "v")
+        .unwrap()
+    };
+    // Two closes at once: one wins, the other is refused, and one event is published.
+    let (a, b) = tokio::join!(
+        call(&app, "POST", &uri, None, serde_json::json!({})),
+        call(&app, "POST", &uri, None, serde_json::json!({})),
+    );
+    let mut codes = [a.0, b.0];
+    codes.sort();
+    assert_eq!(codes, [StatusCode::OK, StatusCode::CONFLICT], "{a:?} {b:?}");
+    let first = closed_at().await;
+    let (st, _, _) = call(&app, "POST", &uri, None, serde_json::json!({})).await;
+    assert_eq!(st, StatusCode::CONFLICT);
+    assert_eq!(closed_at().await, first, "a repeat moved closed_at");
+    let events: i64 = s
+        .db
+        .query_one_raw(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            "SELECT count(*) AS n FROM outbox_events WHERE event_type = 'AccountClosed' AND payload->>'account_id' = $1",
+            [id.to_string().into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "n")
+        .unwrap();
+    assert_eq!(events, 1, "one close, one event");
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn cancelling_a_series_never_cancels_a_patient_who_has_arrived() {
+    let (s, app) = world().await;
+    for _ in 0..5 {
+        let start = (Utc::now() + Duration::days(30)).to_rfc3339();
+        let (st, _, v) = call(
+            &app,
+            "POST",
+            "/api/appointment-series",
+            None,
+            serde_json::json!({
+                "person_id": Uuid::new_v4(), "service_type": "physio",
+                "start_datetime": start, "duration_minutes": 30,
+                "rule": {"frequency": "weekly", "interval": 1, "end": {"kind": "count", "count": 3}},
+            }),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "{v}");
+        let series = v["data"]["series"]["id"].as_str().unwrap().to_string();
+        let first: Uuid = v["data"]["appointments"][0]["id"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        // Check the first one in while the whole series is cancelled.
+        let cancel_uri = format!("/api/appointment-series/{series}/cancel");
+        let check_in_uri = format!("/api/appointments/{first}/check-in");
+        let (cancel, check_in) = tokio::join!(
+            call(&app, "POST", &cancel_uri, None, serde_json::json!({})),
+            call(
+                &app,
+                "POST",
+                &check_in_uri,
+                Some("*"),
+                serde_json::json!({})
+            ),
+        );
+        assert_eq!(cancel.0, StatusCode::OK, "{cancel:?}");
+        let (status, arrived): (String, bool) = {
+            let r = s
+                .db
+                .query_one_raw(sea_orm::Statement::from_sql_and_values(
+                    sea_orm::DbBackend::Postgres,
+                    "SELECT status, arrived_at IS NOT NULL AS arrived FROM appointments WHERE id = $1",
+                    [first.into()],
+                ))
+                .await
+                .unwrap()
+                .unwrap();
+            (
+                r.try_get("", "status").unwrap(),
+                r.try_get("", "arrived").unwrap(),
+            )
+        };
+        // Either the check-in won (they stay arrived) or the cancel did (the check-in was refused);
+        // never cancelled with an arrival recorded.
+        assert!(
+            !(status == "cancelled" && arrived),
+            "cancelled a patient who had arrived ({check_in:?})"
+        );
+        if check_in.0 == StatusCode::OK {
+            assert_eq!(status, "arrived");
+        }
+    }
+}

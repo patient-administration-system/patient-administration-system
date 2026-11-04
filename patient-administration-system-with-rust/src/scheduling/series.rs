@@ -245,6 +245,10 @@ impl SeriesService {
                     let mut updated_occurrences = Vec::with_capacity(occurrences.len());
                     let mut cancelled_count = 0usize;
                     for occ in occurrences {
+                        // Lock the occurrence and decide from its state now, not from the list read above:
+                        // someone may have checked the patient in (or cancelled it) since (OFH-11). An
+                        // occurrence that is no longer proposed or booked is left exactly as it is.
+                        let occ = AppointmentRepository::lock_if_current(txn, occ.id, None).await?;
                         if matches!(
                             occ.status,
                             AppointmentStatus::Proposed | AppointmentStatus::Booked

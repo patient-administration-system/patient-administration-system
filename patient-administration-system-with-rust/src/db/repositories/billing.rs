@@ -35,12 +35,18 @@ impl BillingRepository {
         m.map(account_from_model).transpose()
     }
 
+    /// Close an account. The row is locked and an account already closed is refused with `409`, so a repeat
+    /// cannot move `closed_at` or publish a second `AccountClosed` event (OFH-11).
     pub async fn close_account<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Account> {
         let m = account::Entity::find_by_id(id)
+            .lock_exclusive()
             .one(conn)
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found(format!("account {id}")))?;
+        if m.status == account_status_to_str(AccountStatus::Closed) {
+            return Err(Error::conflict("that account is already closed"));
+        }
         let now = chrono::Utc::now().fixed_offset();
         let mut am: account::ActiveModel = m.into();
         am.status = Set(account_status_to_str(AccountStatus::Closed).to_string());
