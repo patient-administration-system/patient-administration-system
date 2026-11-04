@@ -65,7 +65,28 @@ pub async fn list_standby(
     }
 }
 
-/// `DELETE /api/standby/{id}`: take a patient off standby.
+/// `GET /api/standby/{id}`: one standby entry, with its version as the `ETag` that `DELETE` and `book` need as
+/// `If-Match` (OFH-11).
+#[utoipa::path(
+    get,
+    path = "/api/standby/{id}",
+    tag = "Standby",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::standby::StandbyEntry>),
+        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
+        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+    )
+)]
+pub async fn get_standby(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
+    match state.standby.get(id).await {
+        Ok(e) => ok_json(e),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `DELETE /api/standby/{id}`: take a patient off standby. Needs `If-Match` with the entry's version, the
+/// `ETag` of `GET /api/standby/{id}`: none is `428`, a stale one `412` (OFH-11).
 #[utoipa::path(
     delete,
     path = "/api/standby/{id}",
@@ -82,9 +103,14 @@ pub async fn remove_standby(
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "standby entry")
+    {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .standby
-        .deactivate(id, &request_audit_ctx(&headers))
+        .deactivate_if_unchanged(id, expected, &request_audit_ctx(&headers))
         .await
     {
         Ok(()) => ok(Value::Null),
@@ -98,7 +124,8 @@ pub struct BookBody {
     pub slot_id: Uuid,
 }
 
-/// `POST /api/standby/{id}/book`: book a slot for a patient on standby and take them off the list.
+/// `POST /api/standby/{id}/book`: book a slot for a patient on standby and take them off the list. Needs
+/// `If-Match` with the entry's version, as `DELETE` does (OFH-11).
 #[utoipa::path(
     post,
     path = "/api/standby/{id}/book",
@@ -117,9 +144,14 @@ pub async fn book_from_standby(
     headers: HeaderMap,
     Json(body): Json<BookBody>,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "standby entry")
+    {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     match state
         .standby
-        .book_from_standby(id, body.slot_id, &request_audit_ctx(&headers))
+        .book_from_standby_if_unchanged(id, body.slot_id, expected, &request_audit_ctx(&headers))
         .await
     {
         Ok(a) => ok_json(a),

@@ -169,6 +169,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_contact::stale_profiles,
         crate::api::rest::handlers_standby::add_standby,
         crate::api::rest::handlers_standby::list_standby,
+        crate::api::rest::handlers_standby::get_standby,
         crate::api::rest::handlers_standby::remove_standby,
         crate::api::rest::handlers_standby::book_from_standby,
         crate::api::rest::handlers_standby::list_releases,

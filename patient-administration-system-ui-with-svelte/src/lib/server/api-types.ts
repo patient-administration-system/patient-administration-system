@@ -4294,10 +4294,17 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * `GET /api/standby/{id}`: one standby entry, with its version as the `ETag` that `DELETE` and `book` need as
+     *     `If-Match` (OFH-11).
+     */
+    get: operations["get_api_standby__id"];
     put?: never;
     post?: never;
-    /** `DELETE /api/standby/{id}`: take a patient off standby. */
+    /**
+     * `DELETE /api/standby/{id}`: take a patient off standby. Needs `If-Match` with the entry's version, the
+     *     `ETag` of `GET /api/standby/{id}`: none is `428`, a stale one `412` (OFH-11).
+     */
     delete: operations["delete_api_standby__id"];
     options?: never;
     head?: never;
@@ -4313,7 +4320,10 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** `POST /api/standby/{id}/book`: book a slot for a patient on standby and take them off the list. */
+    /**
+     * `POST /api/standby/{id}/book`: book a slot for a patient on standby and take them off the list. Needs
+     *     `If-Match` with the entry's version, as `DELETE` does (OFH-11).
+     */
     post: operations["post_api_standby__id__book"];
     delete?: never;
     options?: never;
@@ -21984,6 +21994,43 @@ export interface operations {
         "application/json": components["schemas"]["StandbyInput"];
       };
     };
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_StandbyEntry"];
+        };
+      };
+      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; the `ApiResponse` envelope */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_standby__id: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
     responses: {
       /** @description Success; the `ApiResponse` envelope */
       200: {

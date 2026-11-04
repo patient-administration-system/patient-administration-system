@@ -30916,7 +30916,48 @@
             "bearer": []
           }
         ],
-        "summary": "`DELETE /api/standby/{id}`: take a patient off standby.",
+        "summary": "`DELETE /api/standby/{id}`: take a patient off standby. Needs `If-Match` with the entry's version, the\n`ETag` of `GET /api/standby/{id}`: none is `428`, a stale one `412` (OFH-11).",
+        "tags": [
+          "Standby"
+        ]
+      },
+      "get": {
+        "operationId": "get_api_standby__id",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_StandbyEntry"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; the `ApiResponse` envelope with a machine-readable code"
+          },
+          "5XX": {
+            "description": "Server or upstream error; the `ApiResponse` envelope"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/standby/{id}`: one standby entry, with its version as the `ETag` that `DELETE` and `book` need as\n`If-Match` (OFH-11).",
         "tags": [
           "Standby"
         ]
@@ -30969,7 +31010,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/standby/{id}/book`: book a slot for a patient on standby and take them off the list.",
+        "summary": "`POST /api/standby/{id}/book`: book a slot for a patient on standby and take them off the list. Needs\n`If-Match` with the entry's version, as `DELETE` does (OFH-11).",
         "tags": [
           "Standby"
         ]

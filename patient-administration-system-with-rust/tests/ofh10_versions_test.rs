@@ -614,3 +614,64 @@ async fn a_letter_template_edit_checks_the_template_version() {
     })
     .await;
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn standby_remove_and_book_check_the_entry_version() {
+    let (s, app) = world().await;
+    let service = format!("svc-{}", Uuid::new_v4());
+    let add = || async {
+        let (st, _, v) = call(
+            &app,
+            "POST",
+            "/api/standby",
+            None,
+            serde_json::json!({"person_id": Uuid::new_v4(), "service_type": service}),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "{v}");
+        v["data"]["id"].as_str().unwrap().parse::<Uuid>().unwrap()
+    };
+    let active = |id: Uuid| {
+        let db = s.db.clone();
+        async move {
+            db.query_one_raw(sea_orm::Statement::from_sql_and_values(
+                sea_orm::DbBackend::Postgres,
+                "SELECT active FROM standby_entries WHERE id = $1",
+                [id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get::<bool>("", "active")
+            .unwrap()
+        }
+    };
+    let id = add().await;
+    let uri = format!("/api/standby/{id}");
+    three_answers(
+        &app,
+        &uri,
+        "DELETE",
+        &uri,
+        serde_json::json!({}),
+        || async { active(id).await },
+    )
+    .await;
+    assert!(!active(id).await);
+
+    let id = add().await;
+    let uri = format!("/api/standby/{id}");
+    let schedule = common::new_schedule(&s.db).await.id;
+    let slot = common::free_slot(&s.db, schedule, 24).await;
+    three_answers(
+        &app,
+        &uri,
+        "POST",
+        &format!("{uri}/book"),
+        serde_json::json!({"slot_id": slot.id}),
+        || async { active(id).await },
+    )
+    .await;
+    assert!(!active(id).await);
+}

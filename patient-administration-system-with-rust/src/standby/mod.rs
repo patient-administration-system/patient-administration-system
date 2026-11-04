@@ -298,11 +298,51 @@ impl StandbyService {
         .map_err(db_err)
     }
 
+    /// One entry, active or not, with the version (`updated_at`) a write must send back (OFH-11).
+    pub async fn get(&self, id: Uuid) -> Result<StandbyEntry> {
+        StandbyEntry::find_by_statement(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at FROM standby_entries WHERE id = $1",
+            [id.into()],
+        ))
+        .one(&self.db)
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| Error::not_found(format!("standby entry {id}")))
+    }
+
+    /// Take a patient off standby. No version is compared; see [`Self::deactivate_if_unchanged`].
     pub async fn deactivate(&self, id: Uuid, ctx: &UserContext) -> Result<()> {
+        self.deactivate_if_unchanged(id, None, ctx).await
+    }
+
+    /// [`Self::deactivate`] that refuses with `PreconditionFailed` when the entry has changed since the caller
+    /// read it (OFH-11). The row is locked, the version compared, then the entry switched off.
+    pub async fn deactivate_if_unchanged(
+        &self,
+        id: Uuid,
+        expected: Option<DateTime<Utc>>,
+        ctx: &UserContext,
+    ) -> Result<()> {
         let ctx = ctx.clone();
         self.db
             .transaction::<_, (), Error>(|txn| {
                 Box::pin(async move {
+                    let locked = txn
+                        .query_one_raw(Statement::from_sql_and_values(
+                            DbBackend::Postgres,
+                            "SELECT updated_at FROM standby_entries WHERE id = $1 FOR UPDATE",
+                            [id.into()],
+                        ))
+                        .await
+                        .map_err(db_err)?
+                        .ok_or_else(|| Error::not_found(format!("standby entry {id}")))?;
+                    let stored: DateTime<Utc> = locked.try_get("", "updated_at").map_err(db_err)?;
+                    if !crate::api::rest::concurrency::is_current(stored, expected) {
+                        return Err(Error::precondition_failed(
+                            "that standby entry has changed since you read it; read it again",
+                        ));
+                    }
                     let n = txn
                         .execute_raw(Statement::from_sql_and_values(
                             DbBackend::Postgres,
@@ -331,6 +371,19 @@ impl StandbyService {
         slot_id: Uuid,
         ctx: &UserContext,
     ) -> Result<Appointment> {
+        self.book_from_standby_if_unchanged(id, slot_id, None, ctx)
+            .await
+    }
+
+    /// [`Self::book_from_standby`] that refuses with `PreconditionFailed` when the entry has changed since the
+    /// caller read it (OFH-11). The version is compared under the row lock the booking already takes.
+    pub async fn book_from_standby_if_unchanged(
+        &self,
+        id: Uuid,
+        slot_id: Uuid,
+        expected: Option<DateTime<Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Appointment> {
         let ctx = ctx.clone();
         let appt = self
             .db
@@ -346,6 +399,11 @@ impl StandbyService {
                     .await
                     .map_err(db_err)?
                     .ok_or_else(|| Error::not_found(format!("standby entry {id}")))?;
+                    if !crate::api::rest::concurrency::is_current(entry.updated_at, expected) {
+                        return Err(Error::precondition_failed(
+                            "that standby entry has changed since you read it; read it again",
+                        ));
+                    }
                     if !entry.active {
                         return Err(Error::conflict("that standby entry is no longer active"));
                     }

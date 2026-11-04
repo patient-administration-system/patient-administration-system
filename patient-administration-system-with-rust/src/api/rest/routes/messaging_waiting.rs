@@ -168,7 +168,7 @@ pub(super) fn waiting() -> Router<AppState> {
         )
         .route(
             "/api/standby/{id}",
-            delete(handlers_standby::remove_standby),
+            get(handlers_standby::get_standby).delete(handlers_standby::remove_standby),
         )
         .route(
             "/api/standby/{id}/book",
