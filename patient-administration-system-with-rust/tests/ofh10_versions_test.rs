@@ -703,3 +703,63 @@ async fn a_consent_withdrawal_needs_no_version_and_a_repeat_changes_nothing() {
     assert_eq!(first["data"]["updated_at"], again["data"]["updated_at"]);
     assert_eq!(first["data"]["revoked_date"], again["data"]["revoked_date"]);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn pifu_review_request_and_handle_are_safe_without_a_version() {
+    use patient_administration_system::pifu::{Decision, NewEpisode, PifuService};
+    let (s, _app) = world().await;
+    let svc = PifuService::new(s.db.clone());
+    let ctx = UserContext::system();
+    let now = Utc::now();
+    let person = Uuid::new_v4();
+    let episode = svc
+        .open(
+            person,
+            &NewEpisode {
+                service_type: &format!("svc-{}", Uuid::new_v4()),
+                conditions: "Call us if the symptoms come back",
+                expires_at: now + Duration::days(30),
+                opened_by: "Dr Hughes",
+                urgent_override_by: None,
+            },
+            now,
+            &ctx,
+        )
+        .await
+        .unwrap();
+
+    // Two reviews of the same ended window at once: one extends it, the other finds the window open again.
+    let later = now + Duration::days(31);
+    let until = later + Duration::days(60);
+    let (a, b) = tokio::join!(
+        svc.review(episode.id, Decision::Extend(until), "Dr A", later, &ctx),
+        svc.review(episode.id, Decision::Extend(until), "Dr B", later, &ctx),
+    );
+    assert_eq!(a.is_ok() as u8 + b.is_ok() as u8, 1, "{a:?} {b:?}");
+    let extended: i32 =
+        s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            "SELECT extended_count FROM pifu_episodes WHERE id = $1",
+            [episode.id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "extended_count")
+        .unwrap();
+    assert_eq!(extended, 1, "the window was extended once, not twice");
+
+    // Two requests at once leave one open request; two people handling it, one wins.
+    let (r1, r2) = tokio::join!(
+        svc.request(episode.id, "phone", later, &ctx),
+        svc.request(episode.id, "text", later, &ctx),
+    );
+    assert_eq!(r1.as_ref().unwrap().id, r2.as_ref().unwrap().id);
+    let request = r1.unwrap().id;
+    let (h1, h2) = tokio::join!(
+        svc.handle(request, "Nurse A", None, later, &ctx),
+        svc.handle(request, "Nurse B", None, later, &ctx),
+    );
+    assert_eq!(h1.is_ok() as u8 + h2.is_ok() as u8, 1, "{h1:?} {h2:?}");
+}

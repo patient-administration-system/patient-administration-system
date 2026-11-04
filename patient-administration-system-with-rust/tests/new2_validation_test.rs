@@ -588,3 +588,49 @@ async fn removals_are_reported_apart_from_treatment_and_the_http_surface_works()
         "the report names no one: no ids"
     );
 }
+
+/// OFH-11: two people deciding the same item at once. The row is locked and the state refuses the second, so
+/// exactly one decision is made and it is the one that is stored (no version needed).
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn two_decisions_on_one_item_at_once_make_exactly_one() {
+    let w = world().await;
+    let (_, entry, _) = w.waiting(30).await;
+    let c = w.campaign(10).await;
+    let item = w.only_item(c).await;
+    let v = &w.s.list_validation;
+    v.mark_asked(c, item, "Ms V", "sms", &sys()).await.unwrap();
+    w.sql(&format!(
+        "UPDATE validation_campaigns SET reply_by = current_date - 1 WHERE id = '{c}'"
+    ))
+    .await;
+    v.letter_sent(c, item, "Ms V", &sys()).await.unwrap();
+    w.sql(&format!(
+        "UPDATE validation_items SET final_by = current_date - 1 WHERE id = '{item}'"
+    ))
+    .await;
+    let ctx = sys();
+    let (keep, remove) = tokio::join!(
+        v.decide(c, item, "keep", "Mr R", Some("no contact details"), &ctx),
+        v.decide(c, item, "remove", "Ms S", None, &ctx),
+    );
+    assert_eq!(
+        keep.is_ok() as u8 + remove.is_ok() as u8,
+        1,
+        "{keep:?} {remove:?}"
+    );
+    let state = w
+        .scalar_text(&format!(
+            "SELECT state AS v FROM validation_items WHERE id = '{item}'"
+        ))
+        .await;
+    let status = w
+        .scalar_text(&format!(
+            "SELECT status AS v FROM waitlist_entries WHERE id = '{entry}'"
+        ))
+        .await;
+    match (keep.is_ok(), state.as_str(), status.as_str()) {
+        (true, "kept", "waiting") | (false, "removed", "removed") => {}
+        other => panic!("the stored state does not match the winner: {other:?}"),
+    }
+}
