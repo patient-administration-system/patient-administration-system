@@ -675,3 +675,31 @@ async fn standby_remove_and_book_check_the_entry_version() {
     .await;
     assert!(!active(id).await);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_consent_withdrawal_needs_no_version_and_a_repeat_changes_nothing() {
+    use patient_administration_system::models::consent::{Consent, ConsentType};
+    let (_s, app) = world().await;
+    let person = Uuid::new_v4();
+    let today = Utc::now().date_naive();
+    let (st, _, v) = call(
+        &app,
+        "POST",
+        &format!("/api/patients/{person}/consents"),
+        None,
+        serde_json::to_value(Consent::new(person, ConsentType::DataProcessing, today)).unwrap(),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let uri = format!("/api/consents/{}/revoke", v["data"]["id"].as_str().unwrap());
+    // No If-Match: a patient withdrawing consent is never held up by a stale screen.
+    let (st, _, first) = call(&app, "POST", &uri, None, serde_json::json!({})).await;
+    assert_eq!(st, StatusCode::OK, "{first}");
+    assert_eq!(first["data"]["status"], "revoked");
+    // A repeat is harmless and leaves the recorded withdrawal as it was.
+    let (st, _, again) = call(&app, "POST", &uri, None, serde_json::json!({})).await;
+    assert_eq!(st, StatusCode::OK, "{again}");
+    assert_eq!(first["data"]["updated_at"], again["data"]["updated_at"]);
+    assert_eq!(first["data"]["revoked_date"], again["data"]["revoked_date"]);
+}

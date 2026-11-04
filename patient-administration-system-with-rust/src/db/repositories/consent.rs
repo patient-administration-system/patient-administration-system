@@ -38,12 +38,19 @@ impl ConsentRepository {
 
     /// Mark a consent as Revoked. Sets `status = Revoked` and stamps
     /// `revoked_date` to today.
+    /// Withdraw a consent. It needs no `If-Match` on purpose (OFH-11): a withdrawal is one-way, so a stale
+    /// view cannot make it wrong, and refusing one would delay a patient's right to withdraw. The row is locked,
+    /// and a consent already revoked is returned as it is, so a repeat cannot move the date it was withdrawn.
     pub async fn revoke<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Consent> {
         let m = consent::Entity::find_by_id(id)
+            .lock_exclusive()
             .one(conn)
             .await
             .map_err(Error::Database)?
             .ok_or_else(|| Error::not_found(format!("consent {id}")))?;
+        if m.status == consent_status_to_str(ConsentStatus::Revoked) {
+            return from_model(m);
+        }
         let today = chrono::Utc::now().date_naive();
         let mut am: consent::ActiveModel = m.into();
         am.status = Set(consent_status_to_str(ConsentStatus::Revoked).to_string());
