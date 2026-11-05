@@ -1,4 +1,4 @@
-//! Dashboard controller — ports the PAS Axum dashboard handler into Loco's
+//! Dashboard controller — ports the PAS Axum dashboard handler into this crate's
 //! controller/view shape.
 //!
 //! The full page lives at `/dashboard`; each panel has its own
@@ -6,7 +6,9 @@
 //! without a full page swap.
 
 use crate::tpl::json;
-use loco_rs::prelude::*;
+use crate::views::Views;
+use axa::prelude::*;
+use axum::Extension;
 use serde::Serialize;
 
 use crate::models::{audit::list_recent_audit, outbox::count_unpublished, ward::list_active_wards};
@@ -45,15 +47,14 @@ pub fn routes() -> Routes {
 /// so the dashboard works without JavaScript. HTMX layers on as
 /// progressive enhancement.
 pub async fn index(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let wards = load_wards(&ctx).await;
     let unpublished = count_unpublished(&ctx.db).await.unwrap_or(0);
     let audit = load_audit(&ctx).await;
 
-    format::render().view(
-        &v,
+    v.render(
         "dashboard/index.html",
         json!({
             "version": env!("CARGO_PKG_VERSION"),
@@ -68,21 +69,20 @@ pub async fn index(
 
 /// `GET /dashboard/wards` — HTMX fragment.
 pub async fn wards_fragment(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let wards = load_wards(&ctx).await;
-    format::render().view(&v, "dashboard/_wards.html", json!({ "wards": wards }))
+    v.render("dashboard/_wards.html", json!({ "wards": wards }))
 }
 
 /// `GET /dashboard/outbox` — HTMX fragment: single big-stat unpublished count.
 pub async fn outbox_fragment(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let unpublished = count_unpublished(&ctx.db).await.unwrap_or(0);
-    format::render().view(
-        &v,
+    v.render(
         "dashboard/_outbox.html",
         json!({ "unpublished_count": unpublished }),
     )
@@ -90,11 +90,11 @@ pub async fn outbox_fragment(
 
 /// `GET /dashboard/audit` — HTMX fragment: last 10 audit rows.
 pub async fn audit_fragment(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let audit = load_audit(&ctx).await;
-    format::render().view(&v, "dashboard/_audit.html", json!({ "audit": audit }))
+    v.render("dashboard/_audit.html", json!({ "audit": audit }))
 }
 
 // ---- data loaders ---------------------------------------------------------

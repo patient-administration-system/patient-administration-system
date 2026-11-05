@@ -1,6 +1,6 @@
-//! Trivial liveness probe — confirms Loco booted and can reach the DB.
+//! Trivial liveness probe — confirms the service booted and can reach the DB.
 
-use loco_rs::prelude::*;
+use axa::prelude::*;
 use serde_json::Value;
 
 pub fn routes() -> Routes {
@@ -17,8 +17,7 @@ pub async fn index(State(ctx): State<AppContext>) -> Result<Response> {
     format::json(body)
 }
 
-/// `GET /_ping` — process liveness with no database call (Loco's own `/_ping`
-/// is not reachable once the default routes are replaced; see `app.rs`).
+/// `GET /_ping` — process liveness with no database call.
 pub fn ping_routes() -> Routes {
     Routes::new().add("/_ping", get(ping))
 }

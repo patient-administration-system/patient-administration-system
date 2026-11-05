@@ -1,12 +1,12 @@
 # AGENTS Directory Index
 
-Detailed reference documentation for `patient-administration-system-frontend` (Loco-rs UI, **v0.2.0**, paired with PAS Axum v0.44.0).
+Detailed reference documentation for `patient-administration-system-frontend` (Axum and axa UI, **v0.2.0**, paired with PAS Axum v0.44.0).
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| [architecture.md](architecture.md) | Layered design (controller → read model / pas_api → db / PAS Axum), Loco patterns (`Hooks`, `ViewEngine<TeraView>`, `Routes` DSL), sea-orm read projections, CSRF middleware, write-flow proxy contract |
+| [architecture.md](architecture.md) | Layered design (controller → read model / pas_api → db / PAS Axum), axa patterns (`App`, `Views`, `Routes`), sea-orm read projections, CSRF middleware, write-flow proxy contract |
 | [routes.md](routes.md) | Every route this crate serves, the template path it renders, and (for write routes) the PAS Axum REST endpoint each one proxies to |
 | [csrf.md](csrf.md) | Double-submit-cookie design in `src/csrf.rs` — threat model, cookie attributes, constant-time compare, `PAS_COOKIE_SECURE` toggle |
 | [testing.md](testing.md) | 9 csrf unit tests + 13 integration smoke tests in `tests/dashboard_smoke.rs`. `boot_test::<App>()` setup, `#[serial]` discipline, `DATABASE_URL` gating |

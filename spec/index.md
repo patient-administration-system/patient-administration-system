@@ -31,5 +31,5 @@ Cross-cutting chapters: [Locales](locales.md). Safety: [Hazards, who may remove 
 Per-subproject detail:
 
 - [`patient-administration-system-with-rust/spec.md`](../patient-administration-system-with-rust/spec.md): the server.
-- [`patient-administration-system-frontend/spec.md`](../patient-administration-system-frontend/spec.md): the Loco operator front-end.
+- [`patient-administration-system-frontend/spec.md`](../patient-administration-system-frontend/spec.md): the operator front-end.
 - [`patient-administration-system-ui-with-svelte/spec/index.md`](../patient-administration-system-ui-with-svelte/spec/index.md): the SvelteKit UI.

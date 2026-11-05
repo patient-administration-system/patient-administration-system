@@ -4,7 +4,7 @@ The specification in [`spec/`](../spec/index.md) is the canonical artefact. Code
 
 ## Authority
 
-- For the **integration contract** between the server, the Loco front-end, the SvelteKit UI and the services they call, `spec/` wins.
+- For the **integration contract** between the server, the operator front-end, the SvelteKit UI and the services they call, `spec/` wins.
 - For a **crate's internals**, that crate's own spec wins ([`patient-administration-system-with-rust/spec.md`](../patient-administration-system-with-rust/spec.md), [`patient-administration-system-frontend/spec.md`](../patient-administration-system-frontend/spec.md)).
 - When a spec and the code disagree, the spec is right until someone changes it on purpose. Open a task in [`tasks.md`](../tasks.md). Do not silently rewrite the spec to match broken code, or the code to match a spec nobody reviewed.
 - When the spec is silent, propose the addition before writing the code.

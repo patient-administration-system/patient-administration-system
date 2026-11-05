@@ -9,7 +9,7 @@ The SPDX expression used in the manifests of the server and the UI is:
 MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only
 ```
 
-The Loco front-end declares the narrower `MIT OR Apache-2.0`.
+The front-end crate declares the narrower `MIT OR Apache-2.0`.
 
 | Licence | SPDX identifier | Text |
 |---|---|---|

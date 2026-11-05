@@ -5,7 +5,7 @@
 `patient-administration-system-frontend` uses two layers of tests:
 
 - **Unit tests** inline in source files (currently 9 in `src/csrf.rs`).
-- **Integration smoke tests** in `tests/dashboard_smoke.rs` (currently 13), gated on `DATABASE_URL` and serialized with `#[serial]` because each Loco boot binds the listening port.
+- **Integration smoke tests** in `tests/dashboard_smoke.rs` (currently 16), gated on `DATABASE_URL` and serialized with `#[serial]` because they share one database.
 
 > **v0.2 target (Option C).** The csrf unit-test count stays at 9. The integration tests in `dashboard_smoke.rs` add stub HTTP services for `person-service` + `worker-service` on ephemeral `TcpListener` ports (same pattern the PAS Axum back end uses in its `webhook_test.rs`). The smoke tests still run end-to-end without those upstream services *running on real ports* — the in-process stubs satisfy the new HTTP read paths. Expected integration count stays at 13 (one or two may gain extra assertions for the upstream-resolution path; no new test files are introduced).
 
@@ -31,11 +31,11 @@ cargo test                                                # gated on DATABASE_UR
 DATABASE_URL=postgres://… cargo test                      # actually exercise them
 ```
 
-**Current count: 13 integration tests** in `tests/dashboard_smoke.rs`. Every test:
+**Current count: 16 integration tests** in `tests/dashboard_smoke.rs`. Every test:
 
 1. Returns early when `DATABASE_URL` is unset (via the shared gate helper) so `cargo test` works offline.
-2. Carries `#[serial]` so concurrent boots do not race for port `5150`.
-3. Uses Loco's `boot_test::<App>()` to spin up the full app in-process.
+2. Carries `#[serial]`, because the tests share one database.
+3. Uses axa's `request::<App, _, _>` to run the full app in-process, with no listening port.
 
 Coverage:
 
@@ -55,21 +55,18 @@ Coverage:
 | `/_health` | returns 200 + JSON `{ service, version, database }` |
 | Unknown-ward 404 | Lily-styled empty state, not a stack trace |
 
-## `boot_test::<App>()`
+## `request::<App, _, _>`
 
-Loco's testing helper boots the full app against the configured `DATABASE_URL`, returning a context that exposes a hyper test client. Use it like:
+axa's helper runs the full app in-process against `DATABASE_URL`. `App` here is a local type in `tests/dashboard_smoke.rs` that implements `TestApp`; its boot connects and does not touch the schema, because this crate never resets the shared database. Use it like:
 
 ```rust
 #[tokio::test]
 #[serial]
 async fn dashboard_renders() {
-    let Some(_) = std::env::var("DATABASE_URL").ok() else { return };
-    let boot = boot_test::<App>().await.unwrap();
-    let res  = reqwest::get(format!("http://localhost:{}/dashboard", boot.app_context.config.server.port))
-        .await.unwrap();
-    assert_eq!(res.status(), 200);
-    let body = res.text().await.unwrap();
-    assert!(body.contains("Ward occupancy"));
+    request::<App, _, _>(|request, _ctx| async move {
+        request.get("/dashboard").await.assert_status_ok();
+    })
+    .await;
 }
 ```
 
@@ -98,7 +95,7 @@ cargo build --workspace --all-targets                   # zero errors
 
 1. Add to `tests/dashboard_smoke.rs`.
 2. Always gate on `DATABASE_URL` — return early when unset so CI without Postgres stays green.
-3. Always `#[serial]` — Loco boots bind the listening port.
+3. Always `#[serial]` — the tests share one database.
 4. Assert both status and body shape. For CSRF tests, capture the cookie on GET, then assert that POST without it returns 400.
 
 ## See Also

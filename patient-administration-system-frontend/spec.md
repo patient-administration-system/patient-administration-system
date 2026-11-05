@@ -1,6 +1,6 @@
 # patient-administration-system-frontend — Specification
 
-Comprehensive specification-driven-development document for the **Loco-rs front-end** of the Patient Administration System (PAS). This file is the **single source of truth** for what the front-end is, how it must behave, how it is architected, and the sequence in which it is built from a clean checkout to the current shipped baseline (`patient-administration-system-frontend` v0.1.0, paired with PAS Axum v0.43.0).
+Comprehensive specification-driven-development document for the **Axum and axa front-end** of the Patient Administration System (PAS). This file is the **single source of truth** for what the front-end is, how it must behave, how it is architected, and the sequence in which it is built from a clean checkout to the current shipped baseline (`patient-administration-system-frontend` v0.1.0, paired with PAS Axum v0.43.0).
 
 > **Target: v0.2.0 (paired with PAS Axum v0.44.0) — Option C identity delegation.**
 > The PAS Axum back end ditches its local `patients` + `practitioners` tables and proxies identity to `person-service` + `worker-service`. This front-end therefore **loses its direct sea-orm read path** to patient + practitioner data — those reads move to two new reqwest clients (`src/services/main_person_api.rs` + `src/services/main_worker_api.rs`) that hit the upstream services directly with the user's auth context.
@@ -17,7 +17,7 @@ Past release detail lives in [`CHANGELOG.md`](CHANGELOG.md) (this crate) and [`.
 | Role | Crate | Port | Owns |
 |------|-------|------|------|
 | System of record (REST + FHIR + HL7 v2) | `patient-administration-system` (Axum) | `8080` | All writes, audit, outbox dispatcher |
-| Human-facing UI | `patient-administration-system-frontend` (Loco-rs) | `5150` | Dashboard, patient pages, three CSRF-protected write forms |
+| Human-facing UI | `patient-administration-system-frontend` (Axum and axa) | `5150` | Dashboard, patient pages, three CSRF-protected write forms |
 
 **Invariant**: the front-end never writes directly to the shared schema. Every state-changing flow (admit / book slot / generate letter) proxies through the PAS Axum REST API so the audit + outbox + Tantivy invariants of the system of record cannot be bypassed.
 
@@ -40,15 +40,15 @@ The two binaries are workspace siblings (see workspace `Cargo.toml`) and share t
 - **Health probe** at `GET /_health` — JSON `{ service, version, database }`.
 - **CSRF protection** on every POST form (double-submit-cookie pattern).
 - **Read-only sea-orm projections** in `src/models/` (patient, ward, bed, audit, outbox, rtt, schedule, letter_template, occupancy).
-- **Loco-rs `Hooks` trait** fully implemented in `src/app.rs` (boot, routes, register_tasks, connect_workers, truncate, seed). The DB-mutating hooks (truncate, seed) are intentionally no-ops.
+- **Plain functions in `src/app.rs`** (`config`, `context`, `routes`, `router`, `run`). `db reset`, `db down` and `db truncate` refuse, and the service never migrates on boot.
 
 ### 2.2 Out of scope (intentionally deferred)
 
 Listed so a developer knows **not** to build them here:
 
-- **Authentication / sessions / login UI.** Not in v0.1.0. Add via `axum-login` or Loco's auth helpers when needed. CSRF is in place so the foundation for authenticated write flows is ready.
+- **Authentication / sessions / login UI.** Not in v0.1.0. Add via `axum-login` when needed. CSRF is in place so the foundation for authenticated write flows is ready.
 - **Static asset pipeline (Tailwind, Sass).** `assets/static/` is empty by design; styling lives in a single `<style>` block in `assets/views/layouts/main.html`.
-- **Direct DB writes.** All write paths go through the PAS Axum REST API. The Loco `truncate` and `seed` hooks are no-ops for this reason.
+- **Direct DB writes.** All write paths go through the PAS Axum REST API. `db reset`, `db down` and `db truncate` refuse for this reason.
 - **Background workers.** `register_tasks` and `connect_workers` are stubbed empty. The outbox dispatcher lives in the PAS Axum binary, not here.
 - **Clinical content.** Same scope discipline as the PAS Axum binary: administrative views only — no diagnoses, no prescriptions, no vitals.
 - **Replacing the PAS Axum binary.** The two are complementary. The front-end never owns the system of record.
@@ -84,7 +84,7 @@ Listed so a developer knows **not** to build them here:
 
 The full route table is the source of truth in [`README.md`](README.md#routes); this section describes contracts.
 
-- **Every page handler** uses the Loco `ViewEngine<TeraView>` extractor and renders an `assets/views/<area>/<name>.html` template via `format::render().view(&v, "...", data)`.
+- **Every page handler** takes `Extension<Views>` and renders an `assets/views/<area>/<name>.html` template via `v.render("...", data)`.
 - **Every template** uses [Lily Design System](https://github.com/LilyDesignSystem/lily) headless HTML class names. See §4.4.
 - **Read paths** load sea-orm projections from `src/models/` — never the PAS Axum binary's full domain models. The projection layer is the boundary that lets the front-end iterate independently.
 - **Write paths** load the same read projections for picker UIs (patient list, bed list, slot list, template list), then submit via `src/services/pas_api.rs` to the PAS Axum REST API.
@@ -137,14 +137,13 @@ These are **non-negotiable**. Every reviewer (human or agent) checks them.
 |---|---|---|
 | 1 | The front-end **never writes directly** to the shared PAS PostgreSQL database. Every write flow proxies through the PAS Axum REST API. | Audit + outbox invariants of the system of record cannot be bypassed. |
 | 1b *(v0.2 target)* | The front-end **never reads patient or practitioner data directly from any database**. Those reads go through `services/main_person_api.rs` + `services/main_worker_api.rs` HTTP clients, with the user's pass-through auth headers attached. | Identity and workforce live in `person-service` / `worker-service` (PAS Axum v0.44.0 Option C); there is no local table to read. |
-| 2 | The Loco `truncate` + `seed` hooks are **no-ops**. | Same as #1 — accidentally destructive hooks on a shared schema would corrupt the system of record. |
+| 2 | `db reset`, `db down` and `db truncate` **refuse**, and nothing migrates on boot. | Same as #1 — accidentally destructive commands on a shared schema would corrupt the system of record. |
 | 3 | Every POST form is CSRF-protected by the double-submit-cookie pattern. | Browser-borne CSRF is the realistic threat for a server-rendered UI. |
 | 4 | First paint of every page works **without JavaScript**. HTMX is a progressive enhancement on top. | Resilience + accessibility + degradation under flaky networks. |
 | 5 | Every template uses Lily Design System headless class names. Zero inline styles in templates. | Style swap (Tailwind / Sass / etc.) requires only one file change. |
 | 6 | The migration crate is shared by path (`migration = { path = "../patient-administration-system-with-rust/migrations", … }`); this crate **does not declare its own migrations**. | Schema drift between the two binaries is impossible. |
 | 7 | Stateless server: every request reads from the DB (or PAS API). Horizontal scaling by adding replicas. | Availability. |
-| 8 | Crate-level `#![allow(clippy::result_large_err)]` is intentional. `loco_rs::Error` is a wide enum that trips the lint on every handler signature. | Keep clippy clean without splattering `allow` on every handler. |
-| 9 | This crate **does not add a direct `axum` / `tower` / `tower-http` / `tracing` dependency**. Loco brings pinned versions of those; adding a second copy produces conflicting `FromRequest` impls. | Dependency graph hygiene. |
+| 9 | `axum` stays on axa's minor. Two copies of `axum` produce conflicting `FromRequest` impls. | Dependency graph hygiene. |
 
 ---
 
@@ -158,7 +157,7 @@ This crate is one of three workspace members rooted at `..`; v0.2 adds two upstr
 |---|---|---|
 | `patient-administration-system` | Workflow service (REST + FHIR R5 + HL7 v2 over HTTP + MLLP) | 8080 |
 | `patient-administration-system-migrations` | sea-orm migration crate; CLI is `pas-migrate` | n/a |
-| `patient-administration-system-frontend` (this crate) | Loco-rs read-mostly UI | 5150 |
+| `patient-administration-system-frontend` (this crate) | Axum and axa read-mostly UI | 5150 |
 | `person-service` *(HTTP dep, external; v0.2 target)* | Person reads for patient pages + dashboard projections | 5180 |
 | `worker-service` *(HTTP dep, external; v0.2 target)* | Worker reads for practitioner pickers + audit attributions | 5181 |
 
@@ -168,16 +167,12 @@ Workspace-level profile blocks (`[profile.release]`, `[profile.bench]`) live in 
 
 ```
 patient-administration-system-frontend/
-├── Cargo.toml              loco-rs + axum-extra + sea-orm + reqwest + …
+├── Cargo.toml              axa + axum-extra + tera + sea-orm + reqwest + …
 ├── CHANGELOG.md            per-release changelog (currently v0.1.0)
 ├── README.md               public surface — route table, env vars, CSRF design
 ├── spec.md                 this file
-├── config/
-│   ├── development.yaml    bind 5150, dev Postgres
-│   ├── production.yaml     env-driven config for prod
-│   └── test.yaml
 ├── src/
-│   ├── main.rs             loco_rs::cli::main entry
+│   ├── main.rs             App::run entry
 │   ├── lib.rs              module declarations + crate-level lints
 │   ├── app.rs              `Hooks` impl — app_name, app_version, boot, routes, register_tasks, connect_workers, truncate, seed
 │   ├── csrf.rs             double-submit-cookie middleware
@@ -206,18 +201,16 @@ patient-administration-system-frontend/
 
 Strict three-layer service: `controller → model (read) | services/pas_api (write) → db (read) / PAS Axum REST (write)`.
 
-- **controllers** (`src/controllers/`) — one file per area. Each controller exports a `routes() -> Routes` builder via `Routes::new().prefix("/x").add("/y", get(handler))`. Handlers use the Loco `ViewEngine<TeraView>` + `State<AppContext>` extractors and return `Result<Response>` via `format::render().view(&v, "template.html", json!({…}))`.
+- **controllers** (`src/controllers/`) — one file per area. Each controller exports a `routes() -> Routes` builder via `Routes::new().prefix("/x").add("/y", get(handler))`. Handlers use the `Extension<Views>` + `State<AppContext>` extractors and return `Result<Response>` via `v.render("template.html", json!({…}))`.
 - **read models** (`src/models/`) — sea-orm projection queries. Read-only.
 - **write services** (`src/services/pas_api.rs`) — thin reqwest client (10 s timeout) with a `PasApiError` enum (HTTP transport / parsed non-2xx status / malformed envelope body). Base URL via `PAS_API_URL`, default `http://localhost:8080`. Wraps the PAS `ApiResponse` envelope so the caller gets the `data` directly or a typed error.
 - **CSRF middleware** (`src/csrf.rs`) — `ensure_token(jar) -> (String, CookieJar)` + `verify_token(&jar, &form_token) -> Result<()>`. Constant-time compare via XOR.
 
-### 6.4 Loco-side patterns the scaffold uses
+### 6.4 Patterns the crate uses
 
-- **`Hooks` trait** fully implemented in `src/app.rs` (incl. `boot`, `routes`, `register_tasks`, `connect_workers`, `truncate`, `seed`). The DB-mutating hooks (`truncate`, `seed`) are intentionally no-ops — this crate never mutates the shared PAS schema.
-- **`ViewEngine<TeraView>` extractor** on every page handler: `pub async fn index(ViewEngine(v): ViewEngine<TeraView>, State(ctx): State<AppContext>) -> Result<Response>`.
-- **`format::render().view(&v, "template.html", data)`** with `data` as `serde_json::json!({…})`. Tera reads the template from `assets/views/`.
-- **`Routes::new().prefix("/x").add("/y", get(handler))`** for the routing DSL; routes are aggregated in `Hooks::routes`.
-- **Crate-level `#![allow(clippy::result_large_err)]`** in `src/lib.rs` and `src/main.rs` because `loco_rs::Error` is a wide enum that trips the lint on every handler signature.
+- **`src/app.rs`** holds plain functions: `config`, `context`, `routes`, `router`, `run`.
+- **`Extension(v): Extension<Views>`** on every page handler, and `v.render("template.html", data)` with `data` as `serde_json::json!({…})`. Tera reads the templates from `assets/views/` at boot.
+- **`Routes::new().prefix("/x").add("/y", get(handler))`** for routing; routes are aggregated in `App::routes`.
 
 ---
 
@@ -247,7 +240,7 @@ All write flows (POST endpoints) go through the PAS Axum API so audit + outbox e
 
 ### 7.2 Error contract
 
-- **CSRF mismatch / missing cookie / empty form field** → HTTP **400** (`loco_rs::Error::BadRequest`) before any side effects.
+- **CSRF mismatch / missing cookie / empty form field** → HTTP **400** (`axa::Error::BadRequest`) before any side effects.
 - **Unknown id on a detail page** (`/patients/{id}` / `/wards/{id}`) → HTTP **404** with a Lily-styled empty-state page.
 - **PAS Axum API returns non-2xx** → the controller surfaces the parsed `error.message` from the PAS `ApiResponse` envelope in the form's error region; status remains 200 (the form re-renders with the diagnostic). Transport / parse failures surface as HTTP 500.
 
@@ -283,8 +276,11 @@ Mirrors `Cargo.toml`. Anything below is actually compiled.
 
 | Component | Crate | Purpose |
 |---|---|---|
-| Full-stack framework | `loco-rs` 0.14 | Brings pinned axum / tower / tower-http / tracing |
-| Cookie storage | `axum-extra` 0.10 (`cookie`) | `CookieJar` extractor for CSRF middleware (matches Loco's axum minor) |
+| Service plumbing | `axa` 0.1 (`sea-orm` feature) | Routes, middleware, configuration, logging, shutdown, the command line |
+| Web | `axum` 0.8, `tower-http` 0.6 (`fs`) | `Extension`, `/static` |
+| Templates | `tera` 2 | `Views` |
+| Command line | `clap` 4 | `Cli::parse` |
+| Cookie storage | `axum-extra` 0.12 (`cookie`) | `CookieJar` extractor for CSRF middleware |
 | Async runtime | `tokio` 1.49 (`full`) | `#[tokio::main]` in `main.rs` |
 | ORM | `sea-orm` 1.1 (`sqlx-postgres`, `runtime-tokio-rustls`, `macros`, `with-chrono`, `with-uuid`, `with-json`) | Read-only projections |
 | Migrations (path dep) | `patient-administration-system-migrations` | Schema shared with the PAS Axum binary |
@@ -292,14 +288,11 @@ Mirrors `Cargo.toml`. Anything below is actually compiled.
 | HTTP client | `reqwest` 0.12 (`rustls-tls`, `json`) | PAS API client (no native-tls; rustls only) |
 | Utilities | `uuid` 1.19, `chrono` 0.4 | IDs + timestamps |
 | Errors | `thiserror` 2.0 | `PasApiError` enum |
-| Async traits | `async-trait` 0.1 | `Hooks` impl |
-| Dev — testing | `loco-rs` 0.14 with the `testing` feature | `boot_test::<App>()` helper |
-| Dev — serial | `serial_test` 3.2 | `#[serial]` on integration tests so each Loco boot binds the port serially |
+| Dev — testing | `axa` with the `testing` feature | `request::<App, _, _>` helper |
+| Dev — serial | `serial_test` 3.2 | `#[serial]` on integration tests because they share one database |
 
 **Explicitly not included** (and why):
 
-- `axum`, `tower`, `tower-http`, `tracing` as **direct deps** — Loco brings them; adding a second copy produces conflicting `FromRequest` impls.
-- `tera` as a **direct dep** — Loco re-exports it through the `ViewEngine<TeraView>` extractor.
 - `argon2`, `jsonwebtoken` — no authentication in v0.1.
 - `tantivy`, `utoipa`, `quick-xml`, `csv` — those are PAS-Axum-side concerns.
 
@@ -307,14 +300,16 @@ Mirrors `Cargo.toml`. Anything below is actually compiled.
 
 ## 10. Configuration Specification
 
-Read from environment (with defaults from `config/<environment>.yaml`).
+Read from the environment, with defaults in `src/app.rs` and in axa.
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `DATABASE_URL` | No (falls back to config) | from `config/<env>.yaml` | PostgreSQL connection string. Same DB as the PAS Axum binary. |
+| `DATABASE_URL` | In production | the local PAS database | PostgreSQL connection string. Same DB as the PAS Axum binary. Production refuses to boot without it. |
 | `PAS_API_URL` | No | `http://localhost:8080` | Base URL for the PAS Axum API — every write flow routes through it |
 | `PAS_COOKIE_SECURE` | No | unset (off) | Set to `1` / `true` / `TRUE` / `yes` / `YES` in production so the `pas_csrf` cookie carries `Secure` (HTTPS-only). Off in dev. |
-| Loco environment | No | `development` | Standard Loco env switcher (`LOCO_ENV` etc.); pickup of `config/<env>.yaml` |
+| `APP_ENV` | No | `development` | `production` or `staging` also turn on HSTS, the 60-second request timeout and JSON logs. `LOCO_ENV` is still read. |
+| `PORT` | No | `5150` | The port to listen on |
+| `CORS_ALLOWED_ORIGINS` | No | none in production | The front-end needs none: its pages and forms are same-origin |
 
 ---
 
@@ -341,9 +336,9 @@ cargo fmt    --check --all
 
 ### 11.3 Integration-test conventions
 
-- Use Loco's `boot_test::<App>()` to spin up the full app in-process.
+- Use axa's `request::<App, _, _>` to run the full app in-process.
 - Gate every test on `DATABASE_URL` so `cargo test` works offline (skipped with no failure).
-- Apply `#[serial]` (via `serial_test`) so each Loco boot binds the listening port serially — concurrent boots would race for `5150`.
+- Apply `#[serial]` (via `serial_test`), because the tests share one database.
 - Assert both status + body shape. For CSRF tests, GET first to capture the cookie, then POST with / without a matching `csrf_token`.
 
 ### 11.4 Unit-test conventions
@@ -356,7 +351,7 @@ cargo fmt    --check --all
 
 ## 12. Build Sequence (Implementation Tasks)
 
-Ordered, layered build sequence to recreate the **v0.1.0** baseline from a clean checkout. Same-layer tasks parallelize. After every layer, run the gates in §11.2.
+Ordered, layered build sequence to recreate the **v0.1.0** baseline from a clean checkout. It records how this crate was built, on Loco, and is kept as history: FR-205 moved it to axa. Same-layer tasks parallelize. After every layer, run the gates in §11.2.
 
 ### Layer F0 — Crate scaffolding (single agent, blocking)
 

@@ -29,4 +29,4 @@ Be aware before you deploy ([`governance/production-readiness.md`](governance/pr
 - The shipped identity realm does not require multi-factor authentication.
 - Nothing proves a patient is the person their account says (the account-to-patient link is set by hand).
 - No external penetration test has been done.
-- Six advisories are accepted with reasons in [`deny.toml`](deny.toml); they come from the Loco framework version and are tracked as DEP-2 in [`tasks.md`](tasks.md).
+- [`deny.toml`](deny.toml) accepts no advisories.

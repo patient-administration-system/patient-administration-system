@@ -35,6 +35,6 @@ This crate is one member of a three-member Cargo workspace at the project root. 
 | Crate                                       | Purpose                                                          |
 |---------------------------------------------|------------------------------------------------------------------|
 | `patient-administration-system-migrations`  | sea-orm migration crate; binary `pas-migrate` (up/down/fresh/status). |
-| `patient-administration-system-frontend`                              | Loco-rs 0.14.1 read-mostly UI (Tera + HTMX + axum-extra cookies + reqwest); shares this crate's PostgreSQL DB and migration crate by path. |
+| `patient-administration-system-frontend`                              | Axum and axa read-mostly UI (Tera + HTMX + axum-extra cookies + reqwest); shares this crate's PostgreSQL DB and migration crate by path. |
 
 Workspace-level profile blocks (`[profile.release]` LTO + strip, `[profile.bench]` inherits release) live in the root `Cargo.toml`; per-member profile blocks are silently ignored by Cargo.

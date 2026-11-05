@@ -21,7 +21,7 @@ The shipped system is a Rust Cargo workspace with three members, plus two **runt
 |-------------------------------------------------|---------------------------------------------------------------------|-------|--------------------------------------|
 | `patient-administration-system`                 | Workflow service. REST + FHIR R5 + HL7 v2 ADT lifecycle (HTTP + MLLP). | 8080 | Axum 0.7, sea-orm 1.1, utoipa 5.4 |
 | `patient-administration-system-migrations`      | sea-orm migration crate shared by both PAS apps. CLI binary `pas-migrate`. | n/a | sea-orm-migration 1.1                |
-| `patient-administration-system-frontend`        | Loco-rs read-mostly UI. Server-side Tera + HTMX + Lily Design System. | 5150 | Loco-rs 0.14.1, Tera, axum-extra cookies, reqwest |
+| `patient-administration-system-frontend`        | Axum and axa read-mostly UI. Server-side Tera + HTMX + Lily Design System. | 5150 | Axum, axa, Tera, axum-extra cookies, reqwest |
 | `person-service` *(HTTP dep, external)*    | Person identity, demographics, search, match, merge, FHIR R5 Person. | 5180 | (own crate; see its `spec.md`) |
 | `worker-service` *(HTTP dep, external)*    | Worker (= practitioner) identity, demographics, search, match, merge, FHIR R5 Worker. | 5181 | (own crate; see its `spec.md`) |
 
@@ -60,7 +60,7 @@ The PAS is **HTTP-coupled** to the two upstream services: every `person_id` / `w
 - HL7 v2 SIU — S12 (book) / S13 (reschedule) / S14 (modify) / S15 (cancel) — over HTTP and MLLP TCP (v0.16 + v0.17). Inbound endpoints at `/api/hl7/v2/schedule-book`, `/schedule-reschedule`, `/schedule-modify`, `/schedule-cancel` accept SCH+PID; the filler appointment id is the PAS UUID and travels end-to-end so the EMR can dedupe on it. Outbound mapping in `Hl7v2MllpPublisher`: `AppointmentBooked → SIU^S12`, `AppointmentRescheduled → SIU^S13`, `AppointmentModified → SIU^S14`, `AppointmentCancelled → SIU^S15`, all source-gated so EMR-originated SIU isn't echoed back as PAS-originated.
 - Complete OpenAPI 3.1 spec covering every REST + FHIR + HL7 v2 handler.
 - Operational dashboard with HTMX live-refresh and Lily Design System markup.
-- Sibling Loco-rs front-end with patient pages, ward detail, RTT cockpit, and three CSRF-protected write forms (admit / book / letter) that proxy back through the PAS REST API.
+- Sibling Axum and axa front-end with patient pages, ward detail, RTT cockpit, and three CSRF-protected write forms (admit / book / letter) that proxy back through the PAS REST API.
 
 ### 2.2 Out of scope (deferred)
 
@@ -367,11 +367,10 @@ These are **non-negotiable**. Every reviewer (human or agent) checks them.
 │   ├── AGENTS.md + AGENTS/                    architecture / models / restful / matching / testing / interchange docs
 │   ├── README.md + CHANGELOG.md
 │   └── spec.md                                this file
-└── patient-administration-system-frontend/                              Loco-rs front-end (v0.1.0)
+└── patient-administration-system-frontend/                              Axum and axa front-end (v0.1.0)
     ├── Cargo.toml
     ├── src/                                   incl. csrf.rs middleware
     ├── assets/views/                          Tera + Lily + HTMX
-    ├── config/                                Loco development/production/test YAML
     ├── tests/                                 dashboard_smoke.rs (13 tests)
     ├── README.md + CHANGELOG.md
 ```

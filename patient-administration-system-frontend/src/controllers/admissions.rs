@@ -4,8 +4,10 @@
 //! lock + flip to occupied, audit + outbox) runs in the system of record.
 
 use crate::tpl::json;
+use crate::views::Views;
+use axa::prelude::*;
+use axum::Extension;
 use axum_extra::extract::cookie::CookieJar;
-use loco_rs::prelude::*;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -23,15 +25,14 @@ pub fn routes() -> Routes {
 /// (if missing) and threads the matching token into the hidden form
 /// field so the subsequent POST can pass [`csrf::verify_token`].
 pub async fn new_form(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
     jar: CookieJar,
 ) -> Result<(CookieJar, Response)> {
     let (csrf_token, jar) = csrf::ensure_token(jar);
     let patients = list_active_patients(200).await;
     let beds = list_available(&ctx.db).await.map_err(Error::wrap)?;
-    let resp = format::render().view(
-        &v,
+    let resp = v.render(
         "admissions/new.html",
         json!({
             "version": env!("CARGO_PKG_VERSION"),
@@ -55,7 +56,7 @@ pub struct AdmitForm {
 /// `POST /admissions/new` — verify CSRF, call `POST /api/admissions` on
 /// the PAS binary, then re-render the page with the result.
 pub async fn submit(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
     jar: CookieJar,
     Form(form): Form<AdmitForm>,
@@ -83,8 +84,7 @@ pub async fn submit(
     };
     let patients = list_active_patients(200).await;
     let beds = list_available(&ctx.db).await.map_err(Error::wrap)?;
-    let resp = format::render().view(
-        &v,
+    let resp = v.render(
         "admissions/new.html",
         json!({
             "version": env!("CARGO_PKG_VERSION"),

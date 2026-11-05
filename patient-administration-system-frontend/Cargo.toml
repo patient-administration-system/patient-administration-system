@@ -3,38 +3,32 @@ name = "patient-administration-system-frontend"
 version = "0.2.0"
 edition = "2024"
 authors = ["joel@joelparkerhenderson.com"]
-description = "Loco-rs front-end for the Patient Administration System (PAS). Tera templates + HTMX live-refresh + Lily Design System markup. Patient reads delegate to person-service (v0.2.0); PAS-owned reads share the PAS PostgreSQL database via sea-orm; writes go through the PAS Axum API server."
+description = "Axum and axa front-end for the Patient Administration System (PAS). Tera templates + HTMX live-refresh + Lily Design System markup. Patient reads delegate to person-service (v0.2.0); PAS-owned reads share the PAS PostgreSQL database via sea-orm; writes go through the PAS Axum API server."
 license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-# Loco-rs full-stack framework. Loco brings its own pinned axum + tower +
-# tower-http + tracing, so we deliberately do NOT add those crates as
-# direct dependencies — doing so creates conflicting `FromRequest` impls
-# from incompatible axum versions in the dep graph.
-# No `auth` (JWT): this front-end does not use it, and it brings in `rsa` (RUSTSEC-2023-0071, no fix).
-# No `db-sqlite`: the database is PostgreSQL.
-loco-rs = { version = "1.2", default-features = false, features = ["cli", "with-db", "cache_inmem", "worker"] }
-
-# Needed only to name `Router` and `Extension` in the view-engine initializer
-# (Loco does not re-export them). Same axum 0.8 line Loco 0.14.1 resolves, so one
-# axum stays in the graph.
+# Shared service plumbing: routes, middleware, configuration, logging, shutdown, the command line.
+# `sea-orm` until this crate moves to sqlx.
+axa = { version = "0.1", features = ["sea-orm"] }
 axum = { version = "0.8", default-features = false }
+clap = { version = "4", features = ["derive"] }
+
+# HTML templates (`views`), and the files under `/static`.
+tera = { version = "2.1", features = ["glob_fs"] }
+tower-http = { version = "0.6", features = ["fs"] }
 
 # Cookie-based CSRF token storage for the write-flow forms (`csrf` module).
-# Pinned to the same minor as the `axum-extra` that Loco 0.14.1 brings via
-# axum 0.8, so a single `CookieJar` type flows through every handler.
 axum-extra = { version = "0.12", features = ["cookie"] }
 
-# Async runtime. Loco re-exports tokio but pinning a matching minor here
-# keeps `#[tokio::main]` ergonomic in `src/main.rs`.
+# Async runtime.
 tokio = { version = "1.54", features = ["full"] }
 
 # Database — same as the PAS Axum app so the two share schemas + migrations.
 sea-orm = { version = "2.0", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "with-json"] }
 
 # Reuse the PAS migrations crate so `patient-administration-system-frontend` and the PAS Axum
-# binary apply identical schemas via `loco-cli db migrate`.
+# binary apply identical schemas via `pas-migrate up`.
 migration = { path = "../patient-administration-system-with-rust/migrations", version = "0.3.0", package = "patient-administration-system-migrations" }
 
 # Serialization.
@@ -50,10 +44,9 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls", "j
 uuid = { version = "1.28", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2.0"
-async-trait = "0.1"
 
 [dev-dependencies]
-loco-rs = { version = "1.2", default-features = false, features = ["testing"] }
+axa = { version = "0.1", features = ["sea-orm", "testing"] }
 serial_test = "4.0"
 
 [[bin]]

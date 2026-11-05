@@ -104,7 +104,7 @@ The `bench` profile inherits from `release` (LTO, single codegen unit, stripped)
 Run from the workspace root so all three member crates (PAS, migrations, patient-administration-system-frontend) are checked together:
 
 ```bash
-cargo test --workspace --lib                           # unit tests for the API and the Loco front-end
+cargo test --workspace --lib                           # unit tests for the API and the operator front-end
 cargo clippy --workspace --all-targets -- -D warnings  # zero warnings (one historical `too_many_arguments` was cleared)
 cargo fmt --check --all                                # formatting clean
 ```

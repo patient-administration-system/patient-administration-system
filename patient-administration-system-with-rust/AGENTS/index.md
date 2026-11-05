@@ -38,6 +38,6 @@ Detailed reference documentation for the Patient Administration System (PAS Axum
 - [../../README.md](../../README.md) — workspace-level README (PAS + patient-administration-system-frontend + migration crate)
 - [../../CHANGELOG.md](../../CHANGELOG.md) — workspace-level changelog that coordinates member-crate releases
 - [../../Cargo.toml](../../Cargo.toml) — workspace manifest (three members, hoisted `[profile.release]` + `[profile.bench]`)
-- [../../patient-administration-system-frontend/README.md](../../patient-administration-system-frontend/README.md) — Loco-rs front-end sibling crate
+- [../../patient-administration-system-frontend/README.md](../../patient-administration-system-frontend/README.md) — Axum and axa front-end sibling crate
 - [../../patient-administration-system-frontend/spec.md](../../patient-administration-system-frontend/spec.md) — front-end specification-driven-development document
 - [../../patient-administration-system-frontend/AGENTS.md](../../patient-administration-system-frontend/AGENTS.md) — front-end agent orientation

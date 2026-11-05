@@ -115,7 +115,7 @@
           "description": "Conventions and layout for working in the server crate"
         },
         {
-          "title": "Operator pages (Loco)",
+          "title": "Operator pages",
           "path": "patient-administration-system-frontend/README.md",
           "description": "Server-rendered operator pages over the shared database"
         },

@@ -1,15 +1,32 @@
-//! Smoke test for the Loco-rs front-end's HTTP surface.
+//! Smoke test for the front-end's HTTP surface.
 //!
-//! Boots the app via Loco's testing harness and asserts that
+//! Boots the app via axa's testing harness and asserts that
 //! `/dashboard`, `/patients`, and `/_health` all return 2xx + the
 //! expected markup (or JSON shape). `#[ignore]`d like the PAS Axum
 //! integration tests: run with `DATABASE_URL=… cargo test -- --ignored`.
 
-#![allow(clippy::result_large_err, reason = "loco_rs::Error is large by design")]
-
-use loco_rs::testing::prelude::*;
-use patient_administration_system_frontend::app::App;
+use axa::testing::prelude::*;
+use axa::{Environment, Result, cli::Cli};
+use clap::Parser;
+use patient_administration_system_frontend::app::App as Service;
 use serial_test::serial;
+
+/// The service as the test harness boots it. The database is the shared PAS one, already migrated
+/// and never reset here.
+struct App;
+
+impl TestApp for App {
+    async fn boot_test() -> Result<BootResult> {
+        let environment = Environment::Test;
+        let config = Service::config(&environment)?;
+        let ctx = Service::context(environment, config).await?;
+        let router = Service::router(&ctx)?;
+        Ok(BootResult {
+            app_context: ctx,
+            router: Some(router),
+        })
+    }
+}
 
 /// These tests are `#[ignore]`d; asking for them without a database is a failure, not a skip.
 fn database_url() -> Option<String> {
@@ -233,7 +250,7 @@ async fn unknown_ward_returns_404() {
         let resp = request
             .get("/wards/00000000-0000-0000-0000-000000000000")
             .await;
-        // Loco maps `Error::NotFound` → 404.
+        // axa maps `Error::NotFound` → 404.
         resp.assert_status_not_found();
     })
     .await;
@@ -450,6 +467,51 @@ async fn ward_and_rtt_pages_render_with_an_occupied_bed_and_an_active_pathway() 
         assert!(ward_page.text().contains("Stubfamily"), "ward page: {}", ward_page.text());
         rtt_page.assert_status_ok();
         assert!(rtt_page.text().contains("Stubfamily"), "rtt page: {}", rtt_page.text());
+    })
+    .await;
+}
+
+/// Static files sit inside the middleware, and a missing one is a real `404`.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+#[serial]
+async fn a_missing_static_file_is_a_404_with_the_security_headers() {
+    if database_url().is_none() {
+        return;
+    }
+    request::<App, _, _>(|request, _ctx| async move {
+        let resp = request.get("/static/no-such-file.css").await;
+        resp.assert_status_not_found();
+        assert_eq!(resp.header("x-content-type-options"), "nosniff");
+        assert_eq!(resp.header("x-frame-options"), "DENY");
+    })
+    .await;
+}
+
+/// This service shares the PAS database, so it will not revert or empty it, whoever asks.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+#[serial]
+async fn the_commands_that_would_destroy_the_shared_database_refuse() {
+    if database_url().is_none() {
+        return;
+    }
+    for command in [
+        vec!["db", "reset"],
+        vec!["db", "down"],
+        vec!["db", "truncate"],
+    ] {
+        let mut cli = Cli::parse_from([&["pas"], command.as_slice()].concat());
+        cli.environment = Some("test".to_string());
+        let refused = Service::run(cli).await.unwrap_err().to_string();
+        assert!(
+            refused.contains("will not revert"),
+            "{command:?}: {refused}"
+        );
+    }
+    request::<App, _, _>(|request, _ctx| async move {
+        let body = request.get("/_health").await.text();
+        assert!(body.contains("\"database\":\"ok\""), "{body}");
     })
     .await;
 }

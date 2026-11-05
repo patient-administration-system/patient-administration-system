@@ -7,12 +7,14 @@
 //! of record.
 //!
 //! No JS-driven schedule→slot dependent dropdown; one flat picker per
-//! booking. This keeps the page Loco-prelude-only (no axum::extract::Query
+//! booking. This keeps the page axa-prelude-only (no axum::extract::Query
 //! re-export needed) and avoids round-tripping through the GET form.
 
 use crate::tpl::json;
+use crate::views::Views;
+use axa::prelude::*;
+use axum::Extension;
 use axum_extra::extract::cookie::CookieJar;
-use loco_rs::prelude::*;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -39,7 +41,7 @@ struct LabeledSlot {
 
 /// `GET /appointments/new` — render the picker form.
 pub async fn new_form(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
     jar: CookieJar,
 ) -> Result<(CookieJar, Response)> {
@@ -57,7 +59,7 @@ pub struct BookForm {
 
 /// `POST /appointments/new` — verify CSRF then submit the booking.
 pub async fn submit(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
     jar: CookieJar,
     Form(form): Form<BookForm>,
@@ -85,7 +87,7 @@ pub async fn submit(
 }
 
 async fn render_form(
-    v: &TeraView,
+    v: &Views,
     ctx: &AppContext,
     csrf_token: &str,
     error: Option<String>,
@@ -105,8 +107,7 @@ async fn render_form(
         }
     }
     let patients = list_active_patients(200).await;
-    format::render().view(
-        v,
+    v.render(
         "appointments/new.html",
         json!({
             "version": env!("CARGO_PKG_VERSION"),

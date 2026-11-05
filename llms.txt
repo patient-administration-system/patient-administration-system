@@ -31,7 +31,7 @@ Behaviour is defined by the specification in spec/, and a change is spec + code 
 - [Server (Rust)](patient-administration-system-with-rust/README.md): Axum API: ADT, scheduling, waiting list, letters, reminders, write-back, standby, contact profiles
 - [Server specification](patient-administration-system-with-rust/spec.md): Crate-level specification; wins over the root spec on crate internals
 - [Server agent notes](patient-administration-system-with-rust/AGENTS.md): Conventions and layout for working in the server crate
-- [Operator pages (Loco)](patient-administration-system-frontend/README.md): Server-rendered operator pages over the shared database
+- [Operator pages](patient-administration-system-frontend/README.md): Server-rendered operator pages over the shared database
 - [UI (SvelteKit)](patient-administration-system-ui-with-svelte/README.md): Patient and staff UI: Keycloak sign-in, ten locales, Lily components
 - [UI specification](patient-administration-system-ui-with-svelte/spec/index.md): Routes, roles, components, security, tests
 - [Development stack](podman/compose.yml): PostgreSQL 18 and Keycloak 26 under Podman

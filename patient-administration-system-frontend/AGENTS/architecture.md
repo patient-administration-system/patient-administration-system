@@ -2,7 +2,7 @@
 
 ## System placement
 
-`patient-administration-system-frontend` is one of three workspace members. It is a Loco-rs web app deployed on its own port (`5150`) alongside the PAS Axum API server (`8080`). The two share one PostgreSQL database and one migration crate.
+`patient-administration-system-frontend` is one of three workspace members. It is an Axum web app built with [axa](https://github.com/publicprojects-io/axa) deployed on its own port (`5150`) alongside the PAS Axum API server (`8080`). The two share one PostgreSQL database and one migration crate.
 
 > **v0.2 target (Option C).** Patient + practitioner *reads* additionally go through two HTTP services: `person-service` (`:5180`) and `worker-service` (`:5181`). Those services own the identity + workforce data. The shared database loses its `patients` / `practitioners` / `practitioner_roles` / `departments` tables in PAS Axum v0.44.0.
 
@@ -22,7 +22,7 @@ controller  →  read model (sea-orm)        →  Postgres (read)
 
 One file per area: `dashboard`, `patients`, `wards`, `rtt`, `admissions`, `appointments`, `letters`, `health`. Each exports a `routes() -> Routes` builder. `app.rs::routes` aggregates them.
 
-Page handlers use the Loco `ViewEngine<TeraView>` extractor + `State<AppContext>` and return `Result<Response>`:
+Page handlers use `Extension<Views>` + `State<AppContext>` and return `Result<Response>`:
 
 ```rust
 pub async fn index(
@@ -82,36 +82,32 @@ Base URL via `PAS_API_URL`, default `http://localhost:8080`.
 
 Double-submit-cookie pattern. See [csrf.md](csrf.md) for the threat model + edge cases.
 
-## Loco patterns this crate uses
+## axa patterns this crate uses
 
-### `Hooks` trait — fully implemented in `src/app.rs`
+### `src/app.rs`, plain functions
 
-| Hook | Body |
+`main` calls `App::run(Cli::parse())`, and that is the whole path: `config` reads the environment, `context` connects, `router` builds the service, and `db` handles the command line. There are no hooks.
+
+| Function | Body |
 |---|---|
-| `app_name` | `env!("CARGO_PKG_NAME")` |
-| `app_version` | `env!("CARGO_PKG_VERSION").to_string()` |
-| `boot` | Delegates to `create_app::<Self, Migrator>(...)`, threading in the shared `Migrator` from the with-rust project's migration sub-crate |
-| `routes` | `AppRoutes::with_default_routes()` + every controller's `routes()` |
-| `register_tasks` | **no-op** — no background tasks; the outbox dispatcher lives in the PAS Axum binary |
-| `connect_workers` | **no-op** — HTTP-only |
-| `truncate` | **no-op** — this crate never mutates the shared schema (would corrupt the system of record) |
-| `seed` | **no-op** — seeding lives in `pas-seed` in the with-rust project |
+| `setting` | This service's defaults, where they differ from axa's: the PAS database in development and test, and the pool timeouts. Production has no default `DATABASE_URL`, so it refuses to boot without one |
+| `routes` | `AppRoutes::empty()` + every controller's `routes()` |
+| `router` | The routes, `/static`, the templates, then axa's middleware around all of them |
+| `db` | `migrate` and `status`. `reset`, `down` and `truncate` refuse (FR-205) |
 
-### `ViewEngine<TeraView>` + `format::render()`
+There are no background tasks or workers: the outbox dispatcher lives in the PAS Axum binary. Seeding lives in `pas-seed`.
 
-Every page handler uses the Loco view engine. Templates live under `assets/views/` and are read at runtime (development) or baked into the binary (production) depending on Loco's `serve_static` settings.
+### `Views`
+
+axa has no template engine, so `src/views/mod.rs` holds a small one: every `assets/views/**/*.html` loads once at boot, so a change to a template needs a restart. Tera escapes HTML by default.
 
 ### `Routes::new().prefix("/x").add("/y", get(handler))`
 
-The Loco routing DSL. Each controller exports `pub fn routes() -> Routes` so `app.rs::routes` can compose them.
-
-### Crate-level lint allow
-
-`#![allow(clippy::result_large_err)]` in `src/lib.rs` and `src/main.rs` because `loco_rs::Error` is a wide enum that trips the lint on every handler signature. Without the allow, every handler needs an inline `#[allow]`.
+axa's route table. Each controller exports `pub fn routes() -> Routes` so `App::routes` can compose them.
 
 ## Dependency-graph hygiene
 
-This crate does **not** declare direct `axum`, `tower`, `tower-http`, or `tracing` dependencies. Loco brings pinned versions; adding a second copy yields two incompatible `axum` versions in the dep graph and conflicting `FromRequest` impls. `axum-extra` is added at the same minor (`0.10`) that Loco's `axum 0.8` brings, so a single `CookieJar` type flows through every handler.
+`axa` comes from crates.io and appears in both `[dependencies]` and `[dev-dependencies]`; keep the two equal, and keep `axum` on axa's minor. `axum-extra` provides one `CookieJar` type to every handler. `tests/dashboard_smoke.rs` implements `TestApp` itself, so axa's `testing` feature stays out of the production build.
 
 ## Write-flow proxy contract
 

@@ -4,7 +4,9 @@
 //! currently occupied, links straight through to the patient detail page.
 
 use crate::tpl::json;
-use loco_rs::prelude::*;
+use crate::views::Views;
+use axa::prelude::*;
+use axum::Extension;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -32,7 +34,7 @@ pub fn routes() -> Routes {
 
 /// `GET /wards/:id` — ward detail page.
 pub async fn show(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
     Path(id): Path<Uuid>,
 ) -> Result<Response> {
@@ -70,8 +72,7 @@ pub async fn show(
         })
         .collect();
 
-    format::render().view(
-        &v,
+    v.render(
         "wards/show.html",
         json!({
             "version": env!("CARGO_PKG_VERSION"),

@@ -1,8 +1,8 @@
 # patient-administration-system-frontend
 
-Loco-rs front-end for the Patient Administration System (PAS).
+Axum and [axa](https://github.com/publicprojects-io/axa) front-end for the Patient Administration System (PAS).
 
-Stack: **Loco-rs + Tera + HTMX + [Lily Design System](https://github.com/LilyDesignSystem/lily)**.
+Stack: **Axum + axa + Tera + HTMX + [Lily Design System](https://github.com/LilyDesignSystem/lily)**.
 
 ## What this is
 
@@ -11,7 +11,7 @@ A separate web app — *not* a replacement for the existing PAS Axum API server.
 | Role | Crate | Port | Owns |
 |------|-------|------|------|
 | System of record (REST + FHIR + HL7 v2) | `patient-administration-system` (Axum) | `8080` | All writes, audit, outbox dispatcher |
-| Human-facing UI | `patient-administration-system-frontend` (Loco-rs) | `5150` | Dashboard, patient pages, server-side Tera, HTMX live-refresh |
+| Human-facing UI | `patient-administration-system-frontend` (Axum and axa) | `5150` | Dashboard, patient pages, server-side Tera, HTMX live-refresh |
 
 Both binaries share:
 - The same PostgreSQL database
@@ -21,29 +21,7 @@ Both binaries share:
 
 ```
 patient-administration-system-frontend/
-├── Cargo.toml              loco-rs + axum-extra + sea-orm + reqwest + …
-├── config/
-│   ├── development.yaml    bind 5150, dev Postgres
-│   ├── production.yaml     env-driven config for prod
-│   └── test.yaml
-├── src/
-│   ├── main.rs             loco_rs::cli::main entry
-│   ├── lib.rs              module declarations
-│   ├── app.rs              `Hooks` impl — routes, name, version
-│   ├── csrf.rs             double-submit-cookie middleware for POST forms
-│   ├── controllers/
-│   │   ├── dashboard.rs    full page + 3 HTMX fragment endpoints
-│   │   ├── patients.rs     list + detail
-│   │   ├── wards.rs        ward detail
-│   │   ├── rtt.rs          RTT cockpit (active pathways, breaches)
-│   │   ├── admissions.rs   GET form + POST submit (calls PAS API)
-│   │   ├── appointments.rs GET form + POST submit
-│   │   ├── letters.rs      GET compose form + POST generate
-│   │   └── health.rs       /_health
-│   ├── models/             read-only sea-orm projections
-│   ├── services/pas_api.rs reqwest client for PAS REST writes
-│   ├── views/              Rust-side template helpers (currently empty)
-│   └── initializers/       boot-time wiring (currently empty)
+├── Cargo.toml              axa + axum-extra + tera + sea-orm + reqwest + …
 ├── assets/
 │   ├── views/
 │   │   ├── layouts/main.html
@@ -67,7 +45,7 @@ cd ../patient-administration-system-with-rust
 DATABASE_URL=postgres://pas:pas_dev_password@localhost:5432/pas \
   cargo run --bin pas-migrate -- up
 
-# 2. Boot the Loco front-end.
+# 2. Boot the front-end.
 cd ../patient-administration-system-frontend
 DATABASE_URL=postgres://pas:pas_dev_password@localhost:5432/pas \
   cargo run -- start
@@ -101,7 +79,9 @@ All write flows (POST endpoints) go through the PAS Axum API so audit + outbox e
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `DATABASE_URL` | from `config/*.yaml` | PostgreSQL connection string (same DB as PAS Axum) |
+| `DATABASE_URL` | the local PAS database; required in production | PostgreSQL connection string (same DB as PAS Axum) |
+| `APP_ENV` | `development` | `production` turns on HSTS and refuses to boot without `DATABASE_URL` |
+| `PORT` | `5150` | The port to listen on |
 | `PAS_API_URL` | `http://localhost:8080` | Base URL for the PAS Axum API — every write flow routes through it |
 | `PAS_COOKIE_SECURE` | unset (off) | Set to `1` / `true` / `yes` in production so the `pas_csrf` cookie carries the `Secure` flag (HTTPS-only). Off in dev so plaintext-HTTP localhost works. |
 
@@ -131,25 +111,23 @@ Lily is *headless* — zero CSS — so all the styling lives in `assets/views/la
 ## Why a separate crate
 
 - Lets the PAS Axum binary stay focused on the API/integration surface (~85 REST routes, FHIR R5, HL7 v2 over HTTP + MLLP) without growing a templating dependency tree.
-- The Loco app can be deployed independently (different replicas, different scaling profile).
+- The app can be deployed independently (different replicas, different scaling profile).
 - Front-end iteration doesn't risk the integration test gauntlet (`cargo test --lib` in the PAS crate stays at 308 passing).
 
 ## Status — v0.1.0
 
-**Workspace gates all green**: `cargo build --workspace --all-targets`, `cargo test --workspace --lib`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check --all`. Tested against Loco 0.14.1 with sea-orm 1.1.
+**Workspace gates all green**: `cargo build --workspace --all-targets`, `cargo test --workspace --lib`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check --all`. Written when this crate used Loco 0.14.1 with sea-orm 1.1; it now uses axa (FR-205).
 
-- 9 csrf unit tests + 13 integration smoke tests in `tests/dashboard_smoke.rs` (gated on `DATABASE_URL` so `cargo test` works offline).
+- 20 unit tests + 16 integration smoke tests in `tests/dashboard_smoke.rs` (gated on `DATABASE_URL` so `cargo test` works offline).
 - Dep audit clean — no unused direct or dev dependencies.
 
-Loco-side patterns the scaffold uses:
-- **`Hooks` trait** fully implemented in `src/app.rs` (incl. `boot`, `routes`, `register_tasks`, `connect_workers`, `truncate`, `seed`). The DB-mutating hooks (`truncate`, `seed`) are intentionally no-ops — patient-administration-system-frontend never mutates the shared PAS schema.
-- **`ViewEngine<TeraView>` extractor** on every page handler: `pub async fn index(ViewEngine(v): ViewEngine<TeraView>, State(ctx): State<AppContext>) -> Result<Response>`.
-- **`format::render().view(&v, "template.html", data)`** with `data` as `serde_json::json!({...})`. Tera reads the template from `assets/views/`.
-- **`Routes::new().prefix("/x").add("/y", get(handler))`** for the routing DSL; routes are aggregated in `Hooks::routes`.
-- **Crate-level `#![allow(clippy::result_large_err)]`** in `src/lib.rs` and `src/main.rs` because `loco_rs::Error` is a wide enum that trips the lint on every handler signature.
+Patterns the crate uses:
+- **`src/app.rs`** holds plain functions: `config`, `context`, `routes`, `router`, `run`. `db reset`, `db down` and `db truncate` refuse, because this crate never changes the shared PAS schema.
+- **`Extension(v): Extension<Views>`** on every page handler, and `v.render("template.html", data)` with `data` as `json!({...})`. Tera reads the templates from `assets/views/` at boot.
+- **`Routes::new().prefix("/x").add("/y", get(handler))`** for routing; routes are aggregated in `App::routes`.
 
 Not in v0.1.0:
-- No login / session middleware. Add via `axum-login` or Loco's auth helpers when you need it. CSRF is in place so the foundation for authenticated write flows is ready.
+- No login / session middleware. Add via `axum-login` when you need it. CSRF is in place so the foundation for authenticated write flows is ready.
 - Static asset folder (`assets/static/`) is empty — drop a favicon / custom CSS file in if you want one.
 
 ## See also

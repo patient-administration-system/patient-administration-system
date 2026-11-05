@@ -5,7 +5,7 @@ flowchart LR
     B[Browser] -- session cookie --> U[SvelteKit BFF]
     U -- OIDC code + PKCE --> K[Keycloak]
     U -- bearer token --> A[PAS API<br/>Axum]
-    O[Loco operator pages] --> D[(PostgreSQL)]
+    O[Operator pages] --> D[(PostgreSQL)]
     A --> D
     A -- identity --> P[person-service]
     A -- staff --> W[worker-service]
@@ -18,7 +18,7 @@ flowchart LR
 | Component | Tech | Port (dev) |
 |---|---|---|
 | PAS API | Rust 2024, Axum 0.8, SeaORM, utoipa | 8080 |
-| Operator pages | Loco 0.14, Tera, HTMX | 5150 |
+| Operator pages | Axum, axa, Tera, HTMX | 5150 |
 | UI | SvelteKit 3, Svelte 5, Lily | 5173 |
 | Database | PostgreSQL 18 | 5432 |
 | Identity provider | Keycloak 26 | 8180 |

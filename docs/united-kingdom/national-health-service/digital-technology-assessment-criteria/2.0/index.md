@@ -8,7 +8,7 @@ submission, an attestation, or legal advice, and nobody has audited it.
 
 - **Scope.** The product is the Patient Administration System as shipped from this repository:
   - the Rust server, `patient-administration-system-with-rust` v0.44.0
-  - the Loco server-rendered operator front-end, `patient-administration-system-frontend` v0.2.0
+  - the Axum server-rendered operator front-end, `patient-administration-system-frontend` v0.2.0
   - the SvelteKit patient and staff UI, `patient-administration-system-ui-with-svelte` v0.1.0
 - **Open source, self-hosted.** The maintainer does not run a hosted service, employ staff with access to any deployment's data, or hold a DSPT, ICO, CQC or Cyber Essentials record for it. Several DTAC answers belong to *whoever deploys* the system. Where that is the case, this document says so instead of answering for them.
 - **Evidence rule.** An answer is "Yes" or "Met" only where a file, test or command in this repository shows it. Everything else is "Not provided", "Unable to confirm" or "Not met". Paths are relative to the repository root.

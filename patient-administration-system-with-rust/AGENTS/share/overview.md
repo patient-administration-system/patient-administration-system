@@ -19,7 +19,7 @@ The Patient Administration System (PAS) is an administrative workflow service fo
 - Ops dashboard at `GET /dashboard` (Tera + HTMX live-refresh + Lily Design System markup)
 - Bearer-token auth (opt-in via `API_TOKEN`), configurable CORS, compression, request tracing
 - Per-IP token-bucket rate limit (v0.12): default 600 req/min with burst 60, peer IP read from `ConnectInfo` (X-Forwarded-For not trusted), `/api/health` exempt, 429 + `Retry-After` + `RATE_LIMITED` envelope when exhausted; disable via `PAS_RATE_LIMIT_RPM=0`
-- PostgreSQL via SeaORM; nested `pas-migrate` CLI; sibling read-mostly Loco-rs front-end at `../patient-administration-system-frontend` (port 5150)
+- PostgreSQL via SeaORM; nested `pas-migrate` CLI; sibling read-mostly Axum and axa front-end at `../patient-administration-system-frontend` (port 5150)
 - 497 unit tests + 62 integration tests across 24 files (most gated on `DATABASE_URL`)
 
 Probabilistic patient matching, duplicate detection, and record merging *decisions* live in the sister MPI crate. The merge *application* (writing the tombstone, dropping search, FHIR link) lives here as of v0.11 — call `POST /api/patients/{id}/merge-into/{target_id}` once the MPI has picked a survivor.

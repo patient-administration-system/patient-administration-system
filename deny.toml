@@ -7,13 +7,8 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
-# DEP-2 (loco-rs 1.2, sea-orm 2) cleared the quick-xml, zip, webpki-roots, fxhash and proc-macro-error2 ignores,
-# and dropping loco-rs's `auth` feature removed `rsa`. One is left.
-ignore = [
-    # Unmaintained (not vulnerable). Pulled in by loco-rs -> loco-gen -> rrgen -> serde_yaml, which reads our own config files.
-    # Remove when rrgen moves off serde_yaml.
-    { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml unmaintained; via loco-rs -> loco-gen -> rrgen -> serde_yaml (reads our own config files)" },
-]
+# Nothing is accepted. Add an advisory here only with a reason, and remove it when it no longer applies.
+ignore = []
 
 [licenses]
 version = 2

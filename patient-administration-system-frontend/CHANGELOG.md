@@ -7,6 +7,22 @@ crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Changed
+
+- Replaced Loco with [axa](https://crates.io/crates/axa) 0.1 (FR-205). Every page renders byte for byte as before; the footer now says Axum.
+- Configuration comes from the environment and `src/app.rs`. `config/` is gone, and `APP_ENV` replaces `LOCO_ENV`, which axa still reads.
+- `db reset`, `db down` and `db truncate` refuse. The service does not migrate on boot.
+- A missing file under `/static` is a `404`. It was a `200` with the fallback page.
+- `Access-Control-Allow-Origin: *` is gone, as is `X-Powered-By`. Every response now has `X-Content-Type-Options`, `X-Frame-Options` and `Referrer-Policy`, and production has HSTS and a 60-second request timeout.
+- A template change needs a restart: the hot reload came with Loco.
+- Development binds `localhost`, not `0.0.0.0`. Set `BINDING` to change it.
+
+### Fixed
+
+- Production boots. `config/production.yaml` quoted its port, which Loco 1.2 refused, and required a `404.html` that was never in the repository.
+
+## [Unreleased]
+
+### Changed
 - `loco-rs` 1.2 and `sea-orm` 2.0 (DEP-2), with Loco's default features off (no `auth`, no `db-sqlite`). Template data goes through `tpl::json!`, which writes plain numbers because Tera 2 cannot compare `serde_json`'s `arbitrary_precision` numbers.
 
 ### Fixed

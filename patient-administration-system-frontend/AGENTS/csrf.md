@@ -38,11 +38,11 @@ Cookie attributes on the mint path:
 | `SameSite` | `Strict` | Browser does not send the cookie on cross-origin requests |
 | `Secure` | `cookie_secure()` (see below) | HTTPS-only when truthy; off in dev |
 
-The handler must thread the returned `CookieJar` back into the response (Loco's `IntoResponse` impl for `CookieJar` is what writes the `Set-Cookie` header).
+The handler must thread the returned `CookieJar` back into the response (Axum's `IntoResponse` impl for `CookieJar` is what writes the `Set-Cookie` header).
 
 ### `verify_token(&jar, form_token) -> Result<()>`
 
-Reads the `pas_csrf` cookie value from the jar. Returns `Err(Error::BadRequest("CSRF token mismatch"))` (which Loco maps to HTTP 400) when:
+Reads the `pas_csrf` cookie value from the jar. Returns `Err(Error::BadRequest("CSRF token mismatch"))` (which axa maps to HTTP 400) when:
 
 - The cookie is missing.
 - The cookie value is empty.

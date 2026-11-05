@@ -4,12 +4,14 @@
 //! picker). `POST /letters/new` calls the PAS Axum API
 //! (`POST /api/letters/generate`) so the actual letter generation runs
 //! through the PAS service layer — audit row + outbox event + Tera render
-//! all happen server-side in the system of record. The Loco UI just
+//! all happen server-side in the system of record. This UI just
 //! ferries form data.
 
 use crate::tpl::json;
+use crate::views::Views;
+use axa::prelude::*;
+use axum::Extension;
 use axum_extra::extract::cookie::CookieJar;
-use loco_rs::prelude::*;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -25,15 +27,14 @@ pub fn routes() -> Routes {
 
 /// `GET /letters/new` — compose form.
 pub async fn new_form(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
     jar: CookieJar,
 ) -> Result<(CookieJar, Response)> {
     let (csrf_token, jar) = csrf::ensure_token(jar);
     let templates = list_active_templates(&ctx.db).await.map_err(Error::wrap)?;
     let patients = list_active_patients(200).await;
-    let resp = format::render().view(
-        &v,
+    let resp = v.render(
         "letters/new.html",
         json!({
             "version": env!("CARGO_PKG_VERSION"),
@@ -61,7 +62,7 @@ pub struct ComposeForm {
 /// letter, then re-render the form page with either the rendered letter
 /// inline or an error banner.
 pub async fn submit(
-    ViewEngine(v): ViewEngine<TeraView>,
+    Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
     jar: CookieJar,
     Form(form): Form<ComposeForm>,
@@ -100,8 +101,7 @@ pub async fn submit(
 
     let templates = list_active_templates(&ctx.db).await.map_err(Error::wrap)?;
     let patients = list_active_patients(200).await;
-    let resp = format::render().view(
-        &v,
+    let resp = v.render(
         "letters/new.html",
         json!({
             "version": env!("CARGO_PKG_VERSION"),

@@ -19,8 +19,8 @@
 //! travelling over plaintext HTTP — set `PAS_COOKIE_SECURE=1` in any
 //! environment terminated behind HTTPS.
 
+use axa::{Error, Result};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
-use loco_rs::{Error, Result};
 use uuid::Uuid;
 
 /// Name of the cookie that carries the CSRF token.
@@ -116,8 +116,7 @@ mod tests {
         let (token, jar) = ensure_token(jar);
         assert_eq!(token.len(), 32, "uuid simple format is 32 hex chars");
         assert_eq!(
-            jar.get(COOKIE_NAME)
-                .map(loco_rs::prelude::cookie::Cookie::value),
+            jar.get(COOKIE_NAME).map(Cookie::value),
             Some(token.as_str())
         );
     }
