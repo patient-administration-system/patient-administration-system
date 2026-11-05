@@ -28,6 +28,8 @@ Development: `podman compose -f podman/compose.yml up -d` (ports overridable wit
 | `PAS_QUIET_HOURS` | API | Window when text-style reminders wait (clinic time), default `21:00-08:00`; `off` disables. See `governance/messaging-rules.md` |
 | `PAS_TIMEZONE`, `PAS_HELP_LINE` | API | Clinic time zone for times in reply texts (default Europe/London) and an optional sentence appended where a person can help ("Call 01234 567890.") |
 | `PAS_REQUIRE_AUTH` | API | `true` refuses to start without per-user auth. Set it in every real deployment |
+| `PERSON_SERVICE_URL`, `WORKER_SERVICE_URL` | API | Where the identity services are. Unset, letters, patient search and HL7 ADT fail |
+| `PAS_REQUIRE_UPSTREAMS` | API | `true` refuses to start without both URLs. It does not check that they answer, so an outage cannot stop a replica restarting; `/api/health` reports that. Set it in every real deployment |
 | `PAS_ALLOW_LEGACY_API_TOKEN` | API | `true` keeps the shared token working alongside per-user tokens (migration only) |
 | `API_TOKEN` | API | Shared bearer token, used when per-user auth is off. **Unset with no keys means trusted-caller mode** |
 | `PAS_API_URL`, `PAS_API_TOKEN` / `PAS_API_TOKEN_FILE` | UI | Where the UI reaches the API, and the token it sends (the file form is re-read, for a rotating service token) |

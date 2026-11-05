@@ -29,7 +29,7 @@ pub mod worker_client;
 pub use person_client::{
     HttpPersonClient, Person, PersonClient, PersonCreate, PersonMatch, StubPersonClient,
 };
-pub use probe::{UpstreamProbe, UpstreamState, UpstreamStatus};
+pub use probe::{UpstreamProbe, UpstreamState, UpstreamStatus, missing_upstream_urls};
 pub use worker_client::{
     HttpWorkerClient, StubWorkerClient, Worker, WorkerClient, WorkerCreate, WorkerMatch,
 };

@@ -67,6 +67,14 @@ async fn main() -> Result<()> {
 
 /// The clients for `person-service` and `worker-service`, each optional.
 fn upstream_clients(cfg: &Config) -> Result<(Option<PersonClient>, Option<WorkerClient>)> {
+    if patient_administration_system::config::env::flag("PAS_REQUIRE_UPSTREAMS")
+        && let Some(refusal) = patient_administration_system::upstream::missing_upstream_urls(
+            cfg.person_service_url.as_deref(),
+            cfg.worker_service_url.as_deref(),
+        )
+    {
+        return Err(Error::Config(refusal));
+    }
     // Both clients are optional: without a URL the proxy handlers answer 503 and the rest of the PAS runs.
     let upstream_timeout = std::time::Duration::from_secs(cfg.upstream_timeout_secs);
     let person_client = match cfg.person_service_url.clone() {

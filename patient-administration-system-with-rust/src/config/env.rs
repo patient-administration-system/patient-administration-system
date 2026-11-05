@@ -70,6 +70,7 @@ pub const VARS: &[Var] = &[
     flag_var("PAS_REMINDERS_ENABLED"),
     flag_var("PAS_ALLOW_LEGACY_API_TOKEN"),
     flag_var("PAS_REQUIRE_AUTH"),
+    flag_var("PAS_REQUIRE_UPSTREAMS"),
     // The server.
     int_var("SERVER_PORT", 8080, 1, 65_535),
     int_var("PAS_OUTBOX_MAX_RETRIES", 10, 0, 1_000),

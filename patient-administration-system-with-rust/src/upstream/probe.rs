@@ -56,6 +56,25 @@ impl UpstreamStatus {
     }
 }
 
+/// `PAS_REQUIRE_UPSTREAMS=true` refuses to start without both URLs. It checks only that they are set: a
+/// service that is down is reported by `GET /api/health`, and must not stop a replica restarting.
+pub fn missing_upstream_urls(person: Option<&str>, worker: Option<&str>) -> Option<String> {
+    let missing: Vec<&str> = [
+        ("PERSON_SERVICE_URL", person),
+        ("WORKER_SERVICE_URL", worker),
+    ]
+    .into_iter()
+    .filter(|(_, url)| url.is_none())
+    .map(|(name, _)| name)
+    .collect();
+    (!missing.is_empty()).then(|| {
+        format!(
+            "PAS_REQUIRE_UPSTREAMS is set and these are missing: {}. Letters, patient search and HL7 ADT would fail",
+            missing.join(" and ")
+        )
+    })
+}
+
 /// Keeps the last answer. One per server; see the module notes.
 #[derive(Debug, Default)]
 pub struct UpstreamProbe {
@@ -159,6 +178,21 @@ mod tests {
         let url = format!("http://{}", listener.local_addr().expect("address"));
         drop(listener);
         url
+    }
+
+    #[test]
+    fn required_upstreams_name_what_is_missing() {
+        assert_eq!(missing_upstream_urls(Some("p"), Some("w")), None);
+        let both = missing_upstream_urls(None, None).expect("refused");
+        assert!(
+            both.contains("PERSON_SERVICE_URL and WORKER_SERVICE_URL"),
+            "{both}"
+        );
+        let one = missing_upstream_urls(Some("p"), None).expect("refused");
+        assert!(
+            one.contains("WORKER_SERVICE_URL") && !one.contains("PERSON_SERVICE_URL"),
+            "{one}"
+        );
     }
 
     #[tokio::test]

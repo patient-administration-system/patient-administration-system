@@ -499,6 +499,7 @@ Configuration is loaded from environment variables (or `.env`).
 | `SERVER_HOST`        | HTTP server bind address                                          | `0.0.0.0`        | No       |
 | `SERVER_PORT`        | HTTP server port                                                  | `8080`           | No       |
 | `PERSON_SERVICE_URL` | Base URL of `person-service`. Unset, anything that needs a person is refused (see [API Examples](#api-examples)) | - | No |
+| `PAS_REQUIRE_UPSTREAMS` | `true` refuses to start without `PERSON_SERVICE_URL` and `WORKER_SERVICE_URL`. Set it in every real deployment | `false` | No |
 | `RUST_LOG`           | Logging level (e.g., `info`, `debug`)                             | `info`           | No       |
 | `OTLP_ENDPOINT`      | OpenTelemetry OTLP collector endpoint (HTTP/protobuf, e.g. `http://otel-collector:4318/v1/traces`). When set, every `tracing` span is exported to the collector. When unset (default), fmt layer only — no network egress. | - | No |
 | `OTEL_SERVICE_NAME`  | `service.name` resource attribute on every exported span. Override to disambiguate replicas / environments in the collector. | `pas-axum` | No |

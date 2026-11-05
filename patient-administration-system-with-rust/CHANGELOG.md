@@ -8,6 +8,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - `GET /api/health` reports `person_service` and `worker_service`, and says `degraded` when a configured one does not answer (NFR-28).
+- `PAS_REQUIRE_UPSTREAMS=true` refuses to start without `PERSON_SERVICE_URL` and `WORKER_SERVICE_URL`.
 
 ### Removed
 
