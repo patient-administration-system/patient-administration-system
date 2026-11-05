@@ -67,7 +67,7 @@ Server defaults to `http://localhost:8080`. `pas-seed` creates one facility (`DE
 ./demo.sh
 ```
 
-Discovers the seeded ward, beds, patient, and template via REST, then walks admit → ward-occupancy → transfer → discharge → audit history → letter generation. Requires `jq`.
+Finds the seeded ward and beds via REST, then walks admit → ward-occupancy → transfer → discharge → audit history. Requires `jq`.
 
 ### Headline curl flow
 
@@ -75,18 +75,19 @@ Discovers the seeded ward, beds, patient, and template via REST, then walks admi
 # Health check
 curl http://localhost:8080/api/health
 
-# Find a patient
-PID=$(curl -sS http://localhost:8080/api/patients?limit=1 | jq -r '.data[0].id')
-
 # Find a bed in the seeded ward
-WARD=$(curl -sS http://localhost:8080/api/wards | jq -r '.data[0].id')
+FACILITY=$(curl -sS http://localhost:8080/api/facilities | jq -r '.data[] | select(.code == "DEMO") | .id')
+WARD=$(curl -sS http://localhost:8080/api/facilities/$FACILITY/wards | jq -r '.data[] | select(.code == "WARD-A") | .id')
 BED=$(curl -sS http://localhost:8080/api/wards/$WARD/beds | jq -r '.data[0].id')
+
+# A patient is an id from person-service; a made-up one is enough for bed movements
+PERSON=$(uuidgen | tr 'A-Z' 'a-z')
 
 # Admit
 curl -X POST http://localhost:8080/api/admissions \
   -H "Content-Type: application/json" \
   -H "X-User-Id: clinician-1" \
-  -d "{\"patient_id\":\"$PID\",\"bed_id\":\"$BED\"}"
+  -d "{\"person_id\":\"$PERSON\",\"bed_id\":\"$BED\"}"
 ```
 
 ## Technology Stack
@@ -204,7 +205,8 @@ User context for audit logging is taken from headers: `X-User-Id`, `X-User-Ip`, 
 | | GET | `/api/rtt/:id/weeks-waiting` |
 | | GET | `/api/patients/:id/rtt` |
 | Resources | POST · GET | `/api/facilities` |
-| | POST · GET | `/api/wards` (`?facility_id=…`) |
+| | POST | `/api/wards` |
+| | GET | `/api/wards/:id` · `/api/facilities/:id/wards` |
 | | POST | `/api/rooms` |
 | | POST | `/api/beds` (v0.27 — adds audit + outbox `BedCreated`) |
 | | GET | `/api/beds/:id` · `/api/wards/:id/beds` · `/api/wards/:id/occupancy` |
@@ -274,18 +276,20 @@ curl http://localhost:8080/api/health
 curl -X POST http://localhost:8080/api/admissions \
   -H "Content-Type: application/json" \
   -d '{
-    "patient_id": "11111111-1111-1111-1111-111111111111",
-    "bed_id":     "22222222-2222-2222-2222-222222222222"
+    "person_id": "11111111-1111-1111-1111-111111111111",
+    "bed_id":    "22222222-2222-2222-2222-222222222222"
   }'
 
-# Transfer to a new bed
+# Transfer to a new bed. If-Match carries the ETag from GET /api/admissions/<admission-id>
 curl -X POST http://localhost:8080/api/admissions/<admission-id>/transfer \
   -H "Content-Type: application/json" \
+  -H 'If-Match: <etag>' \
   -d '{ "new_bed_id": "33333333-3333-3333-3333-333333333333" }'
 
-# Discharge
+# Discharge. The version moved with the transfer, so read the ETag again
 curl -X POST http://localhost:8080/api/admissions/<admission-id>/discharge \
   -H "Content-Type: application/json" \
+  -H 'If-Match: <etag>' \
   -d '{ "disposition": "home" }'
 ```
 

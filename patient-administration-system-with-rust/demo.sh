@@ -18,7 +18,10 @@ PERSON_ID="${PERSON_ID:-$(uuidgen | tr 'A-Z' 'a-z')}"
 
 say() { printf "\n\033[1;36m== %s ==\033[0m\n" "$*"; }
 get() { curl -sS "$BASE$1"; }
-post() { curl -sS -X POST "$BASE$1" -H 'content-type: application/json' -d "$2"; }
+# post PATH BODY [VERSION]: VERSION goes in If-Match, which a change to an existing admission needs.
+post() { curl -sS -X POST "$BASE$1" -H 'content-type: application/json' ${3:+-H "if-match: $3"} -d "$2"; }
+# The admission's current version, from the ETag of its read.
+version() { curl -sS -o /dev/null -D - "$BASE/api/admissions/$1" | tr -d '\r' | awk 'tolower($1) == "etag:" { print $2 }'; }
 
 say "Health"
 get /api/health | $JQ '.'
@@ -47,10 +50,10 @@ say "Ward occupancy (after admit)"
 get "/api/wards/$WARD_ID/occupancy" | $JQ '.'
 
 say "Transfer to bed1"
-post "/api/admissions/$ADMISSION_ID/transfer" "{\"new_bed_id\":\"$BED1\"}" | $JQ '.'
+post "/api/admissions/$ADMISSION_ID/transfer" "{\"new_bed_id\":\"$BED1\"}" "$(version "$ADMISSION_ID")" | $JQ '.'
 
 say "Discharge"
-post "/api/admissions/$ADMISSION_ID/discharge" '{}' | $JQ '.'
+post "/api/admissions/$ADMISSION_ID/discharge" '{}' "$(version "$ADMISSION_ID")" | $JQ '.'
 
 say "Ward occupancy (after discharge)"
 get "/api/wards/$WARD_ID/occupancy" | $JQ '.'
