@@ -46,6 +46,18 @@ Routes use `{param}` syntax (axum 0.8).
 | In-place edits and state changes with no version, **not yet examined**: RTT pause, resume and stop (no read route returns a pathway's version; OFH-12); appointment conversion; slot release offer; subscription and dead-letter admin | **No: last writer wins** (patients and practitioners are separate: this service only proxies them to the person-service and worker-service, which own the record and would have to honour `If-Match` themselves) | Each refuses an illegal state change where it has a state machine, but none compares a version. Open: OFH-11 |
 
 HL7 v2 and FHIR writes that change an appointment's status without going through the routes above (`cancel_with`, for one) take no row lock either.
+## Write Bundles (FR-202)
+
+`POST /fhir` takes a `transaction` or `batch` Bundle whose entries create `Schedule` or `Slot`, with `request.method` `POST` and `request.url` naming the type.
+
+| | `transaction` | `batch` |
+|---|---|---|
+| Failure | All or nothing: an OperationOutcome naming every refused entry, under the status of the first | Each entry alone: its own status and OperationOutcome, HTTP 200 overall |
+| Success | `transaction-response`, each entry `201 Created` with a `location`, in the order of the request | `batch-response`, the same |
+| `urn:uuid:` reference in `Slot.schedule` | Resolved to the Schedule entry with that `fullUrl`, whatever their order | Refused: a batch's entries may not depend on one another |
+
+A `Patient` or `Practitioner` entry answers `400`: `person-service` and `worker-service` own them, and a write there cannot share this database transaction. Any other resource type, `PUT`, `DELETE` and `ifNoneExist` answer `501`. Each entry is authorized as if it had been posted to `/fhir/{type}`, because the path alone says nothing about what the Bundle holds.
+
 ## Triage category interchange (NEW-24)
 
 `GET /fhir/Observation?encounter=Encounter/<id>` returns each triage assessment of an emergency encounter as a FHIR R5 `Observation` (searchset, oldest first). Round trip: `triage::interchange::category_of_observation` reads the category back (unit test for all five).

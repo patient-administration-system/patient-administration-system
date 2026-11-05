@@ -4,7 +4,7 @@
 //! shape verbatim. Encounter, Appointment, Coverage, Schedule, Slot and Location are read from the PAS-owned
 //! tables and wrapped as FHIR; Schedule and Slot can also be written. `POST /fhir/Encounter` and
 //! `POST /fhir/Appointment` are intentionally not exposed (`503` with a `not-supported` OperationOutcome that
-//! names the REST endpoint to use). `POST /fhir` accepts a write Bundle.
+//! names the REST endpoint to use). `POST /fhir` writes a `transaction` or `batch` Bundle of Schedule and Slot.
 //!
 //! ## Wire shape
 //!
@@ -105,10 +105,10 @@ use crate::db::repositories::slot::SlotRepository;
 // ─── Write surface ──────────────────────────────────────────────────────
 //
 // FHIR Schedule + Slot create/update/delete persist directly against the
-// PAS-owned `schedules` / `slots` tables. Bundle POST validates entries
-// for Decision #4 (no Patient or Practitioner entries — those must go
-// through person-service / worker-service directly) and dispatches each
-// remaining entry by `resourceType`. Encounter + Appointment create are
+// PAS-owned `schedules` / `slots` tables. Bundle POST refuses Patient and
+// Practitioner entries under Decision #4 (those must go through
+// person-service / worker-service directly) and writes Schedule and Slot
+// entries; see `bundle.rs`. Encounter + Appointment create are
 // left stubbed because both need person-id resolution / state-machine
 // orchestration (ADT for Encounter, scheduling service for Appointment)
 // — callers should use the typed REST endpoints (`/api/admissions`,
@@ -128,8 +128,6 @@ pub use schedules::*;
 // ── Schedule writes ──────────────────────────────────────────────────────
 
 // ── Slot writes ──────────────────────────────────────────────────────────
-
-// ── Bundle POST with Decision #4 enforcement ─────────────────────────────
 
 #[cfg(test)]
 mod tests {

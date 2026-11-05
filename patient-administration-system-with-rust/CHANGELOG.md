@@ -9,6 +9,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - `GET /api/health` reports `person_service` and `worker_service`, and says `degraded` when a configured one does not answer (NFR-28).
 - `PAS_REQUIRE_UPSTREAMS=true` refuses to start without `PERSON_SERVICE_URL` and `WORKER_SERVICE_URL`.
+- `POST /fhir` writes: a `transaction` or `batch` Bundle can create `Schedule` and `Slot` records, audited and with an outbox event (`ScheduleCreated`, `SlotCreated`). It used to refuse every entry. `Bundle.type` is now required.
+- `POST /fhir/Slot` refuses a slot whose `end` is not after its `start`.
 
 ### Removed
 

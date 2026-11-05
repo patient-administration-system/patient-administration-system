@@ -89,6 +89,29 @@ pub(super) fn parse_service_type(body: &Value) -> String {
     "general".to_string()
 }
 
+/// A new Schedule from a FHIR body, for `POST /fhir/Schedule` and a Bundle entry alike.
+pub(super) fn schedule_from(body: &Value) -> Result<Schedule, Error> {
+    Ok(Schedule::new(
+        parse_schedule_owner(body)?,
+        parse_service_type(body),
+    ))
+}
+
+/// A new Slot from a FHIR body, for `POST /fhir/Slot` and a Bundle entry alike.
+pub(super) fn slot_from(body: &Value) -> Result<Slot, Error> {
+    let schedule_id = parse_schedule_ref(body)?;
+    let start = parse_dt(body, "start")?;
+    let end = parse_dt(body, "end")?;
+    if end <= start {
+        return Err(Error::validation("Slot.end must be after Slot.start"));
+    }
+    let mut slot = Slot::new(schedule_id, start, end);
+    if let Some(status) = parse_slot_status(body)? {
+        slot.status = status;
+    }
+    Ok(slot)
+}
+
 #[utoipa::path(
     post,
     path = "/fhir/Schedule",
@@ -101,9 +124,7 @@ pub(super) fn parse_service_type(body: &Value) -> String {
     )
 )]
 pub async fn create_schedule(State(state): State<AppState>, Json(body): Json<Value>) -> FhirResult {
-    let owner = parse_schedule_owner(&body).map_err(error_to_response)?;
-    let svc = parse_service_type(&body);
-    let sched = Schedule::new(owner, svc);
+    let sched = schedule_from(&body).map_err(error_to_response)?;
     let saved = ScheduleRepository::create(&state.db, &sched)
         .await
         .map_err(error_to_response)?;
@@ -242,13 +263,7 @@ pub(super) fn parse_schedule_ref(body: &Value) -> Result<Uuid, Error> {
     )
 )]
 pub async fn create_slot(State(state): State<AppState>, Json(body): Json<Value>) -> FhirResult {
-    let schedule_id = parse_schedule_ref(&body).map_err(error_to_response)?;
-    let start = parse_dt(&body, "start").map_err(error_to_response)?;
-    let end = parse_dt(&body, "end").map_err(error_to_response)?;
-    let mut slot = Slot::new(schedule_id, start, end);
-    if let Some(status) = parse_slot_status(&body).map_err(error_to_response)? {
-        slot.status = status;
-    }
+    let slot = slot_from(&body).map_err(error_to_response)?;
     let saved = SlotRepository::create(&state.db, &slot)
         .await
         .map_err(error_to_response)?;

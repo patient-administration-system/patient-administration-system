@@ -101,6 +101,21 @@ pub enum Principal {
     Verified(Box<Claims>),
 }
 
+/// Lets a handler ask the question this layer asks of a path, for a resource the path does not name: a FHIR
+/// Bundle carries its resources in the body, where the middleware cannot see them.
+#[derive(Clone)]
+pub struct RequestAuth {
+    auth: Arc<UserAuth>,
+    principal: Principal,
+}
+
+impl RequestAuth {
+    /// Would this caller be allowed to send this request directly?
+    pub fn allows(&self, method: &Method, path: &str) -> bool {
+        self.auth.authorize(&self.principal, method, path).is_ok()
+    }
+}
+
 /// Why a request was refused.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Denied {
@@ -334,6 +349,7 @@ pub fn derive_action(method: &Method, path: &str) -> Action {
 }
 
 /// The entity a path addresses: `/api/appointments/1` is `appointments`, `/fhir/Patient/1` is `patient`.
+/// `/fhir` itself names none; `POST /fhir` asks about each entry through [`RequestAuth`].
 pub fn entity_of(path: &str) -> String {
     let mut parts = path.trim_start_matches('/').split('/');
     let first = parts.next().unwrap_or("");
@@ -405,6 +421,10 @@ pub async fn user_auth_middleware(
             req.headers_mut().insert(USER_ID, v);
         }
     }
+    req.extensions_mut().insert(RequestAuth {
+        auth: auth.clone(),
+        principal,
+    });
     next.run(req).await
 }
 

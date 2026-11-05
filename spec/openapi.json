@@ -33136,13 +33136,14 @@
     },
     "/fhir": {
       "post": {
+        "description": "An entry can create a Schedule or a Slot, which are the records this service owns and can write from\nFHIR. Each is audited and publishes an event in the transaction that writes it. A `Patient` or\n`Practitioner` entry is refused (Decision #4): `person-service` and `worker-service` own them, and a\nwrite there cannot share this database transaction. Any other type, method or `ifNoneExist` answers\n`501`. Each entry is authorized as if it had been posted to `/fhir/{type}` by the same caller.",
         "operationId": "post_fhir",
         "responses": {
           "200": {
-            "description": "FHIR resource, Bundle or OperationOutcome"
+            "description": "A transaction-response or batch-response Bundle"
           },
           "4XX": {
-            "description": "Error; an OperationOutcome"
+            "description": "Error; an OperationOutcome. A transaction writes nothing"
           },
           "5XX": {
             "description": "Server or upstream error; an OperationOutcome"
@@ -33153,7 +33154,7 @@
             "bearer": []
           }
         ],
-        "summary": "Bundle handler. Walks `entry[*].resource.resourceType` and\nenforces Decision #4: any entry of type `Patient` or `Practitioner`\nis rejected with `invalid` so callers learn the correct routing\n(those resources are owned by person-service / worker-service and\nmust be posted directly there, never proxied through a PAS Bundle).\nOther entries return `not-supported` for now — typed FHIR creators\nfor non-Patient/Practitioner resources are wired one-at-a-time.",
+        "summary": "Writes a FHIR `transaction` or `batch` Bundle.",
         "tags": [
           "FHIR"
         ]

@@ -80,7 +80,7 @@ pub fn statement() -> Value {
         "resourceType": "CapabilityStatement",
         "status": "active",
         // When SUPPORTED last changed; FHIR asks for the date the statement was last revised.
-        "date": "2026-10-23",
+        "date": "2026-11-05",
         "kind": "instance",
         "software": { "name": "patient-administration-system", "version": env!("CARGO_PKG_VERSION") },
         "implementation": {
@@ -91,7 +91,12 @@ pub fn statement() -> Value {
         },
         "fhirVersion": "5.0.0",
         "format": ["json"],
-        "rest": [{ "mode": "server", "resource": resources }],
+        "rest": [{
+            "mode": "server",
+            "resource": resources,
+            // POST /fhir, for Schedule and Slot entries.
+            "interaction": [{ "code": "transaction" }, { "code": "batch" }],
+        }],
     })
 }
 

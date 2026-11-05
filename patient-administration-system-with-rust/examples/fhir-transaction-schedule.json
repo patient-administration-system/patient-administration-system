@@ -1,0 +1,25 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:7f3c1a52-6c1e-4b7e-9a39-0d7a4f6d1e11",
+      "resource": {
+        "resourceType": "Schedule",
+        "actor": [{ "reference": "Practitioner/3fa85f64-5717-4562-b3fc-2c963f66afa6" }],
+        "serviceType": [{ "concept": { "coding": [{ "code": "general" }] } }]
+      },
+      "request": { "method": "POST", "url": "Schedule" }
+    },
+    {
+      "resource": {
+        "resourceType": "Slot",
+        "schedule": { "reference": "urn:uuid:7f3c1a52-6c1e-4b7e-9a39-0d7a4f6d1e11" },
+        "status": "free",
+        "start": "2030-01-07T09:00:00Z",
+        "end": "2030-01-07T09:15:00Z"
+      },
+      "request": { "method": "POST", "url": "Slot" }
+    }
+  ]
+}

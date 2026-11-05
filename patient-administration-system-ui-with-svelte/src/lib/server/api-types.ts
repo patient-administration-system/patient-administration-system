@@ -5114,13 +5114,12 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Bundle handler. Walks `entry[*].resource.resourceType` and
-     *     enforces Decision #4: any entry of type `Patient` or `Practitioner`
-     *     is rejected with `invalid` so callers learn the correct routing
-     *     (those resources are owned by person-service / worker-service and
-     *     must be posted directly there, never proxied through a PAS Bundle).
-     *     Other entries return `not-supported` for now — typed FHIR creators
-     *     for non-Patient/Practitioner resources are wired one-at-a-time.
+     * Writes a FHIR `transaction` or `batch` Bundle.
+     * @description An entry can create a Schedule or a Slot, which are the records this service owns and can write from
+     *     FHIR. Each is audited and publishes an event in the transaction that writes it. A `Patient` or
+     *     `Practitioner` entry is refused (Decision #4): `person-service` and `worker-service` own them, and a
+     *     write there cannot share this database transaction. Any other type, method or `ifNoneExist` answers
+     *     `501`. Each entry is authorized as if it had been posted to `/fhir/{type}` by the same caller.
      */
     post: operations["post_fhir"];
     delete?: never;
@@ -23891,14 +23890,14 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description FHIR resource, Bundle or OperationOutcome */
+      /** @description A transaction-response or batch-response Bundle */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Error; an OperationOutcome */
+      /** @description Error; an OperationOutcome. A transaction writes nothing */
       "4XX": {
         headers: {
           [name: string]: unknown;

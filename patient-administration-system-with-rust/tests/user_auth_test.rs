@@ -12,7 +12,7 @@ use axum::{
 use base64::Engine;
 use ed25519_dalek::SigningKey;
 use patient_administration_system::api::rest::user_auth::{
-    UserAuth, UserAuthConfig, with_user_auth,
+    RequestAuth, UserAuth, UserAuthConfig, with_user_auth,
 };
 use rusty_paseto::core::{Footer, Key, Paseto, PasetoAsymmetricPrivateKey, Payload, Public, V4};
 use std::sync::Arc;
@@ -791,4 +791,28 @@ async fn weak_or_duplicate_carrier_secrets_stop_start_up() {
             "{spec}"
         );
     }
+}
+
+#[tokio::test]
+async fn a_handler_can_ask_about_a_resource_the_path_does_not_name() {
+    use axum::{Extension, http::Method};
+    // FR-202: this is how `POST /fhir` asks about each entry of a Bundle.
+    async fn ask(Extension(auth): Extension<RequestAuth>) -> String {
+        format!(
+            "{} {}",
+            auth.allows(&Method::POST, "/fhir/Slot"),
+            auth.allows(&Method::POST, "/api/patients/import"),
+        )
+    }
+    let app = with_user_auth(Router::new().route("/fhir", post(ask)), per_user().await);
+    let write = Tok::default().attr("access", "write").mint();
+    let (status, body) = call(&app, "POST", "/fhir", Some(&write), &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "true false", "the same rule as the path would meet");
+    // A read-only caller never reaches the handler.
+    let read = Tok::default().mint();
+    assert_eq!(
+        call(&app, "POST", "/fhir", Some(&read), &[]).await.0,
+        StatusCode::FORBIDDEN
+    );
 }

@@ -108,7 +108,7 @@ v0.2 also widens the FHIR R5 read surface:
 | GET    | `/fhir/Location/{id}`         | FHIR `Location` (PAS `Bed`)          |
 | POST   | `/fhir`                       | Bundle; writes nothing yet (below)   |
 
-The read Bundle is a **collection** Bundle (`type: collection`). `POST /fhir` writes nothing yet: `Patient` and `Practitioner` entries are refused with `400`, because `person-service` and `worker-service` own them, and any other entry answers `501`. The response is a `transaction-response` Bundle with an outcome per entry, and the request answers `400`.
+The read Bundle is a **collection** Bundle (`type: collection`). `POST /fhir` writes `transaction` and `batch` Bundles of `Schedule` and `Slot` (FR-202): `transaction` is all or nothing, with `urn:uuid:` references resolved inside the Bundle, and `batch` answers each entry alone with HTTP 200. Each write has its audit row and outbox event in its transaction. `Patient` and `Practitioner` entries are refused with `400`, because `person-service` and `worker-service` own them; any other resource type, a `PUT` or `DELETE` entry, and `ifNoneExist` answer `501`.
 
 Errors continue to return FHIR `OperationOutcome` JSON with the same status mapping as v0.1.
 

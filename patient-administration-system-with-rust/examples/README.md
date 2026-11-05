@@ -14,6 +14,7 @@ Sample payloads and a runnable round-trip example for the v0.2 interchange and F
 | `fhir-patient.json`  | FHIR R5 JSON | One `Patient` resource ready to POST to `/fhir/Patient`.              |
 | `fhir-bundle.json`   | FHIR R5 JSON | Collection `Bundle` containing two `Patient` entries.                 |
 | `fhir-transaction-bundle.json` | FHIR R5 JSON | Transaction `Bundle` with two `Patient` entries. `/fhir` refuses them: see the crate README. |
+| `fhir-transaction-schedule.json` | FHIR R5 JSON | Transaction `Bundle` that creates a `Schedule` and a `Slot` naming it. |
 | `hl7-adt-a28.txt`    | HL7 v2 text  | Pipe-delimited ADT^A28 (add person info) message.                     |
 | `hl7-adt-a01.txt`    | HL7 v2 text  | Pipe-delimited ADT^A01 (admit). PV1-3.3 is the bed code.              |
 | `hl7-adt-a02.txt`    | HL7 v2 text  | ADT^A02 (transfer). Looked up by MRN; PV1-3.3 = destination bed code. |
@@ -82,7 +83,12 @@ curl -s http://localhost:8080/fhir/Patient/{id}
 # Collection bundle of recent patients
 curl -s 'http://localhost:8080/fhir/Patient?_count=10'
 
-# Bundle: refused today, because Patient entries belong to person-service
+# Transaction Bundle: creates a Schedule and a Slot
+curl -s -X POST http://localhost:8080/fhir \
+  -H 'Content-Type: application/json' \
+  --data-binary @examples/fhir-transaction-schedule.json
+
+# Bundle of Patient entries: refused, because they belong to person-service
 curl -s -X POST http://localhost:8080/fhir \
   -H 'Content-Type: application/json' \
   --data-binary @examples/fhir-transaction-bundle.json
