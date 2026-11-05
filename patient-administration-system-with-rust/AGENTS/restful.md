@@ -11,7 +11,6 @@ The PAS crate exposes a Rust library API mirroring the module layout under `src/
 - **Models** (`src/models/`): `Patient`, `HumanName`, `Identifier`, `Practitioner`, `Department`, `Facility`, `Ward`, `Room`, `Bed`, `BedStatus`, `Encounter`, `EncounterClass`, `EncounterStatus`, `Admission`, `Transfer`, `Discharge`, `BedAssignment`, `Schedule`, `ScheduleOwner`, `Slot`, `SlotStatus`, `Appointment`, `AppointmentStatus`, `Referral`, `WaitlistEntry`, `Priority`, `RTTPathway`, `RTTClockEvent`, `compute_active_weeks`, `LetterTemplate`, `GeneratedLetter`, `Account`, `Charge`, `Invoice`, `Payment`, `Money`, `Iso4217`, `Consent`.
 - **Services** (`src/{adt, scheduling, waitlist, resources, billing, communication}/`): each takes a `DatabaseConnection` and `Arc<dyn EventPublisher>` and orchestrates the state machine inside one transaction with audit + outbox writes.
 - **Persistence** (`src/db/`): SeaORM entities, repositories, transactional outbox, audit log.
-- **Search** (`src/search/`): Tantivy `SearchEngine::{new, index_patient, delete_patient, search}`.
 - **Streaming** (`src/streaming/`): `EventPublisher` trait, `InMemoryEventPublisher`, `FluvioEventPublisher` stub, `DomainEvent`, `dispatcher::run` / `dispatcher::tick`.
 - **Validation, privacy, observability, config**: in their respective modules.
 
@@ -174,7 +173,7 @@ Money fields are split into `amount_value` (string decimal) + `amount_currency` 
 - `src/api/rest/mod.rs` — re-exports `router`, `AppState`, `RequireBearerToken`, `require_bearer`.
 - `src/api/rest/handlers.rs` — every REST handler.
 - `src/api/rest/routes/` — the route table, one file per area (single source of truth in code).
-- `src/api/rest/state.rs` — `AppState` (services + DB + publisher + optional Tantivy).
+- `src/api/rest/state.rs` — `AppState` (services + DB + publisher).
 - `src/api/rest/auth.rs` — bearer-token middleware.
 - `src/api/fhir/handlers.rs` — FHIR R5 handlers.
 - `src/api/fhir/resources.rs` — bidirectional converters between FHIR JSON and `crate::models`.

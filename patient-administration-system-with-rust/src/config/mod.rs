@@ -20,9 +20,6 @@ pub struct Config {
     pub server_host: String,
     /// TCP port the HTTP server binds to. Defaults to `8080`.
     pub server_port: u16,
-    /// Filesystem path where the Tantivy patient index lives.
-    /// Defaults to `./search_index`.
-    pub search_index_path: String,
     /// `RUST_LOG`-style filter for the tracing subscriber. Defaults to `info`.
     pub rust_log: String,
     /// Optional OTLP collector endpoint for OpenTelemetry export.
@@ -129,8 +126,6 @@ impl Config {
             env::text("DATABASE_URL").ok_or_else(|| Error::config("DATABASE_URL is required"))?;
         let server_host = env::text("SERVER_HOST").unwrap_or_else(|| "0.0.0.0".to_string());
         let server_port = u16::try_from(env::int("SERVER_PORT")).unwrap_or(8080);
-        let search_index_path =
-            env::text("SEARCH_INDEX_PATH").unwrap_or_else(|| "./search_index".to_string());
         let rust_log = env::text("RUST_LOG").unwrap_or_else(|| "info".to_string());
         let otlp_endpoint = env::text("OTLP_ENDPOINT");
         let otel_service_name =
@@ -166,7 +161,6 @@ impl Config {
             database_url,
             server_host,
             server_port,
-            search_index_path,
             rust_log,
             otlp_endpoint,
             otel_service_name,
@@ -247,7 +241,6 @@ mod tests {
         "DATABASE_URL",
         "SERVER_HOST",
         "SERVER_PORT",
-        "SEARCH_INDEX_PATH",
         "RUST_LOG",
         "OTLP_ENDPOINT",
         "OTEL_SERVICE_NAME",
@@ -283,7 +276,6 @@ mod tests {
         set("DATABASE_URL", "postgres://u:p@h:5432/pas");
         set("SERVER_HOST", "127.0.0.1");
         set("SERVER_PORT", "9090");
-        set("SEARCH_INDEX_PATH", "/tmp/pas-search");
         set("RUST_LOG", "debug");
         set("OTLP_ENDPOINT", "http://otlp:4317");
         set("OTEL_SERVICE_NAME", "pas-axum-staging");
@@ -292,7 +284,6 @@ mod tests {
         assert_eq!(cfg.database_url, "postgres://u:p@h:5432/pas");
         assert_eq!(cfg.server_host, "127.0.0.1");
         assert_eq!(cfg.server_port, 9090);
-        assert_eq!(cfg.search_index_path, "/tmp/pas-search");
         assert_eq!(cfg.rust_log, "debug");
         assert_eq!(cfg.otlp_endpoint.as_deref(), Some("http://otlp:4317"));
         assert_eq!(cfg.otel_service_name, "pas-axum-staging");
@@ -309,7 +300,6 @@ mod tests {
         assert_eq!(cfg.database_url, "postgres://u:p@h:5432/pas");
         assert_eq!(cfg.server_host, "0.0.0.0");
         assert_eq!(cfg.server_port, 8080);
-        assert_eq!(cfg.search_index_path, "./search_index");
         assert_eq!(cfg.rust_log, "info");
         assert!(cfg.otlp_endpoint.is_none());
         // Service name has a default — it's always populated.

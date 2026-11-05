@@ -133,7 +133,6 @@ mod tests {
             database_url: "postgres://test".into(),
             server_host: "0.0.0.0".into(),
             server_port: 8080,
-            search_index_path: "./search_index".into(),
             rust_log: "info".into(),
             otlp_endpoint: otlp.map(String::from),
             otel_service_name: "pas-axum-test".into(),

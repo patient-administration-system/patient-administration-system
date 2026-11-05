@@ -29,7 +29,6 @@ Unit tests are embedded in source files using `#[cfg(test)] mod tests`. They tes
 | `api::openapi`                                                                             | `ApiDoc` includes every annotated path + every component schema               |
 | `validation`                                                                               | E.164 phone, address rules, charge amount, appointment times, RTT ordering, **national healthcare identifiers** (NHS Mod 11, NIR Mod 97 + Corsica fix-up, TSI envelope, IHI, HCN — v0.15) |
 | `privacy`                                                                                  | Value masking, patient masking, GDPR export, consent gating                   |
-| `search`                                                                                   | Tantivy schema, index, query, fuzzy                                           |
 | `streaming`                                                                                | InMemory publish/subscribe; Fluvio stub returns the expected `Streaming` error; `Hl7v2MllpPublisher` encoder paths |
 | `config`, `observability`, `error`, `api`, `api::rest::auth`                               | Env loading, defaults, response envelope, bearer middleware constructor       |
 
@@ -73,7 +72,6 @@ DATABASE_URL=postgres://… cargo test              # actually exercise them
 | `tests/fhir_bundle_test.rs`       | y  | `POST /fhir` batch + transaction (4 tests): per-entry response shape; Patient transaction rollback; v0.13 — Coverage batch entries (insurance + self-pay); v0.13 — Coverage parse failure rolls a transaction back |
 | `tests/concurrency_test.rs`       | y  | Two-way races (bed + slot, 2 tests): exactly one 200, one 409 — proves `SELECT … FOR UPDATE`   |
 | `tests/outbox_dispatcher_test.rs` | y  | Happy path: admit writes outbox row → one `dispatcher::tick` → row marked `published=true`. v0.5: failing publisher → `retry_count` rises to budget → row moves to `outbox_dead_letters` → replay puts a fresh row back with `retry_count = 0` → next tick drains it (2 tests) |
-| `tests/interchange_test.rs`       | y  | Bulk import in all 4 formats → idempotent skip on re-import → exports round-trip → Tantivy visibility |
 | `tests/hl7v2_test.rs`             | y  | HL7 v2 ADT^A28/A01/A02/A03 + A08/A11/A13/A40 + batch envelope + SIU^S12/S13/S14/S15 + DFT^P03 (13 tests): AA happy paths, AE on malformed payload, AR on parse failure, exact-MRN dedup, A08 demographic merge, A11 cancel-admit drops ward occupancy to 0, A13 cancel-discharge reinstates the original bed, batch endpoint dispatches 3 messages independently with mixed AA/AE inside one BTS envelope; v0.16 — SIU^S12 books an appointment (filler uuid returned in AA, overlap → 409), SIU^S15 cancels (double-cancel → 409, unknown filler → 404, non-UUID → 400, missing SCH-2 → 400); v0.17 — SIU^S13 reschedules with overlap-excluding check (own row safe, sibling conflict → 409), SIU^S14 modifies reason; terminal-status conflict, unknown filler, missing SCH-2, missing SCH-11, wrong-trigger-at-endpoint all covered; v0.18 — ADT^A40 merges source MRN into survivor (re-merge → 409, unknown source → 404, self-merge → 409, missing MRG → 400, wrong type at /merge → 400); v0.19 — DFT^P03 posts a charge (account auto-creation, account reuse on 2nd DFT, PY → 400 unsupported, missing FT1 → 400, bad currency → 400, wrong type → 400); v0.20 — multi-FT1 DFT^P03 posts 3 charges in one transaction (mixed currencies → 400; atomicity asserted: bad 2nd FT1 must not leave 1st persisted) |
 | `tests/hl7v2_mllp_test.rs`        | y  | MLLP TCP listener on ephemeral port: real framed ADT → AA ACK framed; garbage frame → AR       |
 | `tests/hl7v2_outbound_test.rs`    | y  | `Hl7v2MllpPublisher` (2 tests): AA happy path, AE peer leaves outbox row unpublished           |
@@ -179,7 +177,6 @@ async fn test_something() {
 3. Test both success and failure paths. State machines need at least one test per legal and illegal transition.
 4. For enums whose serde rename is meaningful (e.g. snake_case wire format), assert the literal string.
 5. Use the model factory methods (`Patient::new`, `Identifier::mrn`, `RTTClockEvent::started`, ...) over building structs by hand.
-6. For Tantivy: use `tempfile::tempdir()` for the index path so the OS cleans up.
 
 ### Integration-test guidelines
 

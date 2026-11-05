@@ -16,7 +16,6 @@ The v0.3.1 dep audit removed 15 unused direct deps (`loco-rs`, `fluvio`, `tonic`
 | **Database**         | PostgreSQL 18+                              | Persistence                              |
 | **ORM**              | SeaORM 1.1                                  | Async ORM (sqlx-postgres, rustls runtime, chrono/uuid/json types) |
 | **Migrations**       | sea-orm-migration 1.1 + `pas-migrate` CLI   | Schema management                        |
-| **Search Engine**    | Tantivy 0.22                                | Full-text patient search                 |
 | **Streaming**        | `InMemoryEventPublisher` (production + tests) + `Hl7v2MllpPublisher` (outbound ADT over MLLP) + `FluvioEventPublisher` stub | Event publishing |
 | **API Docs**         | Utoipa 5.4 + `utoipa-swagger-ui` 8.1        | OpenAPI 3.1 annotations + Swagger UI     |
 | **Serialization**    | Serde 1.0, serde_json 1.0, quick-xml 0.36 (`serialize`), csv 1.3 | JSON / XML / CSV / TSV |

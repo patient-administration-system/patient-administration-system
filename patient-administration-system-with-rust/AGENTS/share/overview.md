@@ -4,14 +4,13 @@ The Patient Administration System (PAS) is an administrative workflow service fo
 
 - ADT: admit → transfer → discharge with atomic bed allocation under `SELECT … FOR UPDATE`
 - Scheduling: slot booking, cancellation, check-in, completion, no-show, bulk slot generation. **Recurring appointment series** (v0.9): RFC 5545 subset (daily/weekly/monthly + INTERVAL + BYDAY + COUNT/UNTIL); atomic per-patient-overlap reject; cap 200 occurrences.
-- Waitlist + RTT clock with per-pathway breach threshold and `GET /api/waitlist/breaches`
+- Waitlist + RTT clock with per-pathway breach threshold and `GET /api/rtt/{id}/breaching`
 - Resources: ward/bed occupancy snapshots, bed status state machine
 - Billing: accounts, charges, invoices, payments — `rust_decimal` + ISO 4217. **Coverage** (v0.10): insurance / self-pay / other payer rows per patient with optional account linkage; FHIR R5 Coverage read at `/fhir/Coverage/{id}` and (v0.13) write via `POST /fhir` Bundle entries — same `CoverageRepository::create` path as the REST `POST /api/coverages`.
 - Communication: Tera template letters with strict required-variable enforcement. SMS auto-send via the `SmsProvider` trait (v0.8) — `LogSmsProvider` ships for dev/test; consumer-supplied providers handle real gateways.
 - Privacy: masked patient view, GDPR export, consent CRUD + revoke
 - Audit log written transactionally with every state-changing call
 - Transactional outbox + background dispatcher (2 s poll, batch 64). v0.5 bounds retries via `PAS_OUTBOX_MAX_RETRIES`: rows that exceed the budget move to `outbox_dead_letters` and can be replayed by an operator. v0.14 adds an HTTP webhook publisher (`PAS_WEBHOOK_URL` + optional HMAC-SHA256 via `PAS_WEBHOOK_SECRET`) and a `CompositePublisher` fan-out so HL7 v2 MLLP and webhook subscribers can both be active.
-- Tantivy full-text patient search kept in sync with CRUD
 - REST API (Axum) + FHIR R5 read/write for Patient / Encounter / Appointment / Practitioner / Schedule / Slot (last three v0.21) + read for Location
 - `POST /fhir` accepts a Bundle but writes nothing yet: `Patient` and `Practitioner` entries are refused (`400`) and any other answers `501`
 - Bulk patient interchange in JSON / XML / TSV / CSV via the flat `PatientRow` projection

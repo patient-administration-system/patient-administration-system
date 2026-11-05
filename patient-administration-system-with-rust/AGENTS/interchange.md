@@ -119,7 +119,7 @@ The import path runs these steps per row:
 1. Parse the row into a `PatientRow` (validation errors → 400).
 2. Project it to a `Patient` via `PatientRow::to_patient()`.
 3. If the `id` already exists, increment `skipped` and continue.
-4. Otherwise `INSERT` the row. On success, index it in Tantivy if search is enabled.
+4. Otherwise `INSERT` the row.
 5. Any database error → `failed += 1`.
 
 There is no audit-log entry written for import (rows are created with a fresh `created_at`/`updated_at` but without going through the standard patient handler). If you need an audit trail, ingest one row at a time via `POST /api/patients` instead — slower, but every insert is audited.
@@ -146,7 +146,7 @@ For interop with legacy clinical systems, v0.3 added a pipe-delimited HL7 v2 sur
 | POST   | `/api/hl7/v2/discharge`        | ADT^A03: find open admission by MRN and discharge.                      |
 | POST   | `/api/hl7/v2/cancel-admit`     | ADT^A11: cancel the currently-open admission — bed → Cleaning, encounter → Cancelled. (*v0.4*) |
 | POST   | `/api/hl7/v2/cancel-discharge` | ADT^A13: reinstate the most-recently-discharged admission to its original bed. (*v0.4*) |
-| POST   | `/api/hl7/v2/merge`            | ADT^A40: merge source patient identified by MRG-1.1 MRN into survivor identified by PID. Same merge logic as `POST /api/patients/{id}/merge-into/{target_id}`. (*v0.18*) |
+| POST   | `/api/hl7/v2/merge`            | ADT^A40: merge source patient identified by MRG-1.1 MRN into survivor identified by PID. (*v0.18*) |
 | POST   | `/api/hl7/v2/dft`              | DFT^P03: post one or more charges from FT1 segments. Dedup-or-creates patient from PID; auto-creates an open account in the FT1-11.2 currency when none exists. Only `FT1-6 = CG` accepted (PY / AJ AE-ACK). v0.20 makes multi-FT1 messages all-or-nothing in one DB transaction; mixed FT1-11.2 currencies → 400. (*v0.19 + v0.20*) |
 | POST   | `/api/hl7/v2/mfn-staff`        | MFN^M02: master file notification for the practitioner roster. One or more MFE+STF pairs per message; each pair drives `MAD` (create), `MUP` (replace), or `MDL` (soft-delete via `active=false`). Atomic per message. EMR staff id (MFE-4 / STF-1) stored as `Identifier { type: Other, system: "urn:hl7v2:staff:id" }` for stable round-trip. (*v0.24*) |
 | POST   | `/api/hl7/v2/mfn-location`     | MFN^M05: master file notification for the bed roster. One or more MFE+LOC pairs per message; LOC-1 is `PL`-typed (LOC-1.1 = parent room code, LOC-1.3 = bed code), LOC-2 = bed name. `MAD` / `MUP` / `MDL` semantics mirror MFN^M02. `MDL` flips the bed to `OutOfService` via the same operator-bypass used for ADT^A13. Atomic per message. (*v0.26*) |
@@ -231,7 +231,7 @@ HL7V2_OUTBOUND_PEER=emr.example.com:2575 cargo run --bin patient-administration-
 - ADT^A02 / ADT^A03 lookup uses PID-3.1 (the MRN value) — PV1-19 (visit number) is **not** consulted. If two patients share an MRN value (they shouldn't, but the schema doesn't enforce it across systems), the first match wins.
 - A02 / A03 require the patient to have exactly one currently-open inpatient admission. If they have none, the ACK is AE with `no currently-open admission`. If they somehow have multiple (an invariant violation), the most-recently-assigned one is chosen.
 - MLLP TCP listener is opt-in via `HL7V2_MLLP_BIND` (typically `:2575`). When off, the HTTP endpoints are the only path. The MLLP listener routes incoming frames to the same handlers as the HTTP endpoints — there is no separate dispatch path.
-- ADT^A01 / ^A28 ingest deduplicates by **exact MRN match** before insert. If PID-3.1 names an MRN that already exists in the `patients` table (non-deleted), the existing row is reused — no duplicate insert, no audit log entry, no Tantivy re-index. The AA ACK includes `matched existing patient <uuid>` in MSA-3 so the sender can confirm. Probabilistic dedup (name + DOB + SSN) still lives in the sister MPI crate; pair the two when you need it.
+- ADT^A01 / ^A28 ingest deduplicates by **exact MRN match** before insert. If PID-3.1 names an MRN that already exists in the `patients` table (non-deleted), the existing row is reused — no duplicate insert, no audit log entry. The AA ACK includes `matched existing patient <uuid>` in MSA-3 so the sender can confirm. Probabilistic dedup (name + DOB + SSN) still lives in the sister MPI crate; pair the two when you need it.
 
 ### v0.4 lifecycle messages
 
@@ -248,7 +248,7 @@ forward path:
   is preserved. Single DB transaction writes the row + an audit log
   entry (`action = "update_via_hl7v2_a08"`) + an outbox event
   (`event_type = "PatientUpdated"`, payload includes `source:
-  "hl7v2_a08"`). Tantivy re-index after commit. AA ACK reports
+  "hl7v2_a08"`). AA ACK reports
   `updated patient <uuid>` in MSA-3. Unknown MRN → AE.
 
 - **ADT^A11 (cancel admit)** → `/api/hl7/v2/cancel-admit`. Reverses a

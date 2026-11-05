@@ -165,7 +165,6 @@ src/
 │   ├── fhir/               FHIR R5 resource converters and endpoints
 │   ├── dashboard.rs        Ops dashboard (Tera + HTMX, Lily Design System markup)
 │   └── openapi.rs          ApiDoc aggregating every `#[utoipa::path]` handler
-├── search/                 Tantivy patient index
 ├── streaming/              EventPublisher trait, InMemory + Fluvio stub + Hl7v2MllpPublisher, dispatcher::run/tick
 ├── validation/             Validators (E.164 phone, postal code, dates, charge amount, RTT order)
 ├── privacy/                Data masking, GDPR export, consent gating helper
