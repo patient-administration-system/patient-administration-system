@@ -46,17 +46,24 @@ Routes use `{param}` syntax (axum 0.8).
 | In-place edits and state changes with no version, **not yet examined**: RTT pause, resume and stop (no read route returns a pathway's version; OFH-12); appointment conversion; slot release offer; subscription and dead-letter admin | **No: last writer wins** (patients and practitioners are separate: this service only proxies them to the person-service and worker-service, which own the record and would have to honour `If-Match` themselves) | Each refuses an illegal state change where it has a state machine, but none compares a version. Open: OFH-11 |
 
 HL7 v2 and FHIR writes that change an appointment's status without going through the routes above (`cancel_with`, for one) take no row lock either.
-## Write Bundles (FR-202)
+## Write Bundles (FR-202, FR-203)
 
-`POST /fhir` takes a `transaction` or `batch` Bundle whose entries create `Schedule` or `Slot`, with `request.method` `POST` and `request.url` naming the type.
+`POST /fhir` takes a `transaction` or `batch` Bundle, with `request.method` `POST` and `request.url` naming the type of each entry.
+
+| Entry | What it does |
+|---|---|
+| `Schedule`, `Slot` | Creates it |
+| `Coverage` | Creates it; `beneficiary`, `status` and `kind` are required, and `insurer.display` unless `kind` is `self-pay` |
+| `Appointment` | Books `slot` for `subject`, as `POST /api/slots/{id}/book` does; `status` must be `booked` |
+| `Encounter` | Admits `subject` to the bed in `location`, as `POST /api/admissions` does; `status` must be `in-progress` and `class` `IMP` |
 
 | | `transaction` | `batch` |
 |---|---|---|
 | Failure | All or nothing: an OperationOutcome naming every refused entry, under the status of the first | Each entry alone: its own status and OperationOutcome, HTTP 200 overall |
 | Success | `transaction-response`, each entry `201 Created` with a `location`, in the order of the request | `batch-response`, the same |
-| `urn:uuid:` reference in `Slot.schedule` | Resolved to the Schedule entry with that `fullUrl`, whatever their order | Refused: a batch's entries may not depend on one another |
+| `urn:uuid:` reference in `Slot.schedule` or `Appointment.slot` | Resolved to the entry with that `fullUrl`, whatever their order | Refused: a batch's entries may not depend on one another |
 
-A `Patient` or `Practitioner` entry answers `400`: `person-service` and `worker-service` own them, and a write there cannot share this database transaction. Any other resource type, `PUT`, `DELETE` and `ifNoneExist` answer `501`. Each entry is authorized as if it had been posted to `/fhir/{type}`, because the path alone says nothing about what the Bundle holds.
+A `Patient` or `Practitioner` entry answers `400`: `person-service` and `worker-service` own them, and a write there cannot share this database transaction. Any other resource type, an `Encounter` that is not inpatient, `PUT`, `DELETE` and `ifNoneExist` answer `501`. A slot that is not free or a bed that is not available answers `409`. Each entry is authorized as if it had been posted to `/fhir/{type}`, because the path alone says nothing about what the Bundle holds.
 
 ## Triage category interchange (NEW-24)
 

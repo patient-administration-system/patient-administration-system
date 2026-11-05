@@ -112,6 +112,156 @@ pub(super) fn slot_from(body: &Value) -> Result<Slot, Error> {
     Ok(slot)
 }
 
+/// The id in a reference such as `Patient/<uuid>`.
+fn reference_id(body: &Value, pointer: &str, kind: &str, what: &str) -> Result<Uuid, Error> {
+    let reference = body
+        .pointer(pointer)
+        .and_then(Value::as_str)
+        .ok_or_else(|| Error::validation(format!("{what} is required")))?;
+    let id = reference
+        .strip_prefix(kind)
+        .and_then(|rest| rest.strip_prefix('/'))
+        .ok_or_else(|| {
+            Error::validation(format!("{what} must be {kind}/<uuid>, got {reference:?}"))
+        })?;
+    Uuid::parse_str(id).map_err(|e| Error::validation(format!("{what} {id:?}: {e}")))
+}
+
+fn fhir_date(body: &Value, pointer: &str, what: &str) -> Result<Option<chrono::NaiveDate>, Error> {
+    let Some(raw) = body.pointer(pointer).and_then(Value::as_str) else {
+        return Ok(None);
+    };
+    // A FHIR dateTime may carry a time; a coverage period is in whole days.
+    let day = raw.get(..10).unwrap_or(raw);
+    chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+        .map(Some)
+        .map_err(|e| Error::validation(format!("{what} {raw:?}: {e}")))
+}
+
+/// A new Coverage from an R5 `Coverage`, the reverse of `r5::coverage`.
+pub(super) fn coverage_from(body: &Value) -> Result<Coverage, Error> {
+    let text = |pointer: &str| {
+        body.pointer(pointer)
+            .and_then(Value::as_str)
+            .filter(|t| !t.trim().is_empty())
+    };
+    let person_id = reference_id(
+        body,
+        "/beneficiary/reference",
+        "Patient",
+        "Coverage.beneficiary",
+    )?;
+    let status = match text("/status") {
+        Some("active") => CoverageStatus::Active,
+        Some("cancelled") => CoverageStatus::Cancelled,
+        Some("draft") => CoverageStatus::Draft,
+        Some("entered-in-error") => CoverageStatus::EnteredInError,
+        other => return Err(Error::validation(format!("Coverage.status {other:?}"))),
+    };
+    let kind = match text("/kind") {
+        Some("insurance") => CoverageKind::Insurance,
+        Some("self-pay") => CoverageKind::SelfPay,
+        Some("other") => CoverageKind::Other,
+        other => return Err(Error::validation(format!("Coverage.kind {other:?}"))),
+    };
+    let payor = match (text("/insurer/display"), kind) {
+        (Some(name), _) => name,
+        (None, CoverageKind::SelfPay) => "Self-pay",
+        (None, _) => return Err(Error::validation("Coverage.insurer.display is required")),
+    };
+    let mut coverage = Coverage::new(person_id, payor, text("/identifier/0/value").unwrap_or(""));
+    coverage.status = status;
+    coverage.kind = kind;
+    coverage.payor_identifier = text("/insurer/identifier/value").map(String::from);
+    coverage.group_number = text("/class/0/value/value").map(String::from);
+    if body.pointer("/subscriber/reference").is_some() {
+        coverage.subscriber_id = Some(reference_id(
+            body,
+            "/subscriber/reference",
+            "Patient",
+            "Coverage.subscriber",
+        )?);
+    }
+    if let Some(relationship) = text("/relationship/coding/0/code").or(text("/relationship/text")) {
+        coverage.relationship = relationship.to_string();
+    }
+    if let Some(start) = fhir_date(body, "/period/start", "Coverage.period.start")? {
+        coverage.start_date = start;
+    }
+    coverage.end_date = fhir_date(body, "/period/end", "Coverage.period.end")?;
+    if coverage
+        .end_date
+        .is_some_and(|end| end < coverage.start_date)
+    {
+        return Err(Error::validation(
+            "Coverage.period.end must not be before its start",
+        ));
+    }
+    Ok(coverage)
+}
+
+/// The slot and the patient of a booking, from an R5 `Appointment`. The times come from the slot.
+pub(super) fn booking_from(body: &Value) -> Result<(Uuid, Uuid), Error> {
+    let status = body.get("status").and_then(Value::as_str);
+    if status != Some("booked") {
+        return Err(Error::validation(format!(
+            "Appointment.status must be booked, got {status:?}"
+        )));
+    }
+    let slots = body
+        .get("slot")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    if slots != 1 {
+        return Err(Error::validation(format!(
+            "Appointment.slot must name exactly one Slot, got {slots}"
+        )));
+    }
+    Ok((
+        reference_id(body, "/slot/0/reference", "Slot", "Appointment.slot")?,
+        reference_id(body, "/subject/reference", "Patient", "Appointment.subject")?,
+    ))
+}
+
+/// Does this R5 `Encounter` say inpatient? Only an admission has a route into the PAS from here.
+pub(super) fn is_inpatient(body: &Value) -> bool {
+    body.pointer("/class/0/coding")
+        .and_then(Value::as_array)
+        .is_some_and(|codings| {
+            codings
+                .iter()
+                .any(|c| c.get("code").and_then(Value::as_str) == Some("IMP"))
+        })
+}
+
+/// The patient and the bed of an admission, from an R5 `Encounter`. A bed is a `Location` here.
+pub(super) fn admission_from(body: &Value) -> Result<(Uuid, Uuid), Error> {
+    let status = body.get("status").and_then(Value::as_str);
+    if status != Some("in-progress") {
+        return Err(Error::validation(format!(
+            "Encounter.status must be in-progress for an admission, got {status:?}"
+        )));
+    }
+    let locations = body
+        .get("location")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    if locations != 1 {
+        return Err(Error::validation(format!(
+            "Encounter.location must name exactly one bed, got {locations}"
+        )));
+    }
+    Ok((
+        reference_id(body, "/subject/reference", "Patient", "Encounter.subject")?,
+        reference_id(
+            body,
+            "/location/0/location/reference",
+            "Location",
+            "Encounter.location",
+        )?,
+    ))
+}
+
 #[utoipa::path(
     post,
     path = "/fhir/Schedule",

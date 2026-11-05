@@ -33136,7 +33136,7 @@
     },
     "/fhir": {
       "post": {
-        "description": "An entry can create a Schedule or a Slot, which are the records this service owns and can write from\nFHIR. Each is audited and publishes an event in the transaction that writes it. A `Patient` or\n`Practitioner` entry is refused (Decision #4): `person-service` and `worker-service` own them, and a\nwrite there cannot share this database transaction. Any other type, method or `ifNoneExist` answers\n`501`. Each entry is authorized as if it had been posted to `/fhir/{type}` by the same caller.",
+        "description": "An entry can create a Schedule, a Slot or a Coverage, book an Appointment into a free Slot, or admit an\ninpatient Encounter to an available bed. Bookings and admissions meet the rules of the REST routes, and\neach write is audited and publishes an event in the transaction that writes it. A `Patient` or\n`Practitioner` entry is refused (Decision #4): `person-service` and `worker-service` own them, and a\nwrite there cannot share this database transaction. Any other type or method, `ifNoneExist`, and an\nEncounter that is not inpatient answer `501`. Each entry is authorized as if it had been posted to\n`/fhir/{type}` by the same caller.",
         "operationId": "post_fhir",
         "responses": {
           "200": {

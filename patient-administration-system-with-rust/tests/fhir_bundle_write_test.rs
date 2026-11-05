@@ -1,4 +1,4 @@
-//! FR-202: `POST /fhir` writes a `transaction` or `batch` Bundle of Schedule and Slot. Needs PostgreSQL:
+//! FR-202 and FR-203: `POST /fhir` writes a `transaction` or `batch` Bundle. Needs PostgreSQL:
 //! `cargo test -- --ignored --test-threads=1`, because it counts rows before and after a request.
 
 mod common;
@@ -9,6 +9,8 @@ use axum::{
 };
 use patient_administration_system::api::fhir::fhir_router;
 use patient_administration_system::api::rest::AppState;
+use patient_administration_system::models::Address;
+use patient_administration_system::models::facility::{Bed, BedStatus, Facility, Room, Ward};
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -242,6 +244,244 @@ async fn what_is_not_a_write_bundle_is_refused() {
         assert_eq!(status, StatusCode::BAD_REQUEST, "{outcome}");
     }
     assert_eq!(rows(&s).await, before);
+}
+
+fn coverage_entry() -> Value {
+    json!({
+        "resource": {
+            "resourceType": "Coverage",
+            "status": "active",
+            "kind": "insurance",
+            "beneficiary": { "reference": format!("Patient/{}", Uuid::new_v4()) },
+            "insurer": { "display": "Bundle Mutual" },
+            "identifier": [{ "value": "POL-1" }],
+            "period": { "start": "2030-01-01", "end": "2030-12-31" },
+        },
+        "request": { "method": "POST", "url": "Coverage" },
+    })
+}
+
+fn booking_entry(slot: &str) -> Value {
+    json!({
+        "resource": {
+            "resourceType": "Appointment",
+            "status": "booked",
+            "subject": { "reference": format!("Patient/{}", Uuid::new_v4()) },
+            "slot": [{ "reference": slot }],
+        },
+        "request": { "method": "POST", "url": "Appointment" },
+    })
+}
+
+fn admission_entry(bed: Uuid) -> Value {
+    json!({
+        "resource": {
+            "resourceType": "Encounter",
+            "status": "in-progress",
+            "class": [{ "coding": [{ "code": "IMP" }] }],
+            "subject": { "reference": format!("Patient/{}", Uuid::new_v4()) },
+            "location": [{ "location": { "reference": format!("Location/{bed}") } }],
+        },
+        "request": { "method": "POST", "url": "Encounter" },
+    })
+}
+
+/// schedules, slots, coverages, appointments, encounters and admissions.
+async fn records(s: &AppState) -> [i64; 6] {
+    [
+        count(s, "schedules").await,
+        count(s, "slots").await,
+        count(s, "coverages").await,
+        count(s, "appointments").await,
+        count(s, "encounters").await,
+        count(s, "admissions").await,
+    ]
+}
+
+async fn read(s: &AppState, location: &str) -> Value {
+    let res = fhir_router(s.clone())
+        .oneshot(
+            Request::get(format!("/fhir/{location}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK, "{location}");
+    serde_json::from_slice(&to_bytes(res.into_body(), 1 << 20).await.unwrap()).unwrap()
+}
+
+async fn one_available_bed(s: &AppState) -> Uuid {
+    let app = patient_administration_system::api::rest::router(s.clone());
+    let call = |uri: &'static str, body: Value| {
+        let app = app.clone();
+        async move {
+            let res = app
+                .oneshot(
+                    Request::post(uri)
+                        .header("content-type", "application/json")
+                        .body(Body::from(body.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert!(res.status().is_success(), "{uri}: {}", res.status());
+        }
+    };
+    let u = Uuid::new_v4().simple().to_string();
+    let f = Facility::new("F".into(), format!("F{u}"), Address::default());
+    call("/api/facilities", json!(f)).await;
+    let w = Ward::new(f.id, "W".into(), format!("W{u}"), 4);
+    call("/api/wards", json!(w)).await;
+    let r = Room::new(w.id, "R".into(), format!("R{u}"));
+    call("/api/rooms", json!(r)).await;
+    let b = Bed::new(r.id, "B".into(), format!("B{u}"));
+    call("/api/beds", json!(b)).await;
+    b.id
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
+async fn a_transaction_creates_a_clinic_and_books_into_it_whatever_the_order() {
+    let s = state().await;
+    let before = records(&s).await;
+    let booked_events = count(&s, "outbox_events WHERE event_type = 'CoverageCreated'").await;
+    let mut slot = slot_entry("urn:uuid:a");
+    slot["fullUrl"] = json!("urn:uuid:b");
+    let (status, body) = post(
+        &s,
+        bundle(
+            "transaction",
+            vec![
+                booking_entry("urn:uuid:b"),
+                coverage_entry(),
+                slot,
+                schedule_entry("urn:uuid:a"),
+            ],
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        records(&s).await,
+        std::array::from_fn(|i| before[i] + [1, 1, 1, 1, 0, 0][i])
+    );
+    let at = |i: usize| body["entry"][i]["response"]["location"].as_str().unwrap();
+    let appointment = read(&s, at(0)).await;
+    assert_eq!(appointment["status"], "booked");
+    assert_eq!(appointment["slot"][0]["reference"], at(2));
+    assert_eq!(read(&s, at(2)).await["status"], "busy");
+    let coverage = read(&s, at(1)).await;
+    assert_eq!(coverage["insurer"]["display"], "Bundle Mutual");
+    assert_eq!(coverage["period"]["end"], "2030-12-31");
+    assert_eq!(
+        count(&s, "outbox_events WHERE event_type = 'CoverageCreated'").await,
+        booked_events + 1
+    );
+    let id = at(0).trim_start_matches("Appointment/");
+    assert!(
+        count(&s, &format!("audit_log WHERE entity_id = '{id}'")).await >= 1,
+        "the booking is audited"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
+async fn a_booking_refused_by_its_rules_rolls_the_whole_transaction_back() {
+    let s = state().await;
+    let before = records(&s).await;
+    let mut slot = slot_entry("urn:uuid:a");
+    slot["fullUrl"] = json!("urn:uuid:b");
+    // Two patients into one slot: the second meets the same refusal as `POST /api/slots/{id}/book`.
+    let (status, body) = post(
+        &s,
+        bundle(
+            "transaction",
+            vec![
+                schedule_entry("urn:uuid:a"),
+                slot,
+                coverage_entry(),
+                booking_entry("urn:uuid:b"),
+                booking_entry("urn:uuid:b"),
+            ],
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(records(&s).await, before);
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
+async fn an_encounter_admits_to_the_bed_and_an_occupied_bed_refuses_the_whole_transaction() {
+    let s = state().await;
+    let bed = one_available_bed(&s).await;
+    let before = records(&s).await;
+    let (status, body) = post(&s, bundle("transaction", vec![admission_entry(bed)])).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        records(&s).await,
+        std::array::from_fn(|i| before[i] + [0, 0, 0, 0, 1, 1][i])
+    );
+    let location = body["entry"][0]["response"]["location"].as_str().unwrap();
+    assert_eq!(read(&s, location).await["status"], "in-progress");
+    let held =
+        patient_administration_system::db::repositories::bed::BedRepository::find_by_id(&s.db, bed)
+            .await
+            .unwrap()
+            .unwrap();
+    assert_eq!(held.status, BedStatus::Occupied);
+
+    let before = records(&s).await;
+    let (status, body) = post(
+        &s,
+        bundle("transaction", vec![coverage_entry(), admission_entry(bed)]),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(records(&s).await, before, "the Coverage went with it");
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
+async fn a_batch_keeps_the_first_booking_and_answers_the_second() {
+    let s = state().await;
+    let schedule = common::new_schedule(&s.db).await;
+    let slot = format!("Slot/{}", common::free_slot(&s.db, schedule.id, 5).await.id);
+    let (status, body) = post(
+        &s,
+        bundle("batch", vec![booking_entry(&slot), booking_entry(&slot)]),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["entry"][0]["response"]["status"], "201 Created");
+    assert_eq!(body["entry"][1]["response"]["status"], "409 Conflict");
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
+async fn an_entry_that_cannot_say_what_it_means_is_refused() {
+    let s = state().await;
+    let before = records(&s).await;
+    let mut proposed = booking_entry(&format!("Slot/{}", Uuid::new_v4()));
+    proposed["resource"]["status"] = json!("proposed");
+    let mut two_slots = booking_entry("Slot/a");
+    two_slots["resource"]["slot"] = json!([{ "reference": "Slot/a" }, { "reference": "Slot/b" }]);
+    let mut no_patient = coverage_entry();
+    no_patient["resource"]
+        .as_object_mut()
+        .unwrap()
+        .remove("beneficiary");
+    let mut no_bed = admission_entry(Uuid::new_v4());
+    no_bed["resource"]
+        .as_object_mut()
+        .unwrap()
+        .remove("location");
+    for entry in [proposed, two_slots, no_patient, no_bed] {
+        let (status, body) = post(&s, bundle("transaction", vec![entry])).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    }
+    assert_eq!(records(&s).await, before);
 }
 
 trait ZipAdd {

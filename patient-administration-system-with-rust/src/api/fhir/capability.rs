@@ -85,16 +85,16 @@ pub fn statement() -> Value {
         "software": { "name": "patient-administration-system", "version": env!("CARGO_PKG_VERSION") },
         "implementation": {
             "description": "Patient Administration System FHIR endpoint. Patients and practitioners are owned by \
-                            person-service and worker-service and reached through them; appointments and \
-                            encounters are written through the typed REST API (POST /api/slots/{id}/book, \
-                            POST /api/admissions)."
+                            person-service and worker-service and reached through them. POST /fhir takes a \
+                            transaction or batch Bundle that creates Schedule, Slot and Coverage, books an \
+                            Appointment into a free Slot, or admits an inpatient Encounter to an available bed."
         },
         "fhirVersion": "5.0.0",
         "format": ["json"],
         "rest": [{
             "mode": "server",
             "resource": resources,
-            // POST /fhir, for Schedule and Slot entries.
+            // POST /fhir.
             "interaction": [{ "code": "transaction" }, { "code": "batch" }],
         }],
     })

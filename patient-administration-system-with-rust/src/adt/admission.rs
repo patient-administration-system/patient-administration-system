@@ -22,73 +22,86 @@ impl AdtService {
         bed_id: Uuid,
         ctx: &UserContext,
     ) -> Result<AdmissionResult> {
-        let ctx_clone = ctx.clone();
+        let ctx = ctx.clone();
         let res = self
             .db
             .transaction::<_, AdmissionResult, Error>(|txn| {
-                Box::pin(async move {
-                    let bed = BedRepository::select_for_update(txn, bed_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("bed {bed_id}")))?;
-                    if bed.status != BedStatus::Available {
-                        return Err(Error::conflict(format!(
-                            "bed {bed_id} is not available (status={:?})",
-                            bed.status
-                        )));
-                    }
-
-                    // Create encounter and advance status to InProgress.
-                    let mut enc = Encounter::new(person_id, EncounterClass::Inpatient);
-                    enc.status = enc.status.try_transition_to(EncounterStatus::Arrived)?;
-                    enc.status = enc.status.try_transition_to(EncounterStatus::InProgress)?;
-                    let enc = EncounterRepository::create(txn, &enc).await?;
-
-                    // Mark bed Occupied.
-                    BedRepository::update_status(txn, bed_id, BedStatus::Occupied).await?;
-
-                    // Insert the active bed assignment.
-                    let ba = BedAssignment::new(enc.id, bed_id);
-                    let ba = AdmissionRepository::create_bed_assignment(txn, &ba).await?;
-
-                    // Insert the admission record.
-                    let adm = Admission::new(enc.id, bed_id);
-                    let adm = AdmissionRepository::create(txn, &adm).await?;
-
-                    // Audit + outbox in the same transaction.
-                    AuditLogRepository::log(
-                        txn,
-                        "encounter",
-                        enc.id,
-                        "admit",
-                        None,
-                        Some(serde_json::to_value(&enc).unwrap_or_default()),
-                        &ctx_clone,
-                    )
-                    .await?;
-                    OutboxRepository::publish(
-                        txn,
-                        "EncounterAdmitted",
-                        &serde_json::json!({
-                            "encounter_id": enc.id,
-                            "person_id": person_id,
-                            "bed_id": bed_id,
-                            "admission_id": adm.id,
-                        }),
-                    )
-                    .await?;
-
-                    Ok(AdmissionResult {
-                        encounter: enc,
-                        admission: adm,
-                        bed_assignment: ba,
-                    })
-                })
+                Box::pin(async move { Self::admit_tx(txn, person_id, bed_id, &ctx).await })
             })
             .await
             .map_err(Error::from)?;
+        self.publish_admitted(&res).await;
+        Ok(res)
+    }
 
-        // Best-effort publish after commit. The outbox row is the durable
-        // record; this is a convenience for in-process consumers.
+    /// [`Self::admit`] inside the caller's transaction, so that a FHIR Bundle can roll an admission back.
+    /// The caller publishes with [`Self::publish_admitted`] after it commits.
+    pub(crate) async fn admit_tx(
+        txn: &DatabaseTransaction,
+        person_id: Uuid,
+        bed_id: Uuid,
+        ctx: &UserContext,
+    ) -> Result<AdmissionResult> {
+        let bed = BedRepository::select_for_update(txn, bed_id)
+            .await?
+            .ok_or_else(|| Error::not_found(format!("bed {bed_id}")))?;
+        if bed.status != BedStatus::Available {
+            return Err(Error::conflict(format!(
+                "bed {bed_id} is not available (status={:?})",
+                bed.status
+            )));
+        }
+
+        // Create encounter and advance status to InProgress.
+        let mut enc = Encounter::new(person_id, EncounterClass::Inpatient);
+        enc.status = enc.status.try_transition_to(EncounterStatus::Arrived)?;
+        enc.status = enc.status.try_transition_to(EncounterStatus::InProgress)?;
+        let enc = EncounterRepository::create(txn, &enc).await?;
+
+        // Mark bed Occupied.
+        BedRepository::update_status(txn, bed_id, BedStatus::Occupied).await?;
+
+        // Insert the active bed assignment.
+        let ba = BedAssignment::new(enc.id, bed_id);
+        let ba = AdmissionRepository::create_bed_assignment(txn, &ba).await?;
+
+        // Insert the admission record.
+        let adm = Admission::new(enc.id, bed_id);
+        let adm = AdmissionRepository::create(txn, &adm).await?;
+
+        // Audit + outbox in the same transaction.
+        AuditLogRepository::log(
+            txn,
+            "encounter",
+            enc.id,
+            "admit",
+            None,
+            Some(serde_json::to_value(&enc).unwrap_or_default()),
+            ctx,
+        )
+        .await?;
+        OutboxRepository::publish(
+            txn,
+            "EncounterAdmitted",
+            &serde_json::json!({
+                "encounter_id": enc.id,
+                "person_id": person_id,
+                "bed_id": bed_id,
+                "admission_id": adm.id,
+            }),
+        )
+        .await?;
+
+        Ok(AdmissionResult {
+            encounter: enc,
+            admission: adm,
+            bed_assignment: ba,
+        })
+    }
+
+    /// Best-effort publish after commit. The outbox row is the durable record; this is a convenience for
+    /// in-process consumers.
+    pub(crate) async fn publish_admitted(&self, res: &AdmissionResult) {
         self.publisher
             .publish(DomainEvent::new(
                 "EncounterAdmitted",
@@ -99,7 +112,6 @@ impl AdtService {
             ))
             .await
             .log_warn("in-process event");
-        Ok(res)
     }
 
     /// Pre-admit a patient (HL7 v2 ADT^A05 semantics): reserve a bed and

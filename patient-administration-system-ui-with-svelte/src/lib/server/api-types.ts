@@ -5115,11 +5115,13 @@ export interface paths {
     put?: never;
     /**
      * Writes a FHIR `transaction` or `batch` Bundle.
-     * @description An entry can create a Schedule or a Slot, which are the records this service owns and can write from
-     *     FHIR. Each is audited and publishes an event in the transaction that writes it. A `Patient` or
+     * @description An entry can create a Schedule, a Slot or a Coverage, book an Appointment into a free Slot, or admit an
+     *     inpatient Encounter to an available bed. Bookings and admissions meet the rules of the REST routes, and
+     *     each write is audited and publishes an event in the transaction that writes it. A `Patient` or
      *     `Practitioner` entry is refused (Decision #4): `person-service` and `worker-service` own them, and a
-     *     write there cannot share this database transaction. Any other type, method or `ifNoneExist` answers
-     *     `501`. Each entry is authorized as if it had been posted to `/fhir/{type}` by the same caller.
+     *     write there cannot share this database transaction. Any other type or method, `ifNoneExist`, and an
+     *     Encounter that is not inpatient answer `501`. Each entry is authorized as if it had been posted to
+     *     `/fhir/{type}` by the same caller.
      */
     post: operations["post_fhir"];
     delete?: never;

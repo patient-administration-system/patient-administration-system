@@ -22,7 +22,7 @@ The PAS owns the administrative *who, when, where, what visit type, what bed, wh
 - Audit log (transactional, HIPAA-aligned) with per-entity and recent-activity query endpoints
 - Domain events via transactional outbox pattern, polled by a background dispatcher
 - RESTful API (Axum) with a response envelope, per-user tokens and optimistic concurrency (`ETag` and `If-Match`)
-- FHIR R5 surface: `Patient`, `Practitioner`, `Schedule` and `Slot` read and write, with reads for `Appointment`, `Encounter`, `Location`, `Coverage` and others (see the table below). `POST /fhir` writes `Schedule` and `Slot` Bundles
+- FHIR R5 surface: `Patient`, `Practitioner`, `Schedule` and `Slot` read and write, with reads for `Appointment`, `Encounter`, `Location`, `Coverage` and others (see the table below). `POST /fhir` writes Bundles, including bookings and admissions
 - PostgreSQL persistence via SeaORM, with a `pas-migrate` CLI
 - Privacy: masked patient view, GDPR export, consent CRUD + revoke
 
@@ -247,7 +247,7 @@ The table lists the main routes. [`spec/openapi.json`](../spec/openapi.json) has
 | | GET · PUT · DELETE | `/fhir/Patient/:id` · `/fhir/Practitioner/:id` · `/fhir/Schedule/:id` · `/fhir/Slot/:id` (last three v0.21) |
 | | GET | `/fhir/Encounter/:id` · `/fhir/Appointment/:id` · `/fhir/Location/:id` |
 | | GET | `/fhir/Patient?_count=N` (collection `Bundle`) |
-| | GET | `/fhir/Coverage/:id` (v0.10 — FHIR R5 Coverage read) |
+| | GET | `/fhir/Coverage/:id` (v0.10 — FHIR R5 Coverage read; write through a `POST /fhir` Bundle) |
 
 ## API Examples
 
@@ -430,7 +430,7 @@ curl http://localhost:8080/fhir/Slot/{id}
 curl http://localhost:8080/fhir/Location/{id}   # PAS bed
 ```
 
-`POST /fhir` writes a `transaction` or `batch` Bundle. An entry can create a `Schedule` or a `Slot`, and each is audited and publishes an event in the same transaction. A `transaction` is all or nothing, and a `Slot` can name a `Schedule` in the same Bundle by the `urn:uuid:` `fullUrl` of its entry. A `batch` answers each entry on its own, with HTTP 200. `Patient` and `Practitioner` entries are refused with `400`, because `person-service` and `worker-service` own them and a write there cannot share this transaction: use `POST /fhir/Patient` or `POST /fhir/Practitioner`. Any other resource type, a `PUT` or `DELETE` entry, and `ifNoneExist` answer `501`.
+`POST /fhir` writes a `transaction` or `batch` Bundle. An entry can create a `Schedule`, a `Slot` or a `Coverage`, book an `Appointment` (`status` `booked`, one `slot`, a `subject`), or admit an `Encounter` (`status` `in-progress`, `class` `IMP`, a `subject`, and the bed as one `location`). Bookings and admissions meet the rules of the REST routes: a slot must be free and a bed available. Each write is audited and publishes an event in the same transaction. A `transaction` is all or nothing, and an entry can name a `Schedule` or `Slot` in the same Bundle by the `urn:uuid:` `fullUrl` of its entry. A `batch` answers each entry on its own, with HTTP 200. `Patient` and `Practitioner` entries are refused with `400`, because `person-service` and `worker-service` own them and a write there cannot share this transaction: use `POST /fhir/Patient` or `POST /fhir/Practitioner`. Any other resource type, an `Encounter` that is not inpatient, a `PUT` or `DELETE` entry, and `ifNoneExist` answer `501`.
 
 ### HL7 v2 ADT
 
