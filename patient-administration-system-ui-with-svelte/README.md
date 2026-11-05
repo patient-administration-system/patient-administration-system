@@ -32,7 +32,7 @@ pnpm install
 pnpm run dev
 ```
 
-Seeded development users (`podman/keycloak/pas-realm.json`, development only): `patient` / `patient`, `admin` / `admin`. The `patient` user's `person_id` is the nil UUID; set it to a real PAS person id in Keycloak to see real data.
+Seeded development users (`podman/keycloak/pas-realm.json`, development only): `patient` / `patient`, `admin` / `admin`. The `patient` user's `person_id` is the nil UUID; set it to a real PAS person id in Keycloak to see real data. `admin` is also asked for a one-time code: add the development key `JBSWY3DPEHPK3PXP` to an authenticator app.
 
 ## Test
 

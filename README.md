@@ -48,7 +48,7 @@ cargo run -p patient-administration-system --bin patient-administration-system  
 cd patient-administration-system-ui-with-svelte && pnpm install && pnpm run dev   # UI on :5173
 ```
 
-Development users in the Keycloak realm `pas`: `patient` / `patient`, `admin` / `admin` (development only).
+Development users in the Keycloak realm `pas`: `patient` / `patient`, `admin` / `admin` (development only). `admin` is also asked for a one-time code: add the development key `JBSWY3DPEHPK3PXP` to an authenticator app.
 
 ## Test it
 

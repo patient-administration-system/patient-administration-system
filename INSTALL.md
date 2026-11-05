@@ -24,6 +24,6 @@ cp .env.example .env     # set PAS_API_URL, OIDC_*, and PAS_API_TOKEN_FILE=<repo
 pnpm install && pnpm run dev
 ```
 
-Development users (Keycloak realm `pas`): `patient` / `patient`, `admin` / `admin`. These are for development only.
+Development users (Keycloak realm `pas`): `patient` / `patient`, `admin` / `admin`. These are for development only. `admin` is also asked for a one-time code: add the development key `JBSWY3DPEHPK3PXP` to an authenticator app.
 
 Tests: see [CONTRIBUTING.md](CONTRIBUTING.md). Running it for real: [operations/deployment.md](operations/deployment.md), after reading [governance/production-readiness.md](governance/production-readiness.md).
