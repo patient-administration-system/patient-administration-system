@@ -39,8 +39,8 @@ This crate is the v0.1 tier: a compiling, tested library + binary covering the h
 ### Bootstrap a working server
 
 ```bash
-git clone https://github.com/sixarm/patient-administration-system-with-rust.git
-cd patient-administration-system-with-rust
+git clone https://github.com/patient-administration-system/patient-administration-system.git
+cd patient-administration-system/patient-administration-system-with-rust
 cp .env.example .env
 
 # 1. Start Postgres
@@ -192,7 +192,7 @@ User context for audit logging is taken from headers: `X-User-Id`, `X-User-Ip`, 
 | | GET · POST | `/api/schedules/:id/slots` (`?start=…&end=…` for free slots) |
 | | POST | `/api/schedules/:id/slots/bulk` (generate consecutive slots) |
 | | POST | `/api/slots/:id/book` |
-| | GET | `/api/appointments?patient_id=…` |
+| | GET | `/api/appointments?from=…&to=…` (at most 366 days) |
 | | GET | `/api/appointments/:id` |
 | | POST | `/api/appointments/:id/cancel` |
 | | POST | `/api/appointments/:id/check-in` |
@@ -263,6 +263,8 @@ User context for audit logging is taken from headers: `X-User-Id`, `X-User-Ip`, 
 
 ## API Examples
 
+The PAS holds no people, so anything that reads or writes a person goes through `person-service` and needs `PERSON_SERVICE_URL`. Without it, patient import and export, FHIR `Patient` and the Bundle example, and letters answer `503`, and HL7 ADT messages answer with an `AE` ACK. The examples for bed movements, scheduling, waiting lists, RTT and billing take a person's id and do not need the service.
+
 ### Health
 
 ```bash
@@ -299,11 +301,12 @@ curl -X POST http://localhost:8080/api/admissions/<admission-id>/discharge \
 # Book a slot
 curl -X POST http://localhost:8080/api/slots/<slot-id>/book \
   -H "Content-Type: application/json" \
-  -d '{ "patient_id": "<uuid>", "reason": "follow-up" }'
+  -d '{ "person_id": "<uuid>" }'
 
-# Cancel an appointment
+# Cancel an appointment. If-Match carries the ETag from GET /api/appointments/<id>
 curl -X POST http://localhost:8080/api/appointments/<id>/cancel \
   -H "Content-Type: application/json" \
+  -H 'If-Match: <etag>' \
   -d '{ "reason": "patient_request" }'
 ```
 
@@ -314,7 +317,7 @@ curl -X POST http://localhost:8080/api/appointments/<id>/cancel \
 curl -X POST http://localhost:8080/api/waitlist \
   -H "Content-Type: application/json" \
   -d '{
-    "patient_id":     "<uuid>",
+    "person_id":      "<uuid>",
     "target_service": "cardiology",
     "priority":       "routine"
   }'
@@ -322,7 +325,7 @@ curl -X POST http://localhost:8080/api/waitlist \
 # Start an RTT clock
 curl -X POST http://localhost:8080/api/rtt/start \
   -H "Content-Type: application/json" \
-  -d '{ "patient_id": "<uuid>", "target_service": "cardiology" }'
+  -d '{ "person_id": "<uuid>", "target_service": "cardiology" }'
 
 # Pause an RTT pathway
 curl -X POST http://localhost:8080/api/rtt/<pathway-id>/pause \
@@ -343,16 +346,17 @@ curl http://localhost:8080/api/wards/<ward-id>/occupancy
 # Open an account
 curl -X POST http://localhost:8080/api/accounts \
   -H "Content-Type: application/json" \
-  -d '{ "patient_id": "<uuid>", "currency": "USD" }'
+  -d '{ "person_id": "<uuid>", "currency": "USD" }'
 
 # Post a charge
 curl -X POST http://localhost:8080/api/charges \
   -H "Content-Type: application/json" \
   -d '{
-    "account_id":  "<uuid>",
-    "code":        "99213",
-    "description": "Office visit",
-    "amount":      { "amount": "120.00", "currency": "USD" }
+    "account_id":      "<uuid>",
+    "code":            "99213",
+    "description":     "Office visit",
+    "amount_value":    "120.00",
+    "amount_currency": "USD"
   }'
 
 # Finalize an invoice
@@ -364,10 +368,11 @@ curl -X POST http://localhost:8080/api/invoices \
 curl -X POST http://localhost:8080/api/payments \
   -H "Content-Type: application/json" \
   -d '{
-    "invoice_id": "<uuid>",
-    "amount":     { "amount": "120.00", "currency": "USD" },
-    "method":     "card",
-    "reference":  "TXN-9001"
+    "invoice_id":      "<uuid>",
+    "amount_value":    "120.00",
+    "amount_currency": "USD",
+    "method":          "card",
+    "reference":       "TXN-9001"
   }'
 ```
 
@@ -379,7 +384,7 @@ curl -X POST http://localhost:8080/api/letters/generate \
   -H "Content-Type: application/json" \
   -d '{
     "template_id":    "<uuid>",
-    "patient_id":     "<uuid>",
+    "person_id":      "<uuid>",
     "appointment_id": "<uuid>",
     "channel":        "print"
   }'
@@ -438,8 +443,6 @@ curl http://localhost:8080/fhir/Schedule/{id}
 curl http://localhost:8080/fhir/Slot/{id}
 curl http://localhost:8080/fhir/Location/{id}   # PAS bed
 ```
-
-Run `cargo run --example interchange` to see the three flat formats round-trip without data loss.
 
 ```bash
 # Batch-create multiple resources in one round-trip via a FHIR Bundle.
@@ -520,6 +523,7 @@ Configuration is loaded from environment variables (or `.env`).
 | `DATABASE_URL`       | PostgreSQL connection string                                      | -                | Yes      |
 | `SERVER_HOST`        | HTTP server bind address                                          | `0.0.0.0`        | No       |
 | `SERVER_PORT`        | HTTP server port                                                  | `8080`           | No       |
+| `PERSON_SERVICE_URL` | Base URL of `person-service`. Unset, anything that needs a person is refused (see [API Examples](#api-examples)) | - | No |
 | `SEARCH_INDEX_PATH`  | Tantivy index directory                                           | `./search_index` | No       |
 | `RUST_LOG`           | Logging level (e.g., `info`, `debug`)                             | `info`           | No       |
 | `OTLP_ENDPOINT`      | OpenTelemetry OTLP collector endpoint (HTTP/protobuf, e.g. `http://otel-collector:4318/v1/traces`). When set, every `tracing` span is exported to the collector. When unset (default), fmt layer only — no network egress. | - | No |

@@ -20,8 +20,8 @@ say() { printf "\n\033[1;36m== %s ==\033[0m\n" "$*"; }
 get() { curl -sS "$BASE$1"; }
 # post PATH BODY [VERSION]: VERSION goes in If-Match, which a change to an existing admission needs.
 post() { curl -sS -X POST "$BASE$1" -H 'content-type: application/json' ${3:+-H "if-match: $3"} -d "$2"; }
-# The admission's current version, from the ETag of its read.
-version() { curl -sS -o /dev/null -D - "$BASE/api/admissions/$1" | tr -d '\r' | awk 'tolower($1) == "etag:" { print $2 }'; }
+# A record's current version, from the ETag of its read.
+version() { curl -sS -o /dev/null -D - "$BASE$1" | tr -d '\r' | awk 'tolower($1) == "etag:" { print $2 }'; }
 
 say "Health"
 get /api/health | $JQ '.'
@@ -36,27 +36,35 @@ say "Ward occupancy (before admit)"
 get "/api/wards/$WARD_ID/occupancy" | $JQ '.'
 
 say "Beds in the ward"
-mapfile -t BED_IDS < <(get "/api/wards/$WARD_ID/beds" | $JQR '.data | sort_by(.code) | .[].id')
-BED0=${BED_IDS[0]}
-BED1=${BED_IDS[1]}
+BEDS=$(get "/api/wards/$WARD_ID/beds" | jq -c '.data | map(select(.status == "available")) | sort_by(.code)')
+BED0=$(echo "$BEDS" | $JQR '.[0].id // empty')
+BED1=$(echo "$BEDS" | $JQR '.[1].id // empty')
+[ -n "$BED1" ] || { echo "need two available beds in WARD-A, found: $BEDS" >&2; exit 1; }
 echo "bed0=$BED0 bed1=$BED1"
 
 say "Admit the person to bed0"
 ADMIT=$(post /api/admissions "{\"person_id\":\"$PERSON_ID\",\"bed_id\":\"$BED0\"}")
 echo "$ADMIT" | $JQ '.'
-ADMISSION_ID=$(echo "$ADMIT" | $JQR '.data.admission.id')
+ADMISSION_ID=$(echo "$ADMIT" | $JQR '.data.admission.id // empty')
+[ -n "$ADMISSION_ID" ] || { echo "the admission was refused" >&2; exit 1; }
 
 say "Ward occupancy (after admit)"
 get "/api/wards/$WARD_ID/occupancy" | $JQ '.'
 
 say "Transfer to bed1"
-post "/api/admissions/$ADMISSION_ID/transfer" "{\"new_bed_id\":\"$BED1\"}" "$(version "$ADMISSION_ID")" | $JQ '.'
+post "/api/admissions/$ADMISSION_ID/transfer" "{\"new_bed_id\":\"$BED1\"}" "$(version "/api/admissions/$ADMISSION_ID")" | $JQ '.'
 
 say "Discharge"
-post "/api/admissions/$ADMISSION_ID/discharge" '{}' "$(version "$ADMISSION_ID")" | $JQ '.'
+post "/api/admissions/$ADMISSION_ID/discharge" '{}' "$(version "/api/admissions/$ADMISSION_ID")" | $JQ '.'
 
 say "Ward occupancy (after discharge)"
 get "/api/wards/$WARD_ID/occupancy" | $JQ '.'
+
+say "Beds cleaned, so the demo can run again"
+for BED in "$BED0" "$BED1"; do
+  curl -sS -X PUT "$BASE/api/beds/$BED/status" -H 'content-type: application/json' \
+    -H "if-match: $(version "/api/beds/$BED")" -d '{"status":"available"}' | $JQR '.data.status'
+done
 
 say "What was recorded about the admission"
 get "/api/audit/entity?entity_type=admission&entity_id=$ADMISSION_ID" | $JQ '.data | map({action, entity_type, at})'
