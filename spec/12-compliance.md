@@ -8,6 +8,7 @@ Honest status. The full assessment against the NHS Digital Technology Assessment
 | HL7 FHIR R5 (`/fhir`) | Partly. The CapabilityStatement validates against base 5.0.0; the Appointment, Encounter, Slot and Schedule reads do not (they return internal field names). See QUAL-39 and the R5 note in [`09-api-surface.md`](09-api-surface.md) |
 | ISO 14971 risk management | Not done, and may not apply (not judged a medical device). Mapping and gaps: [`governance/risk-management-iso-14971.md`](../governance/risk-management-iso-14971.md) |
 | DCB0129 / DCB0160 clinical safety | Not done. No Clinical Safety Officer or hazard log. See [`governance/clinical-safety.md`](../governance/clinical-safety.md) |
+| Triage content licence (Manchester Triage System) | Not settled. The flowcharts and discriminators are licensed content (Wiley, for the Advanced Life Support Group and the Manchester Triage Group); a PAS that embeds them, or an in-house build, needs a licence. The PAS holds neither and only records a category assigned elsewhere; whether that needs a licence is open question 18, and no request to the licence holders is on record. See [`plan.md`](../plan.md#11-manchester-triage-system-research-2026-10-23) |
 | DTAC | Self-assessed; fails C1, C2, C3 on missing artefacts |
 | WCAG 2.2 AA | Automated checks only (NFR-6); no manual audit or published statement |
 | PECR / consent to message | Not built (NFR-15, tasks.md NOT-5) |

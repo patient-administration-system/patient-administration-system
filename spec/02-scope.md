@@ -11,11 +11,13 @@
 - An audit log and a transactional event outbox.
 - Interchange: REST/JSON with OpenAPI, FHIR R5, HL7 v2.
 - A browser UI for patients, staff and administrators.
+- Recording a triage category that someone else assigned to an emergency encounter, and measuring the wait against its target (NEW-22, NEW-23).
 
 ## Out of scope
 
 - Patient and worker demographics and their master index (`person-service`, `worker-service`).
 - Clinical records, orders, results, prescribing.
+- Deciding a triage category: the Manchester Triage System flowcharts and discriminators are licensed content and a clinical decision, and are not in this repository (NEW-25).
 - Running the identity provider in production (the repository ships a development Keycloak realm only).
 - Operating a hosted service. The maintainers publish software, not a service.
 
