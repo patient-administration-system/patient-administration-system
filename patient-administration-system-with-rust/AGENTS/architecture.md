@@ -162,7 +162,7 @@ src/
 ├── api/
 │   ├── mod.rs              ApiResponse, ApiError, AppState
 │   ├── rest/               Axum router and handlers, Utoipa OpenAPI
-│   ├── fhir/               FHIR R5 resource converters and endpoints (incl. batch + transaction Bundles)
+│   ├── fhir/               FHIR R5 resource converters and endpoints
 │   ├── dashboard.rs        Ops dashboard (Tera + HTMX, Lily Design System markup)
 │   └── openapi.rs          ApiDoc aggregating every `#[utoipa::path]` handler
 ├── search/                 Tantivy patient index

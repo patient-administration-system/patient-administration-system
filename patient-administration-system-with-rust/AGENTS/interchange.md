@@ -106,11 +106,9 @@ v0.2 also widens the FHIR R5 read surface:
 | GET    | `/fhir/Schedule/{id}`         | FHIR `Schedule` resource             |
 | GET    | `/fhir/Slot/{id}`             | FHIR `Slot` resource                 |
 | GET    | `/fhir/Location/{id}`         | FHIR `Location` (PAS `Bed`)          |
-| POST   | `/fhir`                       | Batch / transaction Bundle of writes |
+| POST   | `/fhir`                       | Bundle; writes nothing yet (below)   |
 
-The read Bundle is a **collection** Bundle (`type: collection`). The write Bundle endpoint accepts `type: batch` or `type: transaction` and returns a corresponding `batch-response` / `transaction-response` Bundle. Supported resource types in write entries: `Patient`, `Encounter`, `Appointment`, `Coverage` (v0.13 — same `CoverageRepository::create` path as `POST /api/coverages`), `Practitioner`, `Schedule`, `Slot` (v0.23 — same paths as the direct `POST /fhir/<Type>` endpoints from v0.21). Each entry must carry `request: { "method": "POST", "url": "<type>" }`.
-
-**Transaction semantics**: `type: transaction` is genuinely all-or-nothing. Every entry runs inside a single `sea_orm::DatabaseTransaction`. On any entry failure (parse, validation, DB error), the transaction is rolled back and the endpoint returns `400 + OperationOutcome` whose `diagnostics` names the offending entry index. Search-index updates (Tantivy) are deferred until after the commit so rolled-back rows are never visible to search.
+The read Bundle is a **collection** Bundle (`type: collection`). `POST /fhir` writes nothing yet: `Patient` and `Practitioner` entries are refused with `400`, because `person-service` and `worker-service` own them, and any other entry answers `501`. The response is a `transaction-response` Bundle with an outcome per entry, and the request answers `400`.
 
 Errors continue to return FHIR `OperationOutcome` JSON with the same status mapping as v0.1.
 
@@ -300,8 +298,7 @@ Rules:
   the same handler the HTTP single-message route would use. A bad
   message returns its own `MSA|AE|<msg-id>` inside the envelope; the
   surrounding messages still process. Matches FHIR `batch` Bundle
-  semantics (the FHIR `transaction` Bundle is the all-or-nothing
-  option).
+  semantics.
 - **One batch per request**: more than one `BHS` (multi-batch files)
   → `400 + AR`. Real-world senders almost always emit one batch per
   transmission anyway.

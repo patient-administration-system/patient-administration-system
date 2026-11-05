@@ -3,28 +3,26 @@
 A production-grade Rust crate implementing a hospital Patient Administration System — the foundational, non-clinical system of record for healthcare workflow.
 
 [![Rust](https://img.shields.io/badge/rust-1.99.1-orange.svg)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![License](https://img.shields.io/badge/license-five%20options-blue.svg)](#license)
 
 ## Overview
 
 The PAS owns the administrative *who, when, where, what visit type, what bed, what bill* — it does not own the *what diagnosis*. It feeds clinical portals and downstream systems (EMR, billing, analytics).
 
-This crate is the v0.1 tier: a compiling, tested library + binary covering the headline flows end-to-end.
 
 ## Features
 
-- Patient identity records (with optional MPI link via `mpi_id`). **Merge tombstones** (v0.11): when the MPI flags two rows as the same person, `POST /api/patients/{id}/merge-into/{target_id}` atomically marks one as `replaced_by` the other, with FHIR R5 `Patient.link[replaced-by]` emitted on the tombstone. **Multinational national-government identifiers** (v0.15): typed `Identifier::nhs / nir / tsi / ihi / hcn` factories with per-country format validators (NHS Mod 11; NIR Mod 97 with Corsica `2A`/`2B` fix-up; IHI 7 digits; HCN 10 digits; TSI alphanumeric envelope) so a single `Patient.identifiers` collection can carry UK, France, España, Ireland, and Northern Ireland identifiers side by side.
+- Patients are referred to by id. The PAS holds no people: identity lives in `person-service`, and the `/api/patients` routes pass through to it.
 - ADT: admission, transfer, discharge with atomic bed allocation under `SELECT … FOR UPDATE`
-- Scheduling: slot booking, cancellation, check-in, completion, no-show, bulk slot generation. **Recurring appointment series** (v0.9): RFC 5545 subset (daily/weekly/monthly + INTERVAL + BYDAY + COUNT/UNTIL), atomic-overlap reject, cap 200 occurrences.
+- Scheduling: slot booking, cancellation, check-in, completion, no-show, slots generated from clinic templates. **Recurring appointment series** (v0.9): RFC 5545 subset (daily/weekly/monthly + INTERVAL + BYDAY + COUNT/UNTIL), atomic-overlap reject, cap 200 occurrences.
 - Waitlist + RTT clock (NHS-style, configurable per-pathway breach threshold) with breach detection
 - Resources: ward/bed occupancy snapshots, bed status transitions
-- Billing: accounts, charges, invoices, payments (multi-currency via ISO 4217). **Coverage** (v0.10): insurance / self-pay / other payer records per patient, optionally linked to a billing account; FHIR R5 `Coverage` read at `/fhir/Coverage/:id` and (v0.13) write via `POST /fhir` Bundle entries — same `CoverageRepository::create` path, same audit trail.
+- Billing: accounts, charges, invoices, payments (multi-currency via ISO 4217). **Coverage** (v0.10): insurance / self-pay / other payer records per patient, optionally linked to a billing account; FHIR R5 `Coverage` read at `/fhir/Coverage/:id`.
 - Communication: Tera template letters with strict required-variable checking + delivery status. **SMS auto-send** (v0.8) via the `SmsProvider` trait — `LogSmsProvider` ships for dev/test; a real gateway is a one-trait-impl swap.
 - Audit log (transactional, HIPAA-aligned) with per-entity and recent-activity query endpoints
 - Domain events via transactional outbox pattern, polled by a background dispatcher
-- Tantivy full-text patient search, kept in sync with create/update/delete
-- RESTful API (Axum) with response envelope and bearer-token auth (opt-in)
-- FHIR R5 read/write surface for `Patient`, `Encounter`, `Appointment`
+- RESTful API (Axum) with a response envelope, per-user tokens and optimistic concurrency (`ETag` and `If-Match`)
+- FHIR R5 surface: `Patient`, `Practitioner`, `Schedule` and `Slot` read and write, with reads for `Appointment`, `Encounter`, `Location`, `Coverage` and others (see the table below)
 - PostgreSQL persistence via SeaORM, with a `pas-migrate` CLI
 - Privacy: masked patient view, GDPR export, consent CRUD + revoke
 
@@ -92,29 +90,28 @@ curl -X POST http://localhost:8080/api/admissions \
 
 ## Technology Stack
 
-Mirrors `Cargo.toml` exactly. The v0.3.1 dep audit removed 15 unused direct deps (`loco-rs`, `fluvio`, `tonic`, `prost`, `tonic-build`, `openapiv3`, `jsonwebtoken`, `argon2`, `strsim`, `anyhow`, `bigdecimal`, `validator`, `hyper`, plus all five `opentelemetry*` crates); v0.3.4 removed `mockall` + `tokio-test` from dev-deps. Anything below is actually compiled and used.
+A summary. `Cargo.toml` is the source of truth.
 
 | Component            | Technology                                  | Purpose                                  |
 | -------------------- | ------------------------------------------- | ---------------------------------------- |
 | **Language**         | Rust 1.99.1 (pinned in `rust-toolchain.toml`), 2024 Edition                    | Systems programming, performance, safety |
 | **Async Runtime**    | Tokio (`full`)                              | Asynchronous I/O and concurrency         |
-| **Web Framework**    | Axum 0.7 (`macros`)                         | HTTP server and routing                  |
-| **HTTP middleware**  | tower (`util`), tower-http (`cors`, `trace`, `compression-full`) | CORS / trace / compression / oneshot |
+| **Web Framework**    | Axum 0.8 (`macros`)                         | HTTP server and routing                  |
+| **HTTP middleware**  | tower (`util`), tower-http (`cors`, `trace`, `compression-full`, `request-id`) | CORS / trace / compression / request id |
 | **Templates**        | Tera 1.20                                   | Server-side rendering for letters + dashboard |
 | **Database**         | PostgreSQL 18+                              | Persistence                              |
-| **ORM**              | SeaORM 1.1 (`sqlx-postgres`, `runtime-tokio-rustls`, `with-chrono`, `with-uuid`, `with-json`) | Async ORM |
-| **Migrations**       | sea-orm-migration 1.1 + `pas-migrate` CLI   | Schema management                        |
-| **Search Engine**    | Tantivy 0.22                                | Full-text patient search                 |
+| **ORM**              | SeaORM 2.0 (`sqlx-postgres`, `runtime-tokio-rustls`, `macros`, `with-chrono`, `with-uuid`, `with-json`) | Data access |
+| **Migrations**       | sea-orm-migration 2.0 + `pas-migrate` CLI   | Schema management                        |
 | **Streaming**        | InMemoryEventPublisher (production + tests) + `Hl7v2MllpPublisher` (outbound ADT) + `WebhookEventPublisher` (v0.14, HMAC-signed HTTP POST) + `CompositePublisher` fan-out + `FluvioEventPublisher` stub | Event publishing |
-| **API Docs**         | Utoipa 5.4 + `utoipa-swagger-ui` 8.1        | OpenAPI 3.1 annotations + Swagger UI     |
-| **Serialization**    | Serde 1.0, serde\_json 1.0, quick-xml 0.36 (`serialize`), csv 1.3 | JSON / XML / CSV / TSV |
+| **API Docs**         | Utoipa 6.0 + `utoipa-swagger-ui` 10.0       | OpenAPI 3.1 annotations + Swagger UI     |
+| **Serialization**    | Serde 1.0, serde\_json 1.0, csv 1.4         | JSON / CSV                               |
 | **Logging / Tracing**| `tracing` 0.1, `tracing-subscriber` 0.3 (`env-filter`, `json`) | Structured logging (reads `RUST_LOG`) |
-| **Observability**    | OpenTelemetry 0.27 + OTLP HTTP/protobuf via reqwest | Wires when `OTLP_ENDPOINT` is set; v0.7.0 |
-| **Utilities**        | uuid 1.19 (`v4`, `serde`), chrono 0.4 (`serde`), dotenvy 0.15, async-trait 0.1 | UUIDs, timestamps, env, async traits |
+| **Observability**    | OpenTelemetry 0.33 + OTLP HTTP/protobuf via reqwest | Wires when `OTLP_ENDPOINT` is set |
+| **Utilities**        | uuid 1 (`v4`, `v5`, `serde`), chrono 0.4 (`serde`), dotenvy 0.15, async-trait 0.1 | UUIDs, timestamps, env, async traits |
 | **Error Handling**   | thiserror 2.0                               | Typed errors                             |
-| **Money / Decimal**  | rust\_decimal 1.36 (`serde-with-str`)       | Exact monetary arithmetic                |
-| **Testing**          | `assertables` 9.8, `tempfile` 3.24          | Rich asserts + temp directories          |
-| **Benchmarking**     | Criterion 0.5 (`html_reports`, `async_tokio`) | Statistical performance benchmarks     |
+| **Money / Decimal**  | rust\_decimal 1.43 (`serde-with-str`)       | Exact monetary arithmetic                |
+| **Testing**          | `assertables` 10, `tempfile` 3.27           | Rich asserts + temp directories          |
+| **Benchmarking**     | Criterion 0.8 (`html_reports`, `async_tokio`) | Statistical performance benchmarks     |
 | **Containerization** | Podman (multi-stage Containerfile), podman compose        | Deployment packaging                     |
 
 ## Project Structure
@@ -135,8 +132,7 @@ patient-administration-system-with-rust/
 │   ├── billing/               Charges, invoices, payments
 │   ├── communication/         Tera letter rendering
 │   ├── api/                   REST + FHIR R5 routers and handlers
-│   ├── search/                Tantivy patient index
-│   ├── streaming/             Event publisher (InMemory + Fluvio stub)
+│   ├── streaming/             Event publishers (in-memory, HL7 v2, webhook; Fluvio is a stub)
 │   ├── validation/            Validators
 │   ├── privacy/               Masking, GDPR export, consent helpers
 │   └── observability/         tracing + OpenTelemetry
@@ -148,7 +144,9 @@ patient-administration-system-with-rust/
 
 ## API Endpoint Reference
 
-User context for audit logging is taken from headers: `X-User-Id`, `X-User-Ip`, `X-User-Agent`. When `API_TOKEN` is set, all `/api/*` endpoints (except `/api/health`) require `Authorization: Bearer <token>`.
+User context for audit logging is taken from headers: `X-User-Id`, `X-User-Ip`, `X-User-Agent`. When `API_TOKEN` is set, all `/api/*` endpoints (except `/api/health`) require `Authorization: Bearer <token>`. With `PAS_REQUIRE_AUTH=true` they need a per-user token; `../scripts/dev-auth.sh` sets that up for development.
+
+The table lists the main routes. [`spec/openapi.json`](../spec/openapi.json) has all 298, and Swagger UI serves the same document at `/swagger-ui/`.
 
 | Group | Method | Path |
 |-------|--------|------|
@@ -159,15 +157,12 @@ User context for audit logging is taken from headers: `X-User-Id`, `X-User-Ip`, 
 | | GET | `/api/patients/:id/masked` |
 | | GET | `/api/patients/:id/export` |
 | | GET | `/api/patients/:id/audit` |
-| | POST | `/api/patients/:id/merge-into/:target_id` (v0.11 — atomic flip to tombstone; drops source from search; audit + outbox `PatientMerged`) |
-| | GET | `/api/patients/:id/replaces` (v0.11 — inverse lookup; lists every tombstone that points at this survivor) |
 | | GET | `/api/audit/recent` |
 | | GET | `/api/audit/entity?entity_type=…&entity_id=…` |
 | Ops | GET | `/api/admin/outbox/unpublished` |
 | | GET | `/api/admin/outbox/dead-letters` (v0.5) |
 | | POST | `/api/admin/outbox/dead-letters/:id/replay` (v0.5) |
-| Encounter | POST | `/api/encounters` |
-| | GET | `/api/encounters/:id` |
+| Encounter | GET | `/api/encounters/:id` |
 | | GET | `/api/patients/:id/encounters` |
 | | POST | `/api/encounters/:id/cancel` |
 | | PUT | `/api/encounters/:id/status` |
@@ -181,16 +176,11 @@ User context for audit logging is taken from headers: `X-User-Id`, `X-User-Ip`, 
 | | POST | `/api/admissions/:id/leave-start` (v0.37; encounter InProgress → OnLeave; outbox fans out as ADT^A21) |
 | | POST | `/api/admissions/:id/leave-end` (v0.37; encounter OnLeave → InProgress; outbox fans out as ADT^A22) |
 | | POST | `/api/admissions/:id/discharge` |
-| Scheduling | POST | `/api/appointment-series/preview` (v0.9 — dry-run a recurrence rule; returns datetimes without persisting) |
-| | POST | `/api/appointment-series` (v0.9 — create series + every occurrence in one DB tx; atomic overlap reject) |
+| Scheduling | POST | `/api/appointment-series` (create a series and every occurrence in one transaction; an overlap refuses all of it) |
 | | GET | `/api/appointment-series/:id` (v0.9 — series + linked occurrences) |
 | | POST | `/api/appointment-series/:id/cancel` (v0.9 — cancel future occurrences) |
 | | GET | `/api/patients/:id/appointment-series` (v0.9 — series per patient) |
-| | POST | `/api/schedules` |
-| | GET · DELETE | `/api/schedules/:id` |
-| | DELETE | `/api/slots/:id` |
-| | GET · POST | `/api/schedules/:id/slots` (`?start=…&end=…` for free slots) |
-| | POST | `/api/schedules/:id/slots/bulk` (generate consecutive slots) |
+| | GET | `/api/slots/:id` |
 | | POST | `/api/slots/:id/book` |
 | | GET | `/api/appointments?from=…&to=…` (at most 366 days) |
 | | GET | `/api/appointments/:id` |
@@ -198,29 +188,27 @@ User context for audit logging is taken from headers: `X-User-Id`, `X-User-Ip`, 
 | | POST | `/api/appointments/:id/check-in` |
 | | POST | `/api/appointments/:id/complete` |
 | Waitlist + RTT | GET · POST | `/api/waitlist` (`?service=…`) |
-| | PUT · DELETE | `/api/waitlist/:id` |
-| | GET | `/api/waitlist/breaches` |
+| | GET · DELETE | `/api/waitlist/:id` |
+| | GET | `/api/rtt/:id/breaching` |
 | | POST | `/api/rtt/start` |
 | | POST | `/api/rtt/:id/pause` · `/api/rtt/:id/resume` · `/api/rtt/:id/stop` |
 | | GET | `/api/rtt/:id/weeks-waiting` |
-| | GET | `/api/patients/:id/rtt` |
 | Resources | POST · GET | `/api/facilities` |
 | | POST | `/api/wards` |
 | | GET | `/api/wards/:id` · `/api/facilities/:id/wards` |
 | | POST | `/api/rooms` |
 | | POST | `/api/beds` (v0.27 — adds audit + outbox `BedCreated`) |
 | | GET | `/api/beds/:id` · `/api/wards/:id/beds` · `/api/wards/:id/occupancy` |
-| | PUT | `/api/beds/:id` (v0.27 — selective update; outbox `BedUpdated`) · `/api/beds/:id/status` (`OutOfService` additionally emits outbox `BedRetired`, v0.27) |
+| | PUT | `/api/beds/:id/status` (`If-Match`; `OutOfService` also emits outbox `BedRetired`) |
 | Workforce | POST · GET | `/api/practitioners` |
 | | GET · PUT · DELETE | `/api/practitioners/:id` |
 | Billing | POST | `/api/accounts` |
 | | POST | `/api/coverages` (v0.10) |
 | | GET · PUT · DELETE | `/api/coverages/:id` (v0.10 — DELETE flips status to `cancelled`; never hard-deletes) |
 | | GET | `/api/patients/:id/coverages` · `/api/accounts/:id/coverages` (v0.10) |
-| | GET | `/api/patients/:id/account` |
 | | POST | `/api/charges` · `/api/invoices` · `/api/payments` |
 | Communication | GET · POST | `/api/letter-templates` |
-| | PUT · DELETE | `/api/letter-templates/:id` |
+| | GET · PUT | `/api/letter-templates/:id` |
 | | POST | `/api/letters/generate` |
 | | GET | `/api/letters/:id` |
 | | POST | `/api/letters/:id/sent` · `/api/letters/:id/failed` |
@@ -254,8 +242,8 @@ User context for audit logging is taken from headers: `X-User-Id`, `X-User-Ip`, 
 | | POST | `/api/hl7/v2/schedule-reschedule` (ingest SIU^S13 — change start/end of appointment identified by SCH-2 filler uuid; overlap-excluding check) |
 | | POST | `/api/hl7/v2/schedule-modify` (ingest SIU^S14 — update reason of appointment identified by SCH-2 filler uuid) |
 | | POST | `/api/hl7/v2/schedule-cancel` (ingest SIU^S15 — cancel appointment identified by SCH-2 filler uuid) |
-| FHIR R5 | POST | `/fhir` (batch / transaction Bundle of writes — Patient · Encounter · Appointment · Coverage as of v0.13; · Practitioner · Schedule · Slot as of v0.23) |
-| | POST | `/fhir/Patient` · `/fhir/Encounter` · `/fhir/Appointment` · `/fhir/Practitioner` · `/fhir/Schedule` · `/fhir/Slot` (last three v0.21) |
+| FHIR R5 | POST | `/fhir` (Bundle; no entry type can be written through it yet, see [below](#fhir-r5)) |
+| | POST | `/fhir/Patient` · `/fhir/Practitioner` · `/fhir/Schedule` · `/fhir/Slot` |
 | | GET · PUT · DELETE | `/fhir/Patient/:id` · `/fhir/Practitioner/:id` · `/fhir/Schedule/:id` · `/fhir/Slot/:id` (last three v0.21) |
 | | GET | `/fhir/Encounter/:id` · `/fhir/Appointment/:id` · `/fhir/Location/:id` |
 | | GET | `/fhir/Patient?_count=N` (collection `Bundle`) |
@@ -263,7 +251,7 @@ User context for audit logging is taken from headers: `X-User-Id`, `X-User-Ip`, 
 
 ## API Examples
 
-The PAS holds no people, so anything that reads or writes a person goes through `person-service` and needs `PERSON_SERVICE_URL`. Without it, patient import and export, FHIR `Patient` and the Bundle example, and letters answer `503`, and HL7 ADT messages answer with an `AE` ACK. The examples for bed movements, scheduling, waiting lists, RTT and billing take a person's id and do not need the service.
+The PAS holds no people, so anything that reads or writes a person goes through `person-service` and needs `PERSON_SERVICE_URL`. Without it, patient import and export, FHIR `Patient` and letters answer `503`, and HL7 ADT messages answer with an `AE` ACK. The examples for bed movements, scheduling, waiting lists, RTT and billing take a person's id and do not need the service.
 
 ### Health
 
@@ -392,7 +380,7 @@ curl -X POST http://localhost:8080/api/letters/generate \
 
 ### Interchange — JSON, XML, TSV
 
-v0.2 ships bulk-interchange formats for patient data on top of the standard JSON-over-HTTP API. All three formats share the flat `PatientRow` projection — see [`AGENTS/interchange.md`](AGENTS/interchange.md) for the schema and lossy-field notes, and [`examples/`](examples/) for working payloads.
+Bulk patient data in JSON, XML, TSV and CSV, passed through to `person-service`. See [`AGENTS/interchange.md`](AGENTS/interchange.md) for the formats and [`examples/`](examples/) for working payloads.
 
 ```bash
 # Export every active patient (capped at 10k rows)
@@ -425,8 +413,6 @@ curl -X POST http://localhost:8080/api/patients/import \
 
 ### FHIR R5
 
-v0.2 widens the FHIR R5 read surface to cover every administrative resource the PAS persists.
-
 ```bash
 # Create / read / update / soft-delete a Patient
 curl -X POST http://localhost:8080/fhir/Patient \
@@ -444,18 +430,7 @@ curl http://localhost:8080/fhir/Slot/{id}
 curl http://localhost:8080/fhir/Location/{id}   # PAS bed
 ```
 
-```bash
-# Batch-create multiple resources in one round-trip via a FHIR Bundle.
-# The server returns a transaction-response Bundle with per-entry status + location.
-curl -X POST http://localhost:8080/fhir \
-  -H 'Content-Type: application/json' \
-  --data-binary @examples/fhir-transaction-bundle.json
-```
-
-Bundle semantics:
-
-- **`type: batch`** — entries are processed independently against the DB pool. Per-entry success/failure surfaces in the entry's `response.status` (e.g. `"201 Created"` + `location`, or `"400 Bad Request: ..."`). HTTP status is always 200.
-- **`type: transaction`** — all-or-nothing. Every entry runs inside a single `sea_orm` transaction. If any entry fails (parse, validation, DB error), the transaction is rolled back and the endpoint returns `400 + OperationOutcome` naming the offending entry index — no partial writes survive. Search-index updates (Tantivy) are deferred until after the commit so rolled-back rows never become searchable.
+`POST /fhir` accepts a Bundle but writes nothing yet. `Patient` and `Practitioner` entries are refused with `400`, because `person-service` and `worker-service` own them, and any other entry answers `501`. The response is a `transaction-response` Bundle with an outcome per entry, and the request as a whole answers `400`.
 
 ### HL7 v2 ADT
 
@@ -524,7 +499,6 @@ Configuration is loaded from environment variables (or `.env`).
 | `SERVER_HOST`        | HTTP server bind address                                          | `0.0.0.0`        | No       |
 | `SERVER_PORT`        | HTTP server port                                                  | `8080`           | No       |
 | `PERSON_SERVICE_URL` | Base URL of `person-service`. Unset, anything that needs a person is refused (see [API Examples](#api-examples)) | - | No |
-| `SEARCH_INDEX_PATH`  | Tantivy index directory                                           | `./search_index` | No       |
 | `RUST_LOG`           | Logging level (e.g., `info`, `debug`)                             | `info`           | No       |
 | `OTLP_ENDPOINT`      | OpenTelemetry OTLP collector endpoint (HTTP/protobuf, e.g. `http://otel-collector:4318/v1/traces`). When set, every `tracing` span is exported to the collector. When unset (default), fmt layer only — no network egress. | - | No |
 | `OTEL_SERVICE_NAME`  | `service.name` resource attribute on every exported span. Override to disambiguate replicas / environments in the collector. | `pas-axum` | No |
@@ -575,49 +549,19 @@ Migrations live as a nested SeaORM crate at `migrations/` with a thin CLI binary
 (cd migrations && cargo run --bin pas-migrate -- down)      # revert all
 ```
 
-The single migration `m20260520_000001_init.rs` creates 29 tables. To keep the v0.1 surface tractable, repeated child collections on `patients` and `practitioners` (identifiers, names, addresses, contacts, emergency contacts) are stored inline as `JSONB` columns instead of as separate tables.
+Migrations are one file each in `migrations/src/`; the count is in [`spec/14-implementation-status.md`](../spec/14-implementation-status.md). Repeated child collections are stored inline as `JSONB` columns rather than as separate tables.
 
 ## Testing
 
-**Unit tests:** about 460 (`cargo test --lib`; live counts in `spec/14-implementation-status.md`). Coverage spans:
+Live counts are in [`spec/14-implementation-status.md`](../spec/14-implementation-status.md).
 
-- Domain models — state-machine transitions, serde round-trip, factory methods.
-- DB repositories — CRUD and aggregate loading via SeaORM mock connections.
-- Services — ADT, scheduling, waitlist, RTT, billing, communication, resources.
-- Interop — HL7 v2 parser / encoder / mapping / escapes / MLLP framing.
-- Interchange — JSON / XML / TSV / CSV round-trip for `PatientRow`.
-- FHIR R5 — resource converters, OperationOutcome envelope, OpenAPI spec.
-- Dashboard — Tera template render + Lily class-name assertions.
-- Cross-cutting — validation, privacy, search, streaming, config, error mapping.
+**Unit tests** (`cargo test --lib`) cover domain models, repositories, services, HL7 v2 parsing and framing, FHIR converters, the OpenAPI document, validation, privacy and configuration.
 
-**Integration tests:** 62 test functions across 24 files in `tests/`. Most gated on `DATABASE_URL`; `auth_test.rs`, `rate_limit_test.rs`, and (v0.14) `webhook_test.rs` exercise pure middleware / publisher logic without a database and run every `cargo test`. Live Postgres (e.g. `podman compose up -d postgres` or `compose.test.yml`) is required for the rest.
+**Integration tests** are the files in `tests/`, most named after the task that added them. Those that need PostgreSQL are `#[ignore]`d and need `DATABASE_URL`:
 
-| File                              | DB | What's tested                                                                |
-| --------------------------------- | -- | ---------------------------------------------------------------------------- |
-| `tests/health_test.rs`            | y  | `/api/health` returns ok with degraded-on-DB-down signal                     |
-| `tests/auth_test.rs`              | n  | Bearer-token middleware (4 tests): exempt health, missing, wrong, ok         |
-| `tests/patient_crud_test.rs`      | y  | Create → get → search → update → list → masked → soft-delete → audit         |
-| `tests/practitioner_test.rs`      | y  | Create → get → list → update → soft-delete (active flip) → exclusion         |
-| `tests/adt_flow_test.rs`          | y  | Admit → transfer → discharge with bed-status assertions                      |
-| `tests/scheduling_flow_test.rs`   | y  | Book → check-in → complete with slot status assertion                        |
-| `tests/waitlist_rtt_flow_test.rs` | y  | Add → start → pause → resume → stop → weeks_waiting                          |
-| `tests/billing_flow_test.rs`      | y  | Open account → conflict on re-open → charges → finalize → partial payments   |
-| `tests/letter_flow_test.rs`       | y  | Template create → render → fetch → missing-variable rejection → list. v0.8: SMS auto-send with `LogSmsProvider` flips status to `sent` + stamps `sent_at`; patient with no phone leaves the letter `pending` (2 tests) |
-| `tests/appointment_series_test.rs` | y | v0.9: preview → create (weekly count=4) → fetch → cancel → assert all 4 occurrences flipped + series row `cancelled`. Second test: atomic-overlap reject — pre-seed a blocker at week 2, assert create returns 409 and no series row survives (2 tests) |
-| `tests/coverage_flow_test.rs`     | y  | v0.10: create coverage → list per patient → link to account → list per account → update (incl. clear group_number via `null`) → FHIR GET → soft-cancel via DELETE → FHIR GET still 200 with `status=cancelled` → 404 on unknown id |
-| `tests/patient_merge_test.rs`     | y  | v0.11: create A + B → merge A→B → tombstone fields verified → `GET /api/patients/B/replaces` lists A → FHIR Patient/A carries `link[replaced-by]` → FHIR Patient/B has none → Tantivy no longer surfaces A → reject self-merge (400), double-merge (409), unknown target (404) |
-| `tests/rate_limit_test.rs`        | n  | v0.12: tight `burst=2` config → first two requests pass, third 429 with `Retry-After` + `error.code = "RATE_LIMITED"`; `/api/health` exempt — 5 consecutive hits after the bucket is drained all 200 (2 tests, no DB needed) |
-| `tests/consent_flow_test.rs`      | y  | Two consents → list active → revoke one → assert mixed status                |
-| `tests/fhir_write_test.rs`        | y  | Patient + Practitioner + Schedule + Slot CRUD (5 tests): POST → GET → PUT (id preserved) → DELETE; Practitioner DELETE flips active=false; Schedule + Slot DELETE hard-delete; 404 on PUT/DELETE of unknown id (v0.21) |
-| `tests/fhir_bundle_test.rs`       | y  | `POST /fhir` batch + transaction (5 tests): per-entry response shape; transaction rollback assertion; v0.13 — Coverage entries (primary insurance + self-pay) in batch + Coverage parse failure rolls a transaction back; v0.23 — chained Practitioner → Schedule → Slot bundle creation + transaction atomicity (malformed Slot rolls back the prior Schedule) |
-| `tests/concurrency_test.rs`       | y  | Two-way races for the same bed and same slot; exactly one 200, the other 409 |
-| `tests/outbox_dispatcher_test.rs` | y  | Happy path: outbox row written → one tick → marked `published=true`. v0.5: failing publisher → retry_count rises to budget → row moves to `outbox_dead_letters` → replay puts a fresh row back (retry_count=0) → next tick drains it (2 tests) |
-| `tests/interchange_test.rs`       | y  | Bulk import in all 4 formats (JSON/XML/TSV/CSV) → idempotent skip → exports round-trip → Tantivy visibility |
-| `tests/hl7v2_test.rs`             | y  | HL7 v2 ADT^A28/A01/A02/A03 + A08/A11/A13/A40 + batch + SIU^S12/S13/S14/S15 + DFT^P03 + MFN^M02 + MFN^M05 (15 tests): AA + AE + AR codes, exact-MRN dedup, update merges, cancel-admit drops ward occupancy to 0, cancel-discharge reinstates bed, 3-message batch with mixed AA/AE inside one BTS envelope; v0.16 — SIU^S12 books an appointment (overlap-protection 409 + filler-uuid round-trip into a subsequent SIU^S15 cancel; double-cancel → 409; unknown filler → 404); v0.17 — SIU^S13 reschedules with overlap-excluding check (own row doesn't flag itself; conflict with sibling → 409), SIU^S14 modifies reason; both 400 / 404 / 409 paths covered; v0.18 — ADT^A40 merges source MRN into survivor PID (re-merge → 409, unknown source → 404, self-merge → 409, missing MRG → 400, wrong message type at /merge → 400); v0.19 — DFT^P03 posts a charge (account auto-creation, account reuse on 2nd DFT, PY unsupported → 400, missing FT1 → 400, bad currency → 400, wrong message type → 400); v0.20 — multi-FT1 DFT^P03 posts 3 charges in one transaction; mixed currencies → 400; **atomicity** (a bad 2nd FT1 must not leave the 1st persisted); v0.24 — MFN^M02 walks MAD/MUP/MDL on a practitioner; duplicate-MAD → 409; unknown-MUP → 404; 2-item MFN with duplicate second item rolls back the first; v0.26 — MFN^M05 walks MAD/MUP/MDL on a bed (bootstrap facility+ward+room via REST first), duplicate-MAD → 409, unknown-bed MUP → 404, orphan-room MAD → 404, MDL flips to `OutOfService`, atomicity holds across multi-item messages; v0.28 — ADT^A04 registers an outpatient (PV1-2 = `O`) and an emergency-class encounter (PV1-2 = `E`) in `Arrived` status with no bed; repeat-MRN dedups patient but opens a fresh encounter; missing PV1 → 400; wrong message type at /register → 400; v0.30 — ADT^A12 cancels the most-recent transfer (admit to A → transfer to B → cancel-transfer → patient back on A, B Cleaning); re-cancel → 404; wrong message type → 400; v0.32 — ADT^A05 pre-admits a patient (bed flips to Reserved, encounter Planned); second A05 on the same bed → 409; unknown bed → 404; wrong message type → 400; v0.34 — ADT^A38 cancels the pre-admit (bed → Available, encounter → Cancelled); re-cancel → 409; unknown patient → 404; wrong message type → 400; v0.36 — ADT^A21/A22 LOA round-trip (encounter InProgress → OnLeave → InProgress; bed stays Occupied throughout); second A21 / A22 → 409; wrong message type → 400; v0.39 — ADT^A23 soft-deletes a patient (no admission) + Tantivy drop + outbox PatientDeleted; admitted-patient A23 → 409; unknown MRN → 404; wrong message type → 400; v0.41 — ADT^A06 promotes an active Outpatient encounter to Inpatient (bed Occupied, encounter Inpatient+InProgress); second A06 → 404 (no remaining ambulatory); unknown patient → 404; wrong message type → 400; v0.43 — ADT^A07 demotes an open Inpatient admission to Outpatient (bed Cleaning, encounter Outpatient+InProgress); second A07 → 400 (no remaining open admission); wrong message type → 400 |
-| `tests/hl7v2_mllp_test.rs`        | y  | MLLP TCP listener (ephemeral port): real framed ADT → AA ACK, garbage → AR   |
-| `tests/hl7v2_outbound_test.rs`    | y  | Outbound `Hl7v2MllpPublisher` (2 tests): AA happy path, AE → unpublished retry. v0.25 — `PractitionerCreated`/`Updated`/`Deactivated` map to `MFN^M02` MAD/MUP/MDL; v0.27 — `BedCreated`/`BedUpdated`/`BedRetired` map to `MFN^M05` MAD/MUP/MDL; v0.29 — `EncounterRegistered` maps to `ADT^A04` with PV1-2 = `O`/`E`; v0.31 — `EncounterTransferCancelled` maps to `ADT^A12` with PV1-3 = origin bed code; v0.33 — `EncounterPreAdmitted` maps to `ADT^A05` with PV1-3 = reserved bed code; v0.35 — `EncounterPreAdmitCancelled` maps to `ADT^A38` with PV1-3 = released bed code; v0.37 — `EncounterLeaveStarted` / `EncounterLeaveEnded` map to `ADT^A21` / `ADT^A22` (PID-only, no PV1); v0.40 — `PatientDeleted` maps to `ADT^A23` (PID-only); v0.42 — `EncounterPromotedToInpatient` maps to `ADT^A06` (PV1-3 = bed code); all source-gated on the inbound `hl7v2_*` tags to prevent boomerangs |
-| `tests/webhook_test.rs`           | n  | v0.14: end-to-end POST against an in-process `TcpListener` receiver — verifies body shape, `X-PAS-Event-Id` + `X-PAS-Event-Type` headers, and `X-PAS-Signature` HMAC matches the raw body; `CompositePublisher` fans out to webhook + in-memory subscriber (2 tests, no DB needed) |
-| `tests/dashboard_test.rs`         | y  | `GET /dashboard` returns 200 + `text/html` with every Lily panel header      |
+```bash
+cargo test -- --ignored --test-threads=1
+```
 
 **Benchmarks:** three Criterion suites under `benches/`.
 
@@ -632,7 +576,7 @@ Run with `cargo bench` or e.g. `cargo bench -- adt`.
 **Quality gates:**
 
 ```bash
-cargo test --lib                                          # 365 tests
+cargo test --lib                                          # unit tests
 cargo test                                                # add the integration tests (most need DATABASE_URL and `--ignored`)
 cargo clippy --workspace --all-targets -- -D warnings     # zero warnings
 cargo fmt --check --all                                   # formatting clean
@@ -642,38 +586,8 @@ cargo fmt --check --all                                   # formatting clean
 
 **Version:** v0.49.0 — library + `patient-administration-system` binary + `pas-seed` binary + `pas-migrate` binary. See [`CHANGELOG.md`](CHANGELOG.md) for the per-release summary.
 
-**Implemented:**
-
-- Domain models for all entities (identity, workforce, resources, ADT, scheduling, waitlist + RTT, communication, billing, consent).
-- SeaORM entities, repositories, transactional audit + outbox.
-- Service layer (ADT, scheduling, waitlist, RTT, resources, billing, communication).
-- REST API (~85 routes) + FHIR R5 read/write for Patient, Encounter, Appointment, plus reads for Practitioner / Schedule / Slot / Location.
-- FHIR Bundle writes (`POST /fhir`) with genuine all-or-nothing transaction semantics.
-- Bulk patient interchange in JSON / XML / TSV / CSV (`/api/patients/export.*` + `/api/patients/import`).
-- HL7 v2 ADT — A01 (admit), A02 (transfer), A03 (discharge), A28 (add person), **A08 (update patient)**, **A11 (cancel admit)**, **A13 (cancel discharge)** — over both HTTP and MLLP TCP. **Batch envelope** (`FHS`/`BHS`/`BTS`/`FTS`, v0.6) carries up to 1000 messages per transmission. Outbound MLLP publisher when `HL7V2_OUTBOUND_PEER` is set (source-gated so REST-driven edits don't echo). HL7 v2 escape sequences honored at the boundary. **Exact-MRN dedup** on inbound A01 / A28 — re-sending the same PID reuses the existing patient row and reports `matched existing patient <uuid>` in MSA-3.
-- **Complete OpenAPI 3.1 spec** for every REST + FHIR + HL7 v2 endpoint at `/api-docs/openapi.json` + Swagger UI at `/swagger-ui`. 105 handlers tagged across 19 categories.
-- Bearer-token auth (opt-in via `API_TOKEN`), configurable CORS, compression, request tracing. **Per-IP rate-limit** (v0.12, default 600 req/min with 60-burst, `/api/health` exempt; tunable via `PAS_RATE_LIMIT_RPM` / `PAS_RATE_LIMIT_BURST`).
-- Background outbox dispatcher polling every 2s, forwarding to the configured `EventPublisher`. Bounded retry budget (`PAS_OUTBOX_MAX_RETRIES`, default 10); rows that exceed it move to `outbox_dead_letters` and can be replayed via `POST /api/admin/outbox/dead-letters/{id}/replay`. Built-in publishers: HL7 v2 MLLP outbound (v0.4), HTTP webhook with HMAC-SHA256 signing (v0.14), in-memory; combine via `CompositePublisher` when more than one is configured.
-- Ops dashboard at `GET /dashboard` (Tera + HTMX live-refresh + Lily Design System markup); a parallel Loco-rs front-end sibling crate `patient-administration-system-frontend` (port `:5150`, v0.1.0) also serves it plus patient pages and three write flows that proxy back through this API.
-- Unit tests plus database integration tests (counts: `spec/14-implementation-status.md`); clean `cargo fmt --check --all`, clean `cargo clippy --workspace --all-targets -- -D warnings`.
-- Lean dependency tree (v0.3.1 audit removed 15 unused deps; v0.3.4 removed two unused dev-deps).
-
-**Deferred to later phases:**
-
-- Real JWT / OAuth (bearer-token middleware exists; full identity-provider integration does not).
-- gRPC server (no longer scaffolded — was removed in the v0.3.1 dep audit; reintroduce `tonic` + `prost` + a `build.rs` when actually needed).
-- Fluvio event producer (in-memory + HL7 v2 publishers work; `FluvioEventPublisher` is a stub that returns `Error::Streaming`).
-- (Recurring appointment series landed in v0.9.)
-- Production SMS gateway integrations (Twilio, MessageBird, …) — v0.8 ships the `SmsProvider` trait + `LogSmsProvider` for dev; consumers implement the trait against their gateway of choice.
-- ADT^A02/A03 dedup via MPI; HL7 v2 ORM (orders are clinical, out of PAS scope). HL7 v2 batch envelope landed in v0.6.
-- DICOM Modality Worklists.
-- Probabilistic patient matching — handled by the sister MPI crate.
+What is built and what is not changes with every release, so it is generated rather than written here: see [`spec/14-implementation-status.md`](../spec/14-implementation-status.md), and [`tasks.md`](../tasks.md) for the open work.
 
 ## License
 
-Dual-licensed under either of:
-
-- MIT License
-- Apache License 2.0
-
-at your option.
+Available under any one of MIT, Apache-2.0, BSD-3-Clause, GPL-2.0-only or GPL-3.0-only, at your choice. See [`LICENSE.md`](../LICENSE.md).
