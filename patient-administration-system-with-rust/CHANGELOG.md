@@ -11,6 +11,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - `PAS_REQUIRE_UPSTREAMS=true` refuses to start without `PERSON_SERVICE_URL` and `WORKER_SERVICE_URL`.
 - `POST /fhir` writes: a `transaction` or `batch` Bundle can create `Schedule` and `Slot` records, audited and with an outbox event (`ScheduleCreated`, `SlotCreated`). It used to refuse every entry. `Bundle.type` is now required.
 - `POST /fhir/Slot` refuses a slot whose `end` is not after its `start`.
+- `POST`, `PUT` and `DELETE` on `/fhir/Schedule` and `/fhir/Slot` now write an audit row and an outbox event in the same transaction (FR-204). They wrote neither before, which broke NFR-1 and NFR-2. New events: `ScheduleUpdated`, `ScheduleDeleted`, `SlotUpdated`, `SlotDeleted`. A `Slot` naming a `Schedule` that does not exist is a `400`, not a `500`.
 - `POST /fhir` also creates `Coverage`, books an `Appointment` into a free slot and admits an inpatient `Encounter` to an available bed, under the rules of the REST routes.
 
 ### Removed

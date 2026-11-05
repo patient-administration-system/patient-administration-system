@@ -1,6 +1,11 @@
 //! Part of [`super`]: schedules.
 
+use sea_orm::{DatabaseTransaction, TransactionTrait};
+
 use super::*;
+use crate::api::rest::handlers::request_audit_ctx;
+use crate::db::repositories::audit::{AuditLogRepository, UserContext};
+use crate::db::repositories::outbox::OutboxRepository;
 
 /// Read one element of a FHIR-shaped body as its typed R5 datatype, so a malformed one is refused with
 /// the reason. Elements, not whole resources: a PUT may carry only the fields it changes.
@@ -110,6 +115,72 @@ pub(super) fn slot_from(body: &Value) -> Result<Slot, Error> {
         slot.status = status;
     }
     Ok(slot)
+}
+
+fn audit_value<T: serde::Serialize>(value: &T) -> Result<Value, Error> {
+    serde_json::to_value(value)
+        .map_err(|e| Error::internal(format!("audit value could not be serialized: {e}")))
+}
+
+/// The audit row and the event of one write to a `kind` (`Schedule` or `Slot`), in the transaction that
+/// writes it (NFR-1, NFR-2). `before` and `after` say which write it was: a create has nothing before it
+/// and a delete nothing after, and the event carries the record as it now stands or last stood.
+async fn record(
+    txn: &DatabaseTransaction,
+    kind: &str,
+    id: Uuid,
+    before: Option<Value>,
+    after: Option<Value>,
+    ctx: &UserContext,
+) -> Result<(), Error> {
+    let (action, happened) = match (&before, &after) {
+        (None, _) => ("create", "Created"),
+        (Some(_), Some(_)) => ("update", "Updated"),
+        (Some(_), None) => ("delete", "Deleted"),
+    };
+    let event = after.clone().or_else(|| before.clone()).unwrap_or_default();
+    AuditLogRepository::log(txn, &kind.to_lowercase(), id, action, before, after, ctx).await?;
+    OutboxRepository::publish(txn, &format!("{kind}{happened}"), &event).await
+}
+
+/// Creates a Schedule with its audit row and event, for `POST /fhir/Schedule` and a Bundle entry alike.
+pub(super) async fn save_schedule(
+    txn: &DatabaseTransaction,
+    schedule: &Schedule,
+    ctx: &UserContext,
+) -> Result<Schedule, Error> {
+    let saved = ScheduleRepository::create(txn, schedule).await?;
+    record(
+        txn,
+        "Schedule",
+        saved.id,
+        None,
+        Some(audit_value(&saved)?),
+        ctx,
+    )
+    .await?;
+    Ok(saved)
+}
+
+/// Creates a Slot with its audit row and event, for `POST /fhir/Slot` and a Bundle entry alike.
+pub(super) async fn save_slot(
+    txn: &DatabaseTransaction,
+    slot: &Slot,
+    ctx: &UserContext,
+) -> Result<Slot, Error> {
+    // A foreign key would catch this as a 500, and a Slot naming no Schedule is the caller's mistake.
+    if ScheduleRepository::find_by_id(txn, slot.schedule_id)
+        .await?
+        .is_none()
+    {
+        return Err(Error::validation(format!(
+            "Slot.schedule: Schedule/{} does not exist",
+            slot.schedule_id
+        )));
+    }
+    let saved = SlotRepository::create(txn, slot).await?;
+    record(txn, "Slot", saved.id, None, Some(audit_value(&saved)?), ctx).await?;
+    Ok(saved)
 }
 
 /// The id in a reference such as `Patient/<uuid>`.
@@ -273,11 +344,20 @@ pub(super) fn admission_from(body: &Value) -> Result<(Uuid, Uuid), Error> {
         (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
     )
 )]
-pub async fn create_schedule(State(state): State<AppState>, Json(body): Json<Value>) -> FhirResult {
-    let sched = schedule_from(&body).map_err(error_to_response)?;
-    let saved = ScheduleRepository::create(&state.db, &sched)
-        .await
-        .map_err(error_to_response)?;
+pub async fn create_schedule(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> FhirResult {
+    let saved = async {
+        let schedule = schedule_from(&body)?;
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let saved = save_schedule(&txn, &schedule, &request_audit_ctx(&headers)).await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(saved)
+    }
+    .await
+    .map_err(error_to_response)?;
     fhir_of("Schedule", saved)
 }
 
@@ -295,31 +375,35 @@ pub async fn create_schedule(State(state): State<AppState>, Json(body): Json<Val
 )]
 pub async fn update_schedule(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
     Json(body): Json<Value>,
 ) -> FhirResult {
-    let mut existing = ScheduleRepository::find_by_id(&state.db, id)
-        .await
-        .map_err(error_to_response)?
-        .ok_or_else(|| {
-            (
-                StatusCode::NOT_FOUND,
-                Json(operation_outcome::not_found(format!("Schedule/{id}"))),
-            )
-        })?;
-    if body.get("actor").is_some() || body.get("owner").is_some() {
-        existing.owner = parse_schedule_owner(&body).map_err(error_to_response)?;
+    let saved = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let mut existing = ScheduleRepository::find_by_id(&txn, id)
+            .await?
+            .ok_or_else(|| Error::not_found(format!("Schedule/{id}")))?;
+        let before = audit_value(&existing)?;
+        if body.get("actor").is_some() || body.get("owner").is_some() {
+            existing.owner = parse_schedule_owner(&body)?;
+        }
+        if body.get("service_type").is_some() || body.get("serviceType").is_some() {
+            existing.service_type = parse_service_type(&body);
+        }
+        if let Some(active) = body.get("active").and_then(sea_orm::JsonValue::as_bool) {
+            existing.active = active;
+        }
+        existing.updated_at = chrono::Utc::now();
+        let saved = ScheduleRepository::update(&txn, &existing).await?;
+        let after = audit_value(&saved)?;
+        let ctx = request_audit_ctx(&headers);
+        record(&txn, "Schedule", id, Some(before), Some(after), &ctx).await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(saved)
     }
-    if body.get("service_type").is_some() || body.get("serviceType").is_some() {
-        existing.service_type = parse_service_type(&body);
-    }
-    if let Some(active) = body.get("active").and_then(sea_orm::JsonValue::as_bool) {
-        existing.active = active;
-    }
-    existing.updated_at = chrono::Utc::now();
-    let saved = ScheduleRepository::update(&state.db, &existing)
-        .await
-        .map_err(error_to_response)?;
+    .await
+    .map_err(error_to_response)?;
     fhir_of("Schedule", saved)
 }
 
@@ -337,11 +421,29 @@ pub async fn update_schedule(
 )]
 pub async fn delete_schedule(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, Json<OperationOutcome>)> {
-    ScheduleRepository::delete(&state.db, id)
-        .await
-        .map_err(error_to_response)?;
+    async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let existing = ScheduleRepository::find_by_id(&txn, id)
+            .await?
+            .ok_or_else(|| Error::not_found(format!("Schedule/{id}")))?;
+        ScheduleRepository::delete(&txn, id).await?;
+        let before = Some(audit_value(&existing)?);
+        record(
+            &txn,
+            "Schedule",
+            id,
+            before,
+            None,
+            &request_audit_ctx(&headers),
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)
+    }
+    .await
+    .map_err(error_to_response)?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -412,11 +514,20 @@ pub(super) fn parse_schedule_ref(body: &Value) -> Result<Uuid, Error> {
         (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
     )
 )]
-pub async fn create_slot(State(state): State<AppState>, Json(body): Json<Value>) -> FhirResult {
-    let slot = slot_from(&body).map_err(error_to_response)?;
-    let saved = SlotRepository::create(&state.db, &slot)
-        .await
-        .map_err(error_to_response)?;
+pub async fn create_slot(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> FhirResult {
+    let saved = async {
+        let slot = slot_from(&body)?;
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let saved = save_slot(&txn, &slot, &request_audit_ctx(&headers)).await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(saved)
+    }
+    .await
+    .map_err(error_to_response)?;
     fhir_of("Slot", saved)
 }
 
@@ -434,31 +545,35 @@ pub async fn create_slot(State(state): State<AppState>, Json(body): Json<Value>)
 )]
 pub async fn update_slot(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
     Json(body): Json<Value>,
 ) -> FhirResult {
-    let mut existing = SlotRepository::find_by_id(&state.db, id)
-        .await
-        .map_err(error_to_response)?
-        .ok_or_else(|| {
-            (
-                StatusCode::NOT_FOUND,
-                Json(operation_outcome::not_found(format!("Slot/{id}"))),
-            )
-        })?;
-    if body.get("start").is_some() {
-        existing.start_datetime = parse_dt(&body, "start").map_err(error_to_response)?;
+    let saved = async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let mut existing = SlotRepository::select_for_update(&txn, id)
+            .await?
+            .ok_or_else(|| Error::not_found(format!("Slot/{id}")))?;
+        let before = audit_value(&existing)?;
+        if body.get("start").is_some() {
+            existing.start_datetime = parse_dt(&body, "start")?;
+        }
+        if body.get("end").is_some() {
+            existing.end_datetime = parse_dt(&body, "end")?;
+        }
+        if let Some(status) = parse_slot_status(&body)? {
+            existing.status = status;
+        }
+        existing.updated_at = chrono::Utc::now();
+        let saved = SlotRepository::update(&txn, &existing).await?;
+        let after = audit_value(&saved)?;
+        let ctx = request_audit_ctx(&headers);
+        record(&txn, "Slot", id, Some(before), Some(after), &ctx).await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok::<_, Error>(saved)
     }
-    if body.get("end").is_some() {
-        existing.end_datetime = parse_dt(&body, "end").map_err(error_to_response)?;
-    }
-    if let Some(status) = parse_slot_status(&body).map_err(error_to_response)? {
-        existing.status = status;
-    }
-    existing.updated_at = chrono::Utc::now();
-    let saved = SlotRepository::update(&state.db, &existing)
-        .await
-        .map_err(error_to_response)?;
+    .await
+    .map_err(error_to_response)?;
     fhir_of("Slot", saved)
 }
 
@@ -476,10 +591,20 @@ pub async fn update_slot(
 )]
 pub async fn delete_slot(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, Json<OperationOutcome>)> {
-    SlotRepository::delete(&state.db, id)
-        .await
-        .map_err(error_to_response)?;
+    async {
+        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let existing = SlotRepository::select_for_update(&txn, id)
+            .await?
+            .ok_or_else(|| Error::not_found(format!("Slot/{id}")))?;
+        SlotRepository::delete(&txn, id).await?;
+        let before = Some(audit_value(&existing)?);
+        record(&txn, "Slot", id, before, None, &request_audit_ctx(&headers)).await?;
+        txn.commit().await.map_err(Error::Database)
+    }
+    .await
+    .map_err(error_to_response)?;
     Ok(StatusCode::NO_CONTENT)
 }

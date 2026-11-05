@@ -46,6 +46,10 @@ Routes use `{param}` syntax (axum 0.8).
 | In-place edits and state changes with no version, **not yet examined**: RTT pause, resume and stop (no read route returns a pathway's version; OFH-12); appointment conversion; slot release offer; subscription and dead-letter admin | **No: last writer wins** (patients and practitioners are separate: this service only proxies them to the person-service and worker-service, which own the record and would have to honour `If-Match` themselves) | Each refuses an illegal state change where it has a state machine, but none compares a version. Open: OFH-11 |
 
 HL7 v2 and FHIR writes that change an appointment's status without going through the routes above (`cancel_with`, for one) take no row lock either.
+## Direct Schedule and Slot writes (FR-204)
+
+`POST`, `PUT` and `DELETE` on `/fhir/Schedule` and `/fhir/Slot` write the audit row and the outbox event in the transaction that makes the change, as a Bundle entry does. The events are `ScheduleCreated`, `ScheduleUpdated`, `ScheduleDeleted`, `SlotCreated`, `SlotUpdated` and `SlotDeleted`, and each carries the record as it now stands, or last stood for a delete. A `Slot` naming a `Schedule` that does not exist is a `400`.
+
 ## Write Bundles (FR-202, FR-203)
 
 `POST /fhir` takes a `transaction` or `batch` Bundle, with `request.method` `POST` and `request.url` naming the type of each entry.

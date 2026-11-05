@@ -265,45 +265,11 @@ async fn save(
 ) -> Result<(String, After), Error> {
     match plan {
         Plan::Schedule(schedule) => {
-            let saved = ScheduleRepository::create(txn, schedule).await?;
-            let value = serde_json::to_value(&saved).unwrap_or_default();
-            AuditLogRepository::log(
-                txn,
-                "schedule",
-                saved.id,
-                "create",
-                None,
-                Some(value.clone()),
-                ctx,
-            )
-            .await?;
-            OutboxRepository::publish(txn, "ScheduleCreated", &value).await?;
+            let saved = save_schedule(txn, schedule, ctx).await?;
             Ok((format!("Schedule/{}", saved.id), After::Nothing))
         }
         Plan::Slot(slot) => {
-            // A foreign key would catch this as a 500, and a Slot naming no Schedule is the caller's mistake.
-            if ScheduleRepository::find_by_id(txn, slot.schedule_id)
-                .await?
-                .is_none()
-            {
-                return Err(Error::validation(format!(
-                    "Slot.schedule: Schedule/{} does not exist",
-                    slot.schedule_id
-                )));
-            }
-            let saved = SlotRepository::create(txn, slot).await?;
-            let value = serde_json::to_value(&saved).unwrap_or_default();
-            AuditLogRepository::log(
-                txn,
-                "slot",
-                saved.id,
-                "create",
-                None,
-                Some(value.clone()),
-                ctx,
-            )
-            .await?;
-            OutboxRepository::publish(txn, "SlotCreated", &value).await?;
+            let saved = save_slot(txn, slot, ctx).await?;
             Ok((format!("Slot/{}", saved.id), After::Nothing))
         }
         Plan::Coverage(coverage) => {

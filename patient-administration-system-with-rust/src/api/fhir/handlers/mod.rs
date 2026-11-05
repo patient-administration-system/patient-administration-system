@@ -104,8 +104,9 @@ use crate::db::repositories::slot::SlotRepository;
 
 // ─── Write surface ──────────────────────────────────────────────────────
 //
-// FHIR Schedule + Slot create/update/delete persist directly against the
-// PAS-owned `schedules` / `slots` tables. Bundle POST refuses Patient and
+// FHIR Schedule + Slot create/update/delete write the PAS-owned `schedules`
+// / `slots` tables, each with its audit row and outbox event in the same
+// transaction (FR-204). Bundle POST refuses Patient and
 // Practitioner entries under Decision #4 (those must go through
 // person-service / worker-service directly) and writes the rest; see
 // `bundle.rs`. `POST /fhir/Encounter` and `POST /fhir/Appointment` do not
