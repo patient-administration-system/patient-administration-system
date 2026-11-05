@@ -215,6 +215,29 @@ async fn a_direct_fhir_write_records_its_action_its_values_its_user_and_its_even
     }
 }
 
+/// FHIR-4: a `PUT` meets the rule a `POST` does, whichever end it moves.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_slot_put_cannot_end_a_slot_before_it_starts() {
+    let s = common::build_state(&common::database_url().unwrap()).await;
+    let schedule = common::new_schedule(&s.db).await.id;
+    let slot = common::free_slot(&s.db, schedule, 5).await;
+    let uri = format!("/fhir/Slot/{}", slot.id);
+    let audits = count(&s, "audit_log").await;
+    for body in [
+        serde_json::json!({ "end": slot.start_datetime.to_rfc3339() }),
+        serde_json::json!({ "start": slot.end_datetime.to_rfc3339() }),
+    ] {
+        assert_eq!(send(&s, "PUT", &uri, body).await, StatusCode::BAD_REQUEST);
+    }
+    assert_eq!(count(&s, "audit_log").await, audits, "nothing was written");
+    assert_eq!(
+        send(&s, "PUT", &uri, serde_json::json!({ "status": "busy" })).await,
+        StatusCode::OK,
+        "a PUT that moves neither end is not affected"
+    );
+}
+
 /// FR-204: a refused or failed write leaves nothing behind.
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]

@@ -1,7 +1,7 @@
 <script lang="ts">
   import CalendarView from "@lilydesignsystem/svelte-calendar";
   import type { CalendarEventField } from "@lilydesignsystem/svelte-calendar";
-  import { onMount } from "svelte";
+  import { untrack } from "svelte";
   import type { PageData } from "./$types";
   import { calendarLabels } from "#lib/calendar-labels.js";
   import { i18n, t } from "#lib/i18n.svelte.js";
@@ -9,11 +9,8 @@
 
   let { data }: { data: PageData } = $props();
 
-  let anchorDate = $state("2000-01-01");
-  let today = $state<string | undefined>(undefined);
-  onMount(() => {
-    today = anchorDate = new Date().toISOString().slice(0, 10);
-  });
+  // From the server, so the first HTML shows this month, with or without JavaScript.
+  let anchorDate = $state(untrack(() => data.today));
 
   const events = $derived(appointmentEvents(data.appointments, t));
   const fields = $derived<CalendarEventField[]>([
@@ -37,7 +34,7 @@
     view="agenda"
     bind:anchorDate
     {events}
-    {today}
+    today={data.today}
     locale={i18n.locale}
     {labels}
     eventFields={fields}

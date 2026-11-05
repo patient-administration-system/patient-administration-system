@@ -9,5 +9,6 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
   const { personId } = await requireProofedPatient(locals, fetch, "/my/appointments");
   return {
     appointments: await fromPas(patientAppointments(signedInFetch(fetch, locals), personId), { notFound: true }),
+    today: new Date().toISOString().slice(0, 10),
   };
 };

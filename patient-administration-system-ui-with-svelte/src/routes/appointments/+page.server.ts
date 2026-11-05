@@ -34,5 +34,5 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
   } catch {
     adjustments = [];
   }
-  return { appointments, noshow, adjustments };
+  return { appointments, noshow, adjustments, today: new Date(now).toISOString().slice(0, 10) };
 };

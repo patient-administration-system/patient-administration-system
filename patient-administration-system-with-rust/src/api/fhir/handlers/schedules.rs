@@ -561,6 +561,11 @@ pub async fn update_slot(
         if body.get("end").is_some() {
             existing.end_datetime = parse_dt(&body, "end")?;
         }
+        if (body.get("start").is_some() || body.get("end").is_some())
+            && existing.end_datetime <= existing.start_datetime
+        {
+            return Err(Error::validation("Slot.end must be after Slot.start"));
+        }
         if let Some(status) = parse_slot_status(&body)? {
             existing.status = status;
         }
