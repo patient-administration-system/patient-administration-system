@@ -224,9 +224,11 @@ async fn a_slot_put_cannot_end_a_slot_before_it_starts() {
     let slot = common::free_slot(&s.db, schedule, 5).await;
     let uri = format!("/fhir/Slot/{}", slot.id);
     let audits = count(&s, "audit_log").await;
+    // By an hour: the stored times are rounded to microseconds, so the Slot's own instants may not match them.
+    let hour = chrono::Duration::hours(1);
     for body in [
-        serde_json::json!({ "end": slot.start_datetime.to_rfc3339() }),
-        serde_json::json!({ "start": slot.end_datetime.to_rfc3339() }),
+        serde_json::json!({ "end": (slot.start_datetime - hour).to_rfc3339() }),
+        serde_json::json!({ "start": (slot.end_datetime + hour).to_rfc3339() }),
     ] {
         assert_eq!(send(&s, "PUT", &uri, body).await, StatusCode::BAD_REQUEST);
     }
