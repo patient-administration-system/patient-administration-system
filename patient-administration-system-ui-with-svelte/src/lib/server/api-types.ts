@@ -1534,7 +1534,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** `GET /api/health` — database liveness probe. */
+    /**
+     * `GET /api/health` — the database and the upstream services.
+     * @description `status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,
+     *     so a probe does not pull a replica out of rotation for a fault every replica shares.
+     */
     get: operations["get_api_health"];
     put?: never;
     post?: never;

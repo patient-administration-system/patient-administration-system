@@ -50,6 +50,8 @@ pub struct WorkerMatch {
 /// Async client surface for `worker-service`.
 #[async_trait]
 pub trait WorkerClient: Send + Sync {
+    /// `GET /api/health` on the service: `Ok` when it answers with a success status.
+    async fn ping(&self) -> Result<()>;
     async fn create(&self, worker: WorkerCreate, ctx: &UserContext) -> Result<Worker>;
     async fn get(&self, id: Uuid, ctx: &UserContext) -> Result<Worker>;
     async fn update(&self, id: Uuid, worker: WorkerCreate, ctx: &UserContext) -> Result<Worker>;
@@ -200,6 +202,18 @@ async fn send_envelope_unit(rb: reqwest::RequestBuilder) -> Result<()> {
 
 #[async_trait]
 impl WorkerClient for HttpWorkerClient {
+    async fn ping(&self) -> Result<()> {
+        self.enrich(
+            self.http.get(self.url("/api/health")),
+            &UserContext::system(),
+        )
+        .send()
+        .await
+        .and_then(reqwest::Response::error_for_status)
+        .map_err(|e| Error::upstream(format!("worker-service health: {e}")))?;
+        Ok(())
+    }
+
     async fn create(&self, worker: WorkerCreate, ctx: &UserContext) -> Result<Worker> {
         let rb = self.enrich(self.http.post(self.url("/api/workers")).json(&worker), ctx);
         send_envelope(rb).await
@@ -353,6 +367,10 @@ impl StubWorkerClient {
 
 #[async_trait]
 impl WorkerClient for StubWorkerClient {
+    async fn ping(&self) -> Result<()> {
+        Ok(())
+    }
+
     async fn create(&self, worker: WorkerCreate, _ctx: &UserContext) -> Result<Worker> {
         let id = Uuid::new_v4();
         let new = Worker {

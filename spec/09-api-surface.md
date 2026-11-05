@@ -4,7 +4,7 @@ The generated contract is the OpenAPI document served at `/api-docs/openapi.json
 
 | Method and path | Purpose |
 |---|---|
-| `GET /api/health` | Liveness and database check |
+| `GET /api/health` | Liveness: the database, `person-service` and `worker-service` (NFR-28) |
 | `POST /api/appointments/{id}/cancel`, `/rebook`, `/check-in`, `/complete`, `/no-show`; `PUT /api/appointments/{id}/location`, `/barrier` | `If-Match` required (`428` without, `412` when stale; FR-195, FR-199) |
 | `PUT /api/encounters/{id}/status`, `POST /api/encounters/{id}/cancel`; `PUT /api/beds/{id}/status`; `PUT /api/slots/{id}/capacity`, `/ring-fence` | `If-Match` required (FR-195, FR-199) |
 | `POST /api/admissions/pre-admit` | Optional `hold_minutes` (1 to 10080); the bed is given back when it lapses (FR-200) |

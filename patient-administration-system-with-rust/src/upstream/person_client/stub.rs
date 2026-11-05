@@ -51,6 +51,10 @@ impl StubPersonClient {
 
 #[async_trait]
 impl PersonClient for StubPersonClient {
+    async fn ping(&self) -> Result<()> {
+        Ok(())
+    }
+
     async fn create(&self, person: PersonCreate, _ctx: &UserContext) -> Result<Person> {
         let id = Uuid::new_v4();
         let new = Person {

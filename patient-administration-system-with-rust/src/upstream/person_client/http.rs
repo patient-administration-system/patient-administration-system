@@ -140,6 +140,18 @@ pub(super) async fn send_envelope_unit(rb: reqwest::RequestBuilder) -> Result<()
 
 #[async_trait]
 impl PersonClient for HttpPersonClient {
+    async fn ping(&self) -> Result<()> {
+        self.enrich(
+            self.http.get(self.url("/api/health")),
+            &UserContext::system(),
+        )
+        .send()
+        .await
+        .and_then(reqwest::Response::error_for_status)
+        .map_err(|e| Error::upstream(format!("person-service health: {e}")))?;
+        Ok(())
+    }
+
     async fn create(&self, person: PersonCreate, ctx: &UserContext) -> Result<Person> {
         let rb = self.enrich(self.http.post(self.url("/api/persons")).json(&person), ctx);
         send_envelope(rb).await

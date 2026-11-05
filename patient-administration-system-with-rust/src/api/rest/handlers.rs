@@ -87,7 +87,10 @@ pub fn audit_ctx(uc: &crate::upstream::UserContext) -> crate::db::repositories::
     }
 }
 
-/// `GET /api/health` — database liveness probe.
+/// `GET /api/health` — the database and the upstream services.
+///
+/// `status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,
+/// so a probe does not pull a replica out of rotation for a fault every replica shares.
 #[utoipa::path(
     get,
     path = "/api/health",
@@ -100,11 +103,21 @@ pub fn audit_ctx(uc: &crate::upstream::UserContext) -> crate::db::repositories::
 )]
 pub async fn health(State(state): State<AppState>) -> HandlerResult {
     let db_ok = state.db.ping().await.map(|_| true).unwrap_or(false);
-    let status = if db_ok { "ok" } else { "degraded" };
+    let upstream = state
+        .upstream_probe
+        .check(state.person_client.as_ref(), state.worker_client.as_ref())
+        .await;
+    let status = if db_ok && !upstream.is_degraded() {
+        "ok"
+    } else {
+        "degraded"
+    };
     let database = if db_ok { "ok" } else { "unreachable" };
     ok(serde_json::json!({
         "status": status,
-        "database": database
+        "database": database,
+        "person_service": upstream.person_service.as_str(),
+        "worker_service": upstream.worker_service.as_str(),
     }))
 }
 

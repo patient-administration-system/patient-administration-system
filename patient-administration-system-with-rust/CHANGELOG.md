@@ -5,6 +5,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- `GET /api/health` reports `person_service` and `worker_service`, and says `degraded` when a configured one does not answer (NFR-28).
+
+### Removed
+
+- `SEARCH_INDEX_PATH`, unused since the search index went in v0.44.0.
+
 ## [0.49.0] — 2026-10-21
 
 The migrations crate is 0.3.0 because it now requires `sea-orm-migration` 2.0.

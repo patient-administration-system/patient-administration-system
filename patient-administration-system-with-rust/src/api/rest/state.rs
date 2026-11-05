@@ -65,6 +65,8 @@ pub struct AppState {
     pub person_client: Option<Arc<dyn PersonClient>>,
     /// HTTP client to `worker-service`. `None` when not configured, as for `person_client`.
     pub worker_client: Option<Arc<dyn WorkerClient>>,
+    /// The last answer from both, for `GET /api/health`.
+    pub upstream_probe: Arc<crate::upstream::UpstreamProbe>,
     /// What time it is for the background jobs and the services that decide by the time (QUAL-25).
     pub clock: crate::clock::SharedClock,
 }
@@ -160,6 +162,7 @@ impl AppState {
             communication,
             person_client: None,
             worker_client: None,
+            upstream_probe: Arc::default(),
             clock: crate::clock::system(),
             db,
             publisher,

@@ -58,6 +58,8 @@ pub struct PersonMatch {
 /// translation rules.
 #[async_trait]
 pub trait PersonClient: Send + Sync {
+    /// `GET /api/health` on the service: `Ok` when it answers with a success status.
+    async fn ping(&self) -> Result<()>;
     async fn create(&self, person: PersonCreate, ctx: &UserContext) -> Result<Person>;
     async fn get(&self, id: Uuid, ctx: &UserContext) -> Result<Person>;
     async fn update(&self, id: Uuid, person: PersonCreate, ctx: &UserContext) -> Result<Person>;

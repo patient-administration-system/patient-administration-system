@@ -23699,6 +23699,7 @@
     },
     "/api/health": {
       "get": {
+        "description": "`status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,\nso a probe does not pull a replica out of rotation for a fault every replica shares.",
         "operationId": "get_api_health",
         "responses": {
           "200": {
@@ -23712,7 +23713,7 @@
           }
         },
         "security": [],
-        "summary": "`GET /api/health` — database liveness probe.",
+        "summary": "`GET /api/health` — the database and the upstream services.",
         "tags": [
           "Health"
         ]

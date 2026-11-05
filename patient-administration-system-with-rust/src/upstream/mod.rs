@@ -23,11 +23,13 @@
 //!   that satisfy the trait without any HTTP at all. Integration tests install them via `AppState`.
 
 pub mod person_client;
+pub mod probe;
 pub mod worker_client;
 
 pub use person_client::{
     HttpPersonClient, Person, PersonClient, PersonCreate, PersonMatch, StubPersonClient,
 };
+pub use probe::{UpstreamProbe, UpstreamState, UpstreamStatus};
 pub use worker_client::{
     HttpWorkerClient, StubWorkerClient, Worker, WorkerClient, WorkerCreate, WorkerMatch,
 };
