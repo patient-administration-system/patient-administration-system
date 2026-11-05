@@ -1,50 +1,14 @@
 # Match / Search / Merge
 
-> **v0.44.0 Option C: fully delegated.** Person matching, search, dedup, and merge all live in `person-service`. Worker matching, search, dedup, and merge all live in `worker-service`. The PAS calls those services over HTTP and proxies the result through its legacy `/api/patients/*` and `/api/practitioners/*` URLs. The PAS no longer holds any matching code, search index, or merge tombstone logic — every section below is **v0.43.0 archaeology** until Layer 11C lands.
+Person matching, search, dedup and merge all live in `person-service`, and the same for workers in `worker-service`. The PAS holds no matching code, search index or merge tombstones, and no `patients` table: it stores an opaque `person_id`.
 
-> **Shipped v0.43.0 (below).** Probabilistic *decisions* about identity belong to the sister MPI crate (`master-patient-index-rust-crate`, now realized as `person-service`). The PAS implements the deterministic pieces — search, exact-MRN dedup on HL7 v2 ingest, and the merge *application* — and leaves the decisioning to MPI / operators.
+## What the PAS does
 
-## In scope for the PAS
-
-### Search
-
-Tantivy-backed full-text search over the patient demographic snapshot.
-
-- Schema fields: `id`, `family_name`, `given_names`, `birth_date`, `mrn`, `postal_code`.
-- `SearchEngine::new(path)` opens or creates the index at the configured `SEARCH_INDEX_PATH`.
-- `index_patient`, `delete_patient`, and `search(query, opts)` keep the index in lockstep with patient create / update / delete / merge handlers.
-- Exposed via `GET /api/patients/search?q=…&limit=N`.
-
-### Match — exact-MRN dedup on HL7 v2 ADT^A01 / ^A28
-
-PID-3.1 lookup via Postgres JSONB `@>` containment query. If a non-deleted patient with that MRN exists *and* the matched row actually carries that MRN type, the existing patient is reused — no duplicate insert, no audit, no Tantivy re-index. AA ACK reports `matched existing patient <uuid>` in MSA-3. This is the PAS's only matching surface; everything probabilistic is the MPI's job.
-
-### Merge tombstone (v0.11)
-
-When the MPI determines two PAS patient rows refer to the same person (or an operator decides), call **`POST /api/patients/{source_id}/merge-into/{target_id}`**:
-
-- The source row becomes a **merge tombstone**: `replaced_by = target_id`, `active = false`. Both rows survive in the database for audit; the source is dropped from the Tantivy search index and excluded from default `GET /api/patients` listings.
-- FHIR R5 surfaces the link as `Patient.link[type = "replaced-by"]` on the tombstone.
-- An `audit_log` row (`action = "merge_into"`) and an outbox `PatientMerged { source_id, target_id }` event fire in the same transaction.
-- The inverse direction is available at `GET /api/patients/{id}/replaces` (every tombstone pointing at this row, newest-first).
-- **HL7 v2 ADT^A40** (v0.18) is the same operation arriving over HL7 v2: survivor in PID, source MRN in MRG-1.1. Outbound `Hl7v2MllpPublisher` emits ADT^A40 on `PatientMerged` events, source-gated to avoid echoing inbound A40 back to the EMR that sent it.
-
-Conflict matrix: self-merge (`id == target_id`) → 400; source already a tombstone → 409 (no chained merges); either row missing → 404.
-
-### Identity linkage with MPI
-
-- `Patient.mpi_id: Option<Uuid>` is the only link to the MPI identity service. The PAS does not depend on the MPI crate; identity resolution is out-of-band.
-- Merge-back integration: the MPI calls the merge endpoint above; the PAS does not call the MPI.
+- **Search:** `GET /api/patients/search` passes through to `person-service`.
+- **HL7 v2 ADT:** a message's PID is resolved to a person through `person-service`, which is where a repeat MRN is recognised. Without the service the message gets an `AE` ACK.
+- **Merge, from `person-service`:** `POST /api/upstream/person-merged` is a signed webhook. It needs `PERSON_SERVICE_WEBHOOK_SECRET`, refuses every call without it, and moves the PAS's own `person_id` columns to the survivor. `POST /api/upstream/worker-merged` is the same for workers.
+- **Merge, from HL7 v2:** `POST /api/hl7/v2/merge` takes an ADT^A40 with the survivor in PID and the source MRN in MRG-1.1, resolves both through `person-service` and asks it to merge.
 
 ## Out of scope for the PAS
 
-These features live in the MPI crate, not here:
-
-- Probabilistic matching (Jaro-Winkler / weighted field-by-field scoring with confidence thresholds).
-- Soundex / phonetic matching.
-- Real-time fuzzy duplicate detection on registration (returning 409 from a similarity score).
-- Batch fuzzy duplicate detection with a review queue.
-- Merge *decisioning* (picking the survivor; combining demographics; resolving conflicts).
-- Geo-radius search.
-
-If a deployment needs probabilistic matching it integrates with the MPI as a separate service. `Patient.mpi_id` is the integration seam, and the merge endpoint above is how the MPI's decisions land in the PAS.
+Probabilistic and phonetic matching, duplicate detection, and deciding which record survives a merge all belong to `person-service`.
