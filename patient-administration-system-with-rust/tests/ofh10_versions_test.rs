@@ -884,3 +884,36 @@ async fn cancelling_a_series_never_cancels_a_patient_who_has_arrived() {
         }
     }
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_conversion_review_never_undoes_a_check_in_that_happened_at_the_same_time() {
+    use patient_administration_system::virtual_visits::Review;
+    let (s, _app) = world().await;
+    let ctx = UserContext::system();
+    for _ in 0..20 {
+        let a = booked(&s).await;
+        s.db.execute_unprepared(&format!(
+            "UPDATE appointments SET modality = 'video', conversion_state = 'pending_review' WHERE id = '{}'",
+            a.id
+        ))
+        .await
+        .unwrap();
+        let (review, check_in) = tokio::join!(
+            s.virtual_visits.review(a.id, Review::Confirm, &ctx),
+            s.scheduling.check_in(a.id, &ctx),
+        );
+        let now = AppointmentRepository::find_by_id(&s.db, a.id)
+            .await
+            .unwrap()
+            .unwrap();
+        if check_in.is_ok() {
+            assert_eq!(
+                now.status,
+                AppointmentStatus::Arrived,
+                "the review undid the check-in ({review:?})"
+            );
+            assert!(now.arrived_at.is_some(), "the arrival time was lost");
+        }
+    }
+}

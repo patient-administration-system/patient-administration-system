@@ -211,9 +211,9 @@ impl VirtualVisitService {
         self.db
             .transaction::<_, Appointment, Error>(|txn| {
                 Box::pin(async move {
-                    let mut a = AppointmentRepository::find_by_id(txn, appointment_id)
-                        .await?
-                        .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
+                    // Lock the row and judge it as it is now (OFH-11): this writes the whole appointment back, so a
+                    // check-in or cancel since a plain read would otherwise be overwritten.
+                    let mut a = AppointmentRepository::lock_if_current(txn, appointment_id, None).await?;
                     if a.conversion_state != Some(ConversionState::PendingReview) {
                         return Err(Error::conflict(
                             "that appointment has no conversion waiting for review",
