@@ -5,7 +5,7 @@
 
 use axa::{
     AppContext, Environment, Error, Result,
-    cli::{Cli, Command, DbCommand},
+    cli::{self, Cli, Command, DbCommand},
     config::{Config, Defaults, MB},
     middleware,
     routes::AppRoutes,
@@ -20,6 +20,13 @@ use crate::{controllers, views::Views};
 /// Served at `/static`. Files may be absent: a service with no static files still boots.
 const STATIC_FOLDER: &str = "assets/static";
 
+/// What the pages load: the layout's `<style>` block and `style` attributes, HTMX from unpkg (pinned
+/// by its integrity hash), and HTMX's panel refreshes. axa's default policy suits a JSON API and
+/// would block all of these. `HTTP_CSP` replaces it.
+const PAGE_CSP: &str = "default-src 'none'; script-src https://unpkg.com; style-src 'unsafe-inline'; \
+                        connect-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; \
+                        frame-ancestors 'none'";
+
 pub struct App;
 
 fn defaults() -> Defaults {
@@ -29,6 +36,9 @@ fn defaults() -> Defaults {
         production_port: None,
         body_limit: 2 * MB,
         max_connections: 10,
+        // The PAS database is not this service's: `pas-migrate` applies its migrations.
+        auto_migrate: false,
+        ..Defaults::default()
     }
 }
 
@@ -43,9 +53,17 @@ fn setting(environment: &Environment, name: &str) -> Option<&'static str> {
         "DB_CONNECT_TIMEOUT" => Some(if production { "10000" } else { "5000" }),
         "DB_IDLE_TIMEOUT" => Some(if production { "30000" } else { "5000" }),
         "DB_MAX_CONNECTIONS" if test => Some("2"),
+        "HTTP_CSP" => Some(PAGE_CSP),
         "HTTP_COMPRESSION" if !test => Some("true"),
         _ => None,
     }
+}
+
+/// A setting from the process environment, or else this service's own value for it.
+fn lookup(environment: &Environment, name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .or_else(|| setting(environment, name).map(String::from))
 }
 
 impl App {
@@ -55,11 +73,7 @@ impl App {
     ///
     /// Fails when production has no `DATABASE_URL`, or lists `*` as a CORS origin.
     pub fn config(environment: &Environment) -> Result<Config> {
-        Config::from_lookup(environment, &defaults(), |name| {
-            std::env::var(name)
-                .ok()
-                .or_else(|| setting(environment, name).map(String::from))
-        })
+        Config::from_lookup(environment, &defaults(), |name| lookup(environment, name))
     }
 
     /// Connects to the database.
@@ -120,6 +134,13 @@ impl App {
             .environment
             .as_deref()
             .map_or_else(Environment::from_env, Environment::parse);
+        // Before the database, so that settings can be checked anywhere they are going to run.
+        if matches!(cli.command, Command::Check) {
+            let report =
+                cli::check_report(&environment, &defaults(), |name| lookup(&environment, name))?;
+            print!("{report}");
+            return Ok(());
+        }
         let mut config = Self::config(&environment)?;
         if let Command::Start { binding, port, .. } = &cli.command {
             if let Some(binding) = binding {
@@ -137,6 +158,7 @@ impl App {
             // There are no tasks and no background jobs: the PAS binary owns the outbox dispatcher.
             Command::Task { name: None, .. } => Ok(()),
             Command::Task { name: Some(_), .. } => Err(Error::string("this service has no tasks")),
+            Command::Check => Ok(()),
         }
     }
 }
@@ -168,7 +190,7 @@ mod tests {
     #[test]
     fn production_keeps_the_pool_it_had() {
         let settings = |name: &str| match name {
-            "DATABASE_URL" => Some("postgres://example/pas".to_string()),
+            "DATABASE_URL" => Some("postgres://example/pas?sslmode=require".to_string()),
             other => setting(&Environment::Production, other).map(String::from),
         };
         let config = Config::from_lookup(&Environment::Production, &defaults(), settings).unwrap();
@@ -178,5 +200,56 @@ mod tests {
         assert_eq!(config.database.idle_timeout, 30_000);
         assert_eq!(config.server.port, 5150);
         assert!(config.http.cors_origins.is_empty(), "no CORS in production");
+    }
+
+    #[test]
+    fn production_refuses_a_database_url_that_does_not_ask_for_tls() {
+        let settings = |name: &str| match name {
+            "DATABASE_URL" => Some("postgres://example/pas".to_string()),
+            other => setting(&Environment::Production, other).map(String::from),
+        };
+        assert!(Config::from_lookup(&Environment::Production, &defaults(), settings).is_err());
+    }
+
+    #[test]
+    fn this_service_does_not_migrate_the_database_it_shares() {
+        let development = with_no_environment(&Environment::Development).unwrap();
+        assert!(!development.database.auto_migrate);
+    }
+
+    #[test]
+    fn every_environment_sends_the_page_policy() {
+        for environment in [Environment::Development, Environment::Test] {
+            let config = with_no_environment(&environment).unwrap();
+            assert_eq!(config.http.csp.as_deref(), Some(PAGE_CSP));
+        }
+    }
+
+    /// If the layout starts loading something else, this says the policy would block it.
+    #[test]
+    fn the_page_policy_allows_what_the_layout_loads() {
+        let layout = std::fs::read_to_string("assets/views/layouts/main.html").unwrap();
+        assert!(layout.contains("<style>") && PAGE_CSP.contains("style-src 'unsafe-inline'"));
+        let scripts: Vec<&str> = layout
+            .split("src=\"")
+            .skip(1)
+            .filter_map(|rest| rest.split('"').next())
+            .collect();
+        assert_eq!(scripts.len(), 1, "{scripts:?}");
+        let origin = scripts[0].split('/').take(3).collect::<Vec<_>>().join("/");
+        assert!(
+            PAGE_CSP.contains(&format!("script-src {origin}")),
+            "{origin}"
+        );
+    }
+
+    /// The operator's way to see these settings, and it must work without a database.
+    #[test]
+    fn check_reports_the_page_policy() {
+        let report = cli::check_report(&Environment::Development, &defaults(), |name| {
+            setting(&Environment::Development, name).map(String::from)
+        })
+        .unwrap();
+        assert!(report.contains("HTTP_CSP"), "{report}");
     }
 }

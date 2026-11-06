@@ -440,14 +440,41 @@ dependencies = [
 
 [[package]]
 name = "axa"
-version = "0.1.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18a3402379ae5f5244349d020b7e8f4a35612d59a2f47c14d4a4891fdbb6d9dc"
+checksum = "ba21d59ab7d03d8ed17898882737482fc25859de431c001c2fbb24880366c6b1"
 dependencies = [
  "async-trait",
+ "axa-environment",
+ "axa-seaorm",
  "axum",
  "axum-test",
  "clap",
+ "hyper",
+ "hyper-util",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tower-http 0.7.1",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "axa-environment"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aeb36293430bafb06d1e29f5e213623d127444cdd234003b413a46207c03bbd3"
+
+[[package]]
+name = "axa-seaorm"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "478abf3cbdf29efd6f4f390ef9059b33cf350290e4a6c8f60c608ea471c08ead"
+dependencies = [
  "cruet",
  "heck 0.5.0",
  "sea-orm",
@@ -455,11 +482,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "tokio",
- "tower-http 0.6.11",
- "tracing",
- "tracing-subscriber",
- "uuid",
+ "validator",
 ]
 
 [[package]]
@@ -1124,11 +1147,10 @@ checksum = "a31eee39dddec8330830986fcd7625edb5a24ec90ea038215273bbc3adb08ac6"
 
 [[package]]
 name = "cruet"
-version = "0.15.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7a9ae414b9768aada1b316493261653e41af05c9d2ccc9c504a8fc051c6a790"
+checksum = "28049cb85be0d073a0e90983c15b50d730f59292985cd17bfab0ce090f158c31"
 dependencies = [
- "once_cell",
  "regex",
 ]
 
@@ -1927,6 +1949,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "h2"
+version = "0.4.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d29020232d6aa3fb1daca64c1127cf662cf97f254ae16c18c05b8ab635fc118"
+dependencies = [
+ "atomic-waker",
+ "bytes",
+ "fnv",
+ "futures-core",
+ "futures-sink",
+ "http",
+ "indexmap 2.14.2",
+ "slab",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "half"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2083,7 +2124,9 @@ checksum = "2c3e324da4c95177d6291d4c8730197c0d1822f8a9766814a4a44fa5ab797c9c"
 dependencies = [
  "atomic-waker",
  "bytes",
+ "futures-channel",
  "futures-core",
+ "h2",
  "http",
  "http-body",
  "httparse",
@@ -4900,6 +4943,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "libc",
  "pin-project-lite",
  "tokio",
 ]
@@ -4956,7 +5000,6 @@ version = "0.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cfcf7e2740e6fc6d4d688b4ef00650406bb94adf4731e43c096c3a19fe40840"
 dependencies = [
- "async-compression",
  "bitflags 2.13.2",
  "bytes",
  "futures-core",
@@ -4975,7 +5018,6 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
- "tracing",
  "url",
 ]
 
@@ -4989,8 +5031,10 @@ dependencies = [
  "bitflags 2.13.2",
  "bytes",
  "futures-core",
+ "futures-util",
  "http",
  "http-body",
+ "http-body-util",
  "percent-encoding",
  "pin-project-lite",
  "tokio",
@@ -5291,6 +5335,20 @@ dependencies = [
  "serde_core",
  "sha1_smol",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "validator"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d68c6633c483df6780cc5277a417c7c2d1bceee2649d06c8ab6b0fd2dd3c81"
+dependencies = [
+ "idna",
+ "regex",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "url",
 ]
 
 [[package]]

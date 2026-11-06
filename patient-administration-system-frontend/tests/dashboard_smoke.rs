@@ -50,6 +50,15 @@ async fn dashboard_renders_lily_markup() {
         resp.assert_status_ok();
         let body = resp.text();
 
+        // The policy is for pages: axa's default would blank this one.
+        let policy = resp.header("content-security-policy");
+        assert!(
+            policy
+                .to_str()
+                .unwrap()
+                .contains("style-src 'unsafe-inline'")
+        );
+
         // HTMX is loaded as a CDN script.
         assert!(body.contains("htmx.org@"), "page should embed HTMX");
 

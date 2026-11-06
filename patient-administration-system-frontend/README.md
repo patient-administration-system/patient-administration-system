@@ -79,11 +79,14 @@ All write flows (POST endpoints) go through the PAS Axum API so audit + outbox e
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `DATABASE_URL` | the local PAS database; required in production | PostgreSQL connection string (same DB as PAS Axum) |
-| `APP_ENV` | `development` | `production` turns on HSTS and refuses to boot without `DATABASE_URL` |
+| `DATABASE_URL` | the local PAS database; required in production | PostgreSQL connection string (same DB as PAS Axum). In production it must set `sslmode` to `require`, `verify-ca` or `verify-full`, unless it is a loopback address or `DB_ALLOW_INSECURE=true` |
+| `APP_ENV` | `development` in a debug build, `production` in a release build | `production` turns on HSTS and refuses to boot without `DATABASE_URL` |
+| `HTTP_CSP` | the policy in `src/app.rs` | Replaces the `content-security-policy` header. Every environment sends the same one, so a page that breaks under it breaks in development first |
 | `PORT` | `5150` | The port to listen on |
 | `PAS_API_URL` | `http://localhost:8080` | Base URL for the PAS Axum API — every write flow routes through it |
 | `PAS_COOKIE_SECURE` | unset (off) | Set to `1` / `true` / `yes` in production so the `pas_csrf` cookie carries the `Secure` flag (HTTPS-only). Off in dev so plaintext-HTTP localhost works. |
+
+Run `patient-administration-system-frontend check` with a deployment's settings before starting it. It prints what the service will use, needs no database, and fails on a setting that makes no sense.
 
 ## Security — CSRF on write forms
 
