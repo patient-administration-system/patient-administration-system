@@ -40,7 +40,7 @@ serde_json = "1.0"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "query", "form"] }
 
 # Utilities.
-uuid = { version = "1.28", features = ["v4", "serde"] }
+uuid = { version = "1.29", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2.0"
 
