@@ -11,6 +11,7 @@ use patient_administration_system::api::rest::AppState;
 use patient_administration_system::contact::ProfileInput;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::sql::Conn;
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
 use patient_administration_system::reply_links;
 use tower::ServiceExt;
@@ -235,10 +236,17 @@ async fn key_2_with_nothing_to_offer_hands_over_to_a_person() {
         AppointmentStatus::Booked,
         "the appointment stands"
     );
-    let calls = w.s.ladder.open_calls(500).await.unwrap();
-    assert!(calls.iter().any(
-        |c| c["appointment_id"] == w.appt.id.to_string() && c["reason"] == "reschedule_request"
-    ));
+    // Looked up directly: the staff list is soonest first and stops at 500, and a reused database can hold more.
+    let open =
+        w.s.db
+            .count(patient_administration_system::db::sql::Stmt::new(
+                "SELECT count(*) AS n FROM staff_call_tasks \
+             WHERE appointment_id = $1 AND reason = 'reschedule_request' AND handled_at IS NULL",
+                [w.appt.id.into()],
+            ))
+            .await
+            .unwrap();
+    assert_eq!(open, 1, "a person has been asked to call");
 }
 
 #[tokio::test]

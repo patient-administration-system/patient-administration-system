@@ -1,73 +1,30 @@
 //! `schedules` + `slots` tables — read-only for the appointment booker.
 
 use chrono::{DateTime, Duration, FixedOffset, Utc};
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, QueryOrder};
 use serde::Serialize;
+use sqlx::PgPool;
 use uuid::Uuid;
 
-mod schedule_entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "schedules")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub owner_kind: String,
-        pub owner_id: Uuid,
-        pub service_type: String,
-        pub active: bool,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
-}
-
-mod slot_entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "slots")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub schedule_id: Uuid,
-        pub start_datetime: chrono::DateTime<chrono::FixedOffset>,
-        pub end_datetime: chrono::DateTime<chrono::FixedOffset>,
-        pub status: String,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
-}
-
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 pub struct ScheduleRow {
     pub id: Uuid,
     pub service_type: String,
 }
 
-pub async fn list_active_schedules(db: &DatabaseConnection) -> Result<Vec<ScheduleRow>, DbErr> {
-    let rows = schedule_entity::Entity::find()
-        .filter(schedule_entity::Column::Active.eq(true))
-        .order_by_asc(schedule_entity::Column::ServiceType)
-        .all(db)
-        .await?;
-    Ok(rows
-        .into_iter()
-        .map(|m| ScheduleRow {
-            id: m.id,
-            service_type: m.service_type,
-        })
-        .collect())
+pub async fn list_active_schedules(db: &PgPool) -> Result<Vec<ScheduleRow>, sqlx::Error> {
+    sqlx::query_as(
+        "SELECT id, service_type FROM schedules WHERE active = true ORDER BY service_type",
+    )
+    .fetch_all(db)
+    .await
+}
+
+#[derive(sqlx::FromRow)]
+struct SlotRecord {
+    id: Uuid,
+    schedule_id: Uuid,
+    start_datetime: DateTime<FixedOffset>,
+    end_datetime: DateTime<FixedOffset>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -83,20 +40,23 @@ pub struct FreeSlotRow {
 
 /// Free slots for a given schedule starting between `now` and `now + days`.
 pub async fn list_free_slots(
-    db: &DatabaseConnection,
+    db: &PgPool,
     schedule_id: Uuid,
     days: i64,
-) -> Result<Vec<FreeSlotRow>, DbErr> {
+) -> Result<Vec<FreeSlotRow>, sqlx::Error> {
     let now: DateTime<FixedOffset> = Utc::now().fixed_offset();
     let horizon = now + Duration::days(days);
-    let rows = slot_entity::Entity::find()
-        .filter(slot_entity::Column::ScheduleId.eq(schedule_id))
-        .filter(slot_entity::Column::Status.eq("free"))
-        .filter(slot_entity::Column::StartDatetime.gte(now))
-        .filter(slot_entity::Column::StartDatetime.lte(horizon))
-        .order_by_asc(slot_entity::Column::StartDatetime)
-        .all(db)
-        .await?;
+    let rows: Vec<SlotRecord> = sqlx::query_as(
+        "SELECT id, schedule_id, start_datetime, end_datetime FROM slots \
+         WHERE schedule_id = $1 AND status = 'free' \
+           AND start_datetime >= $2 AND start_datetime <= $3 \
+         ORDER BY start_datetime",
+    )
+    .bind(schedule_id)
+    .bind(now)
+    .bind(horizon)
+    .fetch_all(db)
+    .await?;
     Ok(rows
         .into_iter()
         .map(|m| FreeSlotRow {

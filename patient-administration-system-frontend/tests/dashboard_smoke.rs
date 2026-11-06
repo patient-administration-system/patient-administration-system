@@ -435,7 +435,7 @@ async fn stub_person_service() -> String {
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 #[serial]
 async fn ward_and_rtt_pages_render_with_an_occupied_bed_and_an_active_pathway() {
-    use sea_orm::ConnectionTrait;
+    use sqlx::AssertSqlSafe;
     let url = stub_person_service().await;
     // SAFETY: #[serial] keeps every other test in this binary from running now.
     unsafe { std::env::set_var("PERSON_SERVICE_URL", &url) };
@@ -455,7 +455,7 @@ async fn ward_and_rtt_pages_render_with_an_occupied_bed_and_an_active_pathway() 
              INSERT INTO rtt_clock_events (id,pathway_id,kind,event_at,created_at) VALUES ('{}','{pathway}','started',now() - interval '30 days',now());",
             uuid::Uuid::new_v4()
         );
-        ctx.db.execute_unprepared(&seed).await.expect("seed");
+        sqlx::raw_sql(AssertSqlSafe(seed)).execute(&ctx.db).await.expect("seed");
 
         let ward_page = request.get(&format!("/wards/{ward}")).await;
         let rtt_page = request.get("/rtt").await;
@@ -470,7 +470,7 @@ async fn ward_and_rtt_pages_render_with_an_occupied_bed_and_an_active_pathway() 
              DELETE FROM wards WHERE id='{ward}';
              DELETE FROM facilities WHERE id='{facility}';"
         );
-        ctx.db.execute_unprepared(&cleanup).await.expect("cleanup");
+        sqlx::raw_sql(AssertSqlSafe(cleanup)).execute(&ctx.db).await.expect("cleanup");
 
         ward_page.assert_status_ok();
         assert!(ward_page.text().contains("Stubfamily"), "ward page: {}", ward_page.text());
@@ -521,6 +521,135 @@ async fn the_commands_that_would_destroy_the_shared_database_refuse() {
     request::<App, _, _>(|request, _ctx| async move {
         let body = request.get("/_health").await.text();
         assert!(body.contains("\"database\":\"ok\""), "{body}");
+    })
+    .await;
+}
+
+/// SQLX-1: every read in `models` runs against rows, and returns what was seeded. sqlx checks
+/// SQL and column types at run time, the dashboard swallows read errors, and several reads sit
+/// behind an empty guard, so the page tests alone can pass over a broken query.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+#[serial]
+async fn every_read_returns_the_rows_seeded_for_it() {
+    use patient_administration_system_frontend::models::{
+        audit, bed, letter_template, occupancy, outbox, rtt, schedule, ward,
+    };
+    use sqlx::AssertSqlSafe;
+
+    let url = stub_person_service().await;
+    // SAFETY: #[serial] keeps every other test in this binary from running now.
+    unsafe { std::env::set_var("PERSON_SERVICE_URL", &url) };
+    request::<App, _, _>(|_request, ctx| async move {
+        let ids: Vec<uuid::Uuid> = (0..14).map(|_| uuid::Uuid::new_v4()).collect();
+        let [
+            facility,
+            ward_id,
+            room,
+            occupied,
+            free,
+            encounter,
+            assignment,
+            person,
+            pathway,
+            schedule_id,
+            slot,
+            template,
+            event,
+            audit_id,
+        ] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map(|i| ids[i]);
+        let tag = &facility.simple().to_string()[..8];
+        let seed = format!(
+            "INSERT INTO facilities (id,name,code,address,created_at,updated_at) VALUES ('{facility}','F {tag}','F{tag}','{{}}',now(),now());
+             INSERT INTO wards (id,facility_id,name,code,capacity,created_at,updated_at) VALUES ('{ward_id}','{facility}','W {tag}','W{tag}',2,now(),now());
+             INSERT INTO rooms (id,ward_id,name,code,created_at,updated_at) VALUES ('{room}','{ward_id}','R {tag}','R{tag}',now(),now());
+             INSERT INTO beds (id,room_id,name,code,status,created_at,updated_at) VALUES
+               ('{occupied}','{room}','B1 {tag}','B1{tag}','occupied',now(),now()),
+               ('{free}','{room}','B2 {tag}','B2{tag}','available',now(),now());
+             INSERT INTO encounters (id,person_id,class,status,period_start,created_at,updated_at) VALUES ('{encounter}','{person}','inpatient','in-progress',now(),now(),now());
+             INSERT INTO bed_assignments (id,encounter_id,bed_id,assigned_at,created_at,updated_at) VALUES ('{assignment}','{encounter}','{occupied}',now(),now(),now());
+             INSERT INTO rtt_pathways (id,person_id,target_service,started_at,created_at,updated_at) VALUES ('{pathway}','{person}','Sqlx {tag}',now() - interval '21 days',now(),now());
+             INSERT INTO rtt_clock_events (id,pathway_id,kind,event_at,created_at) VALUES ('{event}','{pathway}','started',now() - interval '21 days',now());
+             INSERT INTO schedules (id,owner_kind,owner_id,service_type,created_at,updated_at) VALUES ('{schedule_id}','worker','{person}','Sqlx {tag}',now(),now());
+             INSERT INTO slots (id,schedule_id,start_datetime,end_datetime,created_at,updated_at) VALUES ('{slot}','{schedule_id}',now() + interval '1 day',now() + interval '1 day 30 minutes',now(),now());
+             INSERT INTO letter_templates (id,name,subject,body_tera,channels,created_at,updated_at) VALUES ('{template}','Sqlx {tag}','Subject','Body','[\"post\",\"email\"]',now(),now());
+             INSERT INTO outbox_events (id,event_type,payload) VALUES ('{audit_id}','sqlx.test','{{}}');
+             INSERT INTO audit_log (id,entity_type,entity_id,action,at) VALUES ('{audit_id}','sqlx-{tag}','{ward_id}','read',now() + interval '1 hour');"
+        );
+        sqlx::raw_sql(AssertSqlSafe(seed)).execute(&ctx.db).await.expect("seed");
+
+        let db = &ctx.db;
+        let unpublished = outbox::count_unpublished(db).await;
+        let recent = audit::list_recent_audit(db, 1).await;
+        let wards = ward::list_active_wards(db).await;
+        let by_ids = ward::find_wards_by_ids(db, &[ward_id]).await;
+        let by_id = ward::find_ward_by_id(db, ward_id).await;
+        let missing = ward::find_ward_by_id(db, uuid::Uuid::new_v4()).await;
+        let statuses = bed::list_by_ward(db, ward_id).await;
+        let available = bed::list_available(db).await;
+        let detailed = bed::list_by_ward_detailed(db, ward_id).await;
+        let occupants = occupancy::current_occupants_for_beds(db, &[occupied, free]).await;
+        let schedules = schedule::list_active_schedules(db).await;
+        let slots = schedule::list_free_slots(db, schedule_id, 2).await;
+        let templates = letter_template::list_active_templates(db).await;
+        let pathways = rtt::list_active_pathways(db).await;
+
+        let cleanup = format!(
+            "DELETE FROM audit_log WHERE id='{audit_id}';
+             DELETE FROM outbox_events WHERE id='{audit_id}';
+             DELETE FROM letter_templates WHERE id='{template}';
+             DELETE FROM slots WHERE id='{slot}';
+             DELETE FROM schedules WHERE id='{schedule_id}';
+             DELETE FROM rtt_clock_events WHERE pathway_id='{pathway}';
+             DELETE FROM rtt_pathways WHERE id='{pathway}';
+             DELETE FROM bed_assignments WHERE id='{assignment}';
+             DELETE FROM encounters WHERE id='{encounter}';
+             DELETE FROM beds WHERE room_id='{room}';
+             DELETE FROM rooms WHERE id='{room}';
+             DELETE FROM wards WHERE id='{ward_id}';
+             DELETE FROM facilities WHERE id='{facility}';"
+        );
+        sqlx::raw_sql(AssertSqlSafe(cleanup)).execute(&ctx.db).await.expect("cleanup");
+
+        assert!(unpublished.expect("outbox") >= 1);
+        let recent = recent.expect("audit");
+        assert_eq!(recent[0].entity_type, format!("sqlx-{tag}"));
+        assert_eq!(recent[0].user_id, None);
+        assert!(wards.expect("wards").iter().any(|w| w.id == ward_id));
+        assert_eq!(by_ids.expect("wards by id")[0].code, format!("W{tag}"));
+        assert_eq!(by_id.expect("ward").expect("the ward").id, ward_id);
+        assert!(missing.expect("no ward").is_none());
+
+        let mut statuses: Vec<String> =
+            statuses.expect("beds").into_iter().map(|b| b.status).collect();
+        statuses.sort();
+        assert_eq!(statuses, ["available", "occupied"]);
+        let available = available.expect("available beds");
+        let picked = available.iter().find(|b| b.id == free).expect("the free bed");
+        assert_eq!(picked.room_code, format!("R{tag}"));
+        assert_eq!(picked.ward_code, format!("W{tag}"));
+        assert!(!available.iter().any(|b| b.id == occupied));
+        let detailed = detailed.expect("ward beds");
+        assert_eq!(detailed.len(), 2);
+        assert_eq!(detailed[0].code, format!("B1{tag}"));
+
+        let occupants = occupants.expect("occupants");
+        assert_eq!(occupants.len(), 1);
+        assert_eq!(occupants[&occupied].person_id, person);
+        assert_eq!(occupants[&occupied].family, "Stubfamily");
+
+        assert!(schedules.expect("schedules").iter().any(|s| s.id == schedule_id));
+        let slots = slots.expect("slots");
+        assert_eq!(slots.len(), 1);
+        assert_eq!(slots[0].id, slot);
+        let templates = templates.expect("templates");
+        let template_row = templates.iter().find(|t| t.id == template).expect("the template");
+        assert_eq!(template_row.channels, ["post", "email"]);
+        let pathways = pathways.expect("pathways");
+        let row = pathways.iter().find(|p| p.pathway_id == pathway).expect("the pathway");
+        assert_eq!(row.weeks_waiting, 3);
+        assert_eq!(row.breach_weeks, 18);
+        assert!(!row.is_breaching);
     })
     .await;
 }

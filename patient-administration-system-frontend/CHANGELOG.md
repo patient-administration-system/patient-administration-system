@@ -8,6 +8,7 @@ crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Moved from SeaORM to sqlx (SQLX-1): axa's `sqlx` feature, literal SQL in `src/models/`, and `db migrate` and `db status` directly on the pool. Each query asks for the same rows as before, and pages sort as before.
 - Read PAS API refusals as RFC 9457 problems with `axa::problem` (FR-206).
 - Replaced Loco with [axa](https://crates.io/crates/axa) (FR-205). Every page renders byte for byte as before; the footer now says Axum.
 - Moved to axa 0.5. Every response now has a `content-security-policy`, the policy in `src/app.rs`, which allows the pages' inline styles and HTMX from unpkg. `--help` and `--version` describe this service, and `check` prints its settings with no database.

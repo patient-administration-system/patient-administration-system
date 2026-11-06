@@ -3,14 +3,13 @@ name = "patient-administration-system-frontend"
 version = "0.2.0"
 edition = "2024"
 authors = ["joel@joelparkerhenderson.com"]
-description = "Axum and axa front-end for the Patient Administration System (PAS). Tera templates + HTMX live-refresh + Lily Design System markup. Patient reads delegate to person-service (v0.2.0); PAS-owned reads share the PAS PostgreSQL database via sea-orm; writes go through the PAS Axum API server."
+description = "Axum and axa front-end for the Patient Administration System (PAS). Tera templates + HTMX live-refresh + Lily Design System markup. Patient reads delegate to person-service (v0.2.0); PAS-owned reads share the PAS PostgreSQL database via sqlx; writes go through the PAS Axum API server."
 license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
 # Shared service plumbing: routes, middleware, configuration, logging, shutdown, the command line.
-# `sea-orm` until this crate moves to sqlx.
-axa = { version = "0.5", features = ["problem", "sea-orm"] }
+axa = { version = "0.5", features = ["problem", "sqlx"] }
 axum = { version = "0.8", default-features = false }
 
 # HTML templates (`views`), and the files under `/static`.
@@ -23,8 +22,8 @@ axum-extra = { version = "0.12", features = ["cookie"] }
 # Async runtime.
 tokio = { version = "1.54", features = ["full"] }
 
-# Database — same as the PAS Axum app so the two share schemas + migrations.
-sea-orm = { version = "2.0", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "with-json"] }
+# Database reads. Queries are checked at run time, so a build needs no database.
+sqlx = { version = "0.9", default-features = false, features = ["postgres", "derive", "chrono", "uuid", "json"] }
 
 # Reuse the PAS migrations crate so `patient-administration-system-frontend` and the PAS Axum
 # binary apply identical schemas via `pas-migrate up`.
@@ -46,7 +45,7 @@ thiserror = "2.0"
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive"] }
-axa = { version = "0.5", features = ["problem", "sea-orm", "testing"] }
+axa = { version = "0.5", features = ["problem", "sqlx", "testing"] }
 serial_test = "4.0"
 
 [[bin]]

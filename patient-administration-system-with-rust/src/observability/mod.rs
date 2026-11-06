@@ -34,7 +34,7 @@ use tracing_subscriber::{EnvFilter, fmt};
 /// Initialize the global tracing subscriber.
 ///
 /// `cfg.rust_log` is parsed as an [`EnvFilter`] directive (e.g. `info`,
-/// `pas=debug,sea_orm=warn`). If the directive fails to parse, the
+/// `pas=debug,sqlx=warn`). If the directive fails to parse, the
 /// subscriber falls back to `info`.
 ///
 /// When `cfg.otlp_endpoint` is `Some(url)` and the OTLP exporter sets up

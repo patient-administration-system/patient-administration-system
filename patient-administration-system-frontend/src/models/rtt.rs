@@ -9,53 +9,23 @@
 
 use crate::models::patient::names_for;
 use chrono::{DateTime, FixedOffset, Utc};
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, QueryOrder};
 use serde::Serialize;
+use sqlx::PgPool;
 use uuid::Uuid;
 
-mod pathway_entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "rtt_pathways")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub person_id: Uuid,
-        pub target_service: String,
-        pub breach_weeks: i32,
-        pub status: String,
-        pub started_at: chrono::DateTime<chrono::FixedOffset>,
-        pub stopped_at: Option<chrono::DateTime<chrono::FixedOffset>>,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
+#[derive(sqlx::FromRow)]
+struct PathwayRecord {
+    id: Uuid,
+    person_id: Uuid,
+    target_service: String,
+    breach_weeks: i32,
+    status: String,
 }
 
-mod event_entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "rtt_clock_events")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub pathway_id: Uuid,
-        pub kind: String,
-        pub reason: Option<String>,
-        pub event_at: chrono::DateTime<chrono::FixedOffset>,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
+#[derive(sqlx::FromRow)]
+struct EventRecord {
+    kind: String,
+    event_at: DateTime<FixedOffset>,
 }
 
 /// One row in the `/rtt` cockpit.
@@ -75,11 +45,13 @@ pub struct PathwayRow {
 /// Load every non-stopped pathway, compute weeks-waiting per pathway, and
 /// return rows sorted worst-breach-first. The page renders the result
 /// straight to a Lily `data-table`.
-pub async fn list_active_pathways(db: &DatabaseConnection) -> Result<Vec<PathwayRow>, DbErr> {
-    let pathways = pathway_entity::Entity::find()
-        .filter(pathway_entity::Column::Status.ne("stopped"))
-        .all(db)
-        .await?;
+pub async fn list_active_pathways(db: &PgPool) -> Result<Vec<PathwayRow>, sqlx::Error> {
+    let pathways: Vec<PathwayRecord> = sqlx::query_as(
+        "SELECT id, person_id, target_service, breach_weeks, status FROM rtt_pathways \
+         WHERE status <> 'stopped'",
+    )
+    .fetch_all(db)
+    .await?;
     if pathways.is_empty() {
         return Ok(Vec::new());
     }
@@ -92,11 +64,12 @@ pub async fn list_active_pathways(db: &DatabaseConnection) -> Result<Vec<Pathway
     let mut rows = Vec::with_capacity(pathways.len());
     for p in pathways {
         // Pull events for this pathway in chronological order.
-        let events = event_entity::Entity::find()
-            .filter(event_entity::Column::PathwayId.eq(p.id))
-            .order_by_asc(event_entity::Column::EventAt)
-            .all(db)
-            .await?;
+        let events: Vec<EventRecord> = sqlx::query_as(
+            "SELECT kind, event_at FROM rtt_clock_events WHERE pathway_id = $1 ORDER BY event_at",
+        )
+        .bind(p.id)
+        .fetch_all(db)
+        .await?;
         let weeks = compute_active_weeks_from_models(&events, now);
         let breach_weeks = p.breach_weeks.max(0) as u32;
         let (family, given) = names
@@ -132,7 +105,7 @@ pub async fn list_active_pathways(db: &DatabaseConnection) -> Result<Vec<Pathway
 /// Sum unpaused intervals from `started`/`resumed` events to either the
 /// next `paused`/`stopped` event or `now`, then floor-divide by a week.
 /// Mirrors `compute_active_weeks` from the PAS Axum lib.
-fn compute_active_weeks_from_models(events: &[event_entity::Model], now: DateTime<Utc>) -> u32 {
+fn compute_active_weeks_from_models(events: &[EventRecord], now: DateTime<Utc>) -> u32 {
     if events.is_empty() {
         return 0;
     }

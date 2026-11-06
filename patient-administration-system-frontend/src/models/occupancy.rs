@@ -3,56 +3,14 @@
 //! Returns the *current* occupant (if any) of each bed in a given set.
 
 use crate::models::patient::names_for;
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
+use sqlx::PgPool;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-mod bed_assignment_entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "bed_assignments")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub encounter_id: Uuid,
-        pub bed_id: Uuid,
-        pub assigned_at: chrono::DateTime<chrono::FixedOffset>,
-        pub released_at: Option<chrono::DateTime<chrono::FixedOffset>>,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
-}
-
-mod encounter_entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "encounters")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub person_id: Uuid,
-        pub class: String,
-        pub status: String,
-        pub period_start: chrono::DateTime<chrono::FixedOffset>,
-        pub period_end: Option<chrono::DateTime<chrono::FixedOffset>>,
-        pub worker_id: Option<Uuid>,
-        pub department_id: Option<Uuid>,
-        pub reason: Option<String>,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
+#[derive(sqlx::FromRow)]
+struct AssignmentRecord {
+    encounter_id: Uuid,
+    bed_id: Uuid,
 }
 
 /// Current occupant of one bed.
@@ -67,31 +25,34 @@ pub struct Occupant {
 /// an active assignment). Beds with no occupant are simply absent from
 /// the returned map.
 pub async fn current_occupants_for_beds(
-    db: &DatabaseConnection,
+    db: &PgPool,
     bed_ids: &[Uuid],
-) -> Result<HashMap<Uuid, Occupant>, DbErr> {
+) -> Result<HashMap<Uuid, Occupant>, sqlx::Error> {
     if bed_ids.is_empty() {
         return Ok(HashMap::new());
     }
 
     // 1. Active bed_assignments for the given beds.
-    let assignments = bed_assignment_entity::Entity::find()
-        .filter(bed_assignment_entity::Column::BedId.is_in(bed_ids.to_vec()))
-        .filter(bed_assignment_entity::Column::ReleasedAt.is_null())
-        .all(db)
-        .await?;
+    let assignments: Vec<AssignmentRecord> = sqlx::query_as(
+        "SELECT encounter_id, bed_id FROM bed_assignments \
+         WHERE bed_id = ANY($1) AND released_at IS NULL",
+    )
+    .bind(bed_ids)
+    .fetch_all(db)
+    .await?;
     if assignments.is_empty() {
         return Ok(HashMap::new());
     }
 
     // 2. Look up the encounters those assignments belong to.
     let encounter_ids: Vec<Uuid> = assignments.iter().map(|a| a.encounter_id).collect();
-    let encounters = encounter_entity::Entity::find()
-        .filter(encounter_entity::Column::Id.is_in(encounter_ids))
-        .all(db)
-        .await?;
     let patient_by_encounter: HashMap<Uuid, Uuid> =
-        encounters.iter().map(|e| (e.id, e.person_id)).collect();
+        sqlx::query_as("SELECT id, person_id FROM encounters WHERE id = ANY($1)")
+            .bind(encounter_ids)
+            .fetch_all(db)
+            .await?
+            .into_iter()
+            .collect();
 
     // 3. Look up names in person-service (identity is not stored here).
     let person_ids: Vec<Uuid> = patient_by_encounter.values().copied().collect();

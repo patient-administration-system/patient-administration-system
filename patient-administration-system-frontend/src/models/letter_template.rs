@@ -1,32 +1,16 @@
 //! `letter_templates` table — read-only summary projection for the
 //! `/letters/new` composer form.
 
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
 use serde::Serialize;
+use sqlx::PgPool;
 use uuid::Uuid;
 
-mod entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "letter_templates")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub name: String,
-        pub subject: String,
-        pub body_tera: String,
-        pub required_variables: serde_json::Value,
-        pub channels: serde_json::Value,
-        pub active: bool,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
+#[derive(sqlx::FromRow)]
+struct TemplateRecord {
+    id: Uuid,
+    name: String,
+    subject: String,
+    channels: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -37,11 +21,12 @@ pub struct TemplateRow {
     pub channels: Vec<String>,
 }
 
-pub async fn list_active_templates(db: &DatabaseConnection) -> Result<Vec<TemplateRow>, DbErr> {
-    let rows = entity::Entity::find()
-        .filter(entity::Column::Active.eq(true))
-        .all(db)
-        .await?;
+pub async fn list_active_templates(db: &PgPool) -> Result<Vec<TemplateRow>, sqlx::Error> {
+    let rows: Vec<TemplateRecord> = sqlx::query_as(
+        "SELECT id, name, subject, channels FROM letter_templates WHERE active = true",
+    )
+    .fetch_all(db)
+    .await?;
     let mut out: Vec<TemplateRow> = rows
         .into_iter()
         .map(|m| TemplateRow {

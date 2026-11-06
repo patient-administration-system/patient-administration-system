@@ -2,7 +2,7 @@
 """Write spec/19-schema-map.md: one row per database table (OFH-7).
 
 Reads governance/personal-data-inventory.csv (a test, tests/personal_data_inventory.rs, already fails
-when it disagrees with the migrated schema) and the SeaORM entity files under src/db/entities. No
+when it disagrees with the migrated schema) and the row types under src/db/entities. No
 database and no network, so the output is deterministic.
 
   python3 scripts/generate-schema-map.py           rewrite the file

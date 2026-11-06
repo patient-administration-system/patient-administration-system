@@ -39,7 +39,7 @@ The two binaries are workspace siblings (see workspace `Cargo.toml`) and share t
 - **Letter composer** at `GET/POST /letters/new` — template + patient + channel pickers; submit proxies `POST /api/letters/generate`.
 - **Health probe** at `GET /_health` — JSON `{ service, version, database }`.
 - **CSRF protection** on every POST form (double-submit-cookie pattern).
-- **Read-only sea-orm projections** in `src/models/` (patient, ward, bed, audit, outbox, rtt, schedule, letter_template, occupancy).
+- **Read-only sqlx projections** in `src/models/` (patient, ward, bed, audit, outbox, rtt, schedule, letter_template, occupancy).
 - **Plain functions in `src/app.rs`** (`config`, `context`, `routes`, `router`, `run`). `db reset`, `db down` and `db truncate` refuse, and the service never migrates on boot.
 
 ### 2.2 Out of scope (intentionally deferred)
@@ -57,7 +57,7 @@ Listed so a developer knows **not** to build them here:
 
 | Concern | Owner | Mechanism |
 |---|---|---|
-| Read paths (lists, details, dashboard panels) | `patient-administration-system-frontend` | sea-orm reads against the shared Postgres schema |
+| Read paths (lists, details, dashboard panels) | `patient-administration-system-frontend` | sqlx reads against the shared Postgres schema |
 | Write paths (admit, book, generate letter) | `patient-administration-system` (Axum) | HTTP REST: `services/pas_api.rs` reqwest client proxies the form into the PAS API |
 | Audit + outbox + Tantivy index | `patient-administration-system` (Axum) | Side-effects of every PAS REST write |
 | Schema migrations | `patient-administration-system-migrations` | `pas-migrate up` from the with-rust project; both apps see the result |
@@ -86,7 +86,7 @@ The full route table is the source of truth in [`README.md`](README.md#routes); 
 
 - **Every page handler** takes `Extension<Views>` and renders an `assets/views/<area>/<name>.html` template via `v.render("...", data)`.
 - **Every template** uses [Lily Design System](https://github.com/LilyDesignSystem/lily) headless HTML class names. See §4.4.
-- **Read paths** load sea-orm projections from `src/models/` — never the PAS Axum binary's full domain models. The projection layer is the boundary that lets the front-end iterate independently.
+- **Read paths** load sqlx projections from `src/models/` — never the PAS Axum binary's full domain models. The projection layer is the boundary that lets the front-end iterate independently.
 - **Write paths** load the same read projections for picker UIs (patient list, bed list, slot list, template list), then submit via `src/services/pas_api.rs` to the PAS Axum REST API.
 
 ### 4.2 Dashboard
@@ -156,7 +156,7 @@ This crate is one of three workspace members rooted at `..`; v0.2 adds two upstr
 | Crate / Service | Role | Port |
 |---|---|---|
 | `patient-administration-system` | Workflow service (REST + FHIR R5 + HL7 v2 over HTTP + MLLP) | 8080 |
-| `patient-administration-system-migrations` | sea-orm migration crate; CLI is `pas-migrate` | n/a |
+| `patient-administration-system-migrations` | SQL migrations under sqlx; CLI is `pas-migrate` | n/a |
 | `patient-administration-system-frontend` (this crate) | Axum and axa read-mostly UI | 5150 |
 | `person-service` *(HTTP dep, external; v0.2 target)* | Person reads for patient pages + dashboard projections | 5180 |
 | `worker-service` *(HTTP dep, external; v0.2 target)* | Worker reads for practitioner pickers + audit attributions | 5181 |
@@ -167,7 +167,7 @@ Workspace-level profile blocks (`[profile.release]`, `[profile.bench]`) live in 
 
 ```
 patient-administration-system-frontend/
-├── Cargo.toml              axa + axum-extra + tera + sea-orm + reqwest + …
+├── Cargo.toml              axa + axum-extra + tera + sqlx + reqwest + …
 ├── CHANGELOG.md            per-release changelog (currently v0.1.0)
 ├── README.md               public surface — route table, env vars, CSRF design
 ├── spec.md                 this file
@@ -186,7 +186,7 @@ patient-administration-system-frontend/
 │   │   ├── letters.rs      GET compose form + POST generate
 │   │   ├── health.rs       /_health
 │   │   └── mod.rs
-│   ├── models/             read-only sea-orm projections (one per area)
+│   ├── models/             read-only sqlx projections (one per area)
 │   ├── services/pas_api.rs reqwest client for PAS REST writes
 │   ├── views/              Rust-side template helpers (currently empty)
 │   └── initializers/       boot-time wiring (currently empty)
@@ -202,7 +202,7 @@ patient-administration-system-frontend/
 Strict three-layer service: `controller → model (read) | services/pas_api (write) → db (read) / PAS Axum REST (write)`.
 
 - **controllers** (`src/controllers/`) — one file per area. Each controller exports a `routes() -> Routes` builder via `Routes::new().prefix("/x").add("/y", get(handler))`. Handlers use the `Extension<Views>` + `State<AppContext>` extractors and return `Result<Response>` via `v.render("template.html", json!({…}))`.
-- **read models** (`src/models/`) — sea-orm projection queries. Read-only.
+- **read models** (`src/models/`) — sqlx projection queries. Read-only.
 - **write services** (`src/services/pas_api.rs`) — thin reqwest client (10 s timeout) with a `PasApiError` enum (HTTP transport / parsed non-2xx status / malformed envelope body). Base URL via `PAS_API_URL`, default `http://localhost:8080`. Wraps the PAS `ApiResponse` envelope so the caller gets the `data` directly or a typed error.
 - **CSRF middleware** (`src/csrf.rs`) — `ensure_token(jar) -> (String, CookieJar)` + `verify_token(&jar, &form_token) -> Result<()>`. Constant-time compare via XOR.
 
@@ -254,7 +254,7 @@ The front-end exposes only Tera-rendered HTML (and the JSON `/_health` probe). A
 
 This crate **defines no schema** and adds no migrations. The migration crate (`patient-administration-system-migrations`) is the single source of truth and is shared by path; apply migrations once via `pas-migrate up` from the with-rust project.
 
-`src/models/` holds **read-only sea-orm projections** sized to the templates that consume them:
+`src/models/` holds **read-only sqlx projections** sized to the templates that consume them:
 
 | File | Projection of | v0.2 target (Option C) |
 |---|---|---|
@@ -276,13 +276,13 @@ Mirrors `Cargo.toml`. Anything below is actually compiled.
 
 | Component | Crate | Purpose |
 |---|---|---|
-| Service plumbing | `axa` 0.5 (`sea-orm` feature) | Routes, middleware, configuration, logging, shutdown, the command line |
+| Service plumbing | `axa` 0.5 (`sqlx` feature) | Routes, middleware, configuration, logging, shutdown, the command line |
 | Web | `axum` 0.8, `tower-http` 0.6 (`fs`) | `Extension`, `/static` |
 | Templates | `tera` 2 | `Views` |
 | Command line | `clap` 4 | `Cli::parse` |
 | Cookie storage | `axum-extra` 0.12 (`cookie`) | `CookieJar` extractor for CSRF middleware |
 | Async runtime | `tokio` 1.49 (`full`) | `#[tokio::main]` in `main.rs` |
-| ORM | `sea-orm` 1.1 (`sqlx-postgres`, `runtime-tokio-rustls`, `macros`, `with-chrono`, `with-uuid`, `with-json`) | Read-only projections |
+| Database | `sqlx` 0.9 (`postgres`, `derive`, `chrono`, `uuid`, `json`) | Read-only projections, with SQL checked at run time |
 | Migrations (path dep) | `patient-administration-system-migrations` | Schema shared with the PAS Axum binary |
 | Serialization | `serde`, `serde_json` 1.0 | JSON encode/decode |
 | HTTP client | `reqwest` 0.12 (`rustls-tls`, `json`) | PAS API client (no native-tls; rustls only) |
@@ -367,7 +367,7 @@ Ordered, layered build sequence to recreate the **v0.1.0** baseline from a clean
 
 ### Layer F2 — Read models (parallel, after F1)
 
-Pure sea-orm projection queries in `src/models/<name>.rs`. Read-only — no `insert` / `update` / `delete` methods.
+Pure sqlx projection queries in `src/models/<name>.rs`. Read-only — no `insert` / `update` / `delete` methods.
 
 - **F2.1 Patient projection** — for list + detail.
 - **F2.2 Ward + Bed + Occupancy projections** — for ward detail + dashboard.

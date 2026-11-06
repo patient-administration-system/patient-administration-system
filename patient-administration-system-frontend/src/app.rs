@@ -115,13 +115,9 @@ impl App {
 
     async fn db(ctx: &AppContext, command: DbCommand) -> Result<()> {
         match command {
-            DbCommand::Migrate => migration::up(ctx.db.get_postgres_connection_pool())
-                .await
-                .map_err(Error::wrap),
+            DbCommand::Migrate => migration::up(&ctx.db).await.map_err(Error::wrap),
             DbCommand::Status => {
-                let migrations = migration::status(ctx.db.get_postgres_connection_pool())
-                    .await
-                    .map_err(Error::wrap)?;
+                let migrations = migration::status(&ctx.db).await.map_err(Error::wrap)?;
                 for m in migrations {
                     let state = if m.applied { "applied" } else { "pending" };
                     println!("{state:8}{} {}", m.version, m.description);

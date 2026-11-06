@@ -125,7 +125,7 @@ mod tests {
         // circuits via Error rather than panicking. (Real coverage is in the
         // integration suite where DATABASE_URL is set.)
         let publisher: Arc<dyn EventPublisher> = Arc::new(InMemoryEventPublisher::new());
-        // Skipped: requires sea_orm Database::connect — out of scope here.
+        // Skipped: requires a database connection — out of scope here.
         let _ = (publisher, BATCH_SIZE);
     }
 

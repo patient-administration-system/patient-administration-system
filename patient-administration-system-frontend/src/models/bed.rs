@@ -1,50 +1,22 @@
 //! `beds` table — read-only.
 
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
+use sqlx::PgPool;
 use uuid::Uuid;
 
-mod room_entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "rooms")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub ward_id: Uuid,
-        pub name: String,
-        pub code: String,
-        pub active: bool,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
+#[derive(sqlx::FromRow)]
+struct RoomRecord {
+    id: Uuid,
+    ward_id: Uuid,
+    code: String,
 }
 
-mod bed_entity {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "beds")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: Uuid,
-        pub room_id: Uuid,
-        pub name: String,
-        pub code: String,
-        pub status: String,
-        pub created_at: chrono::DateTime<chrono::FixedOffset>,
-        pub updated_at: chrono::DateTime<chrono::FixedOffset>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
+#[derive(sqlx::FromRow)]
+struct BedRecord {
+    id: Uuid,
+    room_id: Uuid,
+    name: String,
+    code: String,
+    status: String,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -63,27 +35,22 @@ pub struct BedRow {
 
 /// Walk rooms → beds for a ward and return the bed status strings only.
 /// Used by the dashboard's ward-occupancy aggregate.
-pub async fn list_by_ward(
-    db: &DatabaseConnection,
-    ward_id: Uuid,
-) -> Result<Vec<BedSummary>, DbErr> {
-    let room_ids: Vec<Uuid> = room_entity::Entity::find()
-        .filter(room_entity::Column::WardId.eq(ward_id))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|r| r.id)
-        .collect();
+pub async fn list_by_ward(db: &PgPool, ward_id: Uuid) -> Result<Vec<BedSummary>, sqlx::Error> {
+    let room_ids: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM rooms WHERE ward_id = $1")
+        .bind(ward_id)
+        .fetch_all(db)
+        .await?;
     if room_ids.is_empty() {
         return Ok(Vec::new());
     }
-    let beds = bed_entity::Entity::find()
-        .filter(bed_entity::Column::RoomId.is_in(room_ids))
-        .all(db)
-        .await?;
-    Ok(beds
+    let statuses: Vec<String> =
+        sqlx::query_scalar("SELECT status FROM beds WHERE room_id = ANY($1)")
+            .bind(room_ids)
+            .fetch_all(db)
+            .await?;
+    Ok(statuses
         .into_iter()
-        .map(|b| BedSummary { status: b.status })
+        .map(|status| BedSummary { status })
         .collect())
 }
 
@@ -100,20 +67,22 @@ pub struct AvailableBed {
 /// Every bed currently in `status = 'available'`, joined to its room +
 /// ward for human-readable picker display. Sorted by ward + room + bed
 /// code so adjacent beds group together visually.
-pub async fn list_available(db: &DatabaseConnection) -> Result<Vec<AvailableBed>, DbErr> {
-    let beds = bed_entity::Entity::find()
-        .filter(bed_entity::Column::Status.eq("available"))
-        .all(db)
-        .await?;
+pub async fn list_available(db: &PgPool) -> Result<Vec<AvailableBed>, sqlx::Error> {
+    let beds: Vec<BedRecord> = sqlx::query_as(
+        "SELECT id, room_id, name, code, status FROM beds WHERE status = 'available'",
+    )
+    .fetch_all(db)
+    .await?;
     if beds.is_empty() {
         return Ok(Vec::new());
     }
     let room_ids: Vec<Uuid> = beds.iter().map(|b| b.room_id).collect();
-    let rooms = room_entity::Entity::find()
-        .filter(room_entity::Column::Id.is_in(room_ids))
-        .all(db)
-        .await?;
-    let room_by_id: std::collections::HashMap<Uuid, room_entity::Model> =
+    let rooms: Vec<RoomRecord> =
+        sqlx::query_as("SELECT id, ward_id, code FROM rooms WHERE id = ANY($1)")
+            .bind(room_ids)
+            .fetch_all(db)
+            .await?;
+    let room_by_id: std::collections::HashMap<Uuid, RoomRecord> =
         rooms.into_iter().map(|r| (r.id, r)).collect();
 
     let ward_ids: Vec<Uuid> = room_by_id.values().map(|r| r.ward_id).collect();
@@ -148,24 +117,23 @@ pub async fn list_available(db: &DatabaseConnection) -> Result<Vec<AvailableBed>
 /// Rich projection used by the ward detail page: every bed in a ward
 /// with its room code, sorted by `(room_code, bed_code)` for a stable
 /// display order.
-pub async fn list_by_ward_detailed(
-    db: &DatabaseConnection,
-    ward_id: Uuid,
-) -> Result<Vec<BedRow>, DbErr> {
-    let rooms = room_entity::Entity::find()
-        .filter(room_entity::Column::WardId.eq(ward_id))
-        .all(db)
-        .await?;
+pub async fn list_by_ward_detailed(db: &PgPool, ward_id: Uuid) -> Result<Vec<BedRow>, sqlx::Error> {
+    let rooms: Vec<RoomRecord> =
+        sqlx::query_as("SELECT id, ward_id, code FROM rooms WHERE ward_id = $1")
+            .bind(ward_id)
+            .fetch_all(db)
+            .await?;
     if rooms.is_empty() {
         return Ok(Vec::new());
     }
     let room_code_by_id: std::collections::HashMap<Uuid, String> =
         rooms.iter().map(|r| (r.id, r.code.clone())).collect();
     let room_ids: Vec<Uuid> = rooms.into_iter().map(|r| r.id).collect();
-    let beds = bed_entity::Entity::find()
-        .filter(bed_entity::Column::RoomId.is_in(room_ids))
-        .all(db)
-        .await?;
+    let beds: Vec<BedRecord> =
+        sqlx::query_as("SELECT id, room_id, name, code, status FROM beds WHERE room_id = ANY($1)")
+            .bind(room_ids)
+            .fetch_all(db)
+            .await?;
     let mut rows: Vec<BedRow> = beds
         .into_iter()
         .map(|b| BedRow {

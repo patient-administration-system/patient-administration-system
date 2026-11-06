@@ -12,7 +12,7 @@
 //! - This crate (`patient-administration-system-frontend`) is a separate Axum service that:
 //!   - Renders Tera templates dressed in [Lily Design System][lily] markup.
 //!   - Serves HTMX-powered live views.
-//!   - Reads from the same PostgreSQL database via sea-orm.
+//!   - Reads from the same PostgreSQL database via sqlx.
 //!   - Calls the PAS REST API for writes that go through the service layer
 //!     (audit + outbox).
 //!

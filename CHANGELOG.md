@@ -9,6 +9,9 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
+- **Changed, database (SQLX-1):** the server, front-end and migrations run on sqlx, and `sea-orm` is gone. Migrations are SQL files, and `pas-migrate up` adopts an existing `seaql_migrations` record once.
+- **Breaking (FR-206):** REST errors are RFC 9457 problems. See the server crate's changelog.
+
 ## Release 0.49.0 (2026-10-21)
 
 Server crate 0.49.0 and `patient-administration-system-migrations` 0.3.0 (`sea-orm` 2.0). Tag `v0.49.0`.

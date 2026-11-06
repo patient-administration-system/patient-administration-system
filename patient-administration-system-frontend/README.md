@@ -21,7 +21,7 @@ Both binaries share:
 
 ```
 patient-administration-system-frontend/
-├── Cargo.toml              axa + axum-extra + tera + sea-orm + reqwest + …
+├── Cargo.toml              axa + axum-extra + tera + sqlx + reqwest + …
 ├── assets/
 │   ├── views/
 │   │   ├── layouts/main.html

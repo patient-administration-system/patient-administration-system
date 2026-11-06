@@ -11,7 +11,7 @@ The invariant: **this crate never writes directly to the shared database** and (
 ## Layered design
 
 ```
-controller  →  read model (sea-orm)        →  Postgres (read)
+controller  →  read model (sqlx)        →  Postgres (read)
             \
              →  pas_api (reqwest)          →  PAS Axum REST API (write)
             /
@@ -42,7 +42,7 @@ Write handlers (`admissions::create`, `appointments::create`, `letters::generate
 
 ### read models (`src/models/`)
 
-Sea-orm projection queries sized to the templates that consume them. **Read-only** — no `insert` / `update` / `delete` methods on this side of the wall.
+Sqlx projection queries sized to the templates that consume them. **Read-only** — no `insert` / `update` / `delete` methods on this side of the wall.
 
 | File | Projection of |
 |---|---|

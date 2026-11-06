@@ -63,7 +63,7 @@ Ground truth for any claim about behavior:
 - README owns the full endpoint table; AGENTS/restful.md does not duplicate it.
 - `seed.md` is a historical problem statement — do not modify.
 - `spec.md` is the **comprehensive specification-driven-development document** — scope, invariants, architecture, dependency stack, build sequence, acceptance criteria. Treat it as a living document: keep it aligned with the shipped surface whenever any of those things change. Past release history belongs in `CHANGELOG.md`, not in `spec.md`.
-- patient-administration-system-frontend lives in the workspace sibling crate `../patient-administration-system-frontend`. It reads via sea-orm but never writes; every write flow proxies through this Axum API so audit + outbox rows still land here.
+- patient-administration-system-frontend lives in the workspace sibling crate `../patient-administration-system-frontend`. It reads via sqlx but never writes; every write flow proxies through this Axum API so audit + outbox rows still land here.
 
 ## Workspace orientation
 
