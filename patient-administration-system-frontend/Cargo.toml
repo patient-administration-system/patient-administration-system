@@ -10,7 +10,7 @@ publish = false
 [dependencies]
 # Shared service plumbing: routes, middleware, configuration, logging, shutdown, the command line.
 # `sea-orm` until this crate moves to sqlx.
-axa = { version = "0.4", features = ["sea-orm"] }
+axa = { version = "0.5", features = ["sea-orm"] }
 axum = { version = "0.8", default-features = false }
 
 # HTML templates (`views`), and the files under `/static`.
@@ -46,7 +46,7 @@ thiserror = "2.0"
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive"] }
-axa = { version = "0.4", features = ["sea-orm", "testing"] }
+axa = { version = "0.5", features = ["sea-orm", "testing"] }
 serial_test = "4.0"
 
 [[bin]]

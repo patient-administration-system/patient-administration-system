@@ -9,8 +9,8 @@ crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Replaced Loco with [axa](https://crates.io/crates/axa) (FR-205). Every page renders byte for byte as before; the footer now says Axum.
-- Moved to axa 0.4. Every response now has a `content-security-policy`, the policy in `src/app.rs`, which allows the pages' inline styles and HTMX from unpkg. `--help` and `--version` describe this service, and `check` prints its settings with no database.
-- A release build with no `APP_ENV` is production, a production `DATABASE_URL` must set `sslmode` unless it is loopback or `DB_ALLOW_INSECURE=true`, and a client that does not finish its headers in 30 seconds is dropped (`HEADER_READ_TIMEOUT_SECONDS`).
+- Moved to axa 0.5. Every response now has a `content-security-policy`, the policy in `src/app.rs`, which allows the pages' inline styles and HTMX from unpkg. `--help` and `--version` describe this service, and `check` prints its settings with no database.
+- A release build with no `APP_ENV` is production, a production `DATABASE_URL` must set `sslmode` unless it is loopback or `DB_ALLOW_INSECURE=true`, and a client that does not finish its headers in 30 seconds is dropped (`HEADER_READ_TIMEOUT_SECONDS`). The server speaks HTTP/1 only, holds at most 10,000 connections (`MAX_CONNECTIONS`), and `db reset`, `db down` and `db truncate` are refused by `cli::parse` before the service runs.
 - Logs show a route template, or `unmatched`, and not the path. A `404` or `400` no longer logs as an error.
 - Configuration comes from the environment and `src/app.rs`. `config/` is gone, and `APP_ENV` replaces `LOCO_ENV`, which axa still reads.
 - `db reset`, `db down` and `db truncate` refuse. The service does not migrate on boot.
