@@ -136,7 +136,8 @@ async fn the_job_fills_age_band_and_quintile_keeps_only_the_bands_and_does_it_on
     stub.insert(person(
         unknown_pc,
         Some(&format!("{}-01-01", year - 20)),
-        Some("ZZ99 9ZZ"),
+        // Unique to this run: the lookup is shared, and another test leaves its own rows in it.
+        Some(&format!("zy{tag} 9zz")),
     ));
     for p in [both, age_only, none, unknown_pc] {
         with_appointment(&s, p).await;

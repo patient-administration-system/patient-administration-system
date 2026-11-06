@@ -394,7 +394,11 @@ async fn opt_outs_stop_every_step_and_quiet_hours_only_hold_one() {
     // Quiet hours: the step is held, not logged, and goes when they end.
     let q = world().await;
     let now = q.at(D7());
-    let local = now.with_timezone(&patient_administration_system::inbound::messages::timezone());
+    // Wall-clock arithmetic, because the window is wall-clock: the random start can land in the hour the clocks go
+    // back, where an hour of elapsed time later reads the same as now, and the window would leave now out.
+    let local = now
+        .with_timezone(&patient_administration_system::inbound::messages::timezone())
+        .time();
     let around = QuietHours::parse(&format!(
         "{}-{}",
         (local - Duration::hours(1)).format("%H:%M"),

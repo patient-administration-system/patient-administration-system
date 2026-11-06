@@ -448,7 +448,7 @@ async fn get(app: axum::Router, uri: &str) -> (StatusCode, serde_json::Value) {
     let s = r.status();
     (
         s,
-        serde_json::from_slice(&to_bytes(r.into_body(), 4 << 20).await.unwrap())
+        serde_json::from_slice(&to_bytes(r.into_body(), usize::MAX).await.unwrap())
             .unwrap_or(serde_json::Value::Null),
     )
 }

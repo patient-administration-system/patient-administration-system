@@ -235,7 +235,7 @@ async fn the_http_endpoints_list_set_read_and_reset() {
             (
                 st,
                 serde_json::from_slice::<serde_json::Value>(
-                    &to_bytes(r.into_body(), 1 << 20).await.unwrap(),
+                    &to_bytes(r.into_body(), usize::MAX).await.unwrap(),
                 )
                 .unwrap_or_default(),
             )
@@ -623,7 +623,7 @@ async fn the_http_endpoints_take_a_service_and_serve_the_alerts() {
             (
                 st,
                 serde_json::from_slice::<serde_json::Value>(
-                    &to_bytes(r.into_body(), 1 << 20).await.unwrap(),
+                    &to_bytes(r.into_body(), usize::MAX).await.unwrap(),
                 )
                 .unwrap_or_default(),
             )
