@@ -6,6 +6,7 @@
 | BFF | Backend-for-frontend: the SvelteKit server that holds tokens so the browser never does |
 | DNA | Did not attend: a missed appointment |
 | DTAC | NHS Digital Technology Assessment Criteria |
+| ODP | Operating Department Practitioner: works across anaesthetics, surgery and recovery in the operating theatre |
 | Outbox | Table of events written in the same transaction as the change, forwarded afterwards |
 | PAS | Patient Administration System |
 | Portal | The signed-in area where a patient reads messages (`/my/messages`) |

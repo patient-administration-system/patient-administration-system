@@ -5,6 +5,7 @@
 | Patient | `patient` | Signs in; reads their own appointments and portal messages |
 | Staff | `staff` | Calendar, waitlist, schedule, patient search |
 | Administrator | `admin` (also has staff access) | As staff, plus editing message templates |
+| Operating Department Practitioner (ODP) | `staff` | Works across the three areas of the operating theatre: anaesthetics, surgery and recovery. Works alongside anaesthetists, manages airways, prepares patients for anaesthesia, assists the surgical team, maintains patient safety, anticipates problems, responds to emergencies and looks after patients as they wake up after surgery. This system records none of that clinical work (§2); an ODP uses it with the same access as other staff |
 | Integrating system | API bearer token | Calls the REST API; receives events |
 | Clinical Safety Officer | n/a (not yet named) | Owns the hazard log (see DTAC-1) |
 | Deploying organisation | n/a | Hosts, holds DSPT/ICO/Cyber Essentials, owns its DPIA |
