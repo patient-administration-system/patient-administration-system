@@ -27,9 +27,7 @@ async fn dashboard_renders_html_against_live_db() {
         }
     };
     let db = connect(&url).await.expect("connect");
-    migration::up(db.get_postgres_connection_pool())
-        .await
-        .expect("migrate");
+    migration::up(&db).await.expect("migrate");
 
     let publisher = Arc::new(InMemoryEventPublisher::new());
     let state = AppState::new(db, publisher);

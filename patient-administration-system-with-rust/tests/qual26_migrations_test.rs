@@ -12,17 +12,13 @@ mod common;
 use patient_administration_system::db::connect;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Pool, Stmt};
-use sea_orm::{Database, DbErr};
+use patient_administration_system::{Error, Result};
 
 /// The last forward-only migration: it has no down file.
 const FORWARD_ONLY: i64 = 20260601000006;
 
-fn pool(db: &Pool) -> &sqlx::PgPool {
-    db.get_postgres_connection_pool()
-}
-
-fn fail(e: sqlx::migrate::MigrateError) -> DbErr {
-    DbErr::Custom(e.to_string())
+fn fail(e: sqlx::migrate::MigrateError) -> Error {
+    Error::internal(e.to_string())
 }
 
 /// `DATABASE_URL` with its database name replaced.
@@ -35,7 +31,7 @@ fn with_database(url: &str, name: &str) -> String {
 }
 
 /// Every column, constraint and index in `public`, one sorted line each, without the migrations table.
-async fn schema(db: &Pool) -> Result<Vec<String>, DbErr> {
+async fn schema(db: &Pool) -> Result<Vec<String>> {
     let sql = "SELECT 'column ' || table_name || '.' || column_name || ' ' || data_type || ' ' || is_nullable \
                       || ' ' || coalesce(column_default, '') AS line \
                  FROM information_schema.columns \
@@ -50,17 +46,13 @@ async fn schema(db: &Pool) -> Result<Vec<String>, DbErr> {
                 WHERE schemaname = 'public' AND tablename <> '_sqlx_migrations' \
                ORDER BY 1";
     db.all(Stmt::text(sql))
-        .await
-        .map_err(|e| DbErr::Custom(e.to_string()))?
+        .await?
         .iter()
-        .map(|r| {
-            r.col::<String>("line")
-                .map_err(|e| DbErr::Custom(e.to_string()))
-        })
+        .map(|r| r.col::<String>("line"))
         .collect()
 }
 
-async fn with_fresh_database<T>(url: &str, work: impl AsyncFnOnce(&Pool) -> Result<T, DbErr>) -> T {
+async fn with_fresh_database<T>(url: &str, work: impl AsyncFnOnce(&Pool) -> Result<T>) -> T {
     let admin = connect(url).await.expect("connect");
     let name = format!("pas_qual26_{}", uuid::Uuid::new_v4().simple());
     admin
@@ -68,9 +60,9 @@ async fn with_fresh_database<T>(url: &str, work: impl AsyncFnOnce(&Pool) -> Resu
         .await
         .expect("create database");
     let result = async {
-        let db = Database::connect(with_database(url, &name)).await?;
+        let db = connect(&with_database(url, &name)).await?;
         let out = work(&db).await;
-        db.close().await?;
+        db.close().await;
         out
     }
     .await;
@@ -92,19 +84,17 @@ async fn migrations_after_the_forward_only_one_go_down_and_up_again_and_leave_th
     assert!(undo > 30, "only {undo} migrations would be exercised");
 
     let base = with_fresh_database(&url, async |db| {
-        migration::up_to(pool(db), FORWARD_ONLY)
-            .await
-            .map_err(fail)?;
+        migration::up_to(db, FORWARD_ONLY).await.map_err(fail)?;
         schema(db).await
     })
     .await;
 
     let (full, down, again) = with_fresh_database(&url, async |db| {
-        migration::up(pool(db)).await.map_err(fail)?;
+        migration::up(db).await.map_err(fail)?;
         let full = schema(db).await?;
-        migration::down(pool(db), undo).await.map_err(fail)?;
+        migration::down(db, undo).await.map_err(fail)?;
         let down = schema(db).await?;
-        migration::up(pool(db)).await.map_err(fail)?;
+        migration::up(db).await.map_err(fail)?;
         Ok((full, down, schema(db).await?))
     })
     .await;

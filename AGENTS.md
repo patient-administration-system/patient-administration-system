@@ -12,7 +12,7 @@ Current state is generated, not written: [`spec/14-implementation-status.md`](sp
 
 | Path | What |
 |---|---|
-| `patient-administration-system-with-rust/` | The API (Axum, SeaORM, `src/`, `tests/`, `benches/`, `migrations/` crate). Has its own `AGENTS.md` and `AGENTS/` |
+| `patient-administration-system-with-rust/` | The API (Axum, sqlx through `src/db/sql.rs`, `src/`, `tests/`, `benches/`, `migrations/` crate). Has its own `AGENTS.md` and `AGENTS/` |
 | `patient-administration-system-ui-with-svelte/` | The UI: SvelteKit 3, Svelte 5, Lily Design System, Keycloak sign-in, 10 locales, Playwright + Vitest |
 | `patient-administration-system-frontend/` | An Axum and axa server-rendered ops dashboard that runs in parallel to the SvelteKit UI. Has its own `AGENTS.md` |
 | `spec/` | The specification (19 chapters). **Single source of truth** for behaviour. FRs are in `06`, NFRs in `07` |
@@ -69,7 +69,7 @@ Before you push: all of the above is green. **After you push, check `gh run list
 
 ## Rust conventions
 
-Edition 2024 with let-chains. New tables are created with raw SQL in a migration and read with `Stmt` through `run`, `one` and `all` (`src/db/sql.rs`) (SeaORM 2; see DEP-2). Money is `Decimal`, never `f64`. Times are `DateTime<Utc>`. Multi-row changes run in one transaction with the audit row and the outbox row. **Never hold a lock guard across `.await`** (it makes the future `!Send`); clone the `Arc` out in a separate method. Do not slice a `&str` by byte offsets on untrusted text: use `.get(..n)` or check `is_ascii()` (the chaos monkey found a panic this way). Error text that reaches a client must not contain SQL, paths or stack traces. No `unwrap()` or `expect()` in production code (denied outside tests), no `dbg!`, and every `#[allow]` says why (`reason = "..."`): see `[workspace.lints]` and QUAL-12.
+Edition 2024 with let-chains. New tables are created with raw SQL in a migration and read with `Stmt` through `run`, `one` and `all` (`src/db/sql.rs`). Money is `Decimal`, never `f64`. Times are `DateTime<Utc>`. Multi-row changes run in one transaction with the audit row and the outbox row. **Never hold a lock guard across `.await`** (it makes the future `!Send`); clone the `Arc` out in a separate method. Do not slice a `&str` by byte offsets on untrusted text: use `.get(..n)` or check `is_ascii()` (the chaos monkey found a panic this way). Error text that reaches a client must not contain SQL, paths or stack traces. No `unwrap()` or `expect()` in production code (denied outside tests), no `dbg!`, and every `#[allow]` says why (`reason = "..."`): see `[workspace.lints]` and QUAL-12.
 
 ## UI conventions
 

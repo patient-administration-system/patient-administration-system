@@ -9,7 +9,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Database error: {0}")]
-    Database(#[from] sea_orm::DbErr),
+    Database(#[from] sqlx::Error),
 
     #[error("Not found: {0}")]
     NotFound(String),
@@ -152,16 +152,6 @@ impl Error {
     }
 }
 
-impl From<sea_orm::TransactionError<Error>> for Error {
-    /// A failed transaction is either the connection (a database error) or the error the closure returned.
-    fn from(e: sea_orm::TransactionError<Error>) -> Self {
-        match e {
-            sea_orm::TransactionError::Connection(c) => Error::Database(c),
-            sea_orm::TransactionError::Transaction(t) => t,
-        }
-    }
-}
-
 /// Say so when a step whose failure must not pass unseen fails, in places where the caller cannot do
 /// anything about it (QUAL-8). `let _ = step.await;` hid these.
 pub trait LogErr {
@@ -266,7 +256,7 @@ mod client_message_tests {
 
     #[test]
     fn database_text_never_reaches_the_caller() {
-        let e = Error::Database(sea_orm::DbErr::Custom(
+        let e = Error::Database(sqlx::Error::Protocol(
             "relation \"patients\" does not exist; constraint uq_x".into(),
         ));
         let text = e.client_message();
@@ -303,7 +293,7 @@ mod client_message_tests {
 
     #[test]
     fn client_text_sanitises_a_crate_error_and_shows_other_errors() {
-        let e = Error::Database(sea_orm::DbErr::Custom("relation \"x\"".into()));
+        let e = Error::Database(sqlx::Error::Protocol("relation \"x\"".into()));
         assert!(!client_text(&e).contains("relation"));
         assert_eq!(client_text(&"bad segment"), "bad segment".to_string());
     }

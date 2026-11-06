@@ -1,37 +1,120 @@
 //! The project's own way to talk to the database (SQLX-1, `plan.md` §17).
 //!
 //! Every query in the system goes through [`Conn`]: a statement ([`Stmt`]) with bound values ([`Param`]), run on a
-//! pool or a transaction, giving rows ([`Row`]). Nothing outside this module and `db::row` needs to know what is
-//! underneath, which is the point: today that is sea-orm, and swapping it for sqlx happens here, in one place,
-//! because a sea-orm transaction cannot be handed to sqlx and the audit and outbox writes run inside every
-//! transaction.
+//! pool or a transaction, giving rows ([`Row`]). Queries are checked at run time, and `tests/qual7_sql_prepares_test.rs`
+//! prepares every literal statement against the migrated schema.
 //!
 //! [`Conn`] takes `&self`, for a pool and a transaction alike, so a repository function is written once and a
-//! transaction can be shared by reference inside its closure.
+//! transaction can be shared by reference inside its closure. A sqlx transaction needs `&mut` to run a statement, so
+//! [`Txn`] holds it behind a lock: statements in one transaction run one at a time, as they must on one connection.
 
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
 
-use sea_orm::{ConnectionTrait, DbBackend, Statement, TransactionTrait};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, Utc};
+use sqlx::postgres::{PgArguments, PgRow};
+use sqlx::query::Query;
+use sqlx::{Arguments, AssertSqlSafe, Executor, Postgres};
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::db::row::RowExt;
 use crate::{Error, Result};
 
 /// The connection pool.
-pub type Pool = sea_orm::DatabaseConnection;
+pub type Pool = sqlx::PgPool;
 
-/// An open transaction, as a closure given to [`Transact::in_txn`] receives it.
-pub type Txn = sea_orm::DatabaseTransaction;
+/// An open transaction, as a closure given to [`Transact::in_txn`] receives it. A transaction dropped without a
+/// commit rolls back, which covers a panic as well as an early return.
+#[derive(Debug)]
+pub struct Txn(Mutex<sqlx::Transaction<'static, Postgres>>);
 
-/// One bound value: anything with `.into()` at the call site.
+impl Txn {
+    /// Make the transaction's work permanent.
+    pub async fn commit(self) -> std::result::Result<(), sqlx::Error> {
+        self.0.into_inner().commit().await
+    }
+
+    /// Undo the transaction's work.
+    pub async fn rollback(self) -> std::result::Result<(), sqlx::Error> {
+        self.0.into_inner().rollback().await
+    }
+}
+
+/// One bound value: anything with `.into()` at the call site. A `None` still has its type, so the server knows it.
 #[derive(Debug, Clone)]
-pub struct Param(sea_orm::Value);
+pub enum Param {
+    Uuid(Option<Uuid>),
+    Text(Option<String>),
+    Int2(Option<i16>),
+    Int4(Option<i32>),
+    Int8(Option<i64>),
+    Float8(Option<f64>),
+    Bool(Option<bool>),
+    Time(Option<DateTime<Utc>>),
+    Date(Option<NaiveDate>),
+    TimeOfDay(Option<NaiveTime>),
+    Json(Option<serde_json::Value>),
+    TextArray(Option<Vec<String>>),
+    UuidArray(Option<Vec<Uuid>>),
+}
 
-impl<T: Into<sea_orm::Value>> From<T> for Param {
-    fn from(value: T) -> Self {
-        Self(value.into())
+/// `impl From<T>` and `From<Option<T>>` for a [`Param`] variant, through a conversion to what the variant holds.
+macro_rules! param_from {
+    ($($t:ty => $variant:ident($into:expr)),* $(,)?) => {$(
+        impl From<$t> for Param {
+            fn from(value: $t) -> Self {
+                Param::$variant(Some($into(value)))
+            }
+        }
+        impl From<Option<$t>> for Param {
+            fn from(value: Option<$t>) -> Self {
+                Param::$variant(value.map($into))
+            }
+        }
+    )*};
+}
+
+param_from! {
+    Uuid => Uuid(|v| v),
+    String => Text(|v| v),
+    &str => Text(|v: &str| v.to_string()),
+    &String => Text(|v: &String| v.clone()),
+    i16 => Int2(|v| v),
+    i32 => Int4(|v| v),
+    i64 => Int8(|v| v),
+    // Postgres has no unsigned types; a value past i64::MAX is not a count this system can reach.
+    u32 => Int8(i64::from),
+    u64 => Int8(|v: u64| i64::try_from(v).unwrap_or(i64::MAX)),
+    f64 => Float8(|v| v),
+    bool => Bool(|v| v),
+    DateTime<Utc> => Time(|v| v),
+    DateTime<FixedOffset> => Time(|v: DateTime<FixedOffset>| v.to_utc()),
+    NaiveDate => Date(|v| v),
+    NaiveTime => TimeOfDay(|v| v),
+    serde_json::Value => Json(|v| v),
+    Vec<String> => TextArray(|v| v),
+    Vec<Uuid> => UuidArray(|v| v),
+}
+
+impl Param {
+    fn bind(self, args: &mut PgArguments) -> std::result::Result<(), sqlx::error::BoxDynError> {
+        match self {
+            Param::Uuid(v) => args.add(v),
+            Param::Text(v) => args.add(v),
+            Param::Int2(v) => args.add(v),
+            Param::Int4(v) => args.add(v),
+            Param::Int8(v) => args.add(v),
+            Param::Float8(v) => args.add(v),
+            Param::Bool(v) => args.add(v),
+            Param::Time(v) => args.add(v),
+            Param::Date(v) => args.add(v),
+            Param::TimeOfDay(v) => args.add(v),
+            Param::Json(v) => args.add(v),
+            Param::TextArray(v) => args.add(v),
+            Param::UuidArray(v) => args.add(v),
+        }
     }
 }
 
@@ -56,12 +139,14 @@ impl Stmt {
         Self::new(sql, [])
     }
 
-    fn into_statement(self) -> Statement {
-        Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            self.sql,
-            self.params.into_iter().map(|p| p.0),
-        )
+    fn into_query(self) -> Result<Query<'static, Postgres, PgArguments>> {
+        let mut args = PgArguments::default();
+        for param in self.params {
+            param
+                .bind(&mut args)
+                .map_err(|e| Error::Database(sqlx::Error::Encode(e)))?;
+        }
+        Ok(sqlx::query_with(AssertSqlSafe(self.sql), args))
     }
 }
 
@@ -80,10 +165,10 @@ impl Done {
 
 /// One row of a result. Read it with [`crate::db::row::RowExt::col`].
 #[derive(Debug)]
-pub struct Row(pub(super) sea_orm::QueryResult);
+pub struct Row(pub(super) PgRow);
 
 /// A pool or a transaction.
-pub trait Conn: ConnectionTrait + Sync {
+pub trait Conn: Sync {
     /// Run a statement that returns no rows.
     fn run(&self, stmt: Stmt) -> impl Future<Output = Result<Done>> + Send;
     /// The first row, if there is one.
@@ -121,10 +206,11 @@ pub trait Conn: ConnectionTrait + Sync {
     fn batch(&self, sql: &str) -> impl Future<Output = Result<Done>> + Send;
 }
 
-impl<C: ConnectionTrait + Sync> Conn for C {
+impl Conn for Pool {
     async fn run(&self, stmt: Stmt) -> Result<Done> {
-        let done = self
-            .execute_raw(stmt.into_statement())
+        let done = stmt
+            .into_query()?
+            .execute(self)
             .await
             .map_err(Error::Database)?;
         Ok(Done {
@@ -133,16 +219,18 @@ impl<C: ConnectionTrait + Sync> Conn for C {
     }
 
     async fn one(&self, stmt: Stmt) -> Result<Option<Row>> {
-        let row = self
-            .query_one_raw(stmt.into_statement())
+        let row = stmt
+            .into_query()?
+            .fetch_optional(self)
             .await
             .map_err(Error::Database)?;
         Ok(row.map(Row))
     }
 
     async fn all(&self, stmt: Stmt) -> Result<Vec<Row>> {
-        let rows = self
-            .query_all_raw(stmt.into_statement())
+        let rows = stmt
+            .into_query()?
+            .fetch_all(self)
             .await
             .map_err(Error::Database)?;
         Ok(rows.into_iter().map(Row).collect())
@@ -150,7 +238,46 @@ impl<C: ConnectionTrait + Sync> Conn for C {
 
     async fn batch(&self, sql: &str) -> Result<Done> {
         let done = self
-            .execute_unprepared(sql)
+            .execute(sqlx::raw_sql(AssertSqlSafe(sql.to_string())))
+            .await
+            .map_err(Error::Database)?;
+        Ok(Done {
+            rows_affected: done.rows_affected(),
+        })
+    }
+}
+
+impl Conn for Txn {
+    async fn run(&self, stmt: Stmt) -> Result<Done> {
+        let query = stmt.into_query()?;
+        let mut txn = self.0.lock().await;
+        let done = query.execute(&mut **txn).await.map_err(Error::Database)?;
+        Ok(Done {
+            rows_affected: done.rows_affected(),
+        })
+    }
+
+    async fn one(&self, stmt: Stmt) -> Result<Option<Row>> {
+        let query = stmt.into_query()?;
+        let mut txn = self.0.lock().await;
+        let row = query
+            .fetch_optional(&mut **txn)
+            .await
+            .map_err(Error::Database)?;
+        Ok(row.map(Row))
+    }
+
+    async fn all(&self, stmt: Stmt) -> Result<Vec<Row>> {
+        let query = stmt.into_query()?;
+        let mut txn = self.0.lock().await;
+        let rows = query.fetch_all(&mut **txn).await.map_err(Error::Database)?;
+        Ok(rows.into_iter().map(Row).collect())
+    }
+
+    async fn batch(&self, sql: &str) -> Result<Done> {
+        let mut txn = self.0.lock().await;
+        let done = (&mut **txn)
+            .execute(sqlx::raw_sql(AssertSqlSafe(sql.to_string())))
             .await
             .map_err(Error::Database)?;
         Ok(Done {
@@ -276,7 +403,8 @@ pub trait Transact {
 
 impl Transact for Pool {
     async fn begin_txn(&self) -> Result<Txn> {
-        self.begin().await.map_err(Error::Database)
+        let txn = sqlx::Pool::begin(self).await.map_err(Error::Database)?;
+        Ok(Txn(Mutex::new(txn)))
     }
 
     async fn in_txn<F, T>(&self, work: F) -> Result<T>
@@ -284,7 +412,7 @@ impl Transact for Pool {
         F: for<'c> FnOnce(&'c Txn) -> TxnFuture<'c, T> + Send,
         T: Send,
     {
-        let txn = self.begin().await.map_err(Error::Database)?;
+        let txn = self.begin_txn().await?;
         match work(&txn).await {
             Ok(value) => {
                 txn.commit().await.map_err(Error::Database)?;
@@ -301,16 +429,10 @@ impl Transact for Pool {
 
 /// Did the database refuse this because of a unique constraint?
 pub fn is_unique_violation(error: &Error) -> bool {
-    matches!(
-        error,
-        Error::Database(e) if matches!(e.sql_err(), Some(sea_orm::SqlErr::UniqueConstraintViolation(_)))
-    )
+    matches!(error, Error::Database(e) if axa_sqlx::is_unique_violation(e))
 }
 
 /// Did the server reject the statement itself (a check constraint, say), rather than the connection fail?
 pub fn is_rejected_statement(error: &Error) -> bool {
-    matches!(
-        error,
-        Error::Database(sea_orm::DbErr::Exec(_) | sea_orm::DbErr::Query(_))
-    )
+    matches!(error, Error::Database(sqlx::Error::Database(_)))
 }

@@ -1211,14 +1211,11 @@ async fn the_pifu_routes_send_the_types_they_declare() {
     assert!(!report.cells.is_empty());
 
     // The window has not ended, so a review is refused; end it, then discharge.
-    sea_orm::ConnectionTrait::execute_unprepared(
-        &db,
-        &format!(
-            "UPDATE pifu_episodes SET opened_at = now() - interval '2 days', \
+    db.batch(&format!(
+        "UPDATE pifu_episodes SET opened_at = now() - interval '2 days', \
              expires_at = now() - interval '1 day' WHERE id = '{}'",
-            episode.id
-        ),
-    )
+        episode.id
+    ))
     .await
     .unwrap();
     let due: Vec<Episode> = call(&app, "GET", "/api/pifu/due-reviews", None).await;

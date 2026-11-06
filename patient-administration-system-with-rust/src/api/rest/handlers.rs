@@ -107,7 +107,10 @@ pub fn audit_ctx(uc: &crate::upstream::UserContext) -> crate::db::repositories::
     )
 )]
 pub async fn health(State(state): State<AppState>) -> HandlerResult {
-    let db_ok = state.db.ping().await.map(|_| true).unwrap_or(false);
+    let db_ok = axa_sqlx::ping(&state.db)
+        .await
+        .map(|_| true)
+        .unwrap_or(false);
     let upstream = state
         .upstream_probe
         .check(state.person_client.as_ref(), state.worker_client.as_ref())

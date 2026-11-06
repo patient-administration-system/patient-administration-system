@@ -304,10 +304,14 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
     .await
     .unwrap();
     assert_eq!(fresh, "appointment_reminder");
+    // Only this test's appointments: on a reused database the ladder also reaches any other booked appointment that
+    // happens to fall in the same week, and the experiment rightly records those too.
+    let mine: Vec<Uuid> = who.iter().map(|(_, _, appt)| *appt).collect();
     let n =
         s.db.one(Stmt::new(
-            "SELECT count(*) AS n FROM message_experiment_assignments WHERE experiment_id = $1",
-            [exp.into()],
+            "SELECT count(*) AS n FROM message_experiment_assignments \
+             WHERE experiment_id = $1 AND appointment_id = ANY($2)",
+            [exp.into(), mine.into()],
         ))
         .await
         .unwrap()
