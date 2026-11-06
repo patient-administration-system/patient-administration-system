@@ -1,0 +1,3 @@
+#!/bin/sh
+# The quick checks before a push (QUAL-45). Opt-in: `just hooks` turns it on; `git push --no-verify` skips it.
+exec just quick

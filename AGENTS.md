@@ -20,7 +20,8 @@ Current state is generated, not written: [`spec/14-implementation-status.md`](sp
 | `governance/` | Clinical safety, DPIA, data inventory (`personal-data-inventory.csv`), model cards, chaos testing, data routes |
 | `operations/` | Deployment, runbook, backup. Every switch an operator must know is in `runbook.md` |
 | `podman/` | Postgres 18, Keycloak 26.8, Redis 8 for development; realm in `podman/keycloak/pas-realm.json` |
-| `scripts/` | `generate-status.sh`, `generate-llms.py`, `generate-schema-map.py`, `check-links.py`, `dev-auth.sh`, `chaos-podman.sh` |
+| `scripts/` | `generate-status.sh`, `generate-llms.py`, `generate-schema-map.py`, `check-links.py`, `dev-auth.sh`, `chaos-podman.sh`, `ci-local.sh` (the isolated local gate) |
+| `justfile`, `.githooks/` | One recipe per CI job, which `.github/workflows/ci.yml` calls (`just ci`, `just quick`, `just gate`); an opt-in pre-push hook (`just hooks`) |
 | `llms.txt`, `llms.json` | Generated index for language models (`python3 scripts/generate-llms.py`) |
 
 ## The three-part rule
