@@ -84,8 +84,7 @@ async fn test_get_unknown_patient_returns_404() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     let env = body_json(resp).await;
-    assert_eq!(env["success"], Value::Bool(false));
-    assert_eq!(env["error"]["code"], serde_json::json!("NOT_FOUND"));
+    assert_eq!(env["code"], serde_json::json!("NOT_FOUND"));
 }
 
 #[tokio::test]
@@ -173,8 +172,5 @@ async fn test_proxy_returns_503_when_upstream_client_unset() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
     let env = body_json(resp).await;
-    assert_eq!(
-        env["error"]["code"],
-        serde_json::json!("UPSTREAM_UNAVAILABLE")
-    );
+    assert_eq!(env["code"], serde_json::json!("UPSTREAM_UNAVAILABLE"));
 }

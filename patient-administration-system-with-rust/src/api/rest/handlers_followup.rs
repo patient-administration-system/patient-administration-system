@@ -20,8 +20,8 @@ use crate::api::rest::handlers::{ok, ok_json};
     tag = "Follow up policies",
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::follow_up::Policy>>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn policies(State(state): State<AppState>) -> HandlerResult {
@@ -46,8 +46,8 @@ pub struct ApproveBody {
     request_body = ApproveBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::follow_up::Policy>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn approve_policy(
@@ -83,8 +83,8 @@ pub struct OpenQuery {
     params(OpenQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::follow_up::Task>>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn open_tasks(
@@ -121,8 +121,8 @@ pub struct CloseBody {
     request_body = CloseBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::api::Nothing>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn close_task(

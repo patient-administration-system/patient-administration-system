@@ -26,9 +26,8 @@ async function api<T>(method: string, path: string, body: unknown): Promise<T> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const json = (await res.json()) as { data?: T; error?: { message?: string } };
-  if (!res.ok || json.data === undefined)
-    throw new Error(`${method} ${path}: ${res.status} ${json.error?.message ?? ""}`);
+  const json = (await res.json()) as { data?: T; detail?: string };
+  if (!res.ok || json.data === undefined) throw new Error(`${method} ${path}: ${res.status} ${json.detail ?? ""}`);
   return json.data;
 }
 

@@ -39,8 +39,8 @@ pub struct ReceiptBody {
     request_body = ReceiptBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::receipts::Receipt>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn post_receipt(
@@ -74,8 +74,8 @@ pub async fn post_receipt(
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn letter_receipts(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
@@ -99,8 +99,8 @@ pub struct ProblemsQuery {
     params(ProblemsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::receipts::ContactProblem>>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn contact_problems(
@@ -138,8 +138,8 @@ pub struct ResolveBody {
     request_body = ResolveBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::api::Nothing>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn resolve_problem(

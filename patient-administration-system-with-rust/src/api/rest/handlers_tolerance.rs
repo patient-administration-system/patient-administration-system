@@ -20,8 +20,8 @@ use crate::tolerance::{Limits, Scope};
     tag = "Tolerances",
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn list(State(state): State<AppState>) -> HandlerResult {
@@ -56,8 +56,8 @@ pub struct SetBody {
     request_body = SetBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::api::Nothing>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn set(
@@ -107,8 +107,8 @@ pub struct ScopeQuery {
     params(("metric" = String, Path, description = "Path parameter `metric`"), ScopeQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::api::Nothing>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn reset(
@@ -144,8 +144,8 @@ pub struct StatusQuery {
     params(StatusQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::tolerance::Status>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn status(State(state): State<AppState>, Query(q): Query<StatusQuery>) -> HandlerResult {
@@ -164,8 +164,8 @@ pub async fn status(State(state): State<AppState>, Query(q): Query<StatusQuery>)
     params(StatusQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn evaluate(
@@ -192,8 +192,8 @@ pub struct AlertsQuery {
     params(AlertsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::tolerance::Alert>>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn alerts(State(state): State<AppState>, Query(q): Query<AlertsQuery>) -> HandlerResult {
@@ -219,8 +219,8 @@ pub struct AckBody {
     request_body = AckBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::api::Nothing>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn acknowledge(

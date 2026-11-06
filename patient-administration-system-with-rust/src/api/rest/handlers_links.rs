@@ -27,8 +27,8 @@ use crate::reply_links::LinkAction;
     params(("token" = String, Path, description = "Path parameter `token`")),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::reply_links::LinkInfo>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn get_link(State(state): State<AppState>, Path(token): Path<String>) -> HandlerResult {
@@ -58,8 +58,8 @@ pub struct ActBody {
     request_body = ActBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::reply_links::LinkOutcome>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn post_link_action(
@@ -108,8 +108,8 @@ pub struct ChooseBody {
     request_body = ChooseBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::reply_links::LinkOutcome>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn post_link_rebook(
@@ -142,8 +142,8 @@ pub async fn post_link_rebook(
     params(crate::api::rest::handlers::LimitQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn open_calls(
@@ -174,8 +174,8 @@ pub struct CallOutcomeBody {
     request_body = CallOutcomeBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn call_outcome(

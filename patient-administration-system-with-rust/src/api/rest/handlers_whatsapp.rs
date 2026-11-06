@@ -3,18 +3,17 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 
 fn ok() -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(Value::Null)))
+    crate::api::rest::handlers::ok(Value::Null)
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -33,8 +32,8 @@ pub struct OptInBody {
     request_body = OptInBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::api::Nothing>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn record_optin(
@@ -61,8 +60,8 @@ pub async fn record_optin(
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::api::Nothing>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn withdraw_optin(
@@ -95,8 +94,8 @@ pub struct ApprovalBody {
     request_body = ApprovalBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::api::Nothing>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn approve_template(
@@ -128,8 +127,8 @@ pub async fn approve_template(
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::api::Nothing>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn revoke_template(

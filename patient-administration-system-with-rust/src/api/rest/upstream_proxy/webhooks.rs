@@ -1,6 +1,7 @@
 //! Part of [`super`]: webhooks.
 
 use super::*;
+use axum::response::IntoResponse;
 
 #[derive(Debug, Deserialize)]
 pub struct MergeWebhookBody {
@@ -178,8 +179,8 @@ pub(super) async fn propagate_worker_merge(
     tag = "Upstream",
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn person_merged_webhook(
@@ -202,10 +203,8 @@ pub async fn person_merged_webhook(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
     if let Err(e) = verify_hmac(secret.as_bytes(), &raw, sig) {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(ApiResponse::<Value>::err("UNSIGNED_WEBHOOK", e.to_string())),
-        );
+        return crate::api::problem(StatusCode::UNAUTHORIZED, "UNSIGNED_WEBHOOK", e.to_string())
+            .into_response();
     }
 
     // 2. Parse body.
@@ -276,8 +275,8 @@ pub async fn person_merged_webhook(
     tag = "Upstream",
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn worker_merged_webhook(
@@ -298,10 +297,8 @@ pub async fn worker_merged_webhook(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
     if let Err(e) = verify_hmac(secret.as_bytes(), &raw, sig) {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(ApiResponse::<Value>::err("UNSIGNED_WEBHOOK", e.to_string())),
-        );
+        return crate::api::problem(StatusCode::UNAUTHORIZED, "UNSIGNED_WEBHOOK", e.to_string())
+            .into_response();
     }
     let body: MergeWebhookBody = match serde_json::from_slice(&raw) {
         Ok(b) => b,

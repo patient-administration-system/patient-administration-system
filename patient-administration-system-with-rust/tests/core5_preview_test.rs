@@ -164,7 +164,7 @@ async fn the_http_endpoint_previews_reports_and_404s() {
     assert!(v["data"]["sms"].is_object(), "the SMS length is shown too");
     let (st, v) = post(serde_json::json!({ "template_id": template, "person_id": person })).await;
     assert_eq!(st, StatusCode::BAD_REQUEST);
-    assert!(v["error"]["message"].as_str().unwrap().contains("when"));
+    assert!(v["detail"].as_str().unwrap().contains("when"));
     let (st, _) =
         post(serde_json::json!({ "template_id": Uuid::new_v4(), "person_id": person })).await;
     assert_eq!(st, StatusCode::NOT_FOUND);

@@ -92,10 +92,7 @@ async fn a_pair_is_created_together_and_a_one_language_template_is_refused() {
     // One language alone: refused, and nothing stored.
     let (st, v) = call(&app, "POST", "/api/letter-template-groups", Some(serde_json::json!({ "name": n, "variants": [{ "locale": "en-001", "subject": "Hi", "body_tera": "Hi" }] }))).await;
     assert_eq!(st, StatusCode::BAD_REQUEST, "{v}");
-    assert!(
-        v["error"]["message"].as_str().unwrap().contains("cy-001"),
-        "{v}"
-    );
+    assert!(v["detail"].as_str().unwrap().contains("cy-001"), "{v}");
     assert!(
         LetterRepository::list_active_by_name(&s.db, &n)
             .await

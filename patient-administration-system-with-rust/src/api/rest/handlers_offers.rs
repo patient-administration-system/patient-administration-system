@@ -25,8 +25,8 @@ use crate::db::repositories::audit::UserContext as RepoUserContext;
     params(("token" = String, Path, description = "Path parameter `token`")),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::backfill::OfferInfo>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn get_offer(State(state): State<AppState>, Path(token): Path<String>) -> HandlerResult {
@@ -44,8 +44,8 @@ pub async fn get_offer(State(state): State<AppState>, Path(token): Path<String>)
     params(("token" = String, Path, description = "Path parameter `token`"), ("action" = String, Path, description = "Path parameter `action`")),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::backfill::OfferOutcome>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn post_offer_action(
@@ -82,8 +82,8 @@ pub async fn post_offer_action(
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn release_offers(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
@@ -102,8 +102,8 @@ pub async fn release_offers(State(state): State<AppState>, Path(id): Path<Uuid>)
     params(("id" = String, Path, description = "Path parameter `id`")),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn offer_now(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {

@@ -55,7 +55,10 @@ describe("pas()", () => {
   it("keeps the API's status and never its words: they go to the server log only", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const secret = 'relation "patients" does not exist at /srv/pas/src/db.rs:42';
-    const { fetch } = fake(500, JSON.stringify({ success: false, error: { code: "DB", message: secret } }));
+    const { fetch } = fake(
+      500,
+      JSON.stringify({ type: "about:blank", title: "Internal Server Error", status: 500, code: "DB", detail: secret }),
+    );
     const e = (await pas(fetch, "/api/x?person=abc").catch((x: unknown) => x)) as InstanceType<typeof PasError>;
     expect(e).toBeInstanceOf(PasError);
     expect(e.status).toBe(500);

@@ -5706,17 +5706,9 @@ export interface components {
       /** Format: double */
       value: number;
     };
-    /** @description Machine-readable error payload carried in [`ApiResponse::error`]. */
-    ApiError: {
-      code: string;
-      message: string;
-    };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Account: {
       /**
@@ -5761,16 +5753,12 @@ export interface components {
          */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Adjustment: {
       data?: {
@@ -5793,16 +5781,12 @@ export interface components {
         /** Format: date */
         review_by: string | null;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Admission: {
       /** @description A patient's placement into a bed at the start of an inpatient stay. */
@@ -5823,16 +5807,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_AdmissionResult: {
       /**
@@ -5844,16 +5824,12 @@ export interface components {
         bed_assignment: components["schemas"]["BedAssignment"];
         encounter: components["schemas"]["Encounter"];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Appointment: {
       /** @description An appointment scheduled for a patient. */
@@ -5923,16 +5899,12 @@ export interface components {
         /** Format: uuid */
         worker_id?: string | null;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_ApprovedService: {
       data?: {
@@ -5941,16 +5913,12 @@ export interface components {
         approved_by: string;
         service_type: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Asked: {
       /** @description The id of the check just asked. */
@@ -5958,16 +5926,12 @@ export interface components {
         /** Format: uuid */
         id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Authority: {
       data?: {
@@ -5989,16 +5953,12 @@ export interface components {
         revoked_by: string | null;
         scopes: string[];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Batch: {
       data?: {
@@ -6008,32 +5968,24 @@ export interface components {
         /** @description Queued letters left out because the patient has no postal address on record. */
         skipped_no_address: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_BatchSent: {
       /** @description How many letters a batch flipped to sent. */
       data?: {
         letters_sent: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Bed: {
       /** @description A bed within a room. Carries a `BedStatus` driven by the state machine. */
@@ -6050,32 +6002,24 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Booked: {
       data?: {
         appointment: components["schemas"]["Appointment"];
         referral: components["schemas"]["Referral"];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Booking: {
       data?: {
@@ -6091,16 +6035,12 @@ export interface components {
         /** Format: date-time */
         window_start: string | null;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_CapacityReport: {
       data?: {
@@ -6141,16 +6081,12 @@ export interface components {
         ring_fenced_slots: number;
         service_type: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Charge: {
       /**
@@ -6197,16 +6133,12 @@ export interface components {
          */
         posted_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Confirmed: {
       /** @description An interpreter request that is now confirmed. */
@@ -6215,16 +6147,12 @@ export interface components {
         id: string;
         status: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Consent: {
       /** @description A consent record granted by a patient. */
@@ -6273,16 +6201,12 @@ export interface components {
          */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Coverage: {
       /**
@@ -6344,16 +6268,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_CreateSeriesResult: {
       /**
@@ -6364,16 +6284,12 @@ export interface components {
         appointments: components["schemas"]["Appointment"][];
         series: components["schemas"]["AppointmentSeries"];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Created: {
       /**
@@ -6384,16 +6300,12 @@ export interface components {
         duplicate: boolean;
         referral: components["schemas"]["Referral"];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_DeprivationLoaded: {
       /** @description How many lookup lines were loaded and how many were skipped as bad. */
@@ -6403,16 +6315,12 @@ export interface components {
         /** Format: int64 */
         rejected: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Discharge: {
       /** @description The end of an admission. */
@@ -6430,16 +6338,12 @@ export interface components {
         id: string;
         notes: string | null;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Encounter: {
       /** @description A patient's administrative interaction with the healthcare system. */
@@ -6464,16 +6368,12 @@ export interface components {
         /** Format: uuid */
         worker_id: string | null;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Evaluation: {
       data?: {
@@ -6486,16 +6386,12 @@ export interface components {
         k: number;
         model_version: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Facility: {
       /** @description A physical hospital facility (campus, building). */
@@ -6511,16 +6407,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_FairnessAudit: {
       data?: {
@@ -6535,16 +6427,12 @@ export interface components {
         /** Format: double */
         top_tenth_cutoff: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_FirstContact: {
       /** @description The encounter whose first contact was recorded. */
@@ -6552,16 +6440,12 @@ export interface components {
         /** Format: uuid */
         encounter_id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Generated: {
       data?: {
@@ -6586,16 +6470,12 @@ export interface components {
          */
         days_without_approved_version: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_GeneratedLetter: {
       data?: {
@@ -6627,16 +6507,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Handled: {
       /** @description A request that has been dealt with. */
@@ -6646,16 +6522,12 @@ export interface components {
         /** @description Always `handled`. */
         status: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_InboundOutcome: {
       data?: {
@@ -6675,16 +6547,12 @@ export interface components {
         /** @description What to text back, or none (never to an unmatched or shared number). */
         reply_text: string | null;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Invoice: {
       /**
@@ -6726,16 +6594,12 @@ export interface components {
          */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_LetterTemplate: {
       data?: {
@@ -6757,16 +6621,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_LinkInfo: {
       /** @description What the link page may show: the time and the language, never a reason or a service. */
@@ -6784,16 +6644,12 @@ export interface components {
         /** @description The time in the patient's registered language, for a plain-text surface. */
         when: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_LinkOutcome: {
       data?: {
@@ -6811,16 +6667,12 @@ export interface components {
         status: components["schemas"]["LinkStatus"];
         time_zone: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_ModelCard: {
       /** @description A plain description of the model for a reviewer. */
@@ -6837,16 +6689,12 @@ export interface components {
         purpose: string;
         weights: components["schemas"]["WeightsCard"];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_NeedRecorded: {
       /** @description The interpreting need now on record; both fields are null when it was cleared. */
@@ -6856,16 +6704,12 @@ export interface components {
         /** Format: uuid */
         person_id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_NhsNumberChecked: {
       /** @description What `POST /api/validate/nhs-number` sends for a well-formed number. */
@@ -6874,16 +6718,12 @@ export interface components {
         formatted: string;
         valid: boolean;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Nothing: {
       /**
@@ -6891,16 +6731,12 @@ export interface components {
        * @default null
        */
       data: unknown;
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Offer: {
       data?: {
@@ -6916,16 +6752,12 @@ export interface components {
         options: components["schemas"]["OfferedSlot"][];
         time_zone: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_OfferInfo: {
       /** @description What the offer page may show: the time and nothing about the service or anyone else. */
@@ -6939,16 +6771,12 @@ export interface components {
         state: components["schemas"]["OfferState"];
         time_zone: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_OfferOutcome: {
       data?: {
@@ -6957,16 +6785,12 @@ export interface components {
         status: components["schemas"]["OfferStatus"];
         time_zone: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_OptOutState: {
       /** @description Whether a patient is opted out of a channel, after a change. */
@@ -6974,16 +6798,12 @@ export interface components {
         channel: string;
         opted_out: boolean;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_PatientWaits: {
       data?: {
@@ -6992,16 +6812,12 @@ export interface components {
         /** Format: uuid */
         person_id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Payment: {
       /** @description A payment posted against an [`Invoice`]. */
@@ -7033,16 +6849,12 @@ export interface components {
         /** @description External reference (e.g., transaction id, check number). */
         reference: string | null;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Policy: {
       data?: {
@@ -7051,16 +6863,12 @@ export interface components {
         approved_by: string;
         service_type: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Preview: {
       /** @description A letter rendered for one person, not stored. */
@@ -7070,16 +6878,12 @@ export interface components {
         rendered_subject: string;
         sms: components["schemas"]["SmsLength"];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_PrintQueue: {
       /** @description The letters waiting to be posted. */
@@ -7088,16 +6892,12 @@ export interface components {
         /** Format: int64 */
         waiting: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Profile: {
       data?: components["schemas"]["ProfileRow"] & {
@@ -7106,32 +6906,24 @@ export interface components {
         /** @description True when the mobile is missing, unverified, or last verified more than a year ago. */
         mobile_stale: boolean;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Proofed: {
       /** @description The answer to the identity check. */
       data?: {
         proofed: boolean;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Proofing: {
       data?: {
@@ -7142,16 +6934,12 @@ export interface components {
         proofed_at: string;
         proofed_by: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_RTTClockEvent: {
       data?: {
@@ -7166,16 +6954,12 @@ export interface components {
         pathway_id: string;
         reason?: string | null;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_RTTPathway: {
       data?: {
@@ -7196,16 +6980,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Raised: {
       /** @description The id of the flag just raised. */
@@ -7213,16 +6993,12 @@ export interface components {
         /** Format: uuid */
         id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Readout: {
       data?: {
@@ -7235,16 +7011,12 @@ export interface components {
         /** Format: int64 */
         total_assigned: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Rebooked: {
       /** @description The appointment that was released and the one that replaced it. */
@@ -7252,32 +7024,24 @@ export interface components {
         new: components["schemas"]["Appointment"];
         old: components["schemas"]["Appointment"];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Recalculated: {
       /** @description How many appointments the recalculation assessed. */
       data?: {
         assessed: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Receipt: {
       data?: {
@@ -7287,16 +7051,12 @@ export interface components {
         /** Format: uuid */
         letter_id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Referral: {
       data?: {
@@ -7332,16 +7092,12 @@ export interface components {
          */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Refreshed: {
       /** @description How many people had their bands filled. */
@@ -7349,16 +7105,12 @@ export interface components {
         /** Format: int64 */
         updated: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Reinstated: {
       /** @description The answer to cancelling a discharge. */
@@ -7367,16 +7119,12 @@ export interface components {
         admission_id: string;
         reinstated: boolean;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Releases: {
       /** @description What `GET /api/slot-releases` sends: the counts and the releases they count. */
@@ -7384,16 +7132,12 @@ export interface components {
         releases: components["schemas"]["SlotRelease"][];
         summary: components["schemas"]["ReleaseSummary"];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_RemovalsReport: {
       /** @description The validation removals report: the period and a row per service. */
@@ -7404,16 +7148,12 @@ export interface components {
         /** Format: date-time */
         to: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Replayed: {
       /** @description What replaying a dead letter made. */
@@ -7423,16 +7163,12 @@ export interface components {
         /** Format: uuid */
         new_outbox_id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_ReplyResult: {
       data?: {
@@ -7444,16 +7180,12 @@ export interface components {
         reject_reason: string | null;
         status: components["schemas"]["ReplyStatus"];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Reverted: {
       /** @description The answer to cancelling a transfer. */
@@ -7462,16 +7194,12 @@ export interface components {
         admission_id: string;
         reverted: boolean;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Reviewed: {
       /** @description An episode that has been reviewed. */
@@ -7481,16 +7209,12 @@ export interface components {
         /** Format: uuid */
         id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Revoked: {
       /** @description An authority that is now withdrawn. */
@@ -7499,16 +7223,12 @@ export interface components {
         id: string;
         status: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_RingFenced: {
       /** @description A slot whose ring-fence was set or lifted. */
@@ -7517,16 +7237,12 @@ export interface components {
         /** Format: uuid */
         slot_id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Room: {
       /** @description A room within a ward. */
@@ -7543,16 +7259,12 @@ export interface components {
         /** Format: uuid */
         ward_id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_SeriesWithOccurrences: {
       /**
@@ -7563,16 +7275,12 @@ export interface components {
         appointments: components["schemas"]["Appointment"][];
         series: components["schemas"]["AppointmentSeries"];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Shown: {
       data?: {
@@ -7591,16 +7299,12 @@ export interface components {
         /** Format: int64 */
         sample_size: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_ShownAssessments: {
       /** @description The stored no-show assessments for some appointments. `active` is false while the score is switched off. */
@@ -7608,16 +7312,12 @@ export interface components {
         active: boolean;
         items: components["schemas"]["Shown"][];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_SmsLength: {
       data?: {
@@ -7628,16 +7328,12 @@ export interface components {
         /** @description Length in the encoding's own units (septets, or UTF-16 code units). */
         units: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_StandbyEntry: {
       data?: {
@@ -7657,16 +7353,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Started: {
       /** @description The experiment that was started. */
@@ -7674,16 +7366,12 @@ export interface components {
         /** Format: uuid */
         id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Subscription: {
       data?: {
@@ -7705,16 +7393,12 @@ export interface components {
         status: components["schemas"]["SubscriptionState"];
         topic: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_TemplateCreated: {
       /** @description The template that was started. */
@@ -7722,16 +7406,12 @@ export interface components {
         /** Format: uuid */
         id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_TemplateGroup: {
       /** @description The templates created together, one per language. */
@@ -7739,16 +7419,12 @@ export interface components {
         name: string;
         variants: components["schemas"]["TemplateVariant"][];
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_TemplateVersion: {
       /** @description A template version that was proposed or approved. */
@@ -7758,32 +7434,24 @@ export interface components {
         /** Format: int32 */
         version: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_TextHandled: {
       /** @description An inbound text a person has dealt with. */
       data?: {
         handled: boolean;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_ToleranceStatus: {
       data?: {
@@ -7800,16 +7468,12 @@ export interface components {
         /** Format: date-time */
         to: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Transfer: {
       /** @description A bed-to-bed move within a single admission. */
@@ -7828,16 +7492,12 @@ export interface components {
         /** Format: date-time */
         transferred_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_TriageAssessment: {
       data?: {
@@ -7854,16 +7514,12 @@ export interface components {
         system_version: string | null;
         triage_system: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_UptakeReport: {
       /** @description The uptake report: counts only, no identifiers, small cells withheld. */
@@ -7872,16 +7528,12 @@ export interface components {
         /** Format: int64 */
         k: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Adjustment: {
       data?: {
@@ -7904,16 +7556,12 @@ export interface components {
         /** Format: date */
         review_by: string | null;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Alert: {
       data?: {
@@ -7946,16 +7594,12 @@ export interface components {
         /** Format: double */
         value: number;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Appointment: {
       data?: {
@@ -8024,16 +7668,12 @@ export interface components {
         /** Format: uuid */
         worker_id?: string | null;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_AppointmentAdjustments: {
       data?: {
@@ -8041,16 +7681,12 @@ export interface components {
         /** Format: uuid */
         appointment_id: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_AppointmentSeries: {
       data?: {
@@ -8081,16 +7717,12 @@ export interface components {
         /** Format: uuid */
         worker_id: string | null;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_ApprovedService: {
       data?: {
@@ -8099,16 +7731,12 @@ export interface components {
         approved_by: string;
         service_type: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Authority: {
       data?: {
@@ -8130,16 +7758,12 @@ export interface components {
         revoked_by: string | null;
         scopes: string[];
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_BatchItem: {
       data?: {
@@ -8148,16 +7772,12 @@ export interface components {
         message_id: string | null;
         result: components["schemas"]["ReplyResult"] | null;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Bed: {
       data?: {
@@ -8173,16 +7793,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_CallItem: {
       data?: {
@@ -8201,16 +7817,12 @@ export interface components {
         /** Format: uuid */
         task_id: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Consent: {
       data?: {
@@ -8258,16 +7870,12 @@ export interface components {
          */
         updated_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_ContactProblem: {
       data?: {
@@ -8280,16 +7888,12 @@ export interface components {
         /** Format: uuid */
         person_id: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Coverage: {
       data?: {
@@ -8346,16 +7950,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_DueCheck: {
       data?: {
@@ -8369,16 +7969,12 @@ export interface components {
         /** Format: int32 */
         weeks_waited: number;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Encounter: {
       data?: {
@@ -8402,16 +7998,12 @@ export interface components {
         /** Format: uuid */
         worker_id: string | null;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Experiment: {
       data?: {
@@ -8425,16 +8017,12 @@ export interface components {
         template_name: string;
         variants: [string, string][];
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Facility: {
       data?: {
@@ -8449,16 +8037,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_GeneratedLetter: {
       data?: {
@@ -8490,16 +8074,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_HistoryRow: {
       data?: {
@@ -8512,16 +8092,12 @@ export interface components {
         kind: string | null;
         reason_code: string | null;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_InFacility: {
       data?: {
@@ -8537,16 +8113,12 @@ export interface components {
         /** Format: int64 */
         waiting_minutes: number;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_LetterTemplate: {
       data?: {
@@ -8568,16 +8140,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_OccupancyEvent: {
       data?: {
@@ -8596,16 +8164,12 @@ export interface components {
         /** Format: uuid */
         reservation_id: string | null;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_OptOut: {
       data?: {
@@ -8614,16 +8178,12 @@ export interface components {
         opted_out_at: string | null;
         source: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Policy: {
       data?: {
@@ -8632,16 +8192,12 @@ export interface components {
         approved_by: string;
         service_type: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Profile: {
       data?: (components["schemas"]["ProfileRow"] & {
@@ -8650,16 +8206,12 @@ export interface components {
         /** @description True when the mobile is missing, unverified, or last verified more than a year ago. */
         mobile_stale: boolean;
       })[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Referral: {
       data?: {
@@ -8695,16 +8247,12 @@ export interface components {
          */
         updated_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_RolloutRow: {
       data?: {
@@ -8720,16 +8268,12 @@ export interface components {
         /** @description `shadow` or `live`. */
         stage: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Room: {
       data?: {
@@ -8745,16 +8289,12 @@ export interface components {
         /** Format: uuid */
         ward_id: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_StaffItem: {
       data?: {
@@ -8771,16 +8311,12 @@ export interface components {
         /** Format: date-time */
         received_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_StandbyEntry: {
       data?: {
@@ -8800,16 +8336,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Subscription: {
       data?: {
@@ -8831,16 +8363,12 @@ export interface components {
         status: components["schemas"]["SubscriptionState"];
         topic: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_SupportFlag: {
       data?: {
@@ -8856,16 +8384,12 @@ export interface components {
         person_id: string;
         reason_code: string | null;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Task: {
       data?: {
@@ -8882,16 +8406,12 @@ export interface components {
         person_id: string;
         service_type: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_TemplateView: {
       data?: {
@@ -8902,16 +8422,12 @@ export interface components {
         schedule_id: string;
         versions: components["schemas"]["VersionView"][];
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_TriageAssessment: {
       data?: {
@@ -8928,16 +8444,12 @@ export interface components {
         system_version: string | null;
         triage_system: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_UnconfirmedRequest: {
       data?: {
@@ -8952,16 +8464,12 @@ export interface components {
         /** Format: date-time */
         starts_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_WaitlistEntry: {
       data?: {
@@ -8979,16 +8487,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Vec_Ward: {
       data?: {
@@ -9006,16 +8510,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_Vec_audit.Entry": {
       data?: {
@@ -9035,16 +8535,12 @@ export interface components {
         user_id: string | null;
         user_ip: string | null;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_Vec_list_validation.Campaign": {
       data?: {
@@ -9067,16 +8563,12 @@ export interface components {
         started_by: string;
         status: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_Vec_list_validation.Item": {
       data?: {
@@ -9103,16 +8595,12 @@ export interface components {
         state: string;
         target_service: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_Vec_outbox.DeadLetter": {
       data?: {
@@ -9150,16 +8638,12 @@ export interface components {
          */
         retry_count: number;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_Vec_outbox.Event": {
       data?: {
@@ -9190,16 +8674,12 @@ export interface components {
          */
         retry_count: number;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_Vec_pifu.Episode": {
       data?: {
@@ -9219,16 +8699,12 @@ export interface components {
         status: components["schemas"]["EpisodeStatus"];
         urgent_override_by: string | null;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_Vec_pifu.Request": {
       data?: {
@@ -9245,16 +8721,12 @@ export interface components {
         route: string;
         service_type: string;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_Vec_triage.QueueEntry": {
       data?: {
@@ -9271,16 +8743,12 @@ export interface components {
         /** Format: int64 */
         waiting_minutes: number;
       }[];
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_WaitlistEntry: {
       data?: {
@@ -9298,16 +8766,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Ward: {
       /** @description A ward within a facility (e.g. "Cardiology", "Maternity"). */
@@ -9326,16 +8790,12 @@ export interface components {
         /** Format: date-time */
         updated_at: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_WardOccupancy: {
       data?: {
@@ -9348,16 +8808,12 @@ export interface components {
         /** Format: uuid */
         ward_id: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_analytics.RefillReport": {
       data?: {
@@ -9375,16 +8831,12 @@ export interface components {
         /** Format: int64 */
         total_resolved: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_analytics.Report": {
       data?: {
@@ -9403,16 +8855,12 @@ export interface components {
          */
         total: number;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_list_validation.Campaign": {
       data?: {
@@ -9435,16 +8883,12 @@ export interface components {
         started_by: string;
         status: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_list_validation.Item": {
       data?: {
@@ -9471,16 +8915,12 @@ export interface components {
         state: string;
         target_service: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_noshow.Status": {
       data?: {
@@ -9502,16 +8942,12 @@ export interface components {
         reason: string | null;
         switched_on: boolean;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_pifu.Episode": {
       data?: {
@@ -9531,16 +8967,12 @@ export interface components {
         status: components["schemas"]["EpisodeStatus"];
         urgent_override_by: string | null;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_pifu.Request": {
       data?: {
@@ -9557,16 +8989,12 @@ export interface components {
         route: string;
         service_type: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
     /**
-     * @description Envelope for every JSON response from the PAS REST API.
-     *
-     *     Success responses set `success = true` and populate `data`. Error responses
-     *     set `success = false` and populate `error`. Callers can dispatch on
-     *     `success` without unwrapping HTTP status codes.
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
      */
     "ApiResponse_triage.WaitsReport": {
       data?: {
@@ -9584,7 +9012,6 @@ export interface components {
         /** Format: date-time */
         to: string;
       };
-      error?: components["schemas"]["ApiError"] | null;
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
     };
@@ -12503,14 +11930,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Account"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12540,14 +11967,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Account"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12577,14 +12004,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Coverage"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12609,14 +12036,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12645,14 +12072,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_outbox.DeadLetter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12682,14 +12109,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Replayed"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12718,14 +12145,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_outbox.Event"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12752,14 +12179,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Subscription"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12790,14 +12217,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Subscription"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12827,14 +12254,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Subscription"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12865,14 +12292,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_AdmissionResult"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12903,14 +12330,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Encounter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12941,14 +12368,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_AdmissionResult"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -12979,14 +12406,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Encounter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13016,14 +12443,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Admission"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13053,14 +12480,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Admission"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13090,14 +12517,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Reinstated"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13127,14 +12554,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Reverted"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13164,14 +12591,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Encounter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13201,14 +12628,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Discharge"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13238,14 +12665,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Encounter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13275,14 +12702,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Encounter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13316,14 +12743,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Transfer"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13359,14 +12786,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_analytics.Report"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13395,14 +12822,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Refreshed"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13436,14 +12863,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13474,14 +12901,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_DeprivationLoaded"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13515,14 +12942,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_analytics.RefillReport"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13553,14 +12980,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_CreateSeriesResult"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13590,14 +13017,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_SeriesWithOccurrences"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13627,14 +13054,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_SeriesWithOccurrences"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13664,14 +13091,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13701,14 +13128,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13742,14 +13169,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13783,14 +13210,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13820,14 +13247,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13857,14 +13284,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13896,14 +13323,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13933,14 +13360,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_HistoryRow"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -13968,14 +13395,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14009,14 +13436,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14046,14 +13473,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14083,14 +13510,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Shown"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14124,14 +13551,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Rebooked"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14161,14 +13588,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Offer"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14198,14 +13625,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Booking"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14235,14 +13662,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14276,14 +13703,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14314,14 +13741,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_audit.Entry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14350,14 +13777,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_audit.Entry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14388,14 +13815,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Bed"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14425,14 +13852,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Bed"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14463,14 +13890,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_OccupancyEvent"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14504,14 +13931,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Bed"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14546,14 +13973,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_CapacityReport"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14584,14 +14011,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Charge"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14618,14 +14045,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14655,14 +14082,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14692,14 +14119,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Profile"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14729,14 +14156,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Consent"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14766,14 +14193,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_ContactProblem"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14807,14 +14234,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14843,14 +14270,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14881,14 +14308,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Coverage"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14918,14 +14345,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Coverage"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14959,14 +14386,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Coverage"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -14996,14 +14423,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Coverage"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15033,14 +14460,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Encounter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15070,14 +14497,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Encounter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15111,14 +14538,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_FirstContact"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15152,14 +14579,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Encounter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15189,14 +14616,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_TriageAssessment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15230,14 +14657,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_TriageAssessment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15264,14 +14691,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Experiment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15302,14 +14729,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Started"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15340,14 +14767,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Readout"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15381,14 +14808,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15415,14 +14842,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Facility"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15453,14 +14880,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Facility"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15490,14 +14917,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Facility"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15527,14 +14954,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Ward"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15561,14 +14988,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_InFacility"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15595,14 +15022,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Policy"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15636,14 +15063,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Policy"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15672,14 +15099,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Task"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15713,14 +15140,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15745,14 +15172,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15777,14 +15204,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15809,14 +15236,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15841,14 +15268,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15873,14 +15300,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15905,14 +15332,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15937,14 +15364,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -15969,14 +15396,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16001,14 +15428,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16033,14 +15460,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16065,14 +15492,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16097,14 +15524,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16129,14 +15556,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16161,14 +15588,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16193,14 +15620,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16225,14 +15652,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16257,14 +15684,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16289,14 +15716,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16321,14 +15748,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16353,14 +15780,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16385,14 +15812,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16417,14 +15844,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16449,14 +15876,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16481,14 +15908,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16513,14 +15940,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16545,14 +15972,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16577,14 +16004,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16614,14 +16041,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Proofing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16655,14 +16082,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16693,14 +16120,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16731,14 +16158,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Proofed"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16767,14 +16194,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_StaffItem"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16804,14 +16231,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_TextHandled"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16842,14 +16269,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_UnconfirmedRequest"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16883,14 +16310,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Confirmed"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16921,14 +16348,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Invoice"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16959,14 +16386,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_TemplateGroup"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -16993,14 +16420,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_LetterTemplate"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17031,14 +16458,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_LetterTemplate"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17069,14 +16496,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_SmsLength"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17106,14 +16533,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_LetterTemplate"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17147,14 +16574,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_LetterTemplate"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17188,14 +16615,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17225,14 +16652,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17263,14 +16690,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_GeneratedLetter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17301,14 +16728,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Preview"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17338,14 +16765,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_GeneratedLetter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17375,14 +16802,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_GeneratedLetter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17410,14 +16837,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17447,14 +16874,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_GeneratedLetter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17484,14 +16911,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Evaluation"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17521,14 +16948,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_FairnessAudit"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17558,14 +16985,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_ShownAssessments"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17592,14 +17019,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_ModelCard"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17628,14 +17055,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_CallItem"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17662,14 +17089,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Recalculated"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17700,14 +17127,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17734,14 +17161,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_RolloutRow"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17775,14 +17202,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17809,14 +17236,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_noshow.Status"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17846,14 +17273,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_OfferInfo"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17885,14 +17312,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_OfferOutcome"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17922,14 +17349,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_DueCheck"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17963,14 +17390,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Asked"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -17995,14 +17422,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18027,14 +17454,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18059,14 +17486,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18091,14 +17518,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18123,14 +17550,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18155,14 +17582,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18187,14 +17614,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18219,14 +17646,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18254,14 +17681,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18289,14 +17716,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18324,14 +17751,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18361,14 +17788,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_AppointmentSeries"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18398,14 +17825,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18433,14 +17860,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18471,14 +17898,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_audit.Entry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18508,14 +17935,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_OptOut"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18549,14 +17976,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_OptOutState"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18588,14 +18015,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_OptOutState"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18627,14 +18054,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18664,14 +18091,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Profile"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18705,14 +18132,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Profile"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18746,14 +18173,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Profile"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18783,14 +18210,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Consent"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18824,14 +18251,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Consent"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18862,14 +18289,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_HistoryRow"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18899,14 +18326,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Coverage"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18936,14 +18363,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Encounter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -18971,14 +18398,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19012,14 +18439,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_NeedRecorded"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19051,14 +18478,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_GeneratedLetter"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19086,14 +18513,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19127,14 +18554,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_pifu.Episode"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19167,14 +18594,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Authority"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19208,14 +18635,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Authority"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19248,14 +18675,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Adjustment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19289,14 +18716,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Adjustment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19330,14 +18757,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19367,14 +18794,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19408,14 +18835,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19445,14 +18872,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19482,14 +18909,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_PatientWaits"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19523,14 +18950,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19560,14 +18987,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19598,14 +19025,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Payment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19634,14 +19061,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_pifu.Episode"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19672,14 +19099,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_pifu.Request"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19713,14 +19140,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Handled"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19754,14 +19181,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_pifu.Request"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19795,14 +19222,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Reviewed"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19827,14 +19254,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19859,14 +19286,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19891,14 +19318,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19926,14 +19353,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19961,14 +19388,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -19996,14 +19423,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20031,14 +19458,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20066,14 +19493,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20101,14 +19528,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20139,14 +19566,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Batch"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20180,14 +19607,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_BatchSent"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20216,14 +19643,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_PrintQueue"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20257,14 +19684,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Revoked"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20298,14 +19725,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20339,14 +19766,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20378,14 +19805,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20410,7 +19837,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20440,14 +19867,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_AppointmentAdjustments"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20479,14 +19906,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20517,14 +19944,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Referral"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20555,14 +19982,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Created"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20592,14 +20019,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Referral"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20629,14 +20056,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Booked"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20670,14 +20097,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Referral"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20711,14 +20138,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Referral"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20752,14 +20179,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Referral"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20789,14 +20216,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_LinkInfo"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20830,14 +20257,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_LinkOutcome"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20873,14 +20300,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_LinkOutcome"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20912,14 +20339,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20947,14 +20374,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -20984,14 +20411,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_UptakeReport"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21021,14 +20448,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_RemovalsReport"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21059,14 +20486,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Room"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21096,14 +20523,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Room"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21134,14 +20561,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_RTTPathway"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21169,14 +20596,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21210,14 +20637,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_RTTClockEvent"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21247,14 +20674,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_RTTClockEvent"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21288,14 +20715,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_RTTClockEvent"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21323,14 +20750,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21359,14 +20786,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_TemplateView"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21397,14 +20824,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_TemplateCreated"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21438,14 +20865,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Generated"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21479,14 +20906,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_TemplateVersion"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21522,14 +20949,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_TemplateVersion"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21561,14 +20988,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Releases"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21601,14 +21028,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_StandbyEntry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21636,14 +21063,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21671,14 +21098,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21706,14 +21133,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21741,14 +21168,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21782,14 +21209,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21821,14 +21248,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21862,14 +21289,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_RingFenced"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21896,14 +21323,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21935,14 +21362,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -21971,14 +21398,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_StandbyEntry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22009,14 +21436,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_StandbyEntry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22046,14 +21473,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_StandbyEntry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22083,14 +21510,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22124,14 +21551,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22165,14 +21592,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22203,14 +21630,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Raised"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22239,14 +21666,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_SupportFlag"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22280,14 +21707,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22317,14 +21744,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Alert"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22358,14 +21785,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22390,14 +21817,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22424,14 +21851,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22460,14 +21887,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_ToleranceStatus"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22501,14 +21928,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22540,14 +21967,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22574,14 +22001,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_triage.QueueEntry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22613,14 +22040,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_triage.WaitsReport"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22645,14 +22072,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22677,14 +22104,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22715,14 +22142,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_NhsNumberChecked"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22751,14 +22178,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_list_validation.Campaign"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22789,14 +22216,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_list_validation.Campaign"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22826,14 +22253,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_list_validation.Campaign"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22867,14 +22294,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_list_validation.Item"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22910,14 +22337,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_list_validation.Item"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22953,14 +22380,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_list_validation.Item"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -22996,14 +22423,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_list_validation.Item"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23039,14 +22466,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_list_validation.Item"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23082,14 +22509,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_list_validation.Item"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23116,14 +22543,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_ApprovedService"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23157,14 +22584,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_ApprovedService"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23194,14 +22621,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23230,14 +22657,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_WaitlistEntry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23268,14 +22695,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_WaitlistEntry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23305,14 +22732,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_WaitlistEntry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23342,14 +22769,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_WaitlistEntry"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23383,14 +22810,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Appointment"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23422,14 +22849,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23461,14 +22888,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23499,14 +22926,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Ward"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23536,14 +22963,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Ward"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23573,14 +23000,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Bed"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23610,14 +23037,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_WardOccupancy"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23647,14 +23074,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_Room"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23681,14 +23108,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Vec_BatchItem"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23717,14 +23144,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23753,14 +23180,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23791,14 +23218,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_Receipt"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23829,14 +23256,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_ReplyResult"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;
@@ -23867,14 +23294,14 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_InboundOutcome"];
         };
       };
-      /** @description Client error; the `ApiResponse` envelope with a machine-readable code */
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Server or upstream error; the `ApiResponse` envelope */
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
         headers: {
           [name: string]: unknown;

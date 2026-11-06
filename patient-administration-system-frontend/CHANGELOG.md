@@ -8,6 +8,7 @@ crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Read PAS API refusals as RFC 9457 problems with `axa::problem` (FR-206).
 - Replaced Loco with [axa](https://crates.io/crates/axa) (FR-205). Every page renders byte for byte as before; the footer now says Axum.
 - Moved to axa 0.5. Every response now has a `content-security-policy`, the policy in `src/app.rs`, which allows the pages' inline styles and HTMX from unpkg. `--help` and `--version` describe this service, and `check` prints its settings with no database.
 - A release build with no `APP_ENV` is production, a production `DATABASE_URL` must set `sslmode` unless it is loopback or `DB_ALLOW_INSECURE=true`, and a client that does not finish its headers in 30 seconds is dropped (`HEADER_READ_TIMEOUT_SECONDS`). The server speaks HTTP/1 only, holds at most 10,000 connections (`MAX_CONNECTIONS`), and `db reset`, `db down` and `db truncate` are refused by `cli::parse` before the service runs.

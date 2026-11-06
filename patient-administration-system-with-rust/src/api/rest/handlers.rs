@@ -2,15 +2,20 @@
 //! (`error_to_response`), the audit-context helpers, and `GET /api/health`. The domain handlers live in the
 //! `handlers_*` modules and `upstream_proxy`, wired up in `routes.rs`.
 
-use axum::{Json, extract::State, http::StatusCode};
+use axum::{
+    Json,
+    extract::State,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use serde_json::Value;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
+use crate::api::{ApiResponse, problem};
 
-/// Standard handler return type: an HTTP status plus a JSON `ApiResponse`.
-pub type HandlerResult = (StatusCode, Json<ApiResponse<Value>>);
+/// Standard handler return type: an `ApiResponse` on success, an RFC 9457 problem otherwise.
+pub type HandlerResult = Response;
 
 /// Map a service-layer [`Error`] onto an HTTP status code + machine-readable
 /// error code.
@@ -34,7 +39,7 @@ pub fn error_to_response(err: Error) -> HandlerResult {
         Error::Upstream(_) => (StatusCode::SERVICE_UNAVAILABLE, "UPSTREAM_UNAVAILABLE"),
         Error::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL"),
     };
-    (status, Json(ApiResponse::err(code, err.client_message())))
+    problem(status, code, err.client_message()).into_response()
 }
 
 /// The `?limit=` of a list request (see [`crate::paging`]).
@@ -45,7 +50,7 @@ pub struct LimitQuery {
 
 /// `200` with `value` in the `ApiResponse` envelope.
 pub fn ok(value: Value) -> HandlerResult {
-    (StatusCode::OK, Json(ApiResponse::ok(value)))
+    (StatusCode::OK, Json(ApiResponse::ok(value))).into_response()
 }
 
 /// `200` with `value` serialized into the envelope. A value that cannot be serialized is a logged `500`,
@@ -64,7 +69,7 @@ pub fn ok_json<T: serde::Serialize>(value: T) -> HandlerResult {
 pub fn ok_page<T: serde::Serialize>(rows: Vec<T>, limit: i64) -> HandlerResult {
     let (rows, meta) = crate::paging::cut(rows, limit);
     match serde_json::to_value(rows) {
-        Ok(v) => (StatusCode::OK, Json(ApiResponse::ok_page(v, meta))),
+        Ok(v) => (StatusCode::OK, Json(ApiResponse::ok_page(v, meta))).into_response(),
         Err(e) => error_to_response(Error::internal(format!(
             "response could not be serialized: {e}"
         ))),
@@ -97,8 +102,8 @@ pub fn audit_ctx(uc: &crate::upstream::UserContext) -> crate::db::repositories::
     tag = "Health",
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn health(State(state): State<AppState>) -> HandlerResult {
@@ -134,19 +139,66 @@ mod serialization_tests {
     }
 
     /// QUAL-27: a value that cannot be serialized is a 500 with generic text, never a `200` carrying `null`.
-    #[test]
-    fn an_unserializable_value_is_a_500_not_a_null_200() {
-        let (status, Json(body)) = ok_json(Unserializable);
-        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-        let text = serde_json::to_string(&body).unwrap();
+    #[tokio::test]
+    async fn an_unserializable_value_is_a_500_not_a_null_200() {
+        let response = ok_json(Unserializable);
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let text = body_text(response).await;
         assert!(!text.contains("secret detail"), "{text}");
         assert!(text.contains("INTERNAL"), "{text}");
     }
 
-    #[test]
-    fn a_serializable_value_is_a_200() {
-        let (status, Json(body)) = ok_json(serde_json::json!({ "a": 1 }));
-        assert_eq!(status, StatusCode::OK);
-        assert!(serde_json::to_string(&body).unwrap().contains("\"a\":1"));
+    #[tokio::test]
+    async fn a_serializable_value_is_a_200() {
+        let response = ok_json(serde_json::json!({ "a": 1 }));
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(body_text(response).await.contains("\"a\":1"));
+    }
+
+    /// FR-206: every kind of error is a problem, with the standard members and a machine-readable `code`.
+    #[tokio::test]
+    async fn an_error_is_an_rfc_9457_problem_with_a_code() {
+        let response = error_to_response(Error::not_found("appointment 1"));
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            response.headers()[axum::http::header::CONTENT_TYPE],
+            axa_problem::PROBLEM_JSON
+        );
+        let v: Value = serde_json::from_str(&body_text(response).await).unwrap();
+        assert_eq!(v["type"], "about:blank");
+        assert_eq!(v["title"], "Not Found");
+        assert_eq!(v["status"], 404);
+        assert_eq!(v["code"], "NOT_FOUND");
+        assert!(v["detail"].as_str().unwrap().contains("appointment 1"));
+        assert!(
+            v.get("success").is_none() && v.get("error").is_none(),
+            "{v}"
+        );
+    }
+
+    /// FR-206: what goes wrong inside stays inside; the client's text is the same as it was in the envelope.
+    #[tokio::test]
+    async fn a_problem_never_carries_internal_failure_text() {
+        let response = error_to_response(Error::internal("password=hunter2 at 10.0.0.5"));
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let text = body_text(response).await;
+        assert!(
+            !text.contains("hunter2") && !text.contains("10.0.0.5"),
+            "{text}"
+        );
+    }
+
+    /// A successful body is still the envelope, and no longer carries an always-null `error`.
+    #[tokio::test]
+    async fn a_success_stays_in_the_envelope() {
+        let v: Value = serde_json::from_str(&body_text(ok(serde_json::json!(1))).await).unwrap();
+        assert_eq!(v, serde_json::json!({ "success": true, "data": 1 }));
+    }
+
+    async fn body_text(response: Response) -> String {
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        String::from_utf8(bytes.to_vec()).unwrap()
     }
 }

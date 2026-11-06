@@ -13,7 +13,6 @@ use uuid::Uuid;
 
 use crate::Error;
 use crate::analytics::Dim;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
@@ -40,8 +39,8 @@ pub struct OutcomesQuery {
     params(OutcomesQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope (`text/csv` with `format=csv`)", body = crate::api::ApiResponse<crate::analytics::Report>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn outcomes(
@@ -116,8 +115,8 @@ pub struct RefillQuery {
     params(RefillQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope (`text/csv` with `format=csv`)", body = crate::api::ApiResponse<crate::analytics::RefillReport>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn refill_rates(
@@ -172,8 +171,8 @@ pub async fn refill_rates(
     request_body = DemographicsBody,
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::api::Nothing>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn set_demographics(
@@ -199,7 +198,7 @@ pub async fn set_demographics(
         )
         .await
     {
-        Ok(()) => (StatusCode::OK, Json(ApiResponse::ok(Value::Null))),
+        Ok(()) => crate::api::rest::handlers::ok(Value::Null),
         Err(e) => error_to_response(e),
     }
 }
@@ -233,8 +232,8 @@ pub struct LookupQuery {
     params(LookupQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<DeprivationLoaded>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn load_deprivation_lookup(
@@ -273,8 +272,8 @@ pub struct RefreshQuery {
     params(RefreshQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Refreshed>),
-        (status = "4XX", description = "Client error; the `ApiResponse` envelope with a machine-readable code"),
-        (status = "5XX", description = "Server or upstream error; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn refresh_demographics(

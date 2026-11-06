@@ -40,7 +40,6 @@ use std::time::Duration;
 
 use authentication_verifier::{Action, Claims, Policy, ReloadableVerifier, Verifier};
 use axum::{
-    Json,
     body::Body,
     extract::{Request, State},
     http::{HeaderMap, HeaderValue, Method, StatusCode, header},
@@ -48,7 +47,6 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use crate::api::ApiResponse;
 use crate::api::rest::carrier_auth::{self, Carriers};
 
 /// A trusted service names the person it acts for with this header.
@@ -362,11 +360,7 @@ pub fn entity_of(path: &str) -> String {
 }
 
 fn refuse(status: StatusCode, code: &str, message: &str) -> Response {
-    (
-        status,
-        Json(ApiResponse::<serde_json::Value>::err(code, message)),
-    )
-        .into_response()
+    crate::api::problem(status, code, message).into_response()
 }
 
 /// The middleware. Mount it with [`with_user_auth`].

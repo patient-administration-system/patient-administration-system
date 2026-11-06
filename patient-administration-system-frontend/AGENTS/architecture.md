@@ -73,7 +73,7 @@ impl PasApi {
 Shared `post_envelope` unwraps the PAS `ApiResponse` envelope:
 
 - 2xx + `success: true` → `Ok(data)`
-- 2xx + `success: false` (treated as application error) or non-2xx → `Err(PasApiError::Status { status, code, message })`
+- Non-2xx → `Err(PasApiError::Status { status, message })`, with `message` from the RFC 9457 problem the PAS answers (FR-206)
 - Transport / JSON-parse failures → `Err(PasApiError::Http(_))` / `Err(PasApiError::MalformedBody(_))`
 
 Base URL via `PAS_API_URL`, default `http://localhost:8080`.

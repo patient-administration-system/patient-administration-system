@@ -91,7 +91,7 @@ async fn a_limit_outside_the_range_is_a_400_not_a_silent_change() {
             let (st, v) = get(&app, &format!("{path}?limit={bad}")).await;
             assert_eq!(st, StatusCode::BAD_REQUEST, "{path}?limit={bad}: {v}");
             assert!(
-                v["error"]["message"]
+                v["detail"]
                     .as_str()
                     .unwrap_or("")
                     .contains("limit must be between 1 and 500"),

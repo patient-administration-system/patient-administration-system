@@ -16,11 +16,11 @@ The PAS crate exposes a Rust library API mirroring the module layout under `src/
 
 ## Response Envelope
 
-All REST endpoints (everything under `/api/`) return:
+All REST endpoints (everything under `/api/`) return the first form on success and an RFC 9457 problem (`application/problem+json`, built by `api::problem` with `axa-problem`) on a refusal or failure. `code` is the machine-readable code; `detail` is safe to show the caller:
 
 ```json
-{ "success": true,  "data": { ... }, "error": null }
-{ "success": false, "data": null,    "error": { "code": "...", "message": "..." } }
+{ "success": true, "data": { ... } }
+{ "type": "about:blank", "title": "Not Found", "status": 404, "detail": "...", "code": "NOT_FOUND" }
 ```
 
 FHIR endpoints (`/fhir/...`) return canonical FHIR resources on success and FHIR `OperationOutcome` JSON on failure.

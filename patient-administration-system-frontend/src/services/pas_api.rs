@@ -53,6 +53,14 @@ pub enum PasApiError {
     MalformedResponse,
 }
 
+/// The text of a refusal: the PAS answers one as an RFC 9457 problem (FR-206).
+fn problem_detail(body: serde_json::Value) -> String {
+    serde_json::from_value::<axa::problem::Problem>(body)
+        .ok()
+        .and_then(|problem| problem.detail)
+        .unwrap_or_else(|| "(no message)".to_string())
+}
+
 /// Shared helper: POST `body` to `path` on the PAS binary, unwrap the
 /// `ApiResponse` envelope, and return the `data` field as a `Value` (so
 /// the caller can deserialize into a typed struct).
@@ -65,15 +73,9 @@ async fn post_envelope<B: Serialize>(
     let status = resp.status();
     let payload: serde_json::Value = resp.json().await?;
     if !status.is_success() {
-        let message = payload
-            .get("error")
-            .and_then(|e| e.get("message"))
-            .and_then(|m| m.as_str())
-            .unwrap_or("(no message)")
-            .to_string();
         return Err(PasApiError::Status {
             status: status.as_u16(),
-            message,
+            message: problem_detail(payload),
         });
     }
     payload
@@ -144,15 +146,9 @@ pub async fn generate_letter(req: &GenerateLetterRequest) -> Result<GeneratedLet
     let status = resp.status();
     let body: serde_json::Value = resp.json().await?;
     if !status.is_success() {
-        let message = body
-            .get("error")
-            .and_then(|e| e.get("message"))
-            .and_then(|m| m.as_str())
-            .unwrap_or("(no message)")
-            .to_string();
         return Err(PasApiError::Status {
             status: status.as_u16(),
-            message,
+            message: problem_detail(body),
         });
     }
     let data = body
@@ -162,4 +158,25 @@ pub async fn generate_letter(req: &GenerateLetterRequest) -> Result<GeneratedLet
     let letter: GeneratedLetter =
         serde_json::from_value(data).map_err(|_| PasApiError::MalformedResponse)?;
     Ok(letter)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// FR-206: the text of a refusal comes from the PAS's problem.
+    #[test]
+    fn a_refusal_is_read_from_the_problem() {
+        let body = serde_json::json!({
+            "type": "about:blank", "title": "Conflict", "status": 409,
+            "detail": "that slot has gone", "code": "CONFLICT",
+        });
+        assert_eq!(problem_detail(body), "that slot has gone");
+    }
+
+    #[test]
+    fn an_answer_that_is_not_a_problem_still_says_so() {
+        let not_a_problem = serde_json::json!({ "oops": true });
+        assert_eq!(problem_detail(not_a_problem), "(no message)");
+    }
 }

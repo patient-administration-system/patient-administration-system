@@ -237,10 +237,7 @@ async fn invalid_template_syntax_is_refused_on_create_and_on_update_and_nothing_
     .await;
     assert_eq!(st, StatusCode::BAD_REQUEST);
     assert!(
-        v["error"]["message"]
-            .as_str()
-            .unwrap_or("")
-            .contains("body_tera"),
+        v["detail"].as_str().unwrap_or("").contains("body_tera"),
         "{v}"
     );
     // ...and so is a broken subject.

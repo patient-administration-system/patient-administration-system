@@ -144,7 +144,7 @@ http
       const leak = "panicked at src/db/repositories/appointment.rs:212 password=hunter2 SqlxError(PgDatabaseError)";
       if (mode === "500") {
         res.statusCode = 500;
-        return res.end(JSON.stringify({ success: false, error: { code: "INTERNAL", message: leak } }));
+        return res.end(JSON.stringify({ type: "about:blank", code: "INTERNAL", detail: leak }));
       }
       if (mode === "garbage") return res.end("not json {{ " + leak);
       if (mode === "html") {
@@ -167,7 +167,7 @@ http
       if (!claims) {
         res.statusCode = 401;
         return res.end(
-          JSON.stringify({ success: false, error: { code: "UNAUTHORIZED", message: "invalid or expired token" } }),
+          JSON.stringify({ type: "about:blank", code: "UNAUTHORIZED", detail: "invalid or expired token" }),
         );
       }
     }
@@ -177,9 +177,7 @@ http
       const [, token = "", action] = offer;
       if (!/^[0-9a-f]{64}$/.test(token) || /^0+$/.test(token)) {
         res.statusCode = 404;
-        return res.end(
-          JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "this link is not valid" } }),
-        );
+        return res.end(JSON.stringify({ type: "about:blank", code: "NOT_FOUND", detail: "this link is not valid" }));
       }
       const state: S["OfferState"] = offers.get(token) ? "used" : token.startsWith("eeee") ? "expired" : "open";
       if (req.method === "GET") {
@@ -197,16 +195,15 @@ http
         res.statusCode = 409;
         return res.end(
           JSON.stringify({
-            success: false,
-            error: { code: "CONFLICT", message: "this offer has already been answered" },
+            type: "about:blank",
+            code: "CONFLICT",
+            detail: "this offer has already been answered",
           }),
         );
       }
       if (state === "expired") {
         res.statusCode = 400;
-        return res.end(
-          JSON.stringify({ success: false, error: { code: "VALIDATION", message: "this offer has expired" } }),
-        );
+        return res.end(JSON.stringify({ type: "about:blank", code: "VALIDATION", detail: "this offer has expired" }));
       }
       offers.set(token, action);
       acts.push({ token, action: `offer-${action}` });
@@ -229,9 +226,7 @@ http
       const unknown = !/^[0-9a-f]{64}$/.test(token) || /^0+$/.test(token);
       if (unknown) {
         res.statusCode = 404;
-        return res.end(
-          JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "this link is not valid" } }),
-        );
+        return res.end(JSON.stringify({ type: "about:blank", code: "NOT_FOUND", detail: "this link is not valid" }));
       }
       const expired = /^e+$/.test(token);
       const state: S["LinkState"] = links.get(token) ? "used" : expired ? "expired" : "open";
@@ -251,7 +246,7 @@ http
       const body = await readBody(req);
       const send = (code: number, error: string, message: string) => {
         res.statusCode = code;
-        return res.end(JSON.stringify({ success: false, error: { code: error, message } }));
+        return res.end(JSON.stringify({ type: "about:blank", status: code, code: error, detail: message }));
       };
       if (state === "used") return send(409, "CONFLICT", "this link has already been used");
       if (state === "expired") return send(400, "VALIDATION", "this link has expired");
@@ -608,7 +603,7 @@ http
       const body = await readBody(req);
       if (tpl[1] !== template.id) {
         res.statusCode = 404;
-        return res.end(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "no such template" } }));
+        return res.end(JSON.stringify({ type: "about:blank", code: "NOT_FOUND", detail: "no such template" }));
       }
       template.subject = body.subject ?? template.subject;
       template.body_tera = body.body_tera ?? template.body_tera;
@@ -618,6 +613,6 @@ http
       return res.end(envelope(template));
     }
     res.statusCode = 404;
-    res.end(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "not found" } }));
+    res.end(JSON.stringify({ type: "about:blank", code: "NOT_FOUND", detail: "not found" }));
   })
   .listen(MOCK_PORT, "127.0.0.1", () => console.log(`pas-mock on ${MOCK_PORT}`));

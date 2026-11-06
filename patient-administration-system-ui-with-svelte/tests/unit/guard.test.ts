@@ -86,7 +86,7 @@ describe("requireProofedPatient", () => {
     }) as unknown as typeof fetch;
     for (const f of [
       answering(200, { data: { proofed: false } }),
-      answering(500, { error: { message: "boom" } }),
+      answering(500, { type: "about:blank", title: "Internal Server Error", status: 500, detail: "boom" }),
       answering(200, { data: { proofed: "yes" } }),
       down,
     ]) {

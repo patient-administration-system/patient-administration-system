@@ -61,12 +61,7 @@ async fn the_endpoint_validates_and_the_patient_proxy_refuses_a_bad_nhs_number()
     let bad = serde_json::json!({ "name": { "family": "Lovelace" }, "identifiers": [{ "system": "https://fhir.nhs.uk/Id/nhs-number", "value": "9434765918" }] });
     let (st, v) = call("POST", "/api/patients", bad.clone()).await;
     assert_eq!(st, StatusCode::BAD_REQUEST, "{v}");
-    assert!(
-        v["error"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("NHS number")
-    );
+    assert!(v["detail"].as_str().unwrap().contains("NHS number"));
     let (st, _) = call(
         "PUT",
         "/api/patients/00000000-0000-0000-0000-000000000001",

@@ -177,7 +177,7 @@ async fn the_http_endpoint_answers_403_for_marketing_without_consent() {
     };
     let (st, v) = post(serde_json::json!({ "purpose": "marketing" })).await;
     assert_eq!(st, StatusCode::FORBIDDEN, "{v}");
-    assert_eq!(v["error"]["code"], "FORBIDDEN");
+    assert_eq!(v["code"], "FORBIDDEN");
     let (st, _) = post(serde_json::json!({})).await;
     assert_eq!(st, StatusCode::OK);
     grant(&s, p, ConsentType::Marketing).await;

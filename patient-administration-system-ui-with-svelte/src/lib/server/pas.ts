@@ -24,7 +24,9 @@ export class PasError extends Error {
 interface Envelope<T> {
   success?: boolean;
   data?: T;
-  error?: { code?: string; message?: string };
+  /** Set on a refusal or failure, which the PAS answers as an RFC 9457 problem. */
+  code?: string;
+  detail?: string;
 }
 
 export async function pas<T>(
@@ -57,7 +59,7 @@ export async function pas<T>(
     // What the PAS said stays in the server log. It never travels into an error page: it can hold anything
     // (a database message, a path), and the page shows its own translated text for the status instead.
     console.error(
-      `[pas] ${init.method ?? "GET"} ${path.split("?")[0]} answered ${res.status}: ${env.error?.message ?? text.slice(0, 200)}`,
+      `[pas] ${init.method ?? "GET"} ${path.split("?")[0]} answered ${res.status}: ${env.detail ?? text.slice(0, 200)}`,
     );
     throw new PasError(res.status, `the PAS API answered ${res.status}`);
   }

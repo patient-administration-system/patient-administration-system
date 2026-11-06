@@ -94,7 +94,7 @@ async fn the_second_writer_of_one_appointment_gets_412_and_a_missing_version_get
 
     let (st, _, v) = call(&app, "POST", &format!("{uri}/cancel"), None, "{}").await;
     assert_eq!(st, StatusCode::PRECONDITION_REQUIRED, "{v}");
-    assert_eq!(v["error"]["code"], "PRECONDITION_REQUIRED");
+    assert_eq!(v["code"], "PRECONDITION_REQUIRED");
     assert_eq!(status_of(&s, a.id).await, AppointmentStatus::Booked);
 
     let (st, new_tag, _) = call(&app, "POST", &format!("{uri}/cancel"), Some(&tag_a), "{}").await;
@@ -107,7 +107,7 @@ async fn the_second_writer_of_one_appointment_gets_412_and_a_missing_version_get
 
     let (st, _, v) = call(&app, "POST", &format!("{uri}/cancel"), Some(&tag_a), "{}").await;
     assert_eq!(st, StatusCode::PRECONDITION_FAILED, "{v}");
-    assert_eq!(v["error"]["code"], "PRECONDITION_FAILED");
+    assert_eq!(v["code"], "PRECONDITION_FAILED");
     let cancels = s
         .db
         .query_one_raw(sea_orm::Statement::from_sql_and_values(

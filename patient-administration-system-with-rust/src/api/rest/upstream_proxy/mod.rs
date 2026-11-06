@@ -31,7 +31,6 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::Error;
-use crate::api::ApiResponse;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::api::rest::handlers::{ok, ok_json};

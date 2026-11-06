@@ -7,6 +7,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Breaking (FR-206):** REST errors are now RFC 9457 problems (`application/problem+json`, with `axa-problem`), not the `ApiResponse` envelope. Read `code` where you read `error.code`, and `detail` where you read `error.message`. `success: false` is gone, and a success no longer carries `"error": null`. FHIR and HL7 v2 answers are unchanged.
 - `GET /api/health` reports `person_service` and `worker_service`, and says `degraded` when a configured one does not answer (NFR-28).
 - `PAS_REQUIRE_UPSTREAMS=true` refuses to start without `PERSON_SERVICE_URL` and `WORKER_SERVICE_URL`.
 - `POST /fhir` writes: a `transaction` or `batch` Bundle can create `Schedule` and `Slot` records, audited and with an outbox event (`ScheduleCreated`, `SlotCreated`). It used to refuse every entry. `Bundle.type` is now required.

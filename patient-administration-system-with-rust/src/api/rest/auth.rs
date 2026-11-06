@@ -9,14 +9,11 @@
 //! posture documented in `plan.md`.
 
 use axum::{
-    Json,
     extract::Request,
     http::{StatusCode, header},
     middleware::Next,
     response::{IntoResponse, Response},
 };
-
-use crate::api::ApiResponse;
 
 /// Required token, supplied at construction time. Cloned into the middleware
 /// closure so it can be checked per-request.
@@ -51,14 +48,12 @@ pub async fn require_bearer(
         .map(str::trim);
     match supplied {
         Some(t) if t == state.0.expected => next.run(req).await,
-        _ => (
+        _ => crate::api::problem(
             StatusCode::UNAUTHORIZED,
-            Json(ApiResponse::<serde_json::Value>::err(
-                "UNAUTHORIZED",
-                "missing or invalid bearer token",
-            )),
+            "UNAUTHORIZED",
+            "missing or invalid bearer token",
         )
-            .into_response(),
+        .into_response(),
     }
 }
 

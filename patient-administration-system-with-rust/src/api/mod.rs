@@ -9,31 +9,45 @@ pub use openapi::ApiDoc;
 
 use serde::{Deserialize, Serialize};
 
-/// Envelope for every JSON response from the PAS REST API.
-///
-/// Success responses set `success = true` and populate `data`. Error responses
-/// set `success = false` and populate `error`. Callers can dispatch on
-/// `success` without unwrapping HTTP status codes.
+/// Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+/// an RFC 9457 problem: see [`problem`].
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ApiResponse<T> {
     pub success: bool,
     pub data: Option<T>,
-    pub error: Option<ApiError>,
     /// Present on list responses: the limit that applied and whether the list was cut short.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub meta: Option<crate::paging::PageMeta>,
 }
 
+/// The body of every refused or failed REST request: an RFC 9457 problem (`application/problem+json`, FR-206), with
+/// the status's reason as `title`, `message` as `detail`, and the machine-readable `code` as an extension.
+///
+/// Never pass internal failure text: `detail` goes to the client ([`crate::Error::client_message`] is the safe text
+/// of an error).
+///
+/// ```
+/// use axum::http::StatusCode;
+/// use patient_administration_system::api::problem;
+///
+/// let p = problem(StatusCode::CONFLICT, "CONFLICT", "that slot has gone");
+/// assert_eq!(p.title, "Conflict");
+/// assert_eq!(p.status, 409);
+/// assert_eq!(p.extensions["code"], "CONFLICT");
+/// ```
+pub fn problem(
+    status: axum::http::StatusCode,
+    code: &str,
+    message: impl Into<String>,
+) -> axa_problem::Problem {
+    axa_problem::Problem::new(status)
+        .with_detail(message)
+        .with_extension("code", serde_json::Value::from(code))
+}
+
 /// The `data` of a success that has nothing to return: it serializes to `null`.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Nothing;
-
-/// Machine-readable error payload carried in [`ApiResponse::error`].
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct ApiError {
-    pub code: String,
-    pub message: String,
-}
 
 impl<T> ApiResponse<T> {
     /// Build a success response carrying `data`.
@@ -41,7 +55,6 @@ impl<T> ApiResponse<T> {
         Self {
             success: true,
             data: Some(data),
-            error: None,
             meta: None,
         }
     }
@@ -51,20 +64,6 @@ impl<T> ApiResponse<T> {
         Self {
             meta: Some(meta),
             ..Self::ok(data)
-        }
-    }
-
-    /// Build an error response with the given machine-readable code and
-    /// human-readable message.
-    pub fn err(code: &str, message: impl Into<String>) -> Self {
-        Self {
-            success: false,
-            data: None,
-            error: Some(ApiError {
-                code: code.into(),
-                message: message.into(),
-            }),
-            meta: None,
         }
     }
 }

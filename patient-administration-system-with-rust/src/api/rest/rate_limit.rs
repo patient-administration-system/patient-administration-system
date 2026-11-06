@@ -178,17 +178,12 @@ pub async fn rate_limit_middleware(
     match limiter.try_consume(ip) {
         Ok(()) => next.run(req).await,
         Err(retry_after) => {
-            let body = serde_json::json!({
-                "success": false,
-                "data": null,
-                "error": {
-                    "code": "RATE_LIMITED",
-                    "message": format!(
-                        "Too many requests; retry after {retry_after} seconds.",
-                    ),
-                },
-            });
-            let mut resp = (StatusCode::TOO_MANY_REQUESTS, axum::Json(body)).into_response();
+            let mut resp = crate::api::problem(
+                StatusCode::TOO_MANY_REQUESTS,
+                "RATE_LIMITED",
+                format!("Too many requests; retry after {retry_after} seconds."),
+            )
+            .into_response();
             // Retry-After is a standard HTTP header; the value is
             // delta-seconds.
             let header_value =

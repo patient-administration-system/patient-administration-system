@@ -75,12 +75,16 @@ async fn rate_limit_blocks_after_burst_and_serves_429_with_retry_after() {
         resp.headers().get("retry-after").is_some(),
         "429 must carry Retry-After header"
     );
+    assert_eq!(
+        resp.headers()["content-type"],
+        "application/problem+json",
+        "FR-206"
+    );
     let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
         .await
         .expect("body");
     let v: serde_json::Value = serde_json::from_slice(&bytes).expect("json body");
-    assert_eq!(v["success"], false);
-    assert_eq!(v["error"]["code"], "RATE_LIMITED");
+    assert_eq!(v["code"], "RATE_LIMITED");
 }
 
 #[tokio::test]
