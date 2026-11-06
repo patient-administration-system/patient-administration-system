@@ -9,12 +9,19 @@
 
 mod common;
 
-use migration::{Migrator, MigratorTrait};
 use patient_administration_system::db::connect;
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, DbErr, Statement};
 
-/// The last migration whose `down` refuses by design.
-const FORWARD_ONLY: &str = "m20260601_000006_delegate_identity";
+/// The last forward-only migration: it has no down file.
+const FORWARD_ONLY: i64 = 20260601000006;
+
+fn pool(db: &DatabaseConnection) -> &sqlx::PgPool {
+    db.get_postgres_connection_pool()
+}
+
+fn fail(e: sqlx::migrate::MigrateError) -> DbErr {
+    DbErr::Custom(e.to_string())
+}
 
 /// `DATABASE_URL` with its database name replaced.
 fn with_database(url: &str, name: &str) -> String {
@@ -30,15 +37,15 @@ async fn schema(db: &DatabaseConnection) -> Result<Vec<String>, DbErr> {
     let sql = "SELECT 'column ' || table_name || '.' || column_name || ' ' || data_type || ' ' || is_nullable \
                       || ' ' || coalesce(column_default, '') AS line \
                  FROM information_schema.columns \
-                WHERE table_schema = 'public' AND table_name <> 'seaql_migrations' \
+                WHERE table_schema = 'public' AND table_name <> '_sqlx_migrations' \
                UNION ALL \
                SELECT 'constraint ' || conrelid::regclass || ' ' || conname || ' ' || pg_get_constraintdef(oid) \
                  FROM pg_constraint \
-                WHERE connamespace = 'public'::regnamespace AND conrelid <> 'seaql_migrations'::regclass \
+                WHERE connamespace = 'public'::regnamespace AND conrelid <> '_sqlx_migrations'::regclass \
                UNION ALL \
                SELECT 'index ' || tablename || ' ' || indexdef \
                  FROM pg_indexes \
-                WHERE schemaname = 'public' AND tablename <> 'seaql_migrations' \
+                WHERE schemaname = 'public' AND tablename <> '_sqlx_migrations' \
                ORDER BY 1";
     db.query_all_raw(Statement::from_string(DbBackend::Postgres, sql))
         .await?
@@ -75,29 +82,26 @@ async fn with_fresh_database<T>(
 #[ignore]
 async fn migrations_after_the_forward_only_one_go_down_and_up_again_and_leave_the_same_schema() {
     let url = common::database_url().unwrap();
-    let names: Vec<String> = Migrator::migrations()
+    let undo = migration::MIGRATOR
         .iter()
-        .map(|m| m.name().to_string())
-        .collect();
-    let keep = 1 + names
-        .iter()
-        .position(|n| n == FORWARD_ONLY)
-        .expect("the forward-only migration is listed");
-    let undo = (names.len() - keep) as u32;
+        .filter(|m| m.migration_type.is_down_migration())
+        .count() as u32;
     assert!(undo > 30, "only {undo} migrations would be exercised");
 
     let base = with_fresh_database(&url, async |db| {
-        Migrator::up(db, Some(keep as u32)).await?;
+        migration::up_to(pool(db), FORWARD_ONLY)
+            .await
+            .map_err(fail)?;
         schema(db).await
     })
     .await;
 
     let (full, down, again) = with_fresh_database(&url, async |db| {
-        Migrator::up(db, None).await?;
+        migration::up(pool(db)).await.map_err(fail)?;
         let full = schema(db).await?;
-        Migrator::down(db, Some(undo)).await?;
+        migration::down(pool(db), undo).await.map_err(fail)?;
         let down = schema(db).await?;
-        Migrator::up(db, None).await?;
+        migration::up(pool(db)).await.map_err(fail)?;
         Ok((full, down, schema(db).await?))
     })
     .await;

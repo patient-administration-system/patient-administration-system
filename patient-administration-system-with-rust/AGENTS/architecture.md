@@ -195,7 +195,7 @@ The api layer converts errors to HTTP status codes:
 
 29 tables, grouped: identity (1: `patients`), workforce (3: `practitioners`, `practitioner_roles`, `departments`), resources (4: `facilities`, `wards`, `rooms`, `beds`), ADT (4: `encounters`, `admissions`, `transfers`, `discharges`) + `bed_assignments`, scheduling (3: `schedules`, `slots`, `appointments`), waitlist + RTT (4: `referrals`, `waitlist_entries`, `rtt_pathways`, `rtt_clock_events`), communication (2: `letter_templates`, `generated_letters`), billing (4: `accounts`, `charges`, `invoices`, `payments`), consent (1: `consents`), audit + events (2: `audit_log`, `outbox_events`).
 
-v0.1 trade-off: repeated child collections on `patients` and `practitioners` (`identifiers`, `additional_names`, `telecom`, `addresses`, `emergency_contacts`) are stored inline as `JSONB` columns instead of as separate tables. The migration comment in `migrations/src/m20260520_000001_init.rs` flags this for future normalization.
+v0.1 trade-off: repeated child collections on `patients` and `practitioners` (`identifiers`, `additional_names`, `telecom`, `addresses`, `emergency_contacts`) are stored inline as `JSONB` columns instead of as separate tables. The migration comment in `migrations/sql/20260520000001_init.sql` flags this for future normalization.
 
 Strategic indexes target the hot paths:
 
@@ -206,7 +206,7 @@ Strategic indexes target the hot paths:
 - `rtt_clock_events (pathway_id, event_at)` — clock arithmetic ordering
 - `outbox_events (published) WHERE published = false` — dispatcher hot path
 
-Authoritative source: `migrations/src/m20260520_000001_init.rs`.
+Authoritative source: `migrations/sql/20260520000001_init.sql`.
 
 ## See Also
 

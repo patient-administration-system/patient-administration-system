@@ -313,16 +313,18 @@ Asked: do more with local CI/CD rather than rely on GitHub, which is unreliable 
 
 Asked for again 2026-11-06 (SQLX-1). Measured from the tree: 253 files use `sea_orm` (244 in the server and its migrations, 9 in the front-end); 486 raw-SQL calls and 470 `Statement` builders (src and tests); 66 transaction closures; 29 entities; 426 lines of `ActiveModel` use; 57 migrations. Nothing below is built. axa-sqlx 0.1.2 gives pooling, migrations and test resets, and on purpose does not wrap queries. axa 0.5, sea-orm 2.0 and axa-sqlx all sit on sqlx 0.9.
 
-**Two facts set the order.**
+**Status: stage 1 is built. The front-end (stage 5) is done in worktree `../pas-sqlx-1` by another session, uncommitted, and landing it is the maintainer's decision.**
 
-- **The front-end cannot go first.** `axa::Db` is sea-orm or sqlx, never both, and its `db migrate` calls the sea-orm `Migrator`. So the migrations move first.
+**What sets the order.**
+
+- **The front-end does not depend on the server.** This plan first said it could not go before the migrations. That was wrong: `SqlxPostgresConnector::from_sqlx_postgres_pool` lets sea-orm's `Migrator` run on an sqlx pool. After stage 1 even that is not needed: `migration::up` takes a `PgPool`. The front-end's stage can land at any time.
 - **Repositories cannot move one at a time.** A sea-orm `DatabaseTransaction` cannot be handed to sqlx, and the audit and outbox repositories run inside every transaction closure. Converting them piecemeal does not compile. So a project-owned connection layer goes in first, on top of sea-orm, and the implementation behind it is swapped in one place.
 
 **Stages. Each one ends with the whole gate green and is pushed on its own.**
 
 | Stage | What | Risk to watch |
 |---|---|---|
-| 0 | Land the work already finished; decide the two questions below | |
+| 0 | Land the work already finished. Done. | |
 | 1 | Migrations become `.up.sql` and `.down.sql` files under `sqlx::migrate`. The 57 keep their order. A database that has `seaql_migrations` is adopted into `_sqlx_migrations`, not re-run. `pas-migrate` and the front-end's `db migrate` follow. | History lost or re-applied. Migrations that build SQL in Rust (four use the schema manager) must give the same schema: compare `pg_dump --schema-only` of old and new, fresh and adopted. `tests/qual26_migrations_test.rs` keeps up and down. |
 | 2 | `crate::db` gains a small connection trait (execute, fetch one, fetch optional, fetch all, with bound values) and an `in_transaction` helper shaped like today's closure, both implemented over sea-orm. Every `Statement` site and all 66 closures move to it. | Bind types: `timestamptz`, `uuid`, `jsonb`, and arrays. |
 | 3 | The 29 entities and every `ActiveModel` become plain SQL and row types in the repositories, still on sea-orm's connection. | A partial update (`NotSet`) must stay partial. `updated_at` is the version behind `ETag` (NFR-27): it must change exactly when it does now, at the same precision. `FixedOffset` to `Utc` must not move an instant. `FOR UPDATE` must stay on every locked read (H-15). |
@@ -332,7 +334,9 @@ Asked for again 2026-11-06 (SQLX-1). Measured from the tree: 253 files use `sea_
 
 **Queries are `sqlx::query`, checked at run time, by default.** They keep today's SQL strings, so the diff shows what changed. `sqlx::query!` would check them at compile time, but it needs a database or a committed `.sqlx` cache at every build, including the image build. Moving to it is a separate, later choice.
 
-**To decide before stage 1.** (1) Is any database outside development carrying `seaql_migrations`? If none is, adoption is a small script; if one is, it needs a runbook entry and a rehearsal. (2) Are the `down` migrations kept? Keeping them is the default, because `tests/qual26_migrations_test.rs` exercises them.
+**Stage 1, how it was done and checked (2026-11-06).** The SQL was not retyped. The old migrator ran up and then down on a throwaway PostgreSQL 18 with `log_statement=all`, and each file was written from what the server received, so SQL that Rust assembled is included: 57 up, 51 down, no bound parameters, no empty bodies. Comments at the top of each old file were kept; comments inside them are in git history. `pg_dump --schema-only` of a fresh database from the SQL files equals SeaORM's, apart from the `pg_dump` version line. A copy of the long-used development database was adopted: 57 rows, no migration executed, schema unchanged, every checksum accepted. `tests/sqlx1_migration_history_test.rs` covers a finished database, one part-way through, one newer than the binary, a gap in the record, a revert after adoption, and an empty database.
+
+**Open.** Nobody has said whether a database outside development carries `seaql_migrations`, so adoption was built for the case that one does (`operations/runbook.md`). `seaql_migrations` stays in place after adoption, unread, and `_sqlx_migrations` is the record. `down` files are kept, because `tests/qual26_migrations_test.rs` exercises them.
 
 **Limits.** The counts are text searches. Effort is not estimated from a trial: no stage has been tried, and stage 3 is the largest and the most likely to find surprises. SQLX-1 was deleted from the queue on 2026-11-06 with no reason recorded, and restored the same day when it was asked for again.
 

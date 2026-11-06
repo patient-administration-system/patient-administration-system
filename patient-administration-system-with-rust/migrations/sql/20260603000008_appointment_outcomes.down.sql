@@ -1,0 +1,1 @@
+ALTER TABLE appointments DROP CONSTRAINT IF EXISTS appointments_cancelled_by_chk, DROP CONSTRAINT IF EXISTS appointments_barrier_code_chk, DROP CONSTRAINT IF EXISTS appointments_notice_days_chk, DROP COLUMN IF EXISTS cancelled_at, DROP COLUMN IF EXISTS cancelled_by, DROP COLUMN IF EXISTS barrier_code, DROP COLUMN IF EXISTS notice_days, DROP COLUMN IF EXISTS confirmed_at;

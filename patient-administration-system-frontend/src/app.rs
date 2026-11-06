@@ -12,7 +12,6 @@ use axa::{
     server,
 };
 use axum::{Extension, Router};
-use migration::{Migrator, MigratorTrait};
 use tower_http::services::ServeDir;
 
 use crate::{controllers, views::Views};
@@ -116,8 +115,19 @@ impl App {
 
     async fn db(ctx: &AppContext, command: DbCommand) -> Result<()> {
         match command {
-            DbCommand::Migrate => Ok(Migrator::up(&ctx.db, None).await?),
-            DbCommand::Status => Ok(Migrator::status(&ctx.db).await?),
+            DbCommand::Migrate => migration::up(ctx.db.get_postgres_connection_pool())
+                .await
+                .map_err(Error::wrap),
+            DbCommand::Status => {
+                let migrations = migration::status(ctx.db.get_postgres_connection_pool())
+                    .await
+                    .map_err(Error::wrap)?;
+                for m in migrations {
+                    let state = if m.applied { "applied" } else { "pending" };
+                    println!("{state:8}{} {}", m.version, m.description);
+                }
+                Ok(())
+            }
             DbCommand::Down { .. } | DbCommand::Reset | DbCommand::Truncate => Err(Error::string(
                 "this service shares the PAS database and will not revert or empty it",
             )),

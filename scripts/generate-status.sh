@@ -18,7 +18,7 @@ files() { find "$@" 2>/dev/null | wc -l | tr -d ' '; }
 rust_tests=$(count '^\s*#\[(tokio::)?test' $RUST/src $RUST/tests $RUST/migrations/src $FRONT/src $FRONT/tests)
 rust_ignored=$(count '^\s*#\[ignore' $RUST/src $RUST/tests $FRONT/tests)
 routes=$(count '^\s*\.route\(' $RUST/src/api)
-migrations=$(files $RUST/migrations/src -name 'm2*.rs')
+migrations=$(files $RUST/migrations/sql -name '*.sql' -not -name '*.down.sql')
 ui_pages=$(files $UI/src/routes -name '+page.svelte')
 ui_unit=$(files $UI/tests/unit -name '*.test.ts')
 ui_e2e=$(files $UI/tests/e2e -name '*.spec.ts')

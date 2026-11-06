@@ -1,0 +1,1 @@
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'appointment_series' AND column_name = 'worker_id') THEN ALTER TABLE appointment_series RENAME COLUMN worker_id TO practitioner_id; END IF; END $$;

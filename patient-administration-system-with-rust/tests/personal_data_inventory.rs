@@ -118,7 +118,7 @@ async fn every_database_column_is_classified_and_no_stale_row_remains() {
         .query_all_raw(Statement::from_string(
             DbBackend::Postgres,
             "SELECT table_name, column_name FROM information_schema.columns \
-             WHERE table_schema = 'public' AND table_name NOT LIKE 'seaql%'"
+             WHERE table_schema = 'public' AND table_name NOT LIKE 'seaql%' AND table_name <> '_sqlx_migrations'"
                 .to_string(),
         ))
         .await

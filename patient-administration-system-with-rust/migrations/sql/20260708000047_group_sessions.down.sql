@@ -1,0 +1,3 @@
+ALTER TABLE slots DROP CONSTRAINT IF EXISTS slots_capacity_chk;
+
+ALTER TABLE slots DROP COLUMN IF EXISTS capacity;

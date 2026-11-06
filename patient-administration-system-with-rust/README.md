@@ -550,7 +550,7 @@ Migrations live as a nested SeaORM crate at `migrations/` with a thin CLI binary
 (cd migrations && cargo run --bin pas-migrate -- down)      # revert all
 ```
 
-Migrations are one file each in `migrations/src/`; the count is in [`spec/14-implementation-status.md`](../spec/14-implementation-status.md). Repeated child collections are stored inline as `JSONB` columns rather than as separate tables.
+Migrations are SQL files in `migrations/sql/`, an `.up.sql` and a `.down.sql` each (a single `.sql` when forward-only); the count is in [`spec/14-implementation-status.md`](../spec/14-implementation-status.md). Repeated child collections are stored inline as `JSONB` columns rather than as separate tables.
 
 ## Testing
 

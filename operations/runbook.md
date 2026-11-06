@@ -88,3 +88,14 @@ Read [`governance/waiting-list-validation.md`](../governance/waiting-list-valida
 
 - **Request id.** Every response has an `X-Request-Id` header: the one the caller sent (a proxy usually sets it) or one the server made. It is on every log line the request produces (the `http` span), so one failed request can be followed through the logs. Quote it when reporting a problem. Paths in the logs have reply-link tokens and ids replaced by `{id}`.
 - **Metrics.** `GET /api/admin/metrics` (administrators only) returns Prometheus text. Alert on: `pas_outbox_oldest_pending_seconds` (events not being published: the outbox job is not running or the publisher is failing), `pas_outbox_dead_letters` above 0 (a person must look: `GET /api/admin/outbox/dead-letters`), `time() - pas_job_last_success_timestamp_seconds{job="ladder"}` much longer than the job's interval (the reminder ladder has stopped), `pas_job_runs_total{outcome="panicked"}` rising, `pas_staff_call_tasks_open` growing without bound (nobody is phoning), and `pas_http_requests_total{class="5xx"}` rising. Counters are since the server started and reset on a restart; with several replicas each reports its own, and `outcome="skipped"` is normal on the ones that did not get the job's lock.
+
+## Upgrading a database from SeaORM migrations (SQLX-1)
+
+Migrations are SQL files under sqlx, recorded in `_sqlx_migrations`. A database migrated before that has its record in `seaql_migrations`. The first `pas-migrate up` carries the record over in one transaction and runs nothing that was already applied. Do this the first time on each database:
+
+1. Take a backup and confirm it restores (`scripts/restore-test.sh`).
+2. `pas-migrate up`.
+3. `pas-migrate status`: every line says `applied`.
+
+It refuses, and changes nothing, if the database records a migration this binary does not have (upgrade the binary), or if the old record has a gap (find out why before going on). `seaql_migrations` stays in place, unread, as the old record. Roll back by restoring the backup: an older binary does not read `_sqlx_migrations`.
+

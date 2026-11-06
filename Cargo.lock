@@ -498,6 +498,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "axa-sqlx"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cd2ea55e649597a7b8ad96ba4801500887a9eca630fd32b4d36c820a54c3028"
+dependencies = [
+ "sqlx",
+]
+
+[[package]]
 name = "axum"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3087,6 +3096,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "sqlx",
  "tempfile",
  "tera 1.20.1",
  "thiserror",
@@ -3127,10 +3137,9 @@ dependencies = [
 name = "patient-administration-system-migrations"
 version = "0.3.0"
 dependencies = [
- "async-trait",
+ "axa-sqlx",
  "dotenvy",
- "sea-orm",
- "sea-orm-migration",
+ "sqlx",
  "tokio",
 ]
 
@@ -4040,8 +4049,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04469c4a54e7271fe3fe2b8140102a2cd2eb7e48129a3afcd013b9909ddebc3c"
 dependencies = [
  "chrono",
- "clap",
- "dotenvy",
  "glob",
  "indoc",
  "regex",
@@ -4076,8 +4083,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07970137dbbed6daf56a2429db349abfb68ed1c79206957c30d4a0e9ea808c08"
 dependencies = [
  "async-trait",
- "clap",
- "dotenvy",
  "sea-orm",
  "sea-orm-cli",
  "sea-schema",
@@ -4550,6 +4555,7 @@ dependencies = [
  "sqlx-postgres",
  "sqlx-sqlite",
  "syn 2.0.119",
+ "thiserror",
  "tokio",
  "url",
 ]

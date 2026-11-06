@@ -7,7 +7,6 @@ mod common;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use migration::MigratorTrait;
 use patient_administration_system::api::dashboard::{
     dashboard_audit, dashboard_breaches, dashboard_outbox, dashboard_page, dashboard_wards,
 };
@@ -28,7 +27,9 @@ async fn dashboard_renders_html_against_live_db() {
         }
     };
     let db = connect(&url).await.expect("connect");
-    migration::Migrator::up(&db, None).await.expect("migrate");
+    migration::up(db.get_postgres_connection_pool())
+        .await
+        .expect("migrate");
 
     let publisher = Arc::new(InMemoryEventPublisher::new());
     let state = AppState::new(db, publisher);

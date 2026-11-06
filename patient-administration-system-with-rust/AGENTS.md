@@ -22,7 +22,7 @@ Ground truth for any claim about behavior:
 - `src/api/rest/handlers.rs` — handler shapes and validation.
 - `src/lib.rs` — the module tree.
 - `src/models/*.rs` — every domain type.
-- `migrations/src/m20260520_000001_init.rs` — the database schema.
+- `migrations/sql/20260520000001_init.sql` — the database schema.
 - `spec.md` — comprehensive specification-driven-development document (scope, invariants, architecture, build sequence, acceptance criteria). Cross-check when in doubt about *what the system is* or *how it was assembled*.
 
 ## Directory
