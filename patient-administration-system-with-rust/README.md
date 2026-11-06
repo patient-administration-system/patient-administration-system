@@ -23,7 +23,7 @@ The PAS owns the administrative *who, when, where, what visit type, what bed, wh
 - Domain events via transactional outbox pattern, polled by a background dispatcher
 - RESTful API (Axum) with a response envelope, per-user tokens and optimistic concurrency (`ETag` and `If-Match`)
 - FHIR R5 surface: `Patient`, `Practitioner`, `Schedule` and `Slot` read and write, with reads for `Appointment`, `Encounter`, `Location`, `Coverage` and others (see the table below). `POST /fhir` writes Bundles, including bookings and admissions
-- PostgreSQL persistence via SeaORM, with a `pas-migrate` CLI
+- PostgreSQL persistence via sqlx, with a `pas-migrate` CLI
 - Privacy: masked patient view, GDPR export, consent CRUD + revoke
 
 ## Quick Start
@@ -100,8 +100,8 @@ A summary. `Cargo.toml` is the source of truth.
 | **HTTP middleware**  | tower (`util`), tower-http (`cors`, `trace`, `compression-full`, `request-id`) | CORS / trace / compression / request id |
 | **Templates**        | Tera 1.20                                   | Server-side rendering for letters + dashboard |
 | **Database**         | PostgreSQL 18+                              | Persistence                              |
-| **ORM**              | SeaORM 2.0 (`sqlx-postgres`, `runtime-tokio-rustls`, `macros`, `with-chrono`, `with-uuid`, `with-json`) | Data access |
-| **Migrations**       | sea-orm-migration 2.0 + `pas-migrate` CLI   | Schema management                        |
+| **Database**         | sqlx 0.9 (`postgres`, `runtime-tokio`), through `src/db/sql.rs` | Literal SQL, checked by a test that prepares every statement |
+| **Migrations**       | SQL files under `sqlx::migrate` + `pas-migrate` CLI | Schema management |
 | **Streaming**        | InMemoryEventPublisher (production + tests) + `Hl7v2MllpPublisher` (outbound ADT) + `WebhookEventPublisher` (v0.14, HMAC-signed HTTP POST) + `CompositePublisher` fan-out + `FluvioEventPublisher` stub | Event publishing |
 | **API Docs**         | Utoipa 6.0 + `utoipa-swagger-ui` 10.0       | OpenAPI 3.1 annotations + Swagger UI     |
 | **Serialization**    | Serde 1.0, serde\_json 1.0, csv 1.4         | JSON / CSV                               |
@@ -124,7 +124,7 @@ patient-administration-system-with-rust/
 │   ├── error.rs               Error enum, Result alias
 │   ├── config/                Env/config loader
 │   ├── models/                Pure-Rust domain types (no DB deps)
-│   ├── db/                    SeaORM entities, repositories, audit + outbox
+│   ├── db/                    row types, repositories, audit + outbox
 │   ├── adt/                   Admission/Transfer/Discharge service
 │   ├── scheduling/            Slot booking, overlap detection
 │   ├── waitlist/              Waitlist queue, RTT clock service
@@ -136,7 +136,7 @@ patient-administration-system-with-rust/
 │   ├── validation/            Validators
 │   ├── privacy/               Masking, GDPR export, consent helpers
 │   └── observability/         tracing + OpenTelemetry
-├── migrations/                SeaORM migration crate + `pas-migrate` CLI
+├── migrations/                SQL migrations + `pas-migrate` CLI
 ├── tests/                     Integration tests (gated on DATABASE_URL)
 ├── benches/                   Criterion benchmarks (bed status, time overlap, RTT)
 └── AGENTS/                    Architecture, models, API, scheduling, testing docs
@@ -540,7 +540,7 @@ cargo fmt --check
 
 ## Migrations
 
-Migrations live as a nested SeaORM crate at `migrations/` with a thin CLI binary `pas-migrate`:
+Migrations live as a nested crate at `migrations/` with a thin CLI binary `pas-migrate`:
 
 ```bash
 # All subcommands honour DATABASE_URL from .env or the environment.

@@ -16,13 +16,13 @@ api → service ─────────────────────�
 
 **api** — Axum routers for both REST (`/api/...`) and FHIR R5 (`/fhir/...`), with Utoipa-driven OpenAPI annotations. Handlers are thin shells: they extract user context from `X-User-Id` / `X-User-Ip` / `X-User-Agent` headers, decode and validate the JSON body, call a service or an upstream client, and serialize the response into an `ApiResponse<T>` envelope. Errors are mapped to HTTP status codes by the `ApiError` type. The api layer holds no business logic.
 
-**service** — Modules under `src/adt/`, `src/scheduling/`, `src/waitlist/`, `src/resources/`, `src/billing/`, and `src/communication/`. Each service owns the business rules and state-machine transitions for one aggregate cluster. Services receive their dependencies (repositories, upstream clients, event publisher, audit log, clock) by injection and own all transactional boundaries. State changes that touch multiple PAS-owned rows always run inside one `DatabaseTransaction`. Resolution of a `person_id` / `worker_id` against the upstream services happens *before* opening the DB transaction (no nested I/O inside `with_txn`).
+**service** — Modules under `src/adt/`, `src/scheduling/`, `src/waitlist/`, `src/resources/`, `src/billing/`, and `src/communication/`. Each service owns the business rules and state-machine transitions for one aggregate cluster. Services receive their dependencies (repositories, upstream clients, event publisher, audit log, clock) by injection and own all transactional boundaries. State changes that touch multiple PAS-owned rows always run inside one `DatabaseTransaction`. Resolution of a `person_id` / `worker_id` against the upstream services happens *before* opening the DB transaction (no nested I/O inside `in_txn`).
 
-**repository** — Repositories under `src/db/repositories/`, one per **PAS-owned** aggregate (encounter, admission, appointment, bed, schedule, slot, waitlist, rtt, letter, billing, consent, audit, outbox). Each talks to SeaORM. The `db::with_txn(db, |txn| async { ... })` helper composes multiple repository calls inside one `DatabaseTransaction`. `AuditLogRepository::log` and `OutboxRepository::publish` accept any `&C: ConnectionTrait`, so callers can compose them with the primary writes in the same transaction. **No `PatientRepository` / `PractitionerRepository`** in the v0.44.0 target — those concerns live upstream.
+**repository** — Repositories under `src/db/repositories/`, one per **PAS-owned** aggregate (encounter, admission, appointment, bed, schedule, slot, waitlist, rtt, letter, billing, consent, audit, outbox). Each holds its SQL. `Transact::in_txn` composes multiple repository calls inside one `Txn`. `AuditLogRepository::log` and `OutboxRepository::publish` accept any `&C: ConnectionTrait`, so callers can compose them with the primary writes in the same transaction. **No `PatientRepository` / `PractitionerRepository`** in the v0.44.0 target — those concerns live upstream.
 
 **upstream** (v0.44.0) — `src/upstream/` exposes `PersonClient` and `WorkerClient` async traits. HTTP impls (`HttpPersonClient`, `HttpWorkerClient`) wrap `reqwest::Client` with `UPSTREAM_TIMEOUT_SECS`, attach `Authorization: Bearer <MAIN_*_TOKEN>` when set, and pass through `X-User-Id` / `X-User-Ip` / `X-User-Agent` headers so upstream audit credits the original caller. Stub impls (`StubPersonClient`, `StubWorkerClient`) bind ephemeral `TcpListener` ports in tests, mirroring the v0.14 `webhook_test.rs` pattern. Translation between the upstream `Person` / `Worker` shape and the PAS-exposed `Patient` / `Practitioner` shape lives in `src/upstream/translate.rs`.
 
-**db** — `src/db/mod.rs` exposes a `connect(url)` helper (pool size 2-10, 8s connect timeout, 60s idle timeout) and the `with_txn` wrapper. `src/db/entities/` holds ~28 SeaORM entities (v0.44.0 target), one file per table — down from 32 at v0.43.0 because `patient`, `practitioner`, `practitioner_role`, `department` are gone. `src/db/repositories/audit.rs` and `src/db/repositories/outbox.rs` are the transactional sinks for the cross-cutting compliance trail.
+**db** — `src/db/mod.rs` exposes a `connect(url)` helper (pool size 2-10, 5s acquire timeout, 60s idle timeout). `src/db/sql.rs` holds `Conn`, `Stmt`, `Row`, `Table`, `Patch` and `Transact`: every query goes through them. `src/db/entities/` holds 28 row types (v0.44.0 target), one file per table — down from 32 at v0.43.0 because `patient`, `practitioner`, `practitioner_role`, `department` are gone. `src/db/repositories/audit.rs` and `src/db/repositories/outbox.rs` are the transactional sinks for the cross-cutting compliance trail.
 
 ## Aggregates
 
@@ -110,7 +110,7 @@ The RTT clock has a related lifecycle (`Active` → `Paused` → `Active` → `S
 ## Time Handling
 
 - **Domain layer**: `chrono::DateTime<Utc>` throughout. Naive local times are never accepted.
-- **DB layer**: SeaORM `DateTimeWithTimeZone` (a `chrono::DateTime<FixedOffset>`) for columns; conversion to/from `Utc` happens at the repository boundary.
+- **DB layer**: `chrono::DateTime<FixedOffset>` for columns; conversion to/from `Utc` happens at the repository boundary.
 - **Effective time vs system time**: every entity has `created_at` / `updated_at` for system bookkeeping. Entities with their own event time additionally carry domain-time columns: `Encounter.period_start` / `period_end`, `Admission.admitted_at`, `Transfer.transferred_at`, `Discharge.discharged_at`, `Slot.start_datetime` / `end_datetime`, `Appointment.start_datetime` / `end_datetime`, `RTTClockEvent.event_at`. The distinction matters: a corrective backdated entry can move `event_at` without altering `created_at`.
 
 ## Soft Delete
@@ -156,8 +156,8 @@ src/
 ├── interchange/            Bulk JSON / XML / TSV / CSV import-export via PatientRow
 ├── bin/                    Auxiliary binaries (currently `pas-seed`)
 ├── db/
-│   ├── mod.rs              DB pool, connect(), with_txn()
-│   ├── entities/           SeaORM entity per table (29 files)
+│   ├── mod.rs              connect()
+│   ├── entities/           one row type per table (28 files)
 │   └── repositories/       One repo file per aggregate, plus audit.rs and outbox.rs
 ├── api/
 │   ├── mod.rs              ApiResponse, ApiError, AppState
@@ -170,7 +170,7 @@ src/
 ├── privacy/                Data masking, GDPR export, consent gating helper
 └── observability/          tracing-subscriber init (OTLP exporter documented but not wired)
 
-migrations/                 SeaORM migration crate + `pas-migrate` CLI binary
+migrations/                 migration crate (SQL files under `sql/`) + `pas-migrate` CLI binary
 tests/                      Integration tests (most gated on DATABASE_URL — 19 files, 28 tests)
 benches/                    Criterion benchmarks (adt, scheduling, waitlist)
 AGENTS/                     This documentation tree

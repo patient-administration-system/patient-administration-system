@@ -14,8 +14,8 @@ The v0.3.1 dep audit removed 15 unused direct deps (`loco-rs`, `fluvio`, `tonic`
 | **HTTP middleware**  | tower (`util`), tower-http (`cors`, `trace`, `compression-full`) | CORS / trace / compression / `ServiceExt::oneshot` |
 | **Templates**        | Tera 1.20                                   | Server-side rendering for letters + dashboard |
 | **Database**         | PostgreSQL 18+                              | Persistence                              |
-| **ORM**              | SeaORM 1.1                                  | Async ORM (sqlx-postgres, rustls runtime, chrono/uuid/json types) |
-| **Migrations**       | sea-orm-migration 1.1 + `pas-migrate` CLI   | Schema management                        |
+| **Database**         | sqlx 0.9, through `src/db/sql.rs`           | Async ORM (sqlx-postgres, rustls runtime, chrono/uuid/json types) |
+| **Migrations**       | SQL files, `sqlx::migrate`, `pas-migrate`   | Schema management                        |
 | **Streaming**        | `InMemoryEventPublisher` (production + tests) + `Hl7v2MllpPublisher` (outbound ADT over MLLP) + `FluvioEventPublisher` stub | Event publishing |
 | **API Docs**         | Utoipa 5.4 + `utoipa-swagger-ui` 8.1        | OpenAPI 3.1 annotations + Swagger UI     |
 | **Serialization**    | Serde 1.0, serde_json 1.0, quick-xml 0.36 (`serialize`), csv 1.3 | JSON / XML / CSV / TSV |
@@ -34,7 +34,7 @@ This crate is one member of a three-member Cargo workspace at the project root. 
 
 | Crate                                       | Purpose                                                          |
 |---------------------------------------------|------------------------------------------------------------------|
-| `patient-administration-system-migrations`  | sea-orm migration crate; binary `pas-migrate` (up/down/fresh/status). |
+| `patient-administration-system-migrations`  | sqlx migration crate; binary `pas-migrate` (up/down/fresh/status). |
 | `patient-administration-system-frontend`                              | Axum and axa read-mostly UI (Tera + HTMX + axum-extra cookies + reqwest); shares this crate's PostgreSQL DB and migration crate by path. |
 
 Workspace-level profile blocks (`[profile.release]` LTO + strip, `[profile.bench]` inherits release) live in the root `Cargo.toml`; per-member profile blocks are silently ignored by Cargo.

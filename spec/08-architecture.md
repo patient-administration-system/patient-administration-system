@@ -17,7 +17,7 @@ flowchart LR
 
 | Component | Tech | Port (dev) |
 |---|---|---|
-| PAS API | Rust 2024, Axum 0.8, SeaORM, utoipa | 8080 |
+| PAS API | Rust 2024, Axum 0.8, sqlx, utoipa | 8080 |
 | Operator pages | Axum, axa, Tera, HTMX | 5150 |
 | UI | SvelteKit 3, Svelte 5, Lily | 5173 |
 | Database | PostgreSQL 18 | 5432 |

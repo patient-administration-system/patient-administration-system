@@ -21,7 +21,7 @@ Unit tests are embedded in source files using `#[cfg(test)] mod tests`. They tes
 | Area                                                                                       | What's covered                                                                |
 | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
 | `models::*` (14 model files)                                                               | Constructor defaults, serde round-trip, state-machine transitions, factories  |
-| `db::repositories::*`                                                                      | CRUD against a SeaORM mock connection where mockable                          |
+| `db::repositories::*`                                                                      | CRUD against PostgreSQL (database tests)                          |
 | Services (`adt`, `scheduling`, `waitlist`, `rtt`, `billing`, `communication`, `resources`) | Happy-path business rules, state transitions, invariants                      |
 | `hl7v2`                                                                                    | Parser, encoder, PID↔Patient mapping, ACK builder, escape sequences, MLLP frame round-trip |
 | `interchange`                                                                              | `PatientRow` projection, JSON / XML / TSV / CSV serializers and parsers       |

@@ -10,7 +10,7 @@ The PAS crate exposes a Rust library API mirroring the module layout under `src/
 
 - **Models** (`src/models/`): `Patient`, `HumanName`, `Identifier`, `Practitioner`, `Department`, `Facility`, `Ward`, `Room`, `Bed`, `BedStatus`, `Encounter`, `EncounterClass`, `EncounterStatus`, `Admission`, `Transfer`, `Discharge`, `BedAssignment`, `Schedule`, `ScheduleOwner`, `Slot`, `SlotStatus`, `Appointment`, `AppointmentStatus`, `Referral`, `WaitlistEntry`, `Priority`, `RTTPathway`, `RTTClockEvent`, `compute_active_weeks`, `LetterTemplate`, `GeneratedLetter`, `Account`, `Charge`, `Invoice`, `Payment`, `Money`, `Iso4217`, `Consent`.
 - **Services** (`src/{adt, scheduling, waitlist, resources, billing, communication}/`): each takes a `DatabaseConnection` and `Arc<dyn EventPublisher>` and orchestrates the state machine inside one transaction with audit + outbox writes.
-- **Persistence** (`src/db/`): SeaORM entities, repositories, transactional outbox, audit log.
+- **Persistence** (`src/db/`): row types, repositories, literal SQL through `db::sql`, transactional outbox, audit log.
 - **Streaming** (`src/streaming/`): `EventPublisher` trait, `InMemoryEventPublisher`, `FluvioEventPublisher` stub, `DomainEvent`, `dispatcher::run` / `dispatcher::tick`.
 - **Validation, privacy, observability, config**: in their respective modules.
 

@@ -14,7 +14,7 @@ The `appointment` repository exposes `find_overlapping_for_patient(conn, patient
 
 Semantics: an existing appointment overlaps a candidate range iff their `[start_datetime, end_datetime)` intervals intersect, ignoring appointments in terminal `Cancelled` or `NoShow` status. Intervals are half-open: an appointment ending at 10:00 does not overlap one starting at 10:00.
 
-The implemented SeaORM predicate is the standard interval-overlap form:
+The implemented SQL predicate is the standard interval-overlap form:
 
 ```sql
 SELECT … FROM appointments

@@ -669,7 +669,7 @@ Enum: `Active`, `Revoked`, `Expired`.
 
 ## Database Entities
 
-SeaORM entity modules under `src/db/entities/`, one file per PostgreSQL table (29 entities). Domain models above are converted to and from SeaORM entities at the repository boundary. The authoritative schema is `migrations/src/m20260520_000001_init.rs`; see [architecture.md](architecture.md#database-schema) for the table grouping and key indexes.
+Row types under `src/db/entities/`, one file per PostgreSQL table (28 tables). Domain models above are converted to and from these row types at the repository boundary. The authoritative schema is `migrations/src/m20260520_000001_init.rs`; see [architecture.md](architecture.md#database-schema) for the table grouping and key indexes.
 
 ## See Also
 

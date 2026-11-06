@@ -23,7 +23,7 @@ Identity (`Patient`) and workforce (`Practitioner`) are **delegated over HTTP** 
 
 ```
 .
-├── patient-administration-system-with-rust/   the API: Axum, SeaORM; src/, tests/, benches/, migrations/ (own crate)
+├── patient-administration-system-with-rust/   the API: Axum, sqlx; src/, tests/, benches/, migrations/ (own crate)
 ├── patient-administration-system-ui-with-svelte/  the UI: SvelteKit 3, Svelte 5, Lily Design System; 10 locales
 ├── patient-administration-system-frontend/    an Axum and axa server-rendered dashboard, parallel to the UI
 ├── spec/            the specification: functional (FR) and non-functional (NFR) requirements, architecture, status
