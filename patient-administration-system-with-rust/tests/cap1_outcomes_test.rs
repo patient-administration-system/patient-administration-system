@@ -17,7 +17,7 @@ use patient_administration_system::scheduling::CancelDetails;
 use tower::ServiceExt;
 use uuid::Uuid;
 
-async fn booked(db: &sea_orm::DatabaseConnection, in_days: i64) -> Appointment {
+async fn booked(db: &patient_administration_system::db::sql::Pool, in_days: i64) -> Appointment {
     let start = Utc::now() + Duration::days(in_days);
     let mut a = Appointment::new(Uuid::new_v4(), start, start + Duration::minutes(30));
     a.status = AppointmentStatus::Booked;

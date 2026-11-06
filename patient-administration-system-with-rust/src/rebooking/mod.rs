@@ -15,12 +15,11 @@
 //! - It only ever adds a way to a better time: nothing here scores, ranks or limits a patient (NFR-11).
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Row, Stmt, Transact};
+use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Timelike, Utc};
 use chrono_tz::Tz;
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -92,12 +91,12 @@ pub fn spread(candidates: &[OfferedSlot], tz: Tz, n: usize) -> Vec<OfferedSlot> 
 }
 
 pub struct RebookService {
-    db: DatabaseConnection,
+    db: Pool,
     scheduling: Arc<SchedulingService>,
 }
 
 impl RebookService {
-    pub fn new(db: DatabaseConnection, scheduling: Arc<SchedulingService>) -> Self {
+    pub fn new(db: Pool, scheduling: Arc<SchedulingService>) -> Self {
         Self { db, scheduling }
     }
 

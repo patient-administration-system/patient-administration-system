@@ -13,11 +13,10 @@
 //!   STOP does not apply; a patient's choice of channel (CAP-4, CAS-10) decides whether one is made at all.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt, Transact};
+use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -101,12 +100,12 @@ fn display_name(p: &crate::upstream::Person) -> String {
 }
 
 pub struct PrintService {
-    db: DatabaseConnection,
+    db: Pool,
     person_client: Option<Arc<dyn PersonClient>>,
 }
 
 impl PrintService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self {
             db,
             person_client: None,

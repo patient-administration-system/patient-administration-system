@@ -5,8 +5,7 @@
 //! [`AppointmentRepository`] — this repo only owns the series record
 //! itself.
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
 use crate::db::entities::appointment_series;
@@ -21,16 +20,18 @@ impl AppointmentSeriesRepository {
     /// separately by the caller (typically inside the same DB
     /// transaction) via [`AppointmentRepository::create`].
     pub async fn create<C: Conn>(conn: &C, s: &AppointmentSeries) -> Result<AppointmentSeries> {
-        let am = to_active_model(s)?;
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = to_row(s)?;
+        am.insert(conn).await?;
         Ok(s.clone())
     }
 
     pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<AppointmentSeries>> {
-        let m = appointment_series::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<appointment_series::Model>(Stmt::new(
+                "SELECT * FROM appointment_series WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(from_model).transpose()
     }
 
@@ -39,12 +40,12 @@ impl AppointmentSeriesRepository {
         conn: &C,
         person_id: Uuid,
     ) -> Result<Vec<AppointmentSeries>> {
-        let rows = appointment_series::Entity::find()
-            .filter(appointment_series::Column::PersonId.eq(person_id))
-            .order_by_desc(appointment_series::Column::CreatedAt)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<appointment_series::Model>(Stmt::new(
+                "SELECT * FROM appointment_series WHERE person_id = $1 ORDER BY created_at DESC",
+                [person_id.into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -52,16 +53,21 @@ impl AppointmentSeriesRepository {
     /// Does **not** touch the contained appointment rows; callers cancel
     /// those separately so the audit trail records each one.
     pub async fn mark_cancelled<C: Conn>(conn: &C, id: Uuid) -> Result<AppointmentSeries> {
-        let m = appointment_series::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<appointment_series::Model>(Stmt::new(
+                "SELECT * FROM appointment_series WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("appointment_series {id}")))?;
         let now = chrono::Utc::now().fixed_offset();
-        let mut am: appointment_series::ActiveModel = m.into();
-        am.status = Set(series_status_to_str(SeriesStatus::Cancelled).to_string());
-        am.updated_at = Set(now);
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set(
+            "status",
+            series_status_to_str(SeriesStatus::Cancelled).to_string(),
+        );
+        am.set("updated_at", now);
+        let updated = am.update(conn).await?;
         from_model(updated)
     }
 
@@ -93,20 +99,20 @@ fn series_status_from_str(s: &str) -> Result<SeriesStatus> {
     }
 }
 
-fn to_active_model(s: &AppointmentSeries) -> Result<appointment_series::ActiveModel> {
-    Ok(appointment_series::ActiveModel {
-        id: Set(s.id),
-        person_id: Set(s.person_id),
-        worker_id: Set(s.worker_id),
-        service_type: Set(s.service_type.clone()),
-        start_datetime: Set(s.start_datetime.fixed_offset()),
-        duration_minutes: Set(s.duration_minutes as i32),
-        rule: Set(serde_json::to_value(&s.rule)
-            .map_err(|e| Error::internal(format!("serialize rule: {e}")))?),
-        status: Set(series_status_to_str(s.status).to_string()),
-        reason: Set(s.reason.clone()),
-        created_at: Set(s.created_at.fixed_offset()),
-        updated_at: Set(s.updated_at.fixed_offset()),
+fn to_row(s: &AppointmentSeries) -> Result<appointment_series::Model> {
+    Ok(appointment_series::Model {
+        id: s.id,
+        person_id: s.person_id,
+        worker_id: s.worker_id,
+        service_type: s.service_type.clone(),
+        start_datetime: s.start_datetime.fixed_offset(),
+        duration_minutes: s.duration_minutes as i32,
+        rule: serde_json::to_value(&s.rule)
+            .map_err(|e| Error::internal(format!("serialize rule: {e}")))?,
+        status: series_status_to_str(s.status).to_string(),
+        reason: s.reason.clone(),
+        created_at: s.created_at.fixed_offset(),
+        updated_at: s.updated_at.fixed_offset(),
     })
 }
 
@@ -153,8 +159,8 @@ mod tests {
                 end: RecurrenceEnd::Count { count: 4 },
             },
         );
-        let am = to_active_model(&s).expect("to am");
-        let rule_json = am.rule.clone().unwrap();
+        let am = to_row(&s).expect("to am");
+        let rule_json = am.rule.clone();
         // The JSON blob contains the FREQ marker so a quick eyeball
         // assertion catches accidental schema drift.
         assert!(

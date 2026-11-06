@@ -52,7 +52,7 @@ pub(super) fn hex_decode(s: &str) -> Option<Vec<u8>> {
 /// - `Ok(false)` — duplicate event, side-effects should be skipped
 /// - `Err` — DB error
 pub(super) async fn record_inbox(
-    db: &sea_orm::DatabaseConnection,
+    db: &crate::db::sql::Pool,
     event_id: Uuid,
     source: &str,
 ) -> Result<bool, Error> {
@@ -68,7 +68,7 @@ pub(super) async fn record_inbox(
 /// source to point at the merge target, in one DB transaction. Logs one
 /// `audit_log` row per affected table.
 pub(super) async fn propagate_person_merge(
-    db: &sea_orm::DatabaseConnection,
+    db: &crate::db::sql::Pool,
     outcome: &MergeOutcome,
     ctx: &crate::db::repositories::audit::UserContext,
 ) -> Result<(), Error> {
@@ -118,7 +118,7 @@ pub(super) async fn propagate_person_merge(
 }
 
 pub(super) async fn propagate_worker_merge(
-    db: &sea_orm::DatabaseConnection,
+    db: &crate::db::sql::Pool,
     outcome: &MergeOutcome,
     ctx: &crate::db::repositories::audit::UserContext,
 ) -> Result<(), Error> {

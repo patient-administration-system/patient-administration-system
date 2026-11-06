@@ -522,7 +522,7 @@ mod tests {
         let got = c.get(w.id, &ctx()).await.unwrap();
         assert_eq!(got.id, w.id);
         assert_eq!(
-            got.data.get("active").and_then(sea_orm::JsonValue::as_bool),
+            got.data.get("active").and_then(serde_json::Value::as_bool),
             Some(true)
         );
     }

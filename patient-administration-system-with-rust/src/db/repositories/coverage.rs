@@ -5,8 +5,7 @@
 //! two convenience methods (`link_to_account`, `set_status`) that are
 //! cheaper than a full PUT round-trip.
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
 use crate::db::entities::coverage;
@@ -18,16 +17,18 @@ pub struct CoverageRepository;
 impl CoverageRepository {
     /// Insert a new coverage row.
     pub async fn create<C: Conn>(conn: &C, c: &Coverage) -> Result<Coverage> {
-        let am = to_active_model(c);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = to_row(c);
+        am.insert(conn).await?;
         Ok(c.clone())
     }
 
     pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Coverage>> {
-        let m = coverage::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<coverage::Model>(Stmt::new(
+                "SELECT * FROM coverages WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(from_model).transpose()
     }
 
@@ -39,11 +40,12 @@ impl CoverageRepository {
         id: Uuid,
         expected: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<Coverage> {
-        let m = coverage::Entity::find_by_id(id)
-            .lock_exclusive()
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<coverage::Model>(Stmt::new(
+                "SELECT * FROM coverages WHERE id = $1 LIMIT 1 FOR UPDATE",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("coverage {id}")))?;
         let c = from_model(m)?;
         if !crate::api::rest::concurrency::is_current(c.updated_at, expected) {
@@ -58,9 +60,9 @@ impl CoverageRepository {
     /// merged record (existing-row + patch) before calling. Returns the row as stored, so its `updated_at`
     /// (to the microsecond) is the version the next write must send.
     pub async fn update<C: Conn>(conn: &C, c: &Coverage) -> Result<Coverage> {
-        let mut am = to_active_model(c);
-        am.updated_at = Set(chrono::Utc::now().fixed_offset());
-        let stored = am.update(conn).await.map_err(Error::Database)?;
+        let mut row = to_row(c);
+        row.updated_at = chrono::Utc::now().fixed_offset();
+        let stored = row.update_row(conn).await?;
         from_model(stored)
     }
 
@@ -71,16 +73,18 @@ impl CoverageRepository {
         id: Uuid,
         new_status: CoverageStatus,
     ) -> Result<Coverage> {
-        let m = coverage::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<coverage::Model>(Stmt::new(
+                "SELECT * FROM coverages WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("coverage {id}")))?;
         let now = chrono::Utc::now().fixed_offset();
-        let mut am: coverage::ActiveModel = m.into();
-        am.status = Set(new_status.as_str().to_string());
-        am.updated_at = Set(now);
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set("status", new_status.as_str().to_string());
+        am.set("updated_at", now);
+        let updated = am.update(conn).await?;
         from_model(updated)
     }
 
@@ -91,39 +95,41 @@ impl CoverageRepository {
         id: Uuid,
         account_id: Option<Uuid>,
     ) -> Result<Coverage> {
-        let m = coverage::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<coverage::Model>(Stmt::new(
+                "SELECT * FROM coverages WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("coverage {id}")))?;
         let now = chrono::Utc::now().fixed_offset();
-        let mut am: coverage::ActiveModel = m.into();
-        am.account_id = Set(account_id);
-        am.updated_at = Set(now);
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set("account_id", account_id);
+        am.set("updated_at", now);
+        let updated = am.update(conn).await?;
         from_model(updated)
     }
 
     /// All coverage rows for a patient, newest-first.
     pub async fn list_by_patient<C: Conn>(conn: &C, person_id: Uuid) -> Result<Vec<Coverage>> {
-        let rows = coverage::Entity::find()
-            .filter(coverage::Column::PersonId.eq(person_id))
-            .order_by_desc(coverage::Column::CreatedAt)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<coverage::Model>(Stmt::new(
+                "SELECT * FROM coverages WHERE person_id = $1 ORDER BY created_at DESC",
+                [person_id.into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 
     /// All coverage rows attached to a billing account, newest-first.
     /// Useful when surfacing payer info on an invoice or statement.
     pub async fn list_by_account<C: Conn>(conn: &C, account_id: Uuid) -> Result<Vec<Coverage>> {
-        let rows = coverage::Entity::find()
-            .filter(coverage::Column::AccountId.eq(account_id))
-            .order_by_desc(coverage::Column::CreatedAt)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<coverage::Model>(Stmt::new(
+                "SELECT * FROM coverages WHERE account_id = $1 ORDER BY created_at DESC",
+                [account_id.into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 }
@@ -149,23 +155,23 @@ fn kind_from_str(s: &str) -> Result<CoverageKind> {
     }
 }
 
-fn to_active_model(c: &Coverage) -> coverage::ActiveModel {
-    coverage::ActiveModel {
-        id: Set(c.id),
-        person_id: Set(c.person_id),
-        account_id: Set(c.account_id),
-        status: Set(c.status.as_str().to_string()),
-        kind: Set(c.kind.as_str().to_string()),
-        subscriber_id: Set(c.subscriber_id),
-        payor_name: Set(c.payor_name.clone()),
-        payor_identifier: Set(c.payor_identifier.clone()),
-        policy_number: Set(c.policy_number.clone()),
-        group_number: Set(c.group_number.clone()),
-        relationship: Set(c.relationship.clone()),
-        start_date: Set(c.start_date),
-        end_date: Set(c.end_date),
-        created_at: Set(c.created_at.fixed_offset()),
-        updated_at: Set(c.updated_at.fixed_offset()),
+fn to_row(c: &Coverage) -> coverage::Model {
+    coverage::Model {
+        id: c.id,
+        person_id: c.person_id,
+        account_id: c.account_id,
+        status: c.status.as_str().to_string(),
+        kind: c.kind.as_str().to_string(),
+        subscriber_id: c.subscriber_id,
+        payor_name: c.payor_name.clone(),
+        payor_identifier: c.payor_identifier.clone(),
+        policy_number: c.policy_number.clone(),
+        group_number: c.group_number.clone(),
+        relationship: c.relationship.clone(),
+        start_date: c.start_date,
+        end_date: c.end_date,
+        created_at: c.created_at.fixed_offset(),
+        updated_at: c.updated_at.fixed_offset(),
     }
 }
 
@@ -228,23 +234,23 @@ mod tests {
         let mut c = Coverage::new(Uuid::new_v4(), "Aetna", "P-1");
         c.account_id = Some(Uuid::new_v4());
         c.kind = CoverageKind::SelfPay;
-        let am = to_active_model(&c);
+        let am = to_row(&c);
         let m = coverage::Model {
-            id: am.id.clone().unwrap(),
-            person_id: am.person_id.clone().unwrap(),
-            account_id: am.account_id.clone().unwrap(),
-            status: am.status.clone().unwrap(),
-            kind: am.kind.clone().unwrap(),
-            subscriber_id: am.subscriber_id.clone().unwrap(),
-            payor_name: am.payor_name.clone().unwrap(),
-            payor_identifier: am.payor_identifier.clone().unwrap(),
-            policy_number: am.policy_number.clone().unwrap(),
-            group_number: am.group_number.clone().unwrap(),
-            relationship: am.relationship.clone().unwrap(),
-            start_date: am.start_date.clone().unwrap(),
-            end_date: am.end_date.clone().unwrap(),
-            created_at: am.created_at.clone().unwrap(),
-            updated_at: am.updated_at.clone().unwrap(),
+            id: am.id,
+            person_id: am.person_id,
+            account_id: am.account_id,
+            status: am.status.clone(),
+            kind: am.kind.clone(),
+            subscriber_id: am.subscriber_id,
+            payor_name: am.payor_name.clone(),
+            payor_identifier: am.payor_identifier.clone(),
+            policy_number: am.policy_number.clone(),
+            group_number: am.group_number.clone(),
+            relationship: am.relationship.clone(),
+            start_date: am.start_date,
+            end_date: am.end_date,
+            created_at: am.created_at,
+            updated_at: am.updated_at,
         };
         let back = from_model(m).expect("from_model");
         assert_eq!(back.id, c.id);

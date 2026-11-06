@@ -14,7 +14,7 @@ fn sys() -> UserContext {
     UserContext::system()
 }
 
-async fn live(db: &sea_orm::DatabaseConnection, slot: Uuid) -> i64 {
+async fn live(db: &patient_administration_system::db::sql::Pool, slot: Uuid) -> i64 {
     db.one(Stmt::new(
         "SELECT count(*)::bigint AS n FROM appointments WHERE slot_id = $1 AND deleted_at IS NULL \
          AND status IN ('booked','arrived','fulfilled')",

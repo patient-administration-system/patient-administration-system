@@ -10,7 +10,11 @@ use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::triage::TriageService;
 use uuid::Uuid;
 
-async fn encounter(db: &sea_orm::DatabaseConnection, class: &str, status: &str) -> Uuid {
+async fn encounter(
+    db: &patient_administration_system::db::sql::Pool,
+    class: &str,
+    status: &str,
+) -> Uuid {
     let id = Uuid::new_v4();
     db.run(Stmt::new("INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
          VALUES ($1, $2, $3, $4, now(), now(), now())",

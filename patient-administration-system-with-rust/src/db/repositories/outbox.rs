@@ -2,8 +2,7 @@
 //! background dispatcher to publish, and manages the v0.5 dead-letter
 //! queue (`outbox_dead_letters`) for events that exceed the retry budget.
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
 use crate::db::entities::{outbox_dead_letter, outbox_event};
@@ -21,17 +20,17 @@ impl OutboxRepository {
         event_type: &str,
         payload: &serde_json::Value,
     ) -> Result<()> {
-        let am = outbox_event::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            event_type: Set(event_type.to_string()),
-            payload: Set(payload.clone()),
-            published: Set(false),
-            at: Set(chrono::Utc::now().fixed_offset()),
-            retry_count: Set(0),
-            last_attempted_at: Set(None),
-            last_error: Set(None),
+        let am = outbox_event::Model {
+            id: Uuid::new_v4(),
+            event_type: event_type.to_string(),
+            payload: payload.clone(),
+            published: false,
+            at: chrono::Utc::now().fixed_offset(),
+            retry_count: 0,
+            last_attempted_at: None,
+            last_error: None,
         };
-        am.insert(conn).await.map_err(Error::Database)?;
+        am.insert(conn).await?;
         Ok(())
     }
 
@@ -40,27 +39,27 @@ impl OutboxRepository {
         conn: &C,
         limit: u64,
     ) -> Result<Vec<outbox_event::Model>> {
-        outbox_event::Entity::find()
-            .filter(outbox_event::Column::Published.eq(false))
-            .order_by_asc(outbox_event::Column::At)
-            .limit(limit)
-            .all(conn)
-            .await
-            .map_err(Error::Database)
+        conn.all_as::<outbox_event::Model>(Stmt::new(
+            "SELECT * FROM outbox_events WHERE published = $1 ORDER BY at LIMIT $2",
+            [false.into(), (limit as i64).into()],
+        ))
+        .await
     }
 
     /// Mark a single outbox row as published. Idempotent.
     pub async fn mark_published<C: Conn>(conn: &C, id: Uuid) -> Result<()> {
-        let m = outbox_event::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<outbox_event::Model>(Stmt::new(
+                "SELECT * FROM outbox_events WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         if let Some(m) = m {
-            let mut am: outbox_event::ActiveModel = m.into();
-            am.published = Set(true);
-            am.last_attempted_at = Set(Some(chrono::Utc::now().fixed_offset()));
-            am.last_error = Set(None);
-            am.update(conn).await.map_err(Error::Database)?;
+            let mut am = m.patch();
+            am.set("published", true);
+            am.set("last_attempted_at", Some(chrono::Utc::now().fixed_offset()));
+            am.set("last_error", None::<String>);
+            am.update(conn).await?;
         }
         Ok(())
     }
@@ -72,20 +71,22 @@ impl OutboxRepository {
     /// Returns `Ok(0)` and a no-op if the row is gone (idempotent against
     /// concurrent dead-lettering / replay).
     pub async fn record_failure<C: Conn>(conn: &C, id: Uuid, error: &str) -> Result<i32> {
-        let m = match outbox_event::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = match conn
+            .one_as::<outbox_event::Model>(Stmt::new(
+                "SELECT * FROM outbox_events WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
         {
             Some(m) => m,
             None => return Ok(0),
         };
         let new_count = m.retry_count.saturating_add(1);
-        let mut am: outbox_event::ActiveModel = m.into();
-        am.retry_count = Set(new_count);
-        am.last_attempted_at = Set(Some(chrono::Utc::now().fixed_offset()));
-        am.last_error = Set(Some(error.to_string()));
-        am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set("retry_count", new_count);
+        am.set("last_attempted_at", Some(chrono::Utc::now().fixed_offset()));
+        am.set("last_error", Some(error.to_string()));
+        am.update(conn).await?;
         Ok(new_count)
     }
 
@@ -97,30 +98,33 @@ impl OutboxRepository {
     /// The caller should pass a `DatabaseTransaction` so the insert + delete
     /// commit atomically.
     pub async fn move_to_dead_letter<C: Conn>(conn: &C, id: Uuid, error: &str) -> Result<()> {
-        let m = match outbox_event::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = match conn
+            .one_as::<outbox_event::Model>(Stmt::new(
+                "SELECT * FROM outbox_events WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
         {
             Some(m) => m,
             None => return Ok(()),
         };
         let now = chrono::Utc::now().fixed_offset();
-        let dl = outbox_dead_letter::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            original_id: Set(m.id),
-            event_type: Set(m.event_type.clone()),
-            payload: Set(m.payload.clone()),
-            created_at: Set(m.at),
-            dead_lettered_at: Set(now),
-            retry_count: Set(m.retry_count),
-            last_error: Set(error.to_string()),
+        let dl = outbox_dead_letter::Model {
+            id: Uuid::new_v4(),
+            original_id: m.id,
+            event_type: m.event_type.clone(),
+            payload: m.payload.clone(),
+            created_at: m.at,
+            dead_lettered_at: now,
+            retry_count: m.retry_count,
+            last_error: error.to_string(),
         };
-        dl.insert(conn).await.map_err(Error::Database)?;
-        outbox_event::Entity::delete_by_id(id)
-            .exec(conn)
-            .await
-            .map_err(Error::Database)?;
+        dl.insert(conn).await?;
+        conn.run(Stmt::new(
+            "DELETE FROM outbox_events WHERE id = $1",
+            [id.into()],
+        ))
+        .await?;
         Ok(())
     }
 }
@@ -131,12 +135,11 @@ pub struct DeadLetterRepository;
 impl DeadLetterRepository {
     /// Newest-first list of dead-letter rows, capped at `limit`.
     pub async fn list<C: Conn>(conn: &C, limit: u64) -> Result<Vec<outbox_dead_letter::Model>> {
-        outbox_dead_letter::Entity::find()
-            .order_by_desc(outbox_dead_letter::Column::DeadLetteredAt)
-            .limit(limit)
-            .all(conn)
-            .await
-            .map_err(Error::Database)
+        conn.all_as::<outbox_dead_letter::Model>(Stmt::new(
+            "SELECT * FROM outbox_dead_letters ORDER BY dead_lettered_at DESC LIMIT $1",
+            [(limit as i64).into()],
+        ))
+        .await
     }
 
     /// Find one DLQ row by id (the DLQ id, not the `original_id`).
@@ -144,18 +147,17 @@ impl DeadLetterRepository {
         conn: &C,
         id: Uuid,
     ) -> Result<Option<outbox_dead_letter::Model>> {
-        outbox_dead_letter::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)
+        conn.one_as::<outbox_dead_letter::Model>(Stmt::new(
+            "SELECT * FROM outbox_dead_letters WHERE id = $1 LIMIT 1",
+            [id.into()],
+        ))
+        .await
     }
 
     /// Count of DLQ rows. Cheap admin / dashboard read.
     pub async fn count<C: Conn>(conn: &C) -> Result<u64> {
-        outbox_dead_letter::Entity::find()
-            .count(conn)
+        conn.count(Stmt::text("SELECT count(*) AS n FROM outbox_dead_letters"))
             .await
-            .map_err(Error::Database)
     }
 
     /// Replay a DLQ row back into `outbox_events`: insert a fresh outbox
@@ -167,27 +169,30 @@ impl DeadLetterRepository {
     /// Returns the new outbox row id. `Error::NotFound` if the DLQ id is
     /// already gone. The caller should pass a `DatabaseTransaction`.
     pub async fn replay<C: Conn>(conn: &C, id: Uuid) -> Result<Uuid> {
-        let dl = outbox_dead_letter::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let dl = conn
+            .one_as::<outbox_dead_letter::Model>(Stmt::new(
+                "SELECT * FROM outbox_dead_letters WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("outbox_dead_letter {id}")))?;
         let new_id = Uuid::new_v4();
-        let am = outbox_event::ActiveModel {
-            id: Set(new_id),
-            event_type: Set(dl.event_type.clone()),
-            payload: Set(dl.payload.clone()),
-            published: Set(false),
-            at: Set(dl.created_at),
-            retry_count: Set(0),
-            last_attempted_at: Set(None),
-            last_error: Set(None),
+        let am = outbox_event::Model {
+            id: new_id,
+            event_type: dl.event_type.clone(),
+            payload: dl.payload.clone(),
+            published: false,
+            at: dl.created_at,
+            retry_count: 0,
+            last_attempted_at: None,
+            last_error: None,
         };
-        am.insert(conn).await.map_err(Error::Database)?;
-        outbox_dead_letter::Entity::delete_by_id(id)
-            .exec(conn)
-            .await
-            .map_err(Error::Database)?;
+        am.insert(conn).await?;
+        conn.run(Stmt::new(
+            "DELETE FROM outbox_dead_letters WHERE id = $1",
+            [id.into()],
+        ))
+        .await?;
         Ok(new_id)
     }
 }

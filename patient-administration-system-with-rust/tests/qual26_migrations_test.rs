@@ -11,13 +11,13 @@ mod common;
 
 use patient_administration_system::db::connect;
 use patient_administration_system::db::row::RowExt;
-use patient_administration_system::db::sql::{Conn, Stmt};
-use sea_orm::{Database, DatabaseConnection, DbErr};
+use patient_administration_system::db::sql::{Conn, Pool, Stmt};
+use sea_orm::{Database, DbErr};
 
 /// The last forward-only migration: it has no down file.
 const FORWARD_ONLY: i64 = 20260601000006;
 
-fn pool(db: &DatabaseConnection) -> &sqlx::PgPool {
+fn pool(db: &Pool) -> &sqlx::PgPool {
     db.get_postgres_connection_pool()
 }
 
@@ -35,7 +35,7 @@ fn with_database(url: &str, name: &str) -> String {
 }
 
 /// Every column, constraint and index in `public`, one sorted line each, without the migrations table.
-async fn schema(db: &DatabaseConnection) -> Result<Vec<String>, DbErr> {
+async fn schema(db: &Pool) -> Result<Vec<String>, DbErr> {
     let sql = "SELECT 'column ' || table_name || '.' || column_name || ' ' || data_type || ' ' || is_nullable \
                       || ' ' || coalesce(column_default, '') AS line \
                  FROM information_schema.columns \
@@ -60,10 +60,7 @@ async fn schema(db: &DatabaseConnection) -> Result<Vec<String>, DbErr> {
         .collect()
 }
 
-async fn with_fresh_database<T>(
-    url: &str,
-    work: impl AsyncFnOnce(&DatabaseConnection) -> Result<T, DbErr>,
-) -> T {
+async fn with_fresh_database<T>(url: &str, work: impl AsyncFnOnce(&Pool) -> Result<T, DbErr>) -> T {
     let admin = connect(url).await.expect("connect");
     let name = format!("pas_qual26_{}", uuid::Uuid::new_v4().simple());
     admin

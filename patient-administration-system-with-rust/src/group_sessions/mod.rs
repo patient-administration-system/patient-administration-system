@@ -10,9 +10,7 @@
 //! the standby backfill all take one-to-one slots only.
 
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Stmt};
-use sea_orm::{DatabaseConnection, DatabaseTransaction};
+use crate::db::sql::{Conn, Pool, Stmt, Transact, Txn};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -38,7 +36,7 @@ pub async fn places<C: Conn>(conn: &C, slot_id: Uuid) -> Result<(i64, i64)> {
 }
 
 /// Whether a slot is a group session (capacity above one).
-pub async fn is_group(txn: &DatabaseTransaction, slot_id: Uuid) -> Result<bool> {
+pub async fn is_group(txn: &Txn, slot_id: Uuid) -> Result<bool> {
     Ok(places(txn, slot_id).await?.0 > 1)
 }
 
@@ -58,11 +56,11 @@ pub struct Session {
 }
 
 pub struct GroupSessionService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl GroupSessionService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

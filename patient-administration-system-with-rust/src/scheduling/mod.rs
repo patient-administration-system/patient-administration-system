@@ -7,8 +7,8 @@ pub use series::{
     CreateSeriesInput, CreateSeriesResult, PreviewResult, SeriesService, SeriesWithOccurrences,
 };
 
+use crate::db::sql::Pool;
 use chrono::{DateTime, Utc};
-use sea_orm::{DatabaseConnection, DatabaseTransaction};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -56,7 +56,7 @@ pub struct CancelDetails {
 }
 
 pub struct SchedulingService {
-    db: DatabaseConnection,
+    db: Pool,
     publisher: Arc<dyn EventPublisher>,
     /// The transport service (CAP-15), set after construction because it needs the person client. Shared
     /// by every clone of the `Arc<SchedulingService>`, so swapping it reaches all of them.
@@ -68,7 +68,7 @@ pub struct SchedulingService {
 }
 
 impl SchedulingService {
-    pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
+    pub fn new(db: Pool, publisher: Arc<dyn EventPublisher>) -> Self {
         Self {
             db,
             publisher,

@@ -2,8 +2,7 @@
 
 use super::*;
 use crate::db::row::RowExt;
-use crate::db::sql::Param;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Param, Stmt};
 
 impl AnalyticsService {
     /// Record an upstream person's coarse bands. Nothing else about them is taken.

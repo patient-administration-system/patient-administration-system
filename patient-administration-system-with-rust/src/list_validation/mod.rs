@@ -16,8 +16,8 @@
 //! Nothing here contacts the patient: until a carrier exists (NOT-3) a person asks, by phone or text, and
 //! records it. The letter is posted by a person and recorded.
 
+use crate::db::sql::Pool;
 use chrono::{DateTime, NaiveDate, Utc};
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -115,7 +115,7 @@ pub struct NewCampaign {
 }
 
 pub struct ListValidationService {
-    db: DatabaseConnection,
+    db: Pool,
     waits: std::sync::Arc<WaitsService>,
 }
 
@@ -126,7 +126,7 @@ const ITEM_COLS: &str = "i.id, i.campaign_id, i.pathway_id, i.person_id, i.targe
          WHEN i.state = 'letter_sent' AND current_date > i.final_by THEN 'decision_due' END AS next";
 
 impl ListValidationService {
-    pub fn new(db: DatabaseConnection, waits: std::sync::Arc<WaitsService>) -> Self {
+    pub fn new(db: Pool, waits: std::sync::Arc<WaitsService>) -> Self {
         Self { db, waits }
     }
 }

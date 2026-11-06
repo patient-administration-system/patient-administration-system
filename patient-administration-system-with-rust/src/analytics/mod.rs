@@ -13,8 +13,8 @@
 //! Age band and deprivation quintile come from `person_demographics`, which an upstream job fills with the
 //! coarse bands only. Time of day is in the clinic's time zone.
 
+use crate::db::sql::Pool;
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 
 use crate::config::env;
@@ -28,11 +28,11 @@ mod reports;
 pub use dims::*;
 
 pub struct AnalyticsService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl AnalyticsService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 }

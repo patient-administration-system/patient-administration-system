@@ -18,12 +18,11 @@
 //! The window is recorded on the booking and readable at `GET /api/appointments/{id}/transport`.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -132,13 +131,13 @@ pub struct Booking {
 }
 
 pub struct TransportService {
-    db: DatabaseConnection,
+    db: Pool,
     client: Arc<dyn TransportClient>,
     person_client: Option<Arc<dyn PersonClient>>,
 }
 
 impl TransportService {
-    pub fn new(db: DatabaseConnection, client: Arc<dyn TransportClient>) -> Self {
+    pub fn new(db: Pool, client: Arc<dyn TransportClient>) -> Self {
         Self {
             db,
             client,

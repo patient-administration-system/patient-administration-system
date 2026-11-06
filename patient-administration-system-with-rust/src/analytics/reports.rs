@@ -2,8 +2,7 @@
 
 use super::*;
 use crate::db::row::RowExt;
-use crate::db::sql::Param;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Param, Stmt};
 
 impl AnalyticsService {
     /// Refill rate of released slots, split by the chosen dimensions (PILOT-10). Releases are counted by the

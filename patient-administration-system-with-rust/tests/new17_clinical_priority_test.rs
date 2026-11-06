@@ -11,7 +11,7 @@ use patient_administration_system::db::sql::{Conn, Stmt};
 use uuid::Uuid;
 
 async fn entry(
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     service: &str,
     priority: &str,
     status: &str,

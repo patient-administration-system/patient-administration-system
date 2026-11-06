@@ -26,9 +26,8 @@
 //! and the language variant of the patient's preference.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -204,7 +203,7 @@ enum Delivery {
 }
 
 pub struct LadderService {
-    db: DatabaseConnection,
+    db: Pool,
     communication: Arc<CommunicationService>,
     reminders: ReminderService,
     steps: Vec<StepSpec>,
@@ -214,7 +213,7 @@ pub struct LadderService {
 }
 
 impl LadderService {
-    pub fn new(db: DatabaseConnection, communication: Arc<CommunicationService>) -> Self {
+    pub fn new(db: Pool, communication: Arc<CommunicationService>) -> Self {
         Self {
             reminders: ReminderService::new(db.clone(), communication.clone()),
             db,
@@ -247,10 +246,7 @@ impl LadderService {
     }
 
     /// From `PAS_REMINDER_STEPS`, `PAS_REMINDER_MAX_TOUCHES`, `PAS_LINK_BASE_URL`, `PAS_QUIET_HOURS`.
-    pub fn from_env(
-        db: DatabaseConnection,
-        communication: Arc<CommunicationService>,
-    ) -> Result<Self> {
+    pub fn from_env(db: Pool, communication: Arc<CommunicationService>) -> Result<Self> {
         let steps = parse_steps(
             env::text("PAS_REMINDER_STEPS")
                 .as_deref()

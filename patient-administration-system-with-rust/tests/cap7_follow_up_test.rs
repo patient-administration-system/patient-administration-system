@@ -213,7 +213,7 @@ async fn a_miss_never_removes_the_patient_or_touches_their_rtt_clock() {
             .start(person, w.service.clone(), &sys())
             .await
             .unwrap();
-    let events = |db: sea_orm::DatabaseConnection, id: Uuid| async move {
+    let events = |db: patient_administration_system::db::sql::Pool, id: Uuid| async move {
         let r = db
             .one(Stmt::new(
                 "SELECT count(*) AS n FROM rtt_clock_events WHERE pathway_id = $1",

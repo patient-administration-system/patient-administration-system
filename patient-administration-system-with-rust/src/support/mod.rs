@@ -6,9 +6,8 @@
 //! scores, ranks, penalises or suppresses contact. Resolving a flag needs a named person and an outcome.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -38,11 +37,11 @@ pub struct SupportFlag {
 }
 
 pub struct SupportService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl SupportService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

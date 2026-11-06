@@ -1,7 +1,6 @@
 //! resources — Bed/Ward operations service
 
-use crate::db::sql::Transact;
-use sea_orm::DatabaseConnection;
+use crate::db::sql::{Pool, Transact};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -27,12 +26,12 @@ pub struct WardOccupancy {
 }
 
 pub struct ResourcesService {
-    db: DatabaseConnection,
+    db: Pool,
     publisher: Arc<dyn EventPublisher>,
 }
 
 impl ResourcesService {
-    pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
+    pub fn new(db: Pool, publisher: Arc<dyn EventPublisher>) -> Self {
         Self { db, publisher }
     }
 

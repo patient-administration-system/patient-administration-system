@@ -18,11 +18,10 @@
 //!   idempotency are shared.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -166,7 +165,7 @@ pub struct LinkOutcome {
 }
 
 pub struct ReplyLinks {
-    db: DatabaseConnection,
+    db: Pool,
     writeback: Arc<WriteBackService>,
     rebook: Arc<RebookService>,
     help_line: Option<String>,
@@ -221,11 +220,7 @@ struct Row {
 }
 
 impl ReplyLinks {
-    pub fn new(
-        db: DatabaseConnection,
-        writeback: Arc<WriteBackService>,
-        rebook: Arc<RebookService>,
-    ) -> Self {
+    pub fn new(db: Pool, writeback: Arc<WriteBackService>, rebook: Arc<RebookService>) -> Self {
         Self {
             db,
             writeback,

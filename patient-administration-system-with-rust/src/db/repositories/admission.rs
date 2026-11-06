@@ -4,8 +4,7 @@
 //! tables. The orchestration of ADT (lock bed, write rows, flip statuses)
 //! lives in `src/adt/`; this module just persists the records.
 
-use crate::db::sql::{Conn, Stmt};
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
 use crate::db::entities::{admission, bed_assignment, discharge, encounter, transfer};
@@ -16,16 +15,18 @@ pub struct AdmissionRepository;
 
 impl AdmissionRepository {
     pub async fn create<C: Conn>(conn: &C, a: &Admission) -> Result<Admission> {
-        let am = admission_to_active_model(a);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = admission_to_row(a);
+        am.insert(conn).await?;
         Ok(a.clone())
     }
 
     pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Admission>> {
-        let m = admission::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<admission::Model>(Stmt::new(
+                "SELECT * FROM admissions WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(admission_from_model).transpose()
     }
 
@@ -39,12 +40,12 @@ impl AdmissionRepository {
         id: Uuid,
         expected: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<Admission> {
-        use sea_orm::QuerySelect;
-        let m = admission::Entity::find_by_id(id)
-            .lock_exclusive()
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<admission::Model>(Stmt::new(
+                "SELECT * FROM admissions WHERE id = $1 LIMIT 1 FOR UPDATE",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("admission {id}")))?;
         let adm = admission_from_model(m)?;
         if !crate::api::rest::concurrency::is_current(adm.updated_at, expected) {
@@ -71,24 +72,19 @@ impl AdmissionRepository {
         conn: &C,
         encounter_id: Uuid,
     ) -> Result<Option<BedAssignment>> {
-        let m = bed_assignment::Entity::find()
-            .filter(bed_assignment::Column::EncounterId.eq(encounter_id))
-            .filter(bed_assignment::Column::ReleasedAt.is_null())
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn.one_as::<bed_assignment::Model>(Stmt::new("SELECT * FROM bed_assignments WHERE encounter_id = $1 AND released_at IS NULL LIMIT 1", [encounter_id.into()])).await?;
         m.map(bed_assignment_from_model).transpose()
     }
 
     pub async fn create_transfer<C: Conn>(conn: &C, t: &Transfer) -> Result<Transfer> {
-        let am = transfer_to_active_model(t);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = transfer_to_row(t);
+        am.insert(conn).await?;
         Ok(t.clone())
     }
 
     pub async fn create_discharge<C: Conn>(conn: &C, d: &Discharge) -> Result<Discharge> {
-        let am = discharge_to_active_model(d);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = discharge_to_row(d);
+        am.insert(conn).await?;
         Ok(d.clone())
     }
 
@@ -100,11 +96,12 @@ impl AdmissionRepository {
         conn: &C,
         person_id: Uuid,
     ) -> Result<Option<Admission>> {
-        let encounter_ids: Vec<Uuid> = encounter::Entity::find()
-            .filter(encounter::Column::PersonId.eq(person_id))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?
+        let encounter_ids: Vec<Uuid> = conn
+            .all_as::<encounter::Model>(Stmt::new(
+                "SELECT * FROM encounters WHERE person_id = $1",
+                [person_id.into()],
+            ))
+            .await?
             .into_iter()
             .map(|e| e.id)
             .collect();
@@ -113,21 +110,16 @@ impl AdmissionRepository {
         }
         // Active bed assignment = no released_at. Take the most recently
         // assigned one if more than one matches (shouldn't happen).
-        let active = bed_assignment::Entity::find()
-            .filter(bed_assignment::Column::EncounterId.is_in(encounter_ids.clone()))
-            .filter(bed_assignment::Column::ReleasedAt.is_null())
-            .order_by_desc(bed_assignment::Column::AssignedAt)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let active = conn.one_as::<bed_assignment::Model>(Stmt::new("SELECT * FROM bed_assignments WHERE encounter_id = ANY($1) AND released_at IS NULL ORDER BY assigned_at DESC LIMIT 1", [encounter_ids.clone().into()])).await?;
         let Some(active) = active else {
             return Ok(None);
         };
-        let m = admission::Entity::find()
-            .filter(admission::Column::EncounterId.eq(active.encounter_id))
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<admission::Model>(Stmt::new(
+                "SELECT * FROM admissions WHERE encounter_id = $1 LIMIT 1",
+                [active.encounter_id.into()],
+            ))
+            .await?;
         m.map(admission_from_model).transpose()
     }
 
@@ -136,22 +128,24 @@ impl AdmissionRepository {
     /// separately if needed.
     pub async fn list_by_patient<C: Conn>(conn: &C, person_id: Uuid) -> Result<Vec<Admission>> {
         // Two queries: fetch the patient's encounter ids, then admissions.
-        let encounter_ids: Vec<Uuid> = encounter::Entity::find()
-            .filter(encounter::Column::PersonId.eq(person_id))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?
+        let encounter_ids: Vec<Uuid> = conn
+            .all_as::<encounter::Model>(Stmt::new(
+                "SELECT * FROM encounters WHERE person_id = $1",
+                [person_id.into()],
+            ))
+            .await?
             .into_iter()
             .map(|e| e.id)
             .collect();
         if encounter_ids.is_empty() {
             return Ok(Vec::new());
         }
-        let rows = admission::Entity::find()
-            .filter(admission::Column::EncounterId.is_in(encounter_ids))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<admission::Model>(Stmt::new(
+                "SELECT * FROM admissions WHERE encounter_id = ANY($1)",
+                [encounter_ids.into()],
+            ))
+            .await?;
         rows.into_iter().map(admission_from_model).collect()
     }
 
@@ -161,23 +155,25 @@ impl AdmissionRepository {
         conn: &C,
         ba: &BedAssignment,
     ) -> Result<BedAssignment> {
-        let am = bed_assignment_to_active_model(ba);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = bed_assignment_to_row(ba);
+        am.insert(conn).await?;
         Ok(ba.clone())
     }
 
     /// Mark the given bed_assignment as released (sets `released_at`).
     pub async fn release_bed_assignment<C: Conn>(conn: &C, id: Uuid) -> Result<BedAssignment> {
-        let m = bed_assignment::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<bed_assignment::Model>(Stmt::new(
+                "SELECT * FROM bed_assignments WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("bed_assignment {id}")))?;
         let now = chrono::Utc::now().fixed_offset();
-        let mut am: bed_assignment::ActiveModel = m.into();
-        am.released_at = Set(Some(now));
-        am.updated_at = Set(now);
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set("released_at", Some(now));
+        am.set("updated_at", now);
+        let updated = am.update(conn).await?;
         bed_assignment_from_model(updated)
     }
 
@@ -191,32 +187,29 @@ impl AdmissionRepository {
         conn: &C,
         person_id: Uuid,
     ) -> Result<Option<(Admission, Discharge)>> {
-        let encounter_ids: Vec<Uuid> = encounter::Entity::find()
-            .filter(encounter::Column::PersonId.eq(person_id))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?
+        let encounter_ids: Vec<Uuid> = conn
+            .all_as::<encounter::Model>(Stmt::new(
+                "SELECT * FROM encounters WHERE person_id = $1",
+                [person_id.into()],
+            ))
+            .await?
             .into_iter()
             .map(|e| e.id)
             .collect();
         if encounter_ids.is_empty() {
             return Ok(None);
         }
-        let admissions = admission::Entity::find()
-            .filter(admission::Column::EncounterId.is_in(encounter_ids))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let admissions = conn
+            .all_as::<admission::Model>(Stmt::new(
+                "SELECT * FROM admissions WHERE encounter_id = ANY($1)",
+                [encounter_ids.into()],
+            ))
+            .await?;
         if admissions.is_empty() {
             return Ok(None);
         }
         let admission_ids: Vec<Uuid> = admissions.iter().map(|a| a.id).collect();
-        let latest = discharge::Entity::find()
-            .filter(discharge::Column::AdmissionId.is_in(admission_ids))
-            .order_by_desc(discharge::Column::DischargedAt)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let latest = conn.one_as::<discharge::Model>(Stmt::new("SELECT * FROM discharges WHERE admission_id = ANY($1) ORDER BY discharged_at DESC LIMIT 1", [admission_ids.into()])).await?;
         let Some(latest) = latest else {
             return Ok(None);
         };
@@ -237,12 +230,7 @@ impl AdmissionRepository {
         conn: &C,
         encounter_id: Uuid,
     ) -> Result<Option<BedAssignment>> {
-        let m = bed_assignment::Entity::find()
-            .filter(bed_assignment::Column::EncounterId.eq(encounter_id))
-            .order_by_desc(bed_assignment::Column::AssignedAt)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn.one_as::<bed_assignment::Model>(Stmt::new("SELECT * FROM bed_assignments WHERE encounter_id = $1 ORDER BY assigned_at DESC LIMIT 1", [encounter_id.into()])).await?;
         m.map(bed_assignment_from_model).transpose()
     }
 
@@ -253,12 +241,7 @@ impl AdmissionRepository {
         conn: &C,
         admission_id: Uuid,
     ) -> Result<Option<Transfer>> {
-        let m = transfer::Entity::find()
-            .filter(transfer::Column::AdmissionId.eq(admission_id))
-            .order_by_desc(transfer::Column::TransferredAt)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn.one_as::<transfer::Model>(Stmt::new("SELECT * FROM transfers WHERE admission_id = $1 ORDER BY transferred_at DESC LIMIT 1", [admission_id.into()])).await?;
         m.map(transfer_from_model).transpose()
     }
 
@@ -268,11 +251,13 @@ impl AdmissionRepository {
     /// operational, not append-only, so a wrong transfer is
     /// physically removed when cancelled.
     pub async fn delete_transfer<C: Conn>(conn: &C, transfer_id: Uuid) -> Result<u64> {
-        let res = transfer::Entity::delete_by_id(transfer_id)
-            .exec(conn)
-            .await
-            .map_err(Error::Database)?;
-        Ok(res.rows_affected)
+        let res = conn
+            .run(Stmt::new(
+                "DELETE FROM transfers WHERE id = $1",
+                [transfer_id.into()],
+            ))
+            .await?;
+        Ok(res.rows_affected())
     }
 
     /// Delete the discharge row for the given admission. Returns the number
@@ -281,12 +266,13 @@ impl AdmissionRepository {
     /// append-only, so a row that turns out to have been wrong is
     /// physically removed.
     pub async fn delete_discharge<C: Conn>(conn: &C, admission_id: Uuid) -> Result<u64> {
-        let res = discharge::Entity::delete_many()
-            .filter(discharge::Column::AdmissionId.eq(admission_id))
-            .exec(conn)
-            .await
-            .map_err(Error::Database)?;
-        Ok(res.rows_affected)
+        let res = conn
+            .run(Stmt::new(
+                "DELETE FROM discharges WHERE admission_id = $1",
+                [admission_id.into()],
+            ))
+            .await?;
+        Ok(res.rows_affected())
     }
 }
 
@@ -304,16 +290,16 @@ fn discharge_from_model(m: discharge::Model) -> Result<Discharge> {
 
 // --- conversion helpers ---
 
-fn admission_to_active_model(a: &Admission) -> admission::ActiveModel {
-    admission::ActiveModel {
-        id: Set(a.id),
-        encounter_id: Set(a.encounter_id),
-        bed_id: Set(a.bed_id),
-        admitting_worker_id: Set(a.admitting_worker_id),
-        admitted_at: Set(a.admitted_at.fixed_offset()),
-        reason: Set(a.reason.clone()),
-        created_at: Set(a.created_at.fixed_offset()),
-        updated_at: Set(a.updated_at.fixed_offset()),
+fn admission_to_row(a: &Admission) -> admission::Model {
+    admission::Model {
+        id: a.id,
+        encounter_id: a.encounter_id,
+        bed_id: a.bed_id,
+        admitting_worker_id: a.admitting_worker_id,
+        admitted_at: a.admitted_at.fixed_offset(),
+        reason: a.reason.clone(),
+        created_at: a.created_at.fixed_offset(),
+        updated_at: a.updated_at.fixed_offset(),
     }
 }
 
@@ -342,39 +328,39 @@ fn transfer_from_model(m: transfer::Model) -> Result<Transfer> {
     })
 }
 
-fn transfer_to_active_model(t: &Transfer) -> transfer::ActiveModel {
-    transfer::ActiveModel {
-        id: Set(t.id),
-        admission_id: Set(t.admission_id),
-        from_bed_id: Set(t.from_bed_id),
-        to_bed_id: Set(t.to_bed_id),
-        reason: Set(t.reason.clone()),
-        transferred_at: Set(t.transferred_at.fixed_offset()),
-        created_at: Set(t.created_at.fixed_offset()),
+fn transfer_to_row(t: &Transfer) -> transfer::Model {
+    transfer::Model {
+        id: t.id,
+        admission_id: t.admission_id,
+        from_bed_id: t.from_bed_id,
+        to_bed_id: t.to_bed_id,
+        reason: t.reason.clone(),
+        transferred_at: t.transferred_at.fixed_offset(),
+        created_at: t.created_at.fixed_offset(),
     }
 }
 
-fn discharge_to_active_model(d: &Discharge) -> discharge::ActiveModel {
-    discharge::ActiveModel {
-        id: Set(d.id),
-        admission_id: Set(d.admission_id),
-        discharging_worker_id: Set(d.discharging_worker_id),
-        discharged_at: Set(d.discharged_at.fixed_offset()),
-        disposition: Set(d.disposition.clone()),
-        notes: Set(d.notes.clone()),
-        created_at: Set(d.created_at.fixed_offset()),
+fn discharge_to_row(d: &Discharge) -> discharge::Model {
+    discharge::Model {
+        id: d.id,
+        admission_id: d.admission_id,
+        discharging_worker_id: d.discharging_worker_id,
+        discharged_at: d.discharged_at.fixed_offset(),
+        disposition: d.disposition.clone(),
+        notes: d.notes.clone(),
+        created_at: d.created_at.fixed_offset(),
     }
 }
 
-fn bed_assignment_to_active_model(ba: &BedAssignment) -> bed_assignment::ActiveModel {
-    bed_assignment::ActiveModel {
-        id: Set(ba.id),
-        encounter_id: Set(ba.encounter_id),
-        bed_id: Set(ba.bed_id),
-        assigned_at: Set(ba.assigned_at.fixed_offset()),
-        released_at: Set(ba.released_at.map(|t| t.fixed_offset())),
-        created_at: Set(ba.created_at.fixed_offset()),
-        updated_at: Set(ba.updated_at.fixed_offset()),
+fn bed_assignment_to_row(ba: &BedAssignment) -> bed_assignment::Model {
+    bed_assignment::Model {
+        id: ba.id,
+        encounter_id: ba.encounter_id,
+        bed_id: ba.bed_id,
+        assigned_at: ba.assigned_at.fixed_offset(),
+        released_at: ba.released_at.map(|t| t.fixed_offset()),
+        created_at: ba.created_at.fixed_offset(),
+        updated_at: ba.updated_at.fixed_offset(),
     }
 }
 
@@ -395,18 +381,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_admission_roundtrip_via_active_model() {
+    fn test_admission_roundtrip_via_row() {
         let a = Admission::new(Uuid::new_v4(), Uuid::new_v4());
-        let am = admission_to_active_model(&a);
+        let am = admission_to_row(&a);
         let m = admission::Model {
-            id: am.id.clone().unwrap(),
-            encounter_id: am.encounter_id.clone().unwrap(),
-            bed_id: am.bed_id.clone().unwrap(),
-            admitting_worker_id: am.admitting_worker_id.clone().unwrap(),
-            admitted_at: am.admitted_at.clone().unwrap(),
-            reason: am.reason.clone().unwrap(),
-            created_at: am.created_at.clone().unwrap(),
-            updated_at: am.updated_at.clone().unwrap(),
+            id: am.id,
+            encounter_id: am.encounter_id,
+            bed_id: am.bed_id,
+            admitting_worker_id: am.admitting_worker_id,
+            admitted_at: am.admitted_at,
+            reason: am.reason.clone(),
+            created_at: am.created_at,
+            updated_at: am.updated_at,
         };
         let back = admission_from_model(m).expect("from_model");
         assert_eq!(back.id, a.id);

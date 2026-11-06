@@ -1,16 +1,15 @@
 //! Facility / Ward / Room repository: the CRUD behind `POST /api/facilities`, `POST /api/wards` and
 //! `POST /api/rooms`, the per-id GETs and the list-by-parent reads.
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
+use crate::Result;
 use crate::db::entities::{facility, room, ward};
 use crate::models::{
     Address,
     facility::{Facility, Room, Ward},
 };
-use crate::{Error, Result};
 
 // ─── Facility ───────────────────────────────────────────────────────────
 
@@ -18,34 +17,36 @@ pub struct FacilityRepository;
 
 impl FacilityRepository {
     pub async fn create<C: Conn>(conn: &C, f: &Facility) -> Result<Facility> {
-        let am = facility::ActiveModel {
-            id: Set(f.id),
-            name: Set(f.name.clone()),
-            code: Set(f.code.clone()),
-            address: Set(serde_json::to_value(&f.address).unwrap_or(serde_json::Value::Null)),
-            active: Set(f.active),
-            created_at: Set(f.created_at.fixed_offset()),
-            updated_at: Set(f.updated_at.fixed_offset()),
+        let am = facility::Model {
+            id: f.id,
+            name: f.name.clone(),
+            code: f.code.clone(),
+            address: serde_json::to_value(&f.address).unwrap_or(serde_json::Value::Null),
+            active: f.active,
+            created_at: f.created_at.fixed_offset(),
+            updated_at: f.updated_at.fixed_offset(),
         };
-        am.insert(conn).await.map_err(Error::Database)?;
+        am.insert(conn).await?;
         Ok(f.clone())
     }
 
     pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Facility>> {
-        let m = facility::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<facility::Model>(Stmt::new(
+                "SELECT * FROM facilities WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         Ok(m.map(facility_from_model))
     }
 
     pub async fn list<C: Conn>(conn: &C) -> Result<Vec<Facility>> {
-        let rows = facility::Entity::find()
-            .filter(facility::Column::Active.eq(true))
-            .order_by_asc(facility::Column::Name)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<facility::Model>(Stmt::new(
+                "SELECT * FROM facilities WHERE active = $1 ORDER BY name",
+                [true.into()],
+            ))
+            .await?;
         Ok(rows.into_iter().map(facility_from_model).collect())
     }
 }
@@ -76,36 +77,37 @@ pub struct WardRepository;
 
 impl WardRepository {
     pub async fn create<C: Conn>(conn: &C, w: &Ward) -> Result<Ward> {
-        let am = ward::ActiveModel {
-            id: Set(w.id),
-            facility_id: Set(w.facility_id),
-            name: Set(w.name.clone()),
-            code: Set(w.code.clone()),
-            capacity: Set(w.capacity as i32),
-            active: Set(w.active),
-            created_at: Set(w.created_at.fixed_offset()),
-            updated_at: Set(w.updated_at.fixed_offset()),
+        let am = ward::Model {
+            id: w.id,
+            facility_id: w.facility_id,
+            name: w.name.clone(),
+            code: w.code.clone(),
+            capacity: w.capacity as i32,
+            active: w.active,
+            created_at: w.created_at.fixed_offset(),
+            updated_at: w.updated_at.fixed_offset(),
         };
-        am.insert(conn).await.map_err(Error::Database)?;
+        am.insert(conn).await?;
         Ok(w.clone())
     }
 
     pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Ward>> {
-        let m = ward::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<ward::Model>(Stmt::new(
+                "SELECT * FROM wards WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         Ok(m.map(ward_from_model))
     }
 
     pub async fn list_by_facility<C: Conn>(conn: &C, facility_id: Uuid) -> Result<Vec<Ward>> {
-        let rows = ward::Entity::find()
-            .filter(ward::Column::FacilityId.eq(facility_id))
-            .filter(ward::Column::Active.eq(true))
-            .order_by_asc(ward::Column::Name)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<ward::Model>(Stmt::new(
+                "SELECT * FROM wards WHERE facility_id = $1 AND active = $2 ORDER BY name",
+                [facility_id.into(), true.into()],
+            ))
+            .await?;
         Ok(rows.into_iter().map(ward_from_model).collect())
     }
 }
@@ -129,35 +131,36 @@ pub struct RoomRepository;
 
 impl RoomRepository {
     pub async fn create<C: Conn>(conn: &C, r: &Room) -> Result<Room> {
-        let am = room::ActiveModel {
-            id: Set(r.id),
-            ward_id: Set(r.ward_id),
-            name: Set(r.name.clone()),
-            code: Set(r.code.clone()),
-            active: Set(r.active),
-            created_at: Set(r.created_at.fixed_offset()),
-            updated_at: Set(r.updated_at.fixed_offset()),
+        let am = room::Model {
+            id: r.id,
+            ward_id: r.ward_id,
+            name: r.name.clone(),
+            code: r.code.clone(),
+            active: r.active,
+            created_at: r.created_at.fixed_offset(),
+            updated_at: r.updated_at.fixed_offset(),
         };
-        am.insert(conn).await.map_err(Error::Database)?;
+        am.insert(conn).await?;
         Ok(r.clone())
     }
 
     pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Room>> {
-        let m = room::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<room::Model>(Stmt::new(
+                "SELECT * FROM rooms WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         Ok(m.map(room_from_model))
     }
 
     pub async fn list_by_ward<C: Conn>(conn: &C, ward_id: Uuid) -> Result<Vec<Room>> {
-        let rows = room::Entity::find()
-            .filter(room::Column::WardId.eq(ward_id))
-            .filter(room::Column::Active.eq(true))
-            .order_by_asc(room::Column::Name)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<room::Model>(Stmt::new(
+                "SELECT * FROM rooms WHERE ward_id = $1 AND active = $2 ORDER BY name",
+                [ward_id.into(), true.into()],
+            ))
+            .await?;
         Ok(rows.into_iter().map(room_from_model).collect())
     }
 
@@ -167,11 +170,12 @@ impl RoomRepository {
     /// enough — callers wanting strict uniqueness should add a
     /// `(ward_id, code)` filter.
     pub async fn find_by_code<C: Conn>(conn: &C, code: &str) -> Result<Option<Room>> {
-        let m = room::Entity::find()
-            .filter(room::Column::Code.eq(code))
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<room::Model>(Stmt::new(
+                "SELECT * FROM rooms WHERE code = $1 LIMIT 1",
+                [code.into()],
+            ))
+            .await?;
         Ok(m.map(room_from_model))
     }
 }

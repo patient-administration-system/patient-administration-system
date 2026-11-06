@@ -8,10 +8,10 @@ use patient_administration_system::communication::reminders::ReminderService;
 use patient_administration_system::db::entities::generated_letter;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::letter::LetterRepository;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
 use patient_administration_system::models::communication::DeliveryChannel;
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -28,15 +28,23 @@ fn person(telecom: serde_json::Value) -> Person {
     }
 }
 
-async fn letters_for(db: &sea_orm::DatabaseConnection, appointment_id: Uuid) -> u64 {
-    generated_letter::Entity::find()
-        .filter(generated_letter::Column::AppointmentId.eq(appointment_id))
-        .count(db)
-        .await
-        .unwrap()
+async fn letters_for(
+    db: &patient_administration_system::db::sql::Pool,
+    appointment_id: Uuid,
+) -> u64 {
+    db.count(Stmt::new(
+        "SELECT count(*) AS n FROM generated_letters WHERE appointment_id = $1",
+        [appointment_id.into()],
+    ))
+    .await
+    .unwrap()
 }
 
-async fn book(db: &sea_orm::DatabaseConnection, person_id: Uuid, in_hours: i64) -> Appointment {
+async fn book(
+    db: &patient_administration_system::db::sql::Pool,
+    person_id: Uuid,
+    in_hours: i64,
+) -> Appointment {
     let start = Utc::now() + Duration::hours(in_hours);
     let mut a = Appointment::new(person_id, start, start + Duration::minutes(30));
     a.status = AppointmentStatus::Booked;
@@ -142,9 +150,12 @@ async fn edited_template_wording_is_what_gets_sent() {
         .await
         .unwrap();
 
-    let letter = generated_letter::Entity::find()
-        .filter(generated_letter::Column::AppointmentId.eq(appt.id))
-        .one(&state.db)
+    let letter = state
+        .db
+        .one_as::<generated_letter::Model>(Stmt::new(
+            "SELECT * FROM generated_letters WHERE appointment_id = $1 LIMIT 1",
+            [appt.id.into()],
+        ))
         .await
         .unwrap()
         .expect("a reminder was generated");

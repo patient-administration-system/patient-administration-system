@@ -3,8 +3,7 @@
 //! Owns the `beds` table. Provides `select_for_update` for the ADT service
 //! to lock a bed inside an admit/transfer transaction.
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
 use crate::db::entities::{bed, room};
@@ -15,16 +14,18 @@ pub struct BedRepository;
 
 impl BedRepository {
     pub async fn create<C: Conn>(conn: &C, b: &Bed) -> Result<Bed> {
-        let am = to_active_model(b);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = to_row(b);
+        am.insert(conn).await?;
         Ok(b.clone())
     }
 
     pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Bed>> {
-        let m = bed::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<bed::Model>(Stmt::new(
+                "SELECT * FROM beds WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(from_model).transpose()
     }
 
@@ -33,11 +34,12 @@ impl BedRepository {
     /// repository does not enforce uniqueness across facilities — callers
     /// that need a global lookup should use [`Self::find_by_id`].
     pub async fn find_by_code<C: Conn>(conn: &C, code: &str) -> Result<Option<Bed>> {
-        let m = bed::Entity::find()
-            .filter(bed::Column::Code.eq(code))
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<bed::Model>(Stmt::new(
+                "SELECT * FROM beds WHERE code = $1 LIMIT 1",
+                [code.into()],
+            ))
+            .await?;
         m.map(from_model).transpose()
     }
 
@@ -47,17 +49,19 @@ impl BedRepository {
     /// metadata but not the operational state. Returns `Error::
     /// NotFound` when the row is missing.
     pub async fn update<C: Conn>(conn: &C, b: &Bed) -> Result<Bed> {
-        let existing = bed::Entity::find_by_id(b.id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let existing = conn
+            .one_as::<bed::Model>(Stmt::new(
+                "SELECT * FROM beds WHERE id = $1 LIMIT 1",
+                [b.id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("bed {}", b.id)))?;
-        let mut am: bed::ActiveModel = existing.into();
-        am.room_id = Set(b.room_id);
-        am.name = Set(b.name.clone());
-        am.code = Set(b.code.clone());
-        am.updated_at = Set(chrono::Utc::now().fixed_offset());
-        am.update(conn).await.map_err(Error::Database)?;
+        let mut am = existing.patch();
+        am.set("room_id", b.room_id);
+        am.set("name", b.name.clone());
+        am.set("code", b.code.clone());
+        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        am.update(conn).await?;
         Ok(b.clone())
     }
 
@@ -77,14 +81,14 @@ impl BedRepository {
         expected: Option<chrono::DateTime<chrono::Utc>>,
         lock: bool,
     ) -> Result<Bed> {
-        let mut q = bed::Entity::find_by_id(id);
-        if lock {
-            q = q.lock_exclusive();
-        }
-        let m = q
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let sql = if lock {
+            "SELECT * FROM beds WHERE id = $1 LIMIT 1 FOR UPDATE"
+        } else {
+            "SELECT * FROM beds WHERE id = $1 LIMIT 1"
+        };
+        let m = conn
+            .one_as::<bed::Model>(Stmt::new(sql, [id.into()]))
+            .await?
             .ok_or_else(|| Error::not_found(format!("bed {id}")))?;
         if !crate::api::rest::concurrency::is_current(
             m.updated_at.with_timezone(&chrono::Utc),
@@ -97,42 +101,45 @@ impl BedRepository {
         let current = bed_status_from_str(&m.status)?;
         current.try_transition_to(new_status)?;
         let now = chrono::Utc::now().fixed_offset();
-        let mut am: bed::ActiveModel = m.into();
-        am.status = Set(bed_status_to_str(new_status).to_string());
-        am.updated_at = Set(now);
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set("status", bed_status_to_str(new_status).to_string());
+        am.set("updated_at", now);
+        let updated = am.update(conn).await?;
         from_model(updated)
     }
 
     /// List all beds in a ward. Walks rooms → beds.
     pub async fn list_by_ward<C: Conn>(conn: &C, ward_id: Uuid) -> Result<Vec<Bed>> {
-        let room_ids: Vec<Uuid> = room::Entity::find()
-            .filter(room::Column::WardId.eq(ward_id))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?
+        let room_ids: Vec<Uuid> = conn
+            .all_as::<room::Model>(Stmt::new(
+                "SELECT * FROM rooms WHERE ward_id = $1",
+                [ward_id.into()],
+            ))
+            .await?
             .into_iter()
             .map(|r| r.id)
             .collect();
         if room_ids.is_empty() {
             return Ok(Vec::new());
         }
-        let rows = bed::Entity::find()
-            .filter(bed::Column::RoomId.is_in(room_ids))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<bed::Model>(Stmt::new(
+                "SELECT * FROM beds WHERE room_id = ANY($1)",
+                [room_ids.into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 
     /// `SELECT … FOR UPDATE` on a single bed row. Use inside a
     /// `DatabaseTransaction` so the lock is held until commit.
     pub async fn select_for_update<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Bed>> {
-        let m = bed::Entity::find_by_id(id)
-            .lock_exclusive()
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<bed::Model>(Stmt::new(
+                "SELECT * FROM beds WHERE id = $1 LIMIT 1 FOR UPDATE",
+                [id.into()],
+            ))
+            .await?;
         m.map(from_model).transpose()
     }
 
@@ -147,16 +154,18 @@ impl BedRepository {
         id: Uuid,
         new_status: BedStatus,
     ) -> Result<Bed> {
-        let m = bed::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<bed::Model>(Stmt::new(
+                "SELECT * FROM beds WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("bed {id}")))?;
         let now = chrono::Utc::now().fixed_offset();
-        let mut am: bed::ActiveModel = m.into();
-        am.status = Set(bed_status_to_str(new_status).to_string());
-        am.updated_at = Set(now);
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set("status", bed_status_to_str(new_status).to_string());
+        am.set("updated_at", now);
+        let updated = am.update(conn).await?;
         from_model(updated)
     }
 }
@@ -184,15 +193,15 @@ pub(crate) fn bed_status_from_str(s: &str) -> Result<BedStatus> {
     }
 }
 
-fn to_active_model(b: &Bed) -> bed::ActiveModel {
-    bed::ActiveModel {
-        id: Set(b.id),
-        room_id: Set(b.room_id),
-        name: Set(b.name.clone()),
-        code: Set(b.code.clone()),
-        status: Set(bed_status_to_str(b.status).to_string()),
-        created_at: Set(b.created_at.fixed_offset()),
-        updated_at: Set(b.updated_at.fixed_offset()),
+fn to_row(b: &Bed) -> bed::Model {
+    bed::Model {
+        id: b.id,
+        room_id: b.room_id,
+        name: b.name.clone(),
+        code: b.code.clone(),
+        status: bed_status_to_str(b.status).to_string(),
+        created_at: b.created_at.fixed_offset(),
+        updated_at: b.updated_at.fixed_offset(),
     }
 }
 
@@ -213,17 +222,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bed_roundtrip_via_active_model() {
+    fn test_bed_roundtrip_via_row() {
         let b = Bed::new(Uuid::new_v4(), "Bed 1".into(), "B1".into());
-        let am = to_active_model(&b);
+        let am = to_row(&b);
         let m = bed::Model {
-            id: am.id.clone().unwrap(),
-            room_id: am.room_id.clone().unwrap(),
-            name: am.name.clone().unwrap(),
-            code: am.code.clone().unwrap(),
-            status: am.status.clone().unwrap(),
-            created_at: am.created_at.clone().unwrap(),
-            updated_at: am.updated_at.clone().unwrap(),
+            id: am.id,
+            room_id: am.room_id,
+            name: am.name.clone(),
+            code: am.code.clone(),
+            status: am.status.clone(),
+            created_at: am.created_at,
+            updated_at: am.updated_at,
         };
         let back = from_model(m).expect("from_model");
         assert_eq!(back.id, b.id);

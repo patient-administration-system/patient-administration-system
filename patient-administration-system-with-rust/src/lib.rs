@@ -17,7 +17,7 @@
 //! - Episode-of-care billing (accounts, charges, invoices, payments)
 //! - RESTful API via Axum + OpenAPI via Utoipa
 //! - HL7 FHIR R5 surface for interoperability
-//! - PostgreSQL persistence via SeaORM
+//! - PostgreSQL persistence through `db::sql`
 //! - Transactional outbox for domain events
 //! - Distributed tracing and observability via OpenTelemetry
 

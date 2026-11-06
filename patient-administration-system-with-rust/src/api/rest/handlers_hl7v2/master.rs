@@ -286,7 +286,7 @@ fn parse_location_items(
 
 /// Apply one bed record (`MAD` add, `MUP` update, `MDL` take out of service) in the caller's transaction.
 async fn apply_location_item(
-    txn: &sea_orm::DatabaseTransaction,
+    txn: &crate::db::sql::Txn,
     item: &crate::hl7v2::pid_translation::LocationItem,
     audit: &RepoUserContext,
 ) -> crate::Result<()> {

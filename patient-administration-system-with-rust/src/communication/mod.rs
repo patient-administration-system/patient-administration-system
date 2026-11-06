@@ -30,8 +30,7 @@ pub mod whatsapp;
 pub use sender::{LogMessageSender, MessageSender, SmsSender};
 pub use sms::{LogSmsProvider, NoopSmsProvider, SmsProvider};
 
-use crate::db::sql::Transact;
-use sea_orm::DatabaseConnection;
+use crate::db::sql::{Pool, Transact};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -46,7 +45,7 @@ use crate::upstream::{PersonClient, UserContext as UpstreamUserContext};
 use crate::{Error, Result};
 
 pub struct CommunicationService {
-    db: DatabaseConnection,
+    db: Pool,
     publisher: Arc<dyn EventPublisher>,
     sms_provider: Arc<dyn SmsProvider>,
     senders: HashMap<DeliveryChannel, Arc<dyn MessageSender>>,
@@ -58,7 +57,7 @@ pub struct CommunicationService {
 }
 
 impl CommunicationService {
-    pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
+    pub fn new(db: Pool, publisher: Arc<dyn EventPublisher>) -> Self {
         Self {
             db,
             publisher,

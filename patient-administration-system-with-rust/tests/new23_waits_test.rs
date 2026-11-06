@@ -12,7 +12,7 @@ use patient_administration_system::triage::targets::Targets;
 use uuid::Uuid;
 
 async fn encounter(
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     class: &str,
     status: &str,
     arrived: chrono::DateTime<Utc>,

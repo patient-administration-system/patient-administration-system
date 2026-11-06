@@ -12,10 +12,8 @@
 //! PIFU informs people and creates work; it never changes a waiting-list order or an offer (NFR-11).
 
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Row, Stmt};
+use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -128,11 +126,11 @@ pub struct UptakeReport {
 }
 
 pub struct PifuService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl PifuService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

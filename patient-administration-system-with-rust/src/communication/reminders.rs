@@ -11,7 +11,7 @@
 //! (`id`, `start`, `end`, `reason`).
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use chrono::{DateTime, Duration, Utc};
 use std::sync::Arc;
 
@@ -22,7 +22,6 @@ use crate::db::repositories::letter::LetterRepository;
 use crate::models::appointment::Appointment;
 use crate::models::communication::{DeliveryChannel, LetterTemplate};
 use crate::{Error, Result};
-use sea_orm::DatabaseConnection;
 
 /// Name administrators edit to change the reminder wording.
 pub const REMINDER_TEMPLATE_NAME: &str = "appointment_reminder";
@@ -49,14 +48,14 @@ pub struct ReminderReport {
 }
 
 pub struct ReminderService {
-    db: DatabaseConnection,
+    db: Pool,
     communication: Arc<CommunicationService>,
     quiet_hours: Option<super::consent::QuietHours>,
     backoff: bool,
 }
 
 impl ReminderService {
-    pub fn new(db: DatabaseConnection, communication: Arc<CommunicationService>) -> Self {
+    pub fn new(db: Pool, communication: Arc<CommunicationService>) -> Self {
         Self {
             db,
             communication,

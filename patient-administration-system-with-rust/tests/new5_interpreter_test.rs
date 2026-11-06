@@ -14,7 +14,10 @@ fn sys() -> UserContext {
     UserContext::system()
 }
 
-async fn requests(db: &sea_orm::DatabaseConnection, appointment: Uuid) -> Vec<(String, String)> {
+async fn requests(
+    db: &patient_administration_system::db::sql::Pool,
+    appointment: Uuid,
+) -> Vec<(String, String)> {
     db.all(Stmt::new(
         "SELECT kind, status FROM interpreter_requests WHERE appointment_id = $1",
         [appointment.into()],

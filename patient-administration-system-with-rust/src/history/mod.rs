@@ -12,15 +12,14 @@
 //! said. Both only read.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Row, Stmt};
-use sea_orm::DatabaseConnection;
+use crate::db::sql::{Conn, Pool, Row, Stmt};
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{Error, Result};
 
 pub struct HistoryService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 /// One line of an appointment's history or a patient's contact log: when, what kind of thing it was, what
@@ -58,7 +57,7 @@ fn rows_to_history(rows: &[Row]) -> Result<Vec<HistoryRow>> {
 }
 
 impl HistoryService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

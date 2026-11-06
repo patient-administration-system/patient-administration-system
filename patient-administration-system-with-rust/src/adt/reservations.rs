@@ -8,9 +8,8 @@
 //! **Not done:** `admit` still refuses a `Reserved` bed, so a reservation is closed only by a cancel or by
 //! expiry, never by the admission it was for.
 
-use crate::db::sql::{Conn, Stmt, Transact};
+use crate::db::sql::{Conn, Stmt, Transact, Txn};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseTransaction;
 
 use super::*;
 use crate::db::row::RowExt;
@@ -53,7 +52,7 @@ impl AdtService {
     /// Append one row to `bed_occupancy_events`. Always called in the same transaction as the change it
     /// records, so an event exists exactly when the change committed.
     async fn event(
-        txn: &DatabaseTransaction,
+        txn: &Txn,
         bed_id: Uuid,
         event: &str,
         reservation_id: Uuid,
@@ -77,7 +76,7 @@ impl AdtService {
 
     /// Record the hold that `pre_admit` has just made. The bed is already locked by the caller.
     pub(super) async fn open_reservation(
-        txn: &DatabaseTransaction,
+        txn: &Txn,
         bed_id: Uuid,
         person_id: Uuid,
         encounter_id: Uuid,
@@ -104,7 +103,7 @@ impl AdtService {
     /// Close the bed's open hold, if it has one: a bed reserved before OFH-4 has none, and cancelling its
     /// pre-admission still works.
     pub(super) async fn close_reservation(
-        txn: &DatabaseTransaction,
+        txn: &Txn,
         bed_id: Uuid,
         reason: &str,
         actor: Option<&str>,

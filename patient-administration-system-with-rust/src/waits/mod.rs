@@ -9,9 +9,8 @@
 //!   else: it does not remove the patient from a list or stop their clock. A person decides what follows.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -49,11 +48,11 @@ pub struct PatientWaits {
 }
 
 pub struct WaitsService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl WaitsService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

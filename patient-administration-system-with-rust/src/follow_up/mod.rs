@@ -10,9 +10,8 @@
 //! no-show path returns the waiting-list entry to `waiting`, as it always has.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -128,11 +127,11 @@ pub struct Task {
 }
 
 pub struct FollowUpService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl FollowUpService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

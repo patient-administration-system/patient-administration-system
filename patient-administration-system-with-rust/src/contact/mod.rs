@@ -18,9 +18,8 @@
 //!   code (that needs a carrier, NOT-3).
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{DatabaseConnection, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -48,10 +47,6 @@ pub const CHANNELS: [&str; 6] = [
     "apple_messages",
     "portal",
 ];
-
-fn db_err(e: sea_orm::DbErr) -> Error {
-    Error::Database(e)
-}
 
 // --- pure rules (unit tested) -----------------------------------------------------------------
 
@@ -119,7 +114,7 @@ pub fn is_stale(
 
 // --- the profile ------------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromQueryResult, utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ProfileRow {
     pub person_id: Uuid,
     pub mobile_e164: Option<String>,
@@ -136,6 +131,28 @@ pub struct ProfileRow {
     pub accessibility_needs: Vec<String>,
     pub updated_at: DateTime<Utc>,
     pub updated_by: Option<String>,
+}
+
+impl crate::db::sql::FromRow for ProfileRow {
+    fn from_row(row: &crate::db::sql::Row) -> Result<Self> {
+        Ok(Self {
+            person_id: row.col("person_id")?,
+            mobile_e164: row.col("mobile_e164")?,
+            mobile_verified_at: row.col("mobile_verified_at")?,
+            mobile_verification_method: row.col("mobile_verification_method")?,
+            alternate_name: row.col("alternate_name")?,
+            alternate_relationship: row.col("alternate_relationship")?,
+            alternate_phone_e164: row.col("alternate_phone_e164")?,
+            alternate_email: row.col("alternate_email")?,
+            alternate_is_carer: row.col("alternate_is_carer")?,
+            alternate_is_emergency: row.col("alternate_is_emergency")?,
+            preferred_channel: row.col("preferred_channel")?,
+            preferred_language: row.col("preferred_language")?,
+            accessibility_needs: row.col("accessibility_needs")?,
+            updated_at: row.col("updated_at")?,
+            updated_by: row.col("updated_by")?,
+        })
+    }
 }
 
 const COLS: &str = "person_id, mobile_e164, mobile_verified_at, mobile_verification_method, alternate_name, \
@@ -333,12 +350,12 @@ pub struct Validated {
 // --- the service ------------------------------------------------------------------------------
 
 pub struct ContactService {
-    db: DatabaseConnection,
+    db: Pool,
     default_country_code: Option<String>,
 }
 
 impl ContactService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self {
             db,
             default_country_code: env::text("PAS_DEFAULT_COUNTRY_CODE"),
@@ -346,16 +363,13 @@ impl ContactService {
     }
 
     pub async fn get(&self, person_id: Uuid) -> Result<Option<Profile>> {
-        let row = ProfileRow::find_by_statement(
-            Stmt::new(
+        let row = self
+            .db
+            .one_as::<ProfileRow>(Stmt::new(
                 format!("SELECT {COLS} FROM patient_communication_profiles WHERE person_id = $1"),
                 [person_id.into()],
-            )
-            .raw(),
-        )
-        .one(&self.db)
-        .await
-        .map_err(db_err)?;
+            ))
+            .await?;
         Ok(row.map(|r| Profile::from_row(r, Utc::now())))
     }
 
@@ -371,7 +385,7 @@ impl ContactService {
         let mobile_changed =
             before.as_ref().map(|p| p.row.mobile_e164.clone()) != Some(v.mobile.clone());
         let keep_verification = before.is_some() && !mobile_changed;
-        let row = ProfileRow::find_by_statement(Stmt::new(format!(
+        let row = self.db.one_as::<ProfileRow>(Stmt::new(format!(
                 "INSERT INTO patient_communication_profiles (person_id, mobile_e164, alternate_name, alternate_relationship, \
                    alternate_phone_e164, alternate_email, alternate_is_carer, alternate_is_emergency, preferred_channel, \
                    preferred_language, accessibility_needs, updated_by) \
@@ -402,10 +416,7 @@ impl ContactService {
                 ctx.user_id.clone().into(),
                 keep_verification.into(),
             ],
-        ).raw())
-        .one(&self.db)
-        .await
-        .map_err(db_err)?
+        )).await?
         .ok_or_else(|| Error::internal("profile upsert returned no row"))?;
         AuditLogRepository::log(
             &self.db,
@@ -433,15 +444,12 @@ impl ContactService {
                 "method must be staff, portal or sms_code",
             ));
         }
-        let row = ProfileRow::find_by_statement(Stmt::new(format!(
+        let row = self.db.one_as::<ProfileRow>(Stmt::new(format!(
                 "UPDATE patient_communication_profiles SET mobile_verified_at = now(), mobile_verification_method = $2, \
                    updated_at = now(), updated_by = $3 WHERE person_id = $1 AND mobile_e164 IS NOT NULL RETURNING {COLS}"
             ),
             [person_id.into(), method.into(), ctx.user_id.clone().into()],
-        ).raw())
-        .one(&self.db)
-        .await
-        .map_err(db_err)?
+        )).await?
         .ok_or_else(|| Error::not_found("no mobile number on file for that patient"))?;
         AuditLogRepository::log(
             &self.db,
@@ -462,16 +470,13 @@ impl ContactService {
         if !(1..=3650).contains(&older_than_days) {
             return Err(Error::validation("older_than_days must be 1 to 3650"));
         }
-        let rows = ProfileRow::find_by_statement(Stmt::new(format!(
+        let rows = self.db.all_as::<ProfileRow>(Stmt::new(format!(
                 "SELECT {COLS} FROM patient_communication_profiles \
                  WHERE mobile_e164 IS NULL OR mobile_verified_at IS NULL OR mobile_verified_at < now() - ($1 || ' days')::interval \
                  ORDER BY mobile_verified_at ASC NULLS FIRST, person_id LIMIT $2"
             ),
             [older_than_days.to_string().into(), crate::paging::fetch(limit).into()],
-        ).raw())
-        .all(&self.db)
-        .await
-        .map_err(db_err)?;
+        )).await?;
         let now = Utc::now();
         Ok(rows
             .into_iter()

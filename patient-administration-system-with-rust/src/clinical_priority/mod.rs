@@ -9,10 +9,8 @@
 //! waiting list, offers a slot or books by it: clinical ordering is a person's decision.
 
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use chrono::NaiveDate;
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -33,11 +31,11 @@ pub struct OverdueReview {
 }
 
 pub struct ClinicalPriorityService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl ClinicalPriorityService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

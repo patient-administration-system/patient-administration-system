@@ -11,7 +11,7 @@
 //!   event; the publish is a fire-and-forget convenience for in-process
 //!   consumers.
 
-use sea_orm::{DatabaseConnection, DatabaseTransaction};
+use crate::db::sql::Pool;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -48,14 +48,14 @@ pub struct AdmissionResult {
 
 /// Application service for inpatient ADT (admission / discharge / transfer).
 pub struct AdtService {
-    db: DatabaseConnection,
+    db: Pool,
     publisher: Arc<dyn EventPublisher>,
 }
 
 impl AdtService {
     /// Construct an ADT service bound to a database connection and event
     /// publisher.
-    pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
+    pub fn new(db: Pool, publisher: Arc<dyn EventPublisher>) -> Self {
         Self { db, publisher }
     }
 }

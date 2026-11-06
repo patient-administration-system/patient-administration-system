@@ -6,9 +6,10 @@ mod common;
 
 use chrono::{DateTime, Utc};
 use patient_administration_system::db::connect;
+use patient_administration_system::db::entities::outbox_dead_letter;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{
-    Conn, Pool, Stmt, Transact, is_rejected_statement, is_unique_violation,
+    Conn, Pool, Stmt, Table, Transact, is_rejected_statement, is_unique_violation,
 };
 use patient_administration_system::{Error, Result};
 use uuid::Uuid;
@@ -304,4 +305,139 @@ async fn a_row_locked_in_a_transaction_makes_a_second_transaction_wait() {
         .unwrap();
     assert_eq!(row.col::<i32>("n").unwrap(), 2, "neither update was lost");
     drop_table(&pool, &t).await;
+}
+
+fn dead_letter() -> outbox_dead_letter::Model {
+    let now = "2026-11-06T10:00:00.123456+00:00".parse().unwrap();
+    outbox_dead_letter::Model {
+        id: Uuid::new_v4(),
+        original_id: Uuid::new_v4(),
+        event_type: "sqlx1.test".into(),
+        payload: serde_json::json!({ "k": 1 }),
+        created_at: now,
+        dead_lettered_at: now,
+        retry_count: 1,
+        last_error: "first".into(),
+    }
+}
+
+async fn forget(pool: &Pool, id: Uuid) {
+    pool.run(Stmt::new(
+        "DELETE FROM outbox_dead_letters WHERE id = $1",
+        [id.into()],
+    ))
+    .await
+    .unwrap();
+}
+
+/// The lost update this project has fixed route by route (OFH-11, hazard H-15): a patch writes the columns it names
+/// and no others, so what someone else changed since it was read stays.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_patch_leaves_a_column_someone_else_changed_since_it_was_read() {
+    let pool = pool().await;
+    let read = dead_letter().insert(&pool).await.unwrap();
+
+    pool.run(Stmt::new(
+        "UPDATE outbox_dead_letters SET retry_count = 9 WHERE id = $1",
+        [read.id.into()],
+    ))
+    .await
+    .unwrap();
+
+    let mut patch = read.patch();
+    patch.set("last_error", "second");
+    let stored = patch.update(&pool).await.unwrap();
+    assert_eq!(stored.last_error, "second");
+    assert_eq!(stored.retry_count, 9, "the other writer's change was kept");
+    assert_eq!(read.retry_count, 1, "and the copy that was read was stale");
+    forget(&pool, read.id).await;
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn insert_returns_the_stored_row_and_update_row_keeps_created_at() {
+    let pool = pool().await;
+    let row = dead_letter();
+    let stored = row.insert(&pool).await.unwrap();
+    assert_eq!(
+        stored, row,
+        "nothing changed on the way in or out, to the microsecond"
+    );
+
+    let mut changed = stored.clone();
+    changed.last_error = "second".into();
+    changed.created_at = "2000-01-01T00:00:00+00:00".parse().unwrap();
+    let written = changed.update_row(&pool).await.unwrap();
+    assert_eq!(written.last_error, "second");
+    assert_eq!(
+        written.created_at, row.created_at,
+        "created_at is never rewritten"
+    );
+    forget(&pool, row.id).await;
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_patch_of_a_row_that_has_gone_is_an_error_not_a_silent_success() {
+    let pool = pool().await;
+    let row = dead_letter().insert(&pool).await.unwrap();
+    forget(&pool, row.id).await;
+    let mut patch = row.patch();
+    patch.set("last_error", "second");
+    assert!(patch.update(&pool).await.is_err());
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn inserting_a_row_twice_is_a_unique_violation() {
+    let pool = pool().await;
+    let row = dead_letter().insert(&pool).await.unwrap();
+    let again = row.insert(&pool).await.unwrap_err();
+    assert!(is_unique_violation(&again), "{again:?}");
+    forget(&pool, row.id).await;
+}
+
+async fn columns_exist<T: Table>(pool: &Pool) {
+    let sql = format!("SELECT {} FROM {} LIMIT 0", T::COLUMNS.join(", "), T::NAME);
+    pool.all(Stmt::text(sql))
+        .await
+        .unwrap_or_else(|e| panic!("{}: {e}", T::NAME));
+    assert_eq!(T::COLUMNS[0], "id", "{}", T::NAME);
+}
+
+/// Columns are named in text now, so nothing checks them at compile time. This does, for every model.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn every_model_names_columns_its_table_has() {
+    use patient_administration_system::db::entities::*;
+    let pool = pool().await;
+    columns_exist::<account::Model>(&pool).await;
+    columns_exist::<admission::Model>(&pool).await;
+    columns_exist::<appointment::Model>(&pool).await;
+    columns_exist::<appointment_series::Model>(&pool).await;
+    columns_exist::<audit_log::Model>(&pool).await;
+    columns_exist::<bed::Model>(&pool).await;
+    columns_exist::<bed_assignment::Model>(&pool).await;
+    columns_exist::<charge::Model>(&pool).await;
+    columns_exist::<consent::Model>(&pool).await;
+    columns_exist::<coverage::Model>(&pool).await;
+    columns_exist::<discharge::Model>(&pool).await;
+    columns_exist::<encounter::Model>(&pool).await;
+    columns_exist::<facility::Model>(&pool).await;
+    columns_exist::<generated_letter::Model>(&pool).await;
+    columns_exist::<invoice::Model>(&pool).await;
+    columns_exist::<letter_template::Model>(&pool).await;
+    columns_exist::<outbox_dead_letter::Model>(&pool).await;
+    columns_exist::<outbox_event::Model>(&pool).await;
+    columns_exist::<payment::Model>(&pool).await;
+    columns_exist::<referral::Model>(&pool).await;
+    columns_exist::<room::Model>(&pool).await;
+    columns_exist::<rtt_clock_event::Model>(&pool).await;
+    columns_exist::<rtt_pathway::Model>(&pool).await;
+    columns_exist::<schedule::Model>(&pool).await;
+    columns_exist::<slot::Model>(&pool).await;
+    columns_exist::<transfer::Model>(&pool).await;
+    columns_exist::<waitlist_entry::Model>(&pool).await;
+    columns_exist::<ward::Model>(&pool).await;
 }

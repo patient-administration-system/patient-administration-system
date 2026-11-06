@@ -23,8 +23,8 @@
 //! **Not built:** distance from the clinic (needs a postcode-district band no one supplies yet), clinic type
 //! as a factor, and weather or travel forecasts.
 
+use crate::db::sql::Pool;
 use chrono::{DateTime, Datelike, Timelike, Utc};
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use uuid::Uuid;
@@ -97,11 +97,11 @@ pub struct Shown {
 }
 
 pub struct NoShowService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl NoShowService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

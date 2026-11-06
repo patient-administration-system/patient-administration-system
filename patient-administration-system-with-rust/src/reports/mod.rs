@@ -11,10 +11,8 @@
 //! - **An empty range gives zeros, never an error.**
 
 use crate::db::row::RowExt;
-use crate::db::sql::Param;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Param, Pool, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -174,11 +172,11 @@ fn check_range(
 }
 
 pub struct ReportService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl ReportService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

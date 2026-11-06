@@ -1,12 +1,11 @@
 //! audit repository — writes rows to `audit_log` within the same DB
 //! transaction as the entity change.
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
+use crate::Result;
 use crate::db::entities::audit_log;
-use crate::{Error, Result};
 
 /// Per-request context attached to audit rows. Populated from request
 /// headers (`X-User-Id`, `X-User-Ip`, `X-User-Agent`) by the HTTP layer.
@@ -78,32 +77,31 @@ impl AuditLogRepository {
         context: Option<serde_json::Value>,
         ctx: &UserContext,
     ) -> Result<()> {
-        let am = audit_log::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            entity_type: Set(entity_type.to_string()),
-            entity_id: Set(entity_id),
-            action: Set(action.to_string()),
-            old_value: Set(old_value),
-            new_value: Set(new_value),
-            user_id: Set(ctx.user_id.clone()),
-            user_ip: Set(ctx.user_ip.clone()),
-            user_agent: Set(ctx.user_agent.clone()),
-            reason_code: Set(reason_code.map(String::from)),
-            context: Set(context),
-            at: Set(chrono::Utc::now().fixed_offset()),
+        let am = audit_log::Model {
+            id: Uuid::new_v4(),
+            entity_type: entity_type.to_string(),
+            entity_id,
+            action: action.to_string(),
+            old_value,
+            new_value,
+            user_id: ctx.user_id.clone(),
+            user_ip: ctx.user_ip.clone(),
+            user_agent: ctx.user_agent.clone(),
+            reason_code: reason_code.map(String::from),
+            context,
+            at: chrono::Utc::now().fixed_offset(),
         };
-        am.insert(conn).await.map_err(Error::Database)?;
+        am.insert(conn).await?;
         Ok(())
     }
 
     /// Recent audit rows across all entities, newest first.
     pub async fn list_recent<C: Conn>(conn: &C, limit: u64) -> Result<Vec<audit_log::Model>> {
-        audit_log::Entity::find()
-            .order_by_desc(audit_log::Column::At)
-            .limit(limit)
-            .all(conn)
-            .await
-            .map_err(Error::Database)
+        conn.all_as::<audit_log::Model>(Stmt::new(
+            "SELECT * FROM audit_log ORDER BY at DESC LIMIT $1",
+            [(limit as i64).into()],
+        ))
+        .await
     }
 
     /// Audit rows for a single entity, newest first.
@@ -113,14 +111,7 @@ impl AuditLogRepository {
         entity_id: Uuid,
         limit: u64,
     ) -> Result<Vec<audit_log::Model>> {
-        audit_log::Entity::find()
-            .filter(audit_log::Column::EntityType.eq(entity_type))
-            .filter(audit_log::Column::EntityId.eq(entity_id))
-            .order_by_desc(audit_log::Column::At)
-            .limit(limit)
-            .all(conn)
-            .await
-            .map_err(Error::Database)
+        conn.all_as::<audit_log::Model>(Stmt::new("SELECT * FROM audit_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY at DESC LIMIT $3", [entity_type.into(), entity_id.into(), (limit as i64).into()])).await
     }
 }
 

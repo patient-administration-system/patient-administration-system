@@ -16,9 +16,8 @@
 //! It does not compute a sustainable waiting list size and does not smooth for seasonal variation. It
 //! describes; it moves, removes and reorders nothing (NFR-11).
 
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 
 use crate::db::row::RowExt;
@@ -74,7 +73,7 @@ pub struct CapacityReport {
 }
 
 pub async fn capacity_report(
-    db: &DatabaseConnection,
+    db: &Pool,
     service_type: &str,
     from: DateTime<Utc>,
     to: DateTime<Utc>,

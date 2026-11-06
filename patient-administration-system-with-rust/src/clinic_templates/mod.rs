@@ -17,11 +17,9 @@
 
 pub mod report;
 
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveTime, TimeZone, Utc};
 use chrono_tz::Europe::London;
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -158,11 +156,11 @@ pub struct Generated {
 }
 
 pub struct TemplateService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl TemplateService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

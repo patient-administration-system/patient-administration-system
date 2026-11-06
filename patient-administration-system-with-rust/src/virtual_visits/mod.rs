@@ -23,8 +23,7 @@
 //! Wales equivalent). Until one is connected nothing reports a failure by itself; a person does.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt, Transact};
-use sea_orm::DatabaseConnection;
+use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -73,11 +72,11 @@ impl Review {
 }
 
 pub struct VirtualVisitService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl VirtualVisitService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

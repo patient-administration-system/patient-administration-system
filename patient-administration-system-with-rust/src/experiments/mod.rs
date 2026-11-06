@@ -15,9 +15,8 @@
 //!   every variant with that in mind (`governance/messaging-rules.md`).
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt, Transact};
+use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -125,11 +124,11 @@ pub struct Readout {
 }
 
 pub struct ExperimentService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl ExperimentService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

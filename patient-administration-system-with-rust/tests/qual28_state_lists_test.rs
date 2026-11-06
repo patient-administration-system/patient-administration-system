@@ -17,7 +17,10 @@ use patient_administration_system::{
 };
 
 /// The quoted values in a CHECK constraint, e.g. `status = ANY (ARRAY['a'::text, 'b'::text])` gives {a, b}.
-async fn allowed(db: &sea_orm::DatabaseConnection, constraint: &str) -> BTreeSet<String> {
+async fn allowed(
+    db: &patient_administration_system::db::sql::Pool,
+    constraint: &str,
+) -> BTreeSet<String> {
     let def: String = db
         .one(Stmt::new(
             "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = $1",

@@ -6,7 +6,7 @@ use crate::db::sql::Transact;
 impl SchedulingService {
     /// Cancel an appointment, free its slot, and record the facts of CAP-1.
     pub(crate) async fn cancel_tx(
-        txn: &DatabaseTransaction,
+        txn: &crate::db::sql::Txn,
         appointment_id: Uuid,
         details: CancelDetails,
         ctx: &UserContext,
@@ -82,7 +82,7 @@ impl SchedulingService {
     /// the old appointment is released as `rescheduled` and the new one booked, so a refusal
     /// leaves the patient exactly where they were. Returns `(old, new)`.
     pub(crate) async fn rebook_tx(
-        txn: &DatabaseTransaction,
+        txn: &crate::db::sql::Txn,
         appointment_id: Uuid,
         new_slot_id: Uuid,
         ctx: &UserContext,
@@ -148,7 +148,7 @@ impl SchedulingService {
     /// removed or already-treated entry is never disturbed. A miss or cancellation returns the
     /// patient to `waiting`; it never removes them (CAP-7).
     pub(crate) async fn sync_waitlist(
-        txn: &DatabaseTransaction,
+        txn: &crate::db::sql::Txn,
         appt: &Appointment,
         to: WaitlistStatus,
         ctx: &UserContext,

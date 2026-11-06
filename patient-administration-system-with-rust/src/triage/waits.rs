@@ -7,8 +7,7 @@
 //! assessment recorded.
 
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Stmt, Transact};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use uuid::Uuid;

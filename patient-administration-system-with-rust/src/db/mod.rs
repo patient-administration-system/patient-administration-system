@@ -4,13 +4,14 @@ pub mod repositories;
 pub mod row;
 pub mod sql;
 
-use sea_orm::{ConnectOptions, Database, DatabaseConnection};
+use crate::db::sql::Pool;
+use sea_orm::{ConnectOptions, Database};
 use std::time::Duration;
 
 use crate::{Error, Result};
 
-/// Connect to the configured PostgreSQL database and return a `DatabaseConnection`.
-pub async fn connect(url: &str) -> Result<DatabaseConnection> {
+/// Connect to the configured PostgreSQL database and return a `Pool`.
+pub async fn connect(url: &str) -> Result<Pool> {
     let mut opt = ConnectOptions::new(url.to_string());
     opt.max_connections(10)
         .min_connections(2)

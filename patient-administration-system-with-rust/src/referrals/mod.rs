@@ -12,9 +12,8 @@
 //! - Not here: the e-RS integration itself (it needs NHS API access); only the data it would carry.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Row, Stmt, Transact};
+use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -78,7 +77,7 @@ const CANDIDATES: i64 = 25;
 
 /// The referral an appointment was booked from, if any (PCC-1): its id and the sender's own reference.
 pub async fn referral_of_appointment(
-    db: &DatabaseConnection,
+    db: &Pool,
     appointment_id: Uuid,
 ) -> Result<Option<(Uuid, Option<String>)>> {
     let row = db
@@ -148,7 +147,7 @@ pub struct Created {
 }
 
 pub struct ReferralService {
-    db: DatabaseConnection,
+    db: Pool,
     waitlist: Arc<WaitlistService>,
 }
 
@@ -179,7 +178,7 @@ fn row_to_referral(r: &Row) -> Result<Referral> {
 }
 
 impl ReferralService {
-    pub fn new(db: DatabaseConnection, waitlist: Arc<WaitlistService>) -> Self {
+    pub fn new(db: Pool, waitlist: Arc<WaitlistService>) -> Self {
         Self { db, waitlist }
     }
 

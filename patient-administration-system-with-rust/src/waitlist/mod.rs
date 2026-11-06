@@ -1,7 +1,6 @@
 //! waitlist — Waitlist and RTT clock services
 
-use crate::db::sql::Transact;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, Set};
+use crate::db::sql::{Conn, Pool, Stmt, Table, Transact};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -19,12 +18,12 @@ use crate::streaming::{DomainEvent, EventPublisher};
 use crate::{Error, Result};
 
 pub struct WaitlistService {
-    db: DatabaseConnection,
+    db: Pool,
     publisher: Arc<dyn EventPublisher>,
 }
 
 impl WaitlistService {
-    pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
+    pub fn new(db: Pool, publisher: Arc<dyn EventPublisher>) -> Self {
         Self { db, publisher }
     }
 
@@ -128,12 +127,12 @@ impl WaitlistService {
 }
 
 pub struct RttService {
-    db: DatabaseConnection,
+    db: Pool,
     publisher: Arc<dyn EventPublisher>,
 }
 
 impl RttService {
-    pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
+    pub fn new(db: Pool, publisher: Arc<dyn EventPublisher>) -> Self {
         Self { db, publisher }
     }
 
@@ -246,23 +245,25 @@ impl RttService {
                 Box::pin(async move {
                     let e = RttRepository::create_event(txn, &event_clone).await?;
                     // Update pathway status inline via ActiveModel
-                    let m = rtt_pathway::Entity::find_by_id(pathway_id)
-                        .one(txn)
-                        .await
-                        .map_err(Error::Database)?
+                    let m = txn
+                        .one_as::<rtt_pathway::Model>(Stmt::new(
+                            "SELECT * FROM rtt_pathways WHERE id = $1 LIMIT 1",
+                            [pathway_id.into()],
+                        ))
+                        .await?
                         .ok_or_else(|| Error::not_found(format!("rtt_pathway {pathway_id}")))?;
                     let status_str = match new_status {
                         RTTStatus::Active => "active",
                         RTTStatus::Paused => "paused",
                         RTTStatus::Stopped => "stopped",
                     };
-                    let mut am: rtt_pathway::ActiveModel = m.into();
-                    am.status = Set(status_str.to_string());
+                    let mut am = m.patch();
+                    am.set("status", status_str.to_string());
                     if matches!(new_status, RTTStatus::Stopped) {
-                        am.stopped_at = Set(Some(chrono::Utc::now().fixed_offset()));
+                        am.set("stopped_at", Some(chrono::Utc::now().fixed_offset()));
                     }
-                    am.updated_at = Set(chrono::Utc::now().fixed_offset());
-                    am.update(txn).await.map_err(Error::Database)?;
+                    am.set("updated_at", chrono::Utc::now().fixed_offset());
+                    am.update(txn).await?;
                     AuditLogRepository::log(
                         txn,
                         "rtt_pathway",

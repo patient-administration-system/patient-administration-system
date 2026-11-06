@@ -5,8 +5,7 @@
 //! live in `person-service` and `worker-service`, and an admission refers to a person by the id that service
 //! gave them. Create people there, then use their ids with the PAS.
 
-use crate::db::sql::Transact;
-use sea_orm::DatabaseConnection;
+use crate::db::sql::{Pool, Transact};
 use uuid::Uuid;
 
 use crate::Result;
@@ -33,7 +32,7 @@ pub struct Seeded {
 }
 
 /// Create the demo facility, ward, room and beds that do not exist yet, in one transaction.
-pub async fn run(db: &DatabaseConnection) -> Result<Seeded> {
+pub async fn run(db: &Pool) -> Result<Seeded> {
     db.in_txn::<_, Seeded>(|txn| {
         Box::pin(async move {
             let ctx = UserContext::system();

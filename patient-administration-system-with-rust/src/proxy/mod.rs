@@ -7,10 +7,8 @@
 //! to have authenticated the proxy; it decides only what that proxy may do for that patient.
 
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Row, Stmt};
+use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -99,11 +97,11 @@ fn from_row(r: &Row) -> Result<Authority> {
 }
 
 pub struct ProxyService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl ProxyService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

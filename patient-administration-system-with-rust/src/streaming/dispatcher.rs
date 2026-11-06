@@ -14,11 +14,9 @@
 //! `POST /api/admin/outbox/dead-letters/{id}/replay`, which puts a fresh row
 //! back into `outbox_events` with `retry_count = 0`.
 
-use crate::db::sql::Transact;
+use crate::db::sql::{Pool, Transact};
 use std::sync::Arc;
 use std::time::Duration;
-
-use sea_orm::DatabaseConnection;
 
 use crate::Result;
 use crate::db::repositories::outbox::OutboxRepository;
@@ -38,7 +36,7 @@ pub const DEFAULT_MAX_RETRIES: u32 = 10;
 /// dispatcher stops trying it. Pass `0` to disable dead-lettering (the row
 /// will be retried forever).
 pub async fn run(
-    db: DatabaseConnection,
+    db: Pool,
     publisher: Arc<dyn EventPublisher>,
     poll_interval: Duration,
     max_retries: u32,
@@ -66,7 +64,7 @@ pub async fn run(
 /// next tick.
 #[tracing::instrument(skip_all, fields(job = "outbox"))]
 pub async fn tick(
-    db: &DatabaseConnection,
+    db: &Pool,
     publisher: &Arc<dyn EventPublisher>,
     max_retries: u32,
 ) -> Result<usize> {

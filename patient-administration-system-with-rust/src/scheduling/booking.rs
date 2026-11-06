@@ -7,7 +7,7 @@ impl SchedulingService {
     /// Book `slot_id` for `person_id`. Fails (changing nothing) if the slot is not free or the
     /// patient already has an overlapping appointment.
     pub(crate) async fn book_tx(
-        txn: &DatabaseTransaction,
+        txn: &crate::db::sql::Txn,
         slot_id: Uuid,
         person_id: Uuid,
         ctx: &UserContext,
@@ -21,7 +21,7 @@ impl SchedulingService {
     /// both pass the check. (Overlapping slots within one schedule are that schedule's own business: a
     /// schedule may deliberately offer several places at one time.)
     pub(super) async fn check_owner_free(
-        txn: &DatabaseTransaction,
+        txn: &crate::db::sql::Txn,
         slot: &crate::models::schedule::Slot,
     ) -> Result<()> {
         txn.run(Stmt::new("SELECT pg_advisory_xact_lock(hashtextextended(owner_kind || ':' || owner_id::text, 0)) \
@@ -54,7 +54,7 @@ impl SchedulingService {
     }
 
     pub(crate) async fn book_inner(
-        txn: &DatabaseTransaction,
+        txn: &crate::db::sql::Txn,
         slot_id: Uuid,
         person_id: Uuid,
         link: EntryLink,

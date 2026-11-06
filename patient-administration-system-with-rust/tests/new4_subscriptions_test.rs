@@ -59,13 +59,13 @@ async fn receiver(fail_first: u32) -> (String, Seen) {
 
 /// Switch off every earlier subscription (earlier runs on a shared database left some with dead endpoints), so
 /// a pass only has this test's own to work on.
-async fn clean(db: &sea_orm::DatabaseConnection) {
+async fn clean(db: &patient_administration_system::db::sql::Pool) {
     db.batch("UPDATE subscriptions SET status = 'off', ended_at = now() WHERE status = 'active'")
         .await
         .unwrap();
 }
 
-async fn event(db: &sea_orm::DatabaseConnection, kind: &str, appointment: Uuid) {
+async fn event(db: &patient_administration_system::db::sql::Pool, kind: &str, appointment: Uuid) {
     OutboxRepository::publish(
         db,
         kind,
@@ -75,7 +75,10 @@ async fn event(db: &sea_orm::DatabaseConnection, kind: &str, appointment: Uuid) 
     .unwrap();
 }
 
-async fn status_of(db: &sea_orm::DatabaseConnection, sub: Uuid) -> (i64, i64, i64) {
+async fn status_of(
+    db: &patient_administration_system::db::sql::Pool,
+    sub: Uuid,
+) -> (i64, i64, i64) {
     let r = db
         .one(Stmt::new(
             "SELECT count(*) FILTER (WHERE status = 'pending') AS p, \

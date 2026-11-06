@@ -1,7 +1,6 @@
 //! encounter repository
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
 use crate::db::entities::encounter;
@@ -12,23 +11,23 @@ pub struct EncounterRepository;
 
 impl EncounterRepository {
     pub async fn create<C: Conn>(conn: &C, e: &Encounter) -> Result<Encounter> {
-        let am = to_active_model(e);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = to_row(e);
+        am.insert(conn).await?;
         Ok(e.clone())
     }
 
     pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Encounter>> {
-        let m = encounter::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<encounter::Model>(Stmt::new(
+                "SELECT * FROM encounters WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(from_model).transpose()
     }
 
     pub async fn update<C: Conn>(conn: &C, e: &Encounter) -> Result<Encounter> {
-        let mut am = to_active_model(e);
-        am.created_at = NotSet;
-        am.update(conn).await.map_err(Error::Database)?;
+        to_row(e).update_row(conn).await?;
         Ok(e.clone())
     }
 
@@ -41,23 +40,14 @@ impl EncounterRepository {
         conn: &C,
         person_id: Uuid,
     ) -> Result<Option<Encounter>> {
-        let m = encounter::Entity::find()
-            .filter(encounter::Column::PersonId.eq(person_id))
-            .filter(encounter::Column::DeletedAt.is_null())
-            .filter(
-                encounter::Column::Class
-                    .eq("outpatient")
-                    .or(encounter::Column::Class.eq("emergency")),
-            )
-            .filter(
-                encounter::Column::Status
-                    .eq("arrived")
-                    .or(encounter::Column::Status.eq("in_progress")),
-            )
-            .order_by_desc(encounter::Column::CreatedAt)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<encounter::Model>(Stmt::new(
+                "SELECT * FROM encounters WHERE person_id = $1 AND deleted_at IS NULL \
+                 AND class IN ('outpatient', 'emergency') AND status IN ('arrived', 'in_progress') \
+                 ORDER BY created_at DESC LIMIT 1",
+                [person_id.into()],
+            ))
+            .await?;
         m.map(from_model).transpose()
     }
 
@@ -68,25 +58,17 @@ impl EncounterRepository {
         conn: &C,
         person_id: Uuid,
     ) -> Result<Option<Encounter>> {
-        let m = encounter::Entity::find()
-            .filter(encounter::Column::PersonId.eq(person_id))
-            .filter(encounter::Column::DeletedAt.is_null())
-            .filter(encounter::Column::Status.eq("planned"))
-            .filter(encounter::Column::Class.eq("inpatient"))
-            .order_by_desc(encounter::Column::CreatedAt)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn.one_as::<encounter::Model>(Stmt::new("SELECT * FROM encounters WHERE person_id = $1 AND deleted_at IS NULL AND status = $2 AND class = $3 ORDER BY created_at DESC LIMIT 1", [person_id.into(), "planned".into(), "inpatient".into()])).await?;
         m.map(from_model).transpose()
     }
 
     pub async fn list_by_patient<C: Conn>(conn: &C, person_id: Uuid) -> Result<Vec<Encounter>> {
-        let rows = encounter::Entity::find()
-            .filter(encounter::Column::PersonId.eq(person_id))
-            .filter(encounter::Column::DeletedAt.is_null())
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<encounter::Model>(Stmt::new(
+                "SELECT * FROM encounters WHERE person_id = $1 AND deleted_at IS NULL",
+                [person_id.into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -108,11 +90,12 @@ impl EncounterRepository {
         new_status: EncounterStatus,
         expected: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<Encounter> {
-        let m = encounter::Entity::find_by_id(id)
-            .lock_exclusive()
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<encounter::Model>(Stmt::new(
+                "SELECT * FROM encounters WHERE id = $1 LIMIT 1 FOR UPDATE",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("encounter {id}")))?;
         if !crate::api::rest::concurrency::is_current(
             m.updated_at.with_timezone(&chrono::Utc),
@@ -124,10 +107,10 @@ impl EncounterRepository {
         }
         let current = encounter_status_from_str(&m.status)?;
         current.try_transition_to(new_status)?;
-        let mut am: encounter::ActiveModel = m.into();
-        am.status = Set(encounter_status_to_str(new_status).to_string());
-        am.updated_at = Set(chrono::Utc::now().fixed_offset());
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set("status", encounter_status_to_str(new_status).to_string());
+        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        let updated = am.update(conn).await?;
         from_model(updated)
     }
 
@@ -141,15 +124,17 @@ impl EncounterRepository {
         id: Uuid,
         new_class: EncounterClass,
     ) -> Result<Encounter> {
-        let m = encounter::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<encounter::Model>(Stmt::new(
+                "SELECT * FROM encounters WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("encounter {id}")))?;
-        let mut am: encounter::ActiveModel = m.into();
-        am.class = Set(encounter_class_to_str(new_class).to_string());
-        am.updated_at = Set(chrono::Utc::now().fixed_offset());
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set("class", encounter_class_to_str(new_class).to_string());
+        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        let updated = am.update(conn).await?;
         from_model(updated)
     }
 
@@ -163,15 +148,17 @@ impl EncounterRepository {
         id: Uuid,
         new_status: EncounterStatus,
     ) -> Result<Encounter> {
-        let m = encounter::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<encounter::Model>(Stmt::new(
+                "SELECT * FROM encounters WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("encounter {id}")))?;
-        let mut am: encounter::ActiveModel = m.into();
-        am.status = Set(encounter_status_to_str(new_status).to_string());
-        am.updated_at = Set(chrono::Utc::now().fixed_offset());
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set("status", encounter_status_to_str(new_status).to_string());
+        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        let updated = am.update(conn).await?;
         from_model(updated)
     }
 }
@@ -226,20 +213,20 @@ pub(crate) fn encounter_status_from_str(s: &str) -> Result<EncounterStatus> {
     }
 }
 
-fn to_active_model(e: &Encounter) -> encounter::ActiveModel {
-    encounter::ActiveModel {
-        id: Set(e.id),
-        person_id: Set(e.person_id),
-        class: Set(encounter_class_to_str(e.class).to_string()),
-        status: Set(encounter_status_to_str(e.status).to_string()),
-        period_start: Set(e.period_start.fixed_offset()),
-        period_end: Set(e.period_end.map(|t| t.fixed_offset())),
-        worker_id: Set(e.worker_id),
-        department_id: Set(e.department_id),
-        reason: Set(e.reason.clone()),
-        deleted_at: Set(None),
-        created_at: Set(e.created_at.fixed_offset()),
-        updated_at: Set(e.updated_at.fixed_offset()),
+fn to_row(e: &Encounter) -> encounter::Model {
+    encounter::Model {
+        id: e.id,
+        person_id: e.person_id,
+        class: encounter_class_to_str(e.class).to_string(),
+        status: encounter_status_to_str(e.status).to_string(),
+        period_start: e.period_start.fixed_offset(),
+        period_end: e.period_end.map(|t| t.fixed_offset()),
+        worker_id: e.worker_id,
+        department_id: e.department_id,
+        reason: e.reason.clone(),
+        deleted_at: None,
+        created_at: e.created_at.fixed_offset(),
+        updated_at: e.updated_at.fixed_offset(),
     }
 }
 
@@ -264,22 +251,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_encounter_roundtrip_via_active_model() {
+    fn test_encounter_roundtrip_via_row() {
         let e = Encounter::new(Uuid::new_v4(), EncounterClass::Inpatient);
-        let am = to_active_model(&e);
+        let am = to_row(&e);
         let m = encounter::Model {
-            id: am.id.clone().unwrap(),
-            person_id: am.person_id.clone().unwrap(),
-            class: am.class.clone().unwrap(),
-            status: am.status.clone().unwrap(),
-            period_start: am.period_start.clone().unwrap(),
-            period_end: am.period_end.clone().unwrap(),
-            worker_id: am.worker_id.clone().unwrap(),
-            department_id: am.department_id.clone().unwrap(),
-            reason: am.reason.clone().unwrap(),
-            deleted_at: am.deleted_at.clone().unwrap(),
-            created_at: am.created_at.clone().unwrap(),
-            updated_at: am.updated_at.clone().unwrap(),
+            id: am.id,
+            person_id: am.person_id,
+            class: am.class.clone(),
+            status: am.status.clone(),
+            period_start: am.period_start,
+            period_end: am.period_end,
+            worker_id: am.worker_id,
+            department_id: am.department_id,
+            reason: am.reason.clone(),
+            deleted_at: am.deleted_at,
+            created_at: am.created_at,
+            updated_at: am.updated_at,
         };
         let back = from_model(m).expect("from_model");
         assert_eq!(back.id, e.id);

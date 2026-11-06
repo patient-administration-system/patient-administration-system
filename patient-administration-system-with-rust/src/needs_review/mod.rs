@@ -6,10 +6,8 @@
 //! needs that were never reviewed or not within the period, oldest first, for a person to follow up.
 
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use chrono::{DateTime, Months, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -29,11 +27,11 @@ pub struct DueReview {
 }
 
 pub struct NeedsReviewService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl NeedsReviewService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

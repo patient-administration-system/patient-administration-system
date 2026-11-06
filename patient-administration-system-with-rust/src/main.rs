@@ -152,7 +152,7 @@ fn sms_provider(
 /// event fans out to. With none, the in-memory publisher lets the dispatcher mark rows published.
 fn publisher_chain(
     cfg: &Config,
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     person_client: Option<&PersonClient>,
     worker_client: Option<&WorkerClient>,
 ) -> Result<Publisher> {
@@ -202,7 +202,7 @@ fn publisher_chain(
 
 /// The application state, with the senders, portal address and upstream clients the environment names.
 fn build_state(
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     publisher: Publisher,
     sms_provider: Arc<dyn patient_administration_system::communication::SmsProvider>,
     person_client: Option<PersonClient>,
@@ -258,7 +258,7 @@ fn build_state(
 fn spawn_jobs(
     jobs: &mut Jobs,
     cfg: &Config,
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     publisher: &Publisher,
     state: &AppState,
 ) -> Result<()> {
@@ -274,7 +274,7 @@ fn spawn_jobs(
 fn spawn_outbox(
     jobs: &mut Jobs,
     cfg: &Config,
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     publisher: &Publisher,
 ) {
     // Background outbox dispatcher: polls the outbox every 2s.
@@ -297,7 +297,7 @@ fn spawn_outbox(
     });
 }
 
-fn spawn_subscriptions(jobs: &mut Jobs, db: &sea_orm::DatabaseConnection) {
+fn spawn_subscriptions(jobs: &mut Jobs, db: &patient_administration_system::db::sql::Pool) {
     // Event subscriptions (NEW-4): queue each new outbox event for its subscribers and post the due
     // notifications, with retries. A no-op while nobody is subscribed.
     let svc = std::sync::Arc::new(
@@ -417,7 +417,7 @@ fn spawn_backfill(jobs: &mut Jobs, state: &AppState) {
 /// lead time PAS_REMINDER_LEAD_HOURS, default 24; scanned every 5 minutes).
 fn spawn_reminders(
     jobs: &mut Jobs,
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     state: &AppState,
 ) -> Result<()> {
     // The reminder ladder (CAP-13) replaces the single reminder: PAS_REMINDER_LADDER=true. Steps via

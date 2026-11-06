@@ -1,5 +1,6 @@
 //! REST handlers for audit query.
 
+use crate::db::sql::Conn;
 use axum::extract::{Path, Query, State};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -138,7 +139,6 @@ pub async fn export_balp(
     Query(q): Query<BalpQuery>,
 ) -> axum::response::Response {
     use axum::response::IntoResponse;
-    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 
     use crate::db::entities::audit_log;
 
@@ -155,25 +155,26 @@ pub async fn export_balp(
         ))
         .into_response();
     }
-    let limit = q.limit.unwrap_or(100).clamp(1, 500) as u64;
-    let mut find = audit_log::Entity::find()
-        .filter(audit_log::Column::At.gte(from))
-        .filter(audit_log::Column::At.lt(to));
+    let limit = q.limit.unwrap_or(100).clamp(1, 500);
+    let mut sql = "SELECT * FROM audit_log WHERE at >= $1 AND at < $2".to_string();
+    let mut params: Vec<crate::db::sql::Param> = vec![from.into(), to.into()];
     if let Some(t) = &q.entity_type {
-        find = find.filter(audit_log::Column::EntityType.eq(t.as_str()));
+        params.push(t.as_str().into());
+        sql.push_str(&format!(" AND entity_type = ${}", params.len()));
     }
     if let Some(id) = q.entity_id {
-        find = find.filter(audit_log::Column::EntityId.eq(id));
+        params.push(id.into());
+        sql.push_str(&format!(" AND entity_id = ${}", params.len()));
     }
-    let rows = match find
-        .order_by_asc(audit_log::Column::At)
-        .order_by_asc(audit_log::Column::Id)
-        .limit(limit)
-        .all(&state.db)
+    params.push(limit.into());
+    sql.push_str(&format!(" ORDER BY at, id LIMIT ${}", params.len()));
+    let rows = match state
+        .db
+        .all_as::<audit_log::Model>(crate::db::sql::Stmt::new(sql, params))
         .await
     {
         Ok(r) => r,
-        Err(e) => return error_to_response(crate::Error::Database(e)).into_response(),
+        Err(e) => return error_to_response(e).into_response(),
     };
     let server = crate::config::env::text("HOSTNAME");
     let entries: Vec<serde_json::Value> = rows

@@ -16,9 +16,8 @@
 //! mismatch, so one patient's message cannot touch another's appointment.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt, Transact};
+use crate::db::sql::{Conn, Pool, Stmt, Transact, Txn};
 use chrono::{DateTime, Utc};
-use sea_orm::{DatabaseConnection, DatabaseTransaction};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -121,7 +120,7 @@ pub struct BatchItem {
 }
 
 pub struct WriteBackService {
-    db: DatabaseConnection,
+    db: Pool,
     scheduling: Arc<SchedulingService>,
 }
 
@@ -153,7 +152,7 @@ struct PostCommit {
 }
 
 impl WriteBackService {
-    pub fn new(db: DatabaseConnection, scheduling: Arc<SchedulingService>) -> Self {
+    pub fn new(db: Pool, scheduling: Arc<SchedulingService>) -> Self {
         Self { db, scheduling }
     }
 
@@ -330,7 +329,7 @@ impl WriteBackService {
     }
 
     async fn decide_and_record(
-        txn: &DatabaseTransaction,
+        txn: &Txn,
         req: &ReplyRequest,
         ctx: &UserContext,
     ) -> Result<(ReplyResult, PostCommit)> {
@@ -389,7 +388,7 @@ impl WriteBackService {
 
     /// Apply the action to an appointment known to belong to the replying patient.
     async fn act(
-        txn: &DatabaseTransaction,
+        txn: &Txn,
         req: &ReplyRequest,
         appt: Appointment,
         ctx: &UserContext,
@@ -405,7 +404,7 @@ impl WriteBackService {
 
     /// Confirm a booked appointment (once; a second confirm is still a success).
     async fn act_confirm(
-        txn: &DatabaseTransaction,
+        txn: &Txn,
         req: &ReplyRequest,
         appt: Appointment,
         ctx: &UserContext,
@@ -450,7 +449,7 @@ impl WriteBackService {
     /// Cancel on the patient's behalf, unless the service is listed for human follow-up (then a person
     /// phones first and the slot is kept).
     async fn act_cancel(
-        txn: &DatabaseTransaction,
+        txn: &Txn,
         req: &ReplyRequest,
         appt: Appointment,
         ctx: &UserContext,
@@ -499,7 +498,7 @@ impl WriteBackService {
 
     /// Ask for a video or phone visit instead of in person (CAP-14); a person reviews it.
     async fn act_convert(
-        txn: &DatabaseTransaction,
+        txn: &Txn,
         req: &ReplyRequest,
         appt: Appointment,
         ctx: &UserContext,
@@ -562,7 +561,7 @@ impl WriteBackService {
 
     /// Move to another slot the patient chose (CAP-5).
     async fn act_rebook(
-        txn: &DatabaseTransaction,
+        txn: &Txn,
         req: &ReplyRequest,
         appt: Appointment,
         ctx: &UserContext,
@@ -595,7 +594,7 @@ impl WriteBackService {
     }
 
     async fn audit(
-        txn: &DatabaseTransaction,
+        txn: &Txn,
         a: &Appointment,
         action: &str,
         req: &ReplyRequest,

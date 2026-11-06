@@ -4,9 +4,8 @@
 //! through `axum::extract::State`. It owns one `Arc` per service so handlers
 //! can clone cheaply on every request.
 
+use crate::db::sql::Pool;
 use std::sync::Arc;
-
-use sea_orm::DatabaseConnection;
 
 use crate::adt::AdtService;
 use crate::billing::BillingService;
@@ -19,11 +18,11 @@ use crate::waitlist::{RttService, WaitlistService};
 
 /// Application state shared across all HTTP handlers.
 ///
-/// `AppState` is cheap to clone — each field is either a `DatabaseConnection`
+/// `AppState` is cheap to clone — each field is either a `Pool`
 /// (already an `Arc` internally) or an `Arc<dyn …>`/`Arc<Service>`.
 #[derive(Clone)]
 pub struct AppState {
-    pub db: DatabaseConnection,
+    pub db: Pool,
     pub publisher: Arc<dyn EventPublisher>,
     pub adt: Arc<AdtService>,
     pub scheduling: Arc<SchedulingService>,
@@ -77,7 +76,7 @@ impl AppState {
     /// [`CommunicationService`] starts with `NoopSmsProvider` — call
     /// [`Self::with_sms_provider`] before serving requests to enable
     /// real auto-send.
-    pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
+    pub fn new(db: Pool, publisher: Arc<dyn EventPublisher>) -> Self {
         let scheduling = Arc::new(SchedulingService::new(db.clone(), publisher.clone()));
         let writeback = Arc::new(crate::writeback::WriteBackService::new(
             db.clone(),

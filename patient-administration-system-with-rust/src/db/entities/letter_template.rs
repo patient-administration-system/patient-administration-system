@@ -1,12 +1,14 @@
-//! SeaORM entity for the `letter_templates` table.
+//! The row of the `letter_templates` table.
 
-use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "letter_templates")]
+use crate::Result;
+use crate::db::row::RowExt;
+use crate::db::sql::{FromRow, Param, Row, Table};
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub name: String,
     pub subject: String,
@@ -15,11 +17,58 @@ pub struct Model {
     pub channels: serde_json::Value,
     pub active: bool,
     pub locale: String,
-    pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
+    pub created_at: chrono::DateTime<chrono::FixedOffset>,
+    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
 }
 
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+impl FromRow for Model {
+    fn from_row(row: &Row) -> Result<Self> {
+        Ok(Self {
+            id: row.col("id")?,
+            name: row.col("name")?,
+            subject: row.col("subject")?,
+            body_tera: row.col("body_tera")?,
+            required_variables: row.col("required_variables")?,
+            channels: row.col("channels")?,
+            active: row.col("active")?,
+            locale: row.col("locale")?,
+            created_at: row.col("created_at")?,
+            updated_at: row.col("updated_at")?,
+        })
+    }
+}
 
-impl ActiveModelBehavior for ActiveModel {}
+impl Table for Model {
+    const NAME: &'static str = "letter_templates";
+    const COLUMNS: &'static [&'static str] = &[
+        "id",
+        "name",
+        "subject",
+        "body_tera",
+        "required_variables",
+        "channels",
+        "active",
+        "locale",
+        "created_at",
+        "updated_at",
+    ];
+
+    fn id(&self) -> Uuid {
+        self.id
+    }
+
+    fn values(&self) -> Vec<Param> {
+        vec![
+            self.id.into(),
+            self.name.clone().into(),
+            self.subject.clone().into(),
+            self.body_tera.clone().into(),
+            self.required_variables.clone().into(),
+            self.channels.clone().into(),
+            self.active.into(),
+            self.locale.clone().into(),
+            self.created_at.into(),
+            self.updated_at.into(),
+        ]
+    }
+}

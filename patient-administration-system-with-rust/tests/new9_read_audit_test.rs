@@ -30,7 +30,10 @@ async fn call(app: &axum::Router, req: Request<Body>) -> (StatusCode, String, Ve
     )
 }
 
-async fn read_rows(db: &sea_orm::DatabaseConnection, patient: Uuid) -> Vec<serde_json::Value> {
+async fn read_rows(
+    db: &patient_administration_system::db::sql::Pool,
+    patient: Uuid,
+) -> Vec<serde_json::Value> {
     db.all(Stmt::new(
         "SELECT user_id, context FROM audit_log \
          WHERE entity_type = 'patient' AND entity_id = $1 AND action = 'read'",

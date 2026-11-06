@@ -1,10 +1,9 @@
 //! Part of [`super`]: bundle.
 
-use crate::db::sql::Transact;
+use crate::db::sql::{Transact, Txn};
 use std::collections::HashMap;
 
 use axum::Extension;
-use sea_orm::DatabaseTransaction;
 
 use super::*;
 use crate::adt::{AdmissionResult, AdtService};
@@ -259,11 +258,7 @@ fn plan_of(write: &Write, refs: &HashMap<String, String>) -> Result<Plan, Error>
 
 /// Writes one entry, its audit row and its outbox event. `Appointment` and `Encounter` go through the
 /// services the REST routes use, so a Bundle meets the same rules: a slot must be free and a bed available.
-async fn save(
-    txn: &DatabaseTransaction,
-    plan: &Plan,
-    ctx: &UserContext,
-) -> Result<(String, After), Error> {
+async fn save(txn: &Txn, plan: &Plan, ctx: &UserContext) -> Result<(String, After), Error> {
     match plan {
         Plan::Schedule(schedule) => {
             let saved = save_schedule(txn, schedule, ctx).await?;

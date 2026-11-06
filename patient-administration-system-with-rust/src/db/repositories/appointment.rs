@@ -1,9 +1,7 @@
 //! appointment repository
 
-use crate::db::sql::Conn;
+use crate::db::sql::{Conn, Stmt, Table};
 use chrono::{DateTime, Utc};
-use sea_orm::sea_query::Condition;
-use sea_orm::*;
 use uuid::Uuid;
 
 use crate::db::entities::appointment;
@@ -16,17 +14,19 @@ pub struct AppointmentRepository;
 
 impl AppointmentRepository {
     pub async fn create<C: Conn>(conn: &C, a: &Appointment) -> Result<Appointment> {
-        let am = to_active_model(a);
+        let am = to_row(a);
         // Return the stored row, so derived fields (`release_class`) are always computed.
-        let stored = am.insert(conn).await.map_err(Error::Database)?;
+        let stored = am.insert(conn).await?;
         from_model(stored)
     }
 
     pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Appointment>> {
-        let m = appointment::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<appointment::Model>(Stmt::new(
+                "SELECT * FROM appointments WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(from_model).transpose()
     }
 
@@ -39,12 +39,12 @@ impl AppointmentRepository {
         id: Uuid,
         expected: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<Appointment> {
-        use sea_orm::QuerySelect;
-        let m = appointment::Entity::find_by_id(id)
-            .lock_exclusive()
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<appointment::Model>(Stmt::new(
+                "SELECT * FROM appointments WHERE id = $1 LIMIT 1 FOR UPDATE",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("appointment {id}")))?;
         let appt = from_model(m)?;
         if !crate::api::rest::concurrency::is_current(appt.updated_at, expected) {
@@ -56,19 +56,17 @@ impl AppointmentRepository {
     }
 
     pub async fn update<C: Conn>(conn: &C, a: &Appointment) -> Result<Appointment> {
-        let mut am = to_active_model(a);
-        am.created_at = NotSet;
-        let stored = am.update(conn).await.map_err(Error::Database)?;
+        let stored = to_row(a).update_row(conn).await?;
         from_model(stored)
     }
 
     pub async fn list_by_patient<C: Conn>(conn: &C, person_id: Uuid) -> Result<Vec<Appointment>> {
-        let rows = appointment::Entity::find()
-            .filter(appointment::Column::PersonId.eq(person_id))
-            .filter(appointment::Column::DeletedAt.is_null())
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<appointment::Model>(Stmt::new(
+                "SELECT * FROM appointments WHERE person_id = $1 AND deleted_at IS NULL",
+                [person_id.into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -79,14 +77,7 @@ impl AppointmentRepository {
         from: chrono::DateTime<chrono::Utc>,
         to: chrono::DateTime<chrono::Utc>,
     ) -> Result<Vec<Appointment>> {
-        let rows = appointment::Entity::find()
-            .filter(appointment::Column::StartDatetime.gte(from.fixed_offset()))
-            .filter(appointment::Column::StartDatetime.lt(to.fixed_offset()))
-            .filter(appointment::Column::DeletedAt.is_null())
-            .order_by_asc(appointment::Column::StartDatetime)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE start_datetime >= $1 AND start_datetime < $2 AND deleted_at IS NULL ORDER BY start_datetime", [from.fixed_offset().into(), to.fixed_offset().into()])).await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -97,17 +88,7 @@ impl AppointmentRepository {
         from: chrono::DateTime<chrono::Utc>,
         to: chrono::DateTime<chrono::Utc>,
     ) -> Result<Vec<Appointment>> {
-        let rows = appointment::Entity::find()
-            .filter(
-                appointment::Column::Status
-                    .eq(appointment_status_to_str(AppointmentStatus::Booked)),
-            )
-            .filter(appointment::Column::StartDatetime.gte(from.fixed_offset()))
-            .filter(appointment::Column::StartDatetime.lt(to.fixed_offset()))
-            .filter(appointment::Column::DeletedAt.is_null())
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE status = $1 AND start_datetime >= $2 AND start_datetime < $3 AND deleted_at IS NULL", [appointment_status_to_str(AppointmentStatus::Booked).into(), from.fixed_offset().into(), to.fixed_offset().into()])).await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -118,14 +99,7 @@ impl AppointmentRepository {
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<Vec<Appointment>> {
-        let rows = appointment::Entity::find()
-            .filter(appointment::Column::WorkerId.eq(worker_id))
-            .filter(appointment::Column::DeletedAt.is_null())
-            .filter(appointment::Column::StartDatetime.gte(start.fixed_offset()))
-            .filter(appointment::Column::StartDatetime.lt(end.fixed_offset()))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE worker_id = $1 AND deleted_at IS NULL AND start_datetime >= $2 AND start_datetime < $3", [worker_id.into(), start.fixed_offset().into(), end.fixed_offset().into()])).await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -133,13 +107,7 @@ impl AppointmentRepository {
     /// Every appointment that belongs to a given recurring series, ordered
     /// by scheduled start. Soft-deleted rows are excluded.
     pub async fn list_by_series<C: Conn>(conn: &C, series_id: Uuid) -> Result<Vec<Appointment>> {
-        let rows = appointment::Entity::find()
-            .filter(appointment::Column::SeriesId.eq(series_id))
-            .filter(appointment::Column::DeletedAt.is_null())
-            .order_by_asc(appointment::Column::StartDatetime)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE series_id = $1 AND deleted_at IS NULL ORDER BY start_datetime", [series_id.into()])).await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -152,22 +120,27 @@ impl AppointmentRepository {
         new_status: AppointmentStatus,
         cancellation_reason: Option<CancellationReason>,
     ) -> Result<Option<Appointment>> {
-        let m = match appointment::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = match conn
+            .one_as::<appointment::Model>(Stmt::new(
+                "SELECT * FROM appointments WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
         {
             Some(m) => m,
             None => return Ok(None),
         };
         let now = chrono::Utc::now().fixed_offset();
-        let mut am: appointment::ActiveModel = m.into();
-        am.status = Set(appointment_status_to_str(new_status).to_string());
+        let mut am = m.patch();
+        am.set("status", appointment_status_to_str(new_status).to_string());
         if let Some(reason) = cancellation_reason {
-            am.cancellation_reason = Set(Some(cancellation_reason_to_str(reason).to_string()));
+            am.set(
+                "cancellation_reason",
+                Some(cancellation_reason_to_str(reason).to_string()),
+            );
         }
-        am.updated_at = Set(now);
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        am.set("updated_at", now);
+        let updated = am.update(conn).await?;
         Ok(Some(from_model(updated)?))
     }
 
@@ -180,21 +153,14 @@ impl AppointmentRepository {
         end: DateTime<Utc>,
     ) -> Result<Vec<Appointment>> {
         // Overlap: existing.start < new.end AND existing.end > new.start
-        let rows = appointment::Entity::find()
-            .filter(appointment::Column::PersonId.eq(person_id))
-            .filter(appointment::Column::DeletedAt.is_null())
-            .filter(
-                Condition::all()
-                    .add(appointment::Column::StartDatetime.lt(end.fixed_offset()))
-                    .add(appointment::Column::EndDatetime.gt(start.fixed_offset())),
-            )
-            .filter(
-                appointment::Column::Status
-                    .is_not_in(vec!["cancelled".to_string(), "no_show".to_string()]),
-            )
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<appointment::Model>(Stmt::new(
+                "SELECT * FROM appointments WHERE person_id = $1 AND deleted_at IS NULL \
+                 AND start_datetime < $2 AND end_datetime > $3 \
+                 AND status NOT IN ('cancelled', 'no_show')",
+                [person_id.into(), end.into(), start.into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -210,22 +176,14 @@ impl AppointmentRepository {
         end: DateTime<Utc>,
         exclude_id: Uuid,
     ) -> Result<Vec<Appointment>> {
-        let rows = appointment::Entity::find()
-            .filter(appointment::Column::PersonId.eq(person_id))
-            .filter(appointment::Column::Id.ne(exclude_id))
-            .filter(appointment::Column::DeletedAt.is_null())
-            .filter(
-                Condition::all()
-                    .add(appointment::Column::StartDatetime.lt(end.fixed_offset()))
-                    .add(appointment::Column::EndDatetime.gt(start.fixed_offset())),
-            )
-            .filter(
-                appointment::Column::Status
-                    .is_not_in(vec!["cancelled".to_string(), "no_show".to_string()]),
-            )
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<appointment::Model>(Stmt::new(
+                "SELECT * FROM appointments WHERE person_id = $1 AND id <> $2 AND deleted_at IS NULL \
+                 AND start_datetime < $3 AND end_datetime > $4 \
+                 AND status NOT IN ('cancelled', 'no_show')",
+                [person_id.into(), exclude_id.into(), end.into(), start.into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 }
@@ -293,36 +251,36 @@ fn from_enum_str<T: serde::de::DeserializeOwned>(s: &str) -> Result<T> {
         .map_err(|_| Error::internal(format!("unknown stored value: {s}")))
 }
 
-fn to_active_model(a: &Appointment) -> appointment::ActiveModel {
-    appointment::ActiveModel {
-        id: Set(a.id),
-        person_id: Set(a.person_id),
-        slot_id: Set(a.slot_id),
-        worker_id: Set(a.worker_id),
-        start_datetime: Set(a.start_datetime.fixed_offset()),
-        end_datetime: Set(a.end_datetime.fixed_offset()),
-        status: Set(appointment_status_to_str(a.status).to_string()),
-        reason: Set(a.reason.clone()),
-        from_waitlist_entry_id: Set(a.from_waitlist_entry_id),
-        cancellation_reason: Set(a
+fn to_row(a: &Appointment) -> appointment::Model {
+    appointment::Model {
+        id: a.id,
+        person_id: a.person_id,
+        slot_id: a.slot_id,
+        worker_id: a.worker_id,
+        start_datetime: a.start_datetime.fixed_offset(),
+        end_datetime: a.end_datetime.fixed_offset(),
+        status: appointment_status_to_str(a.status).to_string(),
+        reason: a.reason.clone(),
+        from_waitlist_entry_id: a.from_waitlist_entry_id,
+        cancellation_reason: a
             .cancellation_reason
-            .map(|c| cancellation_reason_to_str(c).to_string())),
-        series_id: Set(a.series_id),
-        cancelled_at: Set(a.cancelled_at.map(|t| t.fixed_offset())),
-        cancelled_by: Set(a.cancelled_by.map(|c| enum_str(&c))),
-        barrier_code: Set(a.barrier_code.map(|b| enum_str(&b))),
-        notice_days: Set(a.notice_days),
-        confirmed_at: Set(a.confirmed_at.map(|t| t.fixed_offset())),
-        modality: Set(enum_str(&a.modality)),
-        conversion_state: Set(a.conversion_state.map(|c| enum_str(&c))),
-        conversion_barrier_code: Set(a.conversion_barrier_code.map(|b| enum_str(&b))),
-        converted_at: Set(a.converted_at.map(|t| t.fixed_offset())),
-        arrived_at: Set(a.arrived_at.map(|t| t.fixed_offset())),
-        completed_at: Set(a.completed_at.map(|t| t.fixed_offset())),
-        current_room: Set(a.current_room.clone()),
-        deleted_at: Set(None),
-        created_at: Set(a.created_at.fixed_offset()),
-        updated_at: Set(a.updated_at.fixed_offset()),
+            .map(|c| cancellation_reason_to_str(c).to_string()),
+        series_id: a.series_id,
+        cancelled_at: a.cancelled_at.map(|t| t.fixed_offset()),
+        cancelled_by: a.cancelled_by.map(|c| enum_str(&c)),
+        barrier_code: a.barrier_code.map(|b| enum_str(&b)),
+        notice_days: a.notice_days,
+        confirmed_at: a.confirmed_at.map(|t| t.fixed_offset()),
+        modality: enum_str(&a.modality),
+        conversion_state: a.conversion_state.map(|c| enum_str(&c)),
+        conversion_barrier_code: a.conversion_barrier_code.map(|b| enum_str(&b)),
+        converted_at: a.converted_at.map(|t| t.fixed_offset()),
+        arrived_at: a.arrived_at.map(|t| t.fixed_offset()),
+        completed_at: a.completed_at.map(|t| t.fixed_offset()),
+        current_room: a.current_room.clone(),
+        deleted_at: None,
+        created_at: a.created_at.fixed_offset(),
+        updated_at: a.updated_at.fixed_offset(),
     }
 }
 
@@ -376,39 +334,39 @@ mod tests {
     use chrono::TimeZone;
 
     #[test]
-    fn test_appointment_roundtrip_via_active_model() {
+    fn test_appointment_roundtrip_via_row() {
         let start = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
         let end = Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap();
         let mut a = Appointment::new(Uuid::new_v4(), start, end);
         a.cancellation_reason = Some(CancellationReason::PatientRequest);
-        let am = to_active_model(&a);
+        let am = to_row(&a);
         let m = appointment::Model {
-            id: am.id.clone().unwrap(),
-            person_id: am.person_id.clone().unwrap(),
-            slot_id: am.slot_id.clone().unwrap(),
-            worker_id: am.worker_id.clone().unwrap(),
-            start_datetime: am.start_datetime.clone().unwrap(),
-            end_datetime: am.end_datetime.clone().unwrap(),
-            status: am.status.clone().unwrap(),
-            reason: am.reason.clone().unwrap(),
-            from_waitlist_entry_id: am.from_waitlist_entry_id.clone().unwrap(),
-            cancellation_reason: am.cancellation_reason.clone().unwrap(),
-            series_id: am.series_id.clone().unwrap(),
-            cancelled_at: am.cancelled_at.clone().unwrap(),
-            cancelled_by: am.cancelled_by.clone().unwrap(),
-            barrier_code: am.barrier_code.clone().unwrap(),
-            notice_days: am.notice_days.clone().unwrap(),
-            confirmed_at: am.confirmed_at.clone().unwrap(),
-            modality: am.modality.clone().unwrap(),
-            conversion_state: am.conversion_state.clone().unwrap(),
-            conversion_barrier_code: am.conversion_barrier_code.clone().unwrap(),
-            converted_at: am.converted_at.clone().unwrap(),
-            arrived_at: am.arrived_at.clone().unwrap(),
-            completed_at: am.completed_at.clone().unwrap(),
-            current_room: am.current_room.clone().unwrap(),
-            deleted_at: am.deleted_at.clone().unwrap(),
-            created_at: am.created_at.clone().unwrap(),
-            updated_at: am.updated_at.clone().unwrap(),
+            id: am.id,
+            person_id: am.person_id,
+            slot_id: am.slot_id,
+            worker_id: am.worker_id,
+            start_datetime: am.start_datetime,
+            end_datetime: am.end_datetime,
+            status: am.status.clone(),
+            reason: am.reason.clone(),
+            from_waitlist_entry_id: am.from_waitlist_entry_id,
+            cancellation_reason: am.cancellation_reason.clone(),
+            series_id: am.series_id,
+            cancelled_at: am.cancelled_at,
+            cancelled_by: am.cancelled_by.clone(),
+            barrier_code: am.barrier_code.clone(),
+            notice_days: am.notice_days,
+            confirmed_at: am.confirmed_at,
+            modality: am.modality.clone(),
+            conversion_state: am.conversion_state.clone(),
+            conversion_barrier_code: am.conversion_barrier_code.clone(),
+            converted_at: am.converted_at,
+            arrived_at: am.arrived_at,
+            completed_at: am.completed_at,
+            current_room: am.current_room.clone(),
+            deleted_at: am.deleted_at,
+            created_at: am.created_at,
+            updated_at: am.updated_at,
         };
         let back = from_model(m).expect("from_model");
         assert_eq!(back.id, a.id);
@@ -429,25 +387,22 @@ mod tests {
         a.cancelled_by = Some(CancelledBy::Patient);
         a.barrier_code = Some(BarrierCode::CannotTravel);
         a.notice_days = Some(5);
-        let am = to_active_model(&a);
-        assert_eq!(
-            am.barrier_code.clone().unwrap().as_deref(),
-            Some("cannot_travel")
-        );
-        assert_eq!(am.cancelled_by.clone().unwrap().as_deref(), Some("patient"));
+        let am = to_row(&a);
+        assert_eq!(am.barrier_code.clone().as_deref(), Some("cannot_travel"));
+        assert_eq!(am.cancelled_by.clone().as_deref(), Some("patient"));
         let m = appointment::Model {
             id: a.id,
             person_id: a.person_id,
             slot_id: None,
             worker_id: None,
-            start_datetime: am.start_datetime.clone().unwrap(),
-            end_datetime: am.end_datetime.clone().unwrap(),
+            start_datetime: am.start_datetime,
+            end_datetime: am.end_datetime,
             status: "cancelled".into(),
             reason: None,
             from_waitlist_entry_id: None,
             cancellation_reason: None,
             series_id: None,
-            cancelled_at: am.cancelled_at.clone().unwrap(),
+            cancelled_at: am.cancelled_at,
             cancelled_by: Some("patient".into()),
             barrier_code: Some("cannot_travel".into()),
             notice_days: Some(5),
@@ -460,8 +415,8 @@ mod tests {
             completed_at: None,
             current_room: None,
             deleted_at: None,
-            created_at: am.created_at.clone().unwrap(),
-            updated_at: am.updated_at.clone().unwrap(),
+            created_at: am.created_at,
+            updated_at: am.updated_at,
         };
         let back = from_model(m).unwrap();
         assert_eq!(back.barrier_code, Some(BarrierCode::CannotTravel));

@@ -131,7 +131,7 @@ pub async fn get_bed(State(state): State<AppState>, Path(bed_id): Path<Uuid>) ->
 
 /// The audit row of a create. It is written in the transaction of the create, so a failure here fails the
 /// request and keeps nothing (NFR-25).
-async fn write_audit_create<C: sea_orm::ConnectionTrait>(
+async fn write_audit_create<C: crate::db::sql::Conn>(
     db: &C,
     entity_type: &str,
     id: Uuid,

@@ -9,10 +9,8 @@
 //! soon whose interpreter is not yet confirmed.
 
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt, Transact, Txn};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{DatabaseConnection, DatabaseTransaction};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -32,7 +30,7 @@ crate::string_enum! {
 
 /// Raise the interpreter request for a just-booked appointment, if the patient needs one. Called from the
 /// one place every booking passes through, inside its transaction.
-pub async fn on_booked(txn: &DatabaseTransaction, appt: &Appointment) -> Result<()> {
+pub async fn on_booked(txn: &Txn, appt: &Appointment) -> Result<()> {
     let need = txn
         .one(Stmt::new(
             "SELECT interpreter_kind, interpreter_language FROM patient_communication_profiles \
@@ -61,7 +59,7 @@ pub async fn on_booked(txn: &DatabaseTransaction, appt: &Appointment) -> Result<
 }
 
 /// Cancel the interpreter request of a cancelled appointment, inside the cancellation's transaction.
-pub async fn on_cancelled(txn: &DatabaseTransaction, appointment_id: Uuid) -> Result<()> {
+pub async fn on_cancelled(txn: &Txn, appointment_id: Uuid) -> Result<()> {
     txn.run(Stmt::new(
         "UPDATE interpreter_requests SET status = 'cancelled', updated_at = now() \
          WHERE appointment_id = $1 AND status <> 'cancelled'",
@@ -83,11 +81,11 @@ pub struct UnconfirmedRequest {
 }
 
 pub struct InterpreterService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl InterpreterService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

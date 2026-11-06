@@ -12,7 +12,7 @@ use patient_administration_system::observability::with_request_telemetry;
 use tower::ServiceExt;
 use uuid::Uuid;
 
-async fn app() -> (axum::Router, sea_orm::DatabaseConnection) {
+async fn app() -> (axum::Router, patient_administration_system::db::sql::Pool) {
     let s = common::build_state(&common::database_url().unwrap()).await;
     let db = s.db.clone();
     (

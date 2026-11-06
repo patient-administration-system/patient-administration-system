@@ -30,7 +30,11 @@ fn cell(r: &DelayReport, booked: bool, band: &str) -> Option<i64> {
 }
 
 /// A waiting-list entry added `days_ago` days ago, waiting or booked.
-async fn entry(db: &sea_orm::DatabaseConnection, days_ago: i64, booked: bool) -> Uuid {
+async fn entry(
+    db: &patient_administration_system::db::sql::Pool,
+    days_ago: i64,
+    booked: bool,
+) -> Uuid {
     let id = Uuid::new_v4();
     db.run(Stmt::new("INSERT INTO waitlist_entries (id, person_id, target_service, priority, status, created_at, updated_at) \
          VALUES ($1, $2, 'new15', 'routine', $3, now() - make_interval(days => $4), now())",

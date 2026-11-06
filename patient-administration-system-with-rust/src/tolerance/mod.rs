@@ -16,8 +16,8 @@
 //! per measure and scope, and a `ToleranceAlertRaised` event); it closes when the measure is no longer red. Nothing here acts on a patient: it is a
 //! view for managers, and no score or rank of a person takes part (NFR-11).
 
+use crate::db::sql::Pool;
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -201,7 +201,7 @@ pub struct Evaluation {
 }
 
 pub struct ToleranceService {
-    db: DatabaseConnection,
+    db: Pool,
     reports: ReportService,
 }
 
@@ -268,7 +268,7 @@ fn share(part: i64, of: i64) -> Option<f64> {
 }
 
 impl ToleranceService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self {
             reports: ReportService::new(db.clone()),
             db,

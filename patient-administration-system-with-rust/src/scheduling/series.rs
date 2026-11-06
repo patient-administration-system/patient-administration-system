@@ -14,11 +14,10 @@
 //!    Past appointments (already `Fulfilled` / `NoShow` / `Cancelled`)
 //!    are left exactly as the audit trail recorded them.
 
-use crate::db::sql::Transact;
+use crate::db::sql::{Pool, Transact};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
 use crate::db::repositories::{
@@ -37,7 +36,7 @@ use crate::{Error, Result};
 
 /// Application service for recurring appointment series.
 pub struct SeriesService {
-    db: DatabaseConnection,
+    db: Pool,
     publisher: Arc<dyn EventPublisher>,
 }
 
@@ -82,7 +81,7 @@ pub struct SeriesWithOccurrences {
 }
 
 impl SeriesService {
-    pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
+    pub fn new(db: Pool, publisher: Arc<dyn EventPublisher>) -> Self {
         Self { db, publisher }
     }
 

@@ -17,11 +17,10 @@
 //!   Nothing is sent unless `PAS_BACKFILL_OFFERS=true`.
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -134,7 +133,7 @@ pub struct TickReport {
 }
 
 pub struct BackfillService {
-    db: DatabaseConnection,
+    db: Pool,
     /// Swappable so a test can fix the time (QUAL-25); read and released at once, never held across `.await`.
     clock: std::sync::RwLock<crate::clock::SharedClock>,
     standby: Arc<StandbyService>,
@@ -163,7 +162,7 @@ impl BackfillService {
     }
 
     pub fn new(
-        db: DatabaseConnection,
+        db: Pool,
         standby: Arc<StandbyService>,
         communication: Arc<CommunicationService>,
     ) -> Self {

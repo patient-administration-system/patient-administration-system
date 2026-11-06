@@ -1,7 +1,6 @@
 //! rtt repository — RTTPathway and RTTClockEvent
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
 use crate::db::entities::{rtt_clock_event, rtt_pathway};
@@ -12,16 +11,18 @@ pub struct RttRepository;
 
 impl RttRepository {
     pub async fn create_pathway<C: Conn>(conn: &C, p: &RTTPathway) -> Result<RTTPathway> {
-        let am = pathway_to_active_model(p)?;
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = pathway_to_row(p)?;
+        am.insert(conn).await?;
         Ok(p.clone())
     }
 
     pub async fn find_pathway_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<RTTPathway>> {
-        let m = rtt_pathway::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<rtt_pathway::Model>(Stmt::new(
+                "SELECT * FROM rtt_pathways WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(pathway_from_model).transpose()
     }
 
@@ -29,17 +30,18 @@ impl RttRepository {
         conn: &C,
         person_id: Uuid,
     ) -> Result<Vec<RTTPathway>> {
-        let rows = rtt_pathway::Entity::find()
-            .filter(rtt_pathway::Column::PersonId.eq(person_id))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<rtt_pathway::Model>(Stmt::new(
+                "SELECT * FROM rtt_pathways WHERE person_id = $1",
+                [person_id.into()],
+            ))
+            .await?;
         rows.into_iter().map(pathway_from_model).collect()
     }
 
     pub async fn create_event<C: Conn>(conn: &C, e: &RTTClockEvent) -> Result<RTTClockEvent> {
-        let am = event_to_active_model(e);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = event_to_row(e);
+        am.insert(conn).await?;
         Ok(e.clone())
     }
 
@@ -47,12 +49,12 @@ impl RttRepository {
         conn: &C,
         pathway_id: Uuid,
     ) -> Result<Vec<RTTClockEvent>> {
-        let rows = rtt_clock_event::Entity::find()
-            .filter(rtt_clock_event::Column::PathwayId.eq(pathway_id))
-            .order_by_asc(rtt_clock_event::Column::EventAt)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<rtt_clock_event::Model>(Stmt::new(
+                "SELECT * FROM rtt_clock_events WHERE pathway_id = $1 ORDER BY event_at",
+                [pathway_id.into()],
+            ))
+            .await?;
         rows.into_iter().map(event_from_model).collect()
     }
 }
@@ -95,23 +97,23 @@ pub(crate) fn rtt_event_kind_from_str(s: &str) -> Result<RTTEventKind> {
     }
 }
 
-fn pathway_to_active_model(p: &RTTPathway) -> Result<rtt_pathway::ActiveModel> {
+fn pathway_to_row(p: &RTTPathway) -> Result<rtt_pathway::Model> {
     let breach_weeks_i32: i32 = p.breach_weeks.try_into().map_err(|_| {
         Error::internal(format!(
             "breach_weeks {} does not fit in i32",
             p.breach_weeks
         ))
     })?;
-    Ok(rtt_pathway::ActiveModel {
-        id: Set(p.id),
-        person_id: Set(p.person_id),
-        target_service: Set(p.target_service.clone()),
-        breach_weeks: Set(breach_weeks_i32),
-        status: Set(rtt_status_to_str(p.status).to_string()),
-        started_at: Set(p.started_at.fixed_offset()),
-        stopped_at: Set(p.stopped_at.map(|t| t.fixed_offset())),
-        created_at: Set(p.created_at.fixed_offset()),
-        updated_at: Set(p.updated_at.fixed_offset()),
+    Ok(rtt_pathway::Model {
+        id: p.id,
+        person_id: p.person_id,
+        target_service: p.target_service.clone(),
+        breach_weeks: breach_weeks_i32,
+        status: rtt_status_to_str(p.status).to_string(),
+        started_at: p.started_at.fixed_offset(),
+        stopped_at: p.stopped_at.map(|t| t.fixed_offset()),
+        created_at: p.created_at.fixed_offset(),
+        updated_at: p.updated_at.fixed_offset(),
     })
 }
 
@@ -135,14 +137,14 @@ fn pathway_from_model(m: rtt_pathway::Model) -> Result<RTTPathway> {
     })
 }
 
-fn event_to_active_model(e: &RTTClockEvent) -> rtt_clock_event::ActiveModel {
-    rtt_clock_event::ActiveModel {
-        id: Set(e.id),
-        pathway_id: Set(e.pathway_id),
-        kind: Set(rtt_event_kind_to_str(e.kind).to_string()),
-        reason: Set(e.reason.clone()),
-        event_at: Set(e.event_at.fixed_offset()),
-        created_at: Set(e.created_at.fixed_offset()),
+fn event_to_row(e: &RTTClockEvent) -> rtt_clock_event::Model {
+    rtt_clock_event::Model {
+        id: e.id,
+        pathway_id: e.pathway_id,
+        kind: rtt_event_kind_to_str(e.kind).to_string(),
+        reason: e.reason.clone(),
+        event_at: e.event_at.fixed_offset(),
+        created_at: e.created_at.fixed_offset(),
     }
 }
 
@@ -162,19 +164,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_rtt_pathway_roundtrip_via_active_model() {
+    fn test_rtt_pathway_roundtrip_via_row() {
         let p = RTTPathway::new(Uuid::new_v4(), "cardiology");
-        let am = pathway_to_active_model(&p).expect("to active model");
+        let am = pathway_to_row(&p).expect("to active model");
         let m = rtt_pathway::Model {
-            id: am.id.clone().unwrap(),
-            person_id: am.person_id.clone().unwrap(),
-            target_service: am.target_service.clone().unwrap(),
-            breach_weeks: am.breach_weeks.clone().unwrap(),
-            status: am.status.clone().unwrap(),
-            started_at: am.started_at.clone().unwrap(),
-            stopped_at: am.stopped_at.clone().unwrap(),
-            created_at: am.created_at.clone().unwrap(),
-            updated_at: am.updated_at.clone().unwrap(),
+            id: am.id,
+            person_id: am.person_id,
+            target_service: am.target_service.clone(),
+            breach_weeks: am.breach_weeks,
+            status: am.status.clone(),
+            started_at: am.started_at,
+            stopped_at: am.stopped_at,
+            created_at: am.created_at,
+            updated_at: am.updated_at,
         };
         let back = pathway_from_model(m).expect("from model");
         assert_eq!(back.id, p.id);

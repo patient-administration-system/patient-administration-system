@@ -37,7 +37,7 @@ pub async fn build_state(url: &str) -> AppState {
     reason = "each test binary uses only some of the shared helpers"
 )]
 pub async fn new_schedule(
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
 ) -> patient_administration_system::models::schedule::Schedule {
     use patient_administration_system::db::repositories::schedule::ScheduleRepository;
     use patient_administration_system::models::schedule::{Schedule, ScheduleOwner};
@@ -56,7 +56,7 @@ pub async fn new_schedule(
     reason = "each test binary uses only some of the shared helpers"
 )]
 pub async fn free_slot(
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     schedule_id: uuid::Uuid,
     in_days: i64,
 ) -> patient_administration_system::models::schedule::Slot {
@@ -75,7 +75,7 @@ pub async fn free_slot(
     reason = "each test binary uses only some of the shared helpers"
 )]
 pub async fn audit_count(
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     entity_id: uuid::Uuid,
     action: &str,
 ) -> i64 {
@@ -96,7 +96,7 @@ pub async fn audit_count(
     reason = "each test binary uses only some of the shared helpers"
 )]
 pub async fn new_schedule_for(
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     service: &str,
 ) -> patient_administration_system::models::schedule::Schedule {
     use patient_administration_system::db::repositories::schedule::ScheduleRepository;
@@ -116,7 +116,7 @@ pub async fn new_schedule_for(
     reason = "each test binary uses only some of the shared helpers"
 )]
 pub async fn free_slot_in_hours(
-    db: &sea_orm::DatabaseConnection,
+    db: &patient_administration_system::db::sql::Pool,
     schedule_id: uuid::Uuid,
     hours: i64,
 ) -> patient_administration_system::models::schedule::Slot {

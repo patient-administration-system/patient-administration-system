@@ -10,12 +10,10 @@
 //!   is in and stop, and waits for them for a grace period.
 
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use std::future::Future;
 use std::time::Duration;
 
-use sea_orm::DatabaseConnection;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
@@ -31,7 +29,7 @@ pub enum Outcome {
 }
 
 /// Run `work` only if no other process is running the job `name`.
-pub async fn run_exclusive<F, Fut>(db: &DatabaseConnection, name: &str, work: F) -> Outcome
+pub async fn run_exclusive<F, Fut>(db: &Pool, name: &str, work: F) -> Outcome
 where
     F: FnOnce() -> Fut,
     Fut: Future<Output = ()> + Send + 'static,
@@ -71,13 +69,13 @@ where
 
 /// The set of running background jobs.
 pub struct Jobs {
-    db: DatabaseConnection,
+    db: Pool,
     stop: watch::Sender<bool>,
     handles: Vec<(&'static str, JoinHandle<()>)>,
 }
 
 impl Jobs {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self {
             db,
             stop: watch::channel(false).0,

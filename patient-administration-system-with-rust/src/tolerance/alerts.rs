@@ -2,8 +2,7 @@
 
 use super::*;
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Stmt, Transact};
 
 impl ToleranceService {
     /// Check every reading and keep the alerts true to it: a measure that is red has one open alert (and the

@@ -14,9 +14,8 @@
 //! exist (NOT-5).
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt, Transact};
+use crate::db::sql::{Conn, Pool, Stmt, Transact, Txn};
 use chrono::{DateTime, Utc};
-use sea_orm::{DatabaseConnection, DatabaseTransaction, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -27,13 +26,9 @@ use crate::models::appointment::{Appointment, ReleaseClass};
 use crate::scheduling::SchedulingService;
 use crate::{Error, Result};
 
-fn db_err(e: sea_orm::DbErr) -> Error {
-    Error::Database(e)
-}
-
 // --- the standby list -------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromQueryResult, utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct StandbyEntry {
     pub id: Uuid,
     pub person_id: Uuid,
@@ -46,6 +41,23 @@ pub struct StandbyEntry {
     pub active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+impl crate::db::sql::FromRow for StandbyEntry {
+    fn from_row(row: &crate::db::sql::Row) -> Result<Self> {
+        Ok(Self {
+            id: row.col("id")?,
+            person_id: row.col("person_id")?,
+            service_type: row.col("service_type")?,
+            short_notice_ok: row.col("short_notice_ok")?,
+            language: row.col("language")?,
+            needs_transport: row.col("needs_transport")?,
+            phone_only: row.col("phone_only")?,
+            active: row.col("active")?,
+            created_at: row.col("created_at")?,
+            updated_at: row.col("updated_at")?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
@@ -102,7 +114,7 @@ pub enum ReleaseStatus {
     Expired,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromQueryResult, utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SlotRelease {
     pub id: Uuid,
     pub slot_id: Uuid,
@@ -119,7 +131,26 @@ pub struct SlotRelease {
     pub seconds_to_refill: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromQueryResult, utoipa::ToSchema)]
+impl crate::db::sql::FromRow for SlotRelease {
+    fn from_row(row: &crate::db::sql::Row) -> Result<Self> {
+        Ok(Self {
+            id: row.col("id")?,
+            slot_id: row.col("slot_id")?,
+            appointment_id: row.col("appointment_id")?,
+            service_type: row.col("service_type")?,
+            start_datetime: row.col("start_datetime")?,
+            released_at: row.col("released_at")?,
+            notice_days: row.col("notice_days")?,
+            release_class: row.col("release_class")?,
+            status: row.col("status")?,
+            refilled_by_appointment_id: row.col("refilled_by_appointment_id")?,
+            refilled_at: row.col("refilled_at")?,
+            seconds_to_refill: row.col("seconds_to_refill")?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ReleaseSummary {
     pub total: i64,
     pub open: i64,
@@ -127,6 +158,18 @@ pub struct ReleaseSummary {
     pub expired: i64,
     /// Median seconds from release to refill, over refilled releases. `None` when there are none.
     pub median_seconds_to_refill: Option<f64>,
+}
+
+impl crate::db::sql::FromRow for ReleaseSummary {
+    fn from_row(row: &crate::db::sql::Row) -> Result<Self> {
+        Ok(Self {
+            total: row.col("total")?,
+            open: row.col("open")?,
+            refilled: row.col("refilled")?,
+            expired: row.col("expired")?,
+            median_seconds_to_refill: row.col("median_seconds_to_refill")?,
+        })
+    }
 }
 
 /// What `GET /api/slot-releases` sends: the counts and the releases they count.
@@ -145,7 +188,7 @@ const RELEASE_SELECT: &str = "SELECT r.id, r.slot_id, r.appointment_id, r.servic
 /// Record that a future slot was freed, and publish `SlotReleased`. A slot whose start has already
 /// passed cannot be refilled, so it records nothing. Called inside the cancelling transaction.
 pub(crate) async fn record_release(
-    txn: &DatabaseTransaction,
+    txn: &Txn,
     appt: &Appointment,
     class: ReleaseClass,
 ) -> Result<Option<Uuid>> {
@@ -203,11 +246,7 @@ pub(crate) async fn record_release(
 
 /// Close the open release for a slot that has just been booked. A booking of a slot with no open
 /// release (the usual case) changes nothing.
-pub(crate) async fn mark_refilled(
-    txn: &DatabaseTransaction,
-    slot_id: Uuid,
-    by: &Appointment,
-) -> Result<()> {
+pub(crate) async fn mark_refilled(txn: &Txn, slot_id: Uuid, by: &Appointment) -> Result<()> {
     txn.run(Stmt::new("UPDATE slot_releases SET status = 'refilled', refilled_by_appointment_id = $2, refilled_at = now(), \
            seconds_to_refill = GREATEST(0, EXTRACT(EPOCH FROM (now() - released_at))::bigint) \
          WHERE slot_id = $1 AND status = 'open'",
@@ -220,12 +259,12 @@ pub(crate) async fn mark_refilled(
 // --- the service ------------------------------------------------------------------------------
 
 pub struct StandbyService {
-    db: DatabaseConnection,
+    db: Pool,
     scheduling: Arc<SchedulingService>,
 }
 
 impl StandbyService {
-    pub fn new(db: DatabaseConnection, scheduling: Arc<SchedulingService>) -> Self {
+    pub fn new(db: Pool, scheduling: Arc<SchedulingService>) -> Self {
         Self { db, scheduling }
     }
 
@@ -236,7 +275,7 @@ impl StandbyService {
         self.db
             .in_txn::<_, StandbyEntry>(|txn| {
                 Box::pin(async move {
-                    let entry = StandbyEntry::find_by_statement(Stmt::new("INSERT INTO standby_entries (id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only) \
+                    let entry = txn.one_as::<StandbyEntry>(Stmt::new("INSERT INTO standby_entries (id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only) \
                          VALUES ($1,$2,$3,$4,$5,$6,$7) \
                          ON CONFLICT (person_id, service_type) WHERE active \
                          DO UPDATE SET short_notice_ok = EXCLUDED.short_notice_ok, language = EXCLUDED.language, \
@@ -251,10 +290,7 @@ impl StandbyService {
                             input.needs_transport.into(),
                             input.phone_only.into(),
                         ],
-                    ).raw())
-                    .one(txn)
-                    .await
-                    .map_err(db_err)?
+                    )).await?
                     .ok_or_else(|| Error::internal("standby upsert returned no row"))?;
                     AuditLogRepository::log(
                         txn,
@@ -273,23 +309,17 @@ impl StandbyService {
     }
 
     pub async fn list(&self, service_type: Option<&str>) -> Result<Vec<StandbyEntry>> {
-        StandbyEntry::find_by_statement(Stmt::new("SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at \
+        self.db.all_as::<StandbyEntry>(Stmt::new("SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at \
              FROM standby_entries WHERE active AND ($1::text IS NULL OR service_type = $1) ORDER BY created_at, id",
             [service_type.map(String::from).into()],
-        ).raw())
-        .all(&self.db)
-        .await
-        .map_err(db_err)
+        )).await
     }
 
     /// One entry, active or not, with the version (`updated_at`) a write must send back (OFH-11).
     pub async fn get(&self, id: Uuid) -> Result<StandbyEntry> {
-        StandbyEntry::find_by_statement(Stmt::new("SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at FROM standby_entries WHERE id = $1",
+        self.db.one_as::<StandbyEntry>(Stmt::new("SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at FROM standby_entries WHERE id = $1",
             [id.into()],
-        ).raw())
-        .one(&self.db)
-        .await
-        .map_err(db_err)?
+        )).await?
         .ok_or_else(|| Error::not_found(format!("standby entry {id}")))
     }
 
@@ -364,13 +394,10 @@ impl StandbyService {
             .db
             .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
-                    let entry = StandbyEntry::find_by_statement(Stmt::new("SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at \
+                    let entry = txn.one_as::<StandbyEntry>(Stmt::new("SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at \
                          FROM standby_entries WHERE id = $1 FOR UPDATE",
                         [id.into()],
-                    ).raw())
-                    .one(txn)
-                    .await
-                    .map_err(db_err)?
+                    )).await?
                     .ok_or_else(|| Error::not_found(format!("standby entry {id}")))?;
                     if !crate::api::rest::concurrency::is_current(entry.updated_at, expected) {
                         return Err(Error::precondition_failed(
@@ -420,13 +447,10 @@ impl StandbyService {
             ));
         }
         let window = "r.released_at >= $1 AND r.released_at < $2";
-        let rows = SlotRelease::find_by_statement(Stmt::new(format!("SELECT * FROM ({RELEASE_SELECT} WHERE {window}) x WHERE ($3::text IS NULL OR x.status = $3) ORDER BY x.released_at DESC"),
+        let rows = self.db.all_as::<SlotRelease>(Stmt::new(format!("SELECT * FROM ({RELEASE_SELECT} WHERE {window}) x WHERE ($3::text IS NULL OR x.status = $3) ORDER BY x.released_at DESC"),
             [from.into(), to.into(), status.map(String::from).into()],
-        ).raw())
-        .all(&self.db)
-        .await
-        .map_err(db_err)?;
-        let summary = ReleaseSummary::find_by_statement(Stmt::new(format!(
+        )).await?;
+        let summary = self.db.one_as::<ReleaseSummary>(Stmt::new(format!(
                 "SELECT count(*)::bigint AS total, \
                    count(*) FILTER (WHERE x.status = 'open')::bigint AS open, \
                    count(*) FILTER (WHERE x.status = 'refilled')::bigint AS refilled, \
@@ -435,10 +459,7 @@ impl StandbyService {
                  FROM ({RELEASE_SELECT} WHERE {window}) x"
             ),
             [from.into(), to.into()],
-        ).raw())
-        .one(&self.db)
-        .await
-        .map_err(db_err)?
+        )).await?
         .ok_or_else(|| Error::internal("release summary returned no row"))?;
         Ok((summary, rows))
     }
@@ -471,7 +492,7 @@ impl StandbyService {
         let start: DateTime<Utc> = rel.col("start_datetime")?;
         let end: DateTime<Utc> = rel.col("end_datetime")?;
         let gave_up: Option<Uuid> = rel.col("person_id")?;
-        StandbyEntry::find_by_statement(Stmt::new("SELECT se.id, se.person_id, se.service_type, se.short_notice_ok, se.language, se.needs_transport, se.phone_only, se.active, se.created_at, se.updated_at \
+        self.db.all_as::<StandbyEntry>(Stmt::new("SELECT se.id, se.person_id, se.service_type, se.short_notice_ok, se.language, se.needs_transport, se.phone_only, se.active, se.created_at, se.updated_at \
              FROM standby_entries se \
              WHERE se.active AND se.short_notice_ok AND se.service_type = $1 \
                AND ($2::uuid IS NULL OR se.person_id <> $2) \
@@ -490,10 +511,7 @@ impl StandbyService {
                 filter.needs_transport.into(),
                 filter.phone_only.into(),
             ],
-        ).raw())
-        .all(&self.db)
-        .await
-        .map_err(db_err)
+        )).await
     }
 }
 

@@ -21,12 +21,10 @@
 //! a block on endpoints that resolve to private addresses (the administrator who registers one is trusted).
 //! An event the global publisher dead-lettered before this pass ran is not delivered.
 
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Row, Stmt};
+use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -194,7 +192,7 @@ pub fn notification(
 const PER_SUBSCRIPTION: i64 = 16;
 
 pub struct SubscriptionService {
-    db: DatabaseConnection,
+    db: Pool,
     client: reqwest::Client,
 }
 
@@ -222,7 +220,7 @@ const LIST_SQL: &str = "SELECT s.id, s.topic, s.endpoint, s.secret_env, s.status
      FROM subscriptions s";
 
 impl SubscriptionService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         let timeout =
             Duration::from_secs(u64::try_from(env::int("PAS_WEBHOOK_TIMEOUT_SECS")).unwrap_or(10));
         let client = reqwest::Client::builder()

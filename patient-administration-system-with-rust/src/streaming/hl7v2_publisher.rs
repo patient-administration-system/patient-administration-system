@@ -24,11 +24,11 @@
 //! sink remain the durable record. Adding a new mapping is a one-line
 //! addition to `dispatch_to_trigger` plus an encoder.
 
+use crate::db::sql::Pool;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use sea_orm::DatabaseConnection;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 use uuid::Uuid;
@@ -50,7 +50,7 @@ const CONNECT_TIMEOUT_SECS: u64 = 3;
 /// fluent-attach upstream clients via [`Hl7v2MllpPublisher::with_person_client`]
 /// / [`Hl7v2MllpPublisher::with_worker_client`].
 pub struct Hl7v2MllpPublisher {
-    db: DatabaseConnection,
+    db: Pool,
     peer: String,
     sender: String,
     receiver: String,
@@ -63,7 +63,7 @@ impl Hl7v2MllpPublisher {
     /// `PersonClient` the publisher will fail every encounter/appointment
     /// event with `Error::Streaming("person_client unset")` — main wires
     /// it from the same `PERSON_SERVICE_URL` it uses for the REST proxies.
-    pub fn new(db: DatabaseConnection, peer: String, sender: &str, receiver: &str) -> Self {
+    pub fn new(db: Pool, peer: String, sender: &str, receiver: &str) -> Self {
         Self {
             db,
             peer,

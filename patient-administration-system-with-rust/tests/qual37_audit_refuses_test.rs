@@ -63,7 +63,7 @@ fn json<T: Serialize>(v: &T) -> Option<String> {
     Some(serde_json::to_string(v).unwrap())
 }
 
-async fn count(db: &sea_orm::DatabaseConnection, sql: &str, id: Uuid) -> i64 {
+async fn count(db: &patient_administration_system::db::sql::Pool, sql: &str, id: Uuid) -> i64 {
     db.one(Stmt::new(sql, [id.into()]))
         .await
         .unwrap()

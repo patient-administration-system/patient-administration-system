@@ -1,7 +1,6 @@
 //! billing — Account/Charge/Invoice/Payment service
 
-use crate::db::sql::Transact;
-use sea_orm::DatabaseConnection;
+use crate::db::sql::{Pool, Transact};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -18,7 +17,7 @@ use crate::validation::validate_charge;
 use crate::{Error, Result};
 
 pub struct BillingService {
-    db: DatabaseConnection,
+    db: Pool,
     publisher: Arc<dyn EventPublisher>,
 }
 
@@ -34,7 +33,7 @@ pub struct PostChargeInput {
 }
 
 impl BillingService {
-    pub fn new(db: DatabaseConnection, publisher: Arc<dyn EventPublisher>) -> Self {
+    pub fn new(db: Pool, publisher: Arc<dyn EventPublisher>) -> Self {
         Self { db, publisher }
     }
 

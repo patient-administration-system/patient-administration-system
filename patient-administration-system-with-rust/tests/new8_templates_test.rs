@@ -50,7 +50,10 @@ fn day() -> NaiveDate {
     (Utc::now() + Duration::days(14)).date_naive()
 }
 
-async fn slots_of(db: &sea_orm::DatabaseConnection, template: Uuid) -> Vec<(String, String, bool)> {
+async fn slots_of(
+    db: &patient_administration_system::db::sql::Pool,
+    template: Uuid,
+) -> Vec<(String, String, bool)> {
     db.all(Stmt::new("SELECT to_char(start_datetime AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS at, slot_type, ring_fenced \
          FROM slots WHERE template_id = $1 ORDER BY start_datetime",
         [template.into()],

@@ -1,7 +1,6 @@
 //! letter repository — LetterTemplate and GeneratedLetter
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
 use crate::db::entities::{generated_letter, letter_template};
@@ -14,8 +13,8 @@ pub struct LetterRepository;
 
 impl LetterRepository {
     pub async fn create_template<C: Conn>(conn: &C, t: &LetterTemplate) -> Result<LetterTemplate> {
-        let am = template_to_active_model(t)?;
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = template_to_row(t)?;
+        am.insert(conn).await?;
         Ok(t.clone())
     }
 
@@ -23,10 +22,12 @@ impl LetterRepository {
         conn: &C,
         id: Uuid,
     ) -> Result<Option<LetterTemplate>> {
-        let m = letter_template::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<letter_template::Model>(Stmt::new(
+                "SELECT * FROM letter_templates WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(template_from_model).transpose()
     }
 
@@ -34,24 +35,23 @@ impl LetterRepository {
         conn: &C,
         name: &str,
     ) -> Result<Option<LetterTemplate>> {
-        let m = letter_template::Entity::find()
-            .filter(letter_template::Column::Name.eq(name))
-            .filter(letter_template::Column::Active.eq(true))
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<letter_template::Model>(Stmt::new(
+                "SELECT * FROM letter_templates WHERE name = $1 AND active = $2 LIMIT 1",
+                [name.into(), true.into()],
+            ))
+            .await?;
         m.map(template_from_model).transpose()
     }
 
     /// Every active variant of a template group, English first by name of locale.
     pub async fn list_active_by_name<C: Conn>(conn: &C, name: &str) -> Result<Vec<LetterTemplate>> {
-        let rows = letter_template::Entity::find()
-            .filter(letter_template::Column::Name.eq(name))
-            .filter(letter_template::Column::Active.eq(true))
-            .order_by_asc(letter_template::Column::Locale)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<letter_template::Model>(Stmt::new(
+                "SELECT * FROM letter_templates WHERE name = $1 AND active = $2 ORDER BY locale",
+                [name.into(), true.into()],
+            ))
+            .await?;
         rows.into_iter().map(template_from_model).collect()
     }
 
@@ -62,11 +62,12 @@ impl LetterRepository {
         id: Uuid,
         expected: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<LetterTemplate> {
-        let m = letter_template::Entity::find_by_id(id)
-            .lock_exclusive()
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<letter_template::Model>(Stmt::new(
+                "SELECT * FROM letter_templates WHERE id = $1 LIMIT 1 FOR UPDATE",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("letter template {id}")))?;
         let t = template_from_model(m)?;
         if !crate::api::rest::concurrency::is_current(t.updated_at, expected) {
@@ -79,15 +80,17 @@ impl LetterRepository {
 
     /// Replace the editable fields of a template (administrator edit).
     pub async fn update_template<C: Conn>(conn: &C, t: &LetterTemplate) -> Result<LetterTemplate> {
-        let existing = letter_template::Entity::find_by_id(t.id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let existing = conn
+            .one_as::<letter_template::Model>(Stmt::new(
+                "SELECT * FROM letter_templates WHERE id = $1 LIMIT 1",
+                [t.id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("letter template {}", t.id)))?;
-        let mut am = template_to_active_model(t)?;
-        am.created_at = Set(existing.created_at);
-        am.updated_at = Set(chrono::Utc::now().fixed_offset());
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut row = template_to_row(t)?;
+        row.created_at = existing.created_at;
+        row.updated_at = chrono::Utc::now().fixed_offset();
+        let updated = row.update_row(conn).await?;
         template_from_model(updated)
     }
 
@@ -97,13 +100,7 @@ impl LetterRepository {
         appointment_id: Uuid,
         template_id: Uuid,
     ) -> Result<bool> {
-        let n = generated_letter::Entity::find()
-            .filter(generated_letter::Column::AppointmentId.eq(appointment_id))
-            .filter(generated_letter::Column::TemplateId.eq(template_id))
-            .filter(generated_letter::Column::Status.ne("failed"))
-            .count(conn)
-            .await
-            .map_err(Error::Database)?;
+        let n = conn.count(Stmt::new("SELECT count(*) AS n FROM generated_letters WHERE appointment_id = $1 AND template_id = $2 AND status <> $3", [appointment_id.into(), template_id.into(), "failed".into()])).await?;
         Ok(n > 0)
     }
 
@@ -113,16 +110,18 @@ impl LetterRepository {
         person_id: Uuid,
         channel: Option<DeliveryChannel>,
     ) -> Result<Vec<GeneratedLetter>> {
-        let mut q = generated_letter::Entity::find()
-            .filter(generated_letter::Column::PersonId.eq(person_id));
-        if let Some(c) = channel {
-            q = q.filter(generated_letter::Column::Channel.eq(delivery_channel_to_str(c)));
-        }
-        let rows = q
-            .order_by_desc(generated_letter::Column::CreatedAt)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<generated_letter::Model>(match channel {
+                Some(c) => Stmt::new(
+                    "SELECT * FROM generated_letters WHERE person_id = $1 AND channel = $2 ORDER BY created_at DESC",
+                    [person_id.into(), delivery_channel_to_str(c).into()],
+                ),
+                None => Stmt::new(
+                    "SELECT * FROM generated_letters WHERE person_id = $1 ORDER BY created_at DESC",
+                    [person_id.into()],
+                ),
+            })
+            .await?;
         rows.into_iter().map(letter_from_model).collect()
     }
 
@@ -132,22 +131,17 @@ impl LetterRepository {
         appointment_id: Uuid,
         template_id: Uuid,
     ) -> Result<i64> {
-        let n = generated_letter::Entity::find()
-            .filter(generated_letter::Column::AppointmentId.eq(appointment_id))
-            .filter(generated_letter::Column::TemplateId.eq(template_id))
-            .filter(generated_letter::Column::Status.eq("failed"))
-            .count(conn)
-            .await
-            .map_err(Error::Database)?;
+        let n = conn.count(Stmt::new("SELECT count(*) AS n FROM generated_letters WHERE appointment_id = $1 AND template_id = $2 AND status = $3", [appointment_id.into(), template_id.into(), "failed".into()])).await?;
         Ok(i64::try_from(n).unwrap_or(i64::MAX))
     }
 
     pub async fn list_active_templates<C: Conn>(conn: &C) -> Result<Vec<LetterTemplate>> {
-        let rows = letter_template::Entity::find()
-            .filter(letter_template::Column::Active.eq(true))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<letter_template::Model>(Stmt::new(
+                "SELECT * FROM letter_templates WHERE active = $1",
+                [true.into()],
+            ))
+            .await?;
         rows.into_iter().map(template_from_model).collect()
     }
 
@@ -155,8 +149,8 @@ impl LetterRepository {
         conn: &C,
         g: &GeneratedLetter,
     ) -> Result<GeneratedLetter> {
-        let am = letter_to_active_model(g);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = letter_to_row(g);
+        am.insert(conn).await?;
         Ok(g.clone())
     }
 
@@ -164,39 +158,51 @@ impl LetterRepository {
         conn: &C,
         id: Uuid,
     ) -> Result<Option<GeneratedLetter>> {
-        let m = generated_letter::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<generated_letter::Model>(Stmt::new(
+                "SELECT * FROM generated_letters WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(letter_from_model).transpose()
     }
 
     pub async fn mark_sent<C: Conn>(conn: &C, id: Uuid) -> Result<GeneratedLetter> {
-        let m = generated_letter::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<generated_letter::Model>(Stmt::new(
+                "SELECT * FROM generated_letters WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("generated_letter {id}")))?;
         let now = chrono::Utc::now().fixed_offset();
-        let mut am: generated_letter::ActiveModel = m.into();
-        am.status = Set(letter_status_to_str(LetterStatus::Sent).to_string());
-        am.sent_at = Set(Some(now));
-        am.updated_at = Set(now);
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set(
+            "status",
+            letter_status_to_str(LetterStatus::Sent).to_string(),
+        );
+        am.set("sent_at", Some(now));
+        am.set("updated_at", now);
+        let updated = am.update(conn).await?;
         letter_from_model(updated)
     }
 
     pub async fn mark_failed<C: Conn>(conn: &C, id: Uuid) -> Result<GeneratedLetter> {
-        let m = generated_letter::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<generated_letter::Model>(Stmt::new(
+                "SELECT * FROM generated_letters WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("generated_letter {id}")))?;
         let now = chrono::Utc::now().fixed_offset();
-        let mut am: generated_letter::ActiveModel = m.into();
-        am.status = Set(letter_status_to_str(LetterStatus::Failed).to_string());
-        am.updated_at = Set(now);
-        let updated = am.update(conn).await.map_err(Error::Database)?;
+        let mut am = m.patch();
+        am.set(
+            "status",
+            letter_status_to_str(LetterStatus::Failed).to_string(),
+        );
+        am.set("updated_at", now);
+        let updated = am.update(conn).await?;
         letter_from_model(updated)
     }
 }
@@ -245,22 +251,22 @@ pub(crate) fn letter_status_from_str(s: &str) -> Result<LetterStatus> {
     }
 }
 
-fn template_to_active_model(t: &LetterTemplate) -> Result<letter_template::ActiveModel> {
+fn template_to_row(t: &LetterTemplate) -> Result<letter_template::Model> {
     let required = serde_json::to_value(&t.required_variables)
         .map_err(|e| Error::internal(format!("serialize required_variables: {e}")))?;
     let channels = serde_json::to_value(&t.channels)
         .map_err(|e| Error::internal(format!("serialize channels: {e}")))?;
-    Ok(letter_template::ActiveModel {
-        id: Set(t.id),
-        name: Set(t.name.clone()),
-        subject: Set(t.subject.clone()),
-        body_tera: Set(t.body_tera.clone()),
-        required_variables: Set(required),
-        channels: Set(channels),
-        active: Set(t.active),
-        locale: Set(t.locale.clone()),
-        created_at: Set(t.created_at.fixed_offset()),
-        updated_at: Set(t.updated_at.fixed_offset()),
+    Ok(letter_template::Model {
+        id: t.id,
+        name: t.name.clone(),
+        subject: t.subject.clone(),
+        body_tera: t.body_tera.clone(),
+        required_variables: required,
+        channels,
+        active: t.active,
+        locale: t.locale.clone(),
+        created_at: t.created_at.fixed_offset(),
+        updated_at: t.updated_at.fixed_offset(),
     })
 }
 
@@ -281,22 +287,22 @@ fn template_from_model(m: letter_template::Model) -> Result<LetterTemplate> {
     })
 }
 
-fn letter_to_active_model(g: &GeneratedLetter) -> generated_letter::ActiveModel {
-    generated_letter::ActiveModel {
-        id: Set(g.id),
-        template_id: Set(g.template_id),
-        person_id: Set(g.person_id),
-        appointment_id: Set(g.appointment_id),
-        rendered_subject: Set(g.rendered_subject.clone()),
-        rendered_body: Set(g.rendered_body.clone()),
-        channel: Set(delivery_channel_to_str(g.channel).to_string()),
-        status: Set(letter_status_to_str(g.status).to_string()),
-        sent_at: Set(g.sent_at.map(|t| t.fixed_offset())),
-        locale: Set(g.locale.clone()),
-        trigger: Set(g.trigger.clone()),
-        trigger_ref: Set(g.trigger_ref.clone()),
-        created_at: Set(g.created_at.fixed_offset()),
-        updated_at: Set(g.updated_at.fixed_offset()),
+fn letter_to_row(g: &GeneratedLetter) -> generated_letter::Model {
+    generated_letter::Model {
+        id: g.id,
+        template_id: g.template_id,
+        person_id: g.person_id,
+        appointment_id: g.appointment_id,
+        rendered_subject: g.rendered_subject.clone(),
+        rendered_body: g.rendered_body.clone(),
+        channel: delivery_channel_to_str(g.channel).to_string(),
+        status: letter_status_to_str(g.status).to_string(),
+        sent_at: g.sent_at.map(|t| t.fixed_offset()),
+        locale: g.locale.clone(),
+        trigger: g.trigger.clone(),
+        trigger_ref: g.trigger_ref.clone(),
+        created_at: g.created_at.fixed_offset(),
+        updated_at: g.updated_at.fixed_offset(),
     }
 }
 
@@ -324,7 +330,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_letter_template_roundtrip_via_active_model() {
+    fn test_letter_template_roundtrip_via_row() {
         let mut t = LetterTemplate::new(
             "appointment_reminder".into(),
             "Your appointment".into(),
@@ -332,18 +338,18 @@ mod tests {
         );
         t.required_variables = vec!["name".into()];
         t.channels = vec![DeliveryChannel::Email, DeliveryChannel::Print];
-        let am = template_to_active_model(&t).expect("to_active_model");
+        let am = template_to_row(&t).expect("to_row");
         let m = letter_template::Model {
-            id: am.id.clone().unwrap(),
-            name: am.name.clone().unwrap(),
-            subject: am.subject.clone().unwrap(),
-            body_tera: am.body_tera.clone().unwrap(),
-            required_variables: am.required_variables.clone().unwrap(),
-            channels: am.channels.clone().unwrap(),
-            active: am.active.clone().unwrap(),
-            locale: am.locale.clone().unwrap(),
-            created_at: am.created_at.clone().unwrap(),
-            updated_at: am.updated_at.clone().unwrap(),
+            id: am.id,
+            name: am.name.clone(),
+            subject: am.subject.clone(),
+            body_tera: am.body_tera.clone(),
+            required_variables: am.required_variables.clone(),
+            channels: am.channels.clone(),
+            active: am.active,
+            locale: am.locale.clone(),
+            created_at: am.created_at,
+            updated_at: am.updated_at,
         };
         let back = template_from_model(m).expect("from_model");
         assert_eq!(back.id, t.id);

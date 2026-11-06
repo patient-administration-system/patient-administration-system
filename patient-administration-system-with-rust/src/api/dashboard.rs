@@ -16,8 +16,8 @@
 //! The templates are compile-time-baked via `include_str!`. Each request
 //! runs Tera's `one_off` renderer — no template engine in `AppState`.
 
+use crate::db::sql::{Conn, Stmt};
 use axum::{extract::State, response::Html};
-use sea_orm::EntityTrait;
 use tera::{Context, Tera};
 use uuid::Uuid;
 
@@ -128,8 +128,9 @@ pub async fn dashboard_audit(State(state): State<AppState>) -> Html<String> {
 // ---------------------------------------------------------------------------
 
 async fn collect_wards(state: &AppState) -> Vec<WardRow> {
-    let wards = ward::Entity::find()
-        .all(&state.db)
+    let wards = state
+        .db
+        .all_as::<ward::Model>(Stmt::text("SELECT * FROM wards"))
         .await
         .unwrap_or_else(|e| {
             tracing::error!(error = %e, "dashboard: wards could not be read");
@@ -158,11 +159,13 @@ async fn collect_wards(state: &AppState) -> Vec<WardRow> {
 async fn collect_breaches(state: &AppState) -> Vec<BreachRow> {
     use crate::db::entities::rtt_pathway;
     use crate::db::repositories::rtt::RttRepository;
-    use sea_orm::{ColumnTrait, QueryFilter};
 
-    let pathways = rtt_pathway::Entity::find()
-        .filter(rtt_pathway::Column::Status.ne("stopped"))
-        .all(&state.db)
+    let pathways = state
+        .db
+        .all_as::<rtt_pathway::Model>(Stmt::new(
+            "SELECT * FROM rtt_pathways WHERE status <> $1",
+            ["stopped".into()],
+        ))
         .await
         .unwrap_or_else(|e| {
             tracing::error!(error = %e, "dashboard: RTT pathways could not be read");

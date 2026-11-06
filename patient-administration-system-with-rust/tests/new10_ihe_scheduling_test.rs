@@ -76,7 +76,10 @@ fn slot_of(bundle: &Value, i: usize) -> String {
         .to_string()
 }
 
-async fn both(db: &sea_orm::DatabaseConnection, id: Uuid) -> (String, bool, i64, String) {
+async fn both(
+    db: &patient_administration_system::db::sql::Pool,
+    id: Uuid,
+) -> (String, bool, i64, String) {
     let r = db.one(Stmt::new("SELECT a.status, (a.end_datetime - a.start_datetime) AS len, a.slot_id IS NOT NULL AS has_slot, \
                         (SELECT count(*) FROM audit_log WHERE entity_type = 'appointment' AND entity_id = a.id AND action = 'book') AS audited, \
                         (SELECT status FROM slots WHERE id = a.slot_id) AS slot_status \

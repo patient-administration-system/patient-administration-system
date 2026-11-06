@@ -1,7 +1,6 @@
 //! schedule repository
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
 use crate::db::entities::schedule;
@@ -20,16 +19,18 @@ pub(crate) mod owner_kind {
 
 impl ScheduleRepository {
     pub async fn create<C: Conn>(conn: &C, s: &Schedule) -> Result<Schedule> {
-        let am = to_active_model(s);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = to_row(s);
+        am.insert(conn).await?;
         Ok(s.clone())
     }
 
     pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Schedule>> {
-        let m = schedule::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<schedule::Model>(Stmt::new(
+                "SELECT * FROM schedules WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(from_model).transpose()
     }
 
@@ -39,12 +40,12 @@ impl ScheduleRepository {
         owner_kind: &str,
         owner_id: Uuid,
     ) -> Result<Vec<Schedule>> {
-        let rows = schedule::Entity::find()
-            .filter(schedule::Column::OwnerKind.eq(owner_kind))
-            .filter(schedule::Column::OwnerId.eq(owner_id))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<schedule::Model>(Stmt::new(
+                "SELECT * FROM schedules WHERE owner_kind = $1 AND owner_id = $2",
+                [owner_kind.into(), owner_id.into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -52,19 +53,21 @@ impl ScheduleRepository {
     /// missing. Used by the FHIR R5 `PUT /fhir/Schedule/{id}`
     /// surface (v0.21).
     pub async fn update<C: Conn>(conn: &C, s: &Schedule) -> Result<Schedule> {
-        let existing = schedule::Entity::find_by_id(s.id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let existing = conn
+            .one_as::<schedule::Model>(Stmt::new(
+                "SELECT * FROM schedules WHERE id = $1 LIMIT 1",
+                [s.id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("schedule {}", s.id)))?;
         let (kind, owner_id) = owner_to_kind_and_id(&s.owner);
-        let mut am: schedule::ActiveModel = existing.into();
-        am.owner_kind = Set(kind.to_string());
-        am.owner_id = Set(owner_id);
-        am.service_type = Set(s.service_type.clone());
-        am.active = Set(s.active);
-        am.updated_at = Set(chrono::Utc::now().fixed_offset());
-        am.update(conn).await.map_err(Error::Database)?;
+        let mut am = existing.patch();
+        am.set("owner_kind", kind.to_string());
+        am.set("owner_id", owner_id);
+        am.set("service_type", s.service_type.clone());
+        am.set("active", s.active);
+        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        am.update(conn).await?;
         Ok(s.clone())
     }
 
@@ -74,11 +77,13 @@ impl ScheduleRepository {
     /// the row is missing. Used by `DELETE /fhir/Schedule/{id}`
     /// (v0.21).
     pub async fn delete<C: Conn>(conn: &C, id: Uuid) -> Result<()> {
-        let r = schedule::Entity::delete_by_id(id)
-            .exec(conn)
-            .await
-            .map_err(Error::Database)?;
-        if r.rows_affected == 0 {
+        let r = conn
+            .run(Stmt::new(
+                "DELETE FROM schedules WHERE id = $1",
+                [id.into()],
+            ))
+            .await?;
+        if r.rows_affected() == 0 {
             return Err(Error::not_found(format!("schedule {id}")));
         }
         Ok(())
@@ -108,16 +113,16 @@ fn owner_from_kind_and_id(kind: &str, id: Uuid) -> Result<ScheduleOwner> {
     }
 }
 
-fn to_active_model(s: &Schedule) -> schedule::ActiveModel {
+fn to_row(s: &Schedule) -> schedule::Model {
     let (kind, owner_id) = owner_to_kind_and_id(&s.owner);
-    schedule::ActiveModel {
-        id: Set(s.id),
-        owner_kind: Set(kind.to_string()),
-        owner_id: Set(owner_id),
-        service_type: Set(s.service_type.clone()),
-        active: Set(s.active),
-        created_at: Set(s.created_at.fixed_offset()),
-        updated_at: Set(s.updated_at.fixed_offset()),
+    schedule::Model {
+        id: s.id,
+        owner_kind: kind.to_string(),
+        owner_id,
+        service_type: s.service_type.clone(),
+        active: s.active,
+        created_at: s.created_at.fixed_offset(),
+        updated_at: s.updated_at.fixed_offset(),
     }
 }
 
@@ -137,20 +142,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_schedule_roundtrip_via_active_model() {
+    fn test_schedule_roundtrip_via_row() {
         let s = Schedule::new(
             ScheduleOwner::Practitioner(Uuid::new_v4()),
             "general".into(),
         );
-        let am = to_active_model(&s);
+        let am = to_row(&s);
         let m = schedule::Model {
-            id: am.id.clone().unwrap(),
-            owner_kind: am.owner_kind.clone().unwrap(),
-            owner_id: am.owner_id.clone().unwrap(),
-            service_type: am.service_type.clone().unwrap(),
-            active: am.active.clone().unwrap(),
-            created_at: am.created_at.clone().unwrap(),
-            updated_at: am.updated_at.clone().unwrap(),
+            id: am.id,
+            owner_kind: am.owner_kind.clone(),
+            owner_id: am.owner_id,
+            service_type: am.service_type.clone(),
+            active: am.active,
+            created_at: am.created_at,
+            updated_at: am.updated_at,
         };
         let back = from_model(m).expect("from_model");
         assert_eq!(back.id, s.id);

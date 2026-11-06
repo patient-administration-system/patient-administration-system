@@ -217,7 +217,7 @@ fn check_decision_allowed(decision: &str, row: &DecisionRow) -> Result<()> {
     reason = "the parts of one removal as the caller holds them"
 )]
 async fn remove_patient(
-    txn: &sea_orm::DatabaseTransaction,
+    txn: &crate::db::sql::Txn,
     campaign: Uuid,
     item: Uuid,
     person: Uuid,

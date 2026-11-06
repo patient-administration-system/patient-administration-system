@@ -13,10 +13,8 @@
 //!   hidden, and a single hidden cell hides the smallest other one so it cannot be worked out from the total.
 
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use chrono::{DateTime, NaiveDate, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -60,11 +58,11 @@ pub struct DelayReport {
 }
 
 pub struct FollowUpDelayService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl FollowUpDelayService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

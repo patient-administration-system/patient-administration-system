@@ -23,11 +23,10 @@ pub mod messages;
 pub mod parser;
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt};
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -98,7 +97,7 @@ pub struct StaffItem {
 }
 
 pub struct InboundService {
-    db: DatabaseConnection,
+    db: Pool,
     writeback: Arc<WriteBackService>,
     /// When set, a "different time" reply is answered with real alternative times (CAP-5) instead of being
     /// left for a person.
@@ -195,7 +194,7 @@ fn intent_str(i: Intent) -> &'static str {
 }
 
 impl InboundService {
-    pub fn new(db: DatabaseConnection, writeback: Arc<WriteBackService>) -> Self {
+    pub fn new(db: Pool, writeback: Arc<WriteBackService>) -> Self {
         Self {
             db,
             writeback,

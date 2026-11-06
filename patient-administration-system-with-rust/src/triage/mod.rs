@@ -10,10 +10,8 @@ pub mod targets;
 pub mod waits;
 
 use crate::db::row::RowExt;
-use crate::db::sql::Transact;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -77,11 +75,11 @@ fn optional_text(value: Option<&str>, field: &str) -> Result<Option<String>> {
 }
 
 pub struct TriageService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl TriageService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

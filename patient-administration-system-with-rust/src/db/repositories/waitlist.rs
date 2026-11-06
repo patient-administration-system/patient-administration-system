@@ -1,7 +1,6 @@
 //! waitlist repository
 
-use crate::db::sql::Conn;
-use sea_orm::*;
+use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
 use crate::db::entities::waitlist_entry;
@@ -12,8 +11,8 @@ pub struct WaitlistRepository;
 
 impl WaitlistRepository {
     pub async fn create_entry<C: Conn>(conn: &C, e: &WaitlistEntry) -> Result<WaitlistEntry> {
-        let am = to_active_model(e);
-        am.insert(conn).await.map_err(Error::Database)?;
+        let am = to_row(e);
+        am.insert(conn).await?;
         Ok(e.clone())
     }
 
@@ -24,12 +23,12 @@ impl WaitlistRepository {
         id: Uuid,
         expected: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<WaitlistEntry> {
-        use sea_orm::QuerySelect;
-        let m = waitlist_entry::Entity::find_by_id(id)
-            .lock_exclusive()
-            .one(conn)
-            .await
-            .map_err(Error::Database)?
+        let m = conn
+            .one_as::<waitlist_entry::Model>(Stmt::new(
+                "SELECT * FROM waitlist_entries WHERE id = $1 LIMIT 1 FOR UPDATE",
+                [id.into()],
+            ))
+            .await?
             .ok_or_else(|| Error::not_found(format!("waitlist entry {id}")))?;
         let entry = from_model(m)?;
         if !crate::api::rest::concurrency::is_current(entry.updated_at, expected) {
@@ -41,30 +40,29 @@ impl WaitlistRepository {
     }
 
     pub async fn find_entry_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<WaitlistEntry>> {
-        let m = waitlist_entry::Entity::find_by_id(id)
-            .one(conn)
-            .await
-            .map_err(Error::Database)?;
+        let m = conn
+            .one_as::<waitlist_entry::Model>(Stmt::new(
+                "SELECT * FROM waitlist_entries WHERE id = $1 LIMIT 1",
+                [id.into()],
+            ))
+            .await?;
         m.map(from_model).transpose()
     }
 
     pub async fn update_entry<C: Conn>(conn: &C, e: &WaitlistEntry) -> Result<WaitlistEntry> {
-        let mut am = to_active_model(e);
-        am.created_at = NotSet;
-        am.update(conn).await.map_err(Error::Database)?;
+        to_row(e).update_row(conn).await?;
         Ok(e.clone())
     }
 
     pub async fn list_by_service<C: Conn>(conn: &C, service: &str) -> Result<Vec<WaitlistEntry>> {
-        let rows = waitlist_entry::Entity::find()
-            .filter(waitlist_entry::Column::TargetService.eq(service))
-            // Longest on the list first. Without an order Postgres returns rows in the order they happen to lie
-            // on disk, and an UPDATE moves a row.
-            .order_by_asc(waitlist_entry::Column::CreatedAt)
-            .order_by_asc(waitlist_entry::Column::Id)
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        // Longest on the list first. Without an order Postgres returns rows in the order they happen to lie on
+        // disk, and an UPDATE moves a row.
+        let rows = conn
+            .all_as::<waitlist_entry::Model>(Stmt::new(
+                "SELECT * FROM waitlist_entries WHERE target_service = $1 ORDER BY created_at, id",
+                [service.into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -72,11 +70,12 @@ impl WaitlistRepository {
         conn: &C,
         priority: Priority,
     ) -> Result<Vec<WaitlistEntry>> {
-        let rows = waitlist_entry::Entity::find()
-            .filter(waitlist_entry::Column::Priority.eq(priority_to_str(priority)))
-            .all(conn)
-            .await
-            .map_err(Error::Database)?;
+        let rows = conn
+            .all_as::<waitlist_entry::Model>(Stmt::new(
+                "SELECT * FROM waitlist_entries WHERE priority = $1",
+                [priority_to_str(priority).into()],
+            ))
+            .await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -138,16 +137,16 @@ pub(crate) fn waitlist_status_from_str(s: &str) -> Result<WaitlistStatus> {
     }
 }
 
-fn to_active_model(e: &WaitlistEntry) -> waitlist_entry::ActiveModel {
-    waitlist_entry::ActiveModel {
-        id: Set(e.id),
-        referral_id: Set(e.referral_id),
-        person_id: Set(e.person_id),
-        target_service: Set(e.target_service.clone()),
-        priority: Set(priority_to_str(e.priority).to_string()),
-        status: Set(waitlist_status_to_str(e.status).to_string()),
-        created_at: Set(e.created_at.fixed_offset()),
-        updated_at: Set(e.updated_at.fixed_offset()),
+fn to_row(e: &WaitlistEntry) -> waitlist_entry::Model {
+    waitlist_entry::Model {
+        id: e.id,
+        referral_id: e.referral_id,
+        person_id: e.person_id,
+        target_service: e.target_service.clone(),
+        priority: priority_to_str(e.priority).to_string(),
+        status: waitlist_status_to_str(e.status).to_string(),
+        created_at: e.created_at.fixed_offset(),
+        updated_at: e.updated_at.fixed_offset(),
     }
 }
 
@@ -169,18 +168,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_waitlist_entry_roundtrip_via_active_model() {
+    fn test_waitlist_entry_roundtrip_via_row() {
         let e = WaitlistEntry::new(Uuid::new_v4(), "cardiology", Priority::Urgent);
-        let am = to_active_model(&e);
+        let am = to_row(&e);
         let m = waitlist_entry::Model {
-            id: am.id.clone().unwrap(),
-            referral_id: am.referral_id.clone().unwrap(),
-            person_id: am.person_id.clone().unwrap(),
-            target_service: am.target_service.clone().unwrap(),
-            priority: am.priority.clone().unwrap(),
-            status: am.status.clone().unwrap(),
-            created_at: am.created_at.clone().unwrap(),
-            updated_at: am.updated_at.clone().unwrap(),
+            id: am.id,
+            referral_id: am.referral_id,
+            person_id: am.person_id,
+            target_service: am.target_service.clone(),
+            priority: am.priority.clone(),
+            status: am.status.clone(),
+            created_at: am.created_at,
+            updated_at: am.updated_at,
         };
         let back = from_model(m).expect("from_model");
         assert_eq!(back.id, e.id);

@@ -1,12 +1,10 @@
 //! Part of [`super`]: schedules.
 
-use crate::db::sql::Transact;
-use sea_orm::DatabaseTransaction;
-
 use super::*;
 use crate::api::rest::handlers::request_audit_ctx;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::db::repositories::outbox::OutboxRepository;
+use crate::db::sql::{Transact, Txn};
 
 /// Read one element of a FHIR-shaped body as its typed R5 datatype, so a malformed one is refused with
 /// the reason. Elements, not whole resources: a PUT may carry only the fields it changes.
@@ -127,7 +125,7 @@ fn audit_value<T: serde::Serialize>(value: &T) -> Result<Value, Error> {
 /// writes it (NFR-1, NFR-2). `before` and `after` say which write it was: a create has nothing before it
 /// and a delete nothing after, and the event carries the record as it now stands or last stood.
 async fn record(
-    txn: &DatabaseTransaction,
+    txn: &Txn,
     kind: &str,
     id: Uuid,
     before: Option<Value>,
@@ -146,7 +144,7 @@ async fn record(
 
 /// Creates a Schedule with its audit row and event, for `POST /fhir/Schedule` and a Bundle entry alike.
 pub(super) async fn save_schedule(
-    txn: &DatabaseTransaction,
+    txn: &Txn,
     schedule: &Schedule,
     ctx: &UserContext,
 ) -> Result<Schedule, Error> {
@@ -164,11 +162,7 @@ pub(super) async fn save_schedule(
 }
 
 /// Creates a Slot with its audit row and event, for `POST /fhir/Slot` and a Bundle entry alike.
-pub(super) async fn save_slot(
-    txn: &DatabaseTransaction,
-    slot: &Slot,
-    ctx: &UserContext,
-) -> Result<Slot, Error> {
+pub(super) async fn save_slot(txn: &Txn, slot: &Slot, ctx: &UserContext) -> Result<Slot, Error> {
     // A foreign key would catch this as a 500, and a Slot naming no Schedule is the caller's mistake.
     if ScheduleRepository::find_by_id(txn, slot.schedule_id)
         .await?
@@ -392,7 +386,7 @@ pub async fn update_schedule(
         if body.get("service_type").is_some() || body.get("serviceType").is_some() {
             existing.service_type = parse_service_type(&body);
         }
-        if let Some(active) = body.get("active").and_then(sea_orm::JsonValue::as_bool) {
+        if let Some(active) = body.get("active").and_then(serde_json::Value::as_bool) {
             existing.active = active;
         }
         existing.updated_at = chrono::Utc::now();

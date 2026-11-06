@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use uuid::Uuid;
 
-async fn db() -> sea_orm::DatabaseConnection {
+async fn db() -> patient_administration_system::db::sql::Pool {
     common::build_state(&common::database_url().unwrap())
         .await
         .db

@@ -7,8 +7,7 @@
 //! it before WhatsApp goes live (`operations/deployment.md`). STOP still silences WhatsApp whatever is
 //! recorded here (`consent`).
 
-use crate::db::sql::{Conn, Stmt};
-use sea_orm::DatabaseConnection;
+use crate::db::sql::{Conn, Pool, Stmt};
 use uuid::Uuid;
 
 use crate::config::env;
@@ -54,11 +53,11 @@ pub async fn check<C: Conn>(conn: &C, person_id: Uuid, template_id: Uuid) -> Res
 }
 
 pub struct WhatsAppService {
-    db: DatabaseConnection,
+    db: Pool,
 }
 
 impl WhatsAppService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: Pool) -> Self {
         Self { db }
     }
 

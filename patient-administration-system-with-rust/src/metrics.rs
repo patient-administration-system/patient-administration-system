@@ -7,14 +7,13 @@
 //! be published and how long the oldest has waited, how many are dead-lettered, and how many staff call tasks
 //! are open. No identifiers and no personal data. Served at `GET /api/admin/metrics` (administrators only).
 
-use crate::db::sql::{Conn, Row, Stmt};
+use crate::db::sql::{Conn, Pool, Row, Stmt};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use chrono::Utc;
-use sea_orm::DatabaseConnection;
 
 use crate::db::row::RowExt;
 use crate::jobs::Outcome;
@@ -132,14 +131,14 @@ fn render_process() -> String {
     out
 }
 
-async fn one_row(db: &DatabaseConnection, sql: &str) -> Result<Row> {
+async fn one_row(db: &Pool, sql: &str) -> Result<Row> {
     db.one(Stmt::text(sql.to_string()))
         .await?
         .ok_or_else(|| Error::internal("a count returned no row"))
 }
 
 /// Everything, as Prometheus text: the process counters and the database gauges.
-pub async fn render(db: &DatabaseConnection) -> Result<String> {
+pub async fn render(db: &Pool) -> Result<String> {
     let mut out = render_process();
     let outbox = one_row(
         db,

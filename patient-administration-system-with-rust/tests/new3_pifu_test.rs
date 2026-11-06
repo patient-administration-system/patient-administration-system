@@ -217,7 +217,7 @@ async fn an_urgent_service_needs_a_named_override_and_bad_input_is_refused() {
     assert!(svc.uptake(10).await.unwrap().cells.len() == 5);
 }
 
-async fn status_of(db: &sea_orm::DatabaseConnection, id: Uuid) -> String {
+async fn status_of(db: &patient_administration_system::db::sql::Pool, id: Uuid) -> String {
     db.one(Stmt::new(
         "SELECT status FROM pifu_episodes WHERE id = $1",
         [id.into()],

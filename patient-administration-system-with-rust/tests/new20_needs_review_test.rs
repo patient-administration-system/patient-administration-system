@@ -10,7 +10,7 @@ use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::needs_review::NeedsReviewService;
 use uuid::Uuid;
 
-async fn profile(db: &sea_orm::DatabaseConnection, needs: &[&str]) -> Uuid {
+async fn profile(db: &patient_administration_system::db::sql::Pool, needs: &[&str]) -> Uuid {
     let id = Uuid::new_v4();
     let needs: Vec<String> = needs.iter().map(|s| s.to_string()).collect();
     db.run(Stmt::new("INSERT INTO patient_communication_profiles (person_id, accessibility_needs) VALUES ($1, $2)",

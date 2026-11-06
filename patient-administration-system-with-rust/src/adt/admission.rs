@@ -37,7 +37,7 @@ impl AdtService {
     /// [`Self::admit`] inside the caller's transaction, so that a FHIR Bundle can roll an admission back.
     /// The caller publishes with [`Self::publish_admitted`] after it commits.
     pub(crate) async fn admit_tx(
-        txn: &DatabaseTransaction,
+        txn: &crate::db::sql::Txn,
         person_id: Uuid,
         bed_id: Uuid,
         ctx: &UserContext,
