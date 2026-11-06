@@ -1,6 +1,9 @@
 //! Part of [`super`]: demographics.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::Param;
+use crate::db::sql::{Conn, Stmt};
 
 impl AnalyticsService {
     /// Record an upstream person's coarse bands. Nothing else about them is taken.
@@ -23,9 +26,7 @@ impl AnalyticsService {
             return Err(Error::validation("deprivation_quintile is 1 to 5"));
         }
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO person_demographics (person_id, age_band, deprivation_quintile, source) VALUES ($1,$2,$3,$4) \
+            .run(Stmt::new("INSERT INTO person_demographics (person_id, age_band, deprivation_quintile, source) VALUES ($1,$2,$3,$4) \
                  ON CONFLICT (person_id) DO UPDATE SET age_band = $2, deprivation_quintile = $3, source = $4, updated_at = now()",
                 [
                     person_id.into(),
@@ -35,11 +36,12 @@ impl AnalyticsService {
                 ],
             ))
             .await
-            .map_err(|e| match e {
-                sea_orm::DbErr::Exec(_) | sea_orm::DbErr::Query(_) => {
+            .map_err(|e| {
+                if crate::db::sql::is_rejected_statement(&e) {
                     Error::validation("age_band must be one of 0-15, 16-24, 25-34, 35-44, 45-54, 55-64, 65-74, 75+")
+                } else {
+                    e
                 }
-                other => Error::Database(other),
             })?;
         AuditLogRepository::log(
             &self.db,
@@ -88,7 +90,7 @@ impl AnalyticsService {
             let mut sql = String::from(
                 "INSERT INTO deprivation_lookup (postcode, quintile, dataset, loaded_by) VALUES ",
             );
-            let mut values: Vec<sea_orm::Value> = Vec::new();
+            let mut values: Vec<Param> = Vec::new();
             for (i, (pc, q)) in chunk.iter().enumerate() {
                 if i > 0 {
                     sql.push(',');
@@ -98,14 +100,7 @@ impl AnalyticsService {
                 values.extend([pc.clone().into(), (*q).into(), dataset.into(), by.into()]);
             }
             sql.push_str(" ON CONFLICT (postcode) DO UPDATE SET quintile = EXCLUDED.quintile, dataset = EXCLUDED.dataset, loaded_by = EXCLUDED.loaded_by, loaded_at = now()");
-            self.db
-                .execute_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    sql,
-                    values,
-                ))
-                .await
-                .map_err(Error::Database)?;
+            self.db.run(Stmt::new(sql, values)).await?;
             loaded += chunk.len() as u64;
         }
         // A header line is not a rejection; anything else that did not parse is.
@@ -141,16 +136,13 @@ impl AnalyticsService {
     ) -> Result<u64> {
         let ids = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT a.person_id FROM appointments a \
+            .all(Stmt::new("SELECT a.person_id FROM appointments a \
                  LEFT JOIN person_demographics d ON d.person_id = a.person_id \
                  WHERE a.deleted_at IS NULL AND (d.person_id IS NULL OR d.updated_at < now() - interval '90 days') \
                  GROUP BY a.person_id ORDER BY max(a.updated_at) DESC LIMIT $1",
                 [limit.clamp(1, 5000).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let mut n = 0;
         for r in ids {
             let id: uuid::Uuid = r.col("person_id")?;
@@ -176,19 +168,12 @@ impl AnalyticsService {
             let (quintile, dataset): (Option<i16>, Option<String>) = match postcode {
                 Some(pc) => self
                     .db
-                    .query_one_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
+                    .one(Stmt::new(
                         "SELECT quintile, dataset FROM deprivation_lookup WHERE postcode = $1",
                         [pc.into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?
-                    .map(|r| {
-                        (
-                            r.try_get("", "quintile").ok(),
-                            r.try_get("", "dataset").ok(),
-                        )
-                    })
+                    .await?
+                    .map(|r| (r.col("quintile").ok(), r.col("dataset").ok()))
                     .unwrap_or((None, None)),
                 None => (None, None),
             };

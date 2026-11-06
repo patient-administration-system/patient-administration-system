@@ -16,11 +16,9 @@
 //! mismatch, so one patient's message cannot touch another's appointment.
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt, Transact};
 use chrono::{DateTime, Utc};
-use sea_orm::{
-    ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, SqlErr, Statement,
-    TransactionTrait,
-};
+use sea_orm::{DatabaseConnection, DatabaseTransaction};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -210,9 +208,7 @@ impl WriteBackService {
             Ok(r) => Ok(r),
             // Two deliveries of the same message raced; the loser rolled back whole, so there is
             // exactly one outcome to return.
-            Err(Error::Database(e))
-                if matches!(e.sql_err(), Some(SqlErr::UniqueConstraintViolation(_))) =>
-            {
+            Err(e) if crate::db::sql::is_unique_violation(&e) => {
                 Self::stored(&self.db, &req).await?.ok_or_else(|| {
                     Error::internal("duplicate message_id reported but no stored reply found")
                 })
@@ -254,19 +250,13 @@ impl WriteBackService {
     }
 
     /// The stored outcome for this message, if it was handled before.
-    async fn stored<C: ConnectionTrait>(
-        conn: &C,
-        req: &ReplyRequest,
-    ) -> Result<Option<ReplyResult>> {
+    async fn stored<C: Conn>(conn: &C, req: &ReplyRequest) -> Result<Option<ReplyResult>> {
         let row = conn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT action, appointment_id, person_id, status, reject_reason, new_appointment_id \
+            .one(Stmt::new("SELECT action, appointment_id, person_id, status, reject_reason, new_appointment_id \
                  FROM inbound_replies WHERE message_id = $1",
                 [req.message_id.trim().into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let Some(row) = row else { return Ok(None) };
         let action: String = row.col("action")?;
         let appointment_id: Uuid = row.col("appointment_id")?;
@@ -316,11 +306,10 @@ impl WriteBackService {
         let ctx = ctx.clone();
         let (result, post) = self
             .db
-            .transaction::<_, (ReplyResult, PostCommit), Error>(move |txn| {
+            .in_txn::<_, (ReplyResult, PostCommit)>(move |txn| {
                 Box::pin(async move { Self::decide_and_record(txn, &request, &ctx).await })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         if let Some(a) = &post.cancelled {
             self.scheduling.publish_cancelled(a).await;
         }
@@ -348,13 +337,11 @@ impl WriteBackService {
         // Serialize deliveries of the same message. Without this, two simultaneous deliveries both
         // see "not handled yet", both do the work, and one fails after the other commits. The lock
         // lasts until this transaction ends; the second delivery then finds the first one's outcome.
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        txn.run(Stmt::new(
             "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
             [req.message_id.trim().into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+        .await?;
         if let Some(already) = Self::stored(txn, req).await? {
             return Ok((already, PostCommit::default()));
         }
@@ -366,9 +353,7 @@ impl WriteBackService {
             Some(a) => Self::act(txn, req, a, ctx, &mut post).await?,
         };
         let new_id = decision.new_appointment.as_ref().map(|a| a.id);
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO inbound_replies \
+        txn.run(Stmt::new("INSERT INTO inbound_replies \
                (id, message_id, action, appointment_id, person_id, channel, barrier_code, new_slot_id, \
                 status, reject_reason, new_appointment_id, received_at, modality) \
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
@@ -388,8 +373,7 @@ impl WriteBackService {
                 req.modality.map(|m| m.as_str().to_string()).into(),
             ],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         Ok((
             ReplyResult {
                 message_id: req.message_id.trim().to_string(),
@@ -484,14 +468,11 @@ impl WriteBackService {
         // On a service a clinician has listed (urgent or cancer pathways), a patient's own cancel
         // is not applied: the slot is kept and a person phones first (CAP-7, FR-58).
         if crate::follow_up::service_is_listed(txn, appt.slot_id).await? {
-            txn.execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
+            txn.run(Stmt::new("INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
                  VALUES ($1,$2,$3,'urgent_pathway', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",
                 [Uuid::new_v4().into(), appt.id.into(), appt.person_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
             Self::audit(txn, &appt, "cancel_held", req, ctx).await?;
             return Ok(Decision::rejected(HELD_FOR_STAFF, Some(appt)));
         }

@@ -12,8 +12,11 @@
 //! - **No identifiers**, and small cells are withheld as in the analytics feed (CAP-11): a cell under `k` is
 //!   hidden, and a single hidden cell hides the smallest other one so it cannot be worked out from the total.
 
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, NaiveDate, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -88,34 +91,25 @@ impl FollowUpDelayService {
         ctx: &UserContext,
     ) -> Result<()> {
         let set_by = named_person(set_by, "set_by: the person setting the target is required")?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let before = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT follow_up_target, updated_at FROM waitlist_entries WHERE id = $1 AND status IN ('waiting','booked') FOR UPDATE",
+            .one(Stmt::new("SELECT follow_up_target, updated_at FROM waitlist_entries WHERE id = $1 AND status IN ('waiting','booked') FOR UPDATE",
                 [entry_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::not_found(format!("waiting or booked waiting-list entry {entry_id}")))?;
-        let old: Option<NaiveDate> = before
-            .try_get("", "follow_up_target")
-            .map_err(Error::Database)?;
-        let stored: chrono::DateTime<chrono::Utc> =
-            before.try_get("", "updated_at").map_err(Error::Database)?;
+        let old: Option<NaiveDate> = before.col("follow_up_target")?;
+        let stored: chrono::DateTime<chrono::Utc> = before.col("updated_at")?;
         if !crate::api::rest::concurrency::is_current(stored, expected) {
             return Err(Error::precondition_failed(
                 "the waiting-list entry has changed since it was read; read it again",
             ));
         }
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE waitlist_entries SET follow_up_target = $2, follow_up_target_set_by = $3, updated_at = now() \
+        txn.run(Stmt::new("UPDATE waitlist_entries SET follow_up_target = $2, follow_up_target_set_by = $3, updated_at = now() \
              WHERE id = $1",
             [entry_id.into(), target.into(), set_by.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &txn,
             "waitlist_entry",
@@ -133,13 +127,11 @@ impl FollowUpDelayService {
     pub async fn report(&self, today: NaiveDate, k: i64) -> Result<DelayReport> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
+            .all(Stmt::text(
                 "SELECT status, created_at, follow_up_target FROM waitlist_entries \
                  WHERE follow_up_target IS NOT NULL AND status IN ('waiting','booked')",
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         let tz = crate::inbound::messages::timezone();
         let mut counts = std::collections::BTreeMap::<(bool, &str), i64>::new();
         for booked in [false, true] {
@@ -148,9 +140,9 @@ impl FollowUpDelayService {
             }
         }
         for r in &rows {
-            let status: String = r.try_get("", "status").map_err(Error::Database)?;
-            let added: DateTime<Utc> = r.try_get("", "created_at").map_err(Error::Database)?;
-            let target: NaiveDate = r.try_get("", "follow_up_target").map_err(Error::Database)?;
+            let status: String = r.col("status")?;
+            let added: DateTime<Utc> = r.col("created_at")?;
+            let target: NaiveDate = r.col("follow_up_target")?;
             let pct = delay_percent(added.with_timezone(&tz).date_naive(), target, today);
             *counts.entry((status == "booked", band(pct))).or_insert(0) += 1;
         }

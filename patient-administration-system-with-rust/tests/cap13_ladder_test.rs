@@ -17,12 +17,13 @@ use patient_administration_system::communication::consent::{self, QuietHours};
 use patient_administration_system::communication::ladder::LadderService;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
 use patient_administration_system::models::communication::DeliveryChannel;
 use patient_administration_system::reply_links::{self, LinkAction};
 use patient_administration_system::upstream::{Person, StubPersonClient};
 use patient_administration_system::writeback::{ReplyAction, ReplyRequest};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -118,20 +119,13 @@ impl World {
         let rows = self
             .s
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT step, outcome FROM reminder_steps WHERE appointment_id = $1 ORDER BY planned_for",
+            .all(Stmt::new("SELECT step, outcome FROM reminder_steps WHERE appointment_id = $1 ORDER BY planned_for",
                 [self.appt.id.into()],
             ))
             .await
             .unwrap();
         rows.iter()
-            .map(|r| {
-                (
-                    r.try_get("", "step").unwrap(),
-                    r.try_get("", "outcome").unwrap(),
-                )
-            })
+            .map(|r| (r.col("step").unwrap(), r.col("outcome").unwrap()))
             .collect()
     }
     /// This appointment's open call tasks as (task id, reason). Asked of the table, not of `open_calls`, which
@@ -140,20 +134,13 @@ impl World {
         let rows = self
             .s
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT id, reason FROM staff_call_tasks WHERE appointment_id = $1 AND handled_at IS NULL",
+            .all(Stmt::new("SELECT id, reason FROM staff_call_tasks WHERE appointment_id = $1 AND handled_at IS NULL",
                 [self.appt.id.into()],
             ))
             .await
             .unwrap();
         rows.iter()
-            .map(|r| {
-                (
-                    r.try_get("", "id").unwrap(),
-                    r.try_get("", "reason").unwrap(),
-                )
-            })
+            .map(|r| (r.col("id").unwrap(), r.col("reason").unwrap()))
             .collect()
     }
     async fn status(&self) -> AppointmentStatus {
@@ -600,15 +587,14 @@ async fn bad_expired_and_double_tapped_links_are_refused() {
     let t = link(&w).await;
     let plain =
         w.s.db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT count(*) AS n FROM reply_tokens WHERE token_hash = $1",
                 [t.clone().into()],
             ))
             .await
             .unwrap()
             .unwrap();
-    assert_eq!(plain.try_get::<i64>("", "n").unwrap(), 0);
+    assert_eq!(plain.col::<i64>("n").unwrap(), 0);
     // Two taps at the same instant act once.
     let ctx = sys();
     let (a, b) = tokio::join!(
@@ -726,8 +712,7 @@ async fn every_reminder_records_why_it_was_sent_and_the_history_shows_it() {
     w.ladder().run_once(w.at(D7())).await.unwrap();
     let rows =
         w.s.db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT \"trigger\", trigger_ref FROM generated_letters WHERE appointment_id = $1",
                 [w.appt.id.into()],
             ))
@@ -735,12 +720,9 @@ async fn every_reminder_records_why_it_was_sent_and_the_history_shows_it() {
             .unwrap();
     assert!(!rows.is_empty());
     for r in &rows {
+        assert_eq!(r.col::<String>("trigger").unwrap(), "reminder_ladder:main");
         assert_eq!(
-            r.try_get::<String>("", "trigger").unwrap(),
-            "reminder_ladder:main"
-        );
-        assert_eq!(
-            r.try_get::<Option<String>>("", "trigger_ref").unwrap(),
+            r.col::<Option<String>>("trigger_ref").unwrap(),
             Some(w.appt.id.to_string())
         );
     }

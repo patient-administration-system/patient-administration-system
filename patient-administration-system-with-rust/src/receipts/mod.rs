@@ -12,8 +12,9 @@
 //!   offered anything (NFR-11).
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -95,20 +96,16 @@ impl ReceiptService {
         }
         let known = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT status FROM generated_letters WHERE id = $1",
                 [letter_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::not_found(format!("letter {letter_id}")))?;
         let status: String = known.col("status")?;
         let made = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO message_receipts (id, letter_id, event, carrier, receipt_id, detail, occurred_at) \
+            .run(Stmt::new("INSERT INTO message_receipts (id, letter_id, event, carrier, receipt_id, detail, occurred_at) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (carrier, receipt_id) DO NOTHING",
                 [
                     Uuid::new_v4().into(),
@@ -120,8 +117,7 @@ impl ReceiptService {
                     occurred_at.unwrap_or_else(Utc::now).into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if made.rows_affected() == 0 {
             return Ok(Receipt {
                 letter_id,
@@ -131,13 +127,10 @@ impl ReceiptService {
         }
         if event == "bounced" && status == "sent" {
             self.db
-                .execute_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "UPDATE generated_letters SET status = 'failed', updated_at = now() WHERE id = $1 AND status = 'sent'",
+                .run(Stmt::new("UPDATE generated_letters SET status = 'failed', updated_at = now() WHERE id = $1 AND status = 'sent'",
                     [letter_id.into()],
                 ))
-                .await
-                .map_err(Error::Database)?;
+.await?;
         }
         AuditLogRepository::log_with(
             &self.db,
@@ -166,9 +159,7 @@ impl ReceiptService {
     ) -> Result<Vec<ContactProblem>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT g.person_id, count(*)::bigint AS bounces, max(r.occurred_at) AS last_at, \
+            .all(Stmt::new("SELECT g.person_id, count(*)::bigint AS bounces, max(r.occurred_at) AS last_at, \
                         (array_agg(g.channel ORDER BY r.occurred_at DESC))[1] AS last_channel, \
                         (array_agg(r.detail ORDER BY r.occurred_at DESC))[1] AS last_reason \
                  FROM message_receipts r JOIN generated_letters g ON g.id = r.letter_id \
@@ -178,8 +169,7 @@ impl ReceiptService {
                  GROUP BY g.person_id ORDER BY max(r.occurred_at) DESC LIMIT $2",
                 [(since_days.clamp(1, 3650) as i32).into(), crate::paging::fetch(limit).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(ContactProblem {
@@ -209,9 +199,7 @@ impl ReceiptService {
             return Err(Error::validation("note must be at most 200 characters"));
         }
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO contact_problem_resolutions (id, person_id, resolved_by, note, resolved_at) VALUES ($1,$2,$3,$4,$5)",
+            .run(Stmt::new("INSERT INTO contact_problem_resolutions (id, person_id, resolved_by, note, resolved_at) VALUES ($1,$2,$3,$4,$5)",
                 [
                     Uuid::new_v4().into(),
                     person_id.into(),
@@ -221,8 +209,7 @@ impl ReceiptService {
                     Utc::now().into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &self.db,
             "patient",
@@ -239,20 +226,17 @@ impl ReceiptService {
     pub async fn for_letter(&self, letter_id: Uuid) -> Result<Vec<serde_json::Value>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT event, carrier, detail, occurred_at FROM message_receipts WHERE letter_id = $1 ORDER BY occurred_at",
+            .all(Stmt::new("SELECT event, carrier, detail, occurred_at FROM message_receipts WHERE letter_id = $1 ORDER BY occurred_at",
                 [letter_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(serde_json::json!({
                     "event": r.col::<String>("event")?,
                     "carrier": r.col::<String>("carrier")?,
-                    "detail": r.try_get::<Option<String>>("", "detail").map_err(Error::Database)?,
-                    "occurred_at": r.try_get::<DateTime<Utc>>("", "occurred_at").map_err(Error::Database)?,
+                    "detail": r.col::<Option<String>>("detail")?,
+                    "occurred_at": r.col::<DateTime<Utc>>("occurred_at")?,
                 }))
             })
             .collect()

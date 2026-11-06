@@ -1,9 +1,11 @@
 //! resources — Bed/Ward operations service
 
-use sea_orm::{DatabaseConnection, TransactionTrait};
+use crate::db::sql::Transact;
+use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::Result;
 use crate::db::repositories::{
     audit::{AuditLogRepository, UserContext},
     bed::BedRepository,
@@ -12,7 +14,6 @@ use crate::db::repositories::{
 use crate::error::LogErr;
 use crate::models::facility::{Bed, BedStatus};
 use crate::streaming::{DomainEvent, EventPublisher};
-use crate::{Error, Result};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct WardOccupancy {
@@ -62,7 +63,7 @@ impl ResourcesService {
         let ctx_clone = ctx.clone();
         let bed = self
             .db
-            .transaction::<_, Bed, Error>(|txn| {
+            .in_txn::<_, Bed>(|txn| {
                 Box::pin(async move {
                     let bed = BedRepository::update_status_if_current(
                         txn, bed_id, new_status, expected, true,
@@ -101,8 +102,7 @@ impl ResourcesService {
                     Ok(bed)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publisher
             .publish(DomainEvent::new(
                 "BedStatusChanged",

@@ -8,11 +8,11 @@
 //! and no API was found) and confirms the request here. Staff work from the list of appointments starting
 //! soon whose interpreter is not yet confirmed.
 
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{
-    ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, Statement,
-    TransactionTrait,
-};
+use sea_orm::{DatabaseConnection, DatabaseTransaction};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -34,25 +34,18 @@ crate::string_enum! {
 /// one place every booking passes through, inside its transaction.
 pub async fn on_booked(txn: &DatabaseTransaction, appt: &Appointment) -> Result<()> {
     let need = txn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT interpreter_kind, interpreter_language FROM patient_communication_profiles \
              WHERE person_id = $1 AND interpreter_kind IS NOT NULL",
             [appt.person_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+        .await?;
     let Some(need) = need else {
         return Ok(());
     };
-    let kind: String = need
-        .try_get("", "interpreter_kind")
-        .map_err(Error::Database)?;
-    let language: Option<String> = need
-        .try_get("", "interpreter_language")
-        .map_err(Error::Database)?;
-    txn.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    let kind: String = need.col("interpreter_kind")?;
+    let language: Option<String> = need.col("interpreter_language")?;
+    txn.run(Stmt::new(
         "INSERT INTO interpreter_requests (id, appointment_id, person_id, kind, language) \
          VALUES ($1, $2, $3, $4, $5) ON CONFLICT (appointment_id) DO NOTHING",
         [
@@ -63,21 +56,18 @@ pub async fn on_booked(txn: &DatabaseTransaction, appt: &Appointment) -> Result<
             language.into(),
         ],
     ))
-    .await
-    .map_err(Error::Database)?;
+    .await?;
     Ok(())
 }
 
 /// Cancel the interpreter request of a cancelled appointment, inside the cancellation's transaction.
 pub async fn on_cancelled(txn: &DatabaseTransaction, appointment_id: Uuid) -> Result<()> {
-    txn.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    txn.run(Stmt::new(
         "UPDATE interpreter_requests SET status = 'cancelled', updated_at = now() \
          WHERE appointment_id = $1 AND status <> 'cancelled'",
         [appointment_id.into()],
     ))
-    .await
-    .map_err(Error::Database)?;
+    .await?;
     Ok(())
 }
 
@@ -139,17 +129,14 @@ impl InterpreterService {
                 return Err(Error::validation("a language needs an interpreter kind"));
             }
         }
-        let txn = self.db.begin().await.map_err(Error::Database)?;
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO patient_communication_profiles (person_id, interpreter_kind, interpreter_language, updated_by) \
+        let txn = self.db.begin_txn().await?;
+        txn.run(Stmt::new("INSERT INTO patient_communication_profiles (person_id, interpreter_kind, interpreter_language, updated_by) \
              VALUES ($1, $2, $3, $4) \
              ON CONFLICT (person_id) DO UPDATE SET interpreter_kind = $2, interpreter_language = $3, \
                updated_by = $4, updated_at = now()",
             [person_id.into(), kind.into(), language.into(), by.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &txn,
             "communication_profile",
@@ -176,16 +163,13 @@ impl InterpreterService {
             confirmed_by,
             "confirmed_by: the person confirming the interpreter is required",
         )?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let done = txn
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE interpreter_requests SET status = 'confirmed', confirmed_by = $2, confirmed_at = $3, \
+            .run(Stmt::new("UPDATE interpreter_requests SET status = 'confirmed', confirmed_by = $2, confirmed_at = $3, \
                    booking_ref = $4, updated_at = now() WHERE id = $1 AND status = 'requested'",
                 [request_id.into(), by.into(), at.into(), booking_ref.map(str::trim).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if done.rows_affected() != 1 {
             return Err(Error::not_found(format!(
                 "open interpreter request {request_id}"
@@ -214,8 +198,7 @@ impl InterpreterService {
     ) -> Result<Vec<UnconfirmedRequest>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT r.id, r.appointment_id, r.person_id, r.kind, r.language, a.start_datetime \
                  FROM interpreter_requests r JOIN appointments a ON a.id = r.appointment_id \
                  WHERE r.status = 'requested' AND a.status = 'booked' \
@@ -227,20 +210,16 @@ impl InterpreterService {
                     crate::paging::fetch(fetch).into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         rows.iter()
             .map(|r| {
                 Ok(UnconfirmedRequest {
-                    request_id: r.try_get("", "id").map_err(Error::Database)?,
-                    appointment_id: r.try_get("", "appointment_id").map_err(Error::Database)?,
-                    person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-                    kind: r
-                        .try_get::<String>("", "kind")
-                        .map_err(Error::Database)?
-                        .parse()?,
-                    language: r.try_get("", "language").map_err(Error::Database)?,
-                    starts_at: r.try_get("", "start_datetime").map_err(Error::Database)?,
+                    request_id: r.col("id")?,
+                    appointment_id: r.col("appointment_id")?,
+                    person_id: r.col("person_id")?,
+                    kind: r.col::<String>("kind")?.parse()?,
+                    language: r.col("language")?,
+                    starts_at: r.col("start_datetime")?,
                 })
             })
             .collect()

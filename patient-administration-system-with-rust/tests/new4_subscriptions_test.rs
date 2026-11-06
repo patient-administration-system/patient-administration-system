@@ -3,6 +3,8 @@
 
 mod common;
 
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use std::sync::{Arc, Mutex};
 
 use axum::{Router, body::Bytes, extract::State, http::HeaderMap, http::StatusCode, routing::post};
@@ -11,7 +13,6 @@ use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::outbox::OutboxRepository;
 use patient_administration_system::streaming::WebhookEventPublisher;
 use patient_administration_system::subscriptions::SubscriptionService;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 /// What a receiver saw: the body and the signature of each request.
@@ -59,11 +60,9 @@ async fn receiver(fail_first: u32) -> (String, Seen) {
 /// Switch off every earlier subscription (earlier runs on a shared database left some with dead endpoints), so
 /// a pass only has this test's own to work on.
 async fn clean(db: &sea_orm::DatabaseConnection) {
-    db.execute_unprepared(
-        "UPDATE subscriptions SET status = 'off', ended_at = now() WHERE status = 'active'",
-    )
-    .await
-    .unwrap();
+    db.batch("UPDATE subscriptions SET status = 'off', ended_at = now() WHERE status = 'active'")
+        .await
+        .unwrap();
 }
 
 async fn event(db: &sea_orm::DatabaseConnection, kind: &str, appointment: Uuid) {
@@ -78,8 +77,7 @@ async fn event(db: &sea_orm::DatabaseConnection, kind: &str, appointment: Uuid) 
 
 async fn status_of(db: &sea_orm::DatabaseConnection, sub: Uuid) -> (i64, i64, i64) {
     let r = db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT count(*) FILTER (WHERE status = 'pending') AS p, \
                     count(*) FILTER (WHERE status = 'delivered') AS d, \
                     count(*) FILTER (WHERE status = 'failed') AS f \
@@ -90,9 +88,9 @@ async fn status_of(db: &sea_orm::DatabaseConnection, sub: Uuid) -> (i64, i64, i6
         .unwrap()
         .unwrap();
     (
-        r.try_get("", "p").unwrap(),
-        r.try_get("", "d").unwrap(),
-        r.try_get("", "f").unwrap(),
+        r.col("p").unwrap(),
+        r.col("d").unwrap(),
+        r.col("f").unwrap(),
     )
 }
 
@@ -217,15 +215,14 @@ async fn a_failure_is_retried_later_survives_a_restart_and_is_given_up_on() {
     assert_eq!(status_of(&state.db, sub.id).await, (0, 1, 0));
     let attempts: i32 = state
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT attempts FROM subscription_deliveries WHERE subscription_id = $1",
             [sub.id.into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get("", "attempts")
+        .col("attempts")
         .unwrap();
     assert_eq!(attempts, 3);
 

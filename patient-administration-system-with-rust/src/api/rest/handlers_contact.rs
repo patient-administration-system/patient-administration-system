@@ -1,5 +1,7 @@
 //! REST handlers for contact reliability and communication needs (CAP-4).
 
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -198,12 +200,9 @@ fn check_channel(c: &str) -> Result<(), Error> {
     )
 )]
 pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -> HandlerResult {
-    use sea_orm::{ConnectionTrait, DbBackend, Statement};
     let rows = state
         .db
-        .query_all_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT channel, opted_out_at, source FROM message_optouts WHERE subject = $1 AND resumed_at IS NULL ORDER BY channel",
+        .all(Stmt::new("SELECT channel, opted_out_at, source FROM message_optouts WHERE subject = $1 AND resumed_at IS NULL ORDER BY channel",
             [crate::communication::consent::person_subject(id).into()],
         ))
         .await;
@@ -212,16 +211,14 @@ pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -
             let list: Vec<OptOut> = rows
                 .iter()
                 .map(|r| OptOut {
-                    channel: r.try_get::<String>("", "channel").unwrap_or_default(),
-                    opted_out_at: r
-                        .try_get::<chrono::DateTime<chrono::Utc>>("", "opted_out_at")
-                        .ok(),
-                    source: r.try_get::<String>("", "source").unwrap_or_default(),
+                    channel: r.col::<String>("channel").unwrap_or_default(),
+                    opted_out_at: r.col::<chrono::DateTime<chrono::Utc>>("opted_out_at").ok(),
+                    source: r.col::<String>("source").unwrap_or_default(),
                 })
                 .collect();
             ok_json(list)
         }
-        Err(e) => error_to_response(Error::Database(e)),
+        Err(e) => error_to_response(e),
     }
 }
 

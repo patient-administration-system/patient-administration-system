@@ -1,5 +1,6 @@
 //! waitlist repository
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -10,10 +11,7 @@ use crate::{Error, Result};
 pub struct WaitlistRepository;
 
 impl WaitlistRepository {
-    pub async fn create_entry<C: ConnectionTrait>(
-        conn: &C,
-        e: &WaitlistEntry,
-    ) -> Result<WaitlistEntry> {
+    pub async fn create_entry<C: Conn>(conn: &C, e: &WaitlistEntry) -> Result<WaitlistEntry> {
         let am = to_active_model(e);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(e.clone())
@@ -21,7 +19,7 @@ impl WaitlistRepository {
 
     /// Lock the entry's row for the rest of the transaction and check it is the version the caller read
     /// (OFH-1); `None` (the caller sent `*`) takes the lock and skips the comparison.
-    pub async fn lock_entry_if_current<C: ConnectionTrait>(
+    pub async fn lock_entry_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
         expected: Option<chrono::DateTime<chrono::Utc>>,
@@ -42,10 +40,7 @@ impl WaitlistRepository {
         Ok(entry)
     }
 
-    pub async fn find_entry_by_id<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-    ) -> Result<Option<WaitlistEntry>> {
+    pub async fn find_entry_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<WaitlistEntry>> {
         let m = waitlist_entry::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -53,20 +48,14 @@ impl WaitlistRepository {
         m.map(from_model).transpose()
     }
 
-    pub async fn update_entry<C: ConnectionTrait>(
-        conn: &C,
-        e: &WaitlistEntry,
-    ) -> Result<WaitlistEntry> {
+    pub async fn update_entry<C: Conn>(conn: &C, e: &WaitlistEntry) -> Result<WaitlistEntry> {
         let mut am = to_active_model(e);
         am.created_at = NotSet;
         am.update(conn).await.map_err(Error::Database)?;
         Ok(e.clone())
     }
 
-    pub async fn list_by_service<C: ConnectionTrait>(
-        conn: &C,
-        service: &str,
-    ) -> Result<Vec<WaitlistEntry>> {
+    pub async fn list_by_service<C: Conn>(conn: &C, service: &str) -> Result<Vec<WaitlistEntry>> {
         let rows = waitlist_entry::Entity::find()
             .filter(waitlist_entry::Column::TargetService.eq(service))
             // Longest on the list first. Without an order Postgres returns rows in the order they happen to lie
@@ -79,7 +68,7 @@ impl WaitlistRepository {
         rows.into_iter().map(from_model).collect()
     }
 
-    pub async fn list_by_priority<C: ConnectionTrait>(
+    pub async fn list_by_priority<C: Conn>(
         conn: &C,
         priority: Priority,
     ) -> Result<Vec<WaitlistEntry>> {
@@ -96,7 +85,7 @@ impl WaitlistRepository {
     /// to `RTTRepository::is_pathway_breaching` once available; here we
     /// just return the empty list as a v0.1 placeholder. Real
     /// implementation joins waitlist_entries → rtt_pathways → events.
-    pub async fn list_breaches<C: ConnectionTrait>(
+    pub async fn list_breaches<C: Conn>(
         _conn: &C,
         _now: chrono::DateTime<chrono::Utc>,
         _threshold_weeks: u32,

@@ -26,8 +26,9 @@
 //! and the language variant of the patient's preference.
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -268,30 +269,24 @@ impl LadderService {
     pub async fn has_acted(&self, appointment_id: Uuid) -> Result<bool> {
         let r = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT (a.confirmed_at IS NOT NULL \
+            .one(Stmt::new("SELECT (a.confirmed_at IS NOT NULL \
                     OR EXISTS (SELECT 1 FROM inbound_texts t WHERE t.appointment_id = a.id AND t.outcome IN ('applied','needs_staff')) \
                     OR EXISTS (SELECT 1 FROM reply_tokens r WHERE r.appointment_id = a.id AND r.consumed_at IS NOT NULL)) AS acted \
                  FROM appointments a WHERE a.id = $1",
                 [appointment_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
-        Ok(r.and_then(|r| r.try_get::<bool>("", "acted").ok())
-            .unwrap_or(false))
+.await?;
+        Ok(r.and_then(|r| r.col::<bool>("acted").ok()).unwrap_or(false))
     }
 
     async fn logged(&self, appointment_id: Uuid) -> Result<Vec<(String, String, Option<String>)>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT step, outcome, channel FROM reminder_steps WHERE appointment_id = $1",
                 [appointment_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         rows.iter()
             .map(|r| Ok((r.col("step")?, r.col("outcome")?, r.col("channel")?)))
             .collect()
@@ -312,9 +307,7 @@ impl LadderService {
         letter_id: Option<Uuid>,
     ) -> Result<()> {
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO reminder_steps (id, appointment_id, step, planned_for, channel, locale, outcome, letter_id) \
+            .run(Stmt::new("INSERT INTO reminder_steps (id, appointment_id, step, planned_for, channel, locale, outcome, letter_id) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (appointment_id, step) DO NOTHING",
                 [
                     Uuid::new_v4().into(),
@@ -327,8 +320,7 @@ impl LadderService {
                     letter_id.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         Ok(())
     }
 
@@ -489,14 +481,11 @@ impl LadderService {
                 }
                 Step::Call => {
                     self.db
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) VALUES ($1,$2,$3,'silent',$4) \
+                        .run(Stmt::new("INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) VALUES ($1,$2,$3,'silent',$4) \
                              ON CONFLICT (appointment_id, reason) DO NOTHING",
                             [Uuid::new_v4().into(), a.id.into(), a.person_id.into(), planned.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     self.log(a.id, step, planned, None, None, "call_task", None)
                         .await?;
                     report.call_tasks += 1;
@@ -565,14 +554,11 @@ impl LadderService {
     pub async fn open_calls(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT t.id, t.appointment_id, t.person_id, t.reason, t.due_at, a.start_datetime FROM staff_call_tasks t \
+            .all(Stmt::new("SELECT t.id, t.appointment_id, t.person_id, t.reason, t.due_at, a.start_datetime FROM staff_call_tasks t \
                  JOIN appointments a ON a.id = t.appointment_id WHERE t.handled_at IS NULL ORDER BY a.start_datetime, t.due_at LIMIT $1",
                 [crate::paging::fetch(limit).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(serde_json::json!({
@@ -580,8 +566,8 @@ impl LadderService {
                     "appointment_id": r.col::<Uuid>("appointment_id")?,
                     "person_id": r.col::<Uuid>("person_id")?,
                     "reason": r.col::<String>("reason")?,
-                    "due_at": r.try_get::<DateTime<Utc>>("", "due_at").map_err(Error::Database)?,
-                    "appointment_start": r.try_get::<DateTime<Utc>>("", "start_datetime").map_err(Error::Database)?,
+                    "due_at": r.col::<DateTime<Utc>>("due_at")?,
+                    "appointment_start": r.col::<DateTime<Utc>>("start_datetime")?,
                 }))
             })
             .collect()
@@ -596,13 +582,10 @@ impl LadderService {
         }
         let r = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE staff_call_tasks SET handled_at = now(), handled_by = $3, call_outcome = $2 WHERE id = $1 AND handled_at IS NULL",
+            .run(Stmt::new("UPDATE staff_call_tasks SET handled_at = now(), handled_by = $3, call_outcome = $2 WHERE id = $1 AND handled_at IS NULL",
                 [id.into(), outcome.into(), by.map(String::from).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         Ok(r.rows_affected() > 0)
     }
 }

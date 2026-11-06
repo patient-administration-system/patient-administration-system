@@ -1,6 +1,8 @@
 //! Part of [`super`]: fairness.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 
 impl NoShowService {
     /// Backtest the model on appointments that have already had an outcome, as the model would have scored
@@ -12,9 +14,7 @@ impl NoShowService {
         let tz = crate::inbound::messages::timezone();
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT a.status, a.start_datetime, a.created_at, d.age_band, \
+            .all(Stmt::new("SELECT a.status, a.start_datetime, a.created_at, d.age_band, \
                    COALESCE(d.deprivation_quintile::text, 'unknown') AS q, COALESCE(cp.preferred_language, 'unknown') AS lang, \
                    (SELECT count(*) FROM appointments p WHERE p.person_id = a.person_id AND p.id <> a.id AND p.deleted_at IS NULL \
                       AND p.start_datetime < a.start_datetime AND p.status = 'no_show')::bigint AS missed, \
@@ -27,8 +27,7 @@ impl NoShowService {
                  ORDER BY a.start_datetime DESC LIMIT 50000",
                 [(days.clamp(1, 1825) as i32).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let w = Weights::from_env();
         #[derive(Default)]
         struct Acc {

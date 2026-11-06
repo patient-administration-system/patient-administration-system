@@ -1,6 +1,8 @@
 //! Part of [`super`]: review.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 
 impl NoShowService {
     pub(super) async fn latest_review(
@@ -10,17 +12,14 @@ impl NoShowService {
     ) -> Result<Option<String>> {
         Ok(self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT outcome, reviewed_at > now() - make_interval(days => $3::int) AS fresh FROM noshow_reviews \
+            .one(Stmt::new("SELECT outcome, reviewed_at > now() - make_interval(days => $3::int) AS fresh FROM noshow_reviews \
                  WHERE kind = $1 AND model_version = $2 ORDER BY reviewed_at DESC LIMIT 1",
                 [kind.into(), MODEL_VERSION.into(), (valid_days as i32).into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .and_then(|r| {
-                let outcome: String = r.try_get("", "outcome").ok()?;
-                let fresh: bool = r.try_get("", "fresh").ok()?;
+                let outcome: String = r.col("outcome").ok()?;
+                let fresh: bool = r.col("fresh").ok()?;
                 (outcome == "approved" && fresh).then_some(outcome)
             }))
     }
@@ -124,13 +123,10 @@ impl NoShowService {
         }
         let id = Uuid::new_v4();
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO noshow_reviews (id, kind, reviewer, outcome, notes, model_version) VALUES ($1,$2,$3,$4,$5,$6)",
+            .run(Stmt::new("INSERT INTO noshow_reviews (id, kind, reviewer, outcome, notes, model_version) VALUES ($1,$2,$3,$4,$5,$6)",
                 [id.into(), kind.into(), reviewer.into(), outcome.into(), notes.into(), MODEL_VERSION.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log_with(
             &self.db,
             "noshow_model",

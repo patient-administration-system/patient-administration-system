@@ -16,9 +16,8 @@
 //! per measure and scope, and a `ToleranceAlertRaised` event); it closes when the measure is no longer red. Nothing here acts on a patient: it is a
 //! view for managers, and no score or rank of a person takes part (NFR-11).
 
-use crate::db::row::RowExt;
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 

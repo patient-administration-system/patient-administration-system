@@ -6,6 +6,8 @@
 
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::connect;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::streaming::InMemoryEventPublisher;
 use std::sync::Arc;
 
@@ -77,17 +79,15 @@ pub async fn audit_count(
     entity_id: uuid::Uuid,
     action: &str,
 ) -> i64 {
-    use sea_orm::{ConnectionTrait, DbBackend, Statement};
     let row = db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT count(*) AS n FROM audit_log WHERE entity_id = $1 AND action = $2",
             [entity_id.into(), action.into()],
         ))
         .await
         .unwrap()
         .unwrap();
-    row.try_get("", "n").unwrap()
+    row.col("n").unwrap()
 }
 
 /// Like [`new_schedule`], for a named service, so a test's candidates are its own.

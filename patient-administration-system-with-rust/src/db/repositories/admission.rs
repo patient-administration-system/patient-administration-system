@@ -4,6 +4,7 @@
 //! tables. The orchestration of ADT (lock bed, write rows, flip statuses)
 //! lives in `src/adt/`; this module just persists the records.
 
+use crate::db::sql::{Conn, Stmt};
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -14,13 +15,13 @@ use crate::{Error, Result};
 pub struct AdmissionRepository;
 
 impl AdmissionRepository {
-    pub async fn create<C: ConnectionTrait>(conn: &C, a: &Admission) -> Result<Admission> {
+    pub async fn create<C: Conn>(conn: &C, a: &Admission) -> Result<Admission> {
         let am = admission_to_active_model(a);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(a.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Admission>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Admission>> {
         let m = admission::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -33,7 +34,7 @@ impl AdmissionRepository {
     /// one of them) starts here, so the admission's `updated_at` is a version that moves whenever the admission
     /// does, which no other column of it would. `expected` `None` (the caller sent `*`) skips the comparison.
     /// A movement that then fails rolls the bump back with the rest of the transaction.
-    pub async fn lock_and_bump_if_current<C: ConnectionTrait>(
+    pub async fn lock_and_bump_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
         expected: Option<chrono::DateTime<chrono::Utc>>,
@@ -51,13 +52,11 @@ impl AdmissionRepository {
                 "the admission has changed since it was read; read it again",
             ));
         }
-        conn.execute_raw(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
+        conn.run(Stmt::new(
             "UPDATE admissions SET updated_at = clock_timestamp() WHERE id = $1",
             [id.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+        .await?;
         Self::find_by_id(conn, id)
             .await?
             .ok_or_else(|| Error::not_found(format!("admission {id}")))
@@ -68,7 +67,7 @@ impl AdmissionRepository {
     /// "Active" means `released_at IS NULL`. There can be at most one active
     /// row per encounter (enforced by application logic — the schema's
     /// partial unique index is on `bed_id`, not `encounter_id`).
-    pub async fn find_active_by_encounter<C: ConnectionTrait>(
+    pub async fn find_active_by_encounter<C: Conn>(
         conn: &C,
         encounter_id: Uuid,
     ) -> Result<Option<BedAssignment>> {
@@ -81,16 +80,13 @@ impl AdmissionRepository {
         m.map(bed_assignment_from_model).transpose()
     }
 
-    pub async fn create_transfer<C: ConnectionTrait>(conn: &C, t: &Transfer) -> Result<Transfer> {
+    pub async fn create_transfer<C: Conn>(conn: &C, t: &Transfer) -> Result<Transfer> {
         let am = transfer_to_active_model(t);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(t.clone())
     }
 
-    pub async fn create_discharge<C: ConnectionTrait>(
-        conn: &C,
-        d: &Discharge,
-    ) -> Result<Discharge> {
+    pub async fn create_discharge<C: Conn>(conn: &C, d: &Discharge) -> Result<Discharge> {
         let am = discharge_to_active_model(d);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(d.clone())
@@ -100,7 +96,7 @@ impl AdmissionRepository {
     /// bed assignment has `released_at IS NULL`. Returns at most one row;
     /// the application invariant is that a patient has at most one open
     /// inpatient admission at any time.
-    pub async fn find_open_for_patient<C: ConnectionTrait>(
+    pub async fn find_open_for_patient<C: Conn>(
         conn: &C,
         person_id: Uuid,
     ) -> Result<Option<Admission>> {
@@ -138,10 +134,7 @@ impl AdmissionRepository {
     /// All admissions for a given patient, joined via `encounters`. Returns
     /// the admission rows only — callers can hydrate the encounter
     /// separately if needed.
-    pub async fn list_by_patient<C: ConnectionTrait>(
-        conn: &C,
-        person_id: Uuid,
-    ) -> Result<Vec<Admission>> {
+    pub async fn list_by_patient<C: Conn>(conn: &C, person_id: Uuid) -> Result<Vec<Admission>> {
         // Two queries: fetch the patient's encounter ids, then admissions.
         let encounter_ids: Vec<Uuid> = encounter::Entity::find()
             .filter(encounter::Column::PersonId.eq(person_id))
@@ -164,7 +157,7 @@ impl AdmissionRepository {
 
     /// Insert a new bed_assignment row. Separate from `create` because
     /// admissions and bed_assignments are independent in v0.1.
-    pub async fn create_bed_assignment<C: ConnectionTrait>(
+    pub async fn create_bed_assignment<C: Conn>(
         conn: &C,
         ba: &BedAssignment,
     ) -> Result<BedAssignment> {
@@ -174,10 +167,7 @@ impl AdmissionRepository {
     }
 
     /// Mark the given bed_assignment as released (sets `released_at`).
-    pub async fn release_bed_assignment<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-    ) -> Result<BedAssignment> {
+    pub async fn release_bed_assignment<C: Conn>(conn: &C, id: Uuid) -> Result<BedAssignment> {
         let m = bed_assignment::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -197,7 +187,7 @@ impl AdmissionRepository {
     /// `discharged_at`. Returns `Ok(None)` when the patient has never been
     /// discharged. Used by the HL7 v2 ADT^A13 (cancel discharge) handler
     /// to identify which discharge to undo.
-    pub async fn find_most_recently_discharged_for_patient<C: ConnectionTrait>(
+    pub async fn find_most_recently_discharged_for_patient<C: Conn>(
         conn: &C,
         person_id: Uuid,
     ) -> Result<Option<(Admission, Discharge)>> {
@@ -243,7 +233,7 @@ impl AdmissionRepository {
     /// Find the most-recent bed_assignment (active or released) for an
     /// encounter. Used by cancel-discharge to identify which bed to
     /// reinstate. Returns `Ok(None)` when the encounter never had a bed.
-    pub async fn find_latest_bed_assignment_for_encounter<C: ConnectionTrait>(
+    pub async fn find_latest_bed_assignment_for_encounter<C: Conn>(
         conn: &C,
         encounter_id: Uuid,
     ) -> Result<Option<BedAssignment>> {
@@ -259,7 +249,7 @@ impl AdmissionRepository {
     /// Find the most-recent transfer row for an admission, if any.
     /// Used by ADT^A12 (cancel transfer) to identify which transfer
     /// to undo (the latest one).
-    pub async fn find_latest_transfer_for_admission<C: ConnectionTrait>(
+    pub async fn find_latest_transfer_for_admission<C: Conn>(
         conn: &C,
         admission_id: Uuid,
     ) -> Result<Option<Transfer>> {
@@ -277,7 +267,7 @@ impl AdmissionRepository {
     /// transfer) — like `discharges`, the `transfers` table is
     /// operational, not append-only, so a wrong transfer is
     /// physically removed when cancelled.
-    pub async fn delete_transfer<C: ConnectionTrait>(conn: &C, transfer_id: Uuid) -> Result<u64> {
+    pub async fn delete_transfer<C: Conn>(conn: &C, transfer_id: Uuid) -> Result<u64> {
         let res = transfer::Entity::delete_by_id(transfer_id)
             .exec(conn)
             .await
@@ -290,7 +280,7 @@ impl AdmissionRepository {
     /// (cancel discharge) — the `discharges` table is operational, not
     /// append-only, so a row that turns out to have been wrong is
     /// physically removed.
-    pub async fn delete_discharge<C: ConnectionTrait>(conn: &C, admission_id: Uuid) -> Result<u64> {
+    pub async fn delete_discharge<C: Conn>(conn: &C, admission_id: Uuid) -> Result<u64> {
         let res = discharge::Entity::delete_many()
             .filter(discharge::Column::AdmissionId.eq(admission_id))
             .exec(conn)

@@ -15,6 +15,8 @@ use patient_administration_system::api::rest::router;
 use patient_administration_system::api::{ApiResponse, Nothing};
 use patient_administration_system::contact::Profile;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, CancelledBy};
 use patient_administration_system::models::rtt::{RTTClockEvent, RTTPathway};
 use patient_administration_system::models::waitlist::WaitlistEntry;
@@ -1238,7 +1240,6 @@ async fn the_session_template_routes_send_the_types_they_declare() {
         RingFenced, TemplateCreated, TemplateVersion,
     };
     use patient_administration_system::clinic_templates::{Generated, TemplateView};
-    use sea_orm::{ConnectionTrait, DbBackend, Statement};
 
     let state = common::build_state(&common::database_url().unwrap()).await;
     let db = state.db.clone();
@@ -1301,15 +1302,14 @@ async fn the_session_template_routes_send_the_types_they_declare() {
     assert_eq!(generated.created, 2);
 
     let slot: Uuid = db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT id FROM slots WHERE template_id = $1 LIMIT 1",
             [created.id.into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get("", "id")
+        .col("id")
         .unwrap();
     let held: RingFenced = call(
         &app,
@@ -1409,15 +1409,12 @@ async fn the_billing_routes_send_the_types_they_declare() {
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn the_triage_routes_send_the_types_they_declare() {
     use patient_administration_system::api::rest::handlers_triage::FirstContact;
-    use sea_orm::{ConnectionTrait, DbBackend, Statement};
 
     let state = common::build_state(&common::database_url().unwrap()).await;
     let db = state.db.clone();
     let app = router(state);
     let enc = Uuid::new_v4();
-    db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
+    db.run(Stmt::new("INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
          VALUES ($1, $2, 'emergency', 'arrived', now() - interval '5 minutes', now(), now())",
         [enc.into(), Uuid::new_v4().into()],
     ))

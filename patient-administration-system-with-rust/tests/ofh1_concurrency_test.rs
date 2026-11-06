@@ -12,9 +12,10 @@ use axum::{
 use chrono::{Duration, Utc};
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
 use patient_administration_system::models::waitlist::Priority;
-use sea_orm::ConnectionTrait;
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -110,16 +111,14 @@ async fn the_second_writer_of_one_appointment_gets_412_and_a_missing_version_get
     assert_eq!(v["code"], "PRECONDITION_FAILED");
     let cancels = s
         .db
-        .query_one_raw(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
-            "SELECT count(*) AS n FROM audit_log WHERE entity_type = 'appointment' AND entity_id = $1 AND action = 'cancel'",
+        .one(Stmt::new("SELECT count(*) AS n FROM audit_log WHERE entity_type = 'appointment' AND entity_id = $1 AND action = 'cancel'",
             [a.id.into()],
         ))
         .await
         .unwrap()
         .unwrap();
     assert_eq!(
-        cancels.try_get::<i64>("", "n").unwrap(),
+        cancels.col::<i64>("n").unwrap(),
         1,
         "the refused write left no audit row"
     );

@@ -1,6 +1,7 @@
 //! Part of [`super`]: leave.
 
 use super::*;
+use crate::db::sql::Transact;
 
 /// What a leave-of-absence movement does: the encounter status it moves to, and the names of its audit row and
 /// outbox event.
@@ -98,7 +99,7 @@ impl AdtService {
         let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
-            .transaction::<_, Encounter, Error>(|txn| {
+            .in_txn::<_, Encounter>(|txn| {
                 let source_for_txn = source_owned.clone();
                 Box::pin(async move {
                     let adm =
@@ -131,8 +132,7 @@ impl AdtService {
                     Ok(enc)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         let mut in_mem = serde_json::json!({
             "admission_id": admission_id,
             "encounter_id": res.id,

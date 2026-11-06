@@ -11,9 +11,10 @@ use axum::{
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::letter::LetterRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::communication::{DeliveryChannel, LetterTemplate};
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use std::sync::Arc;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -49,9 +50,7 @@ async fn world(with_address: &[bool]) -> W {
         .await
         .with_person_client(stub);
     // Close out print letters earlier runs left pending.
-    s.db.execute_raw(Statement::from_string(
-        DbBackend::Postgres,
-        "UPDATE generated_letters SET status = 'failed' WHERE channel = 'print' AND status = 'pending'".to_string(),
+    s.db.run(Stmt::text("UPDATE generated_letters SET status = 'failed' WHERE channel = 'print' AND status = 'pending'".to_string(),
     ))
     .await
     .unwrap();
@@ -91,15 +90,14 @@ impl W {
     async fn status(&self, letter: Uuid) -> String {
         self.s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT status FROM generated_letters WHERE id = $1",
                 [letter.into()],
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get("", "status")
+            .col("status")
             .unwrap()
     }
 }
@@ -219,15 +217,14 @@ async fn the_address_is_not_kept_and_the_csv_defuses_formulas() {
     );
     let kept =
         w.s.db
-            .query_one_raw(Statement::from_string(
-                DbBackend::Postgres,
+            .one(Stmt::text(
                 "SELECT count(*) AS n FROM audit_log WHERE new_value::text LIKE '%Mill Lane%'"
                     .to_string(),
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get::<i64>("", "n")
+            .col::<i64>("n")
             .unwrap();
     assert_eq!(
         kept, 0,

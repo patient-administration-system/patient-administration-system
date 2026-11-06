@@ -9,6 +9,8 @@
 //! are the same. Holds are checked against the database clock when a booking is made, and against the
 //! caller's `now` when one is made or listed, so a test passes real times.
 
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Row, Stmt, Transact};
 use chrono::Duration;
 
 use super::*;
@@ -51,7 +53,7 @@ const PROPOSAL_SQL: &str = "SELECT p.id, p.slot_id, p.person_id, p.status, p.exp
         s.start_datetime, s.end_datetime, sc.owner_kind, sc.owner_id, p.requested_start, p.requested_end \
      FROM slot_proposals p JOIN slots s ON s.id = p.slot_id JOIN schedules sc ON sc.id = s.schedule_id";
 
-fn proposal_of(r: &sea_orm::QueryResult) -> Result<Proposal> {
+fn proposal_of(r: &Row) -> Result<Proposal> {
     Ok(Proposal {
         id: r.col("id")?,
         slot_id: r.col("slot_id")?,
@@ -94,11 +96,9 @@ impl SchedulingService {
             return Err(Error::validation("the period can be at most 90 days"));
         }
         let from = q.start.max(now);
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let rows = txn
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT s.id AS slot_id FROM slots s JOIN schedules sc ON sc.id = s.schedule_id \
+            .all(Stmt::new("SELECT s.id AS slot_id FROM slots s JOIN schedules sc ON sc.id = s.schedule_id \
                  WHERE s.status = 'free' AND sc.active AND s.capacity = 1 AND NOT s.ring_fenced \
                    AND s.start_datetime >= $1 AND s.start_datetime < $2 \
                    AND ($3::uuid IS NULL OR (sc.owner_kind = 'practitioner' AND sc.owner_id = $3)) \
@@ -119,15 +119,12 @@ impl SchedulingService {
                     q.count.clamp(1, 50).into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let mut ids = Vec::with_capacity(rows.len());
         for r in &rows {
             let slot_id: Uuid = r.col("slot_id")?;
             let id = Uuid::new_v4();
-            txn.execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO slot_proposals (id, slot_id, person_id, status, expires_at, requested_start, requested_end) \
+            txn.run(Stmt::new("INSERT INTO slot_proposals (id, slot_id, person_id, status, expires_at, requested_start, requested_end) \
                  VALUES ($1, $2, $3, 'proposed', $4, $5, $6)",
                 [
                     id.into(),
@@ -138,8 +135,7 @@ impl SchedulingService {
                     q.end.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
             ids.push(id);
         }
         if !ids.is_empty() {
@@ -166,13 +162,11 @@ impl SchedulingService {
     pub async fn proposal(&self, id: Uuid) -> Result<Proposal> {
         let row = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 format!("{PROPOSAL_SQL} WHERE p.id = $1"),
                 [id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(gone)?;
         proposal_of(&row)
     }
@@ -189,17 +183,15 @@ impl SchedulingService {
     ) -> Result<Proposal> {
         let ctx = ctx.clone();
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
                     let p = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
+                        .one(Stmt::new(
                             "SELECT slot_id, person_id, status, expires_at FROM slot_proposals \
                              WHERE id = $1 FOR UPDATE",
                             [id.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+                        .await?
                         .ok_or_else(gone)?;
                     let slot_id: Uuid = p.col("slot_id")?;
                     let person_id: Uuid = p.col("person_id")?;
@@ -218,14 +210,12 @@ impl SchedulingService {
                         return Err(gone());
                     }
                     let other = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
+                        .one(Stmt::new(
                             "SELECT 1 AS ok FROM slot_proposals WHERE slot_id = $1 AND id <> $2 \
                                AND status = 'held' AND expires_at > $3 LIMIT 1",
                             [slot_id.into(), id.into(), now.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+                        .await?;
                     if other.is_some() {
                         return Err(gone());
                     }
@@ -243,14 +233,12 @@ impl SchedulingService {
                         ));
                     }
                     let until = now + ttl;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
+                    txn.run(Stmt::new(
                         "UPDATE slot_proposals SET status = 'held', held_at = $2, expires_at = $3 \
                          WHERE id = $1",
                         [id.into(), now.into(), until.into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+                    .await?;
                     AuditLogRepository::log(
                         txn,
                         "slot_proposal",
@@ -266,8 +254,7 @@ impl SchedulingService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.proposal(id).await
     }
 
@@ -282,17 +269,14 @@ impl SchedulingService {
         let ctx = ctx.clone();
         let appt = self
             .db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
                     let p = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "SELECT slot_id, person_id, status, expires_at FROM slot_proposals \
+                        .one(Stmt::new("SELECT slot_id, person_id, status, expires_at FROM slot_proposals \
                              WHERE id = $1 FOR UPDATE",
                             [id.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+.await?
                         .ok_or_else(gone)?;
                     let slot_id: Uuid = p.col("slot_id")?;
                     let person_id: Uuid = p.col("person_id")?;
@@ -304,18 +288,14 @@ impl SchedulingService {
                         _ => {}
                     }
                     let appt = Self::book_inner(txn, slot_id, person_id, EntryLink::None, &ctx).await?;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE slot_proposals SET status = 'booked', appointment_id = $2 WHERE id = $1",
+                    txn.run(Stmt::new("UPDATE slot_proposals SET status = 'booked', appointment_id = $2 WHERE id = $1",
                         [id.into(), appt.id.into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     Ok(appt)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         self.publish_booked(&appt).await;
         Ok((self.proposal(id).await?, appt))
     }

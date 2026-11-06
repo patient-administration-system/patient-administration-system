@@ -12,7 +12,8 @@
 //! said. Both only read.
 
 use crate::db::row::RowExt;
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use crate::db::sql::{Conn, Row, Stmt};
+use sea_orm::DatabaseConnection;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -40,21 +41,17 @@ pub struct HistoryRow {
     pub context: Option<Value>,
 }
 
-fn rows_to_history(rows: &[sea_orm::QueryResult]) -> Result<Vec<HistoryRow>> {
+fn rows_to_history(rows: &[Row]) -> Result<Vec<HistoryRow>> {
     rows.iter()
         .map(|r| {
-            let s = |c: &str| -> Result<Option<String>> {
-                r.try_get::<Option<String>>("", c).map_err(Error::Database)
-            };
+            let s = |c: &str| -> Result<Option<String>> { r.col::<Option<String>>(c) };
             Ok(HistoryRow {
                 at: r.col("at")?,
                 kind: s("kind")?,
                 action: s("action")?,
                 by: s("by_user")?,
                 reason_code: s("reason_code")?,
-                context: r
-                    .try_get::<Option<Value>>("", "context")
-                    .map_err(Error::Database)?,
+                context: r.col::<Option<Value>>("context")?,
             })
         })
         .collect()
@@ -69,21 +66,17 @@ impl HistoryService {
     pub async fn appointment_history(&self, appointment_id: Uuid) -> Result<Vec<HistoryRow>> {
         let exists = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT 1 AS ok FROM appointments WHERE id = $1",
                 [appointment_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if exists.is_none() {
             return Err(Error::not_found(format!("appointment {appointment_id}")));
         }
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT 'audit' AS kind, at, action, user_id AS by_user, reason_code, context \
+            .all(Stmt::new("SELECT 'audit' AS kind, at, action, user_id AS by_user, reason_code, context \
                    FROM audit_log WHERE entity_type = 'appointment' AND entity_id = $1 \
                  UNION ALL \
                  SELECT 'message', created_at, 'message_' || status, NULL, \"trigger\", \
@@ -103,8 +96,7 @@ impl HistoryService {
                  ORDER BY at",
                 [appointment_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows_to_history(&rows)
     }
 
@@ -112,9 +104,7 @@ impl HistoryService {
     pub async fn contact_log(&self, person_id: Uuid, limit: i64) -> Result<Vec<HistoryRow>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT * FROM ( \
+            .all(Stmt::new("SELECT * FROM ( \
                    SELECT 'message' AS kind, created_at AS at, 'message_' || status AS action, NULL::text AS by_user, \
                           \"trigger\" AS reason_code, \
                           jsonb_build_object('letter_id', id, 'channel', channel, 'locale', locale, \
@@ -127,8 +117,7 @@ impl HistoryService {
                  ) c ORDER BY at DESC LIMIT $2",
                 [person_id.into(), crate::paging::fetch(limit).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows_to_history(&rows)
     }
 }

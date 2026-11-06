@@ -13,12 +13,12 @@ use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::slot::SlotRepository;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{
     Appointment, AppointmentStatus, CancellationReason,
 };
 use patient_administration_system::models::schedule::{Slot, SlotStatus};
 use patient_administration_system::reply_links::{self, LinkAction};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -275,8 +275,7 @@ async fn an_expired_offer_and_a_cancelled_appointment_are_refused() {
     let a = w.add(6, 9).await;
     let o = w.s.rebooking.offer(w.appt.id).await.unwrap();
     w.s.db
-        .execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .run(Stmt::new(
             "UPDATE rebook_offers SET expires_at = now() - interval '1 minute' WHERE id = $1",
             [o.offer_id.unwrap().into()],
         ))

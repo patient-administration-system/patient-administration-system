@@ -1,6 +1,7 @@
 //! Part of [`super`]: cancelling.
 
 use super::*;
+use crate::db::sql::Transact;
 
 impl SchedulingService {
     /// Cancel an appointment, free its slot, and record the facts of CAP-1.
@@ -230,11 +231,10 @@ impl SchedulingService {
         let ctx = ctx.clone();
         let appt = self
             .db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move { Self::cancel_tx(txn, appointment_id, details, &ctx).await })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publish_cancelled(&appt).await;
         Ok(appt)
     }
@@ -253,14 +253,13 @@ impl SchedulingService {
         let ctx = ctx.clone();
         let appt = self
             .db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
                     AppointmentRepository::lock_if_current(txn, appointment_id, expected).await?;
                     Self::cancel_tx(txn, appointment_id, details, &ctx).await
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publish_cancelled(&appt).await;
         Ok(appt)
     }
@@ -275,13 +274,12 @@ impl SchedulingService {
         let ctx = ctx.clone();
         let (old, new) = self
             .db
-            .transaction::<_, (Appointment, Appointment), Error>(|txn| {
+            .in_txn::<_, (Appointment, Appointment)>(|txn| {
                 Box::pin(
                     async move { Self::rebook_tx(txn, appointment_id, new_slot_id, &ctx).await },
                 )
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publish_cancelled(&old).await;
         self.publish_booked(&new).await;
         Ok((old, new))

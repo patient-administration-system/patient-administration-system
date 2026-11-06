@@ -6,8 +6,10 @@
 //! triage category is counted as excluded rather than given a guessed one. The category used is the latest
 //! assessment recorded.
 
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Utc};
-use sea_orm::{ConnectionTrait, DbBackend, Statement, TransactionTrait};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -207,23 +209,19 @@ impl TriageService {
         if seen_at > now {
             return Err(Error::validation("seen_at cannot be in the future"));
         }
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let enc = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT class, status, period_start, first_contact_at FROM encounters \
                  WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
                 [encounter_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::not_found(format!("encounter {encounter_id}")))?;
-        let class: String = enc.try_get("", "class").map_err(Error::Database)?;
-        let status: String = enc.try_get("", "status").map_err(Error::Database)?;
-        let arrived: DateTime<Utc> = enc.try_get("", "period_start").map_err(Error::Database)?;
-        let already: Option<DateTime<Utc>> = enc
-            .try_get("", "first_contact_at")
-            .map_err(Error::Database)?;
+        let class: String = enc.col("class")?;
+        let status: String = enc.col("status")?;
+        let arrived: DateTime<Utc> = enc.col("period_start")?;
+        let already: Option<DateTime<Utc>> = enc.col("first_contact_at")?;
         if class != "emergency" {
             return Err(Error::validation(
                 "first clinician contact is only recorded on an emergency encounter",
@@ -242,13 +240,10 @@ impl TriageService {
         if seen_at < arrived {
             return Err(Error::validation("seen_at cannot be before arrival"));
         }
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE encounters SET first_contact_at = $2, first_contact_by = $3, updated_at = now() WHERE id = $1",
+        txn.run(Stmt::new("UPDATE encounters SET first_contact_at = $2, first_contact_by = $3, updated_at = now() WHERE id = $1",
             [encounter_id.into(), seen_at.into(), by.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &txn,
             "encounter",
@@ -265,23 +260,19 @@ impl TriageService {
         Ok(())
     }
 
-    async fn attendances(&self, sql: &str, values: Vec<sea_orm::Value>) -> Result<Vec<Attendance>> {
-        let rows = self
-            .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                sql,
-                values,
-            ))
-            .await
-            .map_err(Error::Database)?;
+    async fn attendances(
+        &self,
+        sql: &str,
+        values: Vec<crate::db::sql::Param>,
+    ) -> Result<Vec<Attendance>> {
+        let rows = self.db.all(Stmt::new(sql, values)).await?;
         rows.iter()
             .map(|r| {
                 Ok(Attendance {
-                    encounter_id: r.try_get("", "id").map_err(Error::Database)?,
-                    arrived_at: r.try_get("", "period_start").map_err(Error::Database)?,
-                    first_contact_at: r.try_get("", "first_contact_at").map_err(Error::Database)?,
-                    category: r.try_get("", "category").map_err(Error::Database)?,
+                    encounter_id: r.col("id")?,
+                    arrived_at: r.col("period_start")?,
+                    first_contact_at: r.col("first_contact_at")?,
+                    category: r.col("category")?,
                 })
             })
             .collect()

@@ -12,10 +12,10 @@ use chrono::{DateTime, Duration, Utc};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::slot::SlotRepository;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, CancellationReason};
 use patient_administration_system::models::schedule::Slot;
 use patient_administration_system::reports::GroupBy;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -45,9 +45,7 @@ async fn world() -> W {
             .and_utc();
         let used = s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT 1 AS used FROM slots WHERE start_datetime >= $1 AND start_datetime < $2 LIMIT 1",
+            .one(Stmt::new("SELECT 1 AS used FROM slots WHERE start_datetime >= $1 AND start_datetime < $2 LIMIT 1",
                 [day.into(), (day + Duration::days(1)).into()],
             ))
             .await
@@ -107,8 +105,7 @@ async fn world() -> W {
             .await
             .unwrap();
     }
-    s.db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    s.db.run(Stmt::new(
         "UPDATE appointments SET notice_days = 1 WHERE id = $1",
         [appts[6].id.into()],
     ))
@@ -116,9 +113,7 @@ async fn world() -> W {
     .unwrap();
     // Booked 10, 10, 20, 20, 30, 40 and 50 days before the visit.
     for (a, days) in appts.iter().zip([10, 10, 20, 20, 30, 40, 50]) {
-        s.db.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE appointments SET created_at = start_datetime - make_interval(days => $2::int) WHERE id = $1",
+        s.db.run(Stmt::new("UPDATE appointments SET created_at = start_datetime - make_interval(days => $2::int) WHERE id = $1",
             [a.id.into(), days.into()],
         ))
         .await
@@ -277,9 +272,7 @@ async fn open_pathway_waits_are_summarised_from_the_clock() {
             .start(Uuid::new_v4(), format!("svc-{}", Uuid::new_v4()), &sys())
             .await
             .unwrap();
-        s.db.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE rtt_clock_events SET event_at = now() - make_interval(weeks => $2::int) WHERE pathway_id = $1",
+        s.db.run(Stmt::new("UPDATE rtt_clock_events SET event_at = now() - make_interval(weeks => $2::int) WHERE pathway_id = $1",
             [p.id.into(), weeks.into()],
         ))
         .await
@@ -306,13 +299,7 @@ async fn open_pathway_waits_are_summarised_from_the_clock() {
             "DELETE FROM rtt_clock_events WHERE pathway_id = $1",
             "DELETE FROM rtt_pathways WHERE id = $1",
         ] {
-            s.db.execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                sql,
-                [id.into()],
-            ))
-            .await
-            .unwrap();
+            s.db.run(Stmt::new(sql, [id.into()])).await.unwrap();
         }
     }
 }

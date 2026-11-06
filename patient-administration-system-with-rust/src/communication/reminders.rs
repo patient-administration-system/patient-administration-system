@@ -10,6 +10,8 @@
 //! Template variables: `patient` (upstream person), `appointment`
 //! (`id`, `start`, `end`, `reason`).
 
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Duration, Utc};
 use std::sync::Arc;
 
@@ -20,7 +22,7 @@ use crate::db::repositories::letter::LetterRepository;
 use crate::models::appointment::Appointment;
 use crate::models::communication::{DeliveryChannel, LetterTemplate};
 use crate::{Error, Result};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 
 /// Name administrators edit to change the reminder wording.
 pub const REMINDER_TEMPLATE_NAME: &str = "appointment_reminder";
@@ -201,15 +203,13 @@ impl ReminderService {
         if self.backoff && failed > 0 {
             let last: Option<DateTime<Utc>> = self
                 .db
-                .query_one_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
+                .one(Stmt::new(
                     "SELECT max(updated_at) AS t FROM generated_letters \
                      WHERE appointment_id = $1 AND status = 'failed' AND template_id = ANY($2)",
                     [a.id.into(), template_ids.to_vec().into()],
                 ))
-                .await
-                .map_err(crate::Error::Database)?
-                .and_then(|r| r.try_get("", "t").ok());
+                .await?
+                .and_then(|r| r.col("t").ok());
             if let Some(last) = last
                 && now < last + crate::receipts::retry_delay(failed)
             {

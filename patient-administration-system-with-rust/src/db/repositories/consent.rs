@@ -1,5 +1,6 @@
 //! consent repository
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -10,13 +11,13 @@ use crate::{Error, Result};
 pub struct ConsentRepository;
 
 impl ConsentRepository {
-    pub async fn create<C: ConnectionTrait>(conn: &C, c: &Consent) -> Result<Consent> {
+    pub async fn create<C: Conn>(conn: &C, c: &Consent) -> Result<Consent> {
         let am = to_active_model(c);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(c.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Consent>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Consent>> {
         let m = consent::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -24,10 +25,7 @@ impl ConsentRepository {
         m.map(from_model).transpose()
     }
 
-    pub async fn list_for_patient<C: ConnectionTrait>(
-        conn: &C,
-        person_id: Uuid,
-    ) -> Result<Vec<Consent>> {
+    pub async fn list_for_patient<C: Conn>(conn: &C, person_id: Uuid) -> Result<Vec<Consent>> {
         let rows = consent::Entity::find()
             .filter(consent::Column::PersonId.eq(person_id))
             .all(conn)
@@ -41,7 +39,7 @@ impl ConsentRepository {
     /// Withdraw a consent. It needs no `If-Match` on purpose (OFH-11): a withdrawal is one-way, so a stale
     /// view cannot make it wrong, and refusing one would delay a patient's right to withdraw. The row is locked,
     /// and a consent already revoked is returned as it is, so a repeat cannot move the date it was withdrawn.
-    pub async fn revoke<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Consent> {
+    pub async fn revoke<C: Conn>(conn: &C, id: Uuid) -> Result<Consent> {
         let m = consent::Entity::find_by_id(id)
             .lock_exclusive()
             .one(conn)

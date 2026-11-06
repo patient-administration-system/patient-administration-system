@@ -14,10 +14,11 @@
 //!    Past appointments (already `Fulfilled` / `NoShow` / `Cancelled`)
 //!    are left exactly as the audit trail recorded them.
 
+use crate::db::sql::Transact;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use sea_orm::{DatabaseConnection, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
 use crate::db::repositories::{
@@ -140,7 +141,7 @@ impl SeriesService {
         let duration_minutes = input.duration_minutes;
         let res = self
             .db
-            .transaction::<_, CreateSeriesResult, Error>(|txn| {
+            .in_txn::<_, CreateSeriesResult>(|txn| {
                 Box::pin(async move {
                     AppointmentSeriesRepository::create(txn, &series_clone).await?;
                     let mut appointments = Vec::with_capacity(occurrences_at.len());
@@ -202,8 +203,7 @@ impl SeriesService {
                     })
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
 
         self.publisher
             .publish(DomainEvent::new(
@@ -233,7 +233,7 @@ impl SeriesService {
         let ctx_clone = ctx.clone();
         let res = self
             .db
-            .transaction::<_, SeriesWithOccurrences, Error>(|txn| {
+            .in_txn::<_, SeriesWithOccurrences>(|txn| {
                 Box::pin(async move {
                     let series = AppointmentSeriesRepository::find_by_id(txn, series_id)
                         .await?
@@ -301,8 +301,7 @@ impl SeriesService {
                     })
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
 
         self.publisher
             .publish(DomainEvent::new(

@@ -4,10 +4,11 @@ mod common;
 
 use chrono::{Duration, Utc};
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::CancelledBy;
 use patient_administration_system::proxy::{NewAuthority, ProxyService, proxy_context};
 use patient_administration_system::scheduling::CancelDetails;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 fn scopes(s: &[&str]) -> Vec<String> {
@@ -89,15 +90,13 @@ async fn a_proxy_without_the_cancel_scope_cannot_cancel_and_one_with_it_is_audit
 
     let who: String = state
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT user_id FROM audit_log WHERE entity_id = $1 AND action ILIKE '%cancel%' ORDER BY at DESC LIMIT 1",
+        .one(Stmt::new("SELECT user_id FROM audit_log WHERE entity_id = $1 AND action ILIKE '%cancel%' ORDER BY at DESC LIMIT 1",
             [appt.id.into()],
         ))
         .await
         .unwrap()
         .expect("the cancellation was audited")
-        .try_get("", "user_id")
+        .col("user_id")
         .unwrap();
     assert!(who.starts_with("proxy:"), "{who}");
     assert!(

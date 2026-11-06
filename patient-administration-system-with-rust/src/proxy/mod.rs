@@ -6,8 +6,11 @@
 //! taken through one is audited as the proxy acting for the patient. The PAS trusts its caller (the portal)
 //! to have authenticated the proxy; it decides only what that proxy may do for that patient.
 
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Row, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -79,19 +82,19 @@ pub fn proxy_context(base: &UserContext, authority: &Authority) -> UserContext {
 const COLS: &str = "id, person_id, proxy_person_id, relationship, basis, scopes, recorded_by, recorded_at, \
     expires_at, revoked_by, revoked_at";
 
-fn from_row(r: &sea_orm::QueryResult) -> Result<Authority> {
+fn from_row(r: &Row) -> Result<Authority> {
     Ok(Authority {
-        id: r.try_get("", "id").map_err(Error::Database)?,
-        person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-        proxy_person_id: r.try_get("", "proxy_person_id").map_err(Error::Database)?,
-        relationship: r.try_get("", "relationship").map_err(Error::Database)?,
-        basis: r.try_get("", "basis").map_err(Error::Database)?,
-        scopes: r.try_get("", "scopes").map_err(Error::Database)?,
-        recorded_by: r.try_get("", "recorded_by").map_err(Error::Database)?,
-        recorded_at: r.try_get("", "recorded_at").map_err(Error::Database)?,
-        expires_at: r.try_get("", "expires_at").map_err(Error::Database)?,
-        revoked_by: r.try_get("", "revoked_by").map_err(Error::Database)?,
-        revoked_at: r.try_get("", "revoked_at").map_err(Error::Database)?,
+        id: r.col("id")?,
+        person_id: r.col("person_id")?,
+        proxy_person_id: r.col("proxy_person_id")?,
+        relationship: r.col("relationship")?,
+        basis: r.col("basis")?,
+        scopes: r.col("scopes")?,
+        recorded_by: r.col("recorded_by")?,
+        recorded_at: r.col("recorded_at")?,
+        expires_at: r.col("expires_at")?,
+        revoked_by: r.col("revoked_by")?,
+        revoked_at: r.col("revoked_at")?,
     })
 }
 
@@ -149,11 +152,9 @@ impl ProxyService {
             )));
         }
         let id = Uuid::new_v4();
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let row = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                format!(
+            .one(Stmt::new(format!(
                     "INSERT INTO proxy_authorities (id, person_id, proxy_person_id, relationship, basis, scopes, recorded_by, recorded_at, expires_at) \
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING {COLS}"
                 ),
@@ -169,8 +170,7 @@ impl ProxyService {
                     new.expires_at.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::internal("the authority was not stored"))?;
         AuditLogRepository::log(
             &txn,
@@ -201,15 +201,12 @@ impl ProxyService {
             revoked_by,
             "revoked_by: the person withdrawing the authority is required",
         )?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let done = txn
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE proxy_authorities SET revoked_by = $2, revoked_at = $3 WHERE id = $1 AND revoked_at IS NULL",
+            .run(Stmt::new("UPDATE proxy_authorities SET revoked_by = $2, revoked_at = $3 WHERE id = $1 AND revoked_at IS NULL",
                 [id.into(), by.into(), now.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if done.rows_affected() != 1 {
             return Err(Error::not_found(format!("unrevoked proxy authority {id}")));
         }
@@ -236,8 +233,7 @@ impl ProxyService {
     ) -> Result<Vec<Authority>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 format!(
                     "SELECT {COLS} FROM proxy_authorities WHERE person_id = $1 \
                        AND ($2 OR (revoked_at IS NULL AND expires_at > $3)) \
@@ -250,8 +246,7 @@ impl ProxyService {
                     crate::paging::fetch(fetch).into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         rows.iter().map(from_row).collect()
     }
 
@@ -269,9 +264,7 @@ impl ProxyService {
         }
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                format!(
+            .all(Stmt::new(format!(
                     "SELECT {COLS} FROM proxy_authorities WHERE person_id = $1 AND proxy_person_id = $2 \
                        AND revoked_at IS NULL AND expires_at > $3 AND $4 = ANY(scopes) \
                      ORDER BY expires_at DESC LIMIT 1"
@@ -283,8 +276,7 @@ impl ProxyService {
                     scope.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         match rows.first() {
             Some(r) => from_row(r),
             None => Err(Error::forbidden(

@@ -12,8 +12,9 @@
 //! - Not here: the e-RS integration itself (it needs NHS API access); only the data it would carry.
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Row, Stmt, Transact};
 use chrono::{DateTime, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -81,8 +82,7 @@ pub async fn referral_of_appointment(
     appointment_id: Uuid,
 ) -> Result<Option<(Uuid, Option<String>)>> {
     let row = db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT r.id, r.external_ref FROM referrals r \
              JOIN appointments a ON a.referral_id = r.id WHERE a.id = $1",
             [appointment_id.into()],
@@ -158,7 +158,7 @@ const COLS: &str = "r.id, r.person_id, r.source, r.external_ref, r.target_servic
     (SELECT a.id FROM appointments a WHERE a.referral_id = r.id AND a.deleted_at IS NULL \
        AND a.status NOT IN ('cancelled','no_show') ORDER BY a.created_at DESC LIMIT 1) AS appointment_id";
 
-fn row_to_referral(r: &sea_orm::QueryResult) -> Result<Referral> {
+fn row_to_referral(r: &Row) -> Result<Referral> {
     Ok(Referral {
         id: r.col("id")?,
         person_id: r.col("person_id")?,
@@ -185,13 +185,11 @@ impl ReferralService {
 
     pub async fn get(&self, id: Uuid) -> Result<Referral> {
         self.db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 format!("SELECT {COLS} FROM referrals r WHERE r.id = $1"),
                 [id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .map(|r| row_to_referral(&r))
             .transpose()?
             .ok_or_else(|| Error::not_found(format!("referral {id}")))
@@ -208,9 +206,7 @@ impl ReferralService {
         }
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                format!(
+            .all(Stmt::new(format!(
                     "SELECT {COLS} FROM referrals r WHERE ($1::text IS NULL OR r.status = $1) \
                      AND ($2::text IS NULL OR r.target_service = $2) ORDER BY r.received_at LIMIT $3"
                 ),
@@ -220,8 +216,7 @@ impl ReferralService {
                     crate::paging::fetch(limit).into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter().map(row_to_referral).collect()
     }
 
@@ -259,9 +254,7 @@ impl ReferralService {
         let received = n.received_at.unwrap_or_else(Utc::now);
         let made = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO referrals (id, person_id, referring_worker_id, target_service, reason, received_at, created_at, \
+            .run(Stmt::new("INSERT INTO referrals (id, person_id, referring_worker_id, target_service, reason, received_at, created_at, \
                                         source, external_ref, status) \
                  VALUES ($1,$2,$3,$4,$5,$6,now(),$7,$8,'received') ON CONFLICT DO NOTHING",
                 [
@@ -275,21 +268,18 @@ impl ReferralService {
                     ext.clone().into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if made.rows_affected() == 0 {
             // The same (source, external_ref) was received before.
             let r = self
                 .db
-                .query_one_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
+                .one(Stmt::new(
                     format!(
                         "SELECT {COLS} FROM referrals r WHERE r.source = $1 AND r.external_ref = $2"
                     ),
                     [n.source.into(), ext.into()],
                 ))
-                .await
-                .map_err(Error::Database)?
+                .await?
                 .ok_or_else(|| Error::internal("duplicate referral reported but not found"))?;
             let existing = row_to_referral(&r)?;
             if existing.person_id != n.person_id {
@@ -319,16 +309,13 @@ impl ReferralService {
         let ctx = ctx.clone();
         let appt = self
             .db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
                     let r = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "SELECT person_id, target_service, status FROM referrals WHERE id = $1 FOR UPDATE",
+                        .one(Stmt::new("SELECT person_id, target_service, status FROM referrals WHERE id = $1 FOR UPDATE",
                             [id.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+.await?
                         .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
                     let person: Uuid = r.col("person_id")?;
                     let service: String = r.col("target_service")?;
@@ -337,35 +324,26 @@ impl ReferralService {
                         return Err(Error::conflict(format!("that referral is already {status}")));
                     }
                     let slots = txn
-                        .query_all_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "SELECT s.id FROM slots s JOIN schedules sc ON sc.id = s.schedule_id \
+                        .all(Stmt::new("SELECT s.id FROM slots s JOIN schedules sc ON sc.id = s.schedule_id \
                              WHERE sc.service_type = $1 AND sc.active AND s.status = 'free' AND s.capacity = 1 AND NOT s.ring_fenced AND s.start_datetime > now() \
                              ORDER BY s.start_datetime, s.id LIMIT $2",
                             [service.clone().into(), CANDIDATES.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     for row in slots {
                         let slot_id: Uuid = row.col("id")?;
                         // A slot that cannot be booked for this patient (they have a clash, or someone just
                         // took it) is skipped; the next earliest is tried.
                         match SchedulingService::book_tx(txn, slot_id, person, &ctx).await {
                             Ok(appt) => {
-                                txn.execute_raw(Statement::from_sql_and_values(
-                                    DbBackend::Postgres,
-                                    "UPDATE appointments SET referral_id = $2 WHERE id = $1",
+                                txn.run(Stmt::new("UPDATE appointments SET referral_id = $2 WHERE id = $1",
                                     [appt.id.into(), id.into()],
                                 ))
-                                .await
-                                .map_err(Error::Database)?;
-                                txn.execute_raw(Statement::from_sql_and_values(
-                                    DbBackend::Postgres,
-                                    "UPDATE referrals SET status = 'booked', updated_at = now() WHERE id = $1",
+.await?;
+                                txn.run(Stmt::new("UPDATE referrals SET status = 'booked', updated_at = now() WHERE id = $1",
                                     [id.into()],
                                 ))
-                                .await
-                                .map_err(Error::Database)?;
+.await?;
                                 AuditLogRepository::log_with(
                                     txn,
                                     "referral",
@@ -389,8 +367,7 @@ impl ReferralService {
                     )))
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         let appt = AppointmentRepository::find_by_id(&self.db, appt.id)
             .await?
             .ok_or_else(|| Error::internal("booked appointment vanished"))?;
@@ -424,13 +401,11 @@ impl ReferralService {
             )
             .await?;
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "UPDATE referrals SET status = 'waitlisted', updated_at = now() WHERE id = $1",
                 [id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         self.get(id).await
     }
 
@@ -455,16 +430,14 @@ impl ReferralService {
     ) -> Result<Referral> {
         let (reason, ctx) = (reason.map(str::to_string), ctx.clone());
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
                     let r = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
+                        .one(Stmt::new(
                             "SELECT status, updated_at FROM referrals WHERE id = $1 FOR UPDATE",
                             [id.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+                        .await?
                         .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
                     let stored: DateTime<Utc> = r.col("updated_at")?;
                     if !crate::api::rest::concurrency::is_current(stored, expected) {
@@ -484,13 +457,11 @@ impl ReferralService {
                             "that referral is already {status}"
                         )));
                     }
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
+                    txn.run(Stmt::new(
                         "UPDATE referrals SET status = 'closed', updated_at = now() WHERE id = $1",
                         [id.into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+                    .await?;
                     AuditLogRepository::log(
                         txn,
                         "referral",
@@ -504,8 +475,7 @@ impl ReferralService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.get(id).await
     }
 
@@ -563,16 +533,13 @@ impl ReferralService {
         let (outcome, ctx) = (outcome.to_string(), ctx.clone());
         let new_id = Uuid::new_v4();
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
                     let r = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "SELECT person_id, target_service, reason, status, updated_at FROM referrals WHERE id = $1 FOR UPDATE",
+                        .one(Stmt::new("SELECT person_id, target_service, reason, status, updated_at FROM referrals WHERE id = $1 FOR UPDATE",
                             [id.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+.await?
                         .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
                     let stored: DateTime<Utc> = r.col("updated_at")?;
                     if !crate::api::rest::concurrency::is_current(stored, expected) {
@@ -595,18 +562,13 @@ impl ReferralService {
                         ));
                     }
                     if let Some(service) = &to {
-                        txn.execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "INSERT INTO referrals (id, person_id, target_service, reason, received_at, created_at, source, status) \
+                        txn.run(Stmt::new("INSERT INTO referrals (id, person_id, target_service, reason, received_at, created_at, source, status) \
                              VALUES ($1,$2,$3,$4,now(),now(),'internal','received')",
                             [new_id.into(), person.into(), service.clone().into(), reason.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     }
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE referrals SET status = $2, triaged_by = $3, triaged_at = now(), \
+                    txn.run(Stmt::new("UPDATE referrals SET status = $2, triaged_by = $3, triaged_at = now(), \
                                 redirected_to_service = $4, redirected_referral_id = $5, updated_at = now() \
                          WHERE id = $1",
                         [
@@ -617,8 +579,7 @@ impl ReferralService {
                             to.as_ref().map(|_| new_id).into(),
                         ],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     AuditLogRepository::log_with(
                         txn,
                         "referral",
@@ -639,8 +600,7 @@ impl ReferralService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         self.get(id).await
     }
 }

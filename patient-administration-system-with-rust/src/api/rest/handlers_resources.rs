@@ -2,12 +2,12 @@
 //! of [`crate::resources::ResourcesService`], and facility, ward and room creation and reads on top of the
 //! facility repositories.
 
+use crate::db::sql::Transact;
 use axum::{
     Json,
     extract::{Path, State},
     http::HeaderMap,
 };
-use sea_orm::TransactionTrait;
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
@@ -165,7 +165,7 @@ pub async fn create_facility(
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let f = FacilityRepository::create(&txn, &body).await?;
         write_audit_create(
             &txn,
@@ -246,7 +246,7 @@ pub async fn create_ward(
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let w = WardRepository::create(&txn, &body).await?;
         write_audit_create(
             &txn,
@@ -331,7 +331,7 @@ pub async fn create_room(
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let r = RoomRepository::create(&txn, &body).await?;
         write_audit_create(
             &txn,
@@ -416,7 +416,7 @@ pub async fn create_bed(
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let b = BedRepository::create(&txn, &body).await?;
         write_audit_create(
             &txn,

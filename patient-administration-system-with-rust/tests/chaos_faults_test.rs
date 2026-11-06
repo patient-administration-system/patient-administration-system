@@ -17,10 +17,11 @@ use patient_administration_system::communication::consent::{self, QuietHours};
 use patient_administration_system::communication::ladder::LadderService;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
 use patient_administration_system::models::communication::DeliveryChannel;
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -180,8 +181,7 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
     let mut sent_rows_total = 0usize;
     for p in &patients {
         let rows =
-            s.db.query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            s.db.all(Stmt::new(
                 "SELECT step, outcome FROM reminder_steps WHERE appointment_id = $1",
                 [p.appt.id.into()],
             ))
@@ -189,12 +189,7 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
             .unwrap();
         let steps: Vec<(String, String)> = rows
             .iter()
-            .map(|r| {
-                (
-                    r.try_get("", "step").unwrap(),
-                    r.try_get("", "outcome").unwrap(),
-                )
-            })
+            .map(|r| (r.col("step").unwrap(), r.col("outcome").unwrap()))
             .collect();
         // Each step at most once (the table enforces it; the ladder must not trip over it).
         let mut seen = std::collections::HashSet::new();
@@ -216,16 +211,14 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
         // A step the carrier refused is on the record as a failure.
         let letters = s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT count(*) FILTER (WHERE status = 'sent')::bigint AS ok FROM generated_letters WHERE person_id = $1",
+            .one(Stmt::new("SELECT count(*) FILTER (WHERE status = 'sent')::bigint AS ok FROM generated_letters WHERE person_id = $1",
                 [p.person.into()],
             ))
             .await
             .unwrap()
             .unwrap();
         assert_eq!(
-            letters.try_get::<i64>("", "ok").unwrap() as usize,
+            letters.col::<i64>("ok").unwrap() as usize,
             sent,
             "PAS_CHAOS_SEED={seed}: letters disagree with steps for {}",
             p.phone
@@ -233,16 +226,14 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
         // Silence is escalated to a person whatever the carrier did.
         let task = s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT count(*)::bigint AS n FROM staff_call_tasks WHERE appointment_id = $1 AND reason = 'silent'",
+            .one(Stmt::new("SELECT count(*)::bigint AS n FROM staff_call_tasks WHERE appointment_id = $1 AND reason = 'silent'",
                 [p.appt.id.into()],
             ))
             .await
             .unwrap()
             .unwrap();
         assert_eq!(
-            task.try_get::<i64>("", "n").unwrap(),
+            task.col::<i64>("n").unwrap(),
             1,
             "PAS_CHAOS_SEED={seed}: a silent patient was not escalated: {steps:?}"
         );
@@ -290,16 +281,14 @@ async fn a_crowd_booking_the_same_slot_at_once_produces_exactly_one_appointment(
         );
         let n = s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT count(*)::bigint AS n FROM appointments WHERE slot_id = $1 AND deleted_at IS NULL AND status IN ('booked','arrived','fulfilled')",
+            .one(Stmt::new("SELECT count(*)::bigint AS n FROM appointments WHERE slot_id = $1 AND deleted_at IS NULL AND status IN ('booked','arrived','fulfilled')",
                 [slot.id.into()],
             ))
             .await
             .unwrap()
             .unwrap();
         assert_eq!(
-            n.try_get::<i64>("", "n").unwrap(),
+            n.col::<i64>("n").unwrap(),
             1,
             "round {round}: more than one live appointment on one slot"
         );

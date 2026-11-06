@@ -1,6 +1,8 @@
 //! Part of [`super`]: call list.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 
 /// One booked appointment on the call list: the risk and why, and the task a person works from.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
@@ -24,9 +26,7 @@ impl NoShowService {
         self.require_active().await?;
         let r = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
+            .run(Stmt::new("INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
                  SELECT gen_random_uuid(), a.id, a.person_id, 'high_risk', GREATEST(now(), a.start_datetime - interval '2 days') \
                  FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
                  JOIN slots sl ON sl.id = a.slot_id JOIN schedules sc ON sc.id = sl.schedule_id \
@@ -39,8 +39,7 @@ impl NoShowService {
                  ON CONFLICT (appointment_id, reason) DO NOTHING",
                 [(call_horizon_days() as i32).into(), call_capacity().into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         Ok(r.rows_affected())
     }
 
@@ -49,17 +48,14 @@ impl NoShowService {
         self.require_active().await?;
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT n.appointment_id, n.probability, n.factors, n.sample_size, a.start_datetime, t.id AS task_id \
+            .all(Stmt::new("SELECT n.appointment_id, n.probability, n.factors, n.sample_size, a.start_datetime, t.id AS task_id \
                  FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
                  JOIN staff_call_tasks t ON t.appointment_id = n.appointment_id AND t.reason = 'high_risk' \
                  WHERE a.status = 'booked' AND a.start_datetime > now() AND t.handled_at IS NULL \
                  ORDER BY n.probability DESC, a.start_datetime LIMIT $1",
                 [crate::paging::fetch(limit).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 let p: f64 = r.col("probability")?;
@@ -67,9 +63,7 @@ impl NoShowService {
                     appointment_id: r.col::<Uuid>("appointment_id")?,
                     task_id: r.col::<Uuid>("task_id")?,
                     probability_percent: percent_shown().then(|| (p * 1000.0).round() / 10.0),
-                    starts_at: r
-                        .try_get::<DateTime<Utc>>("", "start_datetime")
-                        .map_err(Error::Database)?,
+                    starts_at: r.col::<DateTime<Utc>>("start_datetime")?,
                     sample_size: r.col::<i32>("sample_size")?,
                     factors: serde_json::from_value(r.col::<serde_json::Value>("factors")?)
                         .map_err(|e| {

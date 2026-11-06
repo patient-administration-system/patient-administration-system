@@ -9,10 +9,10 @@
 //! chooses. Nothing automatic puts anyone into one: rebook options, a referral's first available slot and
 //! the standby backfill all take one-to-one slots only.
 
-use sea_orm::{
-    ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, Statement,
-    TransactionTrait,
-};
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Stmt};
+use sea_orm::{DatabaseConnection, DatabaseTransaction};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -24,23 +24,17 @@ use crate::{Error, Result};
 pub const MAX_CAPACITY: i32 = 50;
 
 /// A slot's declared capacity and how many live appointments it holds. Read under the caller's lock.
-pub async fn places<C: ConnectionTrait>(conn: &C, slot_id: Uuid) -> Result<(i64, i64)> {
+pub async fn places<C: Conn>(conn: &C, slot_id: Uuid) -> Result<(i64, i64)> {
     let row = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT s.capacity::bigint AS capacity, \
+        .one(Stmt::new("SELECT s.capacity::bigint AS capacity, \
                (SELECT count(*) FROM appointments a WHERE a.slot_id = s.id AND a.deleted_at IS NULL \
                   AND a.status NOT IN ('cancelled','no_show')) AS booked \
              FROM slots s WHERE s.id = $1",
             [slot_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+.await?
         .ok_or_else(|| Error::not_found(format!("slot {slot_id}")))?;
-    Ok((
-        row.try_get("", "capacity").map_err(Error::Database)?,
-        row.try_get("", "booked").map_err(Error::Database)?,
-    ))
+    Ok((row.col("capacity")?, row.col("booked")?))
 }
 
 /// Whether a slot is a group session (capacity above one).
@@ -104,28 +98,21 @@ impl GroupSessionService {
             set_by,
             "set_by: the person setting the capacity is required",
         )?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let slot = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT capacity, updated_at, start_datetime > now() AS future FROM slots WHERE id = $1 FOR UPDATE",
+            .one(Stmt::new("SELECT capacity, updated_at, start_datetime > now() AS future FROM slots WHERE id = $1 FOR UPDATE",
                 [slot_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::not_found(format!("slot {slot_id}")))?;
-        let old: i32 = slot.try_get("", "capacity").map_err(Error::Database)?;
-        let stored: chrono::DateTime<chrono::Utc> =
-            slot.try_get("", "updated_at").map_err(Error::Database)?;
+        let old: i32 = slot.col("capacity")?;
+        let stored: chrono::DateTime<chrono::Utc> = slot.col("updated_at")?;
         if !crate::api::rest::concurrency::is_current(stored, expected) {
             return Err(Error::precondition_failed(
                 "the slot has changed since it was read; read it again",
             ));
         }
-        if !slot
-            .try_get::<bool>("", "future")
-            .map_err(Error::Database)?
-        {
+        if !slot.col::<bool>("future")? {
             return Err(Error::conflict(
                 "only a slot still to come can change its capacity",
             ));
@@ -137,15 +124,12 @@ impl GroupSessionService {
             )));
         }
         // Free while a place is left, busy when full.
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE slots SET capacity = $2::integer, \
+        txn.run(Stmt::new("UPDATE slots SET capacity = $2::integer, \
                status = CASE WHEN $3::bigint >= $2::integer THEN 'busy' WHEN status = 'busy' THEN 'free' ELSE status END, \
                updated_at = now() WHERE id = $1",
             [slot_id.into(), capacity.into(), booked.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &txn,
             "slot",
@@ -164,21 +148,18 @@ impl GroupSessionService {
         let (capacity, booked) = places(&self.db, slot_id).await?;
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT id, person_id, status FROM appointments WHERE slot_id = $1 AND deleted_at IS NULL \
+            .all(Stmt::new("SELECT id, person_id, status FROM appointments WHERE slot_id = $1 AND deleted_at IS NULL \
                  ORDER BY created_at, id",
                 [slot_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let attendees = rows
             .iter()
             .map(|r| {
                 Ok(Attendee {
-                    appointment_id: r.try_get("", "id").map_err(Error::Database)?,
-                    person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-                    status: r.try_get("", "status").map_err(Error::Database)?,
+                    appointment_id: r.col("id")?,
+                    person_id: r.col("person_id")?,
+                    status: r.col("status")?,
                 })
             })
             .collect::<Result<Vec<_>>>()?;

@@ -1,9 +1,10 @@
 //! Part of [`super`]: bundle.
 
+use crate::db::sql::Transact;
 use std::collections::HashMap;
 
 use axum::Extension;
-use sea_orm::{DatabaseTransaction, TransactionTrait};
+use sea_orm::DatabaseTransaction;
 
 use super::*;
 use crate::adt::{AdmissionResult, AdtService};
@@ -378,11 +379,7 @@ async fn run_transaction(
         refused.sort_by_key(|(index, _)| *index);
         return Err(refuse_all(refused.into_iter().map(|(_, r)| r).collect()));
     }
-    let txn = state
-        .db
-        .begin()
-        .await
-        .map_err(|e| error_to_response(Error::Database(e)))?;
+    let txn = state.db.begin_txn().await.map_err(error_to_response)?;
     let mut responses = vec![Value::Null; entries.len()];
     let mut afters = Vec::with_capacity(plans.len());
     for (index, plan) in &plans {
@@ -436,7 +433,7 @@ async fn run_batch(
 
 async fn run_one(state: &AppState, write: &Write, ctx: &UserContext) -> Result<String, Error> {
     let plan = plan_of(write, &HashMap::new())?;
-    let txn = state.db.begin().await.map_err(Error::Database)?;
+    let txn = state.db.begin_txn().await?;
     let (location, after) = save(&txn, &plan, ctx).await?;
     txn.commit().await.map_err(Error::Database)?;
     after_commit(state, after).await;

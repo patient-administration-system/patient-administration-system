@@ -1,6 +1,9 @@
 //! Part of [`super`]: reports.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::Param;
+use crate::db::sql::{Conn, Stmt};
 
 impl AnalyticsService {
     /// Refill rate of released slots, split by the chosen dimensions (PILOT-10). Releases are counted by the
@@ -51,13 +54,8 @@ impl AnalyticsService {
         );
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                sql,
-                [from.into(), to.into()],
-            ))
-            .await
-            .map_err(Error::Database)?;
+            .all(Stmt::new(sql, [from.into(), to.into()]))
+            .await?;
         let mut data = Vec::new();
         let mut extra = Vec::new();
         let (mut total, mut total_refilled) = (0, 0);
@@ -65,13 +63,7 @@ impl AnalyticsService {
             let dims = group_by
                 .iter()
                 .enumerate()
-                .map(|(i, d)| {
-                    Ok((
-                        d.name().to_string(),
-                        r.try_get::<String>("", &format!("d{i}"))
-                            .map_err(Error::Database)?,
-                    ))
-                })
+                .map(|(i, d)| Ok((d.name().to_string(), r.col::<String>(&format!("d{i}"))?)))
                 .collect::<Result<Vec<_>>>()?;
             let n: i64 = r.col("n")?;
             let refilled: i64 = r.col("refilled")?;
@@ -157,32 +149,18 @@ impl AnalyticsService {
             grp = group.join(", "),
         );
         // The time zone is a parameter only when a dimension uses it.
-        let mut values: Vec<sea_orm::Value> = vec![from.into(), to.into()];
+        let mut values: Vec<Param> = vec![from.into(), to.into()];
         if group_by.contains(&Dim::TimeOfDay) {
             values.push(tz.into());
         }
-        let rows = self
-            .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                sql,
-                values,
-            ))
-            .await
-            .map_err(Error::Database)?;
+        let rows = self.db.all(Stmt::new(sql, values)).await?;
         let mut data = Vec::new();
         let mut total = 0;
         for r in &rows {
             let dims = group_by
                 .iter()
                 .enumerate()
-                .map(|(i, d)| {
-                    Ok((
-                        d.name().to_string(),
-                        r.try_get::<String>("", &format!("d{i}"))
-                            .map_err(Error::Database)?,
-                    ))
-                })
+                .map(|(i, d)| Ok((d.name().to_string(), r.col::<String>(&format!("d{i}"))?)))
                 .collect::<Result<Vec<_>>>()?;
             let n: i64 = r.col("n")?;
             total += n;

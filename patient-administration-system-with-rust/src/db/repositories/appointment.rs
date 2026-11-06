@@ -1,5 +1,6 @@
 //! appointment repository
 
+use crate::db::sql::Conn;
 use chrono::{DateTime, Utc};
 use sea_orm::sea_query::Condition;
 use sea_orm::*;
@@ -14,14 +15,14 @@ use crate::{Error, Result};
 pub struct AppointmentRepository;
 
 impl AppointmentRepository {
-    pub async fn create<C: ConnectionTrait>(conn: &C, a: &Appointment) -> Result<Appointment> {
+    pub async fn create<C: Conn>(conn: &C, a: &Appointment) -> Result<Appointment> {
         let am = to_active_model(a);
         // Return the stored row, so derived fields (`release_class`) are always computed.
         let stored = am.insert(conn).await.map_err(Error::Database)?;
         from_model(stored)
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Appointment>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Appointment>> {
         let m = appointment::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -33,7 +34,7 @@ impl AppointmentRepository {
     /// (OFH-1). `expected` is the `updated_at` the caller saw; `None` (the caller sent `*`) skips the
     /// comparison but still takes the lock. Compared to the microsecond, the precision the database keeps.
     /// With the lock held a second writer waits, then sees the new `updated_at` and gets `412`.
-    pub async fn lock_if_current<C: ConnectionTrait>(
+    pub async fn lock_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
         expected: Option<chrono::DateTime<chrono::Utc>>,
@@ -54,17 +55,14 @@ impl AppointmentRepository {
         Ok(appt)
     }
 
-    pub async fn update<C: ConnectionTrait>(conn: &C, a: &Appointment) -> Result<Appointment> {
+    pub async fn update<C: Conn>(conn: &C, a: &Appointment) -> Result<Appointment> {
         let mut am = to_active_model(a);
         am.created_at = NotSet;
         let stored = am.update(conn).await.map_err(Error::Database)?;
         from_model(stored)
     }
 
-    pub async fn list_by_patient<C: ConnectionTrait>(
-        conn: &C,
-        person_id: Uuid,
-    ) -> Result<Vec<Appointment>> {
+    pub async fn list_by_patient<C: Conn>(conn: &C, person_id: Uuid) -> Result<Vec<Appointment>> {
         let rows = appointment::Entity::find()
             .filter(appointment::Column::PersonId.eq(person_id))
             .filter(appointment::Column::DeletedAt.is_null())
@@ -76,7 +74,7 @@ impl AppointmentRepository {
 
     /// All non-deleted appointments (any status) starting inside `[from, to)`,
     /// earliest first; backs the staff calendar.
-    pub async fn list_between<C: ConnectionTrait>(
+    pub async fn list_between<C: Conn>(
         conn: &C,
         from: chrono::DateTime<chrono::Utc>,
         to: chrono::DateTime<chrono::Utc>,
@@ -94,7 +92,7 @@ impl AppointmentRepository {
 
     /// Booked appointments whose start falls inside `[from, to)`; the
     /// reminder scheduler's work list.
-    pub async fn list_booked_starting_between<C: ConnectionTrait>(
+    pub async fn list_booked_starting_between<C: Conn>(
         conn: &C,
         from: chrono::DateTime<chrono::Utc>,
         to: chrono::DateTime<chrono::Utc>,
@@ -114,7 +112,7 @@ impl AppointmentRepository {
     }
 
     /// Appointments for a practitioner inside `[start, end)`.
-    pub async fn list_by_practitioner<C: ConnectionTrait>(
+    pub async fn list_by_practitioner<C: Conn>(
         conn: &C,
         worker_id: Uuid,
         start: DateTime<Utc>,
@@ -134,10 +132,7 @@ impl AppointmentRepository {
     /// Appointments that overlap `[start, end)` for the given patient,
     /// Every appointment that belongs to a given recurring series, ordered
     /// by scheduled start. Soft-deleted rows are excluded.
-    pub async fn list_by_series<C: ConnectionTrait>(
-        conn: &C,
-        series_id: Uuid,
-    ) -> Result<Vec<Appointment>> {
+    pub async fn list_by_series<C: Conn>(conn: &C, series_id: Uuid) -> Result<Vec<Appointment>> {
         let rows = appointment::Entity::find()
             .filter(appointment::Column::SeriesId.eq(series_id))
             .filter(appointment::Column::DeletedAt.is_null())
@@ -151,7 +146,7 @@ impl AppointmentRepository {
     /// Update one appointment row's status + cancellation_reason. Used by
     /// `SeriesService::cancel_series` to flip all future occurrences to
     /// `Cancelled` in one transaction. Idempotent: missing id → `Ok(None)`.
-    pub async fn set_status_and_reason<C: ConnectionTrait>(
+    pub async fn set_status_and_reason<C: Conn>(
         conn: &C,
         id: Uuid,
         new_status: AppointmentStatus,
@@ -178,7 +173,7 @@ impl AppointmentRepository {
 
     /// excluding terminal-cancelled/no-show statuses. Used to block
     /// double-booking.
-    pub async fn find_overlapping_for_patient<C: ConnectionTrait>(
+    pub async fn find_overlapping_for_patient<C: Conn>(
         conn: &C,
         person_id: Uuid,
         start: DateTime<Utc>,
@@ -208,7 +203,7 @@ impl AppointmentRepository {
     /// whether the *new* time window collides with any *other* appointment
     /// for the patient — the reschedule itself naturally overlaps the row
     /// being rescheduled, and that's not a conflict.
-    pub async fn find_overlapping_for_patient_excluding<C: ConnectionTrait>(
+    pub async fn find_overlapping_for_patient_excluding<C: Conn>(
         conn: &C,
         person_id: Uuid,
         start: DateTime<Utc>,

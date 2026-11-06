@@ -1,5 +1,6 @@
 //! slot repository
 
+use crate::db::sql::Conn;
 use chrono::{DateTime, Utc};
 use sea_orm::*;
 use uuid::Uuid;
@@ -11,13 +12,13 @@ use crate::{Error, Result};
 pub struct SlotRepository;
 
 impl SlotRepository {
-    pub async fn create<C: ConnectionTrait>(conn: &C, s: &Slot) -> Result<Slot> {
+    pub async fn create<C: Conn>(conn: &C, s: &Slot) -> Result<Slot> {
         let am = to_active_model(s);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(s.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Slot>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Slot>> {
         let m = slot::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -28,7 +29,7 @@ impl SlotRepository {
     /// Free slots in a schedule that fall fully within `[start, end)`.
     ///
     /// "Fully within" means `start_datetime >= start AND end_datetime <= end`.
-    pub async fn find_free_in_range<C: ConnectionTrait>(
+    pub async fn find_free_in_range<C: Conn>(
         conn: &C,
         schedule_id: Uuid,
         start: DateTime<Utc>,
@@ -46,7 +47,7 @@ impl SlotRepository {
     }
 
     /// Validate the slot status transition and persist.
-    pub async fn update_status<C: ConnectionTrait>(
+    pub async fn update_status<C: Conn>(
         conn: &C,
         id: Uuid,
         new_status: SlotStatus,
@@ -67,7 +68,7 @@ impl SlotRepository {
     }
 
     /// `SELECT … FOR UPDATE` for a single slot. Use inside a transaction.
-    pub async fn select_for_update<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Slot>> {
+    pub async fn select_for_update<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Slot>> {
         let m = slot::Entity::find_by_id(id)
             .lock_exclusive()
             .one(conn)
@@ -82,7 +83,7 @@ impl SlotRepository {
     /// validation, so callers should treat it as an operator-driven
     /// override (e.g. correcting a row that was created with the
     /// wrong start time).
-    pub async fn update<C: ConnectionTrait>(conn: &C, s: &Slot) -> Result<Slot> {
+    pub async fn update<C: Conn>(conn: &C, s: &Slot) -> Result<Slot> {
         let existing = slot::Entity::find_by_id(s.id)
             .one(conn)
             .await
@@ -101,7 +102,7 @@ impl SlotRepository {
     /// Hard delete by id. Slots are not soft-deleted (invariant §5.3).
     /// Used by `DELETE /fhir/Slot/{id}` (v0.21). Returns
     /// `Error::NotFound` when the row is missing.
-    pub async fn delete<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<()> {
+    pub async fn delete<C: Conn>(conn: &C, id: Uuid) -> Result<()> {
         let r = slot::Entity::delete_by_id(id)
             .exec(conn)
             .await

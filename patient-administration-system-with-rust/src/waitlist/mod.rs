@@ -1,6 +1,7 @@
 //! waitlist — Waitlist and RTT clock services
 
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, Set, TransactionTrait};
+use crate::db::sql::Transact;
+use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, Set};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -41,7 +42,7 @@ impl WaitlistService {
         let entry_clone = entry.clone();
         let res = self
             .db
-            .transaction::<_, WaitlistEntry, Error>(|txn| {
+            .in_txn::<_, WaitlistEntry>(|txn| {
                 Box::pin(async move {
                     let e = WaitlistRepository::create_entry(txn, &entry_clone).await?;
                     AuditLogRepository::log(
@@ -65,8 +66,7 @@ impl WaitlistService {
                     Ok(e)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publisher
             .publish(DomainEvent::new(
                 "WaitlistAdded",
@@ -92,7 +92,7 @@ impl WaitlistService {
         let ctx_clone = ctx.clone();
         let res = self
             .db
-            .transaction::<_, WaitlistEntry, Error>(|txn| {
+            .in_txn::<_, WaitlistEntry>(|txn| {
                 Box::pin(async move {
                     let mut e =
                         WaitlistRepository::lock_entry_if_current(txn, entry_id, expected).await?;
@@ -118,8 +118,7 @@ impl WaitlistService {
                     Ok(e)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         Ok(res)
     }
 
@@ -149,7 +148,7 @@ impl RttService {
         let pathway_clone = pathway.clone();
         let res = self
             .db
-            .transaction::<_, RTTPathway, Error>(|txn| {
+            .in_txn::<_, RTTPathway>(|txn| {
                 Box::pin(async move {
                     let p = RttRepository::create_pathway(txn, &pathway_clone).await?;
                     let ev = RTTClockEvent::started(p.id);
@@ -173,8 +172,7 @@ impl RttService {
                     Ok(p)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publisher
             .publish(DomainEvent::new(
                 "RTTClockStarted",
@@ -244,7 +242,7 @@ impl RttService {
         let event_clone = event.clone();
         let res = self
             .db
-            .transaction::<_, RTTClockEvent, Error>(|txn| {
+            .in_txn::<_, RTTClockEvent>(|txn| {
                 Box::pin(async move {
                     let e = RttRepository::create_event(txn, &event_clone).await?;
                     // Update pathway status inline via ActiveModel
@@ -284,8 +282,7 @@ impl RttService {
                     Ok(e)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publisher
             .publish(DomainEvent::new(
                 event_type,

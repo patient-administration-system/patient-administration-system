@@ -6,9 +6,10 @@ mod common;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::waitlist::WaitlistRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::Appointment;
 use patient_administration_system::models::waitlist::{Priority, WaitlistStatus};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 fn sys() -> UserContext {
@@ -52,15 +53,14 @@ impl W {
         let r = self
             .s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT count(*) AS n FROM follow_up_tasks WHERE appointment_id = $1",
                 [appt.into()],
             ))
             .await
             .unwrap()
             .unwrap();
-        r.try_get("", "n").unwrap()
+        r.col("n").unwrap()
     }
 }
 
@@ -215,15 +215,14 @@ async fn a_miss_never_removes_the_patient_or_touches_their_rtt_clock() {
             .unwrap();
     let events = |db: sea_orm::DatabaseConnection, id: Uuid| async move {
         let r = db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT count(*) AS n FROM rtt_clock_events WHERE pathway_id = $1",
                 [id.into()],
             ))
             .await
             .unwrap()
             .unwrap();
-        r.try_get::<i64>("", "n").unwrap()
+        r.col::<i64>("n").unwrap()
     };
     let before = events(w.s.db.clone(), pathway.id).await;
 
@@ -263,11 +262,7 @@ async fn a_miss_never_removes_the_patient_or_touches_their_rtt_clock() {
         "DELETE FROM rtt_pathways WHERE id = $1",
     ] {
         w.s.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                sql,
-                [pathway.id.into()],
-            ))
+            .run(Stmt::new(sql, [pathway.id.into()]))
             .await
             .unwrap();
     }

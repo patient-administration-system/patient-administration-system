@@ -1,6 +1,7 @@
 //! billing — Account/Charge/Invoice/Payment service
 
-use sea_orm::{DatabaseConnection, TransactionTrait};
+use crate::db::sql::Transact;
+use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -55,7 +56,7 @@ impl BillingService {
         let account_clone = account.clone();
         let res = self
             .db
-            .transaction::<_, Account, Error>(|txn| {
+            .in_txn::<_, Account>(|txn| {
                 Box::pin(async move {
                     let a = BillingRepository::create_account(txn, &account_clone).await?;
                     AuditLogRepository::log(
@@ -77,8 +78,7 @@ impl BillingService {
                     Ok(a)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publisher
             .publish(DomainEvent::new(
                 "AccountOpened",
@@ -93,7 +93,7 @@ impl BillingService {
         let ctx_clone = ctx.clone();
         let res = self
             .db
-            .transaction::<_, Account, Error>(|txn| {
+            .in_txn::<_, Account>(|txn| {
                 Box::pin(async move {
                     let a = BillingRepository::close_account(txn, account_id).await?;
                     AuditLogRepository::log(
@@ -109,8 +109,7 @@ impl BillingService {
                     Ok(a)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         Ok(res)
     }
 
@@ -131,7 +130,7 @@ impl BillingService {
         let charge_clone = charge.clone();
         let res = self
             .db
-            .transaction::<_, Charge, Error>(|txn| {
+            .in_txn::<_, Charge>(|txn| {
                 Box::pin(async move {
                     let c = BillingRepository::create_charge(txn, &charge_clone).await?;
                     AuditLogRepository::log(
@@ -153,8 +152,7 @@ impl BillingService {
                     Ok(c)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         Ok(res)
     }
 
@@ -187,7 +185,7 @@ impl BillingService {
         let invoice_clone = invoice.clone();
         let res = self
             .db
-            .transaction::<_, Invoice, Error>(|txn| {
+            .in_txn::<_, Invoice>(|txn| {
                 Box::pin(async move {
                     let i = BillingRepository::create_invoice(txn, &invoice_clone).await?;
                     AuditLogRepository::log(
@@ -209,8 +207,7 @@ impl BillingService {
                     Ok(i)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         Ok(res)
     }
 
@@ -228,7 +225,7 @@ impl BillingService {
         let payment_clone = payment.clone();
         let res = self
             .db
-            .transaction::<_, Payment, Error>(|txn| {
+            .in_txn::<_, Payment>(|txn| {
                 Box::pin(async move {
                     let p = BillingRepository::create_payment(txn, &payment_clone).await?;
                     let invoice = BillingRepository::find_invoice_by_id(txn, invoice_id)
@@ -267,8 +264,7 @@ impl BillingService {
                     Ok(p)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         Ok(res)
     }
 }

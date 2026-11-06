@@ -1,7 +1,7 @@
 //! Repositories — one per aggregate.
 //!
 //! Each repository is a plain struct with associated `async` functions that
-//! accept `&C: ConnectionTrait` so they work with either a
+//! accept `&C: Conn` so they work with either a
 //! `DatabaseConnection` or a `DatabaseTransaction`. No traits — keep it
 //! simple and idiomatic.
 //!

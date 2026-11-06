@@ -17,8 +17,10 @@
 //!   Ownership is what `verify_mobile` records, and the PAS does not itself send the verification
 //!   code (that needs a carrier, NOT-3).
 
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, FromQueryResult, Statement};
+use sea_orm::{DatabaseConnection, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -344,11 +346,13 @@ impl ContactService {
     }
 
     pub async fn get(&self, person_id: Uuid) -> Result<Option<Profile>> {
-        let row = ProfileRow::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            format!("SELECT {COLS} FROM patient_communication_profiles WHERE person_id = $1"),
-            [person_id.into()],
-        ))
+        let row = ProfileRow::find_by_statement(
+            Stmt::new(
+                format!("SELECT {COLS} FROM patient_communication_profiles WHERE person_id = $1"),
+                [person_id.into()],
+            )
+            .raw(),
+        )
         .one(&self.db)
         .await
         .map_err(db_err)?;
@@ -367,9 +371,7 @@ impl ContactService {
         let mobile_changed =
             before.as_ref().map(|p| p.row.mobile_e164.clone()) != Some(v.mobile.clone());
         let keep_verification = before.is_some() && !mobile_changed;
-        let row = ProfileRow::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            format!(
+        let row = ProfileRow::find_by_statement(Stmt::new(format!(
                 "INSERT INTO patient_communication_profiles (person_id, mobile_e164, alternate_name, alternate_relationship, \
                    alternate_phone_e164, alternate_email, alternate_is_carer, alternate_is_emergency, preferred_channel, \
                    preferred_language, accessibility_needs, updated_by) \
@@ -400,7 +402,7 @@ impl ContactService {
                 ctx.user_id.clone().into(),
                 keep_verification.into(),
             ],
-        ))
+        ).raw())
         .one(&self.db)
         .await
         .map_err(db_err)?
@@ -431,14 +433,12 @@ impl ContactService {
                 "method must be staff, portal or sms_code",
             ));
         }
-        let row = ProfileRow::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            format!(
+        let row = ProfileRow::find_by_statement(Stmt::new(format!(
                 "UPDATE patient_communication_profiles SET mobile_verified_at = now(), mobile_verification_method = $2, \
                    updated_at = now(), updated_by = $3 WHERE person_id = $1 AND mobile_e164 IS NOT NULL RETURNING {COLS}"
             ),
             [person_id.into(), method.into(), ctx.user_id.clone().into()],
-        ))
+        ).raw())
         .one(&self.db)
         .await
         .map_err(db_err)?
@@ -462,15 +462,13 @@ impl ContactService {
         if !(1..=3650).contains(&older_than_days) {
             return Err(Error::validation("older_than_days must be 1 to 3650"));
         }
-        let rows = ProfileRow::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            format!(
+        let rows = ProfileRow::find_by_statement(Stmt::new(format!(
                 "SELECT {COLS} FROM patient_communication_profiles \
                  WHERE mobile_e164 IS NULL OR mobile_verified_at IS NULL OR mobile_verified_at < now() - ($1 || ' days')::interval \
                  ORDER BY mobile_verified_at ASC NULLS FIRST, person_id LIMIT $2"
             ),
             [older_than_days.to_string().into(), crate::paging::fetch(limit).into()],
-        ))
+        ).raw())
         .all(&self.db)
         .await
         .map_err(db_err)?;
@@ -486,75 +484,50 @@ impl ContactService {
 
 /// The profile mobile, but only when it is verified and recent. Anything less and the caller must
 /// use what the upstream record holds: an unproven number must not receive a patient's messages.
-pub async fn trusted_mobile<C: ConnectionTrait>(
-    conn: &C,
-    person_id: Uuid,
-) -> Result<Option<String>> {
+pub async fn trusted_mobile<C: Conn>(conn: &C, person_id: Uuid) -> Result<Option<String>> {
     let row = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT mobile_e164 FROM patient_communication_profiles \
              WHERE person_id = $1 AND mobile_e164 IS NOT NULL AND mobile_verified_at IS NOT NULL \
                AND mobile_verified_at >= now() - ($2 || ' days')::interval",
             [person_id.into(), DEFAULT_STALE_DAYS.to_string().into()],
         ))
-        .await
-        .map_err(db_err)?;
-    Ok(row.and_then(|r| r.try_get("", "mobile_e164").ok()))
+        .await?;
+    Ok(row.and_then(|r| r.col("mobile_e164").ok()))
 }
 
 /// The patient's preferred channel, if they set one.
-pub async fn preferred_channel<C: ConnectionTrait>(
-    conn: &C,
-    person_id: Uuid,
-) -> Result<Option<String>> {
+pub async fn preferred_channel<C: Conn>(conn: &C, person_id: Uuid) -> Result<Option<String>> {
     let row = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT preferred_channel FROM patient_communication_profiles WHERE person_id = $1",
             [person_id.into()],
         ))
-        .await
-        .map_err(db_err)?;
-    Ok(row.and_then(|r| {
-        r.try_get::<Option<String>>("", "preferred_channel")
-            .ok()
-            .flatten()
-    }))
+        .await?;
+    Ok(row.and_then(|r| r.col::<Option<String>>("preferred_channel").ok().flatten()))
 }
 
 /// Has the patient said they can only be reached by letter (CAS-10)?
-pub async fn letter_only<C: ConnectionTrait>(conn: &C, person_id: Uuid) -> Result<bool> {
+pub async fn letter_only<C: Conn>(conn: &C, person_id: Uuid) -> Result<bool> {
     let row = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT 1 AS ok FROM patient_communication_profiles \
              WHERE person_id = $1 AND 'letter_only' = ANY(accessibility_needs)",
             [person_id.into()],
         ))
-        .await
-        .map_err(db_err)?;
+        .await?;
     Ok(row.is_some())
 }
 
 /// The patient's preferred language, if they set one.
-pub async fn preferred_language<C: ConnectionTrait>(
-    conn: &C,
-    person_id: Uuid,
-) -> Result<Option<String>> {
+pub async fn preferred_language<C: Conn>(conn: &C, person_id: Uuid) -> Result<Option<String>> {
     let row = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT preferred_language FROM patient_communication_profiles WHERE person_id = $1",
             [person_id.into()],
         ))
-        .await
-        .map_err(db_err)?;
-    Ok(row.and_then(|r| {
-        r.try_get::<Option<String>>("", "preferred_language")
-            .ok()
-            .flatten()
-    }))
+        .await?;
+    Ok(row.and_then(|r| r.col::<Option<String>>("preferred_language").ok().flatten()))
 }
 
 #[cfg(test)]

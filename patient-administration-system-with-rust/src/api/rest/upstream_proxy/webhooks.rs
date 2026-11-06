@@ -1,6 +1,7 @@
 //! Part of [`super`]: webhooks.
 
 use super::*;
+use crate::db::sql::{Conn, Transact};
 use axum::response::IntoResponse;
 
 #[derive(Debug, Deserialize)]
@@ -55,13 +56,11 @@ pub(super) async fn record_inbox(
     event_id: Uuid,
     source: &str,
 ) -> Result<bool, Error> {
-    use sea_orm::ConnectionTrait;
-    let sql = sea_orm::Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::Postgres,
+    let sql = crate::db::sql::Stmt::new(
         "INSERT INTO upstream_inbox (event_id, source) VALUES ($1, $2) ON CONFLICT DO NOTHING",
         [event_id.into(), source.into()],
     );
-    let result = db.execute_raw(sql).await.map_err(Error::Database)?;
+    let result = db.run(sql).await?;
     Ok(result.rows_affected() > 0)
 }
 
@@ -73,13 +72,11 @@ pub(super) async fn propagate_person_merge(
     outcome: &MergeOutcome,
     ctx: &crate::db::repositories::audit::UserContext,
 ) -> Result<(), Error> {
-    use sea_orm::TransactionTrait;
     let outcome = outcome.clone();
     let ctx = ctx.clone();
-    db.transaction::<_, (), Error>(|txn| {
+    db.in_txn::<_, ()>(|txn| {
         Box::pin(async move {
             use crate::db::repositories::audit::AuditLogRepository;
-            use sea_orm::ConnectionTrait;
             // Every table that carries person_id: one bulk UPDATE per table.
             for table in [
                 "encounters",
@@ -93,12 +90,11 @@ pub(super) async fn propagate_person_merge(
                 "consents",
                 "coverages",
             ] {
-                let sql = sea_orm::Statement::from_sql_and_values(
-                    sea_orm::DatabaseBackend::Postgres,
+                let sql = crate::db::sql::Stmt::new(
                     format!("UPDATE {table} SET person_id = $1 WHERE person_id = $2"),
                     [outcome.target_id.into(), outcome.source_id.into()],
                 );
-                let result = txn.execute_raw(sql).await.map_err(Error::Database)?;
+                let result = txn.run(sql).await?;
                 if result.rows_affected() > 0 {
                     AuditLogRepository::log(
                         txn,
@@ -119,7 +115,6 @@ pub(super) async fn propagate_person_merge(
         })
     })
     .await
-    .map_err(Error::from)
 }
 
 pub(super) async fn propagate_worker_merge(
@@ -127,13 +122,11 @@ pub(super) async fn propagate_worker_merge(
     outcome: &MergeOutcome,
     ctx: &crate::db::repositories::audit::UserContext,
 ) -> Result<(), Error> {
-    use sea_orm::TransactionTrait;
     let outcome = outcome.clone();
     let ctx = ctx.clone();
-    db.transaction::<_, (), Error>(|txn| {
+    db.in_txn::<_, ()>(|txn| {
         Box::pin(async move {
             use crate::db::repositories::audit::AuditLogRepository;
-            use sea_orm::ConnectionTrait;
             for (table, column) in [
                 ("encounters", "worker_id"),
                 ("appointments", "worker_id"),
@@ -142,12 +135,11 @@ pub(super) async fn propagate_worker_merge(
                 ("discharges", "discharging_worker_id"),
                 ("referrals", "referring_worker_id"),
             ] {
-                let sql = sea_orm::Statement::from_sql_and_values(
-                    sea_orm::DatabaseBackend::Postgres,
+                let sql = crate::db::sql::Stmt::new(
                     format!("UPDATE {table} SET {column} = $1 WHERE {column} = $2"),
                     [outcome.target_id.into(), outcome.source_id.into()],
                 );
-                let result = txn.execute_raw(sql).await.map_err(Error::Database)?;
+                let result = txn.run(sql).await?;
                 if result.rows_affected() > 0 {
                     AuditLogRepository::log(
                         txn,
@@ -168,7 +160,6 @@ pub(super) async fn propagate_worker_merge(
         })
     })
     .await
-    .map_err(Error::from)
 }
 
 /// `POST /api/upstream/person-merged` — receive a merge notification from

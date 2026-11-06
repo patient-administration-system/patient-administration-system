@@ -3,12 +3,12 @@
 //! Takes the full `Coverage` shape on POST/PUT (caller mints id +
 //! timestamps client-side if they want; otherwise the server fills both).
 
+use crate::db::sql::Transact;
 use axum::{
     Json,
     extract::{Path, State},
     http::HeaderMap,
 };
-use sea_orm::TransactionTrait;
 use uuid::Uuid;
 
 use crate::Error;
@@ -46,7 +46,7 @@ pub async fn create_coverage(
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let c = CoverageRepository::create(&txn, &body).await?;
         AuditLogRepository::log(
             &txn,
@@ -121,7 +121,7 @@ pub async fn update_coverage(
     body.updated_at = chrono::Utc::now();
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         CoverageRepository::lock_if_current(&txn, id, expected).await?;
         let c = CoverageRepository::update(&txn, &body).await?;
         AuditLogRepository::log(
@@ -167,7 +167,7 @@ pub async fn delete_coverage(
     };
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         CoverageRepository::lock_if_current(&txn, id, expected).await?;
         let c = CoverageRepository::set_status(&txn, id, CoverageStatus::Cancelled).await?;
         AuditLogRepository::log(

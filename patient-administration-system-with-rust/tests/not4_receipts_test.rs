@@ -15,10 +15,11 @@ use patient_administration_system::communication::reminders::ReminderService;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::letter::LetterRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
 use patient_administration_system::models::communication::{DeliveryChannel, LetterTemplate};
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -97,15 +98,14 @@ async fn letter(s: &AppState, person: Uuid, template: Uuid) -> Uuid {
 }
 
 async fn status(s: &AppState, id: Uuid) -> String {
-    s.db.query_one_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    s.db.one(Stmt::new(
         "SELECT status FROM generated_letters WHERE id = $1",
         [id.into()],
     ))
     .await
     .unwrap()
     .unwrap()
-    .try_get("", "status")
+    .col("status")
     .unwrap()
 }
 

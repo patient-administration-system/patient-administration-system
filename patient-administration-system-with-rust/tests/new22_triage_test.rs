@@ -5,15 +5,14 @@ mod common;
 
 use chrono::{Duration, Utc};
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::triage::TriageService;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 async fn encounter(db: &sea_orm::DatabaseConnection, class: &str, status: &str) -> Uuid {
     let id = Uuid::new_v4();
-    db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
+    db.run(Stmt::new("INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
          VALUES ($1, $2, $3, $4, now(), now(), now())",
         [id.into(), Uuid::new_v4().into(), class.into(), status.into()],
     ))
@@ -76,15 +75,14 @@ async fn a_category_and_its_assessor_are_stored_and_a_retriage_keeps_the_first()
 
     let audited: i64 = state
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT count(*) AS n FROM audit_log WHERE entity_id = $1 AND action = 'record_triage'",
             [enc.into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get("", "n")
+        .col("n")
         .unwrap();
     assert_eq!(audited, 2, "each assessment is audited");
 }
@@ -155,9 +153,7 @@ async fn the_database_refuses_an_unknown_category() {
     let enc = encounter(&state.db, "emergency", "arrived").await;
     let bad = state
         .db
-        .execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO triage_assessments (id, encounter_id, triage_system, category, assessed_by, assessed_at) \
+        .run(Stmt::new("INSERT INTO triage_assessments (id, encounter_id, triage_system, category, assessed_by, assessed_at) \
              VALUES ($1, $2, 'mts', 'purple', 'x', now())",
             [Uuid::new_v4().into(), enc.into()],
         ))

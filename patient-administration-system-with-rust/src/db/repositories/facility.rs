@@ -1,6 +1,7 @@
 //! Facility / Ward / Room repository: the CRUD behind `POST /api/facilities`, `POST /api/wards` and
 //! `POST /api/rooms`, the per-id GETs and the list-by-parent reads.
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -16,7 +17,7 @@ use crate::{Error, Result};
 pub struct FacilityRepository;
 
 impl FacilityRepository {
-    pub async fn create<C: ConnectionTrait>(conn: &C, f: &Facility) -> Result<Facility> {
+    pub async fn create<C: Conn>(conn: &C, f: &Facility) -> Result<Facility> {
         let am = facility::ActiveModel {
             id: Set(f.id),
             name: Set(f.name.clone()),
@@ -30,7 +31,7 @@ impl FacilityRepository {
         Ok(f.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Facility>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Facility>> {
         let m = facility::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -38,7 +39,7 @@ impl FacilityRepository {
         Ok(m.map(facility_from_model))
     }
 
-    pub async fn list<C: ConnectionTrait>(conn: &C) -> Result<Vec<Facility>> {
+    pub async fn list<C: Conn>(conn: &C) -> Result<Vec<Facility>> {
         let rows = facility::Entity::find()
             .filter(facility::Column::Active.eq(true))
             .order_by_asc(facility::Column::Name)
@@ -74,7 +75,7 @@ fn facility_from_model(m: facility::Model) -> Facility {
 pub struct WardRepository;
 
 impl WardRepository {
-    pub async fn create<C: ConnectionTrait>(conn: &C, w: &Ward) -> Result<Ward> {
+    pub async fn create<C: Conn>(conn: &C, w: &Ward) -> Result<Ward> {
         let am = ward::ActiveModel {
             id: Set(w.id),
             facility_id: Set(w.facility_id),
@@ -89,7 +90,7 @@ impl WardRepository {
         Ok(w.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Ward>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Ward>> {
         let m = ward::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -97,10 +98,7 @@ impl WardRepository {
         Ok(m.map(ward_from_model))
     }
 
-    pub async fn list_by_facility<C: ConnectionTrait>(
-        conn: &C,
-        facility_id: Uuid,
-    ) -> Result<Vec<Ward>> {
+    pub async fn list_by_facility<C: Conn>(conn: &C, facility_id: Uuid) -> Result<Vec<Ward>> {
         let rows = ward::Entity::find()
             .filter(ward::Column::FacilityId.eq(facility_id))
             .filter(ward::Column::Active.eq(true))
@@ -130,7 +128,7 @@ fn ward_from_model(m: ward::Model) -> Ward {
 pub struct RoomRepository;
 
 impl RoomRepository {
-    pub async fn create<C: ConnectionTrait>(conn: &C, r: &Room) -> Result<Room> {
+    pub async fn create<C: Conn>(conn: &C, r: &Room) -> Result<Room> {
         let am = room::ActiveModel {
             id: Set(r.id),
             ward_id: Set(r.ward_id),
@@ -144,7 +142,7 @@ impl RoomRepository {
         Ok(r.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Room>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Room>> {
         let m = room::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -152,7 +150,7 @@ impl RoomRepository {
         Ok(m.map(room_from_model))
     }
 
-    pub async fn list_by_ward<C: ConnectionTrait>(conn: &C, ward_id: Uuid) -> Result<Vec<Room>> {
+    pub async fn list_by_ward<C: Conn>(conn: &C, ward_id: Uuid) -> Result<Vec<Room>> {
         let rows = room::Entity::find()
             .filter(room::Column::WardId.eq(ward_id))
             .filter(room::Column::Active.eq(true))
@@ -168,7 +166,7 @@ impl RoomRepository {
     /// Returns the first match, or `None` if the code isn't unique
     /// enough — callers wanting strict uniqueness should add a
     /// `(ward_id, code)` filter.
-    pub async fn find_by_code<C: ConnectionTrait>(conn: &C, code: &str) -> Result<Option<Room>> {
+    pub async fn find_by_code<C: Conn>(conn: &C, code: &str) -> Result<Option<Room>> {
         let m = room::Entity::find()
             .filter(room::Column::Code.eq(code))
             .one(conn)

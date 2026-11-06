@@ -13,11 +13,12 @@ use patient_administration_system::api::rest::AppState;
 use patient_administration_system::backfill::BackfillService;
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, CancellationReason};
 use patient_administration_system::models::communication::DeliveryChannel;
 use patient_administration_system::standby::StandbyInput;
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -133,15 +134,14 @@ impl W {
         let r = self
             .s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT id FROM slot_releases WHERE slot_id = $1 AND status = 'open'",
                 [slot.id.into()],
             ))
             .await
             .unwrap()
             .unwrap();
-        (r.try_get("", "id").unwrap(), slot.id, a)
+        (r.col("id").unwrap(), slot.id, a)
     }
     async fn statuses(&self, release: Uuid) -> Vec<String> {
         self.svc
@@ -155,9 +155,7 @@ impl W {
     async fn expire_live_offer(&self, release: Uuid) {
         self.s
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE slot_offers SET expires_at = now() - interval '1 minute' WHERE release_id = $1 AND status = 'open'",
+            .run(Stmt::new("UPDATE slot_offers SET expires_at = now() - interval '1 minute' WHERE release_id = $1 AND status = 'open'",
                 [release.into()],
             ))
             .await
@@ -198,15 +196,14 @@ async fn offers_go_in_standby_order_one_at_a_time_and_move_on_when_declined_or_e
     // The live offer is p3's, the only one never offered before.
     let live =
         w.s.db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT person_id FROM slot_offers WHERE release_id = $1 AND status = 'open'",
                 [release.into()],
             ))
             .await
             .unwrap()
             .unwrap();
-    assert_eq!(live.try_get::<Uuid>("", "person_id").unwrap(), p3);
+    assert_eq!(live.col::<Uuid>("person_id").unwrap(), p3);
     assert_ne!(p2, p3);
 }
 
@@ -223,26 +220,24 @@ async fn accepting_books_the_slot_for_that_patient_takes_them_off_standby_and_st
     let appt = w
         .s
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT person_id, status FROM appointments WHERE slot_id = $1 AND status = 'booked'",
             [slot.into()],
         ))
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(appt.try_get::<Uuid>("", "person_id").unwrap(), o.person_id);
+    assert_eq!(appt.col::<Uuid>("person_id").unwrap(), o.person_id);
     let rel =
         w.s.db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT status FROM slot_releases WHERE id = $1",
                 [release.into()],
             ))
             .await
             .unwrap()
             .unwrap();
-    assert_eq!(rel.try_get::<String>("", "status").unwrap(), "refilled");
+    assert_eq!(rel.col::<String>("status").unwrap(), "refilled");
     let still_on = w.s.standby.list(Some(&w.service)).await.unwrap();
     assert!(
         still_on.iter().all(|e| e.person_id != o.person_id),
@@ -266,15 +261,14 @@ async fn two_taps_at_once_act_once() {
     assert_eq!([a.is_ok(), b.is_ok()].iter().filter(|x| **x).count(), 1);
     let n =
         w.s.db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT count(*) AS n FROM appointments WHERE slot_id = $1 AND status = 'booked'",
                 [slot.into()],
             ))
             .await
             .unwrap()
             .unwrap();
-    assert_eq!(n.try_get::<i64>("", "n").unwrap(), 1, "exactly one booking");
+    assert_eq!(n.col::<i64>("n").unwrap(), 1, "exactly one booking");
 }
 
 #[tokio::test]
@@ -313,15 +307,14 @@ async fn a_slot_taken_meanwhile_is_not_double_booked_and_the_next_patient_is_tri
     );
     let n =
         w.s.db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT count(*) AS n FROM appointments WHERE slot_id = $1 AND status = 'booked'",
                 [slot.into()],
             ))
             .await
             .unwrap()
             .unwrap();
-    assert_eq!(n.try_get::<i64>("", "n").unwrap(), 1);
+    assert_eq!(n.col::<i64>("n").unwrap(), 1);
 }
 
 #[tokio::test]
@@ -501,8 +494,7 @@ async fn quiet_hours_hold_an_offer_text_by_the_clinic_clock_whatever_the_time_of
     // Expired by the fixed clock's reckoning, not the database's `now()`, which is the wall clock.
     clock.set(at(12));
     w.s.db
-        .execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .run(Stmt::new(
             "UPDATE slot_offers SET expires_at = $2 WHERE release_id = $1 AND status = 'open'",
             [release.into(), (clock.now() - Duration::minutes(1)).into()],
         ))

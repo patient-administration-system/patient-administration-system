@@ -9,23 +9,21 @@ use axum::{
 };
 use patient_administration_system::api::fhir::fhir_router;
 use patient_administration_system::api::rest::AppState;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::Address;
 use patient_administration_system::models::facility::{Bed, BedStatus, Facility, Room, Ward};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 use uuid::Uuid;
 
 async fn count(s: &AppState, sql: &str) -> i64 {
-    s.db.query_one_raw(Statement::from_string(
-        DbBackend::Postgres,
-        format!("SELECT count(*) AS n FROM {sql}"),
-    ))
-    .await
-    .unwrap()
-    .unwrap()
-    .try_get::<i64>("", "n")
-    .unwrap()
+    s.db.one(Stmt::text(format!("SELECT count(*) AS n FROM {sql}")))
+        .await
+        .unwrap()
+        .unwrap()
+        .col::<i64>("n")
+        .unwrap()
 }
 
 /// schedules, slots, audit rows and outbox events for them.

@@ -1,6 +1,8 @@
 //! Part of [`super`]: status.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 
 impl ToleranceService {
     /// Read every measure over the last `days` days (waits are as of now), for the whole service and then for
@@ -130,16 +132,10 @@ impl ToleranceService {
         to: DateTime<Utc>,
         report: &crate::reports::Report,
     ) -> Result<Vec<Measure>> {
-        let q = |sql: &str| {
-            Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                sql.to_string(),
-                [from.into(), to.into()],
-            )
-        };
+        let q = |sql: &str| Stmt::new(sql.to_string(), [from.into(), to.into()]);
         let visits = self
             .db
-            .query_all_raw(q(
+            .all(q(
                 "SELECT sch.service_type AS svc, \
                    count(*) FILTER (WHERE a.status IN ('arrived','fulfilled'))::bigint AS attended, \
                    count(*) FILTER (WHERE a.status = 'no_show')::bigint AS missed, \
@@ -148,18 +144,16 @@ impl ToleranceService {
                  WHERE a.deleted_at IS NULL AND sch.service_type IS NOT NULL \
                    AND a.start_datetime >= $1 AND a.start_datetime < $2 GROUP BY 1",
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let slots = self
             .db
-            .query_all_raw(q(
+            .all(q(
                 "SELECT sch.service_type AS svc, count(*)::bigint AS slots, \
                    count(*) FILTER (WHERE sl.status = 'busy')::bigint AS busy \
                  FROM slots sl JOIN schedules sch ON sch.id = sl.schedule_id \
                  WHERE sch.service_type IS NOT NULL AND sl.start_datetime >= $1 AND sl.start_datetime < $2 GROUP BY 1",
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
 
         use std::collections::BTreeMap;
         #[derive(Default)]
@@ -220,15 +214,12 @@ impl ToleranceService {
     pub(super) async fn ward_measures(&self) -> Result<Vec<Measure>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT w.code AS ward, count(*)::bigint AS beds, \
+            .all(Stmt::text("SELECT w.code AS ward, count(*)::bigint AS beds, \
                    count(*) FILTER (WHERE b.status = 'occupied')::bigint AS occupied \
                  FROM beds b JOIN rooms r ON r.id = b.room_id JOIN wards w ON w.id = r.ward_id GROUP BY w.code"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let Some(m) = metric("bed_occupancy") else {
             return Ok(Vec::new());
         };
@@ -252,13 +243,10 @@ impl ToleranceService {
     pub(super) async fn bed_counts(&self) -> Result<(i64, i64)> {
         let row = self
             .db
-            .query_one_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT count(*)::bigint AS beds, count(*) FILTER (WHERE status = 'occupied')::bigint AS occupied FROM beds"
+            .one(Stmt::text("SELECT count(*)::bigint AS beds, count(*) FILTER (WHERE status = 'occupied')::bigint AS occupied FROM beds"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let Some(r) = row else { return Ok((0, 0)) };
         Ok((r.col("beds")?, r.col("occupied")?))
     }
@@ -272,9 +260,7 @@ impl ToleranceService {
     ) -> Result<(f64, f64, i64)> {
         let row = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT COALESCE(sum(i.total_value::numeric), 0)::float8 AS invoiced, \
+            .one(Stmt::new("SELECT COALESCE(sum(i.total_value::numeric), 0)::float8 AS invoiced, \
                         COALESCE((SELECT sum(p.amount_value::numeric) FROM payments p \
                                   JOIN invoices i2 ON i2.id = p.invoice_id \
                                   WHERE i2.status <> 'void' AND i2.finalized_at >= $1 AND i2.finalized_at < $2), 0)::float8 AS collected, \
@@ -282,8 +268,7 @@ impl ToleranceService {
                  FROM invoices i WHERE i.status <> 'void' AND i.finalized_at >= $1 AND i.finalized_at < $2",
                 [from.into(), to.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let Some(r) = row else {
             return Ok((0.0, 0.0, 0));
         };

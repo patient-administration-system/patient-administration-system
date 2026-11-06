@@ -1,5 +1,6 @@
 //! letter repository — LetterTemplate and GeneratedLetter
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -12,16 +13,13 @@ use crate::{Error, Result};
 pub struct LetterRepository;
 
 impl LetterRepository {
-    pub async fn create_template<C: ConnectionTrait>(
-        conn: &C,
-        t: &LetterTemplate,
-    ) -> Result<LetterTemplate> {
+    pub async fn create_template<C: Conn>(conn: &C, t: &LetterTemplate) -> Result<LetterTemplate> {
         let am = template_to_active_model(t)?;
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(t.clone())
     }
 
-    pub async fn find_template_by_id<C: ConnectionTrait>(
+    pub async fn find_template_by_id<C: Conn>(
         conn: &C,
         id: Uuid,
     ) -> Result<Option<LetterTemplate>> {
@@ -32,7 +30,7 @@ impl LetterRepository {
         m.map(template_from_model).transpose()
     }
 
-    pub async fn find_active_template_by_name<C: ConnectionTrait>(
+    pub async fn find_active_template_by_name<C: Conn>(
         conn: &C,
         name: &str,
     ) -> Result<Option<LetterTemplate>> {
@@ -46,10 +44,7 @@ impl LetterRepository {
     }
 
     /// Every active variant of a template group, English first by name of locale.
-    pub async fn list_active_by_name<C: ConnectionTrait>(
-        conn: &C,
-        name: &str,
-    ) -> Result<Vec<LetterTemplate>> {
+    pub async fn list_active_by_name<C: Conn>(conn: &C, name: &str) -> Result<Vec<LetterTemplate>> {
         let rows = letter_template::Entity::find()
             .filter(letter_template::Column::Name.eq(name))
             .filter(letter_template::Column::Active.eq(true))
@@ -62,7 +57,7 @@ impl LetterRepository {
 
     /// Lock a template's row for the rest of the transaction and check it is the version the caller read
     /// (OFH-11). `expected` `None` (the caller sent `*`) skips the comparison but still takes the lock.
-    pub async fn lock_template_if_current<C: ConnectionTrait>(
+    pub async fn lock_template_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
         expected: Option<chrono::DateTime<chrono::Utc>>,
@@ -83,10 +78,7 @@ impl LetterRepository {
     }
 
     /// Replace the editable fields of a template (administrator edit).
-    pub async fn update_template<C: ConnectionTrait>(
-        conn: &C,
-        t: &LetterTemplate,
-    ) -> Result<LetterTemplate> {
+    pub async fn update_template<C: Conn>(conn: &C, t: &LetterTemplate) -> Result<LetterTemplate> {
         let existing = letter_template::Entity::find_by_id(t.id)
             .one(conn)
             .await
@@ -100,7 +92,7 @@ impl LetterRepository {
     }
 
     /// True when a non-failed reminder letter already exists for the appointment.
-    pub async fn exists_for_appointment<C: ConnectionTrait>(
+    pub async fn exists_for_appointment<C: Conn>(
         conn: &C,
         appointment_id: Uuid,
         template_id: Uuid,
@@ -116,7 +108,7 @@ impl LetterRepository {
     }
 
     /// A person's letters, newest first, optionally only one channel.
-    pub async fn list_for_person<C: ConnectionTrait>(
+    pub async fn list_for_person<C: Conn>(
         conn: &C,
         person_id: Uuid,
         channel: Option<DeliveryChannel>,
@@ -135,7 +127,7 @@ impl LetterRepository {
     }
 
     /// How many delivery attempts for this appointment and template have failed.
-    pub async fn count_failed_for_appointment<C: ConnectionTrait>(
+    pub async fn count_failed_for_appointment<C: Conn>(
         conn: &C,
         appointment_id: Uuid,
         template_id: Uuid,
@@ -150,9 +142,7 @@ impl LetterRepository {
         Ok(i64::try_from(n).unwrap_or(i64::MAX))
     }
 
-    pub async fn list_active_templates<C: ConnectionTrait>(
-        conn: &C,
-    ) -> Result<Vec<LetterTemplate>> {
+    pub async fn list_active_templates<C: Conn>(conn: &C) -> Result<Vec<LetterTemplate>> {
         let rows = letter_template::Entity::find()
             .filter(letter_template::Column::Active.eq(true))
             .all(conn)
@@ -161,7 +151,7 @@ impl LetterRepository {
         rows.into_iter().map(template_from_model).collect()
     }
 
-    pub async fn create_generated_letter<C: ConnectionTrait>(
+    pub async fn create_generated_letter<C: Conn>(
         conn: &C,
         g: &GeneratedLetter,
     ) -> Result<GeneratedLetter> {
@@ -170,7 +160,7 @@ impl LetterRepository {
         Ok(g.clone())
     }
 
-    pub async fn find_generated_letter_by_id<C: ConnectionTrait>(
+    pub async fn find_generated_letter_by_id<C: Conn>(
         conn: &C,
         id: Uuid,
     ) -> Result<Option<GeneratedLetter>> {
@@ -181,7 +171,7 @@ impl LetterRepository {
         m.map(letter_from_model).transpose()
     }
 
-    pub async fn mark_sent<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<GeneratedLetter> {
+    pub async fn mark_sent<C: Conn>(conn: &C, id: Uuid) -> Result<GeneratedLetter> {
         let m = generated_letter::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -196,7 +186,7 @@ impl LetterRepository {
         letter_from_model(updated)
     }
 
-    pub async fn mark_failed<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<GeneratedLetter> {
+    pub async fn mark_failed<C: Conn>(conn: &C, id: Uuid) -> Result<GeneratedLetter> {
         let m = generated_letter::Entity::find_by_id(id)
             .one(conn)
             .await

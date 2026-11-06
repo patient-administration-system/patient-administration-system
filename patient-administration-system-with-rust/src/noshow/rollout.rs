@@ -1,6 +1,8 @@
 //! Part of [`super`]: rollout.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 
 /// One clinic's stage: recording in shadow, or live, and whether it has been in shadow long enough to go live.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
@@ -22,17 +24,14 @@ impl NoShowService {
     pub async fn rollout(&self) -> Result<Vec<RolloutRow>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT s.svc, COALESCE(r.stage, 'shadow') AS stage, r.changed_by, r.live_since, s.first_at, s.n \
+            .all(Stmt::text("SELECT s.svc, COALESCE(r.stage, 'shadow') AS stage, r.changed_by, r.live_since, s.first_at, s.n \
                  FROM (SELECT sc.service_type AS svc, min(n.computed_at) AS first_at, count(*) AS n \
                        FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
                        JOIN slots sl ON sl.id = a.slot_id JOIN schedules sc ON sc.id = sl.schedule_id GROUP BY 1) s \
                  LEFT JOIN noshow_rollout r ON r.service_type = s.svc ORDER BY s.svc"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let min = shadow_min_days();
         rows.iter()
             .map(|r| {
@@ -41,12 +40,8 @@ impl NoShowService {
                 Ok(RolloutRow {
                     service_type: r.col::<String>("svc")?,
                     stage: r.col::<String>("stage")?,
-                    changed_by: r
-                        .try_get::<Option<String>>("", "changed_by")
-                        .map_err(Error::Database)?,
-                    live_since: r
-                        .try_get::<Option<DateTime<Utc>>>("", "live_since")
-                        .map_err(Error::Database)?,
+                    changed_by: r.col::<Option<String>>("changed_by")?,
+                    live_since: r.col::<Option<DateTime<Utc>>>("live_since")?,
                     assessments: r.col::<i64>("n")?,
                     days_in_shadow: days,
                     may_go_live: days >= min,
@@ -85,16 +80,13 @@ impl NoShowService {
             self.require_active().await?;
             let row = self
                 .db
-                .query_one_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "SELECT min(n.computed_at) AS first_at FROM noshow_assessments n \
+                .one(Stmt::new("SELECT min(n.computed_at) AS first_at FROM noshow_assessments n \
                      JOIN appointments a ON a.id = n.appointment_id JOIN slots sl ON sl.id = a.slot_id \
                      JOIN schedules sc ON sc.id = sl.schedule_id WHERE sc.service_type = $1",
                     [svc.into()],
                 ))
-                .await
-                .map_err(Error::Database)?;
-            let first: Option<DateTime<Utc>> = row.and_then(|r| r.try_get("", "first_at").ok());
+.await?;
+            let first: Option<DateTime<Utc>> = row.and_then(|r| r.col("first_at").ok());
             let days = first.map_or(0, |f| (Utc::now() - f).num_days());
             if days < shadow_min_days() {
                 return Err(Error::conflict(format!(
@@ -104,16 +96,13 @@ impl NoShowService {
             }
         }
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO noshow_rollout (service_type, stage, changed_by, note, live_since) \
+            .run(Stmt::new("INSERT INTO noshow_rollout (service_type, stage, changed_by, note, live_since) \
                  VALUES ($1,$2,$3,$4, CASE WHEN $2 = 'live' THEN now() END) \
                  ON CONFLICT (service_type) DO UPDATE SET stage = $2, changed_by = $3, note = $4, changed_at = now(), \
                    live_since = CASE WHEN $2 = 'live' THEN COALESCE(noshow_rollout.live_since, now()) ELSE noshow_rollout.live_since END",
                 [svc.into(), stage.into(), by.into(), note.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log_with(
             &self.db,
             "noshow_model",
@@ -143,21 +132,18 @@ impl NoShowService {
         let r3 = |x: f64| (x * 1000.0).round() / 1000.0;
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT floor(n.probability * 10)::int AS tenth, count(*)::bigint AS n, avg(n.probability) AS predicted, \
+            .all(Stmt::new("SELECT floor(n.probability * 10)::int AS tenth, count(*)::bigint AS n, avg(n.probability) AS predicted, \
                    avg((a.status = 'no_show')::int) AS observed \
                  FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
                  WHERE a.status IN ('fulfilled','arrived','no_show') AND a.start_datetime > now() - make_interval(days => $1) \
                  GROUP BY 1 ORDER BY 1",
                 [days.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let counts: Vec<(Vec<(String, String)>, i64)> = rows
             .iter()
             .map(|r| {
-                let t: i32 = r.try_get("", "tenth").unwrap_or(0);
+                let t: i32 = r.col("tenth").unwrap_or(0);
                 Ok((
                     vec![("tenth".to_string(), t.min(9).to_string())],
                     r.col::<i64>("n")?,
@@ -181,8 +167,8 @@ impl NoShowService {
                     }
                 } else {
                     let (p, o): (f64, f64) = (
-                        r.try_get("", "predicted").unwrap_or(0.0),
-                        r.try_get("", "observed").unwrap_or(0.0),
+                        r.col("predicted").unwrap_or(0.0),
+                        r.col("observed").unwrap_or(0.0),
                     );
                     CalibrationCell {
                         predicted_tenth: t,
@@ -199,9 +185,7 @@ impl NoShowService {
         // Per clinic: before and after the go-live moment, and the same after-period at clinics still in shadow.
         let clinic_rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "WITH o AS ( \
+            .all(Stmt::new("WITH o AS ( \
                    SELECT COALESCE(sc.service_type,'unknown') AS svc, a.start_datetime AS at, (a.status = 'no_show') AS missed \
                    FROM appointments a LEFT JOIN slots sl ON sl.id = a.slot_id LEFT JOIN schedules sc ON sc.id = sl.schedule_id \
                    WHERE a.deleted_at IS NULL AND a.status IN ('fulfilled','arrived','no_show') \
@@ -219,8 +203,7 @@ impl NoShowService {
                  WHERE r.live_since IS NOT NULL GROUP BY r.service_type, r.live_since ORDER BY r.service_type",
                 [days.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let window = |m: i64, n: i64| RateWindow {
             // A rate is shown only if every count behind it is at least k, so a hidden figure cannot be
             // recovered from a published one.
@@ -230,10 +213,10 @@ impl NoShowService {
         let clinics: Vec<ClinicEffect> = clinic_rows
             .iter()
             .map(|r| {
-                let g = |c: &str| r.try_get::<i64>("", c).unwrap_or(0);
+                let g = |c: &str| r.col::<i64>(c).unwrap_or(0);
                 ClinicEffect {
-                    service_type: r.try_get::<String>("", "svc").unwrap_or_default(),
-                    live_since: r.try_get::<DateTime<Utc>>("", "live_since").ok(),
+                    service_type: r.col::<String>("svc").unwrap_or_default(),
+                    live_since: r.col::<DateTime<Utc>>("live_since").ok(),
                     before: window(g("before_missed"), g("before_n")),
                     after: window(g("after_missed"), g("after_n")),
                     same_period_clinics_still_in_shadow: window(g("shadow_missed"), g("shadow_n")),

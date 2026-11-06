@@ -1,6 +1,7 @@
 //! Part of [`super`]: schedules.
 
-use sea_orm::{DatabaseTransaction, TransactionTrait};
+use crate::db::sql::Transact;
+use sea_orm::DatabaseTransaction;
 
 use super::*;
 use crate::api::rest::handlers::request_audit_ctx;
@@ -351,7 +352,7 @@ pub async fn create_schedule(
 ) -> FhirResult {
     let saved = async {
         let schedule = schedule_from(&body)?;
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let saved = save_schedule(&txn, &schedule, &request_audit_ctx(&headers)).await?;
         txn.commit().await.map_err(Error::Database)?;
         Ok::<_, Error>(saved)
@@ -380,7 +381,7 @@ pub async fn update_schedule(
     Json(body): Json<Value>,
 ) -> FhirResult {
     let saved = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let mut existing = ScheduleRepository::find_by_id(&txn, id)
             .await?
             .ok_or_else(|| Error::not_found(format!("Schedule/{id}")))?;
@@ -425,7 +426,7 @@ pub async fn delete_schedule(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, Json<OperationOutcome>)> {
     async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let existing = ScheduleRepository::find_by_id(&txn, id)
             .await?
             .ok_or_else(|| Error::not_found(format!("Schedule/{id}")))?;
@@ -521,7 +522,7 @@ pub async fn create_slot(
 ) -> FhirResult {
     let saved = async {
         let slot = slot_from(&body)?;
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let saved = save_slot(&txn, &slot, &request_audit_ctx(&headers)).await?;
         txn.commit().await.map_err(Error::Database)?;
         Ok::<_, Error>(saved)
@@ -550,7 +551,7 @@ pub async fn update_slot(
     Json(body): Json<Value>,
 ) -> FhirResult {
     let saved = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let mut existing = SlotRepository::select_for_update(&txn, id)
             .await?
             .ok_or_else(|| Error::not_found(format!("Slot/{id}")))?;
@@ -600,7 +601,7 @@ pub async fn delete_slot(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, Json<OperationOutcome>)> {
     async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let existing = SlotRepository::select_for_update(&txn, id)
             .await?
             .ok_or_else(|| Error::not_found(format!("Slot/{id}")))?;

@@ -4,9 +4,10 @@
 mod common;
 
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::group_sessions::GroupSessionService;
 use patient_administration_system::models::appointment::CancellationReason;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 fn sys() -> UserContext {
@@ -14,8 +15,7 @@ fn sys() -> UserContext {
 }
 
 async fn live(db: &sea_orm::DatabaseConnection, slot: Uuid) -> i64 {
-    db.query_one_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    db.one(Stmt::new(
         "SELECT count(*)::bigint AS n FROM appointments WHERE slot_id = $1 AND deleted_at IS NULL \
          AND status IN ('booked','arrived','fulfilled')",
         [slot.into()],
@@ -23,7 +23,7 @@ async fn live(db: &sea_orm::DatabaseConnection, slot: Uuid) -> i64 {
     .await
     .unwrap()
     .unwrap()
-    .try_get("", "n")
+    .col("n")
     .unwrap()
 }
 
@@ -200,13 +200,12 @@ async fn the_capacity_is_declared_by_a_named_person_and_never_below_those_booked
         .unwrap();
 
     let audit =
-        s.db.query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT count(*) AS n FROM audit_log WHERE entity_id = $1 AND action = 'set_capacity'",
             [slot.id.into()],
         ))
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(audit.try_get::<i64>("", "n").unwrap(), 3);
+    assert_eq!(audit.col::<i64>("n").unwrap(), 3);
 }

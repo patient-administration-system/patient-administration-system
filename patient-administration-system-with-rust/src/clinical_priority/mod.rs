@@ -8,8 +8,11 @@
 //! **Support only (NFR-11).** The priority is recorded and shown. Nothing here, or anywhere else, orders the
 //! waiting list, offers a slot or books by it: clinical ordering is a person's decision.
 
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Stmt};
 use chrono::NaiveDate;
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -73,36 +76,26 @@ impl ClinicalPriorityService {
             clinician,
             "set_by: the clinician setting the priority is required",
         )?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let before = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT clinical_priority, clinical_priority_review_by, updated_at FROM waitlist_entries \
+            .one(Stmt::new("SELECT clinical_priority, clinical_priority_review_by, updated_at FROM waitlist_entries \
                  WHERE id = $1 AND status IN ('waiting','booked') FOR UPDATE",
                 [entry_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| {
                 Error::not_found(format!("waiting or booked waiting-list entry {entry_id}"))
             })?;
-        let seen: chrono::DateTime<chrono::Utc> =
-            before.try_get("", "updated_at").map_err(Error::Database)?;
+        let seen: chrono::DateTime<chrono::Utc> = before.col("updated_at")?;
         if !crate::api::rest::concurrency::is_current(seen, expected) {
             return Err(Error::precondition_failed(
                 "the waiting-list entry has changed since it was read; read it again",
             ));
         }
-        let old_code: Option<String> = before
-            .try_get("", "clinical_priority")
-            .map_err(Error::Database)?;
-        let old_review: Option<NaiveDate> = before
-            .try_get("", "clinical_priority_review_by")
-            .map_err(Error::Database)?;
+        let old_code: Option<String> = before.col("clinical_priority")?;
+        let old_review: Option<NaiveDate> = before.col("clinical_priority_review_by")?;
         let updated = txn
-            .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE waitlist_entries SET clinical_priority = $2, clinical_priority_set_by = $3, \
+            .one(Stmt::new("UPDATE waitlist_entries SET clinical_priority = $2, clinical_priority_set_by = $3, \
                clinical_priority_review_by = $4, updated_at = now() WHERE id = $1 RETURNING updated_at",
             [
                 entry_id.into(),
@@ -111,11 +104,9 @@ impl ClinicalPriorityService {
                 review_by.into(),
             ],
         ))
-        .await
-        .map_err(Error::Database)?
+.await?
         .ok_or_else(|| Error::not_found(format!("waitlist entry {entry_id}")))?;
-        let new_version: chrono::DateTime<chrono::Utc> =
-            updated.try_get("", "updated_at").map_err(Error::Database)?;
+        let new_version: chrono::DateTime<chrono::Utc> = updated.col("updated_at")?;
         AuditLogRepository::log(
             &txn,
             "waitlist_entry",
@@ -135,28 +126,21 @@ impl ClinicalPriorityService {
     pub async fn overdue(&self, today: NaiveDate, fetch: i64) -> Result<Vec<OverdueReview>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT id, person_id, target_service, clinical_priority, clinical_priority_review_by \
+            .all(Stmt::new("SELECT id, person_id, target_service, clinical_priority, clinical_priority_review_by \
                  FROM waitlist_entries \
                  WHERE clinical_priority_review_by < $1 AND status IN ('waiting','booked') \
                  ORDER BY clinical_priority_review_by, id LIMIT $2",
                 [today.into(), crate::paging::fetch(fetch).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(OverdueReview {
-                    entry_id: r.try_get("", "id").map_err(Error::Database)?,
-                    person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-                    target_service: r.try_get("", "target_service").map_err(Error::Database)?,
-                    clinical_priority: r
-                        .try_get("", "clinical_priority")
-                        .map_err(Error::Database)?,
-                    review_by: r
-                        .try_get("", "clinical_priority_review_by")
-                        .map_err(Error::Database)?,
+                    entry_id: r.col("id")?,
+                    person_id: r.col("person_id")?,
+                    target_service: r.col("target_service")?,
+                    clinical_priority: r.col("clinical_priority")?,
+                    review_by: r.col("clinical_priority_review_by")?,
                 })
             })
             .collect()

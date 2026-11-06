@@ -6,7 +6,8 @@
 
 mod common;
 
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
@@ -115,9 +116,7 @@ async fn every_database_column_is_classified_and_no_stale_row_remains() {
         .await
         .expect("connect");
     let rows = db
-        .query_all_raw(Statement::from_string(
-            DbBackend::Postgres,
-            "SELECT table_name, column_name FROM information_schema.columns \
+        .all(Stmt::text("SELECT table_name, column_name FROM information_schema.columns \
              WHERE table_schema = 'public' AND table_name NOT LIKE 'seaql%' AND table_name <> '_sqlx_migrations'"
                 .to_string(),
         ))
@@ -125,12 +124,7 @@ async fn every_database_column_is_classified_and_no_stale_row_remains() {
         .unwrap();
     let actual: BTreeSet<(String, String)> = rows
         .iter()
-        .map(|r| {
-            (
-                r.try_get("", "table_name").unwrap(),
-                r.try_get("", "column_name").unwrap(),
-            )
-        })
+        .map(|r| (r.col("table_name").unwrap(), r.col("column_name").unwrap()))
         .collect();
     let listed: BTreeSet<(String, String)> =
         inventory().into_iter().map(|(t, c, _)| (t, c)).collect();

@@ -5,6 +5,7 @@
 //! two convenience methods (`link_to_account`, `set_status`) that are
 //! cheaper than a full PUT round-trip.
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -16,13 +17,13 @@ pub struct CoverageRepository;
 
 impl CoverageRepository {
     /// Insert a new coverage row.
-    pub async fn create<C: ConnectionTrait>(conn: &C, c: &Coverage) -> Result<Coverage> {
+    pub async fn create<C: Conn>(conn: &C, c: &Coverage) -> Result<Coverage> {
         let am = to_active_model(c);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(c.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Coverage>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Coverage>> {
         let m = coverage::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -33,7 +34,7 @@ impl CoverageRepository {
     /// Lock the coverage's row for the rest of the transaction and check it is the version the caller read
     /// (OFH-11). `expected` is the `updated_at` the caller saw; `None` (the caller sent `*`) skips the
     /// comparison but still takes the lock, so a second writer waits and then gets `412`.
-    pub async fn lock_if_current<C: ConnectionTrait>(
+    pub async fn lock_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
         expected: Option<chrono::DateTime<chrono::Utc>>,
@@ -56,7 +57,7 @@ impl CoverageRepository {
     /// Replace the row in place. Caller is expected to have produced a
     /// merged record (existing-row + patch) before calling. Returns the row as stored, so its `updated_at`
     /// (to the microsecond) is the version the next write must send.
-    pub async fn update<C: ConnectionTrait>(conn: &C, c: &Coverage) -> Result<Coverage> {
+    pub async fn update<C: Conn>(conn: &C, c: &Coverage) -> Result<Coverage> {
         let mut am = to_active_model(c);
         am.updated_at = Set(chrono::Utc::now().fixed_offset());
         let stored = am.update(conn).await.map_err(Error::Database)?;
@@ -65,7 +66,7 @@ impl CoverageRepository {
 
     /// Flip just the status column. Used by the soft-cancel endpoint
     /// (`DELETE /api/coverages/:id` → status = Cancelled).
-    pub async fn set_status<C: ConnectionTrait>(
+    pub async fn set_status<C: Conn>(
         conn: &C,
         id: Uuid,
         new_status: CoverageStatus,
@@ -85,7 +86,7 @@ impl CoverageRepository {
 
     /// Attach a coverage to a billing account, or detach by passing
     /// `None`.
-    pub async fn link_to_account<C: ConnectionTrait>(
+    pub async fn link_to_account<C: Conn>(
         conn: &C,
         id: Uuid,
         account_id: Option<Uuid>,
@@ -104,10 +105,7 @@ impl CoverageRepository {
     }
 
     /// All coverage rows for a patient, newest-first.
-    pub async fn list_by_patient<C: ConnectionTrait>(
-        conn: &C,
-        person_id: Uuid,
-    ) -> Result<Vec<Coverage>> {
+    pub async fn list_by_patient<C: Conn>(conn: &C, person_id: Uuid) -> Result<Vec<Coverage>> {
         let rows = coverage::Entity::find()
             .filter(coverage::Column::PersonId.eq(person_id))
             .order_by_desc(coverage::Column::CreatedAt)
@@ -119,10 +117,7 @@ impl CoverageRepository {
 
     /// All coverage rows attached to a billing account, newest-first.
     /// Useful when surfacing payer info on an invoice or statement.
-    pub async fn list_by_account<C: ConnectionTrait>(
-        conn: &C,
-        account_id: Uuid,
-    ) -> Result<Vec<Coverage>> {
+    pub async fn list_by_account<C: Conn>(conn: &C, account_id: Uuid) -> Result<Vec<Coverage>> {
         let rows = coverage::Entity::find()
             .filter(coverage::Column::AccountId.eq(account_id))
             .order_by_desc(coverage::Column::CreatedAt)

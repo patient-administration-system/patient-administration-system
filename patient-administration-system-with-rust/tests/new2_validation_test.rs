@@ -9,9 +9,10 @@ use axum::{
 };
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::list_validation::{Campaign, Item, NewCampaign, RemovalsReport};
 use patient_administration_system::models::waitlist::Priority;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -65,7 +66,7 @@ impl W {
                 pathway.id
             ),
         ] {
-            self.s.db.execute_unprepared(&sql).await.unwrap();
+            self.s.db.batch(&sql).await.unwrap();
         }
         (person, entry.id, pathway.id)
     }
@@ -102,17 +103,17 @@ impl W {
     }
 
     async fn sql(&self, sql: &str) {
-        self.s.db.execute_unprepared(sql).await.unwrap();
+        self.s.db.batch(sql).await.unwrap();
     }
 
     async fn scalar_text(&self, sql: &str) -> String {
         self.s
             .db
-            .query_one_raw(Statement::from_string(DbBackend::Postgres, sql.to_string()))
+            .one(Stmt::text(sql.to_string()))
             .await
             .unwrap()
             .unwrap()
-            .try_get("", "v")
+            .col("v")
             .unwrap()
     }
 }

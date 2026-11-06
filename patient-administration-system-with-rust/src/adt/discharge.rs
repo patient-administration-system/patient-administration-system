@@ -1,6 +1,7 @@
 //! Part of [`super`]: discharge.
 
 use super::*;
+use crate::db::sql::Transact;
 
 impl AdtService {
     /// Cancel a wrong discharge (HL7 v2 ADT^A13 semantics): reinstate the
@@ -40,7 +41,7 @@ impl AdtService {
         let ctx_clone = ctx.clone();
         let res = self
             .db
-            .transaction::<_, Admission, Error>(|txn| {
+            .in_txn::<_, Admission>(|txn| {
                 Box::pin(async move {
                     let adm =
                         AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected)
@@ -127,8 +128,7 @@ impl AdtService {
                     Ok(adm)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
 
         self.publisher
             .publish(DomainEvent::new(
@@ -164,7 +164,7 @@ impl AdtService {
         let ctx_clone = ctx.clone();
         let res = self
             .db
-            .transaction::<_, Discharge, Error>(|txn| {
+            .in_txn::<_, Discharge>(|txn| {
                 Box::pin(async move {
                     let adm =
                         AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected)
@@ -213,8 +213,7 @@ impl AdtService {
                     Ok(d)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
 
         self.publisher
             .publish(DomainEvent::new(

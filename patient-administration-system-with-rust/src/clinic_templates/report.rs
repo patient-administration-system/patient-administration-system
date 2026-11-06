@@ -16,8 +16,9 @@
 //! It does not compute a sustainable waiting list size and does not smooth for seasonal variation. It
 //! describes; it moves, removes and reorders nothing (NFR-11).
 
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 
 use crate::db::row::RowExt;
@@ -94,8 +95,7 @@ pub async fn capacity_report(
     }
     let lookback_from = from - Duration::days(lookback_days);
     let rows = db
-        .query_all_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .all(Stmt::new(
             "SELECT coalesce(s.slot_type, 'untyped') AS slot_type, count(*) AS slots, \
                     count(*) FILTER (WHERE s.status = 'free') AS free, \
                     count(*) FILTER (WHERE s.ring_fenced) AS ring_fenced \
@@ -105,8 +105,7 @@ pub async fn capacity_report(
              GROUP BY 1 ORDER BY 1",
             [service_type.into(), from.into(), to.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+        .await?;
     let by_type = rows
         .iter()
         .map(|r| {
@@ -122,19 +121,16 @@ pub async fn capacity_report(
     let ring_fenced_slots: i64 = by_type.iter().map(|t| t.ring_fenced).sum();
 
     let referrals: i64 = db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT count(*) AS n FROM referrals WHERE target_service = $1 \
                AND received_at >= $2 AND received_at < $3",
             [service_type.into(), lookback_from.into(), from.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+        .await?
         .ok_or_else(|| Error::internal("no row from count"))?
         .col("n")?;
     let outcomes = db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT count(*) FILTER (WHERE a.status IN ('fulfilled','arrived')) AS attended, \
                     count(*) FILTER (WHERE a.status = 'no_show') AS missed \
              FROM appointments a JOIN slots s ON s.id = a.slot_id \
@@ -143,8 +139,7 @@ pub async fn capacity_report(
                AND a.start_datetime >= $2 AND a.start_datetime < $3",
             [service_type.into(), lookback_from.into(), from.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+        .await?
         .ok_or_else(|| Error::internal("no row from count"))?;
     let attended: i64 = outcomes.col("attended")?;
     let missed: i64 = outcomes.col("missed")?;

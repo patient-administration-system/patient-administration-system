@@ -13,8 +13,9 @@ use chrono::{DateTime, Duration, Utc};
 use patient_administration_system::analytics::Dim;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::schedule::Slot;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -42,15 +43,13 @@ async fn world() -> W {
             .and_utc();
         let used: i64 = s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT count(*) AS n FROM appointments WHERE start_datetime >= $1 AND start_datetime < $2",
+            .one(Stmt::new("SELECT count(*) AS n FROM appointments WHERE start_datetime >= $1 AND start_datetime < $2",
                 [(centre - Duration::hours(13)).into(), (centre + Duration::hours(13)).into()],
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get("", "n")
+            .col("n")
             .unwrap();
         if used == 0 {
             return W { s, centre };
@@ -100,15 +99,13 @@ impl W {
         let (from, to) = self.window();
         self.s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT count(*) AS n FROM appointments WHERE deleted_at IS NULL AND start_datetime >= $1 AND start_datetime < $2",
+            .one(Stmt::new("SELECT count(*) AS n FROM appointments WHERE deleted_at IS NULL AND start_datetime >= $1 AND start_datetime < $2",
                 [from.into(), to.into()],
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get("", "n")
+            .col("n")
             .unwrap()
     }
 }

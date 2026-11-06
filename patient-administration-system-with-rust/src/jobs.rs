@@ -9,10 +9,13 @@
 //! - **Clean shutdown.** `Jobs::stop` tells every loop to finish the run it
 //!   is in and stop, and waits for them for a grace period.
 
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Stmt};
 use std::future::Future;
 use std::time::Duration;
 
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
@@ -33,7 +36,7 @@ where
     F: FnOnce() -> Fut,
     Fut: Future<Output = ()> + Send + 'static,
 {
-    let txn = match db.begin().await {
+    let txn = match db.begin_txn().await {
         Ok(t) => t,
         Err(e) => {
             tracing::warn!(target: "pas::jobs", job = name, "job skipped, no connection: {e}");
@@ -41,16 +44,14 @@ where
         }
     };
     let got = txn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS got",
+        .one(Stmt::new("SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS got",
             [format!("pas.job.{name}").into()],
         ))
         .await
         .map_err(|e| tracing::warn!(target: "pas::jobs", job = name, "job lock could not be asked for: {e}"))
         .ok()
         .flatten()
-        .and_then(|r| r.try_get::<bool>("", "got").ok())
+        .and_then(|r| r.col::<bool>("got").ok())
         .unwrap_or(false);
     if !got {
         tracing::debug!(target: "pas::jobs", job = name, "job is running elsewhere; skipped");

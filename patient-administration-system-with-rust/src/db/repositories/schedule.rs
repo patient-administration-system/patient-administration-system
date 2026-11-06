@@ -1,5 +1,6 @@
 //! schedule repository
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -18,13 +19,13 @@ pub(crate) mod owner_kind {
 }
 
 impl ScheduleRepository {
-    pub async fn create<C: ConnectionTrait>(conn: &C, s: &Schedule) -> Result<Schedule> {
+    pub async fn create<C: Conn>(conn: &C, s: &Schedule) -> Result<Schedule> {
         let am = to_active_model(s);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(s.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Schedule>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Schedule>> {
         let m = schedule::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -33,7 +34,7 @@ impl ScheduleRepository {
     }
 
     /// List schedules whose `(owner_kind, owner_id)` matches the given owner.
-    pub async fn list_by_owner<C: ConnectionTrait>(
+    pub async fn list_by_owner<C: Conn>(
         conn: &C,
         owner_kind: &str,
         owner_id: Uuid,
@@ -50,7 +51,7 @@ impl ScheduleRepository {
     /// Full replace by id. Returns `Error::NotFound` when the row is
     /// missing. Used by the FHIR R5 `PUT /fhir/Schedule/{id}`
     /// surface (v0.21).
-    pub async fn update<C: ConnectionTrait>(conn: &C, s: &Schedule) -> Result<Schedule> {
+    pub async fn update<C: Conn>(conn: &C, s: &Schedule) -> Result<Schedule> {
         let existing = schedule::Entity::find_by_id(s.id)
             .one(conn)
             .await
@@ -72,7 +73,7 @@ impl ScheduleRepository {
     /// encounters, and appointments. Returns `Error::NotFound` when
     /// the row is missing. Used by `DELETE /fhir/Schedule/{id}`
     /// (v0.21).
-    pub async fn delete<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<()> {
+    pub async fn delete<C: Conn>(conn: &C, id: Uuid) -> Result<()> {
         let r = schedule::Entity::delete_by_id(id)
             .exec(conn)
             .await

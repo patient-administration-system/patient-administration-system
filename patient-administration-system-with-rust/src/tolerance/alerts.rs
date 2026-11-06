@@ -1,6 +1,9 @@
 //! Part of [`super`]: alerts.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Stmt};
 
 impl ToleranceService {
     /// Check every reading and keep the alerts true to it: a measure that is red has one open alert (and the
@@ -25,9 +28,7 @@ impl ToleranceService {
                 (Rag::Green | Rag::Amber, _) => {
                     let n = self
                         .db
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE tolerance_alerts SET cleared_at = now() \
+                        .run(Stmt::new("UPDATE tolerance_alerts SET cleared_at = now() \
                              WHERE metric = $1 AND scope_kind = $2 AND scope_key = $3 AND cleared_at IS NULL",
                             [
                                 r.metric.into(),
@@ -35,8 +36,7 @@ impl ToleranceService {
                                 r.scope_key.clone().into(),
                             ],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+.await?
                         .rows_affected();
                     cleared += n as usize;
                 }
@@ -45,14 +45,12 @@ impl ToleranceService {
         }
         let open = self
             .db
-            .query_one_raw(Statement::from_string(
-                DbBackend::Postgres,
+            .one(Stmt::text(
                 "SELECT count(*)::bigint AS n FROM tolerance_alerts WHERE cleared_at IS NULL"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?
-            .and_then(|r| r.try_get::<i64>("", "n").ok())
+            .await?
+            .and_then(|r| r.col::<i64>("n").ok())
             .unwrap_or(0);
         Ok(Evaluation {
             checked: readings.len(),
@@ -64,12 +62,10 @@ impl ToleranceService {
 
     /// Open an alert for a red reading, or note that it is still red. True when a new alert opened.
     pub(super) async fn open_or_raise(&self, r: &Reading, value: f64) -> Result<bool> {
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let id = Uuid::new_v4();
         let inserted = txn
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO tolerance_alerts (id, metric, scope_kind, scope_key, value, target, tolerance, escalate_beyond) \
+            .run(Stmt::new("INSERT INTO tolerance_alerts (id, metric, scope_kind, scope_key, value, target, tolerance, escalate_beyond) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING",
                 [
                     id.into(),
@@ -82,8 +78,7 @@ impl ToleranceService {
                     r.limits.escalate_beyond.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .rows_affected()
             == 1;
         if inserted {
@@ -102,8 +97,7 @@ impl ToleranceService {
             )
             .await?;
         } else {
-            txn.execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            txn.run(Stmt::new(
                 "UPDATE tolerance_alerts SET last_seen_at = now(), value = $4 \
                  WHERE metric = $1 AND scope_kind = $2 AND scope_key = $3 AND cleared_at IS NULL",
                 [
@@ -113,8 +107,7 @@ impl ToleranceService {
                     value.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         }
         txn.commit().await.map_err(Error::Database)?;
         Ok(inserted)
@@ -124,17 +117,14 @@ impl ToleranceService {
     pub async fn alerts(&self, open_only: bool) -> Result<Vec<Alert>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                format!(
+            .all(Stmt::text(format!(
                     "SELECT id, metric, scope_kind, scope_key, value, target, tolerance, escalate_beyond, raised_at, \
                             last_seen_at, cleared_at, acknowledged_by, acknowledged_at, note \
                      FROM tolerance_alerts {} ORDER BY raised_at DESC LIMIT 200",
                     if open_only { "WHERE cleared_at IS NULL" } else { "" }
                 ),
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let mut out = Vec::new();
         for r in &rows {
             let key: String = r.col("metric")?;
@@ -176,25 +166,20 @@ impl ToleranceService {
         )?;
         let n = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE tolerance_alerts SET acknowledged_by = $2, acknowledged_at = now(), note = $3 \
+            .run(Stmt::new("UPDATE tolerance_alerts SET acknowledged_by = $2, acknowledged_at = now(), note = $3 \
                  WHERE id = $1 AND cleared_at IS NULL AND acknowledged_by IS NULL",
                 [id.into(), by.into(), note.trim().into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .rows_affected();
         if n == 0 {
             let exists = self
                 .db
-                .query_one_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
+                .one(Stmt::new(
                     "SELECT 1 AS x FROM tolerance_alerts WHERE id = $1",
                     [id.into()],
                 ))
-                .await
-                .map_err(Error::Database)?
+                .await?
                 .is_some();
             return Err(if exists {
                 Error::conflict("the alert is closed or already acknowledged")

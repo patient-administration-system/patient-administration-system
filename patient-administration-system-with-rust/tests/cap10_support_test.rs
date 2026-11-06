@@ -12,8 +12,9 @@ use axum::{
     http::{Request, StatusCode},
 };
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::standby::{CandidateFilter, StandbyInput};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -86,9 +87,7 @@ async fn no_column_in_the_schema_scores_ranks_penalises_or_suppresses() {
     let s = common::build_state(&common::database_url().unwrap()).await;
     let rows = s
         .db
-        .query_all_raw(Statement::from_string(
-            DbBackend::Postgres,
-            "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'",
+        .all(Stmt::text("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'",
         ))
         .await
         .unwrap();
@@ -98,8 +97,8 @@ async fn no_column_in_the_schema_scores_ranks_penalises_or_suppresses() {
         .map(|r| {
             format!(
                 "{}.{}",
-                r.try_get::<String>("", "table_name").unwrap(),
-                r.try_get::<String>("", "column_name").unwrap()
+                r.col::<String>("table_name").unwrap(),
+                r.col::<String>("column_name").unwrap()
             )
         })
         .filter(|tc| violates(tc.split('.').nth(1).unwrap()))
@@ -155,8 +154,7 @@ async fn rebooking_options_and_standby_candidates_are_the_same_with_and_without_
         .await
         .unwrap();
     // A fresh offer, so it is computed again rather than reused.
-    s.db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    s.db.run(Stmt::new(
         "DELETE FROM rebook_offers WHERE appointment_id = $1",
         [appt.id.into()],
     ))
@@ -208,15 +206,14 @@ async fn rebooking_options_and_standby_candidates_are_the_same_with_and_without_
         .await
         .unwrap();
     let rel =
-        s.db.query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT id FROM slot_releases WHERE slot_id = $1 ORDER BY released_at DESC LIMIT 1",
             [slot.id.into()],
         ))
         .await
         .unwrap()
         .unwrap();
-    let rid: Uuid = rel.try_get("", "id").unwrap();
+    let rid: Uuid = rel.col("id").unwrap();
     let order = |v: Vec<patient_administration_system::standby::StandbyEntry>| {
         v.into_iter().map(|e| e.person_id).collect::<Vec<_>>()
     };

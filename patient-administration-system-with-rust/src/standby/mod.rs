@@ -14,11 +14,9 @@
 //! exist (NOT-5).
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt, Transact};
 use chrono::{DateTime, Utc};
-use sea_orm::{
-    ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, FromQueryResult,
-    Statement, TransactionTrait,
-};
+use sea_orm::{DatabaseConnection, DatabaseTransaction, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -163,22 +161,17 @@ pub(crate) async fn record_release(
         return Ok(None);
     }
     let service: Option<String> = txn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT s.service_type FROM schedules s JOIN slots sl ON sl.schedule_id = s.id WHERE sl.id = $1",
+        .one(Stmt::new("SELECT s.service_type FROM schedules s JOIN slots sl ON sl.schedule_id = s.id WHERE sl.id = $1",
             [slot_id.into()],
         ))
-        .await
-        .map_err(db_err)?
-        .and_then(|r| r.try_get("", "service_type").ok());
+.await?
+        .and_then(|r| r.col("service_type").ok());
     let id = Uuid::new_v4();
     let class_str = serde_json::to_value(class)
         .ok()
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
-    txn.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "INSERT INTO slot_releases (id, slot_id, appointment_id, service_type, start_datetime, released_at, notice_days, release_class) \
+    txn.run(Stmt::new("INSERT INTO slot_releases (id, slot_id, appointment_id, service_type, start_datetime, released_at, notice_days, release_class) \
          VALUES ($1,$2,$3,$4,$5,now(),$6,$7)",
         [
             id.into(),
@@ -190,8 +183,7 @@ pub(crate) async fn record_release(
             class_str.clone().into(),
         ],
     ))
-    .await
-    .map_err(db_err)?;
+.await?;
     OutboxRepository::publish(
         txn,
         "SlotReleased",
@@ -216,15 +208,12 @@ pub(crate) async fn mark_refilled(
     slot_id: Uuid,
     by: &Appointment,
 ) -> Result<()> {
-    txn.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "UPDATE slot_releases SET status = 'refilled', refilled_by_appointment_id = $2, refilled_at = now(), \
+    txn.run(Stmt::new("UPDATE slot_releases SET status = 'refilled', refilled_by_appointment_id = $2, refilled_at = now(), \
            seconds_to_refill = GREATEST(0, EXTRACT(EPOCH FROM (now() - released_at))::bigint) \
          WHERE slot_id = $1 AND status = 'open'",
         [slot_id.into(), by.id.into()],
     ))
-    .await
-    .map_err(db_err)?;
+.await?;
     Ok(())
 }
 
@@ -245,11 +234,9 @@ impl StandbyService {
         input.validate()?;
         let ctx = ctx.clone();
         self.db
-            .transaction::<_, StandbyEntry, Error>(|txn| {
+            .in_txn::<_, StandbyEntry>(|txn| {
                 Box::pin(async move {
-                    let entry = StandbyEntry::find_by_statement(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "INSERT INTO standby_entries (id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only) \
+                    let entry = StandbyEntry::find_by_statement(Stmt::new("INSERT INTO standby_entries (id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only) \
                          VALUES ($1,$2,$3,$4,$5,$6,$7) \
                          ON CONFLICT (person_id, service_type) WHERE active \
                          DO UPDATE SET short_notice_ok = EXCLUDED.short_notice_ok, language = EXCLUDED.language, \
@@ -264,7 +251,7 @@ impl StandbyService {
                             input.needs_transport.into(),
                             input.phone_only.into(),
                         ],
-                    ))
+                    ).raw())
                     .one(txn)
                     .await
                     .map_err(db_err)?
@@ -282,17 +269,14 @@ impl StandbyService {
                     Ok(entry)
                 })
             })
-            .await
-            .map_err(Error::from)
+.await
     }
 
     pub async fn list(&self, service_type: Option<&str>) -> Result<Vec<StandbyEntry>> {
-        StandbyEntry::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at \
+        StandbyEntry::find_by_statement(Stmt::new("SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at \
              FROM standby_entries WHERE active AND ($1::text IS NULL OR service_type = $1) ORDER BY created_at, id",
             [service_type.map(String::from).into()],
-        ))
+        ).raw())
         .all(&self.db)
         .await
         .map_err(db_err)
@@ -300,11 +284,9 @@ impl StandbyService {
 
     /// One entry, active or not, with the version (`updated_at`) a write must send back (OFH-11).
     pub async fn get(&self, id: Uuid) -> Result<StandbyEntry> {
-        StandbyEntry::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at FROM standby_entries WHERE id = $1",
+        StandbyEntry::find_by_statement(Stmt::new("SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at FROM standby_entries WHERE id = $1",
             [id.into()],
-        ))
+        ).raw())
         .one(&self.db)
         .await
         .map_err(db_err)?
@@ -326,31 +308,25 @@ impl StandbyService {
     ) -> Result<()> {
         let ctx = ctx.clone();
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
                     let locked = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "SELECT updated_at FROM standby_entries WHERE id = $1 FOR UPDATE",
+                        .one(Stmt::new("SELECT updated_at FROM standby_entries WHERE id = $1 FOR UPDATE",
                             [id.into()],
                         ))
-                        .await
-                        .map_err(db_err)?
+.await?
                         .ok_or_else(|| Error::not_found(format!("standby entry {id}")))?;
-                    let stored: DateTime<Utc> = locked.try_get("", "updated_at").map_err(db_err)?;
+                    let stored: DateTime<Utc> = locked.col("updated_at")?;
                     if !crate::api::rest::concurrency::is_current(stored, expected) {
                         return Err(Error::precondition_failed(
                             "that standby entry has changed since you read it; read it again",
                         ));
                     }
                     let n = txn
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE standby_entries SET active = false, updated_at = now() WHERE id = $1 AND active",
+                        .run(Stmt::new("UPDATE standby_entries SET active = false, updated_at = now() WHERE id = $1 AND active",
                             [id.into()],
                         ))
-                        .await
-                        .map_err(db_err)?
+.await?
                         .rows_affected();
                     if n == 0 {
                         return Err(Error::not_found(format!("standby entry {id}")));
@@ -359,8 +335,7 @@ impl StandbyService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)
+.await
     }
 
     /// Book a released (or any free) slot for a patient on standby, and take them off the list, in
@@ -387,14 +362,12 @@ impl StandbyService {
         let ctx = ctx.clone();
         let appt = self
             .db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
-                    let entry = StandbyEntry::find_by_statement(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at \
+                    let entry = StandbyEntry::find_by_statement(Stmt::new("SELECT id, person_id, service_type, short_notice_ok, language, needs_transport, phone_only, active, created_at, updated_at \
                          FROM standby_entries WHERE id = $1 FOR UPDATE",
                         [id.into()],
-                    ))
+                    ).raw())
                     .one(txn)
                     .await
                     .map_err(db_err)?
@@ -408,13 +381,10 @@ impl StandbyService {
                         return Err(Error::conflict("that standby entry is no longer active"));
                     }
                     let appt = SchedulingService::book_tx(txn, slot_id, entry.person_id, &ctx).await?;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE standby_entries SET active = false, updated_at = now() WHERE id = $1",
+                    txn.run(Stmt::new("UPDATE standby_entries SET active = false, updated_at = now() WHERE id = $1",
                         [id.into()],
                     ))
-                    .await
-                    .map_err(db_err)?;
+.await?;
                     AuditLogRepository::log(
                         txn,
                         "standby_entry",
@@ -428,8 +398,7 @@ impl StandbyService {
                     Ok(appt)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         self.scheduling.publish_booked(&appt).await;
         Ok(appt)
     }
@@ -451,17 +420,13 @@ impl StandbyService {
             ));
         }
         let window = "r.released_at >= $1 AND r.released_at < $2";
-        let rows = SlotRelease::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            format!("SELECT * FROM ({RELEASE_SELECT} WHERE {window}) x WHERE ($3::text IS NULL OR x.status = $3) ORDER BY x.released_at DESC"),
+        let rows = SlotRelease::find_by_statement(Stmt::new(format!("SELECT * FROM ({RELEASE_SELECT} WHERE {window}) x WHERE ($3::text IS NULL OR x.status = $3) ORDER BY x.released_at DESC"),
             [from.into(), to.into(), status.map(String::from).into()],
-        ))
+        ).raw())
         .all(&self.db)
         .await
         .map_err(db_err)?;
-        let summary = ReleaseSummary::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            format!(
+        let summary = ReleaseSummary::find_by_statement(Stmt::new(format!(
                 "SELECT count(*)::bigint AS total, \
                    count(*) FILTER (WHERE x.status = 'open')::bigint AS open, \
                    count(*) FILTER (WHERE x.status = 'refilled')::bigint AS refilled, \
@@ -470,7 +435,7 @@ impl StandbyService {
                  FROM ({RELEASE_SELECT} WHERE {window}) x"
             ),
             [from.into(), to.into()],
-        ))
+        ).raw())
         .one(&self.db)
         .await
         .map_err(db_err)?
@@ -488,15 +453,12 @@ impl StandbyService {
     ) -> Result<Vec<StandbyEntry>> {
         let rel = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT r.service_type, r.appointment_id, r.status, sl.start_datetime, sl.end_datetime, a.person_id \
+            .one(Stmt::new("SELECT r.service_type, r.appointment_id, r.status, sl.start_datetime, sl.end_datetime, a.person_id \
                  FROM slot_releases r JOIN slots sl ON sl.id = r.slot_id LEFT JOIN appointments a ON a.id = r.appointment_id \
                  WHERE r.id = $1",
                 [release_id.into()],
             ))
-            .await
-            .map_err(db_err)?
+.await?
             .ok_or_else(|| Error::not_found(format!("slot release {release_id}")))?;
         let status: String = rel.col("status")?;
         if status != "open" {
@@ -509,9 +471,7 @@ impl StandbyService {
         let start: DateTime<Utc> = rel.col("start_datetime")?;
         let end: DateTime<Utc> = rel.col("end_datetime")?;
         let gave_up: Option<Uuid> = rel.col("person_id")?;
-        StandbyEntry::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT se.id, se.person_id, se.service_type, se.short_notice_ok, se.language, se.needs_transport, se.phone_only, se.active, se.created_at, se.updated_at \
+        StandbyEntry::find_by_statement(Stmt::new("SELECT se.id, se.person_id, se.service_type, se.short_notice_ok, se.language, se.needs_transport, se.phone_only, se.active, se.created_at, se.updated_at \
              FROM standby_entries se \
              WHERE se.active AND se.short_notice_ok AND se.service_type = $1 \
                AND ($2::uuid IS NULL OR se.person_id <> $2) \
@@ -530,7 +490,7 @@ impl StandbyService {
                 filter.needs_transport.into(),
                 filter.phone_only.into(),
             ],
-        ))
+        ).raw())
         .all(&self.db)
         .await
         .map_err(db_err)

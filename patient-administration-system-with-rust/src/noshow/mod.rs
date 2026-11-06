@@ -23,9 +23,8 @@
 //! **Not built:** distance from the clinic (needs a postcode-district band no one supplies yet), clinic type
 //! as a factor, and weather or travel forecasts.
 
-use crate::db::row::RowExt;
 use chrono::{DateTime, Datelike, Timelike, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use uuid::Uuid;

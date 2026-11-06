@@ -13,6 +13,8 @@ use patient_administration_system::api::ApiResponse;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{
     Appointment, AppointmentStatus, BarrierCode, ConversionState, Modality,
 };
@@ -411,7 +413,6 @@ async fn the_http_endpoints_approve_review_and_list() {
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn a_video_visit_that_fails_falls_back_to_a_phone_call_once() {
-    use sea_orm::{ConnectionTrait, DbBackend, Statement};
     let w = world().await;
     // An in-person appointment cannot "fall back".
     assert!(
@@ -447,15 +448,13 @@ async fn a_video_visit_that_fails_falls_back_to_a_phone_call_once() {
     let tasks = |s: &AppState, id: Uuid| {
         let db = s.db.clone();
         async move {
-            db.query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT count(*)::bigint AS n FROM staff_call_tasks WHERE appointment_id = $1 AND reason = 'video_failed' AND handled_at IS NULL",
+            db.one(Stmt::new("SELECT count(*)::bigint AS n FROM staff_call_tasks WHERE appointment_id = $1 AND reason = 'video_failed' AND handled_at IS NULL",
                 [id.into()],
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get::<i64>("", "n")
+            .col::<i64>("n")
             .unwrap()
         }
     };

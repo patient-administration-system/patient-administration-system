@@ -1,6 +1,8 @@
 //! Part of [`super`]: attendance.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt, Transact};
 
 /// Someone who has arrived and not been completed.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
@@ -38,7 +40,7 @@ impl SchedulingService {
     ) -> Result<Appointment> {
         let ctx_clone = ctx.clone();
         self.db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
                     let mut appt =
                         AppointmentRepository::lock_if_current(txn, appointment_id, expected)
@@ -65,8 +67,7 @@ impl SchedulingService {
                     Ok(appt)
                 })
             })
-            .await
-            .map_err(Error::from)
+.await
     }
 
     /// Where the patient is now (CORE-4). Only for someone who has arrived and not yet been completed;
@@ -101,7 +102,7 @@ impl SchedulingService {
         };
         let ctx = ctx.clone();
         self.db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
                     let mut appt =
                         AppointmentRepository::lock_if_current(txn, appointment_id, expected)
@@ -131,8 +132,7 @@ impl SchedulingService {
                     Ok(appt)
                 })
             })
-            .await
-            .map_err(Error::from)
+.await
     }
 
     /// Everyone who has arrived and not yet been completed, longest waiting first, with the minutes
@@ -140,30 +140,21 @@ impl SchedulingService {
     pub async fn in_facility(&self) -> Result<Vec<InFacility>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT id, person_id, current_room, arrived_at, start_datetime, \
+            .all(Stmt::text("SELECT id, person_id, current_room, arrived_at, start_datetime, \
                         (extract(epoch FROM (now() - arrived_at)) / 60)::bigint AS waiting_minutes \
                  FROM appointments WHERE status = 'arrived' AND deleted_at IS NULL AND arrived_at IS NOT NULL \
                  ORDER BY arrived_at"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(InFacility {
                     appointment_id: r.col::<Uuid>("id")?,
                     person_id: r.col::<Uuid>("person_id")?,
-                    room: r
-                        .try_get::<Option<String>>("", "current_room")
-                        .map_err(Error::Database)?,
-                    arrived_at: r
-                        .try_get::<DateTime<Utc>>("", "arrived_at")
-                        .map_err(Error::Database)?,
-                    appointment_start: r
-                        .try_get::<DateTime<Utc>>("", "start_datetime")
-                        .map_err(Error::Database)?,
+                    room: r.col::<Option<String>>("current_room")?,
+                    arrived_at: r.col::<DateTime<Utc>>("arrived_at")?,
+                    appointment_start: r.col::<DateTime<Utc>>("start_datetime")?,
                     waiting_minutes: r.col::<i64>("waiting_minutes")?.max(0),
                 })
             })
@@ -214,7 +205,7 @@ impl SchedulingService {
         let ctx_clone = ctx.clone();
         let appt = self
             .db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
                     let mut appt =
                         AppointmentRepository::lock_if_current(txn, appointment_id, expected)
@@ -253,8 +244,7 @@ impl SchedulingService {
                     Ok(appt)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         Ok(appt)
     }
 
@@ -295,7 +285,7 @@ impl SchedulingService {
         let ctx_clone = ctx.clone();
         let appt = self
             .db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
                     let mut appt =
                         AppointmentRepository::lock_if_current(txn, appointment_id, expected)
@@ -336,8 +326,7 @@ impl SchedulingService {
                     Ok(appt)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         Ok(appt)
     }
 }

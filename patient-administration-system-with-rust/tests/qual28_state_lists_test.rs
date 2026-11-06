@@ -7,26 +7,26 @@
 
 mod common;
 
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use std::collections::BTreeSet;
 
 use patient_administration_system::{
     clinic_templates, clinical_priority, communication, contact, follow_up, identity, interpreter,
     pifu, proxy, receipts, referrals, subscriptions, support, transport, triage, waits,
 };
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 
 /// The quoted values in a CHECK constraint, e.g. `status = ANY (ARRAY['a'::text, 'b'::text])` gives {a, b}.
 async fn allowed(db: &sea_orm::DatabaseConnection, constraint: &str) -> BTreeSet<String> {
     let def: String = db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = $1",
             [constraint.into()],
         ))
         .await
         .unwrap()
         .unwrap_or_else(|| panic!("no constraint {constraint}"))
-        .try_get("", "def")
+        .col("def")
         .unwrap();
     def.split('\'')
         .skip(1)

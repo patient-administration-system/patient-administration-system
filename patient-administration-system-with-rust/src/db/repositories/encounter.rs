@@ -1,5 +1,6 @@
 //! encounter repository
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -10,13 +11,13 @@ use crate::{Error, Result};
 pub struct EncounterRepository;
 
 impl EncounterRepository {
-    pub async fn create<C: ConnectionTrait>(conn: &C, e: &Encounter) -> Result<Encounter> {
+    pub async fn create<C: Conn>(conn: &C, e: &Encounter) -> Result<Encounter> {
         let am = to_active_model(e);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(e.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Encounter>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Encounter>> {
         let m = encounter::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -24,7 +25,7 @@ impl EncounterRepository {
         m.map(from_model).transpose()
     }
 
-    pub async fn update<C: ConnectionTrait>(conn: &C, e: &Encounter) -> Result<Encounter> {
+    pub async fn update<C: Conn>(conn: &C, e: &Encounter) -> Result<Encounter> {
         let mut am = to_active_model(e);
         am.created_at = NotSet;
         am.update(conn).await.map_err(Error::Database)?;
@@ -36,7 +37,7 @@ impl EncounterRepository {
     /// `status IN ('arrived', 'in_progress')`. Used by ADT^A06
     /// (change outpatient to inpatient) to locate the existing
     /// encounter that should be reclassified + bedded.
-    pub async fn find_latest_active_ambulatory_for_patient<C: ConnectionTrait>(
+    pub async fn find_latest_active_ambulatory_for_patient<C: Conn>(
         conn: &C,
         person_id: Uuid,
     ) -> Result<Option<Encounter>> {
@@ -63,7 +64,7 @@ impl EncounterRepository {
     /// Find the most-recent **planned inpatient** encounter for a patient,
     /// if any. Used by ADT^A38 cancel-pre-admit to locate the encounter
     /// that should be cancelled when a pre-admission is undone.
-    pub async fn find_latest_planned_inpatient_for_patient<C: ConnectionTrait>(
+    pub async fn find_latest_planned_inpatient_for_patient<C: Conn>(
         conn: &C,
         person_id: Uuid,
     ) -> Result<Option<Encounter>> {
@@ -79,10 +80,7 @@ impl EncounterRepository {
         m.map(from_model).transpose()
     }
 
-    pub async fn list_by_patient<C: ConnectionTrait>(
-        conn: &C,
-        person_id: Uuid,
-    ) -> Result<Vec<Encounter>> {
+    pub async fn list_by_patient<C: Conn>(conn: &C, person_id: Uuid) -> Result<Vec<Encounter>> {
         let rows = encounter::Entity::find()
             .filter(encounter::Column::PersonId.eq(person_id))
             .filter(encounter::Column::DeletedAt.is_null())
@@ -94,7 +92,7 @@ impl EncounterRepository {
 
     /// Validate `current -> new_status` against the `EncounterStatus` state
     /// machine, then persist. Returns the updated `Encounter`.
-    pub async fn set_status<C: ConnectionTrait>(
+    pub async fn set_status<C: Conn>(
         conn: &C,
         id: Uuid,
         new_status: EncounterStatus,
@@ -104,7 +102,7 @@ impl EncounterRepository {
 
     /// [`Self::set_status`] that locks the encounter's row first and refuses with `PreconditionFailed` when
     /// it has changed since the caller read it (OFH-10). `expected` `None` skips the comparison.
-    pub async fn set_status_if_current<C: ConnectionTrait>(
+    pub async fn set_status_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
         new_status: EncounterStatus,
@@ -138,7 +136,7 @@ impl EncounterRepository {
     /// EncounterClass enum has no state-machine constraint — any
     /// class change is administratively legal — so this is a plain
     /// field update.
-    pub async fn set_class<C: ConnectionTrait>(
+    pub async fn set_class<C: Conn>(
         conn: &C,
         id: Uuid,
         new_class: EncounterClass,
@@ -160,7 +158,7 @@ impl EncounterRepository {
     /// flows** (HL7 v2 ADT^A13 cancel-discharge), which by construction
     /// need to move out of the otherwise-terminal `Finished` state. Every
     /// other write path must go through [`Self::set_status`].
-    pub async fn set_status_unchecked<C: ConnectionTrait>(
+    pub async fn set_status_unchecked<C: Conn>(
         conn: &C,
         id: Uuid,
         new_status: EncounterStatus,

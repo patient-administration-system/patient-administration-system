@@ -5,6 +5,7 @@
 //! [`AppointmentRepository`] — this repo only owns the series record
 //! itself.
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -19,19 +20,13 @@ impl AppointmentSeriesRepository {
     /// Insert a new series row. The N occurrence rows are inserted
     /// separately by the caller (typically inside the same DB
     /// transaction) via [`AppointmentRepository::create`].
-    pub async fn create<C: ConnectionTrait>(
-        conn: &C,
-        s: &AppointmentSeries,
-    ) -> Result<AppointmentSeries> {
+    pub async fn create<C: Conn>(conn: &C, s: &AppointmentSeries) -> Result<AppointmentSeries> {
         let am = to_active_model(s)?;
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(s.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-    ) -> Result<Option<AppointmentSeries>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<AppointmentSeries>> {
         let m = appointment_series::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -40,7 +35,7 @@ impl AppointmentSeriesRepository {
     }
 
     /// Every series row owned by a patient, newest-first.
-    pub async fn list_by_patient<C: ConnectionTrait>(
+    pub async fn list_by_patient<C: Conn>(
         conn: &C,
         person_id: Uuid,
     ) -> Result<Vec<AppointmentSeries>> {
@@ -56,10 +51,7 @@ impl AppointmentSeriesRepository {
     /// Flip the series row's status to `Cancelled` and stamp `updated_at`.
     /// Does **not** touch the contained appointment rows; callers cancel
     /// those separately so the audit trail records each one.
-    pub async fn mark_cancelled<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-    ) -> Result<AppointmentSeries> {
+    pub async fn mark_cancelled<C: Conn>(conn: &C, id: Uuid) -> Result<AppointmentSeries> {
         let m = appointment_series::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -76,7 +68,7 @@ impl AppointmentSeriesRepository {
     /// Delegate to [`AppointmentRepository::list_by_series`] — convenience
     /// on the series repo so callers don't have to remember which side
     /// the join lives on.
-    pub async fn list_occurrences<C: ConnectionTrait>(
+    pub async fn list_occurrences<C: Conn>(
         conn: &C,
         series_id: Uuid,
     ) -> Result<Vec<crate::models::appointment::Appointment>> {

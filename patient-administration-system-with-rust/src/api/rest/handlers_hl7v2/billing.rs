@@ -1,6 +1,7 @@
 //! Part of [`super`]: billing.
 
 use super::*;
+use crate::db::sql::Transact;
 
 #[utoipa::path(
     post,
@@ -32,7 +33,7 @@ pub async fn dft(
     let count = parsed.len();
     let outcome = state
         .db
-        .transaction::<_, (uuid::Uuid, usize), crate::Error>(|txn| {
+        .in_txn::<_, (uuid::Uuid, usize)>(|txn| {
             Box::pin(async move {
                 use crate::db::repositories::billing::BillingRepository;
                 let account_id =
@@ -100,11 +101,7 @@ pub async fn dft(
             };
             aa(&r.sender, &r.control_id, Some(&diag))
         }
-        Err(e) => ae(
-            &r.sender,
-            &r.control_id,
-            &crate::Error::from(e).client_message(),
-        ),
+        Err(e) => ae(&r.sender, &r.control_id, &e.client_message()),
     }
 }
 

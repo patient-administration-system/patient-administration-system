@@ -8,6 +8,8 @@ use axum::{
     http::{Request, StatusCode},
 };
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -65,16 +67,14 @@ async fn an_account_is_proofed_only_as_the_patient_staff_recorded_and_only_until
         1
     );
     let rows = {
-        use sea_orm::{ConnectionTrait, DbBackend, Statement};
-        s.db.query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT count(*) AS n FROM identity_proofings WHERE subject = $1",
             [sub.clone().into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get::<i64>("", "n")
+        .col::<i64>("n")
         .unwrap()
     };
     assert_eq!(rows, 1, "the row is kept, marked revoked");

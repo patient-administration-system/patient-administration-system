@@ -10,7 +10,9 @@
 mod common;
 
 use patient_administration_system::db::connect;
-use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, DbErr, Statement};
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
+use sea_orm::{Database, DatabaseConnection, DbErr};
 
 /// The last forward-only migration: it has no down file.
 const FORWARD_ONLY: i64 = 20260601000006;
@@ -47,10 +49,14 @@ async fn schema(db: &DatabaseConnection) -> Result<Vec<String>, DbErr> {
                  FROM pg_indexes \
                 WHERE schemaname = 'public' AND tablename <> '_sqlx_migrations' \
                ORDER BY 1";
-    db.query_all_raw(Statement::from_string(DbBackend::Postgres, sql))
-        .await?
+    db.all(Stmt::text(sql))
+        .await
+        .map_err(|e| DbErr::Custom(e.to_string()))?
         .iter()
-        .map(|r| r.try_get::<String>("", "line"))
+        .map(|r| {
+            r.col::<String>("line")
+                .map_err(|e| DbErr::Custom(e.to_string()))
+        })
         .collect()
 }
 
@@ -61,7 +67,7 @@ async fn with_fresh_database<T>(
     let admin = connect(url).await.expect("connect");
     let name = format!("pas_qual26_{}", uuid::Uuid::new_v4().simple());
     admin
-        .execute_unprepared(&format!("CREATE DATABASE {name}"))
+        .batch(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
     let result = async {
@@ -72,7 +78,7 @@ async fn with_fresh_database<T>(
     }
     .await;
     admin
-        .execute_unprepared(&format!("DROP DATABASE IF EXISTS {name} WITH (FORCE)"))
+        .batch(&format!("DROP DATABASE IF EXISTS {name} WITH (FORCE)"))
         .await
         .expect("drop database");
     result.unwrap_or_else(|e| panic!("on a fresh database: {e}"))

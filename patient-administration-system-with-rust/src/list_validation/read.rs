@@ -1,8 +1,10 @@
 //! Part of [`super`]: read.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Row, Stmt};
 
-pub(super) fn row_to_item(r: &sea_orm::QueryResult) -> Result<Item> {
+pub(super) fn row_to_item(r: &Row) -> Result<Item> {
     Ok(Item {
         id: r.col("id")?,
         campaign_id: r.col("campaign_id")?,
@@ -24,16 +26,13 @@ impl ListValidationService {
     pub async fn campaign(&self, id: Uuid) -> Result<Campaign> {
         let r = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT id, name, service_type, min_weeks, started_by, reply_by, final_wait_days, status, created_at, \
+            .one(Stmt::new("SELECT id, name, service_type, min_weeks, started_by, reply_by, final_wait_days, status, created_at, \
                         COALESCE((SELECT jsonb_object_agg(state, n) FROM \
                            (SELECT state, count(*) AS n FROM validation_items WHERE campaign_id = $1 GROUP BY state) s), '{}'::jsonb) AS counts \
                  FROM validation_campaigns WHERE id = $1",
                 [id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::not_found(format!("validation campaign {id}")))?;
         Ok(Campaign {
             id: r.col("id")?,
@@ -51,13 +50,11 @@ impl ListValidationService {
 
     pub async fn campaigns(&self, limit: i64) -> Result<Vec<Uuid>> {
         self.db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT id FROM validation_campaigns ORDER BY created_at DESC LIMIT $1",
                 [crate::paging::fetch(limit).into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .iter()
             .map(|r| r.col::<Uuid>("id"))
             .collect()
@@ -74,9 +71,7 @@ impl ListValidationService {
     ) -> Result<Vec<Item>> {
         self.campaign(campaign).await?;
         self.db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                format!(
+            .all(Stmt::new(format!(
                     "SELECT {ITEM_COLS} FROM validation_items i JOIN validation_campaigns c ON c.id = i.campaign_id \
                      WHERE i.campaign_id = $1 AND ($2::text IS NULL OR i.state = $2) \
                        AND ($3::text IS NULL OR (CASE WHEN i.state IN ('selected','asked') AND current_date > c.reply_by THEN 'letter_due' \
@@ -91,8 +86,7 @@ impl ListValidationService {
                     crate::paging::fetch(limit).into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .iter()
             .map(row_to_item)
             .collect()
@@ -100,16 +94,13 @@ impl ListValidationService {
 
     pub(super) async fn item(&self, campaign: Uuid, item: Uuid) -> Result<Item> {
         self.db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                format!(
+            .one(Stmt::new(format!(
                     "SELECT {ITEM_COLS} FROM validation_items i JOIN validation_campaigns c ON c.id = i.campaign_id \
                      WHERE i.id = $1 AND i.campaign_id = $2"
                 ),
                 [item.into(), campaign.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .map(|r| row_to_item(&r))
             .transpose()?
             .ok_or_else(|| Error::not_found(format!("item {item} in campaign {campaign}")))
@@ -124,8 +115,7 @@ impl ListValidationService {
     ) -> Result<Vec<RemovalsByService>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT target_service, \
                         count(*) FILTER (WHERE state = 'removed')::bigint AS removed, \
                         count(*) FILTER (WHERE state = 'reinstated')::bigint AS reinstated, \
@@ -134,8 +124,7 @@ impl ListValidationService {
                  GROUP BY target_service ORDER BY target_service",
                 [from.into(), to.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         rows.iter()
             .map(|r| {
                 Ok(RemovalsByService {

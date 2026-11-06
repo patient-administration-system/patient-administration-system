@@ -1,6 +1,7 @@
 //! Part of [`super`]: master.
 
 use super::*;
+use crate::db::sql::Transact;
 
 pub(super) fn need_worker_client(state: &AppState) -> Option<&dyn WorkerClient> {
     state.worker_client.as_deref()
@@ -236,7 +237,7 @@ pub async fn mfn_location(
     let audit = request_audit_ctx(&headers);
     let result = state
         .db
-        .transaction::<_, usize, crate::Error>(|txn| {
+        .in_txn::<_, usize>(|txn| {
             Box::pin(async move {
                 for item in &items {
                     apply_location_item(txn, item, &audit).await?;
@@ -251,11 +252,7 @@ pub async fn mfn_location(
             &h.control_id,
             Some(&format!("location_records_applied={n}")),
         ),
-        Err(e) => ae(
-            &h.sender,
-            &h.control_id,
-            &crate::Error::from(e).client_message(),
-        ),
+        Err(e) => ae(&h.sender, &h.control_id, &e.client_message()),
     }
 }
 

@@ -2,6 +2,7 @@
 //! background dispatcher to publish, and manages the v0.5 dead-letter
 //! queue (`outbox_dead_letters`) for events that exceed the retry budget.
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -15,7 +16,7 @@ impl OutboxRepository {
     ///
     /// Call inside the same transaction as the entity write to guarantee
     /// "exactly the rows we committed produce events".
-    pub async fn publish<C: ConnectionTrait>(
+    pub async fn publish<C: Conn>(
         conn: &C,
         event_type: &str,
         payload: &serde_json::Value,
@@ -35,7 +36,7 @@ impl OutboxRepository {
     }
 
     /// Fetch the next batch of unpublished outbox rows, oldest first.
-    pub async fn fetch_unpublished<C: ConnectionTrait>(
+    pub async fn fetch_unpublished<C: Conn>(
         conn: &C,
         limit: u64,
     ) -> Result<Vec<outbox_event::Model>> {
@@ -49,7 +50,7 @@ impl OutboxRepository {
     }
 
     /// Mark a single outbox row as published. Idempotent.
-    pub async fn mark_published<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<()> {
+    pub async fn mark_published<C: Conn>(conn: &C, id: Uuid) -> Result<()> {
         let m = outbox_event::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -70,11 +71,7 @@ impl OutboxRepository {
     ///
     /// Returns `Ok(0)` and a no-op if the row is gone (idempotent against
     /// concurrent dead-lettering / replay).
-    pub async fn record_failure<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-        error: &str,
-    ) -> Result<i32> {
+    pub async fn record_failure<C: Conn>(conn: &C, id: Uuid, error: &str) -> Result<i32> {
         let m = match outbox_event::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -99,11 +96,7 @@ impl OutboxRepository {
     ///
     /// The caller should pass a `DatabaseTransaction` so the insert + delete
     /// commit atomically.
-    pub async fn move_to_dead_letter<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-        error: &str,
-    ) -> Result<()> {
+    pub async fn move_to_dead_letter<C: Conn>(conn: &C, id: Uuid, error: &str) -> Result<()> {
         let m = match outbox_event::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -137,10 +130,7 @@ pub struct DeadLetterRepository;
 
 impl DeadLetterRepository {
     /// Newest-first list of dead-letter rows, capped at `limit`.
-    pub async fn list<C: ConnectionTrait>(
-        conn: &C,
-        limit: u64,
-    ) -> Result<Vec<outbox_dead_letter::Model>> {
+    pub async fn list<C: Conn>(conn: &C, limit: u64) -> Result<Vec<outbox_dead_letter::Model>> {
         outbox_dead_letter::Entity::find()
             .order_by_desc(outbox_dead_letter::Column::DeadLetteredAt)
             .limit(limit)
@@ -150,7 +140,7 @@ impl DeadLetterRepository {
     }
 
     /// Find one DLQ row by id (the DLQ id, not the `original_id`).
-    pub async fn find_by_id<C: ConnectionTrait>(
+    pub async fn find_by_id<C: Conn>(
         conn: &C,
         id: Uuid,
     ) -> Result<Option<outbox_dead_letter::Model>> {
@@ -161,7 +151,7 @@ impl DeadLetterRepository {
     }
 
     /// Count of DLQ rows. Cheap admin / dashboard read.
-    pub async fn count<C: ConnectionTrait>(conn: &C) -> Result<u64> {
+    pub async fn count<C: Conn>(conn: &C) -> Result<u64> {
         outbox_dead_letter::Entity::find()
             .count(conn)
             .await
@@ -176,7 +166,7 @@ impl DeadLetterRepository {
     ///
     /// Returns the new outbox row id. `Error::NotFound` if the DLQ id is
     /// already gone. The caller should pass a `DatabaseTransaction`.
-    pub async fn replay<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Uuid> {
+    pub async fn replay<C: Conn>(conn: &C, id: Uuid) -> Result<Uuid> {
         let dl = outbox_dead_letter::Entity::find_by_id(id)
             .one(conn)
             .await

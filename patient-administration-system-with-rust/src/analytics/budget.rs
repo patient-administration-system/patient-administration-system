@@ -1,6 +1,8 @@
 //! Part of [`super`]: budget.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 
 impl AnalyticsService {
     /// Per-caller query budget for a day (`PAS_ANALYTICS_QUERY_BUDGET`, default 100).
@@ -28,15 +30,13 @@ impl AnalyticsService {
             .unwrap_or_else(|| "anonymous".to_string());
         let used = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT count(*)::bigint AS n FROM audit_log WHERE action = 'analytics_query' \
                  AND COALESCE(user_id, 'anonymous') = $1 AND at > now() - interval '24 hours'",
                 [who.clone().into()],
             ))
-            .await
-            .map_err(Error::Database)?
-            .and_then(|r| r.try_get::<i64>("", "n").ok())
+            .await?
+            .and_then(|r| r.col::<i64>("n").ok())
             .unwrap_or(0);
         if used >= Self::query_budget() {
             return Err(Error::forbidden(

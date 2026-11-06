@@ -14,9 +14,9 @@
 //! 4. **No marketing is sent by this system.** There is no marketing template category. If one is ever
 //!    added it MUST require an active `Marketing` consent and PECR-compliant opt-in.
 
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, NaiveTime, Utc};
 use chrono_tz::Tz;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 use crate::config::env;
@@ -103,7 +103,7 @@ pub fn address_subject(address: &str) -> String {
 }
 
 /// Has the person, or the address, opted out of this channel?
-pub async fn is_opted_out<C: ConnectionTrait>(
+pub async fn is_opted_out<C: Conn>(
     conn: &C,
     person: Uuid,
     channel: DeliveryChannel,
@@ -117,46 +117,37 @@ pub async fn is_opted_out<C: ConnectionTrait>(
         subjects.push(address_subject(a));
     }
     let row = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT 1 AS hit FROM message_optouts WHERE channel = $1 AND subject = ANY($2) AND resumed_at IS NULL LIMIT 1",
+        .one(Stmt::new("SELECT 1 AS hit FROM message_optouts WHERE channel = $1 AND subject = ANY($2) AND resumed_at IS NULL LIMIT 1",
             [ch.into(), subjects.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
     Ok(row.is_some())
 }
 
 /// Record an opt-out (idempotent; an earlier START is overturned).
-pub async fn record_optout<C: ConnectionTrait>(
+pub async fn record_optout<C: Conn>(
     conn: &C,
     subject: &str,
     channel: &str,
     source: &str,
     by: Option<&str>,
 ) -> Result<()> {
-    conn.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "INSERT INTO message_optouts (id, subject, channel, source, recorded_by) VALUES ($1,$2,$3,$4,$5) \
+    conn.run(Stmt::new("INSERT INTO message_optouts (id, subject, channel, source, recorded_by) VALUES ($1,$2,$3,$4,$5) \
          ON CONFLICT (subject, channel) DO UPDATE SET opted_out_at = now(), resumed_at = NULL, source = EXCLUDED.source, \
            recorded_by = EXCLUDED.recorded_by",
         [Uuid::new_v4().into(), subject.into(), channel.into(), source.into(), by.map(String::from).into()],
     ))
-    .await
-    .map_err(Error::Database)?;
+.await?;
     Ok(())
 }
 
 /// The patient asked to hear from us again. Returns whether anything was active.
-pub async fn resume<C: ConnectionTrait>(conn: &C, subject: &str, channel: &str) -> Result<bool> {
+pub async fn resume<C: Conn>(conn: &C, subject: &str, channel: &str) -> Result<bool> {
     let r = conn
-        .execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE message_optouts SET resumed_at = now() WHERE subject = $1 AND channel = $2 AND resumed_at IS NULL",
+        .run(Stmt::new("UPDATE message_optouts SET resumed_at = now() WHERE subject = $1 AND channel = $2 AND resumed_at IS NULL",
             [subject.into(), channel.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
     Ok(r.rows_affected() > 0)
 }
 

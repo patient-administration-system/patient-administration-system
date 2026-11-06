@@ -13,10 +13,10 @@ use patient_administration_system::communication::reminders::ReminderService;
 use patient_administration_system::contact::ProfileInput;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
 use patient_administration_system::models::communication::DeliveryChannel;
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -181,9 +181,7 @@ async fn the_stale_list_has_missing_unverified_and_old_numbers_but_not_fresh_one
     );
     // The stale list shows at most 1000, unverified profiles first, so a database that has collected test
     // profiles over many runs would push this test's own off the end. Clear the others away first.
-    s.db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "DELETE FROM patient_communication_profiles WHERE mobile_verified_at IS NULL AND person_id <> ALL($1)",
+    s.db.run(Stmt::new("DELETE FROM patient_communication_profiles WHERE mobile_verified_at IS NULL AND person_id <> ALL($1)",
         [vec![fresh, unverified, old, nomobile].into()],
     ))
     .await
@@ -214,8 +212,7 @@ async fn the_stale_list_has_missing_unverified_and_old_numbers_but_not_fresh_one
         .verify_mobile(old, "portal", &ctx())
         .await
         .unwrap();
-    s.db.execute_raw(Statement::from_sql_and_values(DbBackend::Postgres,
-        "UPDATE patient_communication_profiles SET mobile_verified_at = now() - interval '400 days' WHERE person_id = $1", [old.into()])).await.unwrap();
+    s.db.run(Stmt::new("UPDATE patient_communication_profiles SET mobile_verified_at = now() - interval '400 days' WHERE person_id = $1", [old.into()])).await.unwrap();
     let stale: Vec<Uuid> = s
         .contact
         .stale(365, 1000)
@@ -246,14 +243,14 @@ async fn the_database_refuses_bad_values_even_if_the_application_is_bypassed() {
         bad("accessibility_needs", "ARRAY['telepathy']"),
         bad("mobile_verification_method", "'carrier-pigeon'"),
     ] {
-        assert!(s.db.execute_unprepared(&sql).await.is_err(), "{sql}");
+        assert!(s.db.batch(&sql).await.is_err(), "{sql}");
     }
     // A verification time without a number is meaningless and refused.
     let no_number = format!(
         "INSERT INTO patient_communication_profiles (person_id, mobile_verified_at) VALUES ('{}', now())",
         Uuid::new_v4()
     );
-    assert!(s.db.execute_unprepared(&no_number).await.is_err());
+    assert!(s.db.batch(&no_number).await.is_err());
 }
 
 struct Capture(&'static str, Arc<Mutex<Vec<(String, String)>>>);

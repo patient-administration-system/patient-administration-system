@@ -1,6 +1,7 @@
 //! Part of [`super`]: booking.
 
 use super::*;
+use crate::db::sql::{Conn, Stmt, Transact};
 
 impl SchedulingService {
     /// Book `slot_id` for `person_id`. Fails (changing nothing) if the slot is not free or the
@@ -23,18 +24,13 @@ impl SchedulingService {
         txn: &DatabaseTransaction,
         slot: &crate::models::schedule::Slot,
     ) -> Result<()> {
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT pg_advisory_xact_lock(hashtextextended(owner_kind || ':' || owner_id::text, 0)) \
+        txn.run(Stmt::new("SELECT pg_advisory_xact_lock(hashtextextended(owner_kind || ':' || owner_id::text, 0)) \
              FROM schedules WHERE id = $1",
             [slot.schedule_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         let clash = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT 1 AS ok FROM slots s2 \
+            .one(Stmt::new("SELECT 1 AS ok FROM slots s2 \
                  JOIN schedules sc2 ON sc2.id = s2.schedule_id \
                  JOIN schedules sc1 ON sc1.id = $1 \
                  WHERE sc2.owner_kind = sc1.owner_kind AND sc2.owner_id = sc1.owner_id \
@@ -48,8 +44,7 @@ impl SchedulingService {
                     slot.end_datetime.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if clash.is_some() {
             return Err(Error::conflict(
                 "that room, clinician or equipment is already booked at that time",
@@ -100,14 +95,12 @@ impl SchedulingService {
         // A slot held for someone else (IHE `$hold`, NEW-10) is not bookable until the hold is booked,
         // released or has run out.
         let held_for_other = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT 1 AS ok FROM slot_proposals WHERE slot_id = $1 AND status = 'held' \
                    AND expires_at > now() AND person_id <> $2 LIMIT 1",
                 [slot_id.into(), person_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if held_for_other.is_some() {
             return Err(Error::conflict(format!(
                 "slot {slot_id} is being held for another patient"
@@ -137,14 +130,12 @@ impl SchedulingService {
         appt.status = appt.status.try_transition_to(AppointmentStatus::Booked)?;
         let appt = AppointmentRepository::create(txn, &appt).await?;
         // The booker's own hold or proposal for this slot is spent.
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        txn.run(Stmt::new(
             "UPDATE slot_proposals SET status = 'booked', appointment_id = $3 \
              WHERE slot_id = $1 AND person_id = $2 AND status IN ('proposed','held')",
             [slot.id.into(), person_id.into(), appt.id.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+        .await?;
         Self::sync_waitlist(txn, &appt, WaitlistStatus::Booked, ctx).await?;
         crate::standby::mark_refilled(txn, slot.id, &appt).await?;
         // A patient who needs an interpreter gets one requested with every booking (NEW-5).
@@ -196,7 +187,7 @@ impl SchedulingService {
         let ctx = ctx.clone();
         let appt = self
             .db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
                     let entry =
                         WaitlistRepository::lock_entry_if_current(txn, entry_id, expected).await?;
@@ -210,8 +201,7 @@ impl SchedulingService {
                     .await
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publish_booked(&appt).await;
         Ok(appt)
     }
@@ -226,11 +216,10 @@ impl SchedulingService {
         let ctx = ctx.clone();
         let appt = self
             .db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move { Self::book_tx(txn, slot_id, person_id, &ctx).await })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publish_booked(&appt).await;
         Ok(appt)
     }

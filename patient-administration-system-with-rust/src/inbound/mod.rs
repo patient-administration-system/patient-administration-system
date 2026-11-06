@@ -23,10 +23,11 @@ pub mod messages;
 pub mod parser;
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -180,10 +181,6 @@ fn done(
     }
 }
 
-fn db_err(e: sea_orm::DbErr) -> Error {
-    Error::Database(e)
-}
-
 fn intent_str(i: Intent) -> &'static str {
     match i {
         Intent::Confirm => "confirm",
@@ -255,9 +252,7 @@ impl InboundService {
         let body: String = text.body.chars().take(MAX_BODY).collect();
         let inserted = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO inbound_texts (id, message_id, carrier, from_e164, body, received_at, person_id, intent, outcome, \
+            .run(Stmt::new("INSERT INTO inbound_texts (id, message_id, carrier, from_e164, body, received_at, person_id, intent, outcome, \
                    appointment_id, candidates, pending_intent, reply_text) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT (message_id) DO NOTHING",
                 [
@@ -276,8 +271,7 @@ impl InboundService {
                     d.reply_text.clone().into(),
                 ],
             ))
-            .await
-            .map_err(db_err)?;
+.await?;
         if inserted.rows_affected() == 0 {
             // Two deliveries of the same message raced; the other one's outcome stands.
             return self
@@ -300,13 +294,10 @@ impl InboundService {
     async fn stored(&self, message_id: &str, from: &str) -> Result<Option<InboundOutcome>> {
         let row = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT from_e164, intent, outcome, reply_text, person_id, appointment_id FROM inbound_texts WHERE message_id = $1",
+            .one(Stmt::new("SELECT from_e164, intent, outcome, reply_text, person_id, appointment_id FROM inbound_texts WHERE message_id = $1",
                 [message_id.into()],
             ))
-            .await
-            .map_err(db_err)?;
+.await?;
         let Some(r) = row else { return Ok(None) };
         let was_from: String = r.col("from_e164")?;
         if was_from != from {
@@ -329,13 +320,10 @@ impl InboundService {
     async fn persons_with_number(&self, from: &str) -> Result<Vec<Uuid>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT person_id FROM patient_communication_profiles WHERE mobile_e164 = $1 LIMIT 3",
+            .all(Stmt::new("SELECT person_id FROM patient_communication_profiles WHERE mobile_e164 = $1 LIMIT 3",
                 [from.into()],
             ))
-            .await
-            .map_err(db_err)?;
+.await?;
         rows.iter().map(|r| r.col("person_id")).collect()
     }
 
@@ -343,9 +331,7 @@ impl InboundService {
     async fn open_reminded(&self, person: Uuid) -> Result<Vec<(Uuid, DateTime<Utc>)>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT a.id, a.start_datetime FROM appointments a \
+            .all(Stmt::new("SELECT a.id, a.start_datetime FROM appointments a \
                  WHERE a.person_id = $1 AND a.status = 'booked' AND a.deleted_at IS NULL AND a.start_datetime > now() \
                    AND EXISTS (SELECT 1 FROM generated_letters l WHERE l.appointment_id = a.id AND l.status = 'sent' \
                                AND l.channel IN ('sms','whatsapp','apple_messages') \
@@ -353,8 +339,7 @@ impl InboundService {
                  ORDER BY a.start_datetime LIMIT $3",
                 [person.into(), REMINDER_WINDOW_DAYS.to_string().into(), (MAX_CANDIDATES as i64).into()],
             ))
-            .await
-            .map_err(db_err)?;
+.await?;
         rows.iter()
             .map(|r| Ok((r.col("id")?, r.col("start_datetime")?)))
             .collect()
@@ -368,14 +353,11 @@ impl InboundService {
     ) -> Result<Option<(Vec<Uuid>, String)>> {
         let row = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT outcome, candidates, pending_intent, received_at FROM inbound_texts WHERE from_e164 = $1 \
+            .one(Stmt::new("SELECT outcome, candidates, pending_intent, received_at FROM inbound_texts WHERE from_e164 = $1 \
                  ORDER BY received_at DESC, created_at DESC LIMIT 1",
                 [from.into()],
             ))
-            .await
-            .map_err(db_err)?;
+.await?;
         let Some(r) = row else { return Ok(None) };
         let outcome: String = r.col("outcome")?;
         let at: DateTime<Utc> = r.col("received_at")?;
@@ -730,15 +712,12 @@ impl InboundService {
     pub async fn staff_list(&self, limit: i64) -> Result<Vec<StaffItem>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT id, received_at, outcome, intent, person_id, appointment_id, body FROM inbound_texts \
+            .all(Stmt::new("SELECT id, received_at, outcome, intent, person_id, appointment_id, body FROM inbound_texts \
                  WHERE handled_at IS NULL AND outcome IN ('needs_staff','unmatched','ambiguous_number','no_open_reminder','unknown','rejected') \
                  ORDER BY received_at LIMIT $1",
                 [crate::paging::fetch(limit).into()],
             ))
-            .await
-            .map_err(db_err)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(StaffItem {
@@ -758,13 +737,11 @@ impl InboundService {
     pub async fn mark_handled(&self, id: Uuid) -> Result<bool> {
         let r = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "UPDATE inbound_texts SET handled_at = now() WHERE id = $1 AND handled_at IS NULL",
                 [id.into()],
             ))
-            .await
-            .map_err(db_err)?;
+            .await?;
         Ok(r.rows_affected() > 0)
     }
 }

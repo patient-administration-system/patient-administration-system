@@ -1,14 +1,13 @@
 //! REST handlers for operational admin: outbox diagnostics + DLQ.
 
+use crate::db::sql::Transact;
 use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
 };
-use sea_orm::TransactionTrait;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::Error;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
 use crate::api::rest::handlers::{audit_ctx, ok_json};
@@ -105,7 +104,7 @@ pub async fn replay_dead_letter(
     let dl_id = id;
     let result = state
         .db
-        .transaction::<_, Uuid, Error>(|txn| {
+        .in_txn::<_, Uuid>(|txn| {
             let ctx = ctx.clone();
             Box::pin(async move {
                 let new_id = DeadLetterRepository::replay(txn, dl_id).await?;
@@ -128,7 +127,7 @@ pub async fn replay_dead_letter(
             dead_letter_id: dl_id,
             new_outbox_id: new_id,
         }),
-        Err(e) => error_to_response(Error::from(e)),
+        Err(e) => error_to_response(e),
     }
 }
 

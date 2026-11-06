@@ -1,7 +1,7 @@
 //! Part of [`super`]: scheduling.
 
 use super::*;
-use sea_orm::TransactionTrait;
+use crate::db::sql::Transact;
 
 #[utoipa::path(
     post,
@@ -41,7 +41,7 @@ pub async fn schedule_book(
     let audit_clone = r.audit.clone();
     let result = state
         .db
-        .transaction::<_, Appointment, crate::Error>(|txn| {
+        .in_txn::<_, Appointment>(|txn| {
             Box::pin(async move {
                 use crate::db::repositories::appointment::AppointmentRepository;
                 let overlapping =
@@ -86,11 +86,7 @@ pub async fn schedule_book(
             &r.control_id,
             Some(&format!("filler={} person={person_id}", a.id)),
         ),
-        Err(e) => ae(
-            &r.sender,
-            &r.control_id,
-            &crate::Error::from(e).client_message(),
-        ),
+        Err(e) => ae(&r.sender, &r.control_id, &e.client_message()),
     }
 }
 
@@ -181,7 +177,7 @@ pub async fn schedule_reschedule(
     updated.updated_at = chrono::Utc::now();
     // The change, its audit row and its event commit together, or none of them is kept (NFR-25).
     if let Err(e) = async {
-        let txn = state.db.begin().await.map_err(crate::Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let saved = AppointmentRepository::update(&txn, &updated).await?;
         AuditLogRepository::log(
             &txn,
@@ -271,7 +267,7 @@ pub async fn schedule_modify(
     updated.updated_at = chrono::Utc::now();
     // The change, its audit row and its event commit together, or none of them is kept (NFR-25).
     if let Err(e) = async {
-        let txn = state.db.begin().await.map_err(crate::Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let saved = AppointmentRepository::update(&txn, &updated).await?;
         AuditLogRepository::log(
             &txn,

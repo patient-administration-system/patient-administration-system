@@ -1,6 +1,7 @@
 //! audit repository — writes rows to `audit_log` within the same DB
 //! transaction as the entity change.
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -38,7 +39,7 @@ impl AuditLogRepository {
     ///
     /// Pass `old_value = None` for creates, `new_value = None` for deletes,
     /// and both for updates.
-    pub async fn log<C: ConnectionTrait>(
+    pub async fn log<C: Conn>(
         conn: &C,
         entity_type: &str,
         entity_id: Uuid,
@@ -66,7 +67,7 @@ impl AuditLogRepository {
         clippy::too_many_arguments,
         reason = "one audit row's columns; a struct would only rename them"
     )]
-    pub async fn log_with<C: ConnectionTrait>(
+    pub async fn log_with<C: Conn>(
         conn: &C,
         entity_type: &str,
         entity_id: Uuid,
@@ -96,10 +97,7 @@ impl AuditLogRepository {
     }
 
     /// Recent audit rows across all entities, newest first.
-    pub async fn list_recent<C: ConnectionTrait>(
-        conn: &C,
-        limit: u64,
-    ) -> Result<Vec<audit_log::Model>> {
+    pub async fn list_recent<C: Conn>(conn: &C, limit: u64) -> Result<Vec<audit_log::Model>> {
         audit_log::Entity::find()
             .order_by_desc(audit_log::Column::At)
             .limit(limit)
@@ -109,7 +107,7 @@ impl AuditLogRepository {
     }
 
     /// Audit rows for a single entity, newest first.
-    pub async fn list_for_entity<C: ConnectionTrait>(
+    pub async fn list_for_entity<C: Conn>(
         conn: &C,
         entity_type: &str,
         entity_id: Uuid,

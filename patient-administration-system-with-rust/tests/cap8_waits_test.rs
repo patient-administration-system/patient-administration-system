@@ -12,8 +12,9 @@ use axum::{
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::waitlist::WaitlistRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::waitlist::{Priority, WaitlistStatus};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -32,9 +33,7 @@ async fn pathway(s: &AppState, person: Uuid, weeks: i64) -> Uuid {
         .start(person, format!("svc-{}", Uuid::new_v4()), &sys())
         .await
         .unwrap();
-    s.db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "UPDATE rtt_clock_events SET event_at = now() - make_interval(weeks => $2::int) WHERE pathway_id = $1",
+    s.db.run(Stmt::new("UPDATE rtt_clock_events SET event_at = now() - make_interval(weeks => $2::int) WHERE pathway_id = $1",
         [p.id.into(), (weeks as i32).into()],
     ))
     .await
@@ -48,13 +47,7 @@ async fn remove(s: &AppState, pathway: Uuid) {
         "DELETE FROM rtt_clock_events WHERE pathway_id = $1",
         "DELETE FROM rtt_pathways WHERE id = $1",
     ] {
-        s.db.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            sql,
-            [pathway.into()],
-        ))
-        .await
-        .unwrap();
+        s.db.run(Stmt::new(sql, [pathway.into()])).await.unwrap();
     }
 }
 
@@ -71,9 +64,7 @@ async fn lead_time_is_computed_from_the_booking_time() {
         .await
         .unwrap();
     // Booked 21 days before the visit.
-    s.db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "UPDATE appointments SET created_at = start_datetime - interval '21 days 2 hours' WHERE id = $1",
+    s.db.run(Stmt::new("UPDATE appointments SET created_at = start_datetime - interval '21 days 2 hours' WHERE id = $1",
         [a.id.into()],
     ))
     .await
@@ -156,15 +147,14 @@ async fn no_longer_needed_is_recorded_and_audited_and_removes_nobody() {
     let count = |id: Uuid| {
         let db = s.db.clone();
         async move {
-            db.query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            db.one(Stmt::new(
                 "SELECT count(*) AS n FROM rtt_clock_events WHERE pathway_id = $1",
                 [id.into()],
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get::<i64>("", "n")
+            .col::<i64>("n")
             .unwrap()
         }
     };
@@ -192,15 +182,14 @@ async fn no_longer_needed_is_recorded_and_audited_and_removes_nobody() {
     assert_eq!(e.status, WaitlistStatus::Waiting);
     assert_eq!(count(p.id).await, events);
     let open =
-        s.db.query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT stopped_at IS NULL AS open FROM rtt_pathways WHERE id = $1",
             [p.id.into()],
         ))
         .await
         .unwrap()
         .unwrap();
-    assert!(open.try_get::<bool>("", "open").unwrap());
+    assert!(open.col::<bool>("open").unwrap());
     remove(&s, p.id).await;
 }
 

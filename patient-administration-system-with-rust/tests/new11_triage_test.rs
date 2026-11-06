@@ -8,9 +8,10 @@ use axum::{
 };
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::waitlist::Priority;
 use patient_administration_system::referrals::NewReferral;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -63,15 +64,13 @@ impl W {
     async fn audit_rows(&self, id: Uuid) -> i64 {
         self.s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT count(*) AS n FROM audit_log WHERE entity_type = 'referral' AND entity_id = $1 AND action = 'triaged'",
+            .one(Stmt::new("SELECT count(*) AS n FROM audit_log WHERE entity_type = 'referral' AND entity_id = $1 AND action = 'triaged'",
                 [id.into()],
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get("", "n")
+            .col("n")
             .unwrap()
     }
 }

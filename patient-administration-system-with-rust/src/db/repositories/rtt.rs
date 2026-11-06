@@ -1,5 +1,6 @@
 //! rtt repository — RTTPathway and RTTClockEvent
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -10,19 +11,13 @@ use crate::{Error, Result};
 pub struct RttRepository;
 
 impl RttRepository {
-    pub async fn create_pathway<C: ConnectionTrait>(
-        conn: &C,
-        p: &RTTPathway,
-    ) -> Result<RTTPathway> {
+    pub async fn create_pathway<C: Conn>(conn: &C, p: &RTTPathway) -> Result<RTTPathway> {
         let am = pathway_to_active_model(p)?;
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(p.clone())
     }
 
-    pub async fn find_pathway_by_id<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-    ) -> Result<Option<RTTPathway>> {
+    pub async fn find_pathway_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<RTTPathway>> {
         let m = rtt_pathway::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -30,7 +25,7 @@ impl RttRepository {
         m.map(pathway_from_model).transpose()
     }
 
-    pub async fn list_pathways_by_patient<C: ConnectionTrait>(
+    pub async fn list_pathways_by_patient<C: Conn>(
         conn: &C,
         person_id: Uuid,
     ) -> Result<Vec<RTTPathway>> {
@@ -42,16 +37,13 @@ impl RttRepository {
         rows.into_iter().map(pathway_from_model).collect()
     }
 
-    pub async fn create_event<C: ConnectionTrait>(
-        conn: &C,
-        e: &RTTClockEvent,
-    ) -> Result<RTTClockEvent> {
+    pub async fn create_event<C: Conn>(conn: &C, e: &RTTClockEvent) -> Result<RTTClockEvent> {
         let am = event_to_active_model(e);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(e.clone())
     }
 
-    pub async fn list_events_for_pathway<C: ConnectionTrait>(
+    pub async fn list_events_for_pathway<C: Conn>(
         conn: &C,
         pathway_id: Uuid,
     ) -> Result<Vec<RTTClockEvent>> {

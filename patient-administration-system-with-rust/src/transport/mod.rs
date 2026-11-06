@@ -18,11 +18,12 @@
 //! The window is recorded on the booking and readable at `GET /api/appointments/{id}/transport`.
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -187,14 +188,11 @@ impl TransportService {
             Self::need(basis, "basis")?,
         );
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO transport_eligibility (person_id, eligible_by, basis) VALUES ($1,$2,$3) \
+            .run(Stmt::new("INSERT INTO transport_eligibility (person_id, eligible_by, basis) VALUES ($1,$2,$3) \
                  ON CONFLICT (person_id) DO UPDATE SET eligible_by = $2, basis = $3, recorded_at = now()",
                 [person.into(), by.clone().into(), basis.clone().into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &self.db,
             "patient",
@@ -229,14 +227,11 @@ impl TransportService {
             Self::need(basis, "basis")?,
         );
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO transport_consents (person_id, recorded_by, basis) VALUES ($1,$2,$3) \
+            .run(Stmt::new("INSERT INTO transport_consents (person_id, recorded_by, basis) VALUES ($1,$2,$3) \
                  ON CONFLICT (person_id) DO UPDATE SET recorded_by = $2, basis = $3, recorded_at = now()",
                 [person.into(), by.clone().into(), basis.clone().into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &self.db,
             "patient",
@@ -268,13 +263,11 @@ impl TransportService {
     ) -> Result<()> {
         let r = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 format!("DELETE FROM {table} WHERE person_id = $1"),
                 [person.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if r.rows_affected() == 0 {
             return Err(Error::not_found("nothing recorded for that patient"));
         }
@@ -284,13 +277,11 @@ impl TransportService {
     async fn exists(&self, table: &str, person: Uuid) -> Result<bool> {
         Ok(self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 format!("SELECT 1 AS ok FROM {table} WHERE person_id = $1"),
                 [person.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .is_some())
     }
 
@@ -299,14 +290,11 @@ impl TransportService {
     pub async fn booking_for(&self, appointment_id: Uuid) -> Result<Option<Booking>> {
         let r = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT id, appointment_id, status, provider_ref, window_start, window_end, last_error \
+            .one(Stmt::new("SELECT id, appointment_id, status, provider_ref, window_start, window_end, last_error \
                  FROM transport_bookings WHERE appointment_id = $1 ORDER BY created_at DESC LIMIT 1",
                 [appointment_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         r.map(|r| {
             Ok(Booking {
                 id: r.col("id")?,
@@ -324,9 +312,7 @@ impl TransportService {
     async fn call_task(&self, appt: Uuid, person: Uuid) {
         self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
+            .run(Stmt::new("INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
                  VALUES ($1,$2,$3,'transport_failed', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",
                 [Uuid::new_v4().into(), appt.into(), person.into()],
             ))
@@ -336,13 +322,10 @@ impl TransportService {
 
     async fn set_status(&self, id: Uuid, status: BookingStatus, error: Option<&str>) -> Result<()> {
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE transport_bookings SET status = $2, last_error = $3, updated_at = now() WHERE id = $1",
+            .run(Stmt::new("UPDATE transport_bookings SET status = $2, last_error = $3, updated_at = now() WHERE id = $1",
                 [id.into(), status.as_str().into(), error.map(String::from).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         Ok(())
     }
 
@@ -372,14 +355,11 @@ impl TransportService {
         // Claim the single active ride first; a second confirmation at once loses on the unique index.
         let claimed = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO transport_bookings (id, appointment_id, person_id, status) VALUES ($1,$2,$3,'requested') \
+            .run(Stmt::new("INSERT INTO transport_bookings (id, appointment_id, person_id, status) VALUES ($1,$2,$3,'requested') \
                  ON CONFLICT DO NOTHING",
                 [id.into(), appointment_id.into(), appt.person_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if claimed.rows_affected() == 0 {
             return Ok(());
         }
@@ -421,14 +401,11 @@ impl TransportService {
         match self.client.book(&req).await {
             Ok(c) => {
                 self.db
-                    .execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE transport_bookings SET status = 'booked', provider_ref = $2, window_start = $3, \
+                    .run(Stmt::new("UPDATE transport_bookings SET status = 'booked', provider_ref = $2, window_start = $3, \
                          window_end = $4, updated_at = now() WHERE id = $1",
                         [id.into(), c.provider_ref.into(), c.window_start.into(), c.window_end.into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                 AuditLogRepository::log(
                     &self.db,
                     "appointment",
@@ -465,13 +442,11 @@ impl TransportService {
         }
         let person: Uuid = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT person_id FROM transport_bookings WHERE id = $1",
                 [b.id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::internal("booking vanished"))?
             .col("person_id")?;
         match self

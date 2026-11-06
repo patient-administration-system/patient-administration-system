@@ -14,10 +14,11 @@
 //! `POST /api/admin/outbox/dead-letters/{id}/replay`, which puts a fresh row
 //! back into `outbox_events` with `retry_count = 0`.
 
+use crate::db::sql::Transact;
 use std::sync::Arc;
 use std::time::Duration;
 
-use sea_orm::{DatabaseConnection, TransactionTrait};
+use sea_orm::DatabaseConnection;
 
 use crate::Result;
 use crate::db::repositories::outbox::OutboxRepository;
@@ -94,13 +95,12 @@ pub async fn tick(
                         max_retries,
                         new_count,
                     );
-                    db.transaction::<_, (), crate::Error>(|txn| {
+                    db.in_txn::<_, ()>(|txn| {
                         Box::pin(async move {
                             OutboxRepository::move_to_dead_letter(txn, row.id, &err_str).await
                         })
                     })
-                    .await
-                    .map_err(crate::Error::from)?;
+                    .await?;
                 } else {
                     tracing::warn!(
                         "outbox publish failed for id={} (retry {}/{}): {err_str}",

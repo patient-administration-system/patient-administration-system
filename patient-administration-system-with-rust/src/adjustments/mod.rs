@@ -8,8 +8,11 @@
 //! is left to the code system rather than guessed. An adjustment informs staff only; it never changes what
 //! is offered (NFR-11).
 
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Row, Stmt};
 use chrono::{DateTime, NaiveDate, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -151,21 +154,21 @@ pub fn to_flag(a: &Adjustment) -> Value {
 const COLS: &str =
     "id, person_id, category, code, note, review_by, recorded_by, recorded_at, ended_by, ended_at";
 
-fn from_row(r: &sea_orm::QueryResult) -> Result<Adjustment> {
-    let code: String = r.try_get("", "code").map_err(Error::Database)?;
+fn from_row(r: &Row) -> Result<Adjustment> {
+    let code: String = r.col("code")?;
     let display = lookup(&code).map_or_else(|| code.clone(), |(_, d)| d.to_string());
     let mut a = Adjustment {
-        id: r.try_get("", "id").map_err(Error::Database)?,
-        person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-        category: r.try_get("", "category").map_err(Error::Database)?,
+        id: r.col("id")?,
+        person_id: r.col("person_id")?,
+        category: r.col("category")?,
         code,
         display,
-        note: r.try_get("", "note").map_err(Error::Database)?,
-        review_by: r.try_get("", "review_by").map_err(Error::Database)?,
-        recorded_by: r.try_get("", "recorded_by").map_err(Error::Database)?,
-        recorded_at: r.try_get("", "recorded_at").map_err(Error::Database)?,
-        ended_by: r.try_get("", "ended_by").map_err(Error::Database)?,
-        ended_at: r.try_get("", "ended_at").map_err(Error::Database)?,
+        note: r.col("note")?,
+        review_by: r.col("review_by")?,
+        recorded_by: r.col("recorded_by")?,
+        recorded_at: r.col("recorded_at")?,
+        ended_by: r.col("ended_by")?,
+        ended_at: r.col("ended_at")?,
         fhir: Value::Null,
     };
     a.fhir = to_flag(&a);
@@ -229,11 +232,9 @@ impl AdjustmentService {
             return Err(Error::validation("review_by may not be in the past"));
         }
         let id = Uuid::new_v4();
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let row = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                format!(
+            .one(Stmt::new(format!(
                     "INSERT INTO reasonable_adjustments (id, person_id, category, code, note, review_by, recorded_by, recorded_at) \
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) \
                      ON CONFLICT (person_id, code) WHERE ended_at IS NULL DO NOTHING RETURNING {COLS}"
@@ -249,8 +250,7 @@ impl AdjustmentService {
                     at.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let Some(row) = row else {
             return Err(Error::conflict(format!(
                 "the patient already has a live {code} adjustment"
@@ -283,15 +283,12 @@ impl AdjustmentService {
             ended_by,
             "ended_by: the person ending the adjustment is required",
         )?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let done = txn
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE reasonable_adjustments SET ended_by = $2, ended_at = $3 WHERE id = $1 AND ended_at IS NULL",
+            .run(Stmt::new("UPDATE reasonable_adjustments SET ended_by = $2, ended_at = $3 WHERE id = $1 AND ended_at IS NULL",
                 [id.into(), by.into(), at.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if done.rows_affected() != 1 {
             return Err(Error::not_found(format!("live adjustment {id}")));
         }
@@ -317,22 +314,15 @@ impl AdjustmentService {
         let ids: Vec<Uuid> = ids.iter().take(500).copied().collect();
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT a.id AS appointment_id, r.code FROM appointments a \
                  JOIN reasonable_adjustments r ON r.person_id = a.person_id AND r.ended_at IS NULL \
                  WHERE a.id = ANY($1) ORDER BY a.id, r.category, r.code",
                 [ids.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         rows.iter()
-            .map(|r| {
-                Ok((
-                    r.try_get("", "appointment_id").map_err(Error::Database)?,
-                    r.try_get("", "code").map_err(Error::Database)?,
-                ))
-            })
+            .map(|r| Ok((r.col("appointment_id")?, r.col("code")?)))
             .collect()
     }
 
@@ -345,8 +335,7 @@ impl AdjustmentService {
     ) -> Result<Vec<Adjustment>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 format!(
                     "SELECT {COLS} FROM reasonable_adjustments \
                      WHERE person_id = $1 AND ($2 OR ended_at IS NULL) \
@@ -358,8 +347,7 @@ impl AdjustmentService {
                     crate::paging::fetch(fetch).into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         rows.iter().map(from_row).collect()
     }
 }

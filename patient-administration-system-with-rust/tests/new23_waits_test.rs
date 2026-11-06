@@ -5,9 +5,10 @@ mod common;
 
 use chrono::{Duration, Utc};
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::triage::TriageService;
 use patient_administration_system::triage::targets::Targets;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 async fn encounter(
@@ -17,9 +18,7 @@ async fn encounter(
     arrived: chrono::DateTime<Utc>,
 ) -> Uuid {
     let id = Uuid::new_v4();
-    db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
+    db.run(Stmt::new("INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
          VALUES ($1, $2, $3, $4, $5, now(), now())",
         [
             id.into(),
@@ -122,15 +121,14 @@ async fn first_contact_is_recorded_once_and_the_report_and_queue_describe_it() {
     );
     let stored: Option<String> = state
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT first_contact_by FROM encounters WHERE id = $1",
             [within.into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get("", "first_contact_by")
+        .col("first_contact_by")
         .unwrap();
     assert_eq!(
         stored.as_deref(),
@@ -187,8 +185,7 @@ async fn the_database_refuses_a_contact_time_without_a_name() {
     let enc = encounter(&state.db, "emergency", "arrived", Utc::now()).await;
     let r = state
         .db
-        .execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .run(Stmt::new(
             "UPDATE encounters SET first_contact_at = now() WHERE id = $1",
             [enc.into()],
         ))

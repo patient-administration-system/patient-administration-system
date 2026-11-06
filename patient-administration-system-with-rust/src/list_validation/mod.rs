@@ -17,13 +17,12 @@
 //! records it. The letter is posted by a person and recorded.
 
 use chrono::{DateTime, NaiveDate, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::db::repositories::outbox::OutboxRepository;
-use crate::db::row::RowExt;
 use crate::waits::WaitsService;
 use crate::{Error, Result};
 

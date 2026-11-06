@@ -6,7 +6,8 @@ mod common;
 use chrono::{Duration, Utc};
 use patient_administration_system::clinical_priority::ClinicalPriorityService;
 use patient_administration_system::db::repositories::audit::UserContext;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use uuid::Uuid;
 
 async fn entry(
@@ -16,9 +17,7 @@ async fn entry(
     status: &str,
 ) -> Uuid {
     let id = Uuid::new_v4();
-    db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "INSERT INTO waitlist_entries (id, person_id, target_service, priority, status, created_at, updated_at) \
+    db.run(Stmt::new("INSERT INTO waitlist_entries (id, person_id, target_service, priority, status, created_at, updated_at) \
          VALUES ($1, $2, $3, $4, $5, now(), now())",
         [id.into(), Uuid::new_v4().into(), service.into(), priority.into(), status.into()],
     ))
@@ -85,15 +84,13 @@ async fn a_named_clinician_sets_it_and_nothing_is_reordered_by_it() {
 
     let audit = state
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT count(*) AS n FROM audit_log WHERE entity_id = $1 AND action = 'set_clinical_priority'",
+        .one(Stmt::new("SELECT count(*) AS n FROM audit_log WHERE entity_id = $1 AND action = 'set_clinical_priority'",
             [second.into()],
         ))
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(audit.try_get::<i64>("", "n").unwrap(), 1);
+    assert_eq!(audit.col::<i64>("n").unwrap(), 1);
 }
 
 #[tokio::test]

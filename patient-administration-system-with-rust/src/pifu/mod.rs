@@ -11,8 +11,11 @@
 //!
 //! PIFU informs people and creates work; it never changes a waiting-list order or an offer (NFR-11).
 
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Row, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -102,23 +105,18 @@ pub enum Decision {
 const EP_COLS: &str = "id, person_id, service_type, conditions, opened_by, opened_at, expires_at, \
     urgent_override_by, extended_count, status";
 
-fn episode(r: &sea_orm::QueryResult) -> Result<Episode> {
+fn episode(r: &Row) -> Result<Episode> {
     Ok(Episode {
-        id: r.try_get("", "id").map_err(Error::Database)?,
-        person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-        service_type: r.try_get("", "service_type").map_err(Error::Database)?,
-        conditions: r.try_get("", "conditions").map_err(Error::Database)?,
-        opened_by: r.try_get("", "opened_by").map_err(Error::Database)?,
-        opened_at: r.try_get("", "opened_at").map_err(Error::Database)?,
-        expires_at: r.try_get("", "expires_at").map_err(Error::Database)?,
-        urgent_override_by: r
-            .try_get("", "urgent_override_by")
-            .map_err(Error::Database)?,
-        extended_count: r.try_get("", "extended_count").map_err(Error::Database)?,
-        status: r
-            .try_get::<String>("", "status")
-            .map_err(Error::Database)?
-            .parse()?,
+        id: r.col("id")?,
+        person_id: r.col("person_id")?,
+        service_type: r.col("service_type")?,
+        conditions: r.col("conditions")?,
+        opened_by: r.col("opened_by")?,
+        opened_at: r.col("opened_at")?,
+        expires_at: r.col("expires_at")?,
+        urgent_override_by: r.col("urgent_override_by")?,
+        extended_count: r.col("extended_count")?,
+        status: r.col::<String>("status")?.parse()?,
     })
 }
 
@@ -170,15 +168,13 @@ impl PifuService {
             .map(|o| named_person(o, "urgent_override_by must be a name"))
             .transpose()?;
         let id = Uuid::new_v4();
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let urgent = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT 1 AS x FROM follow_up_policies WHERE service_type = $1",
                 [service.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .is_some();
         if urgent && override_by.is_none() {
             return Err(Error::validation(
@@ -186,9 +182,7 @@ impl PifuService {
             ));
         }
         let row = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                format!(
+            .one(Stmt::new(format!(
                     "INSERT INTO pifu_episodes (id, person_id, service_type, conditions, opened_by, opened_at, expires_at, urgent_override_by) \
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) \
                      ON CONFLICT (person_id, service_type) WHERE status = 'active' DO NOTHING RETURNING {EP_COLS}"
@@ -204,8 +198,7 @@ impl PifuService {
                     override_by.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let Some(row) = row else {
             return Err(Error::conflict(format!(
                 "the patient already has a live PIFU episode for {service}"
@@ -240,15 +233,13 @@ impl PifuService {
                 RequestChannel::NAMES.join(", ")
             ))
         })?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let ep = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 format!("SELECT {EP_COLS} FROM pifu_episodes WHERE id = $1 FOR UPDATE"),
                 [episode_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::not_found(format!("PIFU episode {episode_id}")))?;
         let ep = episode(&ep)?;
         let route = if ep.status == EpisodeStatus::Active {
@@ -258,9 +249,7 @@ impl PifuService {
         };
         let id = Uuid::new_v4();
         let inserted = txn
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO pifu_requests (id, episode_id, person_id, requested_at, channel, route) \
+            .run(Stmt::new("INSERT INTO pifu_requests (id, episode_id, person_id, requested_at, channel, route) \
                  VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (episode_id) WHERE handled_at IS NULL DO NOTHING",
                 [
                     id.into(),
@@ -271,8 +260,7 @@ impl PifuService {
                     route.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if inserted.rows_affected() == 1 {
             AuditLogRepository::log(
                 &txn,
@@ -286,29 +274,24 @@ impl PifuService {
             .await?;
         }
         let open = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT id, episode_id, person_id, requested_at, channel, route FROM pifu_requests \
                  WHERE episode_id = $1 AND handled_at IS NULL",
                 [episode_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| {
                 Error::internal("an open PIFU request was not found after recording one")
             })?;
         txn.commit().await.map_err(Error::Database)?;
         Ok(Request {
-            id: open.try_get("", "id").map_err(Error::Database)?,
+            id: open.col("id")?,
             episode_id,
             person_id: ep.person_id,
             service_type: ep.service_type,
-            requested_at: open.try_get("", "requested_at").map_err(Error::Database)?,
-            channel: open
-                .try_get::<String>("", "channel")
-                .map_err(Error::Database)?
-                .parse()?,
-            route: open.try_get("", "route").map_err(Error::Database)?,
+            requested_at: open.col("requested_at")?,
+            channel: open.col::<String>("channel")?.parse()?,
+            route: open.col("route")?,
         })
     }
 
@@ -319,28 +302,22 @@ impl PifuService {
         }
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT r.id, r.episode_id, r.person_id, e.service_type, r.requested_at, r.channel, r.route \
+            .all(Stmt::new("SELECT r.id, r.episode_id, r.person_id, e.service_type, r.requested_at, r.channel, r.route \
                  FROM pifu_requests r JOIN pifu_episodes e ON e.id = r.episode_id \
                  WHERE r.handled_at IS NULL AND r.route = $1 ORDER BY r.requested_at, r.id LIMIT $2",
                 [route.into(), crate::paging::fetch(fetch).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(Request {
-                    id: r.try_get("", "id").map_err(Error::Database)?,
-                    episode_id: r.try_get("", "episode_id").map_err(Error::Database)?,
-                    person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-                    service_type: r.try_get("", "service_type").map_err(Error::Database)?,
-                    requested_at: r.try_get("", "requested_at").map_err(Error::Database)?,
-                    channel: r
-                        .try_get::<String>("", "channel")
-                        .map_err(Error::Database)?
-                        .parse()?,
-                    route: r.try_get("", "route").map_err(Error::Database)?,
+                    id: r.col("id")?,
+                    episode_id: r.col("episode_id")?,
+                    person_id: r.col("person_id")?,
+                    service_type: r.col("service_type")?,
+                    requested_at: r.col("requested_at")?,
+                    channel: r.col::<String>("channel")?.parse()?,
+                    route: r.col("route")?,
                 })
             })
             .collect()
@@ -359,10 +336,9 @@ impl PifuService {
             handled_by,
             "handled_by: the person handling the request is required",
         )?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let done = txn
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "UPDATE pifu_requests SET handled_by = $2, handled_at = $3, appointment_id = $4 \
                  WHERE id = $1 AND handled_at IS NULL",
                 [
@@ -372,8 +348,7 @@ impl PifuService {
                     appointment_id.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if done.rows_affected() != 1 {
             return Err(Error::not_found(format!("open PIFU request {request_id}")));
         }
@@ -394,16 +369,13 @@ impl PifuService {
     pub async fn due_reviews(&self, now: DateTime<Utc>, fetch: i64) -> Result<Vec<Episode>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                format!(
+            .all(Stmt::new(format!(
                     "SELECT {EP_COLS} FROM pifu_episodes WHERE status = 'active' AND expires_at <= $1 \
                      ORDER BY expires_at, id LIMIT $2"
                 ),
                 [now.into(), crate::paging::fetch(fetch).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter().map(episode).collect()
     }
 
@@ -424,15 +396,13 @@ impl PifuService {
         if let Decision::Extend(until) = decision {
             check_window(now, until)?;
         }
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let ep = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 format!("SELECT {EP_COLS} FROM pifu_episodes WHERE id = $1 FOR UPDATE"),
                 [episode_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::not_found(format!("PIFU episode {episode_id}")))?;
         let ep = episode(&ep)?;
         if ep.status != EpisodeStatus::Active {
@@ -444,13 +414,11 @@ impl PifuService {
             ));
         }
         let open_request = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT 1 AS x FROM pifu_requests WHERE episode_id = $1 AND handled_at IS NULL",
                 [episode_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .is_some();
         if open_request {
             return Err(Error::conflict(
@@ -459,23 +427,17 @@ impl PifuService {
         }
         let action = match decision {
             Decision::Discharge => {
-                txn.execute_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "UPDATE pifu_episodes SET status = 'closed', closed_by = $2, closed_at = $3 WHERE id = $1",
+                txn.run(Stmt::new("UPDATE pifu_episodes SET status = 'closed', closed_by = $2, closed_at = $3 WHERE id = $1",
                     [episode_id.into(), by.into(), now.into()],
                 ))
-                .await
-                .map_err(Error::Database)?;
+.await?;
                 "discharge"
             }
             Decision::Extend(until) => {
-                txn.execute_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "UPDATE pifu_episodes SET expires_at = $2, extended_count = extended_count + 1 WHERE id = $1",
+                txn.run(Stmt::new("UPDATE pifu_episodes SET expires_at = $2, extended_count = extended_count + 1 WHERE id = $1",
                     [episode_id.into(), until.into()],
                 ))
-                .await
-                .map_err(Error::Database)?;
+.await?;
                 "extend"
             }
         };
@@ -497,17 +459,14 @@ impl PifuService {
     pub async fn uptake(&self, k: i64) -> Result<UptakeReport> {
         let row = self
             .db
-            .query_one_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT \
+            .one(Stmt::text("SELECT \
                    (SELECT count(*) FROM pifu_episodes)::bigint AS opened, \
                    (SELECT count(*) FROM pifu_requests WHERE route = 'booking')::bigint AS in_window, \
                    (SELECT count(*) FROM pifu_requests WHERE route = 'person')::bigint AS after_window, \
                    (SELECT count(*) FROM pifu_episodes WHERE status = 'closed')::bigint AS discharged, \
                    (SELECT COALESCE(sum(extended_count), 0) FROM pifu_episodes)::bigint AS extended",
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::internal("uptake counts missing"))?;
         let mut rows = Vec::new();
         for (measure, col) in [
@@ -517,7 +476,7 @@ impl PifuService {
             ("discharged_at_review", "discharged"),
             ("extended_at_review", "extended"),
         ] {
-            let n: i64 = row.try_get("", col).map_err(Error::Database)?;
+            let n: i64 = row.col(col)?;
             rows.push((vec![("measure".to_string(), measure.to_string())], n));
         }
         Ok(UptakeReport {

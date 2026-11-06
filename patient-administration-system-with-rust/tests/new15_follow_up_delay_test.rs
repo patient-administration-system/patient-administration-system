@@ -13,8 +13,9 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::follow_up_delay::{DelayReport, FollowUpDelayService};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -31,9 +32,7 @@ fn cell(r: &DelayReport, booked: bool, band: &str) -> Option<i64> {
 /// A waiting-list entry added `days_ago` days ago, waiting or booked.
 async fn entry(db: &sea_orm::DatabaseConnection, days_ago: i64, booked: bool) -> Uuid {
     let id = Uuid::new_v4();
-    db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "INSERT INTO waitlist_entries (id, person_id, target_service, priority, status, created_at, updated_at) \
+    db.run(Stmt::new("INSERT INTO waitlist_entries (id, person_id, target_service, priority, status, created_at, updated_at) \
          VALUES ($1, $2, 'new15', 'routine', $3, now() - make_interval(days => $4), now())",
         [
             id.into(),
@@ -132,8 +131,7 @@ async fn setting_a_target_needs_a_named_person_and_is_audited() {
     assert!(refused.status().is_client_error(), "{}", refused.status());
     let row = state
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT follow_up_target IS NULL AS unset FROM waitlist_entries WHERE id = $1",
             [id.into()],
         ))
@@ -141,7 +139,7 @@ async fn setting_a_target_needs_a_named_person_and_is_audited() {
         .unwrap()
         .unwrap();
     assert!(
-        row.try_get::<bool>("", "unset").unwrap(),
+        row.col::<bool>("unset").unwrap(),
         "a refused request changes nothing"
     );
 
@@ -154,21 +152,18 @@ async fn setting_a_target_needs_a_named_person_and_is_audited() {
     assert_eq!(ok.status(), StatusCode::OK);
     let audit = state
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT count(*) AS n FROM audit_log WHERE entity_id = $1 AND action = 'set_follow_up_target'",
+        .one(Stmt::new("SELECT count(*) AS n FROM audit_log WHERE entity_id = $1 AND action = 'set_follow_up_target'",
             [id.into()],
         ))
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(audit.try_get::<i64>("", "n").unwrap(), 1);
+    assert_eq!(audit.col::<i64>("n").unwrap(), 1);
 
     // A removed or treated entry has no follow-up to date.
     state
         .db
-        .execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .run(Stmt::new(
             "UPDATE waitlist_entries SET status = 'treated' WHERE id = $1",
             [id.into()],
         ))
@@ -206,15 +201,14 @@ async fn setting_a_target_needs_the_entrys_version() {
     let unset = || async {
         state
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT follow_up_target IS NULL AS unset FROM waitlist_entries WHERE id = $1",
                 [id.into()],
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get::<bool>("", "unset")
+            .col::<bool>("unset")
             .unwrap()
     };
 

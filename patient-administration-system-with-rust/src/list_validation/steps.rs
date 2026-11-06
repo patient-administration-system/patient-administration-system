@@ -1,6 +1,7 @@
 //! Part of [`super`]: steps.
 
 use super::*;
+use crate::db::sql::{Conn, Stmt, Transact};
 
 impl ListValidationService {
     /// A person has asked the patient, by `channel`. `selected` becomes `asked`.
@@ -32,25 +33,19 @@ impl ListValidationService {
         let check = Uuid::new_v4();
         let (by_s, ch, ctx) = (by.to_string(), channel.to_string(), ctx.clone());
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "INSERT INTO still_needed_checks (id, pathway_id, person_id, asked_by) \
+                    txn.run(Stmt::new("INSERT INTO still_needed_checks (id, pathway_id, person_id, asked_by) \
                          SELECT $1, pathway_id, person_id, $3 FROM validation_items WHERE id = $2",
                         [check.into(), item.into(), by_s.clone().into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     let n = txn
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE validation_items SET state = 'asked', asked_by = $2, asked_channel = $3, \
+                        .run(Stmt::new("UPDATE validation_items SET state = 'asked', asked_by = $2, asked_channel = $3, \
                                     asked_at = now(), check_id = $4 WHERE id = $1 AND state = 'selected'",
                             [item.into(), by_s.clone().into(), ch.into(), check.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     if n.rows_affected() == 0 {
                         return Err(Error::conflict("that item was changed by someone else"));
                     }
@@ -67,8 +62,7 @@ impl ListValidationService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         self.item(campaign, item).await
     }
 
@@ -102,38 +96,29 @@ impl ListValidationService {
         }
         let (answer_s, ctx) = (answer.to_string(), ctx.clone());
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
                     // The CAP-8 check, so "last check" on the patient's waits shows this.
                     let check = Uuid::new_v4();
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "INSERT INTO still_needed_checks (id, pathway_id, person_id, asked_by, answer, recorded_by, answered_at) \
+                    txn.run(Stmt::new("INSERT INTO still_needed_checks (id, pathway_id, person_id, asked_by, answer, recorded_by, answered_at) \
                          SELECT $1, i.pathway_id, i.person_id, COALESCE(i.asked_by, $3), $4, $3, now() \
                          FROM validation_items i WHERE i.id = $2 AND i.check_id IS NULL",
                         [check.into(), item.into(), by.clone().into(), answer_s.clone().into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE still_needed_checks SET answer = $2, recorded_by = $3, answered_at = now() \
+.await?;
+                    txn.run(Stmt::new("UPDATE still_needed_checks SET answer = $2, recorded_by = $3, answered_at = now() \
                          WHERE id = (SELECT check_id FROM validation_items WHERE id = $1) AND answer IS NULL",
                         [item.into(), answer_s.clone().into(), by.clone().into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     let n = txn
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE validation_items SET state = 'answered', answer = $2, answered_at = now(), \
+                        .run(Stmt::new("UPDATE validation_items SET state = 'answered', answer = $2, answered_at = now(), \
                                     check_id = COALESCE(check_id, (SELECT id FROM still_needed_checks \
                                       WHERE pathway_id = validation_items.pathway_id ORDER BY asked_at DESC LIMIT 1)) \
                              WHERE id = $1 AND state IN ('selected','asked','letter_sent')",
                             [item.into(), answer_s.clone().into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     if n.rows_affected() == 0 {
                         return Err(Error::conflict("that item was changed by someone else"));
                     }
@@ -152,8 +137,7 @@ impl ListValidationService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         self.item(campaign, item).await
     }
 
@@ -186,18 +170,15 @@ impl ListValidationService {
         }
         let ctx = ctx.clone();
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
                     let n = txn
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE validation_items SET state = 'letter_sent', letter_sent_by = $2, letter_sent_at = now(), \
+                        .run(Stmt::new("UPDATE validation_items SET state = 'letter_sent', letter_sent_by = $2, letter_sent_at = now(), \
                                     final_by = current_date + (SELECT final_wait_days FROM validation_campaigns WHERE id = campaign_id) \
                              WHERE id = $1 AND state IN ('selected','asked')",
                             [item.into(), by.clone().into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     if n.rows_affected() == 0 {
                         return Err(Error::conflict("that item was changed by someone else"));
                     }
@@ -214,8 +195,7 @@ impl ListValidationService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         self.item(campaign, item).await
     }
 }

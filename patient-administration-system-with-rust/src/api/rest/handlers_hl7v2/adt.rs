@@ -1,6 +1,7 @@
 //! Part of [`super`]: adt.
 
 use super::*;
+use crate::db::sql::Transact;
 
 #[utoipa::path(
     post,
@@ -304,7 +305,7 @@ pub async fn register(
     let audit_clone = r.audit.clone();
     let res = state
         .db
-        .transaction::<_, Encounter, crate::Error>(|txn| {
+        .in_txn::<_, Encounter>(|txn| {
             Box::pin(async move {
                 let e = EncounterRepository::create(txn, &enc_clone).await?;
                 AuditLogRepository::log(
@@ -341,10 +342,6 @@ pub async fn register(
                 e.id, r.person_id, class_str
             )),
         ),
-        Err(e) => ae(
-            &r.sender,
-            &r.control_id,
-            &crate::Error::from(e).client_message(),
-        ),
+        Err(e) => ae(&r.sender, &r.control_id, &e.client_message()),
     }
 }

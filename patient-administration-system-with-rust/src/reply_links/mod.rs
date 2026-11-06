@@ -18,10 +18,11 @@
 //!   idempotency are shared.
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -178,20 +179,17 @@ use crate::link_token::new_token;
 
 /// Mint a link token for an appointment. The plaintext is returned once, for the message; only its hash
 /// is stored.
-pub async fn mint<C: ConnectionTrait>(
+pub async fn mint<C: Conn>(
     conn: &C,
     appointment_id: Uuid,
     person_id: Uuid,
     expires_at: DateTime<Utc>,
 ) -> Result<String> {
     let token = new_token();
-    conn.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "INSERT INTO reply_tokens (token_hash, appointment_id, person_id, expires_at) VALUES ($1,$2,$3,$4)",
+    conn.run(Stmt::new("INSERT INTO reply_tokens (token_hash, appointment_id, person_id, expires_at) VALUES ($1,$2,$3,$4)",
         [hash(&token).into(), appointment_id.into(), person_id.into(), expires_at.into()],
     ))
-    .await
-    .map_err(Error::Database)?;
+.await?;
     Ok(token)
 }
 
@@ -244,13 +242,10 @@ impl ReplyLinks {
         }
         let r = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT appointment_id, person_id, expires_at, consumed_at IS NOT NULL AS consumed FROM reply_tokens WHERE token_hash = $1",
+            .one(Stmt::new("SELECT appointment_id, person_id, expires_at, consumed_at IS NOT NULL AS consumed FROM reply_tokens WHERE token_hash = $1",
                 [hash(token).into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(invalid)?;
         Ok(Row {
             appointment_id: r.col("appointment_id")?,
@@ -403,14 +398,12 @@ impl ReplyLinks {
     async fn claim(&self, hash: &str, action: LinkAction) -> Result<()> {
         let claimed = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "UPDATE reply_tokens SET consumed_at = now(), consumed_action = $2 \
                  WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()",
                 [hash.to_string().into(), action.as_str().into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if claimed.rows_affected() == 0 {
             return Err(Error::conflict("this link has already been used"));
         }
@@ -420,9 +413,7 @@ impl ReplyLinks {
     /// Give the link back after a refused or failed action, so the patient can try again.
     async fn release(&self, hash: &str) {
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
+            .run(Stmt::new("UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
                 [hash.to_string().into()],
             ))
             .await
@@ -432,14 +423,11 @@ impl ReplyLinks {
     /// Leads to rebook options (CAP-5); until then a person finds the new time. The appointment stands.
     async fn request_reschedule(&self, row: &Row, view: &View, when: &str) -> Result<LinkOutcome> {
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) VALUES ($1,$2,$3,'reschedule_request', now()) \
+            .run(Stmt::new("INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) VALUES ($1,$2,$3,'reschedule_request', now()) \
                  ON CONFLICT (appointment_id, reason) DO NOTHING",
                 [Uuid::new_v4().into(), row.appointment_id.into(), row.person_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         Ok(view.out(
             LinkStatus::RescheduleRequested,
             messages::text(view.lang, Kind::NeedsStaff, when, self.help_line.as_deref()),
@@ -534,14 +522,12 @@ impl ReplyLinks {
         let hash = hash(token);
         let claimed = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "UPDATE reply_tokens SET consumed_at = now(), consumed_action = 'rebook' \
                  WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()",
                 [hash.clone().into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if claimed.rows_affected() == 0 {
             return Err(Error::conflict("this link has already been used"));
         }
@@ -567,9 +553,7 @@ impl ReplyLinks {
             Err(e) => {
                 self
                     .db
-                    .execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
+                    .run(Stmt::new("UPDATE reply_tokens SET consumed_at = NULL, consumed_action = NULL WHERE token_hash = $1",
                         [hash.into()],
                     ))
                     .await

@@ -5,8 +5,11 @@
 //! checked with them again from time to time. This records when and by whom, and lists the profiles with
 //! needs that were never reviewed or not within the period, oldest first, for a person to follow up.
 
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Months, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -46,26 +49,18 @@ impl NeedsReviewService {
             reviewed_by,
             "reviewed_by: the person who reviewed the needs is required",
         )?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let before = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT needs_reviewed_at FROM patient_communication_profiles WHERE person_id = $1 FOR UPDATE",
+            .one(Stmt::new("SELECT needs_reviewed_at FROM patient_communication_profiles WHERE person_id = $1 FOR UPDATE",
                 [person_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::not_found(format!("communication profile for {person_id}")))?;
-        let old: Option<DateTime<Utc>> = before
-            .try_get("", "needs_reviewed_at")
-            .map_err(Error::Database)?;
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE patient_communication_profiles SET needs_reviewed_at = $2, needs_reviewed_by = $3 WHERE person_id = $1",
+        let old: Option<DateTime<Utc>> = before.col("needs_reviewed_at")?;
+        txn.run(Stmt::new("UPDATE patient_communication_profiles SET needs_reviewed_at = $2, needs_reviewed_by = $3 WHERE person_id = $1",
             [person_id.into(), at.into(), by.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &txn,
             "communication_profile",
@@ -90,26 +85,19 @@ impl NeedsReviewService {
             .ok_or_else(|| Error::validation("months is too large"))?;
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT person_id, accessibility_needs, needs_reviewed_at FROM patient_communication_profiles \
+            .all(Stmt::new("SELECT person_id, accessibility_needs, needs_reviewed_at FROM patient_communication_profiles \
                  WHERE cardinality(accessibility_needs) > 0 \
                    AND (needs_reviewed_at IS NULL OR needs_reviewed_at < $1) \
                  ORDER BY needs_reviewed_at NULLS FIRST, person_id LIMIT $2",
                 [cutoff.into(), crate::paging::fetch(fetch).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(DueReview {
-                    person_id: r.try_get("", "person_id").map_err(Error::Database)?,
-                    accessibility_needs: r
-                        .try_get("", "accessibility_needs")
-                        .map_err(Error::Database)?,
-                    needs_reviewed_at: r
-                        .try_get("", "needs_reviewed_at")
-                        .map_err(Error::Database)?,
+                    person_id: r.col("person_id")?,
+                    accessibility_needs: r.col("accessibility_needs")?,
+                    needs_reviewed_at: r.col("needs_reviewed_at")?,
                 })
             })
             .collect()

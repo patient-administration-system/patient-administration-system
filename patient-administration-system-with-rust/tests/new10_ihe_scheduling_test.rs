@@ -11,6 +11,8 @@ use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use patient_administration_system::api::fhir::fhir_router;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::slot::SlotRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::schedule::{ScheduleOwner, Slot};
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -75,11 +77,7 @@ fn slot_of(bundle: &Value, i: usize) -> String {
 }
 
 async fn both(db: &sea_orm::DatabaseConnection, id: Uuid) -> (String, bool, i64, String) {
-    let r = sea_orm::ConnectionTrait::query_one_raw(
-            db,
-            sea_orm::Statement::from_sql_and_values(
-                sea_orm::DbBackend::Postgres,
-                "SELECT a.status, (a.end_datetime - a.start_datetime) AS len, a.slot_id IS NOT NULL AS has_slot, \
+    let r = db.one(Stmt::new("SELECT a.status, (a.end_datetime - a.start_datetime) AS len, a.slot_id IS NOT NULL AS has_slot, \
                         (SELECT count(*) FROM audit_log WHERE entity_type = 'appointment' AND entity_id = a.id AND action = 'book') AS audited, \
                         (SELECT status FROM slots WHERE id = a.slot_id) AS slot_status \
                  FROM appointments a WHERE a.id = $1",
@@ -90,10 +88,10 @@ async fn both(db: &sea_orm::DatabaseConnection, id: Uuid) -> (String, bool, i64,
         .unwrap()
         .unwrap();
     (
-        r.try_get::<String>("", "status").unwrap(),
-        r.try_get::<bool>("", "has_slot").unwrap(),
-        r.try_get::<i64>("", "audited").unwrap(),
-        r.try_get::<String>("", "slot_status").unwrap(),
+        r.col::<String>("status").unwrap(),
+        r.col::<bool>("has_slot").unwrap(),
+        r.col::<i64>("audited").unwrap(),
+        r.col::<String>("slot_status").unwrap(),
     )
 }
 

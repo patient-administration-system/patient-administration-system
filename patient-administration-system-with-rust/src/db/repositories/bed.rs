@@ -3,6 +3,7 @@
 //! Owns the `beds` table. Provides `select_for_update` for the ADT service
 //! to lock a bed inside an admit/transfer transaction.
 
+use crate::db::sql::Conn;
 use sea_orm::*;
 use uuid::Uuid;
 
@@ -13,13 +14,13 @@ use crate::{Error, Result};
 pub struct BedRepository;
 
 impl BedRepository {
-    pub async fn create<C: ConnectionTrait>(conn: &C, b: &Bed) -> Result<Bed> {
+    pub async fn create<C: Conn>(conn: &C, b: &Bed) -> Result<Bed> {
         let am = to_active_model(b);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(b.clone())
     }
 
-    pub async fn find_by_id<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Bed>> {
+    pub async fn find_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Bed>> {
         let m = bed::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -31,7 +32,7 @@ impl BedRepository {
     /// per-facility and typically unique within a facility, but this
     /// repository does not enforce uniqueness across facilities — callers
     /// that need a global lookup should use [`Self::find_by_id`].
-    pub async fn find_by_code<C: ConnectionTrait>(conn: &C, code: &str) -> Result<Option<Bed>> {
+    pub async fn find_by_code<C: Conn>(conn: &C, code: &str) -> Result<Option<Bed>> {
         let m = bed::Entity::find()
             .filter(bed::Column::Code.eq(code))
             .one(conn)
@@ -45,7 +46,7 @@ impl BedRepository {
     /// is for MFN^M05 master-file changes that touch the location
     /// metadata but not the operational state. Returns `Error::
     /// NotFound` when the row is missing.
-    pub async fn update<C: ConnectionTrait>(conn: &C, b: &Bed) -> Result<Bed> {
+    pub async fn update<C: Conn>(conn: &C, b: &Bed) -> Result<Bed> {
         let existing = bed::Entity::find_by_id(b.id)
             .one(conn)
             .await
@@ -61,11 +62,7 @@ impl BedRepository {
     }
 
     /// Validate the bed status transition and persist.
-    pub async fn update_status<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-        new_status: BedStatus,
-    ) -> Result<Bed> {
+    pub async fn update_status<C: Conn>(conn: &C, id: Uuid, new_status: BedStatus) -> Result<Bed> {
         Self::update_status_if_current(conn, id, new_status, None, false).await
     }
 
@@ -73,7 +70,7 @@ impl BedRepository {
     /// `PreconditionFailed` when the bed has changed since the caller read it (OFH-10). `expected` `None`
     /// skips the comparison. The lock is the same one `select_for_update` takes, so it also orders this
     /// against an admission or a hold on the same bed.
-    pub async fn update_status_if_current<C: ConnectionTrait>(
+    pub async fn update_status_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
         new_status: BedStatus,
@@ -108,7 +105,7 @@ impl BedRepository {
     }
 
     /// List all beds in a ward. Walks rooms → beds.
-    pub async fn list_by_ward<C: ConnectionTrait>(conn: &C, ward_id: Uuid) -> Result<Vec<Bed>> {
+    pub async fn list_by_ward<C: Conn>(conn: &C, ward_id: Uuid) -> Result<Vec<Bed>> {
         let room_ids: Vec<Uuid> = room::Entity::find()
             .filter(room::Column::WardId.eq(ward_id))
             .all(conn)
@@ -130,7 +127,7 @@ impl BedRepository {
 
     /// `SELECT … FOR UPDATE` on a single bed row. Use inside a
     /// `DatabaseTransaction` so the lock is held until commit.
-    pub async fn select_for_update<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Option<Bed>> {
+    pub async fn select_for_update<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Bed>> {
         let m = bed::Entity::find_by_id(id)
             .lock_exclusive()
             .one(conn)
@@ -145,7 +142,7 @@ impl BedRepository {
     /// `Cleaning → Available` lifecycle does not apply because the event
     /// being cancelled never properly happened. Every other write path must
     /// go through [`Self::update_status`].
-    pub async fn set_status_unchecked<C: ConnectionTrait>(
+    pub async fn set_status_unchecked<C: Conn>(
         conn: &C,
         id: Uuid,
         new_status: BedStatus,

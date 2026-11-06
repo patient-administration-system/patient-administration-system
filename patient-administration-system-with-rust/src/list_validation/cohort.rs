@@ -1,6 +1,8 @@
 //! Part of [`super`]: cohort.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt, Transact};
 
 impl ListValidationService {
     /// Start a campaign: pick the cohort and record it. Returns the campaign with its counts.
@@ -62,11 +64,9 @@ impl ListValidationService {
         let ctx = ctx.clone();
         let (name2, by2, service2) = (name.clone(), started_by.clone(), service.clone());
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "INSERT INTO validation_campaigns (id, name, service_type, min_weeks, started_by, reply_by, final_wait_days) \
+                    txn.run(Stmt::new("INSERT INTO validation_campaigns (id, name, service_type, min_weeks, started_by, reply_by, final_wait_days) \
                          VALUES ($1,$2,$3,$4,$5, current_date + $6::int, $7)",
                         [
                             id.into(),
@@ -78,12 +78,9 @@ impl ListValidationService {
                             final_wait.into(),
                         ],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     for (person, pathway, svc) in cohort {
-                        txn.execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "INSERT INTO validation_items (id, campaign_id, pathway_id, person_id, target_service) \
+                        txn.run(Stmt::new("INSERT INTO validation_items (id, campaign_id, pathway_id, person_id, target_service) \
                              VALUES ($1,$2,$3,$4,$5)",
                             [
                                 Uuid::new_v4().into(),
@@ -93,8 +90,7 @@ impl ListValidationService {
                                 svc.into(),
                             ],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     }
                     AuditLogRepository::log(
                         txn,
@@ -115,19 +111,16 @@ impl ListValidationService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         self.campaign(id).await
     }
 
     pub(super) async fn urgent_services(&self) -> Result<Vec<String>> {
         self.db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
+            .all(Stmt::text(
                 "SELECT service_type FROM follow_up_policies".to_string(),
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .iter()
             .map(|r| r.col::<String>("service_type"))
             .collect()
@@ -135,13 +128,10 @@ impl ListValidationService {
 
     pub(super) async fn pathways_in_a_live_item(&self) -> Result<Vec<Uuid>> {
         self.db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT pathway_id FROM validation_items WHERE state IN ('selected','asked','answered','letter_sent')"
+            .all(Stmt::text("SELECT pathway_id FROM validation_items WHERE state IN ('selected','asked','answered','letter_sent')"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .iter()
             .map(|r| r.col::<Uuid>("pathway_id"))
             .collect()

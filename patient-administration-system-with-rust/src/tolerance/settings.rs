@@ -1,19 +1,18 @@
 //! Part of [`super`]: settings.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 
 impl ToleranceService {
     pub(super) async fn rows(&self) -> Result<Vec<Row>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT metric, scope_kind, scope_key, target, tolerance, escalate_beyond, set_by, note, updated_at \
+            .all(Stmt::text("SELECT metric, scope_kind, scope_key, target, tolerance, escalate_beyond, set_by, note, updated_at \
                  FROM tolerances ORDER BY metric, scope_kind, scope_key"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let mut out = Vec::new();
         for r in &rows {
             let kind: String = r.col("scope_kind")?;
@@ -31,9 +30,9 @@ impl ToleranceService {
                     tolerance: r.col("tolerance")?,
                     escalate_beyond: r.col("escalate_beyond")?,
                 },
-                set_by: r.try_get("", "set_by").ok(),
-                note: r.try_get("", "note").ok(),
-                updated_at: r.try_get("", "updated_at").ok(),
+                set_by: r.col("set_by").ok(),
+                note: r.col("note").ok(),
+                updated_at: r.col("updated_at").ok(),
             });
         }
         Ok(out)
@@ -106,9 +105,7 @@ impl ToleranceService {
             .find(|r| r.metric == m.key && &r.scope == scope)
             .map(|r| r.limits);
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO tolerances (metric, scope_kind, scope_key, target, tolerance, escalate_beyond, set_by, note) \
+            .run(Stmt::new("INSERT INTO tolerances (metric, scope_kind, scope_key, target, tolerance, escalate_beyond, set_by, note) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8) \
                  ON CONFLICT (metric, scope_kind, scope_key) DO UPDATE SET target = $4, tolerance = $5, \
                    escalate_beyond = $6, set_by = $7, note = $8, updated_at = now()",
@@ -123,8 +120,7 @@ impl ToleranceService {
                     note.trim().into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &self.db,
             "tolerance",
@@ -143,8 +139,7 @@ impl ToleranceService {
         let m = metric(key).ok_or_else(|| Error::not_found(format!("no such measure: {key}")))?;
         check_scope(m, scope)?;
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "DELETE FROM tolerances WHERE metric = $1 AND scope_kind = $2 AND scope_key = $3",
                 [
                     m.key.into(),
@@ -152,8 +147,7 @@ impl ToleranceService {
                     scope.key.clone().into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         AuditLogRepository::log(
             &self.db,
             "tolerance",

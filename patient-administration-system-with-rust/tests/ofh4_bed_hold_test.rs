@@ -10,9 +10,10 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use patient_administration_system::api::rest::AppState;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::Address;
 use patient_administration_system::models::facility::{Bed, BedStatus, Facility, Room, Ward};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -134,18 +135,14 @@ async fn a_lapsed_hold_gives_the_bed_back_and_one_with_no_time_never_does() {
         "no hold time, no expiry"
     );
     let enc_status =
-        s.db.query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT status FROM encounters WHERE id = $1::uuid",
             [enc.clone().into()],
         ))
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(
-        enc_status.try_get::<String>("", "status").unwrap(),
-        "cancelled"
-    );
+    assert_eq!(enc_status.col::<String>("status").unwrap(), "cancelled");
     assert_eq!(events(&app, held).await, ["reserved", "expired"]);
     assert_eq!(events(&app, open).await, ["reserved"]);
 
@@ -212,15 +209,13 @@ async fn a_cancelled_pre_admission_closes_its_hold() {
     )
     .await;
     assert_eq!(st, StatusCode::OK);
-    s.db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    s.db.run(Stmt::new(
         "DELETE FROM bed_occupancy_events WHERE bed_id = $1",
         [b.into()],
     ))
     .await
     .unwrap();
-    s.db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    s.db.run(Stmt::new(
         "DELETE FROM bed_reservations WHERE bed_id = $1 AND released_at IS NULL",
         [b.into()],
     ))

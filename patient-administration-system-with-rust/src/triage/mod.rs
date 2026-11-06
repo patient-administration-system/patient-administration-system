@@ -9,8 +9,11 @@ pub mod interchange;
 pub mod targets;
 pub mod waits;
 
+use crate::db::row::RowExt;
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -122,18 +125,15 @@ impl TriageService {
         let version = optional_text(system_version, "system_version")?;
         let flowchart = optional_text(flowchart, "flowchart")?;
 
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let enc = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT class, status FROM encounters WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+            .one(Stmt::new("SELECT class, status FROM encounters WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
                 [encounter_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::not_found(format!("encounter {encounter_id}")))?;
-        let class: String = enc.try_get("", "class").map_err(Error::Database)?;
-        let status: String = enc.try_get("", "status").map_err(Error::Database)?;
+        let class: String = enc.col("class")?;
+        let status: String = enc.col("status")?;
         if class != "emergency" {
             return Err(Error::validation(
                 "a triage category can only be recorded on an emergency encounter",
@@ -145,9 +145,7 @@ impl TriageService {
             )));
         }
         let id = Uuid::new_v4();
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO triage_assessments \
+        txn.run(Stmt::new("INSERT INTO triage_assessments \
                (id, encounter_id, triage_system, system_version, category, flowchart, assessed_by, assessed_at) \
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             [
@@ -161,8 +159,7 @@ impl TriageService {
                 assessed_at.into(),
             ],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &txn,
             "encounter",
@@ -195,16 +192,13 @@ impl TriageService {
     pub async fn observations(&self, encounter_id: Uuid) -> Result<Vec<serde_json::Value>> {
         let person: Uuid = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT person_id FROM encounters WHERE id = $1 AND deleted_at IS NULL",
                 [encounter_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::not_found(format!("encounter {encounter_id}")))?
-            .try_get("", "person_id")
-            .map_err(Error::Database)?;
+            .col("person_id")?;
         Ok(self
             .history(encounter_id)
             .await?
@@ -217,27 +211,24 @@ impl TriageService {
     pub async fn history(&self, encounter_id: Uuid) -> Result<Vec<TriageAssessment>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT id, triage_system, system_version, category, flowchart, assessed_by, assessed_at \
+            .all(Stmt::new("SELECT id, triage_system, system_version, category, flowchart, assessed_by, assessed_at \
                  FROM triage_assessments WHERE encounter_id = $1 ORDER BY assessed_at, created_at, id",
                 [encounter_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
-                let category: String = r.try_get("", "category").map_err(Error::Database)?;
+                let category: String = r.col("category")?;
                 Ok(TriageAssessment {
-                    id: r.try_get("", "id").map_err(Error::Database)?,
+                    id: r.col("id")?,
                     encounter_id,
-                    triage_system: r.try_get("", "triage_system").map_err(Error::Database)?,
-                    system_version: r.try_get("", "system_version").map_err(Error::Database)?,
+                    triage_system: r.col("triage_system")?,
+                    system_version: r.col("system_version")?,
                     colour: colour(&category),
                     category,
-                    flowchart: r.try_get("", "flowchart").map_err(Error::Database)?,
-                    assessed_by: r.try_get("", "assessed_by").map_err(Error::Database)?,
-                    assessed_at: r.try_get("", "assessed_at").map_err(Error::Database)?,
+                    flowchart: r.col("flowchart")?,
+                    assessed_by: r.col("assessed_by")?,
+                    assessed_at: r.col("assessed_at")?,
                 })
             })
             .collect()

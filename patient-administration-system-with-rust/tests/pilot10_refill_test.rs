@@ -13,7 +13,7 @@ use chrono::{Duration, Utc};
 use patient_administration_system::analytics::{RefillCell, RefillDim, RefillReport};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
+use patient_administration_system::db::sql::{Conn, Stmt};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -68,9 +68,7 @@ async fn refill(s: &AppState, r: &Released) {
 
 /// The slot's time has passed with nobody in it.
 async fn let_expire(s: &AppState, r: &Released) {
-    s.db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "UPDATE slot_releases SET start_datetime = now() - interval '1 day' WHERE slot_id = $1 AND status = 'open'",
+    s.db.run(Stmt::new("UPDATE slot_releases SET start_datetime = now() - interval '1 day' WHERE slot_id = $1 AND status = 'open'",
         [r.slot.into()],
     ))
     .await
@@ -196,9 +194,7 @@ async fn the_rate_can_be_split_by_deprivation_quintile_and_language() {
             .set_demographics(r.person, Some("45-54"), Some(q), "ETL", &sys())
             .await
             .unwrap();
-        s.db.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO patient_communication_profiles (person_id, preferred_language) VALUES ($1,$2) \
+        s.db.run(Stmt::new("INSERT INTO patient_communication_profiles (person_id, preferred_language) VALUES ($1,$2) \
              ON CONFLICT (person_id) DO UPDATE SET preferred_language = $2",
             [r.person.into(), lang.into()],
         ))

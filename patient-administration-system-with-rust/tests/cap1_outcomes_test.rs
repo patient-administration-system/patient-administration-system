@@ -9,6 +9,7 @@ use axum::{
 use chrono::{Duration, Utc};
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::sql::Conn;
 use patient_administration_system::models::appointment::{
     Appointment, AppointmentStatus, BarrierCode, CancelledBy, ReleaseClass,
 };
@@ -205,13 +206,12 @@ async fn the_cancel_endpoint_takes_codes_refuses_unknown_ones_and_still_accepts_
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn the_database_accepts_every_barrier_code_and_nothing_else() {
-    use sea_orm::ConnectionTrait;
     let state = common::build_state(&common::database_url().unwrap()).await;
     let a = booked(&state.db, 6).await;
     for code in BarrierCode::ALL {
         state
             .db
-            .execute_unprepared(&format!(
+            .batch(&format!(
                 "UPDATE appointments SET barrier_code = '{}' WHERE id = '{}'",
                 code.as_str(),
                 a.id
@@ -222,7 +222,7 @@ async fn the_database_accepts_every_barrier_code_and_nothing_else() {
     for bad in ["too_busy", "", "CANNOT_TRAVEL", "cost "] {
         let r = state
             .db
-            .execute_unprepared(&format!(
+            .batch(&format!(
                 "UPDATE appointments SET barrier_code = '{bad}' WHERE id = '{}'",
                 a.id
             ))

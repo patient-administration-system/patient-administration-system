@@ -17,6 +17,8 @@ use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::consent::ConsentRepository;
 use patient_administration_system::db::repositories::encounter::EncounterRepository;
 use patient_administration_system::db::repositories::letter::LetterRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::Address;
 use patient_administration_system::models::communication::DeliveryChannel;
 use patient_administration_system::models::communication::LetterTemplate;
@@ -25,7 +27,6 @@ use patient_administration_system::models::coverage::Coverage;
 use patient_administration_system::models::encounter::{Encounter, EncounterClass};
 use patient_administration_system::models::facility::{Bed, Facility, Room, Ward};
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
@@ -63,16 +64,12 @@ fn json<T: Serialize>(v: &T) -> Option<String> {
 }
 
 async fn count(db: &sea_orm::DatabaseConnection, sql: &str, id: Uuid) -> i64 {
-    db.query_one_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        sql,
-        [id.into()],
-    ))
-    .await
-    .unwrap()
-    .unwrap()
-    .try_get("", "n")
-    .unwrap()
+    db.one(Stmt::new(sql, [id.into()]))
+        .await
+        .unwrap()
+        .unwrap()
+        .col("n")
+        .unwrap()
 }
 
 #[tokio::test]
@@ -87,7 +84,7 @@ async fn a_write_whose_audit_row_cannot_be_written_is_refused_and_leaves_no_chan
         "DROP TRIGGER IF EXISTS qual37 ON audit_log",
         "CREATE TRIGGER qual37 BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION qual37_fail()",
     ] {
-        db.execute_unprepared(sql).await.unwrap();
+        db.batch(sql).await.unwrap();
     }
     let app = router(state.clone());
     let date = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
@@ -220,7 +217,7 @@ async fn a_write_whose_audit_row_cannot_be_written_is_refused_and_leaves_no_chan
         "the encounter must not be cancelled"
     );
 
-    db.execute_unprepared("DROP TRIGGER IF EXISTS qual37 ON audit_log")
+    db.batch("DROP TRIGGER IF EXISTS qual37 ON audit_log")
         .await
         .unwrap();
 }
@@ -278,7 +275,7 @@ async fn a_message_is_not_sent_when_its_attempt_cannot_be_audited() {
         "DROP TRIGGER IF EXISTS qual37_attempt ON audit_log",
         "CREATE TRIGGER qual37_attempt BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION qual37_fail_attempt()",
     ] {
-        db.execute_unprepared(sql).await.unwrap();
+        db.batch(sql).await.unwrap();
     }
     let ctx = |who: &str| UserContext {
         user_id: Some(who.into()),
@@ -324,7 +321,7 @@ async fn a_message_is_not_sent_when_its_attempt_cannot_be_audited() {
         1
     );
 
-    db.execute_unprepared("DROP TRIGGER IF EXISTS qual37_attempt ON audit_log")
+    db.batch("DROP TRIGGER IF EXISTS qual37_attempt ON audit_log")
         .await
         .unwrap();
 }
@@ -342,7 +339,7 @@ async fn the_other_writes_are_refused_too_and_leave_no_change() {
         "DROP TRIGGER IF EXISTS qual37 ON audit_log",
         "CREATE TRIGGER qual37 BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION qual37_fail()",
     ] {
-        db.execute_unprepared(sql).await.unwrap();
+        db.batch(sql).await.unwrap();
     }
     let app = router(state.clone());
     let person = Uuid::new_v4();
@@ -427,7 +424,7 @@ async fn the_other_writes_are_refused_too_and_leave_no_change() {
         1
     );
 
-    db.execute_unprepared("DROP TRIGGER IF EXISTS qual37 ON audit_log")
+    db.batch("DROP TRIGGER IF EXISTS qual37 ON audit_log")
         .await
         .unwrap();
 }
@@ -445,7 +442,7 @@ async fn a_ward_room_or_bed_create_is_refused_when_its_audit_row_cannot_be_writt
         "DROP TRIGGER IF EXISTS qual37 ON audit_log",
         "CREATE TRIGGER qual37 BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION qual37_fail()",
     ] {
-        db.execute_unprepared(sql).await.unwrap();
+        db.batch(sql).await.unwrap();
     }
     let app = router(state.clone());
     let facility = Facility::new(
@@ -514,7 +511,7 @@ async fn a_ward_room_or_bed_create_is_refused_when_its_audit_row_cannot_be_writt
         0
     );
 
-    db.execute_unprepared("DROP TRIGGER IF EXISTS qual37 ON audit_log")
+    db.batch("DROP TRIGGER IF EXISTS qual37 ON audit_log")
         .await
         .unwrap();
 }

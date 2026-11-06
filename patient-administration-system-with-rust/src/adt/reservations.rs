@@ -8,8 +8,9 @@
 //! **Not done:** `admit` still refuses a `Reserved` bed, so a reservation is closed only by a cancel or by
 //! expiry, never by the admission it was for.
 
+use crate::db::sql::{Conn, Stmt, Transact};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseTransaction, DbBackend, Statement};
+use sea_orm::DatabaseTransaction;
 
 use super::*;
 use crate::db::row::RowExt;
@@ -59,9 +60,7 @@ impl AdtService {
         person_id: Uuid,
         actor: Option<&str>,
     ) -> Result<()> {
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO bed_occupancy_events (id, bed_id, event, reservation_id, person_id, actor) \
+        txn.run(Stmt::new("INSERT INTO bed_occupancy_events (id, bed_id, event, reservation_id, person_id, actor) \
              VALUES ($1, $2, $3, $4, $5, $6)",
             [
                 Uuid::new_v4().into(),
@@ -72,8 +71,7 @@ impl AdtService {
                 actor.map(str::to_string).into(),
             ],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         Ok(())
     }
 
@@ -88,9 +86,7 @@ impl AdtService {
     ) -> Result<()> {
         let id = Uuid::new_v4();
         let expires_at = expires_in.map(|d| Utc::now() + d);
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO bed_reservations (id, bed_id, person_id, encounter_id, held_by, expires_at) \
+        txn.run(Stmt::new("INSERT INTO bed_reservations (id, bed_id, person_id, encounter_id, held_by, expires_at) \
              VALUES ($1, $2, $3, $4, $5, $6)",
             [
                 id.into(),
@@ -101,8 +97,7 @@ impl AdtService {
                 expires_at.into(),
             ],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         Self::event(txn, bed_id, "reserved", id, person_id, actor).await
     }
 
@@ -115,14 +110,12 @@ impl AdtService {
         actor: Option<&str>,
     ) -> Result<()> {
         let closed = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "UPDATE bed_reservations SET released_at = now(), release_reason = $2 \
                  WHERE bed_id = $1 AND released_at IS NULL RETURNING id, person_id",
                 [bed_id.into(), reason.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if let Some(row) = closed {
             let (id, person): (Uuid, Uuid) = (row.col("id")?, row.col("person_id")?);
             Self::event(txn, bed_id, reason, id, person, actor).await?;
@@ -138,15 +131,13 @@ impl AdtService {
     pub async fn release_expired_holds(&self, now: DateTime<Utc>) -> Result<u64> {
         let due = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT id, bed_id FROM bed_reservations \
                  WHERE released_at IS NULL AND expires_at IS NOT NULL AND expires_at <= $1 \
                  ORDER BY expires_at LIMIT $2",
                 [now.into(), SWEEP_BATCH.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         let mut released = 0;
         for row in due {
             let (id, bed_id): (Uuid, Uuid) = (row.col("id")?, row.col("bed_id")?);
@@ -172,21 +163,19 @@ impl AdtService {
         // `Some((person, encounter))` when a hold was released; `None` when a cancel got there first.
         let done = self
             .db
-            .transaction::<_, Option<(Uuid, Uuid)>, Error>(|txn| {
+            .in_txn::<_, Option<(Uuid, Uuid)>>(|txn| {
                 Box::pin(async move {
                     let bed = BedRepository::select_for_update(txn, bed_id)
                         .await?
                         .ok_or_else(|| Error::not_found(format!("bed {bed_id}")))?;
                     // Re-read under the lock: a cancel may have closed it since the sweep looked.
                     let Some(r) = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
+                        .one(Stmt::new(
                             "SELECT person_id, encounter_id FROM bed_reservations \
                              WHERE id = $1 AND released_at IS NULL AND expires_at <= $2 FOR UPDATE",
                             [id.into(), now.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+                        .await?
                     else {
                         return Ok(None);
                     };
@@ -232,8 +221,7 @@ impl AdtService {
                     Ok(Some((person_id, encounter_id)))
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         let Some((person_id, encounter_id)) = done else {
             return Ok(false);
         };
@@ -255,14 +243,11 @@ impl AdtService {
     pub async fn occupancy_events(&self, bed_id: Uuid, fetch: i64) -> Result<Vec<OccupancyEvent>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT id, bed_id, event, reservation_id, person_id, actor, at FROM bed_occupancy_events \
+            .all(Stmt::new("SELECT id, bed_id, event, reservation_id, person_id, actor, at FROM bed_occupancy_events \
                  WHERE bed_id = $1 ORDER BY at DESC, id LIMIT $2",
                 [bed_id.into(), crate::paging::fetch(fetch).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(OccupancyEvent {

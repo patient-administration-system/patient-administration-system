@@ -5,16 +5,15 @@ mod common;
 
 use chrono::{Duration, Utc};
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::needs_review::NeedsReviewService;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 async fn profile(db: &sea_orm::DatabaseConnection, needs: &[&str]) -> Uuid {
     let id = Uuid::new_v4();
     let needs: Vec<String> = needs.iter().map(|s| s.to_string()).collect();
-    db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "INSERT INTO patient_communication_profiles (person_id, accessibility_needs) VALUES ($1, $2)",
+    db.run(Stmt::new("INSERT INTO patient_communication_profiles (person_id, accessibility_needs) VALUES ($1, $2)",
         [id.into(), needs.into()],
     ))
     .await
@@ -85,19 +84,14 @@ async fn needs_are_due_for_review_until_a_named_person_reviews_them_and_again_af
 
     let audit = state
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT count(*) AS n FROM audit_log WHERE entity_id = $1 AND action = 'review_needs'",
             [with_needs.into()],
         ))
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(
-        audit.try_get::<i64>("", "n").unwrap(),
-        2,
-        "each review is audited"
-    );
+    assert_eq!(audit.col::<i64>("n").unwrap(), 2, "each review is audited");
 }
 
 #[tokio::test]

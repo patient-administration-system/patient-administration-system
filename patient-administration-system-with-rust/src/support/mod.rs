@@ -6,8 +6,9 @@
 //! scores, ranks, penalises or suppresses contact. Resolving a flag needs a named person and an outcome.
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -75,9 +76,7 @@ impl SupportService {
         }
         let id = Uuid::new_v4();
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO support_flags (id, person_id, appointment_id, kind, reason_code, created_by) \
+            .run(Stmt::new("INSERT INTO support_flags (id, person_id, appointment_id, kind, reason_code, created_by) \
                  VALUES ($1,$2,$3,$4,$5,$6)",
                 [
                     id.into(),
@@ -88,8 +87,7 @@ impl SupportService {
                     created_by.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log_with(
             &self.db,
             "support_flag",
@@ -109,14 +107,12 @@ impl SupportService {
     pub async fn open(&self, limit: i64) -> Result<Vec<SupportFlag>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT id, person_id, appointment_id, kind, reason_code, created_by, created_at \
                  FROM support_flags WHERE resolved_at IS NULL ORDER BY created_at LIMIT $1",
                 [crate::paging::fetch(limit).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         rows.iter()
             .map(|r| {
                 Ok(SupportFlag {
@@ -152,14 +148,12 @@ impl SupportService {
         )?;
         let r = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "UPDATE support_flags SET resolved_at = now(), resolved_by = $3, outcome = $2 \
                  WHERE id = $1 AND resolved_at IS NULL",
                 [id.into(), outcome.into(), resolved_by.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if r.rows_affected() == 0 {
             return Err(Error::conflict("that support flag is not open"));
         }

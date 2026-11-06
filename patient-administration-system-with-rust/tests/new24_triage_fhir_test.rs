@@ -9,9 +9,9 @@ use axum::{
 use chrono::{Duration, Utc};
 use patient_administration_system::api::fhir::fhir_router;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::triage::TriageService;
 use patient_administration_system::triage::interchange::category_of_observation;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -35,9 +35,7 @@ async fn assessments_come_back_as_observations_oldest_first_and_round_trip() {
     let (enc, person) = (Uuid::new_v4(), Uuid::new_v4());
     state
         .db
-        .execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
+        .run(Stmt::new("INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
              VALUES ($1, $2, 'emergency', 'arrived', now(), now(), now())",
             [enc.into(), person.into()],
         ))

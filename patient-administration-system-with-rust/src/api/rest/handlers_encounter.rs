@@ -1,11 +1,11 @@
 //! REST handlers for encounter reads + lifecycle.
 
+use crate::db::sql::Transact;
 use axum::{
     Json,
     extract::{Path, State},
     http::HeaderMap,
 };
-use sea_orm::TransactionTrait;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -91,7 +91,7 @@ pub async fn set_status(
         Err(e) => return error_to_response(e),
     };
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let e = EncounterRepository::set_status_if_current(&txn, id, body.status, expected).await?;
         AuditLogRepository::log(
             &txn,
@@ -138,7 +138,7 @@ pub async fn cancel_encounter(
         Err(e) => return error_to_response(e),
     };
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let e = EncounterRepository::set_status_if_current(
             &txn,
             id,

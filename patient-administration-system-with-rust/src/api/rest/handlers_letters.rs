@@ -1,11 +1,11 @@
 //! REST handlers for letter templates + generated letters.
 
+use crate::db::sql::Transact;
 use axum::{
     Json,
     extract::{Path, State},
     http::HeaderMap,
 };
-use sea_orm::TransactionTrait;
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
@@ -98,7 +98,7 @@ pub async fn create_template(
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let t = LetterRepository::create_template(&txn, &body).await?;
         AuditLogRepository::log(
             &txn,
@@ -168,7 +168,7 @@ pub async fn update_template(
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let before = LetterRepository::find_template_by_id(&state.db, id).await;
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         LetterRepository::lock_template_if_current(&txn, id, expected).await?;
         let t = LetterRepository::update_template(&txn, &body).await?;
         AuditLogRepository::log(
@@ -387,7 +387,7 @@ pub async fn mark_sent(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let l = LetterRepository::mark_sent(&txn, id).await?;
         AuditLogRepository::log(
             &txn,
@@ -427,7 +427,7 @@ pub async fn mark_failed(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let l = LetterRepository::mark_failed(&txn, id).await?;
         AuditLogRepository::log(
             &txn,
@@ -485,7 +485,6 @@ pub async fn create_group(
     headers: HeaderMap,
     Json(body): Json<GroupBody>,
 ) -> HandlerResult {
-    use sea_orm::TransactionTrait;
     let name = body.name.trim().to_string();
     if name.is_empty() || name.len() > 100 {
         return error_to_response(Error::validation("name must be 1 to 100 characters"));
@@ -546,7 +545,7 @@ pub async fn create_group(
     let to_save = made.clone();
     let saved = state
         .db
-        .transaction::<_, Vec<LetterTemplate>, Error>(|txn| {
+        .in_txn::<_, Vec<LetterTemplate>>(|txn| {
             Box::pin(async move {
                 let mut out = Vec::new();
                 for t in &to_save {
@@ -578,7 +577,7 @@ pub async fn create_group(
                 .collect();
             ok_json(TemplateGroup { name, variants })
         }
-        Err(e) => error_to_response(Error::from(e)),
+        Err(e) => error_to_response(e),
     }
 }
 

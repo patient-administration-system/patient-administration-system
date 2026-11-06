@@ -9,8 +9,9 @@ use patient_administration_system::clinic_templates::{
     Generated, Line, TemplateService, VersionInput,
 };
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::referrals::NewReferral;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 fn lines() -> Vec<Line> {
@@ -50,9 +51,7 @@ fn day() -> NaiveDate {
 }
 
 async fn slots_of(db: &sea_orm::DatabaseConnection, template: Uuid) -> Vec<(String, String, bool)> {
-    db.query_all_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "SELECT to_char(start_datetime AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS at, slot_type, ring_fenced \
+    db.all(Stmt::new("SELECT to_char(start_datetime AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS at, slot_type, ring_fenced \
          FROM slots WHERE template_id = $1 ORDER BY start_datetime",
         [template.into()],
     ))
@@ -61,9 +60,9 @@ async fn slots_of(db: &sea_orm::DatabaseConnection, template: Uuid) -> Vec<(Stri
     .iter()
     .map(|r| {
         (
-            r.try_get("", "at").unwrap(),
-            r.try_get("", "slot_type").unwrap(),
-            r.try_get("", "ring_fenced").unwrap(),
+            r.col("at").unwrap(),
+            r.col("slot_type").unwrap(),
+            r.col("ring_fenced").unwrap(),
         )
     })
     .collect()
@@ -226,15 +225,14 @@ async fn a_newer_version_applies_from_its_date_and_leaves_earlier_slots_alone() 
     assert_eq!(g.created, 6, "the next two days use version 2");
     let used: Vec<i32> = state
         .db
-        .query_all_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .all(Stmt::new(
             "SELECT DISTINCT template_version AS v FROM slots WHERE template_id = $1 ORDER BY 1",
             [t.into()],
         ))
         .await
         .unwrap()
         .iter()
-        .map(|r| r.try_get("", "v").unwrap())
+        .map(|r| r.col("v").unwrap())
         .collect();
     assert_eq!(used, [1, 2]);
 }
@@ -336,9 +334,7 @@ async fn the_capacity_report_matches_a_worked_example() {
         let slot = Uuid::new_v4();
         state
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO slots (id, schedule_id, start_datetime, end_datetime, status, created_at, updated_at) \
+            .run(Stmt::new("INSERT INTO slots (id, schedule_id, start_datetime, end_datetime, status, created_at, updated_at) \
                  VALUES ($1, $2, $3, $4, 'busy', now(), now())",
                 [slot.into(), schedule.into(), start.into(), (start + Duration::minutes(20)).into()],
             ))
@@ -346,9 +342,7 @@ async fn the_capacity_report_matches_a_worked_example() {
             .unwrap();
         state
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO appointments (id, person_id, slot_id, start_datetime, end_datetime, status, \
+            .run(Stmt::new("INSERT INTO appointments (id, person_id, slot_id, start_datetime, end_datetime, status, \
                    created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())",
                 [
                     Uuid::new_v4().into(),
@@ -367,9 +361,7 @@ async fn the_capacity_report_matches_a_worked_example() {
         let start = from + Duration::days(1) + Duration::hours(i);
         state
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO slots (id, schedule_id, start_datetime, end_datetime, status, slot_type, \
+            .run(Stmt::new("INSERT INTO slots (id, schedule_id, start_datetime, end_datetime, status, slot_type, \
                    ring_fenced, created_at, updated_at) VALUES ($1, $2, $3, $4, 'free', $5, $6, now(), now())",
                 [
                     Uuid::new_v4().into(),

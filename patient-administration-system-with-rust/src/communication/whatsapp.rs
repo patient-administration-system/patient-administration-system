@@ -7,7 +7,8 @@
 //! it before WhatsApp goes live (`operations/deployment.md`). STOP still silences WhatsApp whatever is
 //! recorded here (`consent`).
 
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use crate::db::sql::{Conn, Stmt};
+use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
 use crate::config::env;
@@ -22,18 +23,16 @@ pub fn required() -> bool {
 
 /// Refuse (as a conflict, so the ladder tries the next channel) unless the patient has opted in on WhatsApp
 /// and the template is approved. Does nothing unless the rule is switched on.
-pub async fn check<C: ConnectionTrait>(conn: &C, person_id: Uuid, template_id: Uuid) -> Result<()> {
+pub async fn check<C: Conn>(conn: &C, person_id: Uuid, template_id: Uuid) -> Result<()> {
     if !required() {
         return Ok(());
     }
     let opted = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT 1 AS ok FROM whatsapp_optins WHERE person_id = $1 AND withdrawn_at IS NULL",
             [person_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+        .await?
         .is_some();
     if !opted {
         return Err(Error::conflict(
@@ -41,13 +40,10 @@ pub async fn check<C: ConnectionTrait>(conn: &C, person_id: Uuid, template_id: U
         ));
     }
     let approved = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT 1 AS ok FROM whatsapp_template_approvals WHERE template_id = $1 AND revoked_at IS NULL",
+        .one(Stmt::new("SELECT 1 AS ok FROM whatsapp_template_approvals WHERE template_id = $1 AND revoked_at IS NULL",
             [template_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+.await?
         .is_some();
     if !approved {
         return Err(Error::conflict(
@@ -86,14 +82,11 @@ impl WhatsAppService {
             ));
         }
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO whatsapp_optins (person_id, source, recorded_by) VALUES ($1,$2,$3) \
+            .run(Stmt::new("INSERT INTO whatsapp_optins (person_id, source, recorded_by) VALUES ($1,$2,$3) \
                  ON CONFLICT (person_id) DO UPDATE SET source = $2, recorded_by = $3, opted_in_at = now(), withdrawn_at = NULL",
                 [person.into(), source.into(), by.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &self.db,
             "patient",
@@ -109,13 +102,10 @@ impl WhatsAppService {
     pub async fn withdraw_optin(&self, person: Uuid, ctx: &UserContext) -> Result<()> {
         let r = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE whatsapp_optins SET withdrawn_at = now() WHERE person_id = $1 AND withdrawn_at IS NULL",
+            .run(Stmt::new("UPDATE whatsapp_optins SET withdrawn_at = now() WHERE person_id = $1 AND withdrawn_at IS NULL",
                 [person.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if r.rows_affected() == 0 {
             return Err(Error::not_found("no live WhatsApp opt-in for that patient"));
         }
@@ -146,25 +136,20 @@ impl WhatsAppService {
         }
         let exists = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT 1 AS ok FROM letter_templates WHERE id = $1",
                 [template.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if exists.is_none() {
             return Err(Error::not_found(format!("letter template {template}")));
         }
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO whatsapp_template_approvals (template_id, provider_template_id, approved_by) VALUES ($1,$2,$3) \
+            .run(Stmt::new("INSERT INTO whatsapp_template_approvals (template_id, provider_template_id, approved_by) VALUES ($1,$2,$3) \
                  ON CONFLICT (template_id) DO UPDATE SET provider_template_id = $2, approved_by = $3, approved_at = now(), revoked_at = NULL",
                 [template.into(), pid.into(), by.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &self.db,
             "letter_template",
@@ -180,13 +165,10 @@ impl WhatsAppService {
     pub async fn revoke_template(&self, template: Uuid, ctx: &UserContext) -> Result<()> {
         let r = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE whatsapp_template_approvals SET revoked_at = now() WHERE template_id = $1 AND revoked_at IS NULL",
+            .run(Stmt::new("UPDATE whatsapp_template_approvals SET revoked_at = now() WHERE template_id = $1 AND revoked_at IS NULL",
                 [template.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if r.rows_affected() == 0 {
             return Err(Error::not_found(
                 "no live WhatsApp approval for that template",

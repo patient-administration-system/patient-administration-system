@@ -4,9 +4,10 @@ mod common;
 
 use chrono::{Duration, Utc};
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::interpreter::InterpreterService;
 use patient_administration_system::models::appointment::CancellationReason;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 fn sys() -> UserContext {
@@ -14,20 +15,14 @@ fn sys() -> UserContext {
 }
 
 async fn requests(db: &sea_orm::DatabaseConnection, appointment: Uuid) -> Vec<(String, String)> {
-    db.query_all_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    db.all(Stmt::new(
         "SELECT kind, status FROM interpreter_requests WHERE appointment_id = $1",
         [appointment.into()],
     ))
     .await
     .unwrap()
     .iter()
-    .map(|r| {
-        (
-            r.try_get("", "kind").unwrap(),
-            r.try_get("", "status").unwrap(),
-        )
-    })
+    .map(|r| (r.col("kind").unwrap(), r.col("status").unwrap()))
     .collect()
 }
 

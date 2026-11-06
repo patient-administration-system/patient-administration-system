@@ -13,10 +13,11 @@
 //!   STOP does not apply; a patient's choice of channel (CAP-4, CAS-10) decides whether one is made at all.
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt, Transact};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -123,28 +124,23 @@ impl PrintService {
     pub async fn queue(&self, limit: i64) -> Result<(i64, Vec<QueuedLetter>)> {
         let total = self
             .db
-            .query_one_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT count(*) AS n FROM generated_letters g WHERE g.channel = 'print' AND g.status = 'pending' \
+            .one(Stmt::text("SELECT count(*) AS n FROM generated_letters g WHERE g.channel = 'print' AND g.status = 'pending' \
                  AND NOT EXISTS (SELECT 1 FROM print_batch_letters b WHERE b.letter_id = g.id)"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::internal("count returned no row"))?
             .col::<i64>("n")?;
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT g.id, g.created_at, g.rendered_subject FROM generated_letters g \
                  WHERE g.channel = 'print' AND g.status = 'pending' \
                    AND NOT EXISTS (SELECT 1 FROM print_batch_letters b WHERE b.letter_id = g.id) \
                  ORDER BY g.created_at LIMIT $1",
                 [limit.clamp(1, 500).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         let items = rows
             .iter()
             .map(|r| {
@@ -182,37 +178,28 @@ impl PrintService {
         let people = people.clone();
         let (rows, skipped) = self
             .db
-            .transaction::<_, (Vec<ExportRow>, usize), Error>(|txn| {
+            .in_txn::<_, (Vec<ExportRow>, usize)>(|txn| {
                 Box::pin(async move {
                     // Exports take turns. Without this, a second export whose snapshot predates the first one's
                     // commit can lock the same letters (the lock is gone by then) and trip the unique constraint
                     // on `print_batch_letters`. The lock is held until this transaction ends, and the query below
                     // takes its snapshot after it.
-                    txn.execute_raw(Statement::from_string(
-                        DbBackend::Postgres,
-                        "SELECT pg_advisory_xact_lock(7011)".to_string(),
+                    txn.run(Stmt::text("SELECT pg_advisory_xact_lock(7011)".to_string(),
                     ))
-                    .await
-                    .map_err(Error::Database)?;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "INSERT INTO print_batches (id, created_by) VALUES ($1,$2)",
+.await?;
+                    txn.run(Stmt::new("INSERT INTO print_batches (id, created_by) VALUES ($1,$2)",
                         [batch_id.into(), created_by.clone().into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     // Lock the oldest queued letters, skipping any another export has locked.
                     let letters = txn
-                        .query_all_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "SELECT g.id, g.person_id, g.rendered_subject, g.rendered_body FROM generated_letters g \
+                        .all(Stmt::new("SELECT g.id, g.person_id, g.rendered_subject, g.rendered_body FROM generated_letters g \
                              WHERE g.channel = 'print' AND g.status = 'pending' \
                                AND NOT EXISTS (SELECT 1 FROM print_batch_letters b WHERE b.letter_id = g.id) \
                              ORDER BY g.created_at LIMIT $1 FOR UPDATE SKIP LOCKED",
                             [limit.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     let (mut rows, mut skipped) = (Vec::new(), 0usize);
                     for l in letters {
                         let id: Uuid = l.col("id")?;
@@ -223,13 +210,10 @@ impl PrintService {
                             skipped += 1;
                             continue;
                         };
-                        txn.execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "INSERT INTO print_batch_letters (batch_id, letter_id) VALUES ($1,$2)",
+                        txn.run(Stmt::new("INSERT INTO print_batch_letters (batch_id, letter_id) VALUES ($1,$2)",
                             [batch_id.into(), id.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                         rows.push(ExportRow {
                             reference: id,
                             name: person.as_ref().map(display_name).unwrap_or_default(),
@@ -256,8 +240,7 @@ impl PrintService {
                     Ok((rows, skipped))
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         Ok(Batch {
             batch_id,
             rows,
@@ -279,25 +262,19 @@ impl PrintService {
         .to_string();
         let ctx = ctx.clone();
         self.db
-            .transaction::<_, usize, Error>(|txn| {
+            .in_txn::<_, usize>(|txn| {
                 Box::pin(async move {
                     let claimed = txn
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE print_batches SET sent_at = now(), sent_by = $2 WHERE id = $1 AND sent_at IS NULL",
+                        .run(Stmt::new("UPDATE print_batches SET sent_at = now(), sent_by = $2 WHERE id = $1 AND sent_at IS NULL",
                             [batch_id.into(), sent_by.clone().into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     if claimed.rows_affected() == 0 {
                         let exists = txn
-                            .query_one_raw(Statement::from_sql_and_values(
-                                DbBackend::Postgres,
-                                "SELECT 1 AS ok FROM print_batches WHERE id = $1",
+                            .one(Stmt::new("SELECT 1 AS ok FROM print_batches WHERE id = $1",
                                 [batch_id.into()],
                             ))
-                            .await
-                            .map_err(Error::Database)?;
+.await?;
                         return Err(if exists.is_some() {
                             Error::conflict("that batch has already been marked sent")
                         } else {
@@ -305,14 +282,11 @@ impl PrintService {
                         });
                     }
                     let n = txn
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE generated_letters SET status = 'sent', sent_at = now(), updated_at = now() \
+                        .run(Stmt::new("UPDATE generated_letters SET status = 'sent', sent_at = now(), updated_at = now() \
                              WHERE status = 'pending' AND id IN (SELECT letter_id FROM print_batch_letters WHERE batch_id = $1)",
                             [batch_id.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+.await?
                         .rows_affected() as usize;
                     AuditLogRepository::log(
                         txn,
@@ -327,7 +301,6 @@ impl PrintService {
                     Ok(n)
                 })
             })
-            .await
-            .map_err(Error::from)
+.await
     }
 }

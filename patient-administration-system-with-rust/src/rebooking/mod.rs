@@ -15,11 +15,12 @@
 //! - It only ever adds a way to a better time: nothing here scores, ranks or limits a patient (NFR-11).
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Row, Stmt, Transact};
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Timelike, Utc};
 use chrono_tz::Tz;
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -140,9 +141,7 @@ impl RebookService {
         };
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT s.id, s.start_datetime, s.end_datetime FROM slots s \
+            .all(Stmt::new("SELECT s.id, s.start_datetime, s.end_datetime FROM slots s \
                  WHERE s.schedule_id = (SELECT schedule_id FROM slots WHERE id = $1) \
                    AND s.status = 'free' AND s.capacity = 1 AND NOT s.ring_fenced AND s.id <> $1 \
                    AND s.start_datetime >= $2 AND s.start_datetime < $3 \
@@ -162,8 +161,7 @@ impl RebookService {
                     appt.id.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(OfferedSlot {
@@ -195,15 +193,13 @@ impl RebookService {
 
         if let Some(row) = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT id, slot_ids, expires_at FROM rebook_offers \
                  WHERE appointment_id = $1 AND chosen_at IS NULL AND expires_at > now() \
                  ORDER BY created_at DESC LIMIT 1",
                 [appointment_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
         {
             let ids = stored_ids(&row)?;
             let still: Vec<OfferedSlot> = ids
@@ -226,8 +222,7 @@ impl RebookService {
         let expires_at = (now + Self::offer_ttl()).min(appt.start_datetime);
         let ids: Vec<String> = options.iter().map(|o| o.slot_id.to_string()).collect();
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "INSERT INTO rebook_offers (id, appointment_id, person_id, slot_ids, expires_at) \
                  VALUES ($1,$2,$3,$4,$5)",
                 [
@@ -238,8 +233,7 @@ impl RebookService {
                     expires_at.into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         Ok(Offer {
             offer_id: Some(offer_id),
             appointment_id,
@@ -254,14 +248,12 @@ impl RebookService {
     pub async fn standing_offer(&self, appointment_id: Uuid) -> Result<Option<Uuid>> {
         let row = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT id FROM rebook_offers WHERE appointment_id = $1 AND chosen_at IS NULL \
                  AND expires_at > now() ORDER BY created_at DESC LIMIT 1",
                 [appointment_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         row.map(|r| r.col("id")).transpose()
     }
 
@@ -292,18 +284,15 @@ impl RebookService {
         let ctx = ctx.clone();
         let (old, new) = self
             .db
-            .transaction::<_, (Appointment, Appointment), Error>(|txn| {
+            .in_txn::<_, (Appointment, Appointment)>(|txn| {
                 Box::pin(async move {
                     AppointmentRepository::lock_if_current(txn, appointment_id, expected).await?;
                     let row = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "SELECT appointment_id, slot_ids, expires_at, chosen_at IS NOT NULL AS used \
+                        .one(Stmt::new("SELECT appointment_id, slot_ids, expires_at, chosen_at IS NOT NULL AS used \
                              FROM rebook_offers WHERE id = $1 FOR UPDATE",
                             [offer_id.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+.await?
                         .ok_or_else(|| Error::validation("that offer does not exist"))?;
                     let for_appt: Uuid = row.col("appointment_id")?;
                     if for_appt != appointment_id {
@@ -325,13 +314,10 @@ impl RebookService {
                     }
                     let (old, new) =
                         SchedulingService::rebook_tx(txn, appointment_id, slot_id, &ctx).await?;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE rebook_offers SET chosen_slot_id = $2, chosen_at = now() WHERE id = $1",
+                    txn.run(Stmt::new("UPDATE rebook_offers SET chosen_slot_id = $2, chosen_at = now() WHERE id = $1",
                         [offer_id.into(), slot_id.into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     AuditLogRepository::log(
                         txn,
                         "appointment",
@@ -347,15 +333,14 @@ impl RebookService {
                     Ok((old, new))
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         self.scheduling.publish_cancelled(&old).await;
         self.scheduling.publish_booked(&new).await;
         Ok((old, new))
     }
 }
 
-fn stored_ids(row: &sea_orm::QueryResult) -> Result<Vec<Uuid>> {
+fn stored_ids(row: &Row) -> Result<Vec<Uuid>> {
     let v: serde_json::Value = row.col("slot_ids")?;
     Ok(v.as_array()
         .map(|a| {

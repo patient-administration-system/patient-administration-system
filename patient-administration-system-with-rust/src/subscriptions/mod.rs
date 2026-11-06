@@ -21,10 +21,12 @@
 //! a block on endpoints that resolve to private addresses (the administrator who registers one is trusted).
 //! An event the global publisher dead-lettered before this pass ran is not delivered.
 
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Row, Stmt};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -196,7 +198,7 @@ pub struct SubscriptionService {
     client: reqwest::Client,
 }
 
-fn subscription_of(r: &sea_orm::QueryResult) -> Result<Subscription> {
+fn subscription_of(r: &Row) -> Result<Subscription> {
     Ok(Subscription {
         id: r.col("id")?,
         topic: r.col("topic")?,
@@ -256,9 +258,8 @@ impl SubscriptionService {
             "the administrator registering the subscription must be named",
         )?;
         let id = Uuid::new_v4();
-        let txn = self.db.begin().await.map_err(Error::Database)?;
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        let txn = self.db.begin_txn().await?;
+        txn.run(Stmt::new(
             "INSERT INTO subscriptions (id, topic, endpoint, secret_env, created_by, created_at) \
              VALUES ($1, $2, $3, $4, $5, $6)",
             // The application's clock, as for `outbox_events.at` that it is compared with.
@@ -271,8 +272,7 @@ impl SubscriptionService {
                 Utc::now().into(),
             ],
         ))
-        .await
-        .map_err(Error::Database)?;
+        .await?;
         AuditLogRepository::log(
             &txn,
             "subscription",
@@ -290,25 +290,21 @@ impl SubscriptionService {
     pub async fn get(&self, id: Uuid) -> Result<Subscription> {
         let row = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 format!("{LIST_SQL} WHERE s.id = $1"),
                 [id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::not_found(format!("subscription {id}")))?;
         subscription_of(&row)
     }
 
     pub async fn list(&self) -> Result<Vec<Subscription>> {
         self.db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                format!("{LIST_SQL} ORDER BY s.created_at, s.id"),
-            ))
-            .await
-            .map_err(Error::Database)?
+            .all(Stmt::text(format!(
+                "{LIST_SQL} ORDER BY s.created_at, s.id"
+            )))
+            .await?
             .iter()
             .map(subscription_of)
             .collect()
@@ -317,26 +313,20 @@ impl SubscriptionService {
     /// Switch a subscription off. Deliveries not yet made are dropped from the queue (marked failed with the
     /// reason); the history stays.
     pub async fn end(&self, id: Uuid, ctx: &UserContext) -> Result<Subscription> {
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let done = txn
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE subscriptions SET status = 'off', ended_at = now() WHERE id = $1 AND status = 'active'",
+            .run(Stmt::new("UPDATE subscriptions SET status = 'off', ended_at = now() WHERE id = $1 AND status = 'active'",
                 [id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if done.rows_affected() == 0 {
             return Err(Error::not_found(format!("active subscription {id}")));
         }
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE subscription_deliveries SET status = 'failed', last_error = 'subscription ended' \
+        txn.run(Stmt::new("UPDATE subscription_deliveries SET status = 'failed', last_error = 'subscription ended' \
              WHERE subscription_id = $1 AND status = 'pending'",
             [id.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(&txn, "subscription", id, "end", None, None, ctx).await?;
         txn.commit().await.map_err(Error::Database)?;
         self.get(id).await
@@ -352,9 +342,7 @@ impl SubscriptionService {
     async fn fan_out(&self, now: DateTime<Utc>) -> Result<()> {
         for topic in TOPICS.map(|(t, _)| t) {
             self.db
-                .execute_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "INSERT INTO subscription_deliveries \
+                .run(Stmt::new("INSERT INTO subscription_deliveries \
                        (id, subscription_id, outbox_event_id, event_type, payload, event_at, next_attempt_at) \
                      SELECT gen_random_uuid(), s.id, e.id, e.event_type, e.payload, e.at, $2 \
                      FROM subscriptions s JOIN outbox_events e ON e.event_type LIKE $3 AND e.at >= s.created_at \
@@ -362,8 +350,7 @@ impl SubscriptionService {
                      ON CONFLICT (subscription_id, outbox_event_id) DO NOTHING",
                     [topic.into(), now.into(), pattern(topic).into()],
                 ))
-                .await
-                .map_err(Error::Database)?;
+.await?;
         }
         Ok(())
     }
@@ -371,9 +358,7 @@ impl SubscriptionService {
     async fn deliver_due(&self, now: DateTime<Utc>) -> Result<usize> {
         let due = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT * FROM ( \
+            .all(Stmt::new("SELECT * FROM ( \
                    SELECT d.id, d.subscription_id, d.event_type, d.payload, d.event_at, d.attempts, \
                           s.topic, s.endpoint, s.secret_env, \
                           (SELECT count(*) FROM subscription_deliveries x WHERE x.subscription_id = d.subscription_id \
@@ -384,8 +369,7 @@ impl SubscriptionService {
                  WHERE rn <= $2 ORDER BY event_at, id LIMIT 256",
                 [now.into(), PER_SUBSCRIPTION.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let max = i32::try_from(env::int("PAS_OUTBOX_MAX_RETRIES")).unwrap_or(10);
         let mut delivered = 0;
         for r in &due {
@@ -411,23 +395,18 @@ impl SubscriptionService {
             match result {
                 Ok(()) => {
                     self.db
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE subscription_deliveries SET status = 'delivered', attempts = attempts + 1, \
+                        .run(Stmt::new("UPDATE subscription_deliveries SET status = 'delivered', attempts = attempts + 1, \
                                delivered_at = $2, last_error = NULL WHERE id = $1",
                             [id.into(), now.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     delivered += 1;
                 }
                 Err(why) => {
                     let n = attempts + 1;
                     let give_up = max > 0 && n >= max;
                     self.db
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE subscription_deliveries SET attempts = $2, last_error = $3, status = $4, \
+                        .run(Stmt::new("UPDATE subscription_deliveries SET attempts = $2, last_error = $3, status = $4, \
                                next_attempt_at = $5 WHERE id = $1",
                             [
                                 id.into(),
@@ -437,8 +416,7 @@ impl SubscriptionService {
                                 (now + chrono::Duration::seconds(backoff_seconds(n))).into(),
                             ],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     tracing::warn!(delivery = %id, attempt = n, "subscription delivery failed: {why}");
                 }
             }

@@ -10,8 +10,9 @@
 //! no-show path returns the waiting-list entry to `waiting`, as it always has.
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -36,28 +37,23 @@ fn due_after() -> Duration {
 }
 
 /// Is the appointment's service one a clinician has listed for human follow-up?
-pub(crate) async fn service_is_listed<C: ConnectionTrait>(
-    conn: &C,
-    slot_id: Option<Uuid>,
-) -> Result<bool> {
+pub(crate) async fn service_is_listed<C: Conn>(conn: &C, slot_id: Option<Uuid>) -> Result<bool> {
     let Some(slot_id) = slot_id else {
         return Ok(false);
     };
     Ok(conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT 1 AS ok FROM slots sl JOIN schedules sc ON sc.id = sl.schedule_id \
              JOIN follow_up_policies p ON p.service_type = sc.service_type WHERE sl.id = $1",
             [slot_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+        .await?
         .is_some())
 }
 
 /// Called inside the no-show transaction. Creates the task when the appointment's service is listed; a
 /// second call for the same appointment does nothing.
-pub(crate) async fn on_no_show<C: ConnectionTrait>(
+pub(crate) async fn on_no_show<C: Conn>(
     conn: &C,
     appt: &Appointment,
     ctx: &UserContext,
@@ -66,14 +62,12 @@ pub(crate) async fn on_no_show<C: ConnectionTrait>(
         return Ok(());
     };
     let Some(row) = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT sc.service_type FROM slots sl JOIN schedules sc ON sc.id = sl.schedule_id \
              JOIN follow_up_policies p ON p.service_type = sc.service_type WHERE sl.id = $1",
             [slot_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+        .await?
     else {
         return Ok(());
     };
@@ -81,8 +75,7 @@ pub(crate) async fn on_no_show<C: ConnectionTrait>(
     let id = Uuid::new_v4();
     let due = Utc::now() + due_after();
     let made = conn
-        .execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .run(Stmt::new(
             "INSERT INTO follow_up_tasks (id, appointment_id, person_id, service_type, due_at) \
              VALUES ($1,$2,$3,$4,$5) ON CONFLICT (appointment_id) DO NOTHING",
             [
@@ -93,8 +86,7 @@ pub(crate) async fn on_no_show<C: ConnectionTrait>(
                 due.into(),
             ],
         ))
-        .await
-        .map_err(Error::Database)?;
+        .await?;
     if made.rows_affected() == 0 {
         return Ok(());
     }
@@ -163,14 +155,12 @@ impl FollowUpService {
             "a follow-up policy needs a named clinician's approval (approved_by)",
         )?;
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "INSERT INTO follow_up_policies (service_type, approved_by) VALUES ($1,$2) \
                  ON CONFLICT (service_type) DO UPDATE SET approved_by = $2, approved_at = now()",
                 [service_type.into(), approved_by.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         AuditLogRepository::log(
             &self.db,
             "follow_up_policy",
@@ -191,12 +181,9 @@ impl FollowUpService {
     pub async fn policies(&self) -> Result<Vec<Policy>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT service_type, approved_by, approved_at FROM follow_up_policies ORDER BY service_type",
+            .all(Stmt::text("SELECT service_type, approved_by, approved_at FROM follow_up_policies ORDER BY service_type",
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(Policy {
@@ -212,15 +199,12 @@ impl FollowUpService {
     pub async fn open_tasks(&self, limit: i64) -> Result<Vec<Task>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT t.id, t.appointment_id, t.person_id, t.service_type, t.due_at, a.start_datetime \
+            .all(Stmt::new("SELECT t.id, t.appointment_id, t.person_id, t.service_type, t.due_at, a.start_datetime \
                  FROM follow_up_tasks t JOIN appointments a ON a.id = t.appointment_id \
                  WHERE t.closed_at IS NULL ORDER BY t.due_at LIMIT $1",
                 [crate::paging::fetch(limit).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let now = Utc::now();
         rows.iter()
             .map(|r| {
@@ -259,14 +243,12 @@ impl FollowUpService {
         )?;
         let row = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "UPDATE follow_up_tasks SET outcome = $2, closed_by = $3, closed_at = now() \
                  WHERE id = $1 AND closed_at IS NULL RETURNING appointment_id",
                 [id.into(), outcome.into(), closed_by.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         let Some(row) = row else {
             return Err(Error::conflict("that follow-up task is not open"));
         };

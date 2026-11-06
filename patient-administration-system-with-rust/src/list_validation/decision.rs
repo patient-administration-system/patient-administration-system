@@ -1,6 +1,8 @@
 //! Part of [`super`]: decision.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt, Transact};
 
 impl ListValidationService {
     /// A named person decides: `keep` the patient on the list, or `remove` them. Only when the patient said
@@ -29,12 +31,10 @@ impl ListValidationService {
         let (decision_s, note_s, ctx) =
             (decision.to_string(), note.map(str::to_string), ctx.clone());
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
                     let r = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "SELECT i.state, i.answer, i.person_id, i.pathway_id, i.target_service, \
+                        .one(Stmt::new("SELECT i.state, i.answer, i.person_id, i.pathway_id, i.target_service, \
                                     CASE WHEN i.state IN ('selected','asked') AND current_date > c.reply_by THEN 'letter_due' \
                                          WHEN i.state = 'answered' AND i.answer = 'no_longer_needed' THEN 'decision_due' \
                                          WHEN i.state = 'letter_sent' AND current_date > i.final_by THEN 'decision_due' END AS next, \
@@ -43,8 +43,7 @@ impl ListValidationService {
                              WHERE i.id = $1 AND i.campaign_id = $2 FOR UPDATE OF i",
                             [item.into(), campaign.into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+.await?
                         .ok_or_else(|| Error::not_found(format!("item {item} in campaign {campaign}")))?;
                     let row = DecisionRow {
                         state: r.col("state")?,
@@ -57,13 +56,10 @@ impl ListValidationService {
                     let pathway: Uuid = r.col("pathway_id")?;
                     let service: String = r.col("target_service")?;
                     if decision_s == "keep" {
-                        txn.execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE validation_items SET state = 'kept', decided_by = $2, decided_at = now(), decision_note = $3 WHERE id = $1",
+                        txn.run(Stmt::new("UPDATE validation_items SET state = 'kept', decided_by = $2, decided_at = now(), decision_note = $3 WHERE id = $1",
                             [item.into(), by.clone().into(), note_s.clone().into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     } else {
                         remove_patient(txn, campaign, item, person, pathway, &service, &by, note_s.as_deref(), &ctx).await?;
                     }
@@ -82,8 +78,7 @@ impl ListValidationService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         self.item(campaign, item).await
     }
 
@@ -103,18 +98,15 @@ impl ListValidationService {
         .to_string();
         let ctx = ctx.clone();
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
                     let r = txn
-                        .query_one_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "SELECT state, pathway_id, rtt_stop_event_at, removed_waitlist_ids, \
+                        .one(Stmt::new("SELECT state, pathway_id, rtt_stop_event_at, removed_waitlist_ids, \
                                     removed_at > now() - make_interval(days => $3::int) AS in_time \
                              FROM validation_items WHERE id = $1 AND campaign_id = $2 FOR UPDATE",
                             [item.into(), campaign.into(), (REINSTATE_DAYS as i32).into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?
+.await?
                         .ok_or_else(|| Error::not_found(format!("item {item} in campaign {campaign}")))?;
                     let state: String = r.col("state")?;
                     if state != "removed" {
@@ -131,37 +123,25 @@ impl ListValidationService {
                     let pathway: Uuid = r.col("pathway_id")?;
                     let stopped: DateTime<Utc> = r.col("rtt_stop_event_at")?;
                     let entries: Vec<Uuid> = r.col("removed_waitlist_ids")?;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE waitlist_entries SET status = 'waiting', updated_at = now() \
+                    txn.run(Stmt::new("UPDATE waitlist_entries SET status = 'waiting', updated_at = now() \
                          WHERE id = ANY($1) AND status = 'removed'",
                         [entries.clone().into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     // The clock resumes at the instant it stopped, so the time away is not subtracted.
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "INSERT INTO rtt_clock_events (id, pathway_id, kind, reason, event_at, created_at) \
+                    txn.run(Stmt::new("INSERT INTO rtt_clock_events (id, pathway_id, kind, reason, event_at, created_at) \
                          VALUES ($1,$2,'resumed','validation_reinstated',$3::timestamptz + interval '1 microsecond',now())",
                         [Uuid::new_v4().into(), pathway.into(), stopped.into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE rtt_pathways SET status = 'active', stopped_at = NULL, updated_at = now() WHERE id = $1",
+.await?;
+                    txn.run(Stmt::new("UPDATE rtt_pathways SET status = 'active', stopped_at = NULL, updated_at = now() WHERE id = $1",
                         [pathway.into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE validation_items SET state = 'reinstated', reinstated_by = $2, reinstated_at = now() WHERE id = $1",
+.await?;
+                    txn.run(Stmt::new("UPDATE validation_items SET state = 'reinstated', reinstated_by = $2, reinstated_at = now() WHERE id = $1",
                         [item.into(), by.clone().into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     AuditLogRepository::log_with(
                         txn,
                         "validation_item",
@@ -183,8 +163,7 @@ impl ListValidationService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         self.item(campaign, item).await
     }
 }
@@ -250,36 +229,27 @@ async fn remove_patient(
 ) -> Result<()> {
     let stopped_at = Utc::now();
     let removed = txn
-                            .query_all_raw(Statement::from_sql_and_values(
-                                DbBackend::Postgres,
-                                "UPDATE waitlist_entries SET status = 'removed', updated_at = now() \
+                            .all(Stmt::new("UPDATE waitlist_entries SET status = 'removed', updated_at = now() \
                                  WHERE person_id = $1 AND target_service = $2 AND status = 'waiting' RETURNING id",
                                 [person.into(), service.to_string().into()],
                             ))
-                            .await
-                            .map_err(Error::Database)?
+.await?
                             .iter()
                             .map(|e| e.col::<Uuid>("id"))
                             .collect::<Result<Vec<_>>>()?;
-    txn.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    txn.run(Stmt::new(
         "INSERT INTO rtt_clock_events (id, pathway_id, kind, reason, event_at, created_at) \
                              VALUES ($1,$2,'stopped','validation_removal',$3,now())",
         [Uuid::new_v4().into(), pathway.into(), stopped_at.into()],
     ))
-    .await
-    .map_err(Error::Database)?;
-    txn.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    .await?;
+    txn.run(Stmt::new(
         "UPDATE rtt_pathways SET status = 'stopped', stopped_at = $2, updated_at = now() \
                              WHERE id = $1 AND stopped_at IS NULL",
         [pathway.into(), stopped_at.into()],
     ))
-    .await
-    .map_err(Error::Database)?;
-    txn.execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "UPDATE validation_items SET state = 'removed', decided_by = $2, decided_at = now(), \
+    .await?;
+    txn.run(Stmt::new("UPDATE validation_items SET state = 'removed', decided_by = $2, decided_at = now(), \
                                     decision_note = $3, removed_at = $4, rtt_stop_event_at = $4, removed_waitlist_ids = $5 \
                              WHERE id = $1",
                             [
@@ -290,8 +260,7 @@ async fn remove_patient(
                                 removed.clone().into(),
                             ],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
     for entry in &removed {
         AuditLogRepository::log_with(
             txn,

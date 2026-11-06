@@ -10,10 +10,11 @@ use chrono::{Duration, Utc};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::slot::SlotRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::schedule::Slot;
 use patient_administration_system::models::waitlist::Priority;
 use patient_administration_system::referrals::NewReferral;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -158,8 +159,7 @@ async fn the_earliest_free_slot_of_the_service_is_booked_and_linked() {
     );
     let stored =
         w.s.db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT referral_id FROM appointments WHERE id = $1",
                 [b.appointment.id.into()],
             ))
@@ -167,7 +167,7 @@ async fn the_earliest_free_slot_of_the_service_is_booked_and_linked() {
             .unwrap()
             .unwrap();
     assert_eq!(
-        stored.try_get::<Option<Uuid>>("", "referral_id").unwrap(),
+        stored.col::<Option<Uuid>>("referral_id").unwrap(),
         Some(r.id)
     );
     assert_eq!(
@@ -497,9 +497,7 @@ async fn every_move_of_the_lifecycle_table_is_allowed_or_refused_as_written() {
                     .await
                     .unwrap();
             w.s.db
-                .execute_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "UPDATE referrals SET status = $2, \
+                .run(Stmt::new("UPDATE referrals SET status = $2, \
                        triaged_by = CASE WHEN $2 IN ('returned_with_advice','redirected') THEN 'Mr R' END, \
                        triaged_at = CASE WHEN $2 IN ('returned_with_advice','redirected') THEN now() END, \
                        redirected_to_service = CASE WHEN $2 = 'redirected' THEN 'elsewhere' END, \

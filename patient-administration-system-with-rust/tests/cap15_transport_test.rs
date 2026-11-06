@@ -12,6 +12,8 @@ use chrono::Duration;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::transport::{
     TransportClient, TransportConfirmation, TransportRequest,
 };
@@ -215,17 +217,15 @@ async fn confirming_for_an_eligible_consenting_patient_books_exactly_one_ride_wi
     }
     // And the PAS did not keep the address.
     let stored: i64 = {
-        use sea_orm::{ConnectionTrait, DbBackend, Statement};
         w.s.db
-            .query_one_raw(Statement::from_string(
-                DbBackend::Postgres,
+            .one(Stmt::text(
                 "SELECT count(*) AS n FROM transport_bookings WHERE last_error LIKE '%Mill Lane%'"
                     .to_string(),
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get("", "n")
+            .col("n")
             .unwrap()
     };
     assert_eq!(stored, 0);

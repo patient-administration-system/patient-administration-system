@@ -23,7 +23,8 @@
 //! Wales equivalent). Until one is connected nothing reports a failure by itself; a person does.
 
 use crate::db::row::RowExt;
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use crate::db::sql::{Conn, Stmt, Transact};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -34,22 +35,17 @@ use crate::models::appointment::{Appointment, ConversionState, Modality};
 use crate::{Error, Result};
 
 /// Is the service of the slot's schedule one a clinician has approved for conversion?
-pub async fn service_is_virtual_ok<C: ConnectionTrait>(
-    conn: &C,
-    slot_id: Option<Uuid>,
-) -> Result<bool> {
+pub async fn service_is_virtual_ok<C: Conn>(conn: &C, slot_id: Option<Uuid>) -> Result<bool> {
     let Some(slot_id) = slot_id else {
         return Ok(false);
     };
     let row = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT 1 AS ok FROM slots sl JOIN schedules sc ON sc.id = sl.schedule_id \
              JOIN virtual_ok_services v ON v.service_type = sc.service_type WHERE sl.id = $1",
             [slot_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+        .await?;
     Ok(row.is_some())
 }
 
@@ -104,14 +100,12 @@ impl VirtualVisitService {
             "a service can go virtual only when a named clinician approves it (approved_by)",
         )?;
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "INSERT INTO virtual_ok_services (service_type, approved_by) VALUES ($1,$2) \
                  ON CONFLICT (service_type) DO UPDATE SET approved_by = $2, approved_at = now()",
                 [service_type.into(), approved_by.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         AuditLogRepository::log(
             &self.db,
             "virtual_ok_service",
@@ -132,13 +126,11 @@ impl VirtualVisitService {
     pub async fn remove_service(&self, service_type: &str, ctx: &UserContext) -> Result<()> {
         let r = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .run(Stmt::new(
                 "DELETE FROM virtual_ok_services WHERE service_type = $1",
                 [service_type.trim().into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if r.rows_affected() == 0 {
             return Err(Error::not_found(format!(
                 "virtual_ok service {service_type}"
@@ -159,12 +151,9 @@ impl VirtualVisitService {
     pub async fn list_services(&self) -> Result<Vec<ApprovedService>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT service_type, approved_by, approved_at FROM virtual_ok_services ORDER BY service_type",
+            .all(Stmt::text("SELECT service_type, approved_by, approved_at FROM virtual_ok_services ORDER BY service_type",
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         rows.iter()
             .map(|r| {
                 Ok(ApprovedService {
@@ -180,15 +169,13 @@ impl VirtualVisitService {
     pub async fn pending(&self, limit: i64) -> Result<Vec<Appointment>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT id FROM appointments WHERE conversion_state = 'pending_review' \
                  AND status = 'booked' AND deleted_at IS NULL AND start_datetime > now() \
                  ORDER BY start_datetime LIMIT $1",
                 [crate::paging::fetch(limit).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         let mut out = Vec::new();
         for r in rows {
             let id: Uuid = r.col("id")?;
@@ -209,7 +196,7 @@ impl VirtualVisitService {
     ) -> Result<Appointment> {
         let ctx = ctx.clone();
         self.db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
                     // Lock the row and judge it as it is now (OFH-11): this writes the whole appointment back, so a
                     // check-in or cancel since a plain read would otherwise be overwritten.
@@ -256,8 +243,7 @@ impl VirtualVisitService {
                     Ok(a)
                 })
             })
-            .await
-            .map_err(Error::from)
+.await
     }
 
     /// The video visit did not connect: make it a phone consultation and ask a person to ring the patient.
@@ -270,7 +256,7 @@ impl VirtualVisitService {
     ) -> Result<Appointment> {
         let ctx = ctx.clone();
         self.db
-            .transaction::<_, Appointment, Error>(|txn| {
+            .in_txn::<_, Appointment>(|txn| {
                 Box::pin(async move {
                     let mut a = AppointmentRepository::find_by_id(txn, appointment_id)
                         .await?
@@ -292,14 +278,11 @@ impl VirtualVisitService {
                     a.modality = Modality::Phone;
                     a.updated_at = chrono::Utc::now();
                     let a = AppointmentRepository::update(txn, &a).await?;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
+                    txn.run(Stmt::new("INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
                          VALUES ($1,$2,$3,'video_failed', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",
                         [Uuid::new_v4().into(), a.id.into(), a.person_id.into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     AuditLogRepository::log(
                         txn,
                         "appointment",
@@ -319,7 +302,6 @@ impl VirtualVisitService {
                     Ok(a)
                 })
             })
-            .await
-            .map_err(Error::from)
+.await
     }
 }

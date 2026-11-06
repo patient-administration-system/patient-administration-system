@@ -9,8 +9,9 @@ use axum::{
 };
 use chrono::{Datelike, Utc};
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use std::sync::Arc;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -70,15 +71,14 @@ async fn the_lookup_loads_good_lines_counts_bad_ones_and_needs_a_named_dataset()
         "the header is not a rejection; three lines are"
     );
     let row =
-        s.db.query_one_raw(Statement::from_string(
-            DbBackend::Postgres,
-            format!("SELECT quintile FROM deprivation_lookup WHERE postcode = 'ZZ{tag}1AB'"),
-        ))
+        s.db.one(Stmt::text(format!(
+            "SELECT quintile FROM deprivation_lookup WHERE postcode = 'ZZ{tag}1AB'"
+        )))
         .await
         .unwrap()
         .unwrap();
     assert_eq!(
-        row.try_get::<i16>("", "quintile").unwrap(),
+        row.col::<i16>("quintile").unwrap(),
         2,
         "stored upper-case with no space"
     );
@@ -89,17 +89,14 @@ async fn the_lookup_loads_good_lines_counts_bad_ones_and_needs_a_named_dataset()
         .await
         .unwrap();
     let row =
-        s.db.query_one_raw(Statement::from_string(
-            DbBackend::Postgres,
-            format!(
-                "SELECT quintile, dataset FROM deprivation_lookup WHERE postcode = 'ZZ{tag}1AB'"
-            ),
-        ))
+        s.db.one(Stmt::text(format!(
+            "SELECT quintile, dataset FROM deprivation_lookup WHERE postcode = 'ZZ{tag}1AB'"
+        )))
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(row.try_get::<i16>("", "quintile").unwrap(), 4);
-    assert_eq!(row.try_get::<String>("", "dataset").unwrap(), "WIMD test 2");
+    assert_eq!(row.col::<i16>("quintile").unwrap(), 4);
+    assert_eq!(row.col::<String>("dataset").unwrap(), "WIMD test 2");
 }
 
 #[tokio::test]
@@ -158,18 +155,16 @@ async fn the_job_fills_age_band_and_quintile_keeps_only_the_bands_and_does_it_on
     let get = |p: Uuid| {
         let db = s.db.clone();
         async move {
-            db.query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT age_band, deprivation_quintile, source FROM person_demographics WHERE person_id = $1",
+            db.one(Stmt::new("SELECT age_band, deprivation_quintile, source FROM person_demographics WHERE person_id = $1",
                 [p.into()],
             ))
             .await
             .unwrap()
             .map(|r| {
                 (
-                    r.try_get::<Option<String>>("", "age_band").unwrap(),
-                    r.try_get::<Option<i16>>("", "deprivation_quintile").unwrap(),
-                    r.try_get::<String>("", "source").unwrap(),
+                    r.col::<Option<String>>("age_band").unwrap(),
+                    r.col::<Option<i16>>("deprivation_quintile").unwrap(),
+                    r.col::<String>("source").unwrap(),
                 )
             })
         }
@@ -280,14 +275,12 @@ async fn a_caller_has_a_daily_query_budget_so_differencing_across_queries_is_bou
         .unwrap();
     let row = s
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT count(*)::bigint AS n FROM audit_log WHERE action = 'analytics_query' AND user_id = $1",
+        .one(Stmt::new("SELECT count(*)::bigint AS n FROM audit_log WHERE action = 'analytics_query' AND user_id = $1",
             [alice.user_id.clone().into()],
         ))
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(row.try_get::<i64>("", "n").unwrap(), 3);
+    assert_eq!(row.col::<i64>("n").unwrap(), 3);
     unsafe { std::env::remove_var("PAS_ANALYTICS_QUERY_BUDGET") };
 }

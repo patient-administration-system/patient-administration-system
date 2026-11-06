@@ -11,7 +11,7 @@
 //!   event; the publish is a fire-and-forget convenience for in-process
 //!   consumers.
 
-use sea_orm::{DatabaseConnection, DatabaseTransaction, TransactionTrait};
+use sea_orm::{DatabaseConnection, DatabaseTransaction};
 use std::sync::Arc;
 use uuid::Uuid;
 

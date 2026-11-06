@@ -6,10 +6,9 @@
 //! reminder picks the variant for the patient's preferred language and falls back to the first required
 //! locale (English) when the patient has no preference or it is a language we do not offer.
 
-use sea_orm::ConnectionTrait;
-
 use crate::config::env;
 use crate::db::repositories::letter::LetterRepository;
+use crate::db::sql::Conn;
 use crate::models::communication::LetterTemplate;
 use crate::{Error, Result};
 
@@ -105,7 +104,7 @@ pub fn check_complete(name: &str, active_locales: &[String], required: &[String]
 }
 
 /// The locales of the active variants of a group, optionally treating one template as changed.
-pub async fn active_locales_after<C: ConnectionTrait>(
+pub async fn active_locales_after<C: Conn>(
     conn: &C,
     name: &str,
     change: Option<&LetterTemplate>,

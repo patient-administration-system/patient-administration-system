@@ -1,6 +1,8 @@
 //! Part of [`super`]: assess.
 
 use super::*;
+use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 
 impl NoShowService {
     pub(super) async fn inputs_for(
@@ -10,9 +12,7 @@ impl NoShowService {
         let tz = crate::inbound::messages::timezone();
         let Some(r) = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT a.person_id, a.start_datetime, a.created_at, a.updated_at, d.age_band, \
+            .one(Stmt::new("SELECT a.person_id, a.start_datetime, a.created_at, a.updated_at, d.age_band, \
                    (SELECT count(*) FROM appointments p WHERE p.person_id = a.person_id AND p.id <> a.id \
                       AND p.deleted_at IS NULL AND p.start_datetime < now() AND p.status = 'no_show')::bigint AS missed, \
                    (SELECT count(*) FROM appointments p WHERE p.person_id = a.person_id AND p.id <> a.id \
@@ -21,8 +21,7 @@ impl NoShowService {
                  WHERE a.id = $1 AND a.deleted_at IS NULL",
                 [appointment_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
         else {
             return Ok(None);
         };
@@ -52,15 +51,12 @@ impl NoShowService {
         if let Some(existing) = self.stored(appointment_id).await? {
             let row = self
                 .db
-                .query_one_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "SELECT (n.computed_on = $2 AND a.updated_at <= n.computed_at) AS current \
+                .one(Stmt::new("SELECT (n.computed_on = $2 AND a.updated_at <= n.computed_at) AS current \
                      FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id WHERE n.appointment_id = $1",
                     [appointment_id.into(), now.date_naive().into()],
                 ))
-                .await
-                .map_err(Error::Database)?;
-            if row.and_then(|r| r.try_get::<bool>("", "current").ok()) == Some(true) {
+.await?;
+            if row.and_then(|r| r.col::<bool>("current").ok()) == Some(true) {
                 return Ok(existing);
             }
         }
@@ -70,9 +66,7 @@ impl NoShowService {
             .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
         let a = compute(&inputs, &Weights::from_env());
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO noshow_assessments (appointment_id, probability, factors, sample_size, model_version, computed_at, computed_on) \
+            .run(Stmt::new("INSERT INTO noshow_assessments (appointment_id, probability, factors, sample_size, model_version, computed_at, computed_on) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (appointment_id) DO UPDATE SET probability = $2, factors = $3, \
                  sample_size = $4, model_version = $5, computed_at = $6, computed_on = $7",
                 [
@@ -85,8 +79,7 @@ impl NoShowService {
                     now.date_naive().into(),
                 ],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let _ = person;
         self.stored(appointment_id)
             .await?
@@ -96,15 +89,12 @@ impl NoShowService {
     pub(super) async fn stored(&self, appointment_id: Uuid) -> Result<Option<Shown>> {
         let medium = medium_threshold();
         self.db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT probability, factors, sample_size, model_version, computed_at, \
+            .one(Stmt::new("SELECT probability, factors, sample_size, model_version, computed_at, \
                    EXISTS (SELECT 1 FROM staff_call_tasks t WHERE t.appointment_id = noshow_assessments.appointment_id AND t.reason = 'high_risk') AS listed \
                  FROM noshow_assessments WHERE appointment_id = $1",
                 [appointment_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .map(|r| {
                 let p: f64 = r.col("probability")?;
                 let factors: serde_json::Value = r.col("factors")?;
@@ -172,16 +162,14 @@ impl NoShowService {
         }
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT a.id FROM appointments a JOIN slots sl ON sl.id = a.slot_id \
                  JOIN schedules sc ON sc.id = sl.schedule_id \
                  JOIN noshow_rollout r ON r.service_type = sc.service_type AND r.stage = 'live' \
                  WHERE a.id = ANY($1)",
                 [ids.to_vec().into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         rows.iter().map(|r| r.col::<Uuid>("id")).collect()
     }
 
@@ -190,14 +178,11 @@ impl NoShowService {
         self.require_active().await?;
         let ids = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT id FROM appointments WHERE status = 'booked' AND deleted_at IS NULL AND start_datetime > now() \
+            .all(Stmt::text("SELECT id FROM appointments WHERE status = 'booked' AND deleted_at IS NULL AND start_datetime > now() \
                  ORDER BY start_datetime LIMIT 20000"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let mut n = 0;
         for r in ids {
             let id: Uuid = r.col("id")?;

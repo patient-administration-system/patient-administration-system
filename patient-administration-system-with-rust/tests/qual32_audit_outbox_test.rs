@@ -17,20 +17,18 @@ use axum::{
 };
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use tower::ServiceExt;
 use uuid::Uuid;
 
 async fn count(s: &AppState, table: &str) -> i64 {
-    s.db.query_one_raw(Statement::from_string(
-        DbBackend::Postgres,
-        format!("SELECT count(*) AS n FROM {table}"),
-    ))
-    .await
-    .unwrap()
-    .unwrap()
-    .try_get::<i64>("", "n")
-    .unwrap()
+    s.db.one(Stmt::text(format!("SELECT count(*) AS n FROM {table}")))
+        .await
+        .unwrap()
+        .unwrap()
+        .col::<i64>("n")
+        .unwrap()
 }
 
 /// The two routers `main` serves together.
@@ -130,8 +128,7 @@ async fn send_as(
 
 /// The audit rows of one record, oldest first: (action, old value?, new value?, who).
 async fn audit_of(s: &AppState, entity: &str, id: Uuid) -> Vec<(String, bool, bool, String)> {
-    s.db.query_all_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    s.db.all(Stmt::new(
         "SELECT action, old_value IS NOT NULL AS had_old, new_value IS NOT NULL AS had_new, \
          user_id FROM audit_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY at",
         [entity.into(), id.into()],
@@ -141,10 +138,10 @@ async fn audit_of(s: &AppState, entity: &str, id: Uuid) -> Vec<(String, bool, bo
     .iter()
     .map(|row| {
         (
-            row.try_get::<String>("", "action").unwrap(),
-            row.try_get::<bool>("", "had_old").unwrap(),
-            row.try_get::<bool>("", "had_new").unwrap(),
-            row.try_get::<String>("", "user_id").unwrap(),
+            row.col::<String>("action").unwrap(),
+            row.col::<bool>("had_old").unwrap(),
+            row.col::<bool>("had_new").unwrap(),
+            row.col::<String>("user_id").unwrap(),
         )
     })
     .collect()
@@ -256,7 +253,7 @@ async fn a_direct_fhir_write_commits_with_its_audit_row_and_event_or_not_at_all(
         count(&s, "slots").await,
     );
 
-    s.db.execute_unprepared(
+    s.db.batch(
         "ALTER TABLE outbox_events ADD CONSTRAINT fhir2_refuse_events CHECK (false) NOT VALID",
     )
     .await
@@ -281,7 +278,7 @@ async fn a_direct_fhir_write_commits_with_its_audit_row_and_event_or_not_at_all(
         send(&s, "DELETE", &slot_uri, empty.clone()).await,
         send(&s, "DELETE", &schedule_uri, empty.clone()).await,
     ];
-    s.db.execute_unprepared("ALTER TABLE outbox_events DROP CONSTRAINT fhir2_refuse_events")
+    s.db.batch("ALTER TABLE outbox_events DROP CONSTRAINT fhir2_refuse_events")
         .await
         .unwrap();
 
@@ -500,7 +497,7 @@ async fn a_change_its_audit_row_and_its_event_commit_together_or_not_at_all() {
     let audits = count(&s, "audit_log").await;
 
     // Make every new outbox insert fail, cancel, and put things back before asserting anything.
-    s.db.execute_unprepared(
+    s.db.batch(
         "ALTER TABLE outbox_events ADD CONSTRAINT qual32_refuse_events CHECK (false) NOT VALID",
     )
     .await
@@ -512,7 +509,7 @@ async fn a_change_its_audit_row_and_its_event_commit_together_or_not_at_all() {
         serde_json::json!({}),
     )
     .await;
-    s.db.execute_unprepared("ALTER TABLE outbox_events DROP CONSTRAINT qual32_refuse_events")
+    s.db.batch("ALTER TABLE outbox_events DROP CONSTRAINT qual32_refuse_events")
         .await
         .unwrap();
 
@@ -521,8 +518,7 @@ async fn a_change_its_audit_row_and_its_event_commit_together_or_not_at_all() {
         "the cancel must fail when its event cannot be written: {status}"
     );
     let row =
-        s.db.query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT status FROM appointments WHERE id = $1",
             [a.into()],
         ))
@@ -530,7 +526,7 @@ async fn a_change_its_audit_row_and_its_event_commit_together_or_not_at_all() {
         .unwrap()
         .unwrap();
     assert_eq!(
-        row.try_get::<String>("", "status").unwrap(),
+        row.col::<String>("status").unwrap(),
         "booked",
         "the change was rolled back"
     );

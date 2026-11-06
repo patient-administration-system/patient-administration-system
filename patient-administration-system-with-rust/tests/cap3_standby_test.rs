@@ -8,12 +8,13 @@ use axum::{
 };
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{
     Appointment, BarrierCode, CancelledBy, ReleaseClass,
 };
 use patient_administration_system::scheduling::CancelDetails;
 use patient_administration_system::standby::{CandidateFilter, StandbyInput};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -67,32 +68,28 @@ async fn cancel(w: &W, a: &Appointment, barrier: Option<BarrierCode>) {
 }
 
 async fn release_for(w: &W, slot: Uuid) -> serde_json::Value {
-    let row = w.state.db.query_one_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "SELECT id::text AS id, status, release_class, notice_days, service_type, seconds_to_refill, refilled_by_appointment_id::text AS by FROM slot_releases WHERE slot_id = $1 ORDER BY released_at DESC LIMIT 1",
+    let row = w.state.db.one(Stmt::new("SELECT id::text AS id, status, release_class, notice_days, service_type, seconds_to_refill, refilled_by_appointment_id::text AS by FROM slot_releases WHERE slot_id = $1 ORDER BY released_at DESC LIMIT 1",
         [slot.into()],
     )).await.unwrap();
     match row {
         None => serde_json::Value::Null,
         Some(r) => serde_json::json!({
-            "id": r.try_get::<String>("", "id").unwrap(),
-            "status": r.try_get::<String>("", "status").unwrap(),
-            "release_class": r.try_get::<String>("", "release_class").unwrap(),
-            "notice_days": r.try_get::<Option<i32>>("", "notice_days").unwrap(),
-            "service_type": r.try_get::<Option<String>>("", "service_type").unwrap(),
-            "seconds_to_refill": r.try_get::<Option<i64>>("", "seconds_to_refill").unwrap(),
-            "by": r.try_get::<Option<String>>("", "by").unwrap(),
+            "id": r.col::<String>("id").unwrap(),
+            "status": r.col::<String>("status").unwrap(),
+            "release_class": r.col::<String>("release_class").unwrap(),
+            "notice_days": r.col::<Option<i32>>("notice_days").unwrap(),
+            "service_type": r.col::<Option<String>>("service_type").unwrap(),
+            "seconds_to_refill": r.col::<Option<i64>>("seconds_to_refill").unwrap(),
+            "by": r.col::<Option<String>>("by").unwrap(),
         }),
     }
 }
 
 async fn event_count(w: &W, release_id: &str) -> i64 {
-    let r = w.state.db.query_one_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "SELECT count(*) AS n FROM outbox_events WHERE event_type = 'SlotReleased' AND payload->>'release_id' = $1",
+    let r = w.state.db.one(Stmt::new("SELECT count(*) AS n FROM outbox_events WHERE event_type = 'SlotReleased' AND payload->>'release_id' = $1",
         [release_id.into()],
     )).await.unwrap().unwrap();
-    r.try_get("", "n").unwrap()
+    r.col("n").unwrap()
 }
 
 fn standby(person: Uuid, service: &str) -> StandbyInput {
@@ -471,8 +468,7 @@ async fn the_booking_team_sees_open_refilled_and_expired_releases_with_a_summary
     // Make one release's slot time pass without refilling it.
     let (stale_a, stale_slot) = booked(&w, Uuid::new_v4(), 2).await;
     cancel(&w, &stale_a, None).await;
-    w.state.db.execute_raw(Statement::from_sql_and_values(DbBackend::Postgres,
-        "UPDATE slot_releases SET start_datetime = now() - interval '1 hour' WHERE slot_id = $1", [stale_slot.into()])).await.unwrap();
+    w.state.db.run(Stmt::new("UPDATE slot_releases SET start_datetime = now() - interval '1 hour' WHERE slot_id = $1", [stale_slot.into()])).await.unwrap();
 
     let (s, v) = get(app.clone(), "/api/slot-releases").await;
     assert_eq!(s, StatusCode::OK);

@@ -7,9 +7,10 @@ use axum::{
     http::{Request, StatusCode},
 };
 use patient_administration_system::db::repositories::letter::LetterRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::communication::{DeliveryChannel, LetterTemplate};
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use std::sync::Arc;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -54,16 +55,12 @@ async fn counts(
     let n = |sql: &'static str| {
         let db = s.db.clone();
         async move {
-            db.query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                sql,
-                [person.into()],
-            ))
-            .await
-            .unwrap()
-            .unwrap()
-            .try_get::<i64>("", "n")
-            .unwrap()
+            db.one(Stmt::new(sql, [person.into()]))
+                .await
+                .unwrap()
+                .unwrap()
+                .col::<i64>("n")
+                .unwrap()
         }
     };
     (

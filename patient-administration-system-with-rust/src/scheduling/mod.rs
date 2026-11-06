@@ -7,12 +7,8 @@ pub use series::{
     CreateSeriesInput, CreateSeriesResult, PreviewResult, SeriesService, SeriesWithOccurrences,
 };
 
-use crate::db::row::RowExt;
 use chrono::{DateTime, Utc};
-use sea_orm::{
-    ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, Statement,
-    TransactionTrait,
-};
+use sea_orm::{DatabaseConnection, DatabaseTransaction};
 use std::sync::Arc;
 use uuid::Uuid;
 

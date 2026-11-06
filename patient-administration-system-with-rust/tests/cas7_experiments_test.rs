@@ -16,10 +16,11 @@ use patient_administration_system::contact::ProfileInput;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::letter::LetterRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
 use patient_administration_system::models::communication::{DeliveryChannel, LetterTemplate};
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -167,9 +168,7 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
         .await
         .with_sender(DeliveryChannel::Sms, Arc::new(Capture(log.clone())));
     // Free the real reminder for this test, whatever an earlier run left.
-    s.db.execute_raw(Statement::from_string(
-        DbBackend::Postgres,
-        "UPDATE message_experiments SET stopped_at = now(), stopped_by = 'test' WHERE template_name = 'appointment_reminder' AND stopped_at IS NULL".to_string(),
+    s.db.run(Stmt::text("UPDATE message_experiments SET stopped_at = now(), stopped_by = 'test' WHERE template_name = 'appointment_reminder' AND stopped_at IS NULL".to_string(),
     ))
     .await
     .unwrap();
@@ -247,16 +246,14 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
         // Recorded, and equal to what was sent.
         let rec = s
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT variant FROM message_experiment_assignments WHERE experiment_id = $1 AND appointment_id = $2",
+            .one(Stmt::new("SELECT variant FROM message_experiment_assignments WHERE experiment_id = $1 AND appointment_id = $2",
                 [exp.into(), (*appt).into()],
             ))
             .await
             .unwrap()
             .expect("the assignment is recorded");
         assert_eq!(
-            rec.try_get::<String>("", "variant").unwrap() == "B",
+            rec.col::<String>("variant").unwrap() == "B",
             is_b,
             "recorded variant matches the wording sent"
         );
@@ -308,15 +305,14 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
     .unwrap();
     assert_eq!(fresh, "appointment_reminder");
     let n =
-        s.db.query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT count(*) AS n FROM message_experiment_assignments WHERE experiment_id = $1",
             [exp.into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get::<i64>("", "n")
+        .col::<i64>("n")
         .unwrap();
     assert_eq!(n, 24);
 }
@@ -359,23 +355,18 @@ async fn the_readout_splits_by_quintile_and_language_and_withholds_small_cells_w
                 .set_demographics(person, Some("45-54"), Some(quintile), "ETL", &sys())
                 .await
                 .unwrap();
-            s.db.execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO patient_communication_profiles (person_id, preferred_language) VALUES ($1,'en-001')",
+            s.db.run(Stmt::new("INSERT INTO patient_communication_profiles (person_id, preferred_language) VALUES ($1,'en-001')",
                 [person.into()],
             ))
             .await
             .unwrap();
-            s.db.execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO message_experiment_assignments (experiment_id, appointment_id, variant) VALUES ($1,$2,$3)",
+            s.db.run(Stmt::new("INSERT INTO message_experiment_assignments (experiment_id, appointment_id, variant) VALUES ($1,$2,$3)",
                 [exp.into(), ap.id.into(), variant.into()],
             ))
             .await
             .unwrap();
             let status = if i < attended { "fulfilled" } else { "no_show" };
-            s.db.execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            s.db.run(Stmt::new(
                 "UPDATE appointments SET status = $2 WHERE id = $1",
                 [ap.id.into(), status.into()],
             ))

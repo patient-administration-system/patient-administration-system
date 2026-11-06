@@ -5,15 +5,16 @@
 //! live in `person-service` and `worker-service`, and an admission refers to a person by the id that service
 //! gave them. Create people there, then use their ids with the PAS.
 
-use sea_orm::{DatabaseConnection, TransactionTrait};
+use crate::db::sql::Transact;
+use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
+use crate::Result;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::db::repositories::bed::BedRepository;
 use crate::db::repositories::facility::{FacilityRepository, RoomRepository, WardRepository};
 use crate::models::Address;
 use crate::models::facility::{Bed, Facility, Room, Ward};
-use crate::{Error, Result};
 
 pub const FACILITY_CODE: &str = "DEMO";
 pub const WARD_CODE: &str = "WARD-A";
@@ -33,7 +34,7 @@ pub struct Seeded {
 
 /// Create the demo facility, ward, room and beds that do not exist yet, in one transaction.
 pub async fn run(db: &DatabaseConnection) -> Result<Seeded> {
-    db.transaction::<_, Seeded, Error>(|txn| {
+    db.in_txn::<_, Seeded>(|txn| {
         Box::pin(async move {
             let ctx = UserContext::system();
             let mut created = 0usize;
@@ -117,5 +118,4 @@ pub async fn run(db: &DatabaseConnection) -> Result<Seeded> {
         })
     })
     .await
-    .map_err(Error::from)
 }

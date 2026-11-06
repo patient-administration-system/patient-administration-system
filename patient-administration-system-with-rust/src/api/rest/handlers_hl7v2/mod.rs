@@ -32,8 +32,6 @@ use axum::{
     response::IntoResponse,
 };
 
-use sea_orm::TransactionTrait;
-
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::request_audit_ctx;
 use crate::db::repositories::admission::AdmissionRepository;

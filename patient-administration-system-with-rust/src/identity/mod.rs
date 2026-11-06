@@ -7,8 +7,9 @@
 //! identity provider's attributes reaches nothing.
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt, Transact};
 use chrono::{DateTime, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -68,19 +69,14 @@ impl IdentityService {
         .to_string();
         let (method, ctx) = (method.to_string(), ctx.clone());
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "UPDATE identity_proofings SET revoked_at = now(), revoked_by = $2 \
+                    txn.run(Stmt::new("UPDATE identity_proofings SET revoked_at = now(), revoked_by = $2 \
                          WHERE subject = $1 AND revoked_at IS NULL",
                         [subject.clone().into(), format!("superseded by {by}").into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "INSERT INTO identity_proofings (id, subject, person_id, method, proofed_by) VALUES ($1,$2,$3,$4,$5)",
+.await?;
+                    txn.run(Stmt::new("INSERT INTO identity_proofings (id, subject, person_id, method, proofed_by) VALUES ($1,$2,$3,$4,$5)",
                         [
                             Uuid::new_v4().into(),
                             subject.into(),
@@ -89,8 +85,7 @@ impl IdentityService {
                             by.clone().into(),
                         ],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                     AuditLogRepository::log_with(
                         txn,
                         "patient",
@@ -106,8 +101,7 @@ impl IdentityService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)
+.await
     }
 
     /// Withdraw the proofing of an account: the portal refuses it from now on.
@@ -119,14 +113,12 @@ impl IdentityService {
         )?;
         let row = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "UPDATE identity_proofings SET revoked_at = now(), revoked_by = $2 \
                  WHERE subject = $1 AND revoked_at IS NULL RETURNING person_id",
                 [subject.into(), by.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::not_found("no live identity proofing for that account"))?;
         let person_id: Uuid = row.col("person_id")?;
         AuditLogRepository::log(
@@ -146,13 +138,10 @@ impl IdentityService {
         let subject = Self::subject(subject)?;
         Ok(self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT 1 AS ok FROM identity_proofings WHERE subject = $1 AND person_id = $2 AND revoked_at IS NULL",
+            .one(Stmt::new("SELECT 1 AS ok FROM identity_proofings WHERE subject = $1 AND person_id = $2 AND revoked_at IS NULL",
                 [subject.into(), person_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .is_some())
     }
 
@@ -160,14 +149,12 @@ impl IdentityService {
     pub async fn get(&self, subject: &str) -> Result<Option<Proofing>> {
         let subject = Self::subject(subject)?;
         self.db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT person_id, method, proofed_by, proofed_at FROM identity_proofings \
                  WHERE subject = $1 AND revoked_at IS NULL",
                 [subject.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .map(|r| {
                 Ok(Proofing {
                     person_id: r.col("person_id")?,

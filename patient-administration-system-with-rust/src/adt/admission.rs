@@ -1,6 +1,7 @@
 //! Part of [`super`]: admission.
 
 use super::*;
+use crate::db::sql::Transact;
 
 impl AdtService {
     /// Admit a patient to a bed.
@@ -25,11 +26,10 @@ impl AdtService {
         let ctx = ctx.clone();
         let res = self
             .db
-            .transaction::<_, AdmissionResult, Error>(|txn| {
+            .in_txn::<_, AdmissionResult>(|txn| {
                 Box::pin(async move { Self::admit_tx(txn, person_id, bed_id, &ctx).await })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publish_admitted(&res).await;
         Ok(res)
     }
@@ -156,7 +156,7 @@ impl AdtService {
         let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
-            .transaction::<_, Encounter, Error>(|txn| {
+            .in_txn::<_, Encounter>(|txn| {
                 let source_for_txn = source_owned.clone();
                 Box::pin(async move {
                     let bed = BedRepository::select_for_update(txn, bed_id)
@@ -202,8 +202,7 @@ impl AdtService {
                     Ok(enc)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
 
         self.publisher
             .publish(DomainEvent::new(
@@ -240,7 +239,7 @@ impl AdtService {
         let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
-            .transaction::<_, Encounter, Error>(|txn| {
+            .in_txn::<_, Encounter>(|txn| {
                 let source_for_txn = source_owned.clone();
                 Box::pin(async move {
                     let bed = BedRepository::select_for_update(txn, bed_id)
@@ -297,8 +296,7 @@ impl AdtService {
                     Ok(enc)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
 
         let mut in_mem = serde_json::json!({
             "encounter_id": res.id,
@@ -349,7 +347,7 @@ impl AdtService {
         let reason_owned = reason.map(std::string::ToString::to_string);
         let res = self
             .db
-            .transaction::<_, Admission, Error>(|txn| {
+            .in_txn::<_, Admission>(|txn| {
                 let reason_for_txn = reason_owned.clone();
                 Box::pin(async move {
                     let adm =
@@ -405,8 +403,7 @@ impl AdtService {
                     Ok(adm)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
 
         let mut in_mem = serde_json::json!({
             "admission_id": admission_id,

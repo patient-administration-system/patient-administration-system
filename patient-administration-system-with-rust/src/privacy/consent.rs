@@ -7,8 +7,8 @@
 //! `marketing` consent). Any future research or sharing endpoint MUST call this before it reads or sends
 //! anything about an identifiable patient; `governance/messaging-rules.md` says the same.
 
+use crate::db::sql::Conn;
 use chrono::Utc;
-use sea_orm::ConnectionTrait;
 use uuid::Uuid;
 
 use crate::db::repositories::consent::ConsentRepository;
@@ -16,11 +16,7 @@ use crate::models::consent::ConsentType;
 use crate::{Error, Result};
 
 /// Is there an active, unexpired, unrevoked consent of this type for the patient?
-pub async fn has_consent<C: ConnectionTrait>(
-    conn: &C,
-    person_id: Uuid,
-    kind: ConsentType,
-) -> Result<bool> {
+pub async fn has_consent<C: Conn>(conn: &C, person_id: Uuid, kind: ConsentType) -> Result<bool> {
     let today = Utc::now().date_naive();
     Ok(ConsentRepository::list_for_patient(conn, person_id)
         .await?
@@ -29,11 +25,7 @@ pub async fn has_consent<C: ConnectionTrait>(
 }
 
 /// Refuse (403) unless the patient has an active consent of this type.
-pub async fn require_consent<C: ConnectionTrait>(
-    conn: &C,
-    person_id: Uuid,
-    kind: ConsentType,
-) -> Result<()> {
+pub async fn require_consent<C: Conn>(conn: &C, person_id: Uuid, kind: ConsentType) -> Result<()> {
     if has_consent(conn, person_id, kind).await? {
         Ok(())
     } else {

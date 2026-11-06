@@ -9,7 +9,8 @@ use axum::{
 };
 use patient_administration_system::api::rest::router;
 use patient_administration_system::audit_export::violations;
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -30,8 +31,7 @@ async fn call(app: &axum::Router, req: Request<Body>) -> (StatusCode, String, Ve
 }
 
 async fn read_rows(db: &sea_orm::DatabaseConnection, patient: Uuid) -> Vec<serde_json::Value> {
-    db.query_all_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    db.all(Stmt::new(
         "SELECT user_id, context FROM audit_log \
          WHERE entity_type = 'patient' AND entity_id = $1 AND action = 'read'",
         [patient.into()],
@@ -41,8 +41,8 @@ async fn read_rows(db: &sea_orm::DatabaseConnection, patient: Uuid) -> Vec<serde
     .iter()
     .map(|r| {
         serde_json::json!({
-            "user": r.try_get::<Option<String>>("", "user_id").unwrap(),
-            "context": r.try_get::<Option<serde_json::Value>>("", "context").unwrap(),
+            "user": r.col::<Option<String>>("user_id").unwrap(),
+            "context": r.col::<Option<serde_json::Value>>("context").unwrap(),
         })
     })
     .collect()
@@ -136,15 +136,13 @@ async fn reading_a_patients_appointments_writes_one_read_event_and_it_exports_as
     // The export is itself audited.
     let n: i64 = state
         .db
-        .query_one_raw(Statement::from_string(
-            DbBackend::Postgres,
-            "SELECT count(*) AS n FROM audit_log WHERE entity_type = 'audit_export' AND user_id = 'auditor'"
+        .one(Stmt::text("SELECT count(*) AS n FROM audit_log WHERE entity_type = 'audit_export' AND user_id = 'auditor'"
                 .to_string(),
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get("", "n")
+        .col("n")
         .unwrap();
     assert!(n >= 1);
 
@@ -191,8 +189,7 @@ async fn a_batch_read_is_audited_by_parameter_names_and_not_by_values() {
 
     let rows = state
         .db
-        .query_all_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .all(Stmt::new(
             "SELECT context::text AS c FROM audit_log \
              WHERE entity_type = 'patient_search' AND action = 'read' AND user_id = $1",
             [user.clone().into()],
@@ -200,7 +197,7 @@ async fn a_batch_read_is_audited_by_parameter_names_and_not_by_values() {
         .await
         .unwrap();
     assert_eq!(rows.len(), 1, "one batch read, one event");
-    let context: String = rows[0].try_get("", "c").unwrap();
+    let context: String = rows[0].col("c").unwrap();
     assert!(context.contains("/api/reasonable-adjustments/for-appointments"));
     assert!(context.contains("\"ids\""), "the parameter name: {context}");
     assert!(

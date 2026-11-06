@@ -1,5 +1,6 @@
 //! billing repository — Account, Charge, Invoice, Payment
 
+use crate::db::sql::Conn;
 use std::str::FromStr;
 
 use rust_decimal::Decimal;
@@ -16,13 +17,13 @@ use crate::{Error, Result};
 pub struct BillingRepository;
 
 impl BillingRepository {
-    pub async fn create_account<C: ConnectionTrait>(conn: &C, a: &Account) -> Result<Account> {
+    pub async fn create_account<C: Conn>(conn: &C, a: &Account) -> Result<Account> {
         let am = account_to_active_model(a);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(a.clone())
     }
 
-    pub async fn find_open_account_for_patient<C: ConnectionTrait>(
+    pub async fn find_open_account_for_patient<C: Conn>(
         conn: &C,
         person_id: Uuid,
     ) -> Result<Option<Account>> {
@@ -37,7 +38,7 @@ impl BillingRepository {
 
     /// Close an account. The row is locked and an account already closed is refused with `409`, so a repeat
     /// cannot move `closed_at` or publish a second `AccountClosed` event (OFH-11).
-    pub async fn close_account<C: ConnectionTrait>(conn: &C, id: Uuid) -> Result<Account> {
+    pub async fn close_account<C: Conn>(conn: &C, id: Uuid) -> Result<Account> {
         let m = account::Entity::find_by_id(id)
             .lock_exclusive()
             .one(conn)
@@ -56,7 +57,7 @@ impl BillingRepository {
         account_from_model(updated)
     }
 
-    pub async fn create_charge<C: ConnectionTrait>(conn: &C, c: &Charge) -> Result<Charge> {
+    pub async fn create_charge<C: Conn>(conn: &C, c: &Charge) -> Result<Charge> {
         let am = charge_to_active_model(c);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(c.clone())
@@ -66,10 +67,7 @@ impl BillingRepository {
     /// outbound publisher (`ChargePosted → DFT^P03`) to chain
     /// charge → account → patient when the outbox payload only
     /// carries `charge_id`.
-    pub async fn find_charge_by_id<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-    ) -> Result<Option<Charge>> {
+    pub async fn find_charge_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Charge>> {
         let m = charge::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -79,10 +77,7 @@ impl BillingRepository {
 
     /// Locate an account by its primary id. Companion to
     /// `find_charge_by_id`.
-    pub async fn find_account_by_id<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-    ) -> Result<Option<Account>> {
+    pub async fn find_account_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Account>> {
         let m = account::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -90,7 +85,7 @@ impl BillingRepository {
         m.map(account_from_model).transpose()
     }
 
-    pub async fn list_charges_for_account<C: ConnectionTrait>(
+    pub async fn list_charges_for_account<C: Conn>(
         conn: &C,
         account_id: Uuid,
     ) -> Result<Vec<Charge>> {
@@ -102,16 +97,13 @@ impl BillingRepository {
         rows.into_iter().map(charge_from_model).collect()
     }
 
-    pub async fn create_invoice<C: ConnectionTrait>(conn: &C, i: &Invoice) -> Result<Invoice> {
+    pub async fn create_invoice<C: Conn>(conn: &C, i: &Invoice) -> Result<Invoice> {
         let am = invoice_to_active_model(i)?;
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(i.clone())
     }
 
-    pub async fn find_invoice_by_id<C: ConnectionTrait>(
-        conn: &C,
-        id: Uuid,
-    ) -> Result<Option<Invoice>> {
+    pub async fn find_invoice_by_id<C: Conn>(conn: &C, id: Uuid) -> Result<Option<Invoice>> {
         let m = invoice::Entity::find_by_id(id)
             .one(conn)
             .await
@@ -119,20 +111,20 @@ impl BillingRepository {
         m.map(invoice_from_model).transpose()
     }
 
-    pub async fn update_invoice<C: ConnectionTrait>(conn: &C, i: &Invoice) -> Result<Invoice> {
+    pub async fn update_invoice<C: Conn>(conn: &C, i: &Invoice) -> Result<Invoice> {
         let mut am = invoice_to_active_model(i)?;
         am.created_at = NotSet;
         am.update(conn).await.map_err(Error::Database)?;
         Ok(i.clone())
     }
 
-    pub async fn create_payment<C: ConnectionTrait>(conn: &C, p: &Payment) -> Result<Payment> {
+    pub async fn create_payment<C: Conn>(conn: &C, p: &Payment) -> Result<Payment> {
         let am = payment_to_active_model(p);
         am.insert(conn).await.map_err(Error::Database)?;
         Ok(p.clone())
     }
 
-    pub async fn list_payments_for_invoice<C: ConnectionTrait>(
+    pub async fn list_payments_for_invoice<C: Conn>(
         conn: &C,
         invoice_id: Uuid,
     ) -> Result<Vec<Payment>> {

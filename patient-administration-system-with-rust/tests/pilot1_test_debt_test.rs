@@ -16,10 +16,11 @@ use patient_administration_system::communication::reminders::{
 };
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::letter::LetterRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
 use patient_administration_system::models::communication::DeliveryChannel;
 use patient_administration_system::upstream::{Person, StubPersonClient};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -92,13 +93,12 @@ async fn letters_by_channel(
     state: &patient_administration_system::api::rest::AppState,
     appt: Uuid,
 ) -> Vec<(String, String)> {
-    let rows = state.db.query_all_raw(Statement::from_sql_and_values(DbBackend::Postgres,
-        "SELECT channel, status FROM generated_letters WHERE appointment_id = $1 ORDER BY created_at, id", [appt.into()])).await.unwrap();
+    let rows = state.db.all(Stmt::new("SELECT channel, status FROM generated_letters WHERE appointment_id = $1 ORDER BY created_at, id", [appt.into()])).await.unwrap();
     rows.iter()
         .map(|r| {
             (
-                r.try_get::<String>("", "channel").unwrap(),
-                r.try_get::<String>("", "status").unwrap(),
+                r.col::<String>("channel").unwrap(),
+                r.col::<String>("status").unwrap(),
             )
         })
         .collect()

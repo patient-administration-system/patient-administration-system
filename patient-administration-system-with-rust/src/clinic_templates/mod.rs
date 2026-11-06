@@ -17,9 +17,11 @@
 
 pub mod report;
 
+use crate::db::sql::Transact;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveTime, TimeZone, Utc};
 use chrono_tz::Europe::London;
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -180,23 +182,18 @@ impl TemplateService {
             created_by,
             "created_by: the person creating the template is required",
         )?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
-        txn.query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        let txn = self.db.begin_txn().await?;
+        txn.one(Stmt::new(
             "SELECT id FROM schedules WHERE id = $1",
             [schedule_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+        .await?
         .ok_or_else(|| Error::not_found(format!("schedule {schedule_id}")))?;
         let id = Uuid::new_v4();
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO session_templates (id, schedule_id, name, created_by) VALUES ($1, $2, $3, $4)",
+        txn.run(Stmt::new("INSERT INTO session_templates (id, schedule_id, name, created_by) VALUES ($1, $2, $3, $4)",
             [id.into(), schedule_id.into(), name.into(), by.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &txn,
             "session_template",
@@ -236,32 +233,25 @@ impl TemplateService {
         if v.effective_from < now.with_timezone(&London).date_naive() {
             return Err(Error::validation("effective_from cannot be in the past"));
         }
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         // Serialise proposals and generation on the template.
-        txn.query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        txn.one(Stmt::new(
             "SELECT id FROM session_templates WHERE id = $1 FOR UPDATE",
             [template_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+        .await?
         .ok_or_else(|| Error::not_found(format!("session template {template_id}")))?;
         let next: i32 = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT (coalesce(max(version), 0) + 1)::integer AS n FROM session_template_versions \
+            .one(Stmt::new("SELECT (coalesce(max(version), 0) + 1)::integer AS n FROM session_template_versions \
                  WHERE template_id = $1",
                 [template_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::internal("no row from max(version)"))?
             .col("n")?;
         let lines = serde_json::to_value(&v.lines)
             .map_err(|e| Error::internal(format!("lines could not be serialized: {e}")))?;
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO session_template_versions \
+        txn.run(Stmt::new("INSERT INTO session_template_versions \
                (template_id, version, weekday, start_time, slot_minutes, effective_from, lines, proposed_by) \
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             [
@@ -275,8 +265,7 @@ impl TemplateService {
                 by.into(),
             ],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &txn,
             "session_template",
@@ -304,16 +293,14 @@ impl TemplateService {
         ctx: &UserContext,
     ) -> Result<()> {
         let by = named_person(approved_by, "approved_by: the approving person is required")?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let row = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT proposed_by, approved_by FROM session_template_versions \
                  WHERE template_id = $1 AND version = $2 FOR UPDATE",
                 [template_id.into(), version.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| {
                 Error::not_found(format!("version {version} of template {template_id}"))
             })?;
@@ -327,14 +314,12 @@ impl TemplateService {
                 "a different person from the proposer must approve a version",
             ));
         }
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        txn.run(Stmt::new(
             "UPDATE session_template_versions SET approved_by = $3, approved_at = $4 \
              WHERE template_id = $1 AND version = $2",
             [template_id.into(), version.into(), by.into(), now.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+        .await?;
         AuditLogRepository::log(
             &txn,
             "session_template",
@@ -352,14 +337,12 @@ impl TemplateService {
     pub async fn list(&self, schedule_id: Option<Uuid>) -> Result<Vec<TemplateView>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT id, schedule_id, name FROM session_templates \
                  WHERE ($1::uuid IS NULL OR schedule_id = $1) ORDER BY created_at, id LIMIT 200",
                 [schedule_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         let mut out = Vec::new();
         for r in rows {
             let id: Uuid = r.col("id")?;
@@ -375,14 +358,11 @@ impl TemplateService {
 
     async fn versions(&self, template_id: Uuid) -> Result<Vec<VersionView>> {
         self.db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT version, weekday, start_time, slot_minutes, effective_from, lines, proposed_by, \
+            .all(Stmt::new("SELECT version, weekday, start_time, slot_minutes, effective_from, lines, proposed_by, \
                         approved_by FROM session_template_versions WHERE template_id = $1 ORDER BY version",
                 [template_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .iter()
             .map(|r| {
                 let lines: serde_json::Value = r.col("lines")?;
@@ -430,28 +410,24 @@ impl TemplateService {
                 "slots cannot be generated for a day in the past",
             ));
         }
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let schedule_id: Uuid = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT schedule_id FROM session_templates WHERE id = $1 FOR UPDATE",
                 [template_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::not_found(format!("session template {template_id}")))?
             .col("schedule_id")?;
         // Approved versions, oldest first, so the last that applies on a day wins.
         let versions = txn
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .all(Stmt::new(
                 "SELECT version, weekday, start_time, slot_minutes, effective_from, lines \
                  FROM session_template_versions WHERE template_id = $1 AND approved_by IS NOT NULL \
                  ORDER BY effective_from, version",
                 [template_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         struct V {
             version: i32,
             weekday: i16,
@@ -490,9 +466,7 @@ impl TemplateService {
                         Some(plan) => {
                             for p in plan {
                                 let n = txn
-                                    .execute_raw(Statement::from_sql_and_values(
-                                        DbBackend::Postgres,
-                                        "INSERT INTO slots (id, schedule_id, start_datetime, end_datetime, \
+                                    .run(Stmt::new("INSERT INTO slots (id, schedule_id, start_datetime, end_datetime, \
                                            status, slot_type, ring_fenced, template_id, template_version, \
                                            created_at, updated_at) \
                                          VALUES ($1, $2, $3, $4, 'free', $5, $6, $7, $8, now(), now()) \
@@ -509,8 +483,7 @@ impl TemplateService {
                                             v.version.into(),
                                         ],
                                     ))
-                                    .await
-                                    .map_err(Error::Database)?
+.await?
                                     .rows_affected();
                                 if n == 1 {
                                     out.created += 1;
@@ -568,20 +541,16 @@ impl TemplateService {
             set_by,
             "set_by: the person changing the ring-fence is required",
         )?;
-        let txn = self.db.begin().await.map_err(Error::Database)?;
+        let txn = self.db.begin_txn().await?;
         let row = txn
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT ring_fenced, status, updated_at, start_datetime > now() AS future FROM slots \
+            .one(Stmt::new("SELECT ring_fenced, status, updated_at, start_datetime > now() AS future FROM slots \
                  WHERE id = $1 FOR UPDATE",
                 [slot_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::not_found(format!("slot {slot_id}")))?;
         let old: bool = row.col("ring_fenced")?;
-        let stored: chrono::DateTime<chrono::Utc> =
-            row.try_get("", "updated_at").map_err(Error::Database)?;
+        let stored: chrono::DateTime<chrono::Utc> = row.col("updated_at")?;
         if !crate::api::rest::concurrency::is_current(stored, expected) {
             return Err(Error::precondition_failed(
                 "the slot has changed since it was read; read it again",
@@ -594,13 +563,11 @@ impl TemplateService {
                 "only a free slot still to come can be ring-fenced or released",
             ));
         }
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        txn.run(Stmt::new(
             "UPDATE slots SET ring_fenced = $2, updated_at = now() WHERE id = $1",
             [slot_id.into(), ring_fenced.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+        .await?;
         AuditLogRepository::log(
             &txn,
             "slot",

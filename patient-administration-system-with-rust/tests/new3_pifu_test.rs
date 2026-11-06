@@ -4,8 +4,9 @@ mod common;
 
 use chrono::{Duration, Utc};
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::pifu::{Decision, NewEpisode, PifuService};
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
 fn new<'a>(service: &'a str, days: i64) -> NewEpisode<'a> {
@@ -173,9 +174,7 @@ async fn an_urgent_service_needs_a_named_override_and_bad_input_is_refused() {
     let now = Utc::now();
     state
         .db
-        .execute_raw(Statement::from_string(
-            DbBackend::Postgres,
-            "INSERT INTO follow_up_policies (service_type, approved_by) VALUES ('new3-urgent', 'Dr Approver') \
+        .run(Stmt::text("INSERT INTO follow_up_policies (service_type, approved_by) VALUES ('new3-urgent', 'Dr Approver') \
              ON CONFLICT DO NOTHING",
         ))
         .await
@@ -219,14 +218,13 @@ async fn an_urgent_service_needs_a_named_override_and_bad_input_is_refused() {
 }
 
 async fn status_of(db: &sea_orm::DatabaseConnection, id: Uuid) -> String {
-    db.query_one_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
+    db.one(Stmt::new(
         "SELECT status FROM pifu_episodes WHERE id = $1",
         [id.into()],
     ))
     .await
     .unwrap()
     .unwrap()
-    .try_get("", "status")
+    .col("status")
     .unwrap()
 }

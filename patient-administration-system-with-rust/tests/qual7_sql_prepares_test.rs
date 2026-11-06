@@ -1,11 +1,12 @@
 //! QUAL-7: every static SQL statement in the server prepares against the migrated schema, so a misspelt
 //! column, a renamed table or an impossible type shows up here and not on the first request that needs it.
-//! Needs PostgreSQL: `cargo test -- --ignored`. Statements built with `format!` are not covered (17 at the time
+//! Needs PostgreSQL: `cargo test -- --ignored`. Statements built with `format!` are not covered (36 at the time
 //! of writing); the others are found by reading the source.
 
 mod common;
 
-use sea_orm::{ConnectionTrait, TransactionTrait};
+use patient_administration_system::db::sql::Conn;
+use patient_administration_system::db::sql::Transact;
 use std::path::{Path, PathBuf};
 
 fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -60,7 +61,7 @@ fn string_literal(s: &str) -> Option<(String, usize)> {
     None
 }
 
-/// `(file, line, sql)` for every `from_sql_and_values(DbBackend::Postgres, "<literal>"` in production code.
+/// `(file, line, sql)` for every `Stmt::new("<literal>"` and `Stmt::text("<literal>"` in production code.
 fn static_statements() -> (Vec<(PathBuf, usize, String)>, usize) {
     let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut files = Vec::new();
@@ -71,22 +72,18 @@ fn static_statements() -> (Vec<(PathBuf, usize, String)>, usize) {
         let prod = text
             .find("#[cfg(test)]")
             .map_or(text.as_str(), |i| &text[..i]);
-        let needle = "from_sql_and_values(";
-        let mut from = 0;
-        while let Some(at) = prod[from..].find(needle) {
-            let start = from + at + needle.len();
-            from = start;
-            let rest = prod[start..].trim_start();
-            let Some(rest) = rest.strip_prefix("DbBackend::Postgres,") else {
-                continue;
-            };
-            let rest = rest.trim_start();
-            match string_literal(rest) {
-                Some((sql, _)) => {
-                    let line = prod[..start].matches('\n').count() + 1;
-                    found.push((path.clone(), line, sql));
+        for needle in ["Stmt::new(", "Stmt::text("] {
+            let mut from = 0;
+            while let Some(at) = prod[from..].find(needle) {
+                let start = from + at + needle.len();
+                from = start;
+                match string_literal(prod[start..].trim_start()) {
+                    Some((sql, _)) => {
+                        let line = prod[..start].matches('\n').count() + 1;
+                        found.push((path.clone(), line, sql));
+                    }
+                    None => dynamic += 1,
                 }
-                None => dynamic += 1,
             }
         }
     }
@@ -128,12 +125,10 @@ async fn every_static_sql_statement_prepares() {
         // One transaction (so one connection) per statement. A prepared statement belongs to the connection and
         // survives a rollback, so it has its own name and is dropped again.
         let name = format!("qual7_statement_{n}");
-        let txn = db.begin().await.expect("begin");
-        let result = txn
-            .execute_unprepared(&format!("PREPARE {name} AS {sql}"))
-            .await;
+        let txn = db.begin_txn().await.expect("begin");
+        let result = txn.batch(&format!("PREPARE {name} AS {sql}")).await;
         if result.is_ok() {
-            txn.execute_unprepared(&format!("DEALLOCATE {name}"))
+            txn.batch(&format!("DEALLOCATE {name}"))
                 .await
                 .expect("deallocate");
         }

@@ -1,6 +1,7 @@
 //! Part of [`super`]: movements.
 
 use super::*;
+use crate::db::sql::Transact;
 
 impl AdtService {
     /// Transfer an admitted patient to a new bed.
@@ -32,7 +33,7 @@ impl AdtService {
         let ctx_clone = ctx.clone();
         let res = self
             .db
-            .transaction::<_, Transfer, Error>(|txn| {
+            .in_txn::<_, Transfer>(|txn| {
                 Box::pin(async move {
                     let adm =
                         AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected)
@@ -91,8 +92,7 @@ impl AdtService {
                     Ok(t)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
 
         self.publisher
             .publish(DomainEvent::new(
@@ -135,7 +135,7 @@ impl AdtService {
         let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
-            .transaction::<_, AdmissionResult, Error>(|txn| {
+            .in_txn::<_, AdmissionResult>(|txn| {
                 let source_for_txn = source_owned.clone();
                 Box::pin(async move {
                     let bed = BedRepository::select_for_update(txn, bed_id)
@@ -201,8 +201,7 @@ impl AdtService {
                     })
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         let mut in_mem = serde_json::json!({
             "encounter_id": res.encounter.id,
             "admission_id": res.admission.id,
@@ -258,7 +257,7 @@ impl AdtService {
         let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
-            .transaction::<_, Encounter, Error>(|txn| {
+            .in_txn::<_, Encounter>(|txn| {
                 let source_for_txn = source_owned.clone();
                 Box::pin(async move {
                     let adm =
@@ -306,8 +305,7 @@ impl AdtService {
                     Ok(enc)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         let mut in_mem = serde_json::json!({
             "encounter_id": res.id,
             "person_id": res.person_id,
@@ -363,7 +361,7 @@ impl AdtService {
         let source_owned = source.map(std::string::ToString::to_string);
         let res = self
             .db
-            .transaction::<_, Admission, Error>(|txn| {
+            .in_txn::<_, Admission>(|txn| {
                 let source_for_txn = source_owned.clone();
                 Box::pin(async move {
                     let adm = AdmissionRepository::lock_and_bump_if_current(txn, admission_id, expected).await?;
@@ -461,8 +459,7 @@ impl AdtService {
                     Ok(adm)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
 
         let mut in_mem = serde_json::json!({
             "admission_id": admission_id,

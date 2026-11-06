@@ -15,8 +15,9 @@
 //!   every variant with that in mind (`governance/messaging-rules.md`).
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt, Transact};
 use chrono::{DateTime, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -39,59 +40,48 @@ pub fn pick(experiment: Uuid, appointment: Uuid, variants: usize) -> usize {
 
 /// The template group to send for this appointment: the assigned variant's, if a live experiment covers
 /// `template_name`, else `template_name` itself. Assigns (and records) on first use.
-pub async fn resolve_name<C: ConnectionTrait>(
+pub async fn resolve_name<C: Conn>(
     conn: &C,
     appointment_id: Uuid,
     template_name: &str,
 ) -> Result<String> {
     let Some(exp) = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
+        .one(Stmt::new(
             "SELECT id FROM message_experiments WHERE template_name = $1 AND stopped_at IS NULL",
             [template_name.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+        .await?
     else {
         return Ok(template_name.to_string());
     };
     let exp_id: Uuid = exp.col("id")?;
     // Already assigned: the same wording as before.
     if let Some(r) = conn
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT v.template_name FROM message_experiment_assignments a \
+        .one(Stmt::new("SELECT v.template_name FROM message_experiment_assignments a \
              JOIN message_experiment_variants v ON v.experiment_id = a.experiment_id AND v.variant = a.variant \
              WHERE a.experiment_id = $1 AND a.appointment_id = $2",
             [exp_id.into(), appointment_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?
+.await?
     {
         return r.col("template_name");
     }
     let variants = conn
-        .query_all_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT variant, template_name FROM message_experiment_variants WHERE experiment_id = $1 ORDER BY variant",
+        .all(Stmt::new("SELECT variant, template_name FROM message_experiment_variants WHERE experiment_id = $1 ORDER BY variant",
             [exp_id.into()],
         ))
-        .await
-        .map_err(Error::Database)?;
+.await?;
     if variants.is_empty() {
         return Ok(template_name.to_string());
     }
     let chosen = &variants[pick(exp_id, appointment_id, variants.len())];
     let variant: String = chosen.col("variant")?;
     let name: String = chosen.col("template_name")?;
-    conn.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "INSERT INTO message_experiment_assignments (experiment_id, appointment_id, variant) VALUES ($1,$2,$3) \
+    conn.run(Stmt::new("INSERT INTO message_experiment_assignments (experiment_id, appointment_id, variant) VALUES ($1,$2,$3) \
          ON CONFLICT DO NOTHING",
         [exp_id.into(), appointment_id.into(), variant.into()],
     ))
-    .await
-    .map_err(Error::Database)?;
+.await?;
     Ok(name)
 }
 
@@ -192,31 +182,25 @@ impl ExperimentService {
         let id = Uuid::new_v4();
         let (name, ctx) = (template_name.to_string(), ctx.clone());
         self.db
-            .transaction::<_, (), Error>(|txn| {
+            .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
                     let made = txn
-                        .execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "INSERT INTO message_experiments (id, template_name, started_by) VALUES ($1,$2,$3)",
+                        .run(Stmt::new("INSERT INTO message_experiments (id, template_name, started_by) VALUES ($1,$2,$3)",
                             [id.into(), name.clone().into(), started_by.clone().into()],
                         ))
                         .await;
                     if let Err(e) = made {
-                        return Err(match e.sql_err() {
-                            Some(sea_orm::SqlErr::UniqueConstraintViolation(_)) => {
-                                Error::conflict("that message already has a running experiment; stop it first")
-                            }
-                            _ => Error::Database(e),
+                        return Err(if crate::db::sql::is_unique_violation(&e) {
+                            Error::conflict("that message already has a running experiment; stop it first")
+                        } else {
+                            e
                         });
                     }
                     for (k, g) in &variants {
-                        txn.execute_raw(Statement::from_sql_and_values(
-                            DbBackend::Postgres,
-                            "INSERT INTO message_experiment_variants (experiment_id, variant, template_name) VALUES ($1,$2,$3)",
+                        txn.run(Stmt::new("INSERT INTO message_experiment_variants (experiment_id, variant, template_name) VALUES ($1,$2,$3)",
                             [id.into(), k.clone().into(), g.clone().into()],
                         ))
-                        .await
-                        .map_err(Error::Database)?;
+.await?;
                     }
                     AuditLogRepository::log(
                         txn,
@@ -231,8 +215,7 @@ impl ExperimentService {
                     Ok(())
                 })
             })
-            .await
-            .map_err(Error::from)?;
+.await?;
         Ok(id)
     }
 
@@ -245,13 +228,10 @@ impl ExperimentService {
         )?;
         let r = self
             .db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "UPDATE message_experiments SET stopped_at = now(), stopped_by = $2 WHERE id = $1 AND stopped_at IS NULL",
+            .run(Stmt::new("UPDATE message_experiments SET stopped_at = now(), stopped_by = $2 WHERE id = $1 AND stopped_at IS NULL",
                 [id.into(), by.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         if r.rows_affected() == 0 {
             return Err(Error::conflict(
                 "that experiment is unknown or already stopped",
@@ -272,25 +252,19 @@ impl ExperimentService {
     pub async fn list(&self) -> Result<Vec<Experiment>> {
         let rows = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
-                "SELECT id, template_name, started_by, started_at, stopped_at FROM message_experiments ORDER BY started_at DESC LIMIT 200"
+            .all(Stmt::text("SELECT id, template_name, started_by, started_at, stopped_at FROM message_experiments ORDER BY started_at DESC LIMIT 200"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let mut out = Vec::new();
         for r in rows {
             let id: Uuid = r.col("id")?;
             let vs = self
                 .db
-                .query_all_raw(Statement::from_sql_and_values(
-                    DbBackend::Postgres,
-                    "SELECT variant, template_name FROM message_experiment_variants WHERE experiment_id = $1 ORDER BY variant",
+                .all(Stmt::new("SELECT variant, template_name FROM message_experiment_variants WHERE experiment_id = $1 ORDER BY variant",
                     [id.into()],
                 ))
-                .await
-                .map_err(Error::Database)?;
+.await?;
             out.push(Experiment {
                 id,
                 template_name: r.col("template_name")?,
@@ -310,22 +284,18 @@ impl ExperimentService {
     pub async fn readout(&self, id: Uuid, k: Option<i64>) -> Result<Readout> {
         let exists = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT 1 AS ok FROM message_experiments WHERE id = $1",
                 [id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         if exists.is_none() {
             return Err(Error::not_found(format!("experiment {id}")));
         }
         let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT x.variant, COALESCE(d.deprivation_quintile::text, 'unknown') AS q, \
+            .all(Stmt::new("SELECT x.variant, COALESCE(d.deprivation_quintile::text, 'unknown') AS q, \
                         COALESCE(cp.preferred_language, 'unknown') AS lang, count(*)::bigint AS n, \
                         count(*) FILTER (WHERE a.confirmed_at IS NOT NULL OR a.status IN ('arrived','fulfilled'))::bigint AS confirmed, \
                         count(*) FILTER (WHERE a.status IN ('arrived','fulfilled'))::bigint AS attended, \
@@ -336,8 +306,7 @@ impl ExperimentService {
                  WHERE x.experiment_id = $1 GROUP BY 1, 2, 3 ORDER BY 1, 2, 3",
                 [id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let mut data = Vec::new();
         let mut extra = Vec::new();
         let mut total = 0;

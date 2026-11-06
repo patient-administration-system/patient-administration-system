@@ -11,8 +11,10 @@
 //! - **An empty range gives zeros, never an error.**
 
 use crate::db::row::RowExt;
+use crate::db::sql::Param;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -229,7 +231,7 @@ impl ReportService {
             ),
         };
         let params = |extra_tz: bool| {
-            let mut v: Vec<sea_orm::Value> = vec![from.into(), to.into()];
+            let mut v: Vec<Param> = vec![from.into(), to.into()];
             if extra_tz {
                 v.push(tz.clone().into());
             }
@@ -238,9 +240,7 @@ impl ReportService {
         let by_day = group == GroupBy::Day;
         let appts = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                format!(
+            .all(Stmt::new(format!(
                     "SELECT {appt_key} AS k, \
                        count(*) FILTER (WHERE a.status IN ('booked','proposed'))::bigint AS booked, \
                        count(*) FILTER (WHERE a.status IN ('arrived','fulfilled'))::bigint AS attended, \
@@ -253,21 +253,17 @@ impl ReportService {
                 ),
                 params(by_day),
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let slots = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                format!(
+            .all(Stmt::new(format!(
                     "SELECT {slot_key} AS k, count(*)::bigint AS slots, \
                             count(*) FILTER (WHERE sl.status = 'busy')::bigint AS busy \
                      FROM slots sl WHERE sl.start_datetime >= $1 AND sl.start_datetime < $2 GROUP BY 1"
                 ),
                 params(by_day),
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
 
         let mut rows: BTreeMap<String, Row> = BTreeMap::new();
         for r in &appts {
@@ -302,13 +298,10 @@ impl ReportService {
             if !ids.is_empty() {
                 let svc = self
                     .db
-                    .query_all_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "SELECT id::text AS id, service_type FROM schedules WHERE id::text = ANY($1)",
+                    .all(Stmt::new("SELECT id::text AS id, service_type FROM schedules WHERE id::text = ANY($1)",
                         [ids.into()],
                     ))
-                    .await
-                    .map_err(Error::Database)?;
+.await?;
                 for r in &svc {
                     let id: String = r.col("id")?;
                     if let Some(row) = rows.get_mut(&id) {
@@ -328,17 +321,14 @@ impl ReportService {
     async fn lead_days(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<f64>> {
         let leads = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT (extract(epoch FROM (start_datetime - created_at)) / 86400)::float8 AS d FROM appointments \
+            .all(Stmt::new("SELECT (extract(epoch FROM (start_datetime - created_at)) / 86400)::float8 AS d FROM appointments \
                  WHERE deleted_at IS NULL AND start_datetime >= $1 AND start_datetime < $2",
                 [from.into(), to.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let lead_days: Vec<f64> = leads
             .iter()
-            .filter_map(|r| r.try_get::<f64>("", "d").ok())
+            .filter_map(|r| r.col::<f64>("d").ok())
             .map(|d| d.max(0.0).floor())
             .collect();
 
@@ -349,13 +339,11 @@ impl ReportService {
     async fn open_pathways(&self) -> Result<(Vec<f64>, Vec<(String, f64)>, i64)> {
         let paths = self
             .db
-            .query_all_raw(Statement::from_string(
-                DbBackend::Postgres,
+            .all(Stmt::text(
                 "SELECT id, target_service FROM rtt_pathways WHERE stopped_at IS NULL LIMIT 20000"
                     .to_string(),
             ))
-            .await
-            .map_err(Error::Database)?;
+            .await?;
         let now = Utc::now();
         let mut weeks = Vec::new();
         let mut by_service = Vec::new();

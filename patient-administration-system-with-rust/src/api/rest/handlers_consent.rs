@@ -1,11 +1,11 @@
 //! REST handlers for Consent.
 
+use crate::db::sql::Transact;
 use axum::{
     Json,
     extract::{Path, State},
     http::HeaderMap,
 };
-use sea_orm::TransactionTrait;
 use uuid::Uuid;
 
 use crate::Error;
@@ -45,7 +45,7 @@ pub async fn create_consent(
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let c = ConsentRepository::create(&txn, &body).await?;
         AuditLogRepository::log(
             &txn,
@@ -107,7 +107,7 @@ pub async fn revoke_consent(
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
-        let txn = state.db.begin().await.map_err(Error::Database)?;
+        let txn = state.db.begin_txn().await?;
         let c = ConsentRepository::revoke(&txn, id).await?;
         AuditLogRepository::log(
             &txn,

@@ -30,7 +30,8 @@ pub mod whatsapp;
 pub use sender::{LogMessageSender, MessageSender, SmsSender};
 pub use sms::{LogSmsProvider, NoopSmsProvider, SmsProvider};
 
-use sea_orm::{DatabaseConnection, TransactionTrait};
+use crate::db::sql::Transact;
+use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -395,7 +396,7 @@ impl CommunicationService {
         let letter_clone = letter;
         let persisted = self
             .db
-            .transaction::<_, GeneratedLetter, Error>(|txn| {
+            .in_txn::<_, GeneratedLetter>(|txn| {
                 Box::pin(async move {
                     let l = LetterRepository::create_generated_letter(txn, &letter_clone).await?;
                     AuditLogRepository::log(
@@ -421,8 +422,7 @@ impl CommunicationService {
                     Ok(l)
                 })
             })
-            .await
-            .map_err(Error::from)?;
+            .await?;
         self.publisher
             .publish(DomainEvent::new(
                 "LetterGenerated",
@@ -447,7 +447,7 @@ impl CommunicationService {
         // The portal needs no carrier: storing the message is delivering it.
         if channel == DeliveryChannel::Portal {
             // Marking it sent and the audit row commit together, or neither is kept (NFR-25).
-            let txn = self.db.begin().await.map_err(Error::Database)?;
+            let txn = self.db.begin_txn().await?;
             let updated = LetterRepository::mark_sent(&txn, persisted.id).await?;
             AuditLogRepository::log(
                 &txn,

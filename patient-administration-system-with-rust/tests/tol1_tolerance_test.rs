@@ -12,6 +12,8 @@ use axum::{
 };
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::tolerance::{Limits, METRICS, Rag, Scope, ScopeKind};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -300,8 +302,6 @@ async fn the_http_endpoints_list_set_read_and_reset() {
 
 // ---- Per service, per ward, and alerts ----
 
-use sea_orm::{ConnectionTrait, DbBackend, Statement};
-
 fn reading<'a>(
     list: &'a [patient_administration_system::tolerance::Reading],
     metric: &str,
@@ -440,16 +440,10 @@ async fn a_ward_is_judged_on_its_own_beds() {
     reset_all(&s).await;
     let code = format!("TW{}", &Uuid::new_v4().simple().to_string()[..10]);
     let (fac, ward, room) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
-    let run = |sql: String, vals: Vec<sea_orm::Value>| {
+    let run = |sql: String, vals: Vec<patient_administration_system::db::sql::Param>| {
         let db = s.db.clone();
         async move {
-            db.execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                sql,
-                vals,
-            ))
-            .await
-            .unwrap();
+            db.run(Stmt::new(sql, vals)).await.unwrap();
         }
     };
     run(
@@ -534,15 +528,13 @@ async fn a_red_measure_opens_one_alert_that_closes_when_it_recovers() {
     // The event was published once.
     let n: i64 = s
         .db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT count(*)::bigint AS n FROM outbox_events WHERE event_type = 'ToleranceAlertRaised' AND payload->>'scope_key' = $1",
+        .one(Stmt::new("SELECT count(*)::bigint AS n FROM outbox_events WHERE event_type = 'ToleranceAlertRaised' AND payload->>'scope_key' = $1",
             [svc.clone().into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get("", "n")
+        .col("n")
         .unwrap();
     assert_eq!(n, 1);
 

@@ -9,8 +9,9 @@
 //!   else: it does not remove the patient from a list or stop their clock. A person decides what follows.
 
 use crate::db::row::RowExt;
+use crate::db::sql::{Conn, Stmt};
 use chrono::{DateTime, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -68,13 +69,10 @@ impl WaitsService {
     pub async fn lead_time(&self, appointment_id: Uuid) -> Result<LeadTime> {
         let r = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT created_at, start_datetime FROM appointments WHERE id = $1 AND deleted_at IS NULL",
+            .one(Stmt::new("SELECT created_at, start_datetime FROM appointments WHERE id = $1 AND deleted_at IS NULL",
                 [appointment_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+.await?
             .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
         Ok(Self::lead(
             appointment_id,
@@ -92,15 +90,12 @@ impl WaitsService {
     pub async fn patient_waits(&self, person_id: Uuid) -> Result<PatientWaits> {
         let appts = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT id, created_at, start_datetime FROM appointments \
+            .all(Stmt::new("SELECT id, created_at, start_datetime FROM appointments \
                  WHERE person_id = $1 AND deleted_at IS NULL AND status NOT IN ('cancelled','no_show') \
                  ORDER BY start_datetime",
                 [person_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let appointments = appts
             .iter()
             .map(|r| {
@@ -113,15 +108,12 @@ impl WaitsService {
             .collect::<Result<Vec<_>>>()?;
         let paths = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT p.id, p.target_service, \
+            .all(Stmt::new("SELECT p.id, p.target_service, \
                         (SELECT max(asked_at) FROM still_needed_checks c WHERE c.pathway_id = p.id) AS last_check \
                  FROM rtt_pathways p WHERE p.person_id = $1 AND p.stopped_at IS NULL ORDER BY p.started_at",
                 [person_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let mut pathways = Vec::new();
         for r in &paths {
             let id: Uuid = r.col("id")?;
@@ -149,9 +141,7 @@ impl WaitsService {
         let repeat = repeat_days.unwrap_or_else(|| env::int("PAS_CHECK_REPEAT_DAYS"));
         let rows = self
             .db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT p.id, p.person_id, p.target_service, \
+            .all(Stmt::new("SELECT p.id, p.person_id, p.target_service, \
                         (SELECT max(asked_at) FROM still_needed_checks c WHERE c.pathway_id = p.id) AS last_check \
                  FROM rtt_pathways p WHERE p.stopped_at IS NULL \
                    AND NOT EXISTS (SELECT 1 FROM still_needed_checks c WHERE c.pathway_id = p.id \
@@ -159,8 +149,7 @@ impl WaitsService {
                  ORDER BY p.started_at LIMIT 5000",
                 [(repeat as i32).into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         let mut out = Vec::new();
         for r in &rows {
             let id: Uuid = r.col("id")?;
@@ -187,24 +176,19 @@ impl WaitsService {
             crate::validation::named_person(asked_by, "a check names who asked (asked_by)")?;
         let person = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "SELECT person_id FROM rtt_pathways WHERE id = $1 AND stopped_at IS NULL",
                 [pathway_id.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::not_found(format!("open pathway {pathway_id}")))?;
         let person_id: Uuid = person.col("person_id")?;
         let id = Uuid::new_v4();
         self.db
-            .execute_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "INSERT INTO still_needed_checks (id, pathway_id, person_id, asked_by) VALUES ($1,$2,$3,$4)",
+            .run(Stmt::new("INSERT INTO still_needed_checks (id, pathway_id, person_id, asked_by) VALUES ($1,$2,$3,$4)",
                 [id.into(), pathway_id.into(), person_id.into(), asked_by.into()],
             ))
-            .await
-            .map_err(Error::Database)?;
+.await?;
         AuditLogRepository::log(
             &self.db,
             "rtt_pathway",
@@ -238,14 +222,12 @@ impl WaitsService {
         )?;
         let row = self
             .db
-            .query_one_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+            .one(Stmt::new(
                 "UPDATE still_needed_checks SET answer = $2, recorded_by = $3, answered_at = now() \
                  WHERE id = $1 AND answer IS NULL RETURNING pathway_id",
                 [check_id.into(), answer.into(), recorded_by.into()],
             ))
-            .await
-            .map_err(Error::Database)?
+            .await?
             .ok_or_else(|| Error::conflict("that check is unknown or already answered"))?;
         let pathway_id: Uuid = row.col("pathway_id")?;
         AuditLogRepository::log_with(

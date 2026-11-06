@@ -15,6 +15,8 @@ use patient_administration_system::db::repositories::appointment::AppointmentRep
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::bed::BedRepository;
 use patient_administration_system::db::repositories::encounter::EncounterRepository;
+use patient_administration_system::db::row::RowExt;
+use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::Address;
 use patient_administration_system::models::appointment::{
     Appointment, AppointmentStatus, BarrierCode, CancelledBy,
@@ -24,7 +26,6 @@ use patient_administration_system::models::encounter::{
 };
 use patient_administration_system::models::facility::{Bed, BedStatus, Facility, Room, Ward};
 use patient_administration_system::scheduling::CancelDetails;
-use sea_orm::ConnectionTrait;
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -364,15 +365,13 @@ async fn two_admissions_into_one_bed_at_once_admit_one() {
         assert_eq!(got, [StatusCode::OK, StatusCode::CONFLICT], "one wins");
         let active = s
             .db
-            .query_one_raw(sea_orm::Statement::from_sql_and_values(
-                sea_orm::DbBackend::Postgres,
-                "SELECT count(*) AS n FROM bed_assignments WHERE bed_id = $1 AND released_at IS NULL",
+            .one(Stmt::new("SELECT count(*) AS n FROM bed_assignments WHERE bed_id = $1 AND released_at IS NULL",
                 [bed.into()],
             ))
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(active.try_get::<i64>("", "n").unwrap(), 1, "one occupant");
+        assert_eq!(active.col::<i64>("n").unwrap(), 1, "one occupant");
     }
     for _ in 0..4 {
         let bed = beds(&app, 1).await[0];
@@ -411,8 +410,7 @@ async fn slot_capacity_and_ring_fence_check_the_slot_version() {
     let slot = common::free_slot(&s.db, schedule, 12).await;
     let uri = format!("/api/slots/{}", slot.id);
     let stored = || async {
-        s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT capacity, ring_fenced FROM slots WHERE id = $1",
             [slot.id.into()],
         ))
@@ -420,14 +418,14 @@ async fn slot_capacity_and_ring_fence_check_the_slot_version() {
         .unwrap()
         .unwrap()
     };
-    let before = stored().await.try_get::<i32>("", "capacity").unwrap();
+    let before = stored().await.col::<i32>("capacity").unwrap();
     three_answers(
         &app,
         &uri,
         "PUT",
         &format!("{uri}/capacity"),
         serde_json::json!({"capacity": before + 3, "set_by": "Clinic lead"}),
-        || async { stored().await.try_get::<i32>("", "capacity").unwrap() == before },
+        || async { stored().await.col::<i32>("capacity").unwrap() == before },
     )
     .await;
     three_answers(
@@ -436,7 +434,7 @@ async fn slot_capacity_and_ring_fence_check_the_slot_version() {
         "PUT",
         &format!("{uri}/ring-fence"),
         serde_json::json!({"ring_fenced": true, "set_by": "Clinic lead"}),
-        || async { !stored().await.try_get::<bool>("", "ring_fenced").unwrap() },
+        || async { !stored().await.col::<bool>("ring_fenced").unwrap() },
     )
     .await;
 }
@@ -470,15 +468,14 @@ async fn referral_close_and_triage_check_the_referral_version() {
     let status_of = |id: Uuid| {
         let db = s.db.clone();
         async move {
-            db.query_one_raw(sea_orm::Statement::from_sql_and_values(
-                sea_orm::DbBackend::Postgres,
+            db.one(Stmt::new(
                 "SELECT status FROM referrals WHERE id = $1",
                 [id.into()],
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get::<String>("", "status")
+            .col::<String>("status")
             .unwrap()
         }
     };
@@ -534,15 +531,14 @@ async fn coverage_and_letter_template_edits_check_the_record_version() {
     let uri = format!("/api/coverages/{id}");
     coverage["payor_name"] = "Changed Ltd".into();
     let payor = || async {
-        s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT payor_name FROM coverages WHERE id = $1",
             [id.parse::<Uuid>().unwrap().into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get::<String>("", "payor_name")
+        .col::<String>("payor_name")
         .unwrap()
     };
     three_answers(&app, &uri, "PUT", &uri, coverage, || async {
@@ -558,15 +554,14 @@ async fn coverage_and_letter_template_edits_check_the_record_version() {
         &uri,
         serde_json::json!({}),
         || async {
-            s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
-                sea_orm::DbBackend::Postgres,
+            s.db.one(Stmt::new(
                 "SELECT status FROM coverages WHERE id = $1",
                 [id.parse::<Uuid>().unwrap().into()],
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get::<String>("", "status")
+            .col::<String>("status")
             .unwrap()
                 != "cancelled"
         },
@@ -600,15 +595,14 @@ async fn a_letter_template_edit_checks_the_template_version() {
     let mut edit = template("Second");
     edit["id"] = id.to_string().into();
     three_answers(&app, &uri, "PUT", &uri, edit, || async {
-        s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT body_tera FROM letter_templates WHERE id = $1",
             [id.into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get::<String>("", "body_tera")
+        .col::<String>("body_tera")
         .unwrap()
             == "First"
     })
@@ -635,15 +629,14 @@ async fn standby_remove_and_book_check_the_entry_version() {
     let active = |id: Uuid| {
         let db = s.db.clone();
         async move {
-            db.query_one_raw(sea_orm::Statement::from_sql_and_values(
-                sea_orm::DbBackend::Postgres,
+            db.one(Stmt::new(
                 "SELECT active FROM standby_entries WHERE id = $1",
                 [id.into()],
             ))
             .await
             .unwrap()
             .unwrap()
-            .try_get::<bool>("", "active")
+            .col::<bool>("active")
             .unwrap()
         }
     };
@@ -738,15 +731,14 @@ async fn pifu_review_request_and_handle_are_safe_without_a_version() {
     );
     assert_eq!(a.is_ok() as u8 + b.is_ok() as u8, 1, "{a:?} {b:?}");
     let extended: i32 =
-        s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT extended_count FROM pifu_episodes WHERE id = $1",
             [episode.id.into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get("", "extended_count")
+        .col("extended_count")
         .unwrap();
     assert_eq!(extended, 1, "the window was extended once, not twice");
 
@@ -780,15 +772,14 @@ async fn closing_an_account_twice_is_refused_and_moves_nothing() {
     let id: Uuid = v["data"]["id"].as_str().unwrap().parse().unwrap();
     let uri = format!("/api/accounts/{id}/close");
     let closed_at = || async {
-        s.db.query_one_raw(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
+        s.db.one(Stmt::new(
             "SELECT closed_at::text AS v FROM accounts WHERE id = $1",
             [id.into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get::<String>("", "v")
+        .col::<String>("v")
         .unwrap()
     };
     // Two closes at once: one wins, the other is refused, and one event is published.
@@ -805,15 +796,13 @@ async fn closing_an_account_twice_is_refused_and_moves_nothing() {
     assert_eq!(closed_at().await, first, "a repeat moved closed_at");
     let events: i64 = s
         .db
-        .query_one_raw(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
-            "SELECT count(*) AS n FROM outbox_events WHERE event_type = 'AccountClosed' AND payload->>'account_id' = $1",
+        .one(Stmt::new("SELECT count(*) AS n FROM outbox_events WHERE event_type = 'AccountClosed' AND payload->>'account_id' = $1",
             [id.to_string().into()],
         ))
         .await
         .unwrap()
         .unwrap()
-        .try_get("", "n")
+        .col("n")
         .unwrap();
     assert_eq!(events, 1, "one close, one event");
 }
@@ -860,18 +849,13 @@ async fn cancelling_a_series_never_cancels_a_patient_who_has_arrived() {
         let (status, arrived): (String, bool) = {
             let r = s
                 .db
-                .query_one_raw(sea_orm::Statement::from_sql_and_values(
-                    sea_orm::DbBackend::Postgres,
-                    "SELECT status, arrived_at IS NOT NULL AS arrived FROM appointments WHERE id = $1",
+                .one(Stmt::new("SELECT status, arrived_at IS NOT NULL AS arrived FROM appointments WHERE id = $1",
                     [first.into()],
                 ))
                 .await
                 .unwrap()
                 .unwrap();
-            (
-                r.try_get("", "status").unwrap(),
-                r.try_get("", "arrived").unwrap(),
-            )
+            (r.col("status").unwrap(), r.col("arrived").unwrap())
         };
         // Either the check-in won (they stay arrived) or the cancel did (the check-in was refused);
         // never cancelled with an arrival recorded.
@@ -893,7 +877,7 @@ async fn a_conversion_review_never_undoes_a_check_in_that_happened_at_the_same_t
     let ctx = UserContext::system();
     for _ in 0..20 {
         let a = booked(&s).await;
-        s.db.execute_unprepared(&format!(
+        s.db.batch(&format!(
             "UPDATE appointments SET modality = 'video', conversion_state = 'pending_review' WHERE id = '{}'",
             a.id
         ))
