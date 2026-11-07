@@ -8,7 +8,8 @@ import { isUuid } from "#lib/access.js";
 /** CAP-8: long waiters nobody has asked recently whether they still need the appointment. */
 export const load: PageServerLoad = async ({ locals, fetch }) => {
   requireStaff(locals, "/waits");
-  return { due: await fromPas(dueChecks(signedInFetch(fetch, locals))) };
+  const due = await fromPas(dueChecks(signedInFetch(fetch, locals)));
+  return { due: due.rows, cutAt: due.cutAt };
 };
 
 export const actions: Actions = {

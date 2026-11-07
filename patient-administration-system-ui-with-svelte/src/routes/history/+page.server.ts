@@ -20,19 +20,16 @@ export const load: PageServerLoad = async ({ locals, fetch, url }) => {
     };
   if (!isUuid(asked)) return { appointment, patient, rows: null, kind: null, invalid: true };
   const f = signedInFetch(fetch, locals);
-  return appointment
-    ? {
-        appointment,
-        patient,
-        rows: await fromPas(appointmentHistory(f, appointment), { notFound: true }),
-        kind: "appointment" as const,
-        invalid: false,
-      }
-    : {
-        appointment,
-        patient,
-        rows: await fromPas(contactLog(f, patient), { notFound: true }),
-        kind: "patient" as const,
-        invalid: false,
-      };
+  if (appointment) {
+    return {
+      appointment,
+      patient,
+      rows: await fromPas(appointmentHistory(f, appointment), { notFound: true }),
+      cutAt: null,
+      kind: "appointment" as const,
+      invalid: false,
+    };
+  }
+  const log = await fromPas(contactLog(f, patient), { notFound: true });
+  return { appointment, patient, rows: log.rows, cutAt: log.cutAt, kind: "patient" as const, invalid: false };
 };

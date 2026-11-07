@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Changed
+- `/tolerances`, `/waits` and a patient's contact log on `/history` say when the list is not complete, and how many it shows (QUAL-49). The text is a first draft in every locale but English.
 - `@lilydesignsystem/svelte-kanban-board` 0.8.0 to 0.8.1. A card cell is now named from its content (title, subtitle, badges) instead of an `aria-label` made from the title alone, which fixes WCAG 2.5.3. The waitlist cards keep their subtitle and priority badge again; the workaround that folded everything into the title is removed. `tests/e2e/waitlist.spec.ts` fails on 0.8.0.
 - The browser suite's mock API port is configurable (`MOCK_PORT`), because another project on the same machine can hold 4181; one retry in CI.
 

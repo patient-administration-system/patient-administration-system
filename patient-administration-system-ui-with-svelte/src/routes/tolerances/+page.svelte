@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ActionData, PageData } from "./$types";
   import { i18n, t } from "#lib/i18n.svelte.js";
+  import ListCut from "#lib/ListCut.svelte";
   import { RAG_MARK, ragOf, toleranceAmount } from "#lib/views.js";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -113,6 +114,7 @@
 {/snippet}
 
 {#if data.status.by_service.length > 0 || data.status.by_ward.length > 0}
+  <ListCut at={data.status.cutAt} />
   <p>{t("tol.by.intro")}</p>
   {#if data.status.by_service.length > 0}
     {@render scoped(data.status.by_service, "tol.col.service", "service")}
@@ -132,6 +134,7 @@
 {#if data.alerts.length === 0}
   <p>{t("tol.alerts.none")}</p>
 {:else}
+  <ListCut at={data.alertsCutAt} />
   <table data-alerts>
     <caption>{t("tol.alerts.title")}</caption>
     <thead>

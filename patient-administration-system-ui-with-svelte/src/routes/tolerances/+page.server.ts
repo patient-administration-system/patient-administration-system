@@ -13,12 +13,14 @@ export const load: PageServerLoad = async ({ locals, fetch, url }) => {
   const asked = Number(url.searchParams.get("days"));
   const days = WINDOWS.includes(asked) ? asked : 30;
   const f = signedInFetch(fetch, locals);
+  const alerts = await fromPas(toleranceAlerts(f));
   return {
     days,
     windows: WINDOWS,
     canAcknowledge: isAdmin(session.user),
     status: await fromPas(toleranceStatus(f, days)),
-    alerts: await fromPas(toleranceAlerts(f)),
+    alerts: alerts.rows,
+    alertsCutAt: alerts.cutAt,
   };
 };
 

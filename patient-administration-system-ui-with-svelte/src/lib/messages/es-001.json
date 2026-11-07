@@ -219,6 +219,7 @@
   "tol.metric.invoice_collection_rate": "Dinero facturado cobrado",
   "tol.unit.weeks": "semanas",
   "tol.unit.days": "días",
+  "list.cut": "Esta lista no está completa: muestra {count} y hay más.",
   "tol.none": "No hay medidas.",
   "tol.by_service": "Por servicio",
   "tol.by_ward": "Por planta",

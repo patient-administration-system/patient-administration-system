@@ -219,6 +219,7 @@
   "tol.metric.invoice_collection_rate": "बिल की गई राशि जो वसूली गई",
   "tol.unit.weeks": "सप्ताह",
   "tol.unit.days": "दिन",
+  "list.cut": "यह सूची पूरी नहीं है: इसमें {count} दिखाए गए हैं, और भी हैं।",
   "tol.none": "कोई माप नहीं है।",
   "tol.by_service": "सेवा के अनुसार",
   "tol.by_ward": "वार्ड के अनुसार",

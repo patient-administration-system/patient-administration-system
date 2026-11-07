@@ -86,6 +86,9 @@ async function verify(header: string | undefined) {
 let chaos = "off";
 let chaosState = 1;
 const envelope = <T>(data: T) => JSON.stringify({ success: true, data });
+// What a list says about itself. `/__cut?on=true` makes the paged lists say they were cut (NFR-23).
+let cut = false;
+const paged = <T>(data: T) => JSON.stringify({ success: true, data, meta: { limit: 7, returned: 7, truncated: cut } });
 const STAMP = "2026-10-01T00:00:00Z";
 const appointment = (
   a: Pick<S["Appointment"], "id" | "start_datetime" | "end_datetime"> & { reason: string | null },
@@ -124,6 +127,10 @@ http
       return res.end(JSON.stringify({ proofing }));
     }
     if (url.pathname === "/__acts") return res.end(JSON.stringify(acts));
+    if (url.pathname === "/__cut") {
+      cut = url.searchParams.get("on") === "true";
+      return res.end(JSON.stringify({ cut }));
+    }
     // Chaos: make the API misbehave on purpose (see tests/e2e/chaos.spec.ts). `random` picks a fault per request
     // from a seeded generator, so a failing run can be repeated with the same seed.
     if (url.pathname === "/__chaos") {
@@ -428,7 +435,7 @@ http
     }
     if (url.pathname === `/api/patients/${PATIENT}/contact-log`) {
       return res.end(
-        envelope<S["HistoryRow"][]>([
+        paged<S["HistoryRow"][]>([
           { at: at(-1, 9), kind: "message", action: "reminder", by: null, reason_code: null, context: null },
         ]),
       );
@@ -463,7 +470,7 @@ http
         customised: false,
       });
       return res.end(
-        envelope<S["ToleranceStatus"]>({
+        paged<S["ToleranceStatus"]>({
           from: new Date(Date.now() - 30 * 864e5).toISOString(),
           to: new Date().toISOString(),
           overall: "red",
@@ -523,7 +530,7 @@ http
     }
     if (url.pathname === "/api/tolerance-alerts") {
       return res.end(
-        envelope<S["Alert"][]>([
+        paged<S["Alert"][]>([
           {
             id: "aaaaaaaa-0000-4000-8000-00000000000a",
             label: "did_not_attend_rate",
@@ -552,7 +559,7 @@ http
     }
     if (url.pathname === "/api/pathways/due-check") {
       return res.end(
-        envelope<S["DueCheck"][]>([
+        paged<S["DueCheck"][]>([
           {
             pathway_id: "88888888-8888-8888-8888-888888888888",
             person_id: PATIENT,

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageData } from "./$types";
   import { i18n, t } from "#lib/i18n.svelte.js";
+  import ListCut from "#lib/ListCut.svelte";
 
   let { data }: { data: PageData } = $props();
   const when = (iso: string) =>
@@ -26,6 +27,7 @@
   {#if data.rows.length === 0}
     <p>{t("history.none")}</p>
   {:else}
+    <ListCut at={data.cutAt ?? null} />
     <table>
       <caption>{data.kind === "appointment" ? t("history.captionAppointment") : t("history.captionContact")}</caption>
       <thead>

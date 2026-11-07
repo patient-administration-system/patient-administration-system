@@ -9,7 +9,7 @@ vi.mock("$app/env/private", () => ({
   PAS_API_TOKEN_FILE: "",
 }));
 
-const { PasError, identityProofed, pas, pasArray, toleranceStatus } = await import("#lib/server/pas.js");
+const { PasError, identityProofed, pas, pasArray, pasPage, toleranceStatus } = await import("#lib/server/pas.js");
 
 type Call = { url: string; init: RequestInit };
 
@@ -90,12 +90,32 @@ describe("pasArray()", () => {
   });
 });
 
+describe("pasPage()", () => {
+  it("says where a list was cut, and null for a whole one or a body with no meta", async () => {
+    const page = (meta: unknown) => pasPage(fake(200, JSON.stringify({ data: [1], meta })).fetch, "/list");
+    await expect(page({ limit: 1, returned: 1, truncated: true })).resolves.toEqual({ rows: [1], cutAt: 1 });
+    await expect(page({ limit: 5, returned: 1, truncated: false })).resolves.toEqual({ rows: [1], cutAt: null });
+    await expect(page(undefined)).resolves.toEqual({ rows: [1], cutAt: null });
+  });
+
+  it("treats a body that is not a list as a broken answer", async () => {
+    const { fetch } = fake(200, JSON.stringify({ data: {} }));
+    await expect(pasPage(fetch, "/list")).rejects.toMatchObject({ status: 502 });
+  });
+});
+
 describe("toleranceStatus()", () => {
   const good = { overall: "green", from: "a", to: "b", readings: [], by_service: [], by_ward: [] };
 
   it("returns a status that has its three lists", async () => {
     const { fetch } = fake(200, JSON.stringify({ data: good }));
-    await expect(toleranceStatus(fetch, 30)).resolves.toEqual(good);
+    await expect(toleranceStatus(fetch, 30)).resolves.toEqual({ ...good, cutAt: null });
+  });
+
+  it("says where its lists were cut", async () => {
+    const meta = { limit: 500, returned: 500, truncated: true };
+    const { fetch } = fake(200, JSON.stringify({ data: good, meta }));
+    await expect(toleranceStatus(fetch, 30)).resolves.toEqual({ ...good, cutAt: 500 });
   });
 
   it("treats a body without them as a broken answer (502), so the page never renders it", async () => {

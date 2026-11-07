@@ -219,6 +219,7 @@
   "tol.metric.invoice_collection_rate": "Arian a anfonebwyd a gasglwyd",
   "tol.unit.weeks": "wythnos",
   "tol.unit.days": "diwrnod",
+  "list.cut": "Nid yw'r rhestr hon yn gyflawn: mae'n dangos {count}, ac mae rhagor.",
   "tol.none": "Nid oes unrhyw fesurau.",
   "tol.by_service": "Yn ôl gwasanaeth",
   "tol.by_ward": "Yn ôl ward",

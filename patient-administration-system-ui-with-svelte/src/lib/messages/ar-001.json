@@ -219,6 +219,7 @@
   "tol.metric.invoice_collection_rate": "الأموال المفوترة التي جرى تحصيلها",
   "tol.unit.weeks": "أسابيع",
   "tol.unit.days": "أيام",
+  "list.cut": "هذه القائمة غير مكتملة: تعرض {count} وهناك المزيد.",
   "tol.none": "لا توجد مقاييس.",
   "tol.by_service": "حسب الخدمة",
   "tol.by_ward": "حسب الجناح",

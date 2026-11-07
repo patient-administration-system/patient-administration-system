@@ -219,6 +219,7 @@
   "tol.metric.invoice_collection_rate": "Eingezogene Rechnungsbeträge",
   "tol.unit.weeks": "Wochen",
   "tol.unit.days": "Tage",
+  "list.cut": "Diese Liste ist nicht vollständig: Sie zeigt {count}, es gibt weitere.",
   "tol.none": "Es gibt keine Kennzahlen.",
   "tol.by_service": "Nach Fachabteilung",
   "tol.by_ward": "Nach Station",

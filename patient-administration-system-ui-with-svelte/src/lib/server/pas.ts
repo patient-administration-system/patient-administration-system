@@ -24,6 +24,8 @@ export class PasError extends Error {
 interface Envelope<T> {
   success?: boolean;
   data?: T;
+  /** On a list: what it says about itself (NFR-23). */
+  meta?: Schemas["PageMeta"];
   /** Set on a refusal or failure, which the PAS answers as an RFC 9457 problem. */
   code?: string;
   detail?: string;
@@ -34,6 +36,14 @@ export async function pas<T>(
   path: string,
   init: { method?: string; body?: unknown } = {},
 ): Promise<T> {
+  return (await pasBody<T>(fetchFn, path, init)).data;
+}
+
+async function pasBody<T>(
+  fetchFn: FetchFn,
+  path: string,
+  init: { method?: string; body?: unknown } = {},
+): Promise<{ data: T; meta?: Schemas["PageMeta"] }> {
   const headers: Record<string, string> = { accept: "application/json" };
   const token = serviceToken();
   if (token) headers.authorization = `Bearer ${token}`;
@@ -63,7 +73,7 @@ export async function pas<T>(
     );
     throw new PasError(res.status, `the PAS API answered ${res.status}`);
   }
-  return (env.data ?? (env as unknown)) as T;
+  return { data: (env.data ?? (env as unknown)) as T, meta: env.meta };
 }
 
 /** A list endpoint: anything but an array is a broken answer (502), not something for a page to trip over. */
@@ -75,6 +85,23 @@ export async function pasArray<T>(
   const data = await pas<unknown>(fetchFn, path, init);
   if (!Array.isArray(data)) throw new PasError(502, "the PAS API answered with an unexpected shape");
   return data as T[];
+}
+
+/** Where a list was cut: the limit that applied when more rows exist, or `null` when it is whole. */
+function cutAt(meta: Schemas["PageMeta"] | undefined): number | null {
+  return meta?.truncated ? meta.limit : null;
+}
+
+/** A paged list, with whether it was cut, so that a page can say so (NFR-23). */
+export interface Page<T> {
+  rows: T[];
+  cutAt: number | null;
+}
+
+export async function pasPage<T>(fetchFn: FetchFn, path: string): Promise<Page<T>> {
+  const { data, meta } = await pasBody<unknown>(fetchFn, path);
+  if (!Array.isArray(data)) throw new PasError(502, "the PAS API answered with an unexpected shape");
+  return { rows: data as T[], cutAt: cutAt(meta) };
 }
 
 export type Appointment = Schemas["Appointment"];
@@ -133,12 +160,12 @@ export const appointmentHistory = (f: FetchFn, id: string) =>
 
 /** Messages sent to one patient and texts received from them, newest first (never the text of a message). */
 export const contactLog = (f: FetchFn, id: string) =>
-  pasArray<HistoryRow>(f, `/api/patients/${encodeURIComponent(id)}/contact-log`);
+  pasPage<HistoryRow>(f, `/api/patients/${encodeURIComponent(id)}/contact-log`);
 
 export type DueCheck = Schemas["DueCheck"];
 
 /** Long waiters nobody has asked recently whether they still need this, longest first. */
-export const dueChecks = (f: FetchFn) => pasArray<DueCheck>(f, "/api/pathways/due-check");
+export const dueChecks = (f: FetchFn) => pasPage<DueCheck>(f, "/api/pathways/due-check");
 
 /** A person asks a patient whether they still need this. Nothing is removed. */
 export const askStillNeeded = (f: FetchFn, pathwayId: string, askedBy: string) =>
@@ -158,7 +185,7 @@ export type ToleranceStatus = Schemas["ToleranceStatus"];
 /** A measure that went past its red limit. Open until the measure is no longer red. */
 export type ToleranceAlert = Schemas["Alert"];
 
-export const toleranceAlerts = (f: FetchFn) => pasArray<ToleranceAlert>(f, "/api/tolerance-alerts?open=true");
+export const toleranceAlerts = (f: FetchFn) => pasPage<ToleranceAlert>(f, "/api/tolerance-alerts?open=true");
 
 /** A named person says they are looking at an open alert. */
 export const acknowledgeToleranceAlert = (f: FetchFn, id: string, by: string) =>
@@ -168,8 +195,8 @@ export const acknowledgeToleranceAlert = (f: FetchFn, id: string, by: string) =>
   });
 
 /** Each measure against its target and tolerances, and the worst tier overall. */
-export async function toleranceStatus(f: FetchFn, days: number): Promise<ToleranceStatus> {
-  const data = await pas<Partial<ToleranceStatus> | null>(
+export async function toleranceStatus(f: FetchFn, days: number): Promise<ToleranceStatus & { cutAt: number | null }> {
+  const { data, meta } = await pasBody<Partial<ToleranceStatus> | null>(
     f,
     `/api/tolerances/status?days=${encodeURIComponent(String(days))}`,
   );
@@ -177,7 +204,7 @@ export async function toleranceStatus(f: FetchFn, days: number): Promise<Toleran
   if (!data || ![data.readings, data.by_service, data.by_ward].every(Array.isArray)) {
     throw new PasError(502, "the PAS API answered with an unexpected shape");
   }
-  return data as ToleranceStatus;
+  return { ...(data as ToleranceStatus), cutAt: cutAt(meta) };
 }
 
 // ---- Identity proofing (DTAC-9) --------------------------------------------------------------

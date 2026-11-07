@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ActionData, PageData } from "./$types";
   import { i18n, t } from "#lib/i18n.svelte.js";
+  import ListCut from "#lib/ListCut.svelte";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
   const day = (iso: string) => new Intl.DateTimeFormat(i18n.locale, { dateStyle: "medium" }).format(new Date(iso));
@@ -17,6 +18,7 @@
 {#if data.due.length === 0}
   <p>{t("waits.none")}</p>
 {:else}
+  <ListCut at={data.cutAt} />
   <table>
     <caption>{t("waits.caption")}</caption>
     <thead>

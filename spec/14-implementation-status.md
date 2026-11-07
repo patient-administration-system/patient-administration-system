@@ -11,11 +11,11 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | Migrations | 57 |
 | UI page routes | 13 |
 | UI unit test files | 22 |
-| UI browser spec files | 15 |
+| UI browser spec files | 16 |
 | UI locale catalogues | 10 |
 | Functional requirements | 201 |
 | Non-functional requirements | 28 |
 | Requirements marked not yet tested or not yet built | 5 |
-| Tasks done | 162 |
-| Tasks open | 47 |
+| Tasks done | 163 |
+| Tasks open | 46 |
 <!-- status:end -->
