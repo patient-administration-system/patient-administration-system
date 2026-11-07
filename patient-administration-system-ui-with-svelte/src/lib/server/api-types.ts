@@ -6429,6 +6429,11 @@ export interface components {
         overall: components["schemas"]["FairnessOverall"] | null;
         /** Format: double */
         top_tenth_cutoff: number;
+        /**
+         * @description `true` when the period held more appointments than one audit reads: the figures cover its newest
+         *     50,000 only, so ask for fewer days to see the older ones.
+         */
+        truncated: boolean;
       };
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -9856,6 +9861,11 @@ export interface components {
       overall: components["schemas"]["FairnessOverall"] | null;
       /** Format: double */
       top_tenth_cutoff: number;
+      /**
+       * @description `true` when the period held more appointments than one audit reads: the figures cover its newest
+       *     50,000 only, so ask for fewer days to see the older ones.
+       */
+      truncated: boolean;
     };
     /**
      * @description One group in the fairness audit. A cell under the minimum size is listed with `suppressed: true` and
@@ -14680,7 +14690,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: never;
-      path?: never;
+      path: {
+        /** @description How many experiments to return, newest first: 1 to 500, default 200. */
+        limit: number | null;
+      };
       cookie?: never;
     };
     requestBody?: never;
@@ -17338,6 +17351,8 @@ export interface operations {
       path: {
         weeks: number | null;
         repeat_days: number | null;
+        /** @description How many long waiters to return, longest first: 1 to 500, default 500. */
+        limit: number | null;
       };
       cookie?: never;
     };
@@ -20775,6 +20790,8 @@ export interface operations {
       header?: never;
       path: {
         schedule_id: string | null;
+        /** @description How many templates to return, oldest first: 1 to 500, default 200. */
+        limit: number | null;
       };
       cookie?: never;
     };

@@ -2295,12 +2295,17 @@
               "top_tenth_cutoff": {
                 "format": "double",
                 "type": "number"
+              },
+              "truncated": {
+                "description": "`true` when the period held more appointments than one audit reads: the figures cover its newest\n50,000 only, so ask for fewer days to see the older ones.",
+                "type": "boolean"
               }
             },
             "required": [
               "model_version",
               "days",
               "k",
+              "truncated",
               "top_tenth_cutoff",
               "overall",
               "cells",
@@ -12230,12 +12235,17 @@
           "top_tenth_cutoff": {
             "format": "double",
             "type": "number"
+          },
+          "truncated": {
+            "description": "`true` when the period held more appointments than one audit reads: the figures cover its newest\n50,000 only, so ask for fewer days to see the older ones.",
+            "type": "boolean"
           }
         },
         "required": [
           "model_version",
           "days",
           "k",
+          "truncated",
           "top_tenth_cutoff",
           "overall",
           "cells",
@@ -21710,6 +21720,21 @@
     "/api/experiments": {
       "get": {
         "operationId": "get_api_experiments",
+        "parameters": [
+          {
+            "description": "How many experiments to return, newest first: 1 to 500, default 200.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -24506,6 +24531,19 @@
           {
             "in": "path",
             "name": "repeat_days",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "How many long waiters to return, longest first: 1 to 500, default 500.",
+            "in": "path",
+            "name": "limit",
             "required": true,
             "schema": {
               "format": "int64",
@@ -28590,6 +28628,19 @@
               "format": "uuid",
               "type": [
                 "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "How many templates to return, oldest first: 1 to 500, default 200.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
                 "null"
               ]
             }

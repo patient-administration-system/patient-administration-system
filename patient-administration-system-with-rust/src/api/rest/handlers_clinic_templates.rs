@@ -10,9 +10,12 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
+use crate::api::rest::handlers::{
+    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
+};
 use crate::clinic_templates::report::capacity_report;
 use crate::clinic_templates::{Line, TemplateService, VersionInput};
+use crate::paging;
 
 /// The template that was started.
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
@@ -77,6 +80,8 @@ pub async fn create(
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListQuery {
     pub schedule_id: Option<Uuid>,
+    /// How many templates to return, oldest first: 1 to 500, default 200.
+    pub limit: Option<i64>,
 }
 
 /// `GET /api/session-templates?schedule_id=`: templates with every version and who proposed and approved it.
@@ -92,11 +97,15 @@ pub struct ListQuery {
     )
 )]
 pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> HandlerResult {
+    let limit = match paging::limit(q.limit, 200) {
+        Ok(limit) => limit,
+        Err(e) => return error_to_response(e),
+    };
     match TemplateService::new(state.db.clone())
-        .list(q.schedule_id)
+        .list(q.schedule_id, paging::ask_for(limit))
         .await
     {
-        Ok(v) => ok_json(v),
+        Ok(v) => ok_page(v, limit),
         Err(e) => error_to_response(e),
     }
 }

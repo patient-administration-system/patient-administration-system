@@ -130,7 +130,9 @@ impl WaitsService {
         })
     }
 
-    /// Active pathways over `weeks` waited with no check asked in the last `repeat_days`, longest first.
+    /// Active pathways over `weeks` waited with no check asked in the last `repeat_days`, longest first. All of
+    /// them, not the oldest few thousand: a campaign filters this by service, so a cut here would empty a
+    /// newer service's cohort. The route pages what it shows.
     pub async fn due_for_check(
         &self,
         weeks: Option<i64>,
@@ -145,14 +147,19 @@ impl WaitsService {
                  FROM rtt_pathways p WHERE p.stopped_at IS NULL \
                    AND NOT EXISTS (SELECT 1 FROM still_needed_checks c WHERE c.pathway_id = p.id \
                                    AND c.asked_at > now() - make_interval(days => $1::int)) \
-                 ORDER BY p.started_at LIMIT 5000",
+                 ORDER BY p.started_at",
                 [(repeat as i32).into()],
             ))
 .await?;
+        let ids = rows
+            .iter()
+            .map(|r| r.col("id"))
+            .collect::<Result<Vec<Uuid>>>()?;
+        let events = RttRepository::events_for_pathways(&self.db, &ids).await?;
+        let now = Utc::now();
         let mut out = Vec::new();
-        for r in &rows {
-            let id: Uuid = r.col("id")?;
-            let w = self.weeks(id).await?;
+        for (r, id) in rows.iter().zip(ids) {
+            let w = compute_active_weeks(events.get(&id).map_or(&[][..], Vec::as_slice), now);
             if i64::from(w) >= weeks {
                 out.push((
                     r.col("person_id")?,

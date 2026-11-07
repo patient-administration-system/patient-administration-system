@@ -331,14 +331,14 @@ impl TemplateService {
         txn.commit().await.map_err(Error::Database)
     }
 
-    /// Templates (optionally of one schedule) with their versions.
-    pub async fn list(&self, schedule_id: Option<Uuid>) -> Result<Vec<TemplateView>> {
+    /// Templates (optionally of one schedule) with their versions, oldest first, up to `limit`.
+    pub async fn list(&self, schedule_id: Option<Uuid>, limit: i64) -> Result<Vec<TemplateView>> {
         let rows = self
             .db
             .all(Stmt::new(
                 "SELECT id, schedule_id, name FROM session_templates \
-                 WHERE ($1::uuid IS NULL OR schedule_id = $1) ORDER BY created_at, id LIMIT 200",
-                [schedule_id.into()],
+                 WHERE ($1::uuid IS NULL OR schedule_id = $1) ORDER BY created_at, id LIMIT $2",
+                [schedule_id.into(), crate::paging::fetch(limit).into()],
             ))
             .await?;
         let mut out = Vec::new();

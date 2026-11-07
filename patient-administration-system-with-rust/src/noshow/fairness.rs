@@ -4,12 +4,25 @@ use super::*;
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt};
 
+/// The most appointments one fairness audit reads. It holds them in memory, so it stops here and says so.
+const AUDIT_APPOINTMENTS: i64 = 50_000;
+
 impl NoShowService {
     /// Backtest the model on appointments that have already had an outcome, as the model would have scored
     /// them with only what was known then, split by deprivation quintile and language. For a reviewer: it
     /// shows whether the model's predictions fall harder on one group than the outcomes do. Cells under k are
     /// withheld. This runs whether or not the score is switched on: evidence comes before approval.
     pub async fn fairness_audit(&self, days: i64, k: Option<i64>) -> Result<FairnessAudit> {
+        self.fairness_audit_of(days, k, AUDIT_APPOINTMENTS).await
+    }
+
+    /// The audit over at most the newest `most` appointments of the period, saying when there were more.
+    pub async fn fairness_audit_of(
+        &self,
+        days: i64,
+        k: Option<i64>,
+        most: i64,
+    ) -> Result<FairnessAudit> {
         let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
         let tz = crate::inbound::messages::timezone();
         let rows = self
@@ -24,10 +37,11 @@ impl NoShowService {
                  LEFT JOIN patient_communication_profiles cp ON cp.person_id = a.person_id \
                  WHERE a.deleted_at IS NULL AND a.status IN ('fulfilled','arrived','no_show') \
                    AND a.start_datetime > now() - make_interval(days => $1::int) AND a.start_datetime < now() \
-                 ORDER BY a.start_datetime DESC LIMIT 50000",
-                [(days.clamp(1, 1825) as i32).into()],
+                 ORDER BY a.start_datetime DESC LIMIT $2",
+                [(days.clamp(1, 1825) as i32).into(), (most + 1).into()],
             ))
 .await?;
+        let (rows, cut) = crate::paging::cut(rows, most);
         let w = Weights::from_env();
         #[derive(Default)]
         struct Acc {
@@ -127,6 +141,7 @@ impl NoShowService {
             model_version: MODEL_VERSION.into(),
             days,
             k,
+            truncated: cut.truncated,
             top_tenth_cutoff: r3(cutoff),
             overall: (all.n > 0).then(|| FairnessOverall {
                 appointments: all.n,
@@ -200,6 +215,9 @@ pub struct FairnessAudit {
     pub model_version: String,
     pub days: i64,
     pub k: i64,
+    /// `true` when the period held more appointments than one audit reads: the figures cover its newest
+    /// 50,000 only, so ask for fewer days to see the older ones.
+    pub truncated: bool,
     pub top_tenth_cutoff: f64,
     /// `null` when there were no appointments with an outcome in the period.
     #[schema(required = true)]

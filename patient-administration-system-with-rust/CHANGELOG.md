@@ -5,8 +5,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Reports count every open pathway. They read 20,000 in no order, so a larger list's counts, breaches and tolerances could come from an arbitrary part of it (QUAL-48).
+- `GET /api/pathways/due-check` and validation campaigns consider every open pathway. They stopped at the 5,000 oldest, before any filter by service, which could leave a newer service with no cohort (QUAL-48).
+
 ### Changed
 
+- `GET /api/session-templates`, `GET /api/experiments` and `GET /api/pathways/due-check` take `limit` and say `meta.truncated` (QUAL-48). `GET /api/pathways/due-check` now returns the 500 longest waiters by default.
+- `GET /api/noshow/fairness-audit` has `truncated`, which is true when the period held more than the 50,000 appointments one audit reads (QUAL-48).
 - `GET /api/slot-releases`, `GET /api/tolerances/status` and `GET /api/tolerance-alerts` take `limit` and say `meta.truncated` (QUAL-47). `GET /api/slot-releases` now returns the newest 100 by default, with a summary of the whole window; it returned every release before. Status keeps the worst readings of `by_service` and `by_ward`, 500 each by default.
 - The server talks to PostgreSQL with sqlx, not SeaORM (SQLX-1). Every query is literal SQL through `src/db/sql.rs`. Responses and behaviour are unchanged, with one exception: a lost connection while recording demographics is now a database error, not a validation message about `age_band`.
 - Migrations are SQL files under sqlx (`migrations/sql/`), and `pas-migrate up` adopts the record in `seaql_migrations` once, running nothing twice (SQLX-1). The six forward-only migrations have no down file, so `pas-migrate down` now stops at them rather than failing. See `operations/runbook.md` before upgrading a database.

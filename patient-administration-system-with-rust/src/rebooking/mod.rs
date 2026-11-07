@@ -149,7 +149,7 @@ impl RebookService {
                          WHERE a.person_id = $6 AND a.id <> $7 AND a.deleted_at IS NULL \
                            AND a.status NOT IN ('cancelled','no_show') \
                            AND a.start_datetime < s.end_datetime AND a.end_datetime > s.start_datetime) \
-                 ORDER BY s.start_datetime LIMIT 300",
+                 ORDER BY s.start_datetime LIMIT 300", // Enough to pick OFFER_SIZE from; nothing is reported.
                 [
                     slot_id.into(),
                     (now + Self::min_notice()).into(),

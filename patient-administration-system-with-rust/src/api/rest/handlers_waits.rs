@@ -11,7 +11,8 @@ use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
-use crate::api::rest::handlers::{ok, ok_json};
+use crate::api::rest::handlers::{ok, ok_json, ok_page};
+use crate::paging;
 
 /// `GET /api/appointments/{id}/lead-time`: booking to visit, in whole days.
 #[utoipa::path(
@@ -55,6 +56,8 @@ pub async fn patient_waits(State(state): State<AppState>, Path(id): Path<Uuid>) 
 pub struct DueQuery {
     pub weeks: Option<i64>,
     pub repeat_days: Option<i64>,
+    /// How many long waiters to return, longest first: 1 to 500, default 500.
+    pub limit: Option<i64>,
 }
 
 /// One long waiter nobody has asked recently whether they still need the appointment.
@@ -84,8 +87,12 @@ pub async fn due_for_check(
     State(state): State<AppState>,
     Query(q): Query<DueQuery>,
 ) -> HandlerResult {
+    let limit = match paging::limit(q.limit, paging::MAX_LIMIT) {
+        Ok(limit) => limit,
+        Err(e) => return error_to_response(e),
+    };
     match state.waits.due_for_check(q.weeks, q.repeat_days).await {
-        Ok(v) => ok_json(
+        Ok(v) => ok_page(
             v.into_iter()
                 .map(|(person_id, p)| DueCheck {
                     pathway_id: p.pathway_id,
@@ -95,6 +102,7 @@ pub async fn due_for_check(
                     last_check_at: p.last_check_at,
                 })
                 .collect::<Vec<_>>(),
+            limit,
         ),
         Err(e) => error_to_response(e),
     }

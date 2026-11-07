@@ -1,5 +1,7 @@
 //! rtt repository — RTTPathway and RTTClockEvent
 
+use std::collections::HashMap;
+
 use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
@@ -56,6 +58,36 @@ impl RttRepository {
             ))
             .await?;
         rows.into_iter().map(event_from_model).collect()
+    }
+
+    /// The clock events of many pathways in one read, each pathway's in time order. A pathway with no events has
+    /// no entry. For a figure over every open pathway: one read per pathway does not scale to a waiting list.
+    pub async fn events_for_pathways<C: Conn>(
+        conn: &C,
+        pathway_ids: &[Uuid],
+    ) -> Result<HashMap<Uuid, Vec<RTTClockEvent>>> {
+        let rows = conn
+            .all_as::<rtt_clock_event::Model>(Stmt::new(
+                "SELECT * FROM rtt_clock_events WHERE pathway_id = ANY($1) ORDER BY event_at",
+                [pathway_ids.to_vec().into()],
+            ))
+            .await?;
+        let mut events: HashMap<Uuid, Vec<RTTClockEvent>> = HashMap::new();
+        for row in rows {
+            let event = event_from_model(row)?;
+            events.entry(event.pathway_id).or_default().push(event);
+        }
+        Ok(events)
+    }
+
+    /// Every open pathway. Unbounded on purpose: a report over the waiting list must count the whole of it.
+    pub async fn open_pathways<C: Conn>(conn: &C) -> Result<Vec<RTTPathway>> {
+        let rows = conn
+            .all_as::<rtt_pathway::Model>(Stmt::text(
+                "SELECT * FROM rtt_pathways WHERE stopped_at IS NULL".to_string(),
+            ))
+            .await?;
+        rows.into_iter().map(pathway_from_model).collect()
     }
 }
 

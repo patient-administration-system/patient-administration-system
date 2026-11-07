@@ -335,28 +335,21 @@ impl ReportService {
 
     /// Open pathways: weeks waited on each (from the clock's own figure), by service, and how many breach.
     async fn open_pathways(&self) -> Result<(Vec<f64>, Vec<(String, f64)>, i64)> {
-        let paths = self
-            .db
-            .all(Stmt::text(
-                "SELECT id, target_service FROM rtt_pathways WHERE stopped_at IS NULL LIMIT 20000"
-                    .to_string(),
-            ))
-            .await?;
+        let paths = RttRepository::open_pathways(&self.db).await?;
+        let ids: Vec<uuid::Uuid> = paths.iter().map(|p| p.id).collect();
+        let events = RttRepository::events_for_pathways(&self.db, &ids).await?;
         let now = Utc::now();
-        let mut weeks = Vec::new();
-        let mut by_service = Vec::new();
+        let mut weeks = Vec::with_capacity(paths.len());
+        let mut by_service = Vec::with_capacity(paths.len());
         let mut breaching = 0;
-        for p in &paths {
-            let id: uuid::Uuid = p.col("id")?;
-            let events = RttRepository::list_events_for_pathway(&self.db, id).await?;
-            let w = compute_active_weeks(&events, now);
-            if let Some(pw) = RttRepository::find_pathway_by_id(&self.db, id).await?
-                && pw.is_breaching(&events, now)
-            {
+        for p in paths {
+            let events = events.get(&p.id).map_or(&[][..], Vec::as_slice);
+            let w = compute_active_weeks(events, now);
+            if p.is_breaching(events, now) {
                 breaching += 1;
             }
             weeks.push(f64::from(w));
-            by_service.push((p.col::<String>("target_service")?, f64::from(w)));
+            by_service.push((p.target_service, f64::from(w)));
         }
         Ok((weeks, by_service, breaching))
     }

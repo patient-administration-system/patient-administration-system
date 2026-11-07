@@ -4,6 +4,11 @@ use super::*;
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt};
 
+/// The most appointments one daily assessment run covers, soonest first. Each is several reads and a write, so
+/// a run must end. Stopping here loses nothing that matters: the call list looks days ahead, and an appointment
+/// beyond the limit is assessed by a later run as it comes closer.
+const DAILY_ASSESSMENTS: i64 = 20_000;
+
 impl NoShowService {
     pub(super) async fn inputs_for(
         &self,
@@ -173,16 +178,23 @@ impl NoShowService {
         rows.iter().map(|r| r.col::<Uuid>("id")).collect()
     }
 
-    /// The daily job: assess every booked appointment still to come. Idempotent within a day.
+    /// The daily job: assess the booked appointments still to come, soonest first and up to
+    /// [`DAILY_ASSESSMENTS`]. Idempotent within a day.
     pub async fn recalculate_all(&self) -> Result<usize> {
         self.require_active().await?;
         let ids = self
             .db
-            .all(Stmt::text("SELECT id FROM appointments WHERE status = 'booked' AND deleted_at IS NULL AND start_datetime > now() \
-                 ORDER BY start_datetime LIMIT 20000"
-                    .to_string(),
+            .all(Stmt::new("SELECT id FROM appointments WHERE status = 'booked' AND deleted_at IS NULL AND start_datetime > now() \
+                 ORDER BY start_datetime LIMIT $1",
+                [DAILY_ASSESSMENTS.into()],
             ))
 .await?;
+        if ids.len() as i64 == DAILY_ASSESSMENTS {
+            tracing::warn!(
+                limit = DAILY_ASSESSMENTS,
+                "no-show assessment stopped at its limit: later appointments wait for a later run"
+            );
+        }
         let mut n = 0;
         for r in ids {
             let id: Uuid = r.col("id")?;
