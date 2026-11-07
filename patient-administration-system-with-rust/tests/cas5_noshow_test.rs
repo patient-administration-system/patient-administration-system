@@ -329,7 +329,7 @@ async fn the_call_list_is_the_top_few_matched_to_capacity_not_a_probability_cut_
         ids.push(a.id.to_string());
     }
     assert_eq!(s.noshow.refresh_call_list().await.unwrap(), 2);
-    let list = s.noshow.priority_list(500).await.unwrap();
+    let list = common::every_page(|r| s.noshow.priority_list(r)).await;
     let listed: Vec<String> = list.iter().map(|x| x.appointment_id.to_string()).collect();
     assert_eq!(
         listed,
@@ -365,7 +365,7 @@ async fn the_call_list_is_the_top_few_matched_to_capacity_not_a_probability_cut_
             .unwrap()
     );
     assert_eq!(s.noshow.refresh_call_list().await.unwrap(), 1);
-    let list = s.noshow.priority_list(500).await.unwrap();
+    let list = common::every_page(|r| s.noshow.priority_list(r)).await;
     assert!(
         list.iter().any(|x| x.appointment_id.to_string() == ids[0]),
         "{list:?}"

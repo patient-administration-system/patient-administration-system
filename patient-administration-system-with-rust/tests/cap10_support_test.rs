@@ -299,10 +299,8 @@ async fn a_flag_needs_a_known_kind_a_name_and_a_person_to_resolve_it() {
         .await
         .unwrap();
     assert!(
-        s.support
-            .open(500)
+        common::every_page(|r| s.support.open(r))
             .await
-            .unwrap()
             .iter()
             .any(|f| f.id == id)
     );
@@ -318,10 +316,8 @@ async fn a_flag_needs_a_known_kind_a_name_and_a_person_to_resolve_it() {
         .await
         .unwrap();
     assert!(
-        s.support
-            .open(500)
+        common::every_page(|r| s.support.open(r))
             .await
-            .unwrap()
             .iter()
             .all(|f| f.id != id)
     );
@@ -377,7 +373,8 @@ async fn the_http_endpoints_raise_list_and_resolve() {
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
     let id = v["data"]["id"].as_str().unwrap().to_string();
-    let (st, v) = call("GET", "/api/support-flags/open?limit=500".into(), None).await;
+    let (st, v) =
+        common::every_api_page(|uri| call("GET", uri, None), "/api/support-flags/open").await;
     assert_eq!(st, StatusCode::OK);
     assert!(
         v["data"]

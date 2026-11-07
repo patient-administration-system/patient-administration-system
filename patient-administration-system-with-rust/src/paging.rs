@@ -106,6 +106,12 @@ pub struct Rows {
 }
 
 impl Rows {
+    /// `limit` rows from `offset`, for a caller that reads a whole list a page at a time, such as a test that
+    /// must find its own row however long the list has grown.
+    pub fn window(limit: i64, offset: i64) -> Self {
+        Self { limit, offset }
+    }
+
     /// `LIMIT`: the rows asked for, clamped as [`fetch`] clamps them.
     pub fn fetch(self) -> i64 {
         fetch(self.limit)

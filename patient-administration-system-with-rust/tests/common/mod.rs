@@ -148,3 +148,63 @@ pub async fn free_slot_in_hours(
         .await
         .expect("create slot")
 }
+
+/// Every row of a service's list, read 500 at a time, so that a test finds its own row however many earlier
+/// runs have left in a long-used database (QUAL-50).
+#[allow(
+    dead_code,
+    reason = "each test binary uses only some of the shared helpers"
+)]
+pub async fn every_page<T, F, Fut>(mut read: F) -> Vec<T>
+where
+    F: FnMut(patient_administration_system::paging::Rows) -> Fut,
+    Fut: std::future::Future<Output = patient_administration_system::Result<Vec<T>>>,
+{
+    const PAGE: i64 = 500;
+    let mut out = Vec::new();
+    let mut offset = 0;
+    loop {
+        let page = read(patient_administration_system::paging::Rows::window(
+            PAGE, offset,
+        ))
+        .await
+        .unwrap();
+        let n = page.len();
+        out.extend(page);
+        if i64::try_from(n).unwrap() < PAGE {
+            return out;
+        }
+        offset += PAGE;
+        assert!(offset < 1_000_000, "the list never ends");
+    }
+}
+
+/// Every row of an API list, following `meta.next` from `first`, as one envelope `{"success": true, "data": [...]}`; or the first
+/// answer that is not a `200`, as it came (QUAL-50).
+#[allow(
+    dead_code,
+    reason = "each test binary uses only some of the shared helpers"
+)]
+pub async fn every_api_page<F, Fut>(
+    mut get: F,
+    first: &str,
+) -> (axum::http::StatusCode, serde_json::Value)
+where
+    F: FnMut(String) -> Fut,
+    Fut: std::future::Future<Output = (axum::http::StatusCode, serde_json::Value)>,
+{
+    let mut rows = Vec::new();
+    let mut uri = first.to_string();
+    for _ in 0..10_000 {
+        let (status, v) = get(uri.clone()).await;
+        if status != axum::http::StatusCode::OK {
+            return (status, v);
+        }
+        rows.extend(v["data"].as_array().cloned().unwrap_or_default());
+        match v["meta"]["next"].as_str() {
+            Some(next) => uri = next.to_string(),
+            None => return (status, serde_json::json!({ "success": true, "data": rows })),
+        }
+    }
+    panic!("the list never ends: {first}");
+}

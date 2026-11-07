@@ -272,7 +272,7 @@ async fn reschedule_changes_nothing_and_waits_for_a_person_until_marked_handled(
     );
     assert!(o.reply_text.unwrap().contains("will contact you"));
 
-    let list = s.inbound.staff_list(500).await.unwrap();
+    let list = common::every_page(|r| s.inbound.staff_list(r)).await;
     let item = list
         .iter()
         .find(|i| i.appointment_id == Some(a.id))
@@ -281,10 +281,8 @@ async fn reschedule_changes_nothing_and_waits_for_a_person_until_marked_handled(
     assert!(s.inbound.mark_handled(item.id).await.unwrap());
     assert!(!s.inbound.mark_handled(item.id).await.unwrap(), "only once");
     assert!(
-        !s.inbound
-            .staff_list(500)
+        !common::every_page(|r| s.inbound.staff_list(r))
             .await
-            .unwrap()
             .iter()
             .any(|i| i.id == item.id)
     );
@@ -364,7 +362,7 @@ async fn an_unknown_or_shared_number_is_never_acted_on_or_answered_but_stop_is_a
         .unwrap();
     assert_eq!(o.outcome, "stop");
 
-    let list = s.inbound.staff_list(500).await.unwrap();
+    let list = common::every_page(|r| s.inbound.staff_list(r)).await;
     assert!(list.iter().any(|i| i.outcome == "unmatched"));
     assert!(list.iter().any(|i| i.outcome == "ambiguous_number"));
 }
@@ -467,23 +465,26 @@ async fn the_http_endpoint_takes_a_text_and_the_staff_list_is_readable() {
     let outcome: ApiResponse<InboundOutcome> = serde_json::from_value(v).unwrap();
     assert_eq!(outcome.data.unwrap().outcome, "needs_staff");
 
-    let r = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri("/api/inbound-texts/open")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(r.status(), StatusCode::OK);
-    let v: serde_json::Value =
-        serde_json::from_slice(&to_bytes(r.into_body(), 1 << 20).await.unwrap()).unwrap();
-    let open: ApiResponse<Vec<StaffItem>> = serde_json::from_value(v).unwrap();
+    // Every page of the open list, so the text is found however many earlier runs left open (QUAL-50).
+    let get = |uri: String| {
+        let app = app.clone();
+        async move {
+            let r = app
+                .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            let status = r.status();
+            let bytes = to_bytes(r.into_body(), usize::MAX).await.unwrap();
+            (
+                status,
+                serde_json::from_slice::<serde_json::Value>(&bytes).unwrap(),
+            )
+        }
+    };
+    let (status, v) = common::every_api_page(get, "/api/inbound-texts/open").await;
+    assert_eq!(status, StatusCode::OK);
+    let open: Vec<StaffItem> = serde_json::from_value(v["data"].clone()).unwrap();
     let item = open
-        .data
-        .unwrap()
         .into_iter()
         .find(|i| i.appointment_id == Some(a.id))
         .expect("the open text is listed");

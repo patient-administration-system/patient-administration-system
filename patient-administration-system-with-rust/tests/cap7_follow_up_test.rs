@@ -94,7 +94,7 @@ async fn a_no_show_on_a_listed_service_creates_one_urgent_task() {
     let a = w.book(Uuid::new_v4()).await;
     w.s.scheduling.mark_no_show(a.id, &sys()).await.unwrap();
     assert_eq!(w.tasks_for(a.id).await, 1);
-    let open = w.s.follow_up.open_tasks(500).await.unwrap();
+    let open = common::every_page(|r| w.s.follow_up.open_tasks(r)).await;
     let t = open
         .iter()
         .find(|t| t.appointment_id == a.id)
@@ -126,21 +126,16 @@ async fn only_a_person_recording_an_outcome_closes_a_task() {
     w.list().await;
     let a = w.book(Uuid::new_v4()).await;
     w.s.scheduling.mark_no_show(a.id, &sys()).await.unwrap();
-    let id =
-        w.s.follow_up
-            .open_tasks(500)
-            .await
-            .unwrap()
-            .into_iter()
-            .find(|t| t.appointment_id == a.id)
-            .unwrap()
-            .id;
+    let id = common::every_page(|r| w.s.follow_up.open_tasks(r))
+        .await
+        .into_iter()
+        .find(|t| t.appointment_id == a.id)
+        .unwrap()
+        .id;
     // Time passing, a reminder, a rebooking: none of them close it.
     assert!(
-        w.s.follow_up
-            .open_tasks(500)
+        common::every_page(|r| w.s.follow_up.open_tasks(r))
             .await
-            .unwrap()
             .iter()
             .any(|t| t.id == id)
     );
@@ -164,10 +159,8 @@ async fn only_a_person_recording_an_outcome_closes_a_task() {
             .is_err()
     );
     assert!(
-        w.s.follow_up
-            .open_tasks(500)
+        common::every_page(|r| w.s.follow_up.open_tasks(r))
             .await
-            .unwrap()
             .iter()
             .any(|t| t.id == id)
     );
@@ -177,10 +170,8 @@ async fn only_a_person_recording_an_outcome_closes_a_task() {
         .await
         .unwrap();
     assert!(
-        w.s.follow_up
-            .open_tasks(500)
+        common::every_page(|r| w.s.follow_up.open_tasks(r))
             .await
-            .unwrap()
             .iter()
             .all(|t| t.id != id)
     );
@@ -321,7 +312,8 @@ async fn the_http_endpoints_list_policies_and_close_tasks() {
 
     let a = w.book(Uuid::new_v4()).await;
     w.s.scheduling.mark_no_show(a.id, &sys()).await.unwrap();
-    let (st, v) = call("GET", "/api/follow-up-tasks/open?limit=500".into(), None).await;
+    let (st, v) =
+        common::every_api_page(|uri| call("GET", uri, None), "/api/follow-up-tasks/open").await;
     assert_eq!(st, StatusCode::OK);
     let id = v["data"]
         .as_array()

@@ -252,10 +252,8 @@ async fn a_clinician_can_confirm_or_veto_and_a_veto_restores_in_person() {
         .await
         .unwrap();
     assert!(
-        w.s.virtual_visits
-            .pending(500)
+        common::every_page(|r| w.s.virtual_visits.pending(r))
             .await
-            .unwrap()
             .iter()
             .any(|a| a.id == w.appt.id)
     );
@@ -276,10 +274,8 @@ async fn a_clinician_can_confirm_or_veto_and_a_veto_restores_in_person() {
             .is_err()
     );
     assert!(
-        w.s.virtual_visits
-            .pending(500)
+        common::every_page(|r| w.s.virtual_visits.pending(r))
             .await
-            .unwrap()
             .iter()
             .all(|a| a.id != w.appt.id)
     );
@@ -375,7 +371,8 @@ async fn the_http_endpoints_approve_review_and_list() {
     assert_eq!(v["data"]["status"], "applied");
     assert_eq!(v["data"]["appointment"]["modality"], "video");
 
-    let (st, v) = call("GET", "/api/conversions/pending?limit=500".into(), None).await;
+    let (st, v) =
+        common::every_api_page(|uri| call("GET", uri, None), "/api/conversions/pending").await;
     assert_eq!(st, StatusCode::OK);
     let pending: ApiResponse<Vec<Appointment>> = serde_json::from_value(v).unwrap();
     assert!(pending.data.unwrap().iter().any(|a| a.id == w.appt.id));
