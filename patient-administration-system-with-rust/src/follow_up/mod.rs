@@ -195,13 +195,14 @@ impl FollowUpService {
     }
 
     /// Open tasks, most overdue first.
-    pub async fn open_tasks(&self, limit: i64) -> Result<Vec<Task>> {
+    pub async fn open_tasks(&self, rows: impl Into<crate::paging::Rows>) -> Result<Vec<Task>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new("SELECT t.id, t.appointment_id, t.person_id, t.service_type, t.due_at, a.start_datetime \
                  FROM follow_up_tasks t JOIN appointments a ON a.id = t.appointment_id \
-                 WHERE t.closed_at IS NULL ORDER BY t.due_at LIMIT $1",
-                [crate::paging::fetch(limit).into()],
+                 WHERE t.closed_at IS NULL ORDER BY t.due_at, t.id LIMIT $1 OFFSET $2",
+                [rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         let now = Utc::now();

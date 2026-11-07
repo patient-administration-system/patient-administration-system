@@ -220,6 +220,8 @@
   "tol.unit.weeks": "周",
   "tol.unit.days": "天",
   "list.cut": "此列表不完整：显示了 {count} 条，还有更多。",
+  "list.first": "回到列表开头",
+  "list.next": "显示后面 {count} 条",
   "tol.none": "没有指标。",
   "tol.by_service": "按服务",
   "tol.by_ward": "按病区",

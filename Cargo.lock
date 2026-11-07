@@ -243,6 +243,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "axa-cursor-pagination"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "254bae98d29dc977a0a3d4ba4e4d776fe94931923b70f476b7020aea15e60d98"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "hmac",
+ "serde",
+ "sha2 0.11.1",
+]
+
+[[package]]
 name = "axa-environment"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2609,6 +2622,7 @@ dependencies = [
  "async-trait",
  "authentication-verifier",
  "axa",
+ "axa-cursor-pagination",
  "axa-environment",
  "axa-problem",
  "axa-ratelimit",

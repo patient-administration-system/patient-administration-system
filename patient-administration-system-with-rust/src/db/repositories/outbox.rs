@@ -37,11 +37,12 @@ impl OutboxRepository {
     /// Fetch the next batch of unpublished outbox rows, oldest first.
     pub async fn fetch_unpublished<C: Conn>(
         conn: &C,
-        limit: u64,
+        rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<outbox_event::Model>> {
+        let rows = rows.into();
         conn.all_as::<outbox_event::Model>(Stmt::new(
-            "SELECT * FROM outbox_events WHERE published = $1 ORDER BY at LIMIT $2",
-            [false.into(), (limit as i64).into()],
+            "SELECT * FROM outbox_events WHERE published = $1 ORDER BY at, id LIMIT $2 OFFSET $3",
+            [false.into(), rows.limit().into(), rows.offset().into()],
         ))
         .await
     }
@@ -134,10 +135,14 @@ pub struct DeadLetterRepository;
 
 impl DeadLetterRepository {
     /// Newest-first list of dead-letter rows, capped at `limit`.
-    pub async fn list<C: Conn>(conn: &C, limit: u64) -> Result<Vec<outbox_dead_letter::Model>> {
+    pub async fn list<C: Conn>(
+        conn: &C,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<outbox_dead_letter::Model>> {
+        let rows = rows.into();
         conn.all_as::<outbox_dead_letter::Model>(Stmt::new(
-            "SELECT * FROM outbox_dead_letters ORDER BY dead_lettered_at DESC LIMIT $1",
-            [(limit as i64).into()],
+            "SELECT * FROM outbox_dead_letters ORDER BY dead_lettered_at DESC, id DESC LIMIT $1 OFFSET $2",
+            [rows.limit().into(), rows.offset().into()],
         ))
         .await
     }

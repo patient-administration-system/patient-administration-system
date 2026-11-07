@@ -7,12 +7,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
-};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 use crate::clinic_templates::report::capacity_report;
 use crate::clinic_templates::{Line, TemplateService, VersionInput};
-use crate::paging;
 
 /// The template that was started.
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
@@ -77,8 +74,6 @@ pub async fn create(
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListQuery {
     pub schedule_id: Option<Uuid>,
-    /// How many templates to return, oldest first: 1 to 500, default 200.
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/session-templates?schedule_id=`: templates with every version and who proposed and approved it.
@@ -86,23 +81,27 @@ pub struct ListQuery {
     get,
     path = "/api/session-templates",
     tag = "Scheduling",
-    params(ListQuery),
+    params(crate::paging::PageQuery, ListQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::clinic_templates::TemplateView>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
-pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> HandlerResult {
-    let limit = match paging::limit(q.limit, 200) {
-        Ok(limit) => limit,
+pub async fn list(
+    State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+    Query(q): Query<ListQuery>,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 200) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match TemplateService::new(state.db.clone())
-        .list(q.schedule_id, paging::ask_for(limit))
+        .list(q.schedule_id, page.rows())
         .await
     {
-        Ok(v) => ok_page(v, limit),
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

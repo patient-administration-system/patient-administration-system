@@ -504,6 +504,7 @@ Configuration is loaded from environment variables (or `.env`).
 | `OTLP_ENDPOINT`      | OpenTelemetry OTLP collector endpoint (HTTP/protobuf, e.g. `http://otel-collector:4318/v1/traces`). When set, every `tracing` span is exported to the collector. When unset (default), fmt layer only — no network egress. | - | No |
 | `OTEL_SERVICE_NAME`  | `service.name` resource attribute on every exported span. Override to disambiguate replicas / environments in the collector. | `pas-axum` | No |
 | `PAS_SMS_PROVIDER`   | SMS provider selector (v0.8). `none` = no auto-send, SMS letters stay `pending`. `log` = log each outbound message to `tracing` and flip the letter to `sent`. Real production gateways are added by the consumer via the `SmsProvider` trait. Unknown values fall back to `none`. | `none` | No |
+| `PAS_CURSOR_KEY` | At least 32 bytes that sign list cursors (`meta.next`). Share it across replicas. Unset, each process makes its own. | none | In production |
 | `PAS_RATE_LIMIT_RPM` | Requests per client IP address in each fixed minute. `0` turns the limit off. | `600` | No |
 | `PAS_AUTH_LOCKOUT_FAILURES` | `401`s per client IP address in 15 minutes before it is refused until they end. `0` turns the lockout off; it is off by default because the UI servers call for all their users from one address. | `0` | No |
 | `API_TOKEN`          | If set, bearer-auth is enforced on every `/api/*` except `/api/health` | -          | No       |

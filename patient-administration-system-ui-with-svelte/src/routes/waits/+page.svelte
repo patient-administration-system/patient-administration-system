@@ -18,7 +18,7 @@
 {#if data.due.length === 0}
   <p>{t("waits.none")}</p>
 {:else}
-  <ListCut at={data.cutAt} />
+  <ListCut at={data.cutAt} next={data.nextHref} first={data.firstHref} />
   <table>
     <caption>{t("waits.caption")}</caption>
     <thead>

@@ -25,6 +25,16 @@ All REST endpoints (everything under `/api/`) return the first form on success a
 
 FHIR endpoints (`/fhir/...`) return canonical FHIR resources on success and FHIR `OperationOutcome` JSON on failure.
 
+## Lists and their next page
+
+A list route takes `?limit=` (1 to 500; each route has its own default) and `?cursor=`. Its response is the envelope with `meta`:
+
+```json
+{ "success": true, "data": [ ... ], "meta": { "limit": 100, "returned": 100, "truncated": true, "next": "/api/referrals?status=received&cursor=..." } }
+```
+
+`truncated` says more rows exist. `next` is the path and query of the next page, and the response carries the same as `Link: <...>; rel="next"`; the last page has neither. There is no total. A cursor is signed (`PAS_CURSOR_KEY`) over its position, the path and every query parameter but `cursor` and `limit`, so it works only on the list and filters it came from, and `limit` may change between pages. A bad limit or cursor is a `422` problem with `code` `unprocessable_entity`. A handler takes a `paging::Page` from the original URI, asks its service for `page.rows()` (one row more than the limit, from the cursor's offset), and answers with `ok_cursor_page`. Order every paged query by something that ends in a unique column, so that the pages are stable. `GET /api/tolerances/status`, `GET /api/print-queue` and a validation campaign's items take a `limit` but have no next page.
+
 ## HTTP Status Code Mapping
 
 The handler maps `crate::Error` variants deterministically:

@@ -96,10 +96,14 @@ impl AuditLogRepository {
     }
 
     /// Recent audit rows across all entities, newest first.
-    pub async fn list_recent<C: Conn>(conn: &C, limit: u64) -> Result<Vec<audit_log::Model>> {
+    pub async fn list_recent<C: Conn>(
+        conn: &C,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<audit_log::Model>> {
+        let rows = rows.into();
         conn.all_as::<audit_log::Model>(Stmt::new(
-            "SELECT * FROM audit_log ORDER BY at DESC LIMIT $1",
-            [(limit as i64).into()],
+            "SELECT * FROM audit_log ORDER BY at DESC, id DESC LIMIT $1 OFFSET $2",
+            [rows.limit().into(), rows.offset().into()],
         ))
         .await
     }
@@ -109,9 +113,10 @@ impl AuditLogRepository {
         conn: &C,
         entity_type: &str,
         entity_id: Uuid,
-        limit: u64,
+        rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<audit_log::Model>> {
-        conn.all_as::<audit_log::Model>(Stmt::new("SELECT * FROM audit_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY at DESC LIMIT $3", [entity_type.into(), entity_id.into(), (limit as i64).into()])).await
+        let rows = rows.into();
+        conn.all_as::<audit_log::Model>(Stmt::new("SELECT * FROM audit_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY at DESC, id DESC LIMIT $3 OFFSET $4", [entity_type.into(), entity_id.into(), rows.limit().into(), rows.offset().into()])).await
     }
 }
 

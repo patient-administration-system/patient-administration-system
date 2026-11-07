@@ -6,9 +6,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok, ok_page, request_audit_ctx,
-};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok, request_audit_ctx};
 use crate::needs_review::{DEFAULT_MONTHS, NeedsReviewService};
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -52,8 +50,6 @@ pub async fn record_review(
 pub struct DueQuery {
     /// The review period in months (default 12).
     pub months: Option<u32>,
-    /// How many to return (1 to 500, default 100); `meta.truncated` says when there were more.
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/communication-needs/due-review`: patients with recorded communication needs that were never
@@ -62,27 +58,31 @@ pub struct DueQuery {
     get,
     path = "/api/communication-needs/due-review",
     tag = "Patients",
-    params(DueQuery),
+    params(crate::paging::PageQuery, DueQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
-pub async fn due_review(State(state): State<AppState>, Query(q): Query<DueQuery>) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+pub async fn due_review(
+    State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+    Query(q): Query<DueQuery>,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match NeedsReviewService::new(state.db.clone())
         .due(
             state.clock.now(),
             q.months.unwrap_or(DEFAULT_MONTHS),
-            crate::paging::ask_for(limit),
+            page.rows(),
         )
         .await
     {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

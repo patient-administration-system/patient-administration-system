@@ -2,7 +2,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { requireAdmin, requireStaff } from "#lib/server/guard.js";
 import { acknowledgeToleranceAlert, toleranceAlerts, toleranceStatus } from "#lib/server/pas.js";
-import { actorName, fromPas, pasFailure, signedInFetch } from "#lib/server/route.js";
+import { actorName, fromPas, pageFromPas, pasFailure, signedInFetch } from "#lib/server/route.js";
 import { isAdmin, isUuid } from "#lib/access.js";
 
 const WINDOWS = [7, 30, 90];
@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ locals, fetch, url }) => {
   const asked = Number(url.searchParams.get("days"));
   const days = WINDOWS.includes(asked) ? asked : 30;
   const f = signedInFetch(fetch, locals);
-  const alerts = await fromPas(toleranceAlerts(f));
+  const alerts = await pageFromPas(url, (cursor) => toleranceAlerts(f, cursor));
   return {
     days,
     windows: WINDOWS,
@@ -21,6 +21,8 @@ export const load: PageServerLoad = async ({ locals, fetch, url }) => {
     status: await fromPas(toleranceStatus(f, days)),
     alerts: alerts.rows,
     alertsCutAt: alerts.cutAt,
+    alertsNextHref: alerts.nextHref,
+    alertsFirstHref: alerts.firstHref,
   };
 };
 

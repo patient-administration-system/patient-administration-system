@@ -32,6 +32,7 @@ impl Status {
             limit,
             returned,
             truncated: returned < before,
+            next: None,
         };
         (self, meta)
     }

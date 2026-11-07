@@ -708,13 +708,14 @@ impl InboundService {
     }
 
     /// Replies nobody could act on, oldest first, for the booking team.
-    pub async fn staff_list(&self, limit: i64) -> Result<Vec<StaffItem>> {
+    pub async fn staff_list(&self, rows: impl Into<crate::paging::Rows>) -> Result<Vec<StaffItem>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new("SELECT id, received_at, outcome, intent, person_id, appointment_id, body FROM inbound_texts \
                  WHERE handled_at IS NULL AND outcome IN ('needs_staff','unmatched','ambiguous_number','no_open_reminder','unknown','rejected') \
-                 ORDER BY received_at LIMIT $1",
-                [crate::paging::fetch(limit).into()],
+                 ORDER BY received_at, id LIMIT $1 OFFSET $2",
+                [rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows.iter()

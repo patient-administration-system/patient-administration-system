@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{
-    HandlerResult, LimitQuery, error_to_response, ok_json, ok_page, request_audit_ctx,
+    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
 };
 use crate::list_validation::NewCampaign;
 
@@ -84,23 +84,22 @@ pub async fn start(
     get,
     path = "/api/validation-campaigns",
     tag = "Validation campaigns",
-    params(LimitQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::list_validation::Campaign>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
-pub async fn list(State(state): State<AppState>, Query(q): Query<LimitQuery>) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 50) {
-        Ok(l) => l,
+pub async fn list(
+    State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 50) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    let ids = match state
-        .list_validation
-        .campaigns(crate::paging::ask_for(limit))
-        .await
-    {
+    let ids = match state.list_validation.campaigns(page.rows()).await {
         Ok(v) => v,
         Err(e) => return error_to_response(e),
     };
@@ -111,7 +110,7 @@ pub async fn list(State(state): State<AppState>, Query(q): Query<LimitQuery>) ->
             Err(e) => return error_to_response(e),
         }
     }
-    ok_page(out, limit)
+    crate::api::rest::handlers::ok_cursor_page(&page, out)
 }
 
 /// `GET /api/validation-campaigns/{id}`.
@@ -138,7 +137,9 @@ pub struct ItemsQuery {
     pub state: Option<String>,
     /// `letter_due` or `decision_due`: what a person can act on now.
     pub next: Option<String>,
-    pub limit: Option<i64>,
+    /// Rows to return, 1 to 500.
+    #[param(value_type = Option<i64>)]
+    pub limit: Option<String>,
 }
 
 /// `GET /api/validation-campaigns/{id}/items?state=&next=&limit=`.
@@ -158,7 +159,7 @@ pub async fn items(
     Path(id): Path<Uuid>,
     Query(q): Query<ItemsQuery>,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
+    let limit = match crate::paging::limit(q.limit.as_deref(), 100) {
         Ok(l) => l,
         Err(e) => return error_to_response(e),
     };

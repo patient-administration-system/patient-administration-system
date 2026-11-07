@@ -294,7 +294,12 @@ impl PifuService {
     }
 
     /// Open requests, oldest first, for the booking team (`booking`) or for a person's decision (`person`).
-    pub async fn open_requests(&self, route: &str, fetch: i64) -> Result<Vec<Request>> {
+    pub async fn open_requests(
+        &self,
+        route: &str,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<Request>> {
+        let rows = rows.into();
         if !["booking", "person"].contains(&route) {
             return Err(Error::validation("route must be booking or person"));
         }
@@ -302,8 +307,8 @@ impl PifuService {
             .db
             .all(Stmt::new("SELECT r.id, r.episode_id, r.person_id, e.service_type, r.requested_at, r.channel, r.route \
                  FROM pifu_requests r JOIN pifu_episodes e ON e.id = r.episode_id \
-                 WHERE r.handled_at IS NULL AND r.route = $1 ORDER BY r.requested_at, r.id LIMIT $2",
-                [route.into(), crate::paging::fetch(fetch).into()],
+                 WHERE r.handled_at IS NULL AND r.route = $1 ORDER BY r.requested_at, r.id LIMIT $2 OFFSET $3",
+                [route.into(), rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows.iter()
@@ -364,14 +369,19 @@ impl PifuService {
     }
 
     /// Episodes whose window has ended and nobody has reviewed: the review task. Oldest expiry first.
-    pub async fn due_reviews(&self, now: DateTime<Utc>, fetch: i64) -> Result<Vec<Episode>> {
+    pub async fn due_reviews(
+        &self,
+        now: DateTime<Utc>,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<Episode>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new(format!(
                     "SELECT {EP_COLS} FROM pifu_episodes WHERE status = 'active' AND expires_at <= $1 \
-                     ORDER BY expires_at, id LIMIT $2"
+                     ORDER BY expires_at, id LIMIT $2 OFFSET $3"
                 ),
-                [now.into(), crate::paging::fetch(fetch).into()],
+                [now.into(), rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows.iter().map(episode).collect()

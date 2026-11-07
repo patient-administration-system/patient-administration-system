@@ -13779,13 +13779,20 @@
             "format": "int64",
             "type": "integer"
           },
+          "next": {
+            "description": "The path and query of the next page, with its signed `cursor`, when there is one. The same is in the\nresponse's `Link: rel=\"next\"` header.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "returned": {
             "description": "How many rows are in `data`.",
             "minimum": 0,
             "type": "integer"
           },
           "truncated": {
-            "description": "`true` when more rows exist than were returned: ask again with a narrower question or a larger limit.",
+            "description": "`true` when more rows exist than were returned: follow `next`, or ask a narrower question.",
             "type": "boolean"
           }
         },
@@ -18380,15 +18387,22 @@
         "operationId": "get_api_admin_outbox_dead_letters",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -18469,15 +18483,22 @@
         "operationId": "get_api_admin_outbox_unpublished",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -20483,6 +20504,25 @@
         "operationId": "get_api_audit_entity",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "entity_type",
             "required": true,
@@ -20497,18 +20537,6 @@
             "schema": {
               "format": "uuid",
               "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
             }
           }
         ],
@@ -20546,15 +20574,22 @@
         "operationId": "get_api_audit_recent",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -20677,24 +20712,31 @@
         "operationId": "get_api_beds__id__occupancy_events",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "Path parameter `id`",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
             }
           }
         ],
@@ -20908,15 +20950,22 @@
         "operationId": "get_api_clinical_priority_reviews_overdue",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -20947,6 +20996,25 @@
         "operationId": "get_api_communication_needs_due_review",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "The review period in months (default 12).",
             "in": "path",
             "name": "months",
@@ -20954,19 +21022,6 @@
             "schema": {
               "format": "int32",
               "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
-            }
-          },
-          {
-            "description": "How many to return (1 to 500, default 100); `meta.truncated` says when there were more.",
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
               "type": [
                 "integer",
                 "null"
@@ -21001,20 +21056,27 @@
         "operationId": "get_api_communication_profiles_stale",
         "parameters": [
           {
-            "in": "path",
-            "name": "older_than_days",
-            "required": true,
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           },
           {
             "in": "path",
-            "name": "limit",
+            "name": "older_than_days",
             "required": true,
             "schema": {
               "format": "int64",
@@ -21102,20 +21164,27 @@
         "operationId": "get_api_contact_problems",
         "parameters": [
           {
-            "in": "path",
-            "name": "since_days",
-            "required": true,
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           },
           {
             "in": "path",
-            "name": "limit",
+            "name": "since_days",
             "required": true,
             "schema": {
               "format": "int64",
@@ -21213,15 +21282,22 @@
         "operationId": "get_api_conversions_pending",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -21722,16 +21798,22 @@
         "operationId": "get_api_experiments",
         "parameters": [
           {
-            "description": "How many experiments to return, newest first: 1 to 500, default 200.",
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -22192,15 +22274,22 @@
         "operationId": "get_api_follow_up_tasks_open",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -23158,15 +23247,22 @@
         "operationId": "get_api_inbound_texts_open",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -23247,21 +23343,28 @@
         "operationId": "get_api_interpreter_requests_unconfirmed",
         "parameters": [
           {
-            "description": "How far ahead to look, in hours (1 to 336, default 36: tomorrow's clinics, checked today).",
-            "in": "path",
-            "name": "within_hours",
-            "required": true,
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
             }
           },
           {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "How far ahead to look, in hours (1 to 336, default 36: tomorrow's clinics, checked today).",
             "in": "path",
-            "name": "limit",
+            "name": "within_hours",
             "required": true,
             "schema": {
               "format": "int64",
@@ -24185,15 +24288,22 @@
         "operationId": "get_api_noshow_priority_list",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -24517,6 +24627,25 @@
         "operationId": "get_api_pathways_due_check",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "weeks",
             "required": true,
@@ -24531,19 +24660,6 @@
           {
             "in": "path",
             "name": "repeat_days",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
-            }
-          },
-          {
-            "description": "How many long waiters to return, longest first: 1 to 500, default 500.",
-            "in": "path",
-            "name": "limit",
             "required": true,
             "schema": {
               "format": "int64",
@@ -25065,24 +25181,31 @@
         "operationId": "get_api_patients__id__audit_local",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "Path parameter `id`",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
             }
           }
         ],
@@ -25553,24 +25676,31 @@
         "operationId": "get_api_patients__id__contact_log",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "Path parameter `id`",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
             }
           }
         ],
@@ -25927,6 +26057,25 @@
         "operationId": "get_api_patients__id__proxies",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "Path parameter `id`",
             "in": "path",
             "name": "id",
@@ -25943,18 +26092,6 @@
             "schema": {
               "type": [
                 "boolean",
-                "null"
-              ]
-            }
-          },
-          {
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
                 "null"
               ]
             }
@@ -26045,6 +26182,25 @@
         "operationId": "get_api_patients__id__reasonable_adjustments",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "Path parameter `id`",
             "in": "path",
             "name": "id",
@@ -26061,18 +26217,6 @@
             "schema": {
               "type": [
                 "boolean",
-                "null"
-              ]
-            }
-          },
-          {
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
                 "null"
               ]
             }
@@ -26530,15 +26674,22 @@
         "operationId": "get_api_pifu_due_reviews",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -26576,6 +26727,25 @@
         "operationId": "get_api_pifu_requests",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "`booking` (default) or `person`.",
             "in": "path",
             "name": "route",
@@ -26583,18 +26753,6 @@
             "schema": {
               "type": [
                 "string",
-                "null"
-              ]
-            }
-          },
-          {
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
                 "null"
               ]
             }
@@ -27173,6 +27331,7 @@
         "operationId": "get_api_print_queue",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500.",
             "in": "path",
             "name": "limit",
             "required": true,
@@ -27542,6 +27701,25 @@
         "operationId": "get_api_referrals",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "status",
             "required": true,
@@ -27559,18 +27737,6 @@
             "schema": {
               "type": [
                 "string",
-                "null"
-              ]
-            }
-          },
-          {
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
                 "null"
               ]
             }
@@ -28621,6 +28787,25 @@
         "operationId": "get_api_session_templates",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "schedule_id",
             "required": true,
@@ -28628,19 +28813,6 @@
               "format": "uuid",
               "type": [
                 "string",
-                "null"
-              ]
-            }
-          },
-          {
-            "description": "How many templates to return, oldest first: 1 to 500, default 200.",
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
                 "null"
               ]
             }
@@ -28888,6 +29060,25 @@
         "operationId": "get_api_slot_releases",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "from",
             "required": true,
@@ -28919,19 +29110,6 @@
             "schema": {
               "type": [
                 "string",
-                "null"
-              ]
-            }
-          },
-          {
-            "description": "How many releases to return, newest first (1 to 500, default 100). `meta.truncated` says when there\nwere more; the summary always covers the whole window.",
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
                 "null"
               ]
             }
@@ -29343,15 +29521,22 @@
         "operationId": "get_api_staff_call_tasks_open",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -29745,15 +29930,22 @@
         "operationId": "get_api_support_flags_open",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -29844,6 +30036,25 @@
         "operationId": "get_api_tolerance_alerts",
         "parameters": [
           {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "`true` for the alerts still open; the default is all of them.",
             "in": "path",
             "name": "open",
@@ -29851,19 +30062,6 @@
             "schema": {
               "type": [
                 "boolean",
-                "null"
-              ]
-            }
-          },
-          {
-            "description": "How many alerts to return, newest first (1 to 500, default 200). `meta.truncated` says when there were\nmore.",
-            "in": "path",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": [
-                "integer",
                 "null"
               ]
             }
@@ -29993,7 +30191,7 @@
             }
           },
           {
-            "description": "How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is\ncut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.",
+            "description": "How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is\ncut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.\nRows to return, 1 to 500.",
             "in": "path",
             "name": "limit",
             "required": true,
@@ -30045,7 +30243,7 @@
             }
           },
           {
-            "description": "How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is\ncut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.",
+            "description": "How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is\ncut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.\nRows to return, 1 to 500.",
             "in": "path",
             "name": "limit",
             "required": true,
@@ -30392,15 +30590,22 @@
         "operationId": "get_api_validation_campaigns",
         "parameters": [
           {
-            "in": "path",
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -30553,6 +30758,7 @@
             }
           },
           {
+            "description": "Rows to return, 1 to 500.",
             "in": "path",
             "name": "limit",
             "required": true,

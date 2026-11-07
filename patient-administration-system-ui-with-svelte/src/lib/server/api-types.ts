@@ -10443,9 +10443,14 @@ export interface components {
        * @description The limit that applied (the one asked for, or the endpoint's default).
        */
       limit: number;
+      /**
+       * @description The path and query of the next page, with its signed `cursor`, when there is one. The same is in the
+       *     response's `Link: rel="next"` header.
+       */
+      next?: string | null;
       /** @description How many rows are in `data`. */
       returned: number;
-      /** @description `true` when more rows exist than were returned: ask again with a narrower question or a larger limit. */
+      /** @description `true` when more rows exist than were returned: follow `next`, or ask a narrower question. */
       truncated: boolean;
     };
     PastTarget: {
@@ -12067,11 +12072,17 @@ export interface operations {
   };
   get_api_admin_outbox_dead_letters: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -12140,11 +12151,17 @@ export interface operations {
   };
   get_api_admin_outbox_unpublished: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -13734,12 +13751,19 @@ export interface operations {
   };
   get_api_audit_entity: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         entity_type: string;
         entity_id: string;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -13772,11 +13796,17 @@ export interface operations {
   };
   get_api_audit_recent: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -13883,12 +13913,19 @@ export interface operations {
   };
   get_api_beds__id__occupancy_events: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description Path parameter `id` */
         id: string;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -14042,11 +14079,17 @@ export interface operations {
   };
   get_api_clinical_priority_reviews_overdue: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -14076,13 +14119,19 @@ export interface operations {
   };
   get_api_communication_needs_due_review: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description The review period in months (default 12). */
         months: number | null;
-        /** @description How many to return (1 to 500, default 100); `meta.truncated` says when there were more. */
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -14113,11 +14162,18 @@ export interface operations {
   };
   get_api_communication_profiles_stale: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         older_than_days: number | null;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -14187,11 +14243,18 @@ export interface operations {
   };
   get_api_contact_problems: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         since_days: number | null;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -14265,11 +14328,17 @@ export interface operations {
   };
   get_api_conversions_pending: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -14688,12 +14757,17 @@ export interface operations {
   };
   get_api_experiments: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description How many experiments to return, newest first: 1 to 500, default 200. */
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -15097,11 +15171,17 @@ export interface operations {
   };
   get_api_follow_up_tasks_open: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -16192,11 +16272,17 @@ export interface operations {
   };
   get_api_inbound_texts_open: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -16265,12 +16351,19 @@ export interface operations {
   };
   get_api_interpreter_requests_unconfirmed: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description How far ahead to look, in hours (1 to 336, default 36: tomorrow's clinics, checked today). */
         within_hours: number | null;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -17053,11 +17146,17 @@ export interface operations {
   };
   get_api_noshow_priority_list: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -17346,13 +17445,19 @@ export interface operations {
   };
   get_api_pathways_due_check: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         weeks: number | null;
         repeat_days: number | null;
-        /** @description How many long waiters to return, longest first: 1 to 500, default 500. */
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -17896,12 +18001,19 @@ export interface operations {
   };
   get_api_patients__id__audit_local: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description Path parameter `id` */
         id: string;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -18287,12 +18399,19 @@ export interface operations {
   };
   get_api_patients__id__contact_log: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description Path parameter `id` */
         id: string;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -18590,14 +18709,21 @@ export interface operations {
   };
   get_api_patients__id__proxies: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description Path parameter `id` */
         id: string;
         /** @description Include expired and revoked authorities (default false). */
         include_inactive: boolean | null;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -18671,14 +18797,21 @@ export interface operations {
   };
   get_api_patients__id__reasonable_adjustments: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description Path parameter `id` */
         id: string;
         /** @description Include ended adjustments (default false: what staff need to act on). */
         include_ended: boolean | null;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -19061,11 +19194,17 @@ export interface operations {
   };
   get_api_pifu_due_reviews: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -19097,12 +19236,19 @@ export interface operations {
   };
   get_api_pifu_requests: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description `booking` (default) or `person`. */
         route: string | null;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -19646,6 +19792,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
+        /** @description Rows to return, 1 to 500. */
         limit: number | null;
       };
       cookie?: never;
@@ -19942,12 +20089,19 @@ export interface operations {
   };
   get_api_referrals: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         status: string | null;
         service: string | null;
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -20786,12 +20940,18 @@ export interface operations {
   };
   get_api_session_templates: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         schedule_id: string | null;
-        /** @description How many templates to return, oldest first: 1 to 500, default 200. */
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -20987,18 +21147,21 @@ export interface operations {
   };
   get_api_slot_releases: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         from: string | null;
         to: string | null;
         /** @description `open`, `refilled` or `expired`. */
         status: string | null;
-        /**
-         * @description How many releases to return, newest first (1 to 500, default 100). `meta.truncated` says when there
-         *     were more; the summary always covers the whole window.
-         */
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -21332,11 +21495,17 @@ export interface operations {
   };
   get_api_staff_call_tasks_open: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -21673,11 +21842,17 @@ export interface operations {
   };
   get_api_support_flags_open: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -21750,16 +21925,19 @@ export interface operations {
   };
   get_api_tolerance_alerts: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description `true` for the alerts still open; the default is all of them. */
         open: boolean | null;
-        /**
-         * @description How many alerts to return, newest first (1 to 500, default 200). `meta.truncated` says when there were
-         *     more.
-         */
-        limit: number | null;
       };
       cookie?: never;
     };
@@ -21872,6 +22050,7 @@ export interface operations {
         /**
          * @description How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is
          *     cut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.
+         *     Rows to return, 1 to 500.
          */
         limit: number | null;
       };
@@ -21911,6 +22090,7 @@ export interface operations {
         /**
          * @description How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is
          *     cut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.
+         *     Rows to return, 1 to 500.
          */
         limit: number | null;
       };
@@ -22200,11 +22380,17 @@ export interface operations {
   };
   get_api_validation_campaigns: {
     parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        limit: number | null;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
       };
+      header?: never;
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -22319,6 +22505,7 @@ export interface operations {
         state: string | null;
         /** @description `letter_due` or `decision_due`: what a person can act on now. */
         next: string | null;
+        /** @description Rows to return, 1 to 500. */
         limit: number | null;
       };
       cookie?: never;

@@ -1,13 +1,13 @@
 //! REST handlers for operational admin: outbox diagnostics + DLQ.
 
 use crate::db::sql::Transact;
-use axa::extract::{Path, Query};
+use axa::extract::Path;
 use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
+use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::api::rest::handlers::{audit_ctx, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::AuditLogRepository;
@@ -30,7 +30,7 @@ pub struct Replayed {
     get,
     path = "/api/admin/outbox/unpublished",
     tag = "Admin",
-    params(LimitQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::db::entities::outbox_event::Model>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -39,15 +39,15 @@ pub struct Replayed {
 )]
 pub async fn list_unpublished_outbox(
     State(state): State<AppState>,
-    Query(q): Query<LimitQuery>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 50) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 50) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    let fetch = u64::try_from(crate::paging::ask_for(limit)).unwrap_or(0);
+    let fetch = page.rows();
     match OutboxRepository::fetch_unpublished(&state.db, fetch).await {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -57,7 +57,7 @@ pub async fn list_unpublished_outbox(
     get,
     path = "/api/admin/outbox/dead-letters",
     tag = "Admin",
-    params(LimitQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::db::entities::outbox_dead_letter::Model>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -66,15 +66,15 @@ pub async fn list_unpublished_outbox(
 )]
 pub async fn list_dead_letters(
     State(state): State<AppState>,
-    Query(q): Query<LimitQuery>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 50) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 50) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    let fetch = u64::try_from(crate::paging::ask_for(limit)).unwrap_or(0);
+    let fetch = page.rows();
     match DeadLetterRepository::list(&state.db, fetch).await {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

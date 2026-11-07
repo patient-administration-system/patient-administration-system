@@ -9,7 +9,8 @@ vi.mock("$app/env/private", () => ({
   PAS_API_TOKEN_FILE: "",
 }));
 
-const { PasError, identityProofed, pas, pasArray, pasPage, toleranceStatus } = await import("#lib/server/pas.js");
+const { PasError, identityProofed, isCursor, nextCursor, pas, pasArray, pasPage, toleranceStatus, withCursor } =
+  await import("#lib/server/pas.js");
 
 type Call = { url: string; init: RequestInit };
 
@@ -93,9 +94,45 @@ describe("pasArray()", () => {
 describe("pasPage()", () => {
   it("says where a list was cut, and null for a whole one or a body with no meta", async () => {
     const page = (meta: unknown) => pasPage(fake(200, JSON.stringify({ data: [1], meta })).fetch, "/list");
-    await expect(page({ limit: 1, returned: 1, truncated: true })).resolves.toEqual({ rows: [1], cutAt: 1 });
-    await expect(page({ limit: 5, returned: 1, truncated: false })).resolves.toEqual({ rows: [1], cutAt: null });
-    await expect(page(undefined)).resolves.toEqual({ rows: [1], cutAt: null });
+    await expect(page({ limit: 1, returned: 1, truncated: true })).resolves.toEqual({
+      rows: [1],
+      cutAt: 1,
+      next: null,
+    });
+    await expect(page({ limit: 5, returned: 1, truncated: false })).resolves.toEqual({
+      rows: [1],
+      cutAt: null,
+      next: null,
+    });
+    await expect(page(undefined)).resolves.toEqual({ rows: [1], cutAt: null, next: null });
+  });
+
+  it("gives the cursor of the next page, and asks for a page with the cursor it is given", async () => {
+    const meta = { limit: 2, returned: 2, truncated: true, next: "/api/list?open=true&limit=2&cursor=AbC_-9" };
+    const { fetch, calls } = fake(200, JSON.stringify({ data: [1, 2], meta }));
+    await expect(pasPage(fetch, "/api/list?open=true", "Xy_-1")).resolves.toEqual({
+      rows: [1, 2],
+      cutAt: 2,
+      next: "AbC_-9",
+    });
+    expect(calls[0]?.url).toBe("http://pas.test/api/list?open=true&cursor=Xy_-1");
+  });
+
+  it("never sends a cursor of the wrong shape", async () => {
+    for (const bad of ["", "../admin", "a b", "a&limit=500", "x".repeat(257)]) {
+      expect(isCursor(bad), bad).toBe(false);
+      expect(withCursor("/api/list", bad), bad).toBe("/api/list");
+    }
+    expect(withCursor("/api/list", null)).toBe("/api/list");
+    expect(withCursor("/api/list", "ok_-1")).toBe("/api/list?cursor=ok_-1");
+    expect(withCursor("/api/list?a=1", "ok")).toBe("/api/list?a=1&cursor=ok");
+  });
+
+  it("has no next cursor for a whole list, or a next without one", () => {
+    expect(nextCursor(undefined)).toBeNull();
+    expect(nextCursor({ limit: 1, returned: 1, truncated: false, next: "/x?cursor=a" })).toBeNull();
+    expect(nextCursor({ limit: 1, returned: 1, truncated: true })).toBeNull();
+    expect(nextCursor({ limit: 1, returned: 1, truncated: true, next: "/x?limit=1" })).toBeNull();
   });
 
   it("treats a body that is not a list as a broken answer", async () => {

@@ -329,20 +329,22 @@ impl AdjustmentService {
         &self,
         person_id: Uuid,
         include_ended: bool,
-        fetch: i64,
+        rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<Adjustment>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new(
                 format!(
                     "SELECT {COLS} FROM reasonable_adjustments \
                      WHERE person_id = $1 AND ($2 OR ended_at IS NULL) \
-                     ORDER BY (ended_at IS NOT NULL), recorded_at DESC, id LIMIT $3"
+                     ORDER BY (ended_at IS NOT NULL), recorded_at DESC, id LIMIT $3 OFFSET $4"
                 ),
                 [
                     person_id.into(),
                     include_ended.into(),
-                    crate::paging::fetch(fetch).into(),
+                    rows.fetch().into(),
+                    rows.offset().into(),
                 ],
             ))
             .await?;

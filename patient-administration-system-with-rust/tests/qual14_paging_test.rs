@@ -141,7 +141,8 @@ async fn templates_experiments_and_due_checks_say_when_they_were_cut() {
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
-async fn a_limit_outside_the_range_is_a_400_not_a_silent_change() {
+/// A bad limit is a 422, as axa answers it, on the lists with a next page and on those without.
+async fn a_limit_outside_the_range_is_a_422_not_a_silent_change() {
     let s = common::build_state(&common::database_url().unwrap()).await;
     let app = patient_administration_system::api::rest::router(s);
     // Every list endpoint that takes ?limit=.
@@ -163,18 +164,23 @@ async fn a_limit_outside_the_range_is_a_400_not_a_silent_change() {
         "/api/experiments",
         "/api/pathways/due-check",
     ] {
-        for bad in ["0", "-1", "501", "99999999999"] {
+        for bad in ["0", "-1", "501", "99999999999", "abc"] {
             let (st, v) = get(&app, &format!("{path}?limit={bad}")).await;
-            assert_eq!(st, StatusCode::BAD_REQUEST, "{path}?limit={bad}: {v}");
+            assert_eq!(
+                st,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{path}?limit={bad}: {v}"
+            );
+            assert_eq!(v["code"], "unprocessable_entity", "{path}?limit={bad}: {v}");
             assert!(
                 v["detail"]
                     .as_str()
                     .unwrap_or("")
-                    .contains("limit must be between 1 and 500"),
+                    .contains("limit must be a whole number from 1 to 500"),
                 "{path}?limit={bad}: {v}"
             );
         }
         let (st, v) = get(&app, &format!("{path}?limit=500")).await;
-        assert_ne!(st, StatusCode::BAD_REQUEST, "{path}?limit=500: {v}");
+        assert_eq!(st, StatusCode::OK, "{path}?limit=500: {v}");
     }
 }

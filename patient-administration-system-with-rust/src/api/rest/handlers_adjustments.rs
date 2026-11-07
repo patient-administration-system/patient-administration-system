@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::adjustments::{AdjustmentService, CATALOGUE, NewAdjustment};
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok, ok_json, ok_page, request_audit_ctx,
+    HandlerResult, error_to_response, ok, ok_json, request_audit_ctx,
 };
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -66,7 +66,6 @@ pub async fn record(
 pub struct ListQuery {
     /// Include ended adjustments (default false: what staff need to act on).
     pub include_ended: Option<bool>,
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/patients/{id}/reasonable-adjustments`: the patient's live adjustments (and ended ones on
@@ -75,7 +74,7 @@ pub struct ListQuery {
     get,
     path = "/api/patients/{id}/reasonable-adjustments",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`"), ListQuery),
+    params(crate::paging::PageQuery, ("id" = String, Path, description = "Path parameter `id`"), ListQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::adjustments::Adjustment>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -84,22 +83,19 @@ pub struct ListQuery {
 )]
 pub async fn list(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Path(id): Path<Uuid>,
     Query(q): Query<ListQuery>,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match AdjustmentService::new(state.db.clone())
-        .for_patient(
-            id,
-            q.include_ended.unwrap_or(false),
-            crate::paging::ask_for(limit),
-        )
+        .for_patient(id, q.include_ended.unwrap_or(false), page.rows())
         .await
     {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

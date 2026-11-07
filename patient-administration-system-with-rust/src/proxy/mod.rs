@@ -227,21 +227,23 @@ impl ProxyService {
         person_id: Uuid,
         include_inactive: bool,
         now: DateTime<Utc>,
-        fetch: i64,
+        rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<Authority>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new(
                 format!(
                     "SELECT {COLS} FROM proxy_authorities WHERE person_id = $1 \
                        AND ($2 OR (revoked_at IS NULL AND expires_at > $3)) \
-                     ORDER BY recorded_at DESC, id LIMIT $4"
+                     ORDER BY recorded_at DESC, id LIMIT $4 OFFSET $5"
                 ),
                 [
                     person_id.into(),
                     include_inactive.into(),
                     now.into(),
-                    crate::paging::fetch(fetch).into(),
+                    rows.fetch().into(),
+                    rows.offset().into(),
                 ],
             ))
             .await?;

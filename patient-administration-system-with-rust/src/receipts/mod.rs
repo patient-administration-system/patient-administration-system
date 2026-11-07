@@ -154,8 +154,9 @@ impl ReceiptService {
     pub async fn contact_problems(
         &self,
         since_days: i64,
-        limit: i64,
+        rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<ContactProblem>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new("SELECT g.person_id, count(*)::bigint AS bounces, max(r.occurred_at) AS last_at, \
@@ -165,8 +166,8 @@ impl ReceiptService {
                  WHERE r.event = 'bounced' AND r.occurred_at > now() - make_interval(days => $1::int) \
                    AND NOT EXISTS (SELECT 1 FROM contact_problem_resolutions c \
                                    WHERE c.person_id = g.person_id AND c.resolved_at >= r.occurred_at) \
-                 GROUP BY g.person_id ORDER BY max(r.occurred_at) DESC LIMIT $2",
-                [(since_days.clamp(1, 3650) as i32).into(), crate::paging::fetch(limit).into()],
+                 GROUP BY g.person_id ORDER BY max(r.occurred_at) DESC, g.person_id LIMIT $2 OFFSET $3",
+                [(since_days.clamp(1, 3650) as i32).into(), rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows.iter()

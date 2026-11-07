@@ -74,7 +74,13 @@ impl NeedsReviewService {
 
     /// Profiles with recorded needs that were never reviewed, or not in the `months` before `now`; the
     /// never-reviewed first, then the oldest review. At most `fetch` rows (see `crate::paging`).
-    pub async fn due(&self, now: DateTime<Utc>, months: u32, fetch: i64) -> Result<Vec<DueReview>> {
+    pub async fn due(
+        &self,
+        now: DateTime<Utc>,
+        months: u32,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<DueReview>> {
+        let rows = rows.into();
         if !(1..=120).contains(&months) {
             return Err(Error::validation("months must be between 1 and 120"));
         }
@@ -86,8 +92,8 @@ impl NeedsReviewService {
             .all(Stmt::new("SELECT person_id, accessibility_needs, needs_reviewed_at FROM patient_communication_profiles \
                  WHERE cardinality(accessibility_needs) > 0 \
                    AND (needs_reviewed_at IS NULL OR needs_reviewed_at < $1) \
-                 ORDER BY needs_reviewed_at NULLS FIRST, person_id LIMIT $2",
-                [cutoff.into(), crate::paging::fetch(fetch).into()],
+                 ORDER BY needs_reviewed_at NULLS FIRST, person_id LIMIT $2 OFFSET $3",
+                [cutoff.into(), rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows.iter()

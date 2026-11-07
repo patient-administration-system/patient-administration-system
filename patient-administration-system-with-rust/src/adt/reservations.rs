@@ -239,12 +239,17 @@ impl AdtService {
     }
 
     /// What happened to a bed's hold, newest first. At most `fetch` rows (see `crate::paging`).
-    pub async fn occupancy_events(&self, bed_id: Uuid, fetch: i64) -> Result<Vec<OccupancyEvent>> {
+    pub async fn occupancy_events(
+        &self,
+        bed_id: Uuid,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<OccupancyEvent>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new("SELECT id, bed_id, event, reservation_id, person_id, actor, at FROM bed_occupancy_events \
-                 WHERE bed_id = $1 ORDER BY at DESC, id LIMIT $2",
-                [bed_id.into(), crate::paging::fetch(fetch).into()],
+                 WHERE bed_id = $1 ORDER BY at DESC, id LIMIT $2 OFFSET $3",
+                [bed_id.into(), rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows.iter()

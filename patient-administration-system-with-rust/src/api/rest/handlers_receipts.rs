@@ -8,7 +8,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -85,7 +85,6 @@ pub async fn letter_receipts(State(state): State<AppState>, Path(id): Path<Uuid>
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ProblemsQuery {
     pub since_days: Option<i64>,
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/contact-problems`: patients whose messages have bounced since a person last dealt with them.
@@ -93,7 +92,7 @@ pub struct ProblemsQuery {
     get,
     path = "/api/contact-problems",
     tag = "Contact problems",
-    params(ProblemsQuery),
+    params(crate::paging::PageQuery, ProblemsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::receipts::ContactProblem>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -102,18 +101,19 @@ pub struct ProblemsQuery {
 )]
 pub async fn contact_problems(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<ProblemsQuery>,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match state
         .receipts
-        .contact_problems(q.since_days.unwrap_or(90), crate::paging::ask_for(limit))
+        .contact_problems(q.since_days.unwrap_or(90), page.rows())
         .await
     {
-        Ok(v) => ok_page(v, limit),
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

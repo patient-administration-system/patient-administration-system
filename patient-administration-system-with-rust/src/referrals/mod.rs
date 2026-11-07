@@ -198,8 +198,9 @@ impl ReferralService {
         &self,
         status: Option<&str>,
         service: Option<&str>,
-        limit: i64,
+        rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<Referral>> {
+        let rows = rows.into();
         if let Some(s) = status {
             s.parse::<ReferralStatus>()?;
         }
@@ -207,12 +208,12 @@ impl ReferralService {
             .db
             .all(Stmt::new(format!(
                     "SELECT {COLS} FROM referrals r WHERE ($1::text IS NULL OR r.status = $1) \
-                     AND ($2::text IS NULL OR r.target_service = $2) ORDER BY r.received_at LIMIT $3"
+                     AND ($2::text IS NULL OR r.target_service = $2) ORDER BY r.received_at, r.id LIMIT $3 OFFSET $4"
                 ),
                 [
                     status.map(String::from).into(),
                     service.map(String::from).into(),
-                    crate::paging::fetch(limit).into(),
+                    rows.fetch().into(), rows.offset().into(),
                 ],
             ))
 .await?;

@@ -46,3 +46,55 @@ test("the note is translated in every locale", async ({ page, request }) => {
     if (!locale.startsWith("en")) await expect(note, locale).not.toContainText(english);
   }
 });
+
+test("a cut list links to its next page, and the next page is asked for with the PAS's cursor", async ({
+  page,
+  request,
+}) => {
+  await request.get(`${MOCK_URL}/__cut?on=true`);
+  await keycloakLogin(page, "admin");
+  const cases = [
+    ["/en-001/waits", "/api/pathways/due-check?cursor=page-2"],
+    [`/en-001/history?patient=${PATIENT}`, `/api/patients/${PATIENT}/contact-log?cursor=page-2`],
+    ["/en-001/tolerances", "/api/tolerance-alerts?open=true&cursor=page-2"],
+  ];
+  for (const [path, asked] of cases) {
+    await page.goto(path);
+    await expect(page.getByTestId("list-first"), path).toHaveCount(0);
+    await page.getByTestId("list-next").click();
+    await expect(page, path).toHaveURL(/cursor=page-2/);
+    // The last page: no next link, and a way back to the first.
+    await expect(page.getByTestId("list-next"), path).toHaveCount(0);
+    await page.getByTestId("list-first").click();
+    await expect(page, path).not.toHaveURL(/cursor=/);
+    const seen: string[] = await (await request.get(`${MOCK_URL}/__pages`)).json();
+    expect(seen, path).toContain(asked);
+  }
+});
+
+test("a cursor the PAS refuses goes back to the first page, and one of the wrong shape is never sent", async ({
+  page,
+  request,
+}) => {
+  await request.get(`${MOCK_URL}/__cut?on=false`);
+  await keycloakLogin(page, "admin");
+  await page.goto("/en-001/waits?cursor=stale-cursor");
+  await expect(page).toHaveURL(/\/en-001\/waits$/);
+  await expect(page.getByRole("table").first()).toBeVisible();
+
+  await page.goto("/en-001/waits?cursor=..%2F..%2Fadmin");
+  await expect(page.getByRole("table").first()).toBeVisible();
+  const seen: string[] = await (await request.get(`${MOCK_URL}/__pages`)).json();
+  expect(seen).toEqual([]);
+});
+
+test("the next-page link is translated in every locale", async ({ page, request }) => {
+  await request.get(`${MOCK_URL}/__cut?on=true`);
+  await keycloakLogin(page, "admin");
+  for (const locale of LOCALES) {
+    await page.goto(`/${locale}/waits`);
+    const next = page.getByTestId("list-next");
+    await expect(next, locale).toContainText("7");
+    if (!locale.startsWith("en")) await expect(next, locale).not.toContainText("Show the next");
+  }
+});

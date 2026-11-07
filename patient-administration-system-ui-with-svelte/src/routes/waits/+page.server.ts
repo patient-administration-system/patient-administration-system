@@ -2,14 +2,15 @@ import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
 import { requireStaff } from "#lib/server/guard.js";
 import { askStillNeeded, dueChecks } from "#lib/server/pas.js";
-import { actorName, fromPas, pasFailure, signedInFetch } from "#lib/server/route.js";
+import { actorName, pageFromPas, pasFailure, signedInFetch } from "#lib/server/route.js";
 import { isUuid } from "#lib/access.js";
 
 /** CAP-8: long waiters nobody has asked recently whether they still need the appointment. */
-export const load: PageServerLoad = async ({ locals, fetch }) => {
+export const load: PageServerLoad = async ({ locals, fetch, url }) => {
   requireStaff(locals, "/waits");
-  const due = await fromPas(dueChecks(signedInFetch(fetch, locals)));
-  return { due: due.rows, cutAt: due.cutAt };
+  const f = signedInFetch(fetch, locals);
+  const due = await pageFromPas(url, (cursor) => dueChecks(f, cursor));
+  return { due: due.rows, cutAt: due.cutAt, nextHref: due.nextHref, firstHref: due.firstHref };
 };
 
 export const actions: Actions = {

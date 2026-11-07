@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
-use crate::api::rest::handlers::{ok, ok_json, ok_json_page, ok_page};
+use crate::api::rest::handlers::{ok, ok_json, ok_json_page};
 use crate::tolerance::{Limits, Scope};
 
 /// `GET /api/tolerances`: every measure with its target, tolerance and limit, and whether a person changed it.
@@ -133,7 +133,9 @@ pub struct StatusQuery {
     pub days: Option<i64>,
     /// How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is
     /// cut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.
-    pub limit: Option<i64>,
+    /// Rows to return, 1 to 500.
+    #[param(value_type = Option<i64>)]
+    pub limit: Option<String>,
 }
 
 /// `GET /api/tolerances/status?days=30&limit=`: each measure's value and its tier, and the worst tier overall.
@@ -150,7 +152,7 @@ pub struct StatusQuery {
     )
 )]
 pub async fn status(State(state): State<AppState>, Query(q): Query<StatusQuery>) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, crate::paging::MAX_LIMIT) {
+    let limit = match crate::paging::limit(q.limit.as_deref(), crate::paging::MAX_LIMIT) {
         Ok(n) => n,
         Err(e) => return error_to_response(e),
     };
@@ -190,9 +192,6 @@ pub async fn evaluate(
 pub struct AlertsQuery {
     /// `true` for the alerts still open; the default is all of them.
     pub open: Option<bool>,
-    /// How many alerts to return, newest first (1 to 500, default 200). `meta.truncated` says when there were
-    /// more.
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/tolerance-alerts?open=true&limit=`: alerts, newest first. Paged (NFR-23).
@@ -200,21 +199,25 @@ pub struct AlertsQuery {
     get,
     path = "/api/tolerance-alerts",
     tag = "Tolerance alerts",
-    params(AlertsQuery),
+    params(crate::paging::PageQuery, AlertsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::tolerance::Alert>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
-pub async fn alerts(State(state): State<AppState>, Query(q): Query<AlertsQuery>) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 200) {
-        Ok(n) => n,
+pub async fn alerts(
+    State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+    Query(q): Query<AlertsQuery>,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 200) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    let asked = crate::paging::ask_for(limit);
+    let asked = page.rows();
     match state.tolerance.alerts(q.open.unwrap_or(false), asked).await {
-        Ok(v) => ok_page(v, limit),
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

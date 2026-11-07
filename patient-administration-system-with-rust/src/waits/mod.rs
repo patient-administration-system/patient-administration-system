@@ -172,7 +172,8 @@ impl WaitsService {
                 ));
             }
         }
-        out.sort_by_key(|(_, p)| std::cmp::Reverse(p.weeks_waited));
+        // Longest first, then by pathway, so that a page of this list starts where the last one stopped.
+        out.sort_by_key(|(_, p)| (std::cmp::Reverse(p.weeks_waited), p.pathway_id));
         Ok(out)
     }
 

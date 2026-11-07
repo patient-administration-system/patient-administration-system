@@ -220,6 +220,8 @@
   "tol.unit.weeks": "أسابيع",
   "tol.unit.days": "أيام",
   "list.cut": "هذه القائمة غير مكتملة: تعرض {count} وهناك المزيد.",
+  "list.first": "العودة إلى بداية القائمة",
+  "list.next": "عرض الـ {count} التالية",
   "tol.none": "لا توجد مقاييس.",
   "tol.by_service": "حسب الخدمة",
   "tol.by_ward": "حسب الجناح",

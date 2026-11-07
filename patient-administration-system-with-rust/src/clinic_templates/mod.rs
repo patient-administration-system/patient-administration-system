@@ -332,13 +332,18 @@ impl TemplateService {
     }
 
     /// Templates (optionally of one schedule) with their versions, oldest first, up to `limit`.
-    pub async fn list(&self, schedule_id: Option<Uuid>, limit: i64) -> Result<Vec<TemplateView>> {
+    pub async fn list(
+        &self,
+        schedule_id: Option<Uuid>,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<TemplateView>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new(
                 "SELECT id, schedule_id, name FROM session_templates \
-                 WHERE ($1::uuid IS NULL OR schedule_id = $1) ORDER BY created_at, id LIMIT $2",
-                [schedule_id.into(), crate::paging::fetch(limit).into()],
+                 WHERE ($1::uuid IS NULL OR schedule_id = $1) ORDER BY created_at, id LIMIT $2 OFFSET $3",
+                [schedule_id.into(), rows.fetch().into(), rows.offset().into()],
             ))
             .await?;
         let mut out = Vec::new();

@@ -1,12 +1,11 @@
 //! REST handlers for explaining a change or a contact (CAP-6). Read-only.
 
-use axa::extract::{Path, Query};
+use axa::extract::Path;
 use axum::extract::State;
-use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, ok_page};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json};
 
 /// `GET /api/appointments/{id}/history`: who did what to this appointment, when and why, with the messages
 /// sent about it and the patient's replies, oldest first.
@@ -31,18 +30,13 @@ pub async fn appointment_history(
     }
 }
 
-#[derive(Debug, Deserialize, utoipa::IntoParams)]
-pub struct LogQuery {
-    pub limit: Option<i64>,
-}
-
 /// `GET /api/patients/{id}/contact-log`: every message sent to the patient and every text received, newest
 /// first, with what triggered each. It says that a contact happened and why, never what it said.
 #[utoipa::path(
     get,
     path = "/api/patients/{id}/contact-log",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`"), LogQuery),
+    params(crate::paging::PageQuery, ("id" = String, Path, description = "Path parameter `id`"), ),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::history::HistoryRow>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -51,19 +45,15 @@ pub struct LogQuery {
 )]
 pub async fn contact_log(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Path(id): Path<Uuid>,
-    Query(q): Query<LogQuery>,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 200) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 200) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    match state
-        .history
-        .contact_log(id, crate::paging::ask_for(limit))
-        .await
-    {
-        Ok(v) => ok_page(v, limit),
+    match state.history.contact_log(id, page.rows()).await {
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

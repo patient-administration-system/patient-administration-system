@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
-use crate::api::rest::handlers::{ok, ok_json, ok_page};
+use crate::api::rest::handlers::{ok, ok_json};
 use crate::paging;
 
 /// `GET /api/appointments/{id}/lead-time`: booking to visit, in whole days.
@@ -53,8 +53,6 @@ pub async fn patient_waits(State(state): State<AppState>, Path(id): Path<Uuid>) 
 pub struct DueQuery {
     pub weeks: Option<i64>,
     pub repeat_days: Option<i64>,
-    /// How many long waiters to return, longest first: 1 to 500, default 500.
-    pub limit: Option<i64>,
 }
 
 /// One long waiter nobody has asked recently whether they still need the appointment.
@@ -73,7 +71,7 @@ pub struct DueCheck {
     get,
     path = "/api/pathways/due-check",
     tag = "Pathways",
-    params(DueQuery),
+    params(crate::paging::PageQuery, DueQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<DueCheck>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -82,15 +80,20 @@ pub struct DueCheck {
 )]
 pub async fn due_for_check(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<DueQuery>,
 ) -> HandlerResult {
-    let limit = match paging::limit(q.limit, paging::MAX_LIMIT) {
-        Ok(limit) => limit,
+    let page = match crate::paging::Page::new(&uri, paging::MAX_LIMIT) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match state.waits.due_for_check(q.weeks, q.repeat_days).await {
-        Ok(v) => ok_page(
-            v.into_iter()
+        // Every open pathway is read and sorted in memory (QUAL-48), so the page is taken from that.
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(
+            &page,
+            page.rows()
+                .take(v)
+                .into_iter()
                 .map(|(person_id, p)| DueCheck {
                     pathway_id: p.pathway_id,
                     person_id,
@@ -99,7 +102,6 @@ pub async fn due_for_check(
                     last_check_at: p.last_check_at,
                 })
                 .collect::<Vec<_>>(),
-            limit,
         ),
         Err(e) => error_to_response(e),
     }

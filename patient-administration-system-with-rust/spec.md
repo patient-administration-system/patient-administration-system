@@ -739,6 +739,7 @@ Read from environment (or `.env`).
 | `OTLP_ENDPOINT`        | No       | unset            | OTLP collector endpoint (HTTP/protobuf, e.g. `http://otel-collector:4318/v1/traces`). When set, `observability::init` wires a `tracing_opentelemetry` layer alongside fmt; every span is exported. When unset, fmt only — no network egress. Setup failures are non-fatal. *(Wired in v0.7.)* |
 | `OTEL_SERVICE_NAME`    | No       | `pas-axum`       | `service.name` resource attribute on every exported span. Override per replica / environment. *(Added in v0.7.)* |
 | `PAS_SMS_PROVIDER`     | No       | `none`           | SMS provider selector (v0.8). `none` = `NoopSmsProvider` (auto-send disabled, SMS letters stay `Pending` — same as v0.7). `log` = `LogSmsProvider` (every outbound message logged at `tracing::info!(target: "pas::sms")`, letter flipped to `Sent`). Unknown values fall back to `none` with a startup `warn!`. Case- and whitespace-insensitive. |
+| `PAS_CURSOR_KEY`       | In production | none        | At least 32 bytes that sign list cursors; shared by every replica. Unset, each process makes its own and warns outside development. |
 | `PAS_RATE_LIMIT_RPM`   | No       | `600`            | Requests per peer IP in each fixed minute. `0` turns the limit off. |
 | `PAS_AUTH_LOCKOUT_FAILURES` | No  | `0`              | `401`s per peer IP in 15 minutes before it is refused until they end. `0` turns the lockout off; it is off by default because the UI servers call for all their users from one address. |
 

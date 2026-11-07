@@ -8,9 +8,7 @@ use uuid::Uuid;
 
 use crate::analytics::AnalyticsService;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
-};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 use crate::pifu::{Decision, NewEpisode, PifuService};
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -124,7 +122,6 @@ pub struct Reviewed {
 pub struct RequestsQuery {
     /// `booking` (default) or `person`.
     pub route: Option<String>,
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/pifu/requests?route=`: open requests, oldest first, for the booking team or for a person's
@@ -133,7 +130,7 @@ pub struct RequestsQuery {
     get,
     path = "/api/pifu/requests",
     tag = "Scheduling",
-    params(RequestsQuery),
+    params(crate::paging::PageQuery, RequestsQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::pifu::Request>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -142,20 +139,18 @@ pub struct RequestsQuery {
 )]
 pub async fn requests(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<RequestsQuery>,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match PifuService::new(state.db.clone())
-        .open_requests(
-            q.route.as_deref().unwrap_or("booking"),
-            crate::paging::ask_for(limit),
-        )
+        .open_requests(q.route.as_deref().unwrap_or("booking"), page.rows())
         .await
     {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -204,18 +199,13 @@ pub async fn handle(
     }
 }
 
-#[derive(Debug, Deserialize, utoipa::IntoParams)]
-pub struct ReviewsQuery {
-    pub limit: Option<i64>,
-}
-
 /// `GET /api/pifu/due-reviews`: episodes whose window has ended and that nobody has reviewed. The review
 /// task: a person discharges or extends; nothing does it for them. Paged (NFR-23).
 #[utoipa::path(
     get,
     path = "/api/pifu/due-reviews",
     tag = "Scheduling",
-    params(ReviewsQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::pifu::Episode>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -224,17 +214,17 @@ pub struct ReviewsQuery {
 )]
 pub async fn due_reviews(
     State(state): State<AppState>,
-    Query(q): Query<ReviewsQuery>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match PifuService::new(state.db.clone())
-        .due_reviews(state.clock.now(), crate::paging::ask_for(limit))
+        .due_reviews(state.clock.now(), page.rows())
         .await
     {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

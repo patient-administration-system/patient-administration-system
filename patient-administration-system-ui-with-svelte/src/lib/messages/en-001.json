@@ -220,6 +220,8 @@
   "tol.unit.weeks": "weeks",
   "tol.unit.days": "days",
   "list.cut": "This list is not complete: it shows {count}, and there are more.",
+  "list.first": "Back to the start of the list",
+  "list.next": "Show the next {count}",
   "tol.none": "There are no measures.",
   "tol.by_service": "By service",
   "tol.by_ward": "By ward",

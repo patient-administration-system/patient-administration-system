@@ -44,7 +44,11 @@ impl NoShowService {
     }
 
     /// The call list: booked appointments a person has not yet dealt with, highest first, with the factors.
-    pub async fn priority_list(&self, limit: i64) -> Result<Vec<CallItem>> {
+    pub async fn priority_list(
+        &self,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<CallItem>> {
+        let rows = rows.into();
         self.require_active().await?;
         let rows = self
             .db
@@ -52,8 +56,8 @@ impl NoShowService {
                  FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
                  JOIN staff_call_tasks t ON t.appointment_id = n.appointment_id AND t.reason = 'high_risk' \
                  WHERE a.status = 'booked' AND a.start_datetime > now() AND t.handled_at IS NULL \
-                 ORDER BY n.probability DESC, a.start_datetime LIMIT $1",
-                [crate::paging::fetch(limit).into()],
+                 ORDER BY n.probability DESC, a.start_datetime, n.appointment_id LIMIT $1 OFFSET $2",
+                [rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows.iter()

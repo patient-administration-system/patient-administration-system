@@ -1,15 +1,13 @@
 //! REST handlers for a clinician's priority on a waiting-list entry (NEW-17).
 
-use axa::extract::{Json, Path, Query};
+use axa::extract::{Json, Path};
 use axum::{extract::State, http::HeaderMap};
 use chrono::NaiveDate;
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{
-    HandlerResult, LimitQuery, error_to_response, ok, ok_page, request_audit_ctx,
-};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok, request_audit_ctx};
 use crate::clinical_priority::ClinicalPriorityService;
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -74,16 +72,19 @@ pub async fn set_priority(
     get,
     path = "/api/clinical-priority-reviews/overdue",
     tag = "Waitlist",
-    params(LimitQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
-pub async fn overdue(State(state): State<AppState>, Query(q): Query<LimitQuery>) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+pub async fn overdue(
+    State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     let today = state
@@ -92,10 +93,10 @@ pub async fn overdue(State(state): State<AppState>, Query(q): Query<LimitQuery>)
         .with_timezone(&crate::inbound::messages::timezone())
         .date_naive();
     match ClinicalPriorityService::new(state.db.clone())
-        .overdue(today, crate::paging::ask_for(limit))
+        .overdue(today, page.rows())
         .await
     {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

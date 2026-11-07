@@ -192,8 +192,9 @@ impl InterpreterService {
         &self,
         now: DateTime<Utc>,
         within: Duration,
-        fetch: i64,
+        rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<UnconfirmedRequest>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new(
@@ -201,11 +202,12 @@ impl InterpreterService {
                  FROM interpreter_requests r JOIN appointments a ON a.id = r.appointment_id \
                  WHERE r.status = 'requested' AND a.status = 'booked' \
                    AND a.start_datetime >= $1 AND a.start_datetime < $2 \
-                 ORDER BY a.start_datetime, r.id LIMIT $3",
+                 ORDER BY a.start_datetime, r.id LIMIT $3 OFFSET $4",
                 [
                     now.into(),
                     (now + within).into(),
-                    crate::paging::fetch(fetch).into(),
+                    rows.fetch().into(),
+                    rows.offset().into(),
                 ],
             ))
             .await?;

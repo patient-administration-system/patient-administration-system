@@ -8,8 +8,7 @@ use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
-use crate::api::rest::handlers::{ok, ok_json, ok_page};
-use crate::paging;
+use crate::api::rest::handlers::{ok, ok_json};
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 #[schema(as = handlers_experiments::StartBody)]
@@ -59,31 +58,28 @@ pub async fn start(
     }
 }
 
-#[derive(Debug, Deserialize, utoipa::IntoParams)]
-pub struct ListQuery {
-    /// How many experiments to return, newest first: 1 to 500, default 200.
-    pub limit: Option<i64>,
-}
-
 /// `GET /api/experiments`.
 #[utoipa::path(
     get,
     path = "/api/experiments",
     tag = "Experiments",
-    params(ListQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::experiments::Experiment>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
-pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> HandlerResult {
-    let limit = match paging::limit(q.limit, 200) {
-        Ok(limit) => limit,
+pub async fn list(
+    State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 200) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    match state.experiments.list(paging::ask_for(limit)).await {
-        Ok(v) => ok_page(v, limit),
+    match state.experiments.list(page.rows()).await {
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

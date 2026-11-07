@@ -249,11 +249,12 @@ impl ExperimentService {
     }
 
     /// Experiments, newest first, up to `limit`.
-    pub async fn list(&self, limit: i64) -> Result<Vec<Experiment>> {
+    pub async fn list(&self, rows: impl Into<crate::paging::Rows>) -> Result<Vec<Experiment>> {
+        let rows = rows.into();
         let rows = self
             .db
-            .all(Stmt::new("SELECT id, template_name, started_by, started_at, stopped_at FROM message_experiments ORDER BY started_at DESC, id DESC LIMIT $1",
-                [crate::paging::fetch(limit).into()],
+            .all(Stmt::new("SELECT id, template_name, started_by, started_at, stopped_at FROM message_experiments ORDER BY started_at DESC, id DESC LIMIT $1 OFFSET $2",
+                [rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         let mut out = Vec::new();

@@ -48,11 +48,12 @@ impl ListValidationService {
         })
     }
 
-    pub async fn campaigns(&self, limit: i64) -> Result<Vec<Uuid>> {
+    pub async fn campaigns(&self, rows: impl Into<crate::paging::Rows>) -> Result<Vec<Uuid>> {
+        let rows = rows.into();
         self.db
             .all(Stmt::new(
-                "SELECT id FROM validation_campaigns ORDER BY created_at DESC LIMIT $1",
-                [crate::paging::fetch(limit).into()],
+                "SELECT id FROM validation_campaigns ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2",
+                [rows.fetch().into(), rows.offset().into()],
             ))
             .await?
             .iter()

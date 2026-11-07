@@ -100,21 +100,26 @@ impl HistoryService {
     }
 
     /// Every message sent to a patient and every text received from them, newest first.
-    pub async fn contact_log(&self, person_id: Uuid, limit: i64) -> Result<Vec<HistoryRow>> {
+    pub async fn contact_log(
+        &self,
+        person_id: Uuid,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<HistoryRow>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new("SELECT * FROM ( \
                    SELECT 'message' AS kind, created_at AS at, 'message_' || status AS action, NULL::text AS by_user, \
                           \"trigger\" AS reason_code, \
                           jsonb_build_object('letter_id', id, 'channel', channel, 'locale', locale, \
-                                             'trigger_ref', trigger_ref, 'appointment_id', appointment_id) AS context \
+                                             'trigger_ref', trigger_ref, 'appointment_id', appointment_id) AS context, id AS row_id \
                      FROM generated_letters WHERE person_id = $1 \
                    UNION ALL \
                    SELECT 'text', received_at, 'text_' || outcome, NULL::text, intent, \
-                          jsonb_build_object('appointment_id', appointment_id) \
+                          jsonb_build_object('appointment_id', appointment_id), id \
                      FROM inbound_texts WHERE person_id = $1 \
-                 ) c ORDER BY at DESC LIMIT $2",
-                [person_id.into(), crate::paging::fetch(limit).into()],
+                 ) c ORDER BY at DESC, kind, row_id DESC LIMIT $2 OFFSET $3",
+                [person_id.into(), rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows_to_history(&rows)

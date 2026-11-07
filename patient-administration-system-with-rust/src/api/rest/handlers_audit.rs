@@ -7,7 +7,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
+use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::db::repositories::audit::AuditLogRepository;
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
@@ -19,7 +19,6 @@ pub struct LimitQuery {
 pub struct EntityQuery {
     pub entity_type: String,
     pub entity_id: Uuid,
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/audit/recent?limit=N`.
@@ -27,7 +26,7 @@ pub struct EntityQuery {
     get,
     path = "/api/audit/recent",
     tag = "Audit",
-    params(LimitQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::db::entities::audit_log::Model>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -36,15 +35,15 @@ pub struct EntityQuery {
 )]
 pub async fn list_recent(
     State(state): State<AppState>,
-    Query(q): Query<LimitQuery>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 50) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 50) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    let fetch = u64::try_from(crate::paging::ask_for(limit)).unwrap_or(0);
+    let fetch = page.rows();
     match AuditLogRepository::list_recent(&state.db, fetch).await {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -54,7 +53,7 @@ pub async fn list_recent(
     get,
     path = "/api/audit/entity",
     tag = "Audit",
-    params(EntityQuery),
+    params(crate::paging::PageQuery, EntityQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::db::entities::audit_log::Model>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -63,15 +62,16 @@ pub async fn list_recent(
 )]
 pub async fn list_for_entity(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<EntityQuery>,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 50) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 50) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    let fetch = u64::try_from(crate::paging::ask_for(limit)).unwrap_or(0);
+    let fetch = page.rows();
     match AuditLogRepository::list_for_entity(&state.db, &q.entity_type, q.entity_id, fetch).await {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }
@@ -85,7 +85,7 @@ pub async fn list_for_entity(
     get,
     path = "/api/patients/{id}/audit/local",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`"), LimitQuery),
+    params(crate::paging::PageQuery, ("id" = String, Path, description = "Path parameter `id`"), ),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::db::entities::audit_log::Model>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -94,16 +94,16 @@ pub async fn list_for_entity(
 )]
 pub async fn list_local_for_person(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Path(person_id): Path<Uuid>,
-    Query(q): Query<LimitQuery>,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 50) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 50) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    let fetch = u64::try_from(crate::paging::ask_for(limit)).unwrap_or(0);
+    let fetch = page.rows();
     match AuditLogRepository::list_for_entity(&state.db, "patient", person_id, fetch).await {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

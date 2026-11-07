@@ -56,9 +56,21 @@ async fn a_bad_request_is_a_problem_that_quotes_nothing() {
         ),
         (
             "query",
-            get("/api/referrals?limit=secret"),
+            get("/api/communication-profiles/stale?older_than_days=secret"),
             StatusCode::BAD_REQUEST,
             "bad_request",
+        ),
+        (
+            "limit",
+            get("/api/referrals?limit=secret"),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "unprocessable_entity",
+        ),
+        (
+            "cursor",
+            get("/api/referrals?cursor=secret"),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "unprocessable_entity",
         ),
         (
             "syntax",

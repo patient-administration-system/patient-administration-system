@@ -14,7 +14,9 @@ use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, requ
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct QueueQuery {
-    pub limit: Option<i64>,
+    /// Rows to return, 1 to 500.
+    #[param(value_type = Option<i64>)]
+    pub limit: Option<String>,
 }
 
 /// `GET /api/print-queue`: letters waiting to be posted, oldest first, with the total waiting.
@@ -30,7 +32,7 @@ pub struct QueueQuery {
     )
 )]
 pub async fn queue(State(state): State<AppState>, Query(q): Query<QueueQuery>) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
+    let limit = match crate::paging::limit(q.limit.as_deref(), 100) {
         Ok(l) => l,
         Err(e) => return error_to_response(e),
     };

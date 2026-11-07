@@ -1,7 +1,7 @@
 //! REST handlers for video and phone consultations (CAP-14): the approved-services list and the
 //! clinician's review of a conversion.
 
-use axa::extract::{Json, Path, Query};
+use axa::extract::{Json, Path};
 use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use serde_json::Value;
@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::Error;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 use crate::virtual_visits::Review;
 
@@ -98,17 +98,12 @@ pub async fn remove_service(
     }
 }
 
-#[derive(Debug, Deserialize, utoipa::IntoParams)]
-pub struct PendingQuery {
-    pub limit: Option<i64>,
-}
-
 /// `GET /api/conversions/pending`: conversions waiting for a clinician, soonest appointment first.
 #[utoipa::path(
     get,
     path = "/api/conversions/pending",
     tag = "Conversions",
-    params(PendingQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::models::appointment::Appointment>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -117,18 +112,14 @@ pub struct PendingQuery {
 )]
 pub async fn pending(
     State(state): State<AppState>,
-    Query(q): Query<PendingQuery>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    match state
-        .virtual_visits
-        .pending(crate::paging::ask_for(limit))
-        .await
-    {
-        Ok(v) => ok_page(v, limit),
+    match state.virtual_visits.pending(page.rows()).await {
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

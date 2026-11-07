@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
-};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 use crate::models::appointment::{Appointment, CancelledBy};
 use crate::proxy::{NewAuthority, ProxyService, proxy_context};
 use crate::scheduling::CancelDetails;
@@ -79,7 +77,6 @@ pub async fn grant(
 pub struct ListQuery {
     /// Include expired and revoked authorities (default false).
     pub include_inactive: Option<bool>,
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/patients/{id}/proxies`: who may act for the patient. Paged (NFR-23).
@@ -87,7 +84,7 @@ pub struct ListQuery {
     get,
     path = "/api/patients/{id}/proxies",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`"), ListQuery),
+    params(crate::paging::PageQuery, ("id" = String, Path, description = "Path parameter `id`"), ListQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::proxy::Authority>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -96,11 +93,12 @@ pub struct ListQuery {
 )]
 pub async fn list(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Path(id): Path<Uuid>,
     Query(q): Query<ListQuery>,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match ProxyService::new(state.db.clone())
@@ -108,11 +106,11 @@ pub async fn list(
             id,
             q.include_inactive.unwrap_or(false),
             state.clock.now(),
-            crate::paging::ask_for(limit),
+            page.rows(),
         )
         .await
     {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

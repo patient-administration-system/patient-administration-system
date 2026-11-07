@@ -4,14 +4,14 @@
 //! token is the only thing in the URL; it carries no personal data.
 
 use crate::api::rest::extract::OptionalJson;
-use axa::extract::{Json, Path, Query};
+use axa::extract::{Json, Path};
 use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::Error;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page};
+use crate::api::rest::handlers::{HandlerResult, error_to_response};
 use crate::api::rest::handlers::{ok, ok_json};
 use crate::api::rest::upstream_proxy::user_context_from_headers;
 use crate::db::repositories::audit::UserContext as RepoUserContext;
@@ -137,7 +137,7 @@ pub async fn post_link_rebook(
     get,
     path = "/api/staff-call-tasks/open",
     tag = "Staff call tasks",
-    params(crate::api::rest::handlers::LimitQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope"),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -146,14 +146,14 @@ pub async fn post_link_rebook(
 )]
 pub async fn open_calls(
     State(state): State<AppState>,
-    Query(q): Query<crate::api::rest::handlers::LimitQuery>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 200) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 200) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    match state.ladder.open_calls(crate::paging::ask_for(limit)).await {
-        Ok(v) => ok_page(v, limit),
+    match state.ladder.open_calls(page.rows()).await {
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

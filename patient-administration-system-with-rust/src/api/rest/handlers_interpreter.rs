@@ -6,9 +6,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
-};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 use crate::interpreter::InterpreterService;
 
 /// The interpreting need now on record; both fields are null when it was cleared.
@@ -124,7 +122,6 @@ pub async fn confirm(
 pub struct UnconfirmedQuery {
     /// How far ahead to look, in hours (1 to 336, default 36: tomorrow's clinics, checked today).
     pub within_hours: Option<i64>,
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/interpreter-requests/unconfirmed`: booked appointments starting soon whose interpreter is not
@@ -133,7 +130,7 @@ pub struct UnconfirmedQuery {
     get,
     path = "/api/interpreter-requests/unconfirmed",
     tag = "Scheduling",
-    params(UnconfirmedQuery),
+    params(crate::paging::PageQuery, UnconfirmedQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::interpreter::UnconfirmedRequest>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -142,6 +139,7 @@ pub struct UnconfirmedQuery {
 )]
 pub async fn unconfirmed(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<UnconfirmedQuery>,
 ) -> HandlerResult {
     let hours = q.within_hours.unwrap_or(36);
@@ -150,19 +148,19 @@ pub async fn unconfirmed(
             "within_hours must be between 1 and 336",
         ));
     }
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match InterpreterService::new(state.db.clone())
         .unconfirmed(
             state.clock.now(),
             chrono::Duration::hours(hours),
-            crate::paging::ask_for(limit),
+            page.rows(),
         )
         .await
     {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

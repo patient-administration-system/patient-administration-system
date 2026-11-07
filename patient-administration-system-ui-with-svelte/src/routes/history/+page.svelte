@@ -27,7 +27,7 @@
   {#if data.rows.length === 0}
     <p>{t("history.none")}</p>
   {:else}
-    <ListCut at={data.cutAt ?? null} />
+    <ListCut at={data.cutAt ?? null} next={data.nextHref ?? null} first={data.firstHref ?? null} />
     <table>
       <caption>{data.kind === "appointment" ? t("history.captionAppointment") : t("history.captionContact")}</caption>
       <thead>

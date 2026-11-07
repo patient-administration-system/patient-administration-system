@@ -17,6 +17,11 @@ pub enum Error {
     #[error("Validation error: {0}")]
     Validation(String),
 
+    /// The request is well formed but cannot be met as asked, such as a page limit or cursor that is not
+    /// valid. Maps to 422 with `code` `unprocessable_entity`, as axa answers it.
+    #[error("{0}")]
+    Unprocessable(String),
+
     #[error("Invalid state transition: {0}")]
     InvalidStateTransition(String),
 
@@ -132,6 +137,7 @@ impl Error {
         let what = match self {
             Error::NotFound(_)
             | Error::Validation(_)
+            | Error::Unprocessable(_)
             | Error::InvalidStateTransition(_)
             | Error::Conflict(_)
             | Error::PreconditionFailed(_)

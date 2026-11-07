@@ -35,6 +35,7 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
     let cfg = Config::from_env()?;
     observability::init(&cfg)?;
+    cursor_key()?;
     tracing::info!(
         "PAS server starting on {}:{}",
         cfg.server_host,
@@ -591,6 +592,20 @@ fn start_mllp(cfg: &Config, app: &axum::Router) {
             }
         });
     }
+}
+
+/// The key that signs list cursors, from `PAS_CURSOR_KEY`. Without it each process signs with its own, so a
+/// cursor fails after a restart or on another replica; outside development that is worth a warning.
+fn cursor_key() -> Result<()> {
+    let secret = patient_administration_system::config::env::text("PAS_CURSOR_KEY");
+    let shared = patient_administration_system::paging::init_cursor_key(secret.as_deref())?;
+    if !shared && axa_environment::Environment::from_env().is_production_like() {
+        tracing::warn!(
+            "PAS_CURSOR_KEY is not set: list cursors are signed with a key of this process alone, so a \
+             next page fails after a restart or on another replica"
+        );
+    }
+    Ok(())
 }
 
 /// Bind and serve until a shutdown signal.

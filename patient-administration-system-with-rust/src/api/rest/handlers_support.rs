@@ -1,6 +1,6 @@
 //! REST handlers for support flags (CAP-10): they only ever add help.
 
-use axa::extract::{Json, Path, Query};
+use axa::extract::{Json, Path};
 use axum::{extract::State, http::HeaderMap};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::ok;
 use crate::api::rest::handlers::ok_json;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct AddBody {
@@ -62,30 +62,28 @@ pub struct Raised {
     pub id: Uuid,
 }
 
-#[derive(Debug, Deserialize, utoipa::IntoParams)]
-pub struct OpenQuery {
-    pub limit: Option<i64>,
-}
-
 /// `GET /api/support-flags/open`: flags waiting for a person, oldest first.
 #[utoipa::path(
     get,
     path = "/api/support-flags/open",
     tag = "Support flags",
-    params(OpenQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::support::SupportFlag>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
-pub async fn open(State(state): State<AppState>, Query(q): Query<OpenQuery>) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+pub async fn open(
+    State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    match state.support.open(crate::paging::ask_for(limit)).await {
-        Ok(v) => ok_page(v, limit),
+    match state.support.open(page.rows()).await {
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

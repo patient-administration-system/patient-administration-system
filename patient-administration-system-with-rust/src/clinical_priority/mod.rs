@@ -121,14 +121,19 @@ impl ClinicalPriorityService {
 
     /// Waiting or booked entries whose priority review date is before `today`, the longest overdue first.
     /// At most `fetch` rows (see `crate::paging`).
-    pub async fn overdue(&self, today: NaiveDate, fetch: i64) -> Result<Vec<OverdueReview>> {
+    pub async fn overdue(
+        &self,
+        today: NaiveDate,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<OverdueReview>> {
+        let rows = rows.into();
         let rows = self
             .db
             .all(Stmt::new("SELECT id, person_id, target_service, clinical_priority, clinical_priority_review_by \
                  FROM waitlist_entries \
                  WHERE clinical_priority_review_by < $1 AND status IN ('waiting','booked') \
-                 ORDER BY clinical_priority_review_by, id LIMIT $2",
-                [today.into(), crate::paging::fetch(fetch).into()],
+                 ORDER BY clinical_priority_review_by, id LIMIT $2 OFFSET $3",
+                [today.into(), rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows.iter()

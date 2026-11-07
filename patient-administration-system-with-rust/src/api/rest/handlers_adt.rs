@@ -469,7 +469,7 @@ pub async fn change_to_outpatient(
     get,
     path = "/api/beds/{id}/occupancy-events",
     tag = "Admissions",
-    params(("id" = String, Path, description = "Path parameter `id`"), crate::api::rest::handlers::LimitQuery),
+    params(crate::paging::PageQuery, ("id" = String, Path, description = "Path parameter `id`"), ),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::adt::OccupancyEvent>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -478,19 +478,15 @@ pub async fn change_to_outpatient(
 )]
 pub async fn bed_occupancy_events(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Path(bed_id): Path<Uuid>,
-    axum::extract::Query(q): axum::extract::Query<crate::api::rest::handlers::LimitQuery>,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    match state
-        .adt
-        .occupancy_events(bed_id, crate::paging::ask_for(limit))
-        .await
-    {
-        Ok(rows) => crate::api::rest::handlers::ok_page(rows, limit),
+    match state.adt.occupancy_events(bed_id, page.rows()).await {
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

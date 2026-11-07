@@ -7,7 +7,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 use crate::api::rest::handlers::{ok, ok_json};
 
 /// `GET /api/noshow/status`: whether it is on, and if not, exactly why.
@@ -204,11 +204,6 @@ pub async fn recalculate(State(state): State<AppState>) -> HandlerResult {
     }
 }
 
-#[derive(Debug, Deserialize, utoipa::IntoParams)]
-pub struct ListQuery {
-    pub limit: Option<i64>,
-}
-
 /// `GET /api/noshow/priority-list`: appointments above the high threshold that nobody has dealt with yet,
 /// soonest first, with the factors. Clear one by recording an outcome on its task
 /// (`POST /api/staff-call-tasks/{task_id}/outcome`).
@@ -216,7 +211,7 @@ pub struct ListQuery {
     get,
     path = "/api/noshow/priority-list",
     tag = "Noshow",
-    params(ListQuery),
+    params(crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::noshow::CallItem>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -225,18 +220,14 @@ pub struct ListQuery {
 )]
 pub async fn priority_list(
     State(state): State<AppState>,
-    Query(q): Query<ListQuery>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    match state
-        .noshow
-        .priority_list(crate::paging::ask_for(limit))
-        .await
-    {
-        Ok(v) => ok_page(v, limit),
+    match state.noshow.priority_list(page.rows()).await {
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

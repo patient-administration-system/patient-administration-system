@@ -162,9 +162,6 @@ pub struct ReleasesQuery {
     pub to: Option<DateTime<Utc>>,
     /// `open`, `refilled` or `expired`.
     pub status: Option<String>,
-    /// How many releases to return, newest first (1 to 500, default 100). `meta.truncated` says when there
-    /// were more; the summary always covers the whole window.
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/slot-releases?from&to&status&limit`: what was released, whether it was refilled and how fast.
@@ -173,7 +170,7 @@ pub struct ReleasesQuery {
     get,
     path = "/api/slot-releases",
     tag = "Slot releases",
-    params(ReleasesQuery),
+    params(crate::paging::PageQuery, ReleasesQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::standby::Releases>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -182,23 +179,25 @@ pub struct ReleasesQuery {
 )]
 pub async fn list_releases(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<ReleasesQuery>,
 ) -> HandlerResult {
     let to = q.to.unwrap_or_else(|| Utc::now() + Duration::minutes(1));
     let from = q.from.unwrap_or(to - Duration::days(30));
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(n) => n,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    let asked = crate::paging::ask_for(limit);
+    let asked = page.rows();
     match state
         .standby
         .releases(from, to, q.status.as_deref(), asked)
         .await
     {
         Ok((summary, rows)) => {
-            let (releases, meta) = crate::paging::cut(rows, limit);
-            ok_json_page(Releases { summary, releases }, meta)
+            let (releases, meta) = page.cut(rows);
+            let response = ok_json_page(Releases { summary, releases }, meta.clone());
+            crate::api::rest::handlers::with_next_link(response, &meta, &page)
         }
         Err(e) => error_to_response(e),
     }

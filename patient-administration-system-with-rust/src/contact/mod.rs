@@ -466,16 +466,21 @@ impl ContactService {
 
     /// Profiles whose mobile is missing, unverified or last verified more than `older_than_days`
     /// ago: the list a team works through to fix contact details, oldest first.
-    pub async fn stale(&self, older_than_days: i64, limit: i64) -> Result<Vec<Profile>> {
+    pub async fn stale(
+        &self,
+        older_than_days: i64,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<Profile>> {
+        let rows = rows.into();
         if !(1..=3650).contains(&older_than_days) {
             return Err(Error::validation("older_than_days must be 1 to 3650"));
         }
         let rows = self.db.all_as::<ProfileRow>(Stmt::new(format!(
                 "SELECT {COLS} FROM patient_communication_profiles \
                  WHERE mobile_e164 IS NULL OR mobile_verified_at IS NULL OR mobile_verified_at < now() - ($1 || ' days')::interval \
-                 ORDER BY mobile_verified_at ASC NULLS FIRST, person_id LIMIT $2"
+                 ORDER BY mobile_verified_at ASC NULLS FIRST, person_id LIMIT $2 OFFSET $3"
             ),
-            [older_than_days.to_string().into(), crate::paging::fetch(limit).into()],
+            [older_than_days.to_string().into(), rows.fetch().into(), rows.offset().into()],
         )).await?;
         let now = Utc::now();
         Ok(rows

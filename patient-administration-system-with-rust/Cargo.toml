@@ -66,6 +66,8 @@ axa = { version = "0.7", default-features = false }
 axa-ratelimit = "0.2"
 # Which environment this is, so that `pas-seed` refuses outside development and test.
 axa-environment = "0.1"
+# Signed cursors to the next page of a list (`paging`).
+axa-cursor-pagination = "0.1"
 uuid = { version = "1.29", features = ["v4", "v5", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"

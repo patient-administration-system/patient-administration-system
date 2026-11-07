@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
 import { requireStaff } from "#lib/server/guard.js";
 import { appointmentHistory, contactLog, type HistoryRow } from "#lib/server/pas.js";
-import { fromPas, signedInFetch } from "#lib/server/route.js";
+import { fromPas, pageFromPas, signedInFetch } from "#lib/server/route.js";
 import { isUuid } from "#lib/access.js";
 
 /** CAP-6: what happened to one appointment, or what was sent to and received from one patient. Read only. */
@@ -30,6 +30,15 @@ export const load: PageServerLoad = async ({ locals, fetch, url }) => {
       invalid: false,
     };
   }
-  const log = await fromPas(contactLog(f, patient), { notFound: true });
-  return { appointment, patient, rows: log.rows, cutAt: log.cutAt, kind: "patient" as const, invalid: false };
+  const log = await pageFromPas(url, (cursor) => contactLog(f, patient, cursor), { notFound: true });
+  return {
+    appointment,
+    patient,
+    rows: log.rows,
+    cutAt: log.cutAt,
+    nextHref: log.nextHref,
+    firstHref: log.firstHref,
+    kind: "patient" as const,
+    invalid: false,
+  };
 };

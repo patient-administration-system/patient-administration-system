@@ -23,6 +23,7 @@ pub fn error_to_response(err: Error) -> HandlerResult {
     let (status, code) = match &err {
         Error::NotFound(_) => (StatusCode::NOT_FOUND, "not_found"),
         Error::Validation(_) => (StatusCode::BAD_REQUEST, "validation"),
+        Error::Unprocessable(_) => (StatusCode::UNPROCESSABLE_ENTITY, "unprocessable_entity"),
         Error::InvalidStateTransition(_) => (StatusCode::CONFLICT, "invalid_state_transition"),
         Error::Conflict(_) => (StatusCode::CONFLICT, "conflict"),
         Error::PreconditionFailed(_) => (StatusCode::PRECONDITION_FAILED, "precondition_failed"),
@@ -74,6 +75,34 @@ pub fn ok_page<T: serde::Serialize>(rows: Vec<T>, limit: i64) -> HandlerResult {
             "response could not be serialized: {e}"
         ))),
     }
+}
+
+/// `200` with one page of a list (see [`crate::paging`]): at most the page's limit, `meta` saying whether there
+/// were more and where the next page is, and the same as `Link: rel="next"`. Ask the service for
+/// [`crate::paging::Page::rows`] so there is one row to tell the difference.
+pub fn ok_cursor_page<T: serde::Serialize>(
+    page: &crate::paging::Page,
+    rows: Vec<T>,
+) -> HandlerResult {
+    let (rows, meta) = page.cut(rows);
+    with_next_link(ok_json_page(rows, meta.clone()), &meta, page)
+}
+
+/// Add `Link: rel="next"` to a page's response when `meta` says there is a next page.
+pub fn with_next_link(
+    mut response: HandlerResult,
+    meta: &crate::paging::PageMeta,
+    page: &crate::paging::Page,
+) -> HandlerResult {
+    if meta.next.is_some()
+        && response.status().is_success()
+        && let Some(link) = page.link()
+    {
+        response
+            .headers_mut()
+            .insert(axum::http::header::LINK, link);
+    }
+    response
 }
 
 /// `200` with a value that holds a list, and `meta` saying whether that list was cut short: for a body with more

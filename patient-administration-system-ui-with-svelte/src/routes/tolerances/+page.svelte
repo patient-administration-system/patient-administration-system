@@ -134,7 +134,7 @@
 {#if data.alerts.length === 0}
   <p>{t("tol.alerts.none")}</p>
 {:else}
-  <ListCut at={data.alertsCutAt} />
+  <ListCut at={data.alertsCutAt} next={data.alertsNextHref} first={data.alertsFirstHref} />
   <table data-alerts>
     <caption>{t("tol.alerts.title")}</caption>
     <thead>

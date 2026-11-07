@@ -9,9 +9,7 @@ use uuid::Uuid;
 
 use crate::Error;
 use crate::api::rest::AppState;
-use crate::api::rest::handlers::{
-    HandlerResult, error_to_response, ok_json, ok_page, request_audit_ctx,
-};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_json, request_audit_ctx};
 use crate::contact::{DEFAULT_STALE_DAYS, ProfileInput};
 
 /// `GET /api/patients/{id}/communication-profile`: how to reach this patient well. Includes a
@@ -105,7 +103,6 @@ pub async fn verify_mobile(
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct StaleQuery {
     pub older_than_days: Option<i64>,
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/communication-profiles/stale?older_than_days=365&limit=100`: profiles whose mobile is
@@ -114,7 +111,7 @@ pub struct StaleQuery {
     get,
     path = "/api/communication-profiles/stale",
     tag = "Communication profiles",
-    params(StaleQuery),
+    params(crate::paging::PageQuery, StaleQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::contact::Profile>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -123,21 +120,19 @@ pub struct StaleQuery {
 )]
 pub async fn stale_profiles(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<StaleQuery>,
 ) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match state
         .contact
-        .stale(
-            q.older_than_days.unwrap_or(DEFAULT_STALE_DAYS),
-            crate::paging::ask_for(limit),
-        )
+        .stale(q.older_than_days.unwrap_or(DEFAULT_STALE_DAYS), page.rows())
         .await
     {
-        Ok(rows) => ok_page(rows, limit),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

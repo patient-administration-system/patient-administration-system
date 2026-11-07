@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::ok_json;
-use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
+use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
 use crate::models::waitlist::Priority;
 use crate::referrals::{Created, NewReferral};
 
@@ -77,7 +77,6 @@ pub async fn create(
 pub struct ListQuery {
     pub status: Option<String>,
     pub service: Option<String>,
-    pub limit: Option<i64>,
 }
 
 /// `GET /api/referrals?status=&service=`: oldest first.
@@ -85,28 +84,28 @@ pub struct ListQuery {
     get,
     path = "/api/referrals",
     tag = "Referrals",
-    params(ListQuery),
+    params(crate::paging::PageQuery, ListQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::referrals::Referral>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
-pub async fn list(State(state): State<AppState>, Query(q): Query<ListQuery>) -> HandlerResult {
-    let limit = match crate::paging::limit(q.limit, 100) {
-        Ok(l) => l,
+pub async fn list(
+    State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+    Query(q): Query<ListQuery>,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match state
         .referrals
-        .list(
-            q.status.as_deref(),
-            q.service.as_deref(),
-            crate::paging::ask_for(limit),
-        )
+        .list(q.status.as_deref(), q.service.as_deref(), page.rows())
         .await
     {
-        Ok(v) => ok_page(v, limit),
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

@@ -92,16 +92,38 @@ function cutAt(meta: Schemas["PageMeta"] | undefined): number | null {
   return meta?.truncated ? meta.limit : null;
 }
 
-/** A paged list, with whether it was cut, so that a page can say so (NFR-23). */
+/** The signed cursor of the next page, read from `meta.next` (the path and query the API gives), or `null`. */
+export function nextCursor(meta: Schemas["PageMeta"] | undefined): string | null {
+  if (!meta?.truncated || !meta.next) return null;
+  try {
+    return new URL(meta.next, "http://pas.invalid").searchParams.get("cursor");
+  } catch {
+    return null;
+  }
+}
+
+/** A cursor as the API writes one: base64url, and short. Anything else is not forwarded. */
+export function isCursor(value: string | null): value is string {
+  return value !== null && /^[A-Za-z0-9_-]{1,256}$/.test(value);
+}
+
+/** `path` asking for the page that `cursor` starts, when there is one. */
+export function withCursor(path: string, cursor: string | null | undefined): string {
+  if (!isCursor(cursor ?? null)) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}cursor=${encodeURIComponent(cursor as string)}`;
+}
+
+/** A paged list: whether it was cut, so that a page can say so (NFR-23), and the cursor to the next page. */
 export interface Page<T> {
   rows: T[];
   cutAt: number | null;
+  next: string | null;
 }
 
-export async function pasPage<T>(fetchFn: FetchFn, path: string): Promise<Page<T>> {
-  const { data, meta } = await pasBody<unknown>(fetchFn, path);
+export async function pasPage<T>(fetchFn: FetchFn, path: string, cursor?: string | null): Promise<Page<T>> {
+  const { data, meta } = await pasBody<unknown>(fetchFn, withCursor(path, cursor));
   if (!Array.isArray(data)) throw new PasError(502, "the PAS API answered with an unexpected shape");
-  return { rows: data as T[], cutAt: cutAt(meta) };
+  return { rows: data as T[], cutAt: cutAt(meta), next: nextCursor(meta) };
 }
 
 export type Appointment = Schemas["Appointment"];
@@ -159,13 +181,14 @@ export const appointmentHistory = (f: FetchFn, id: string) =>
   pasArray<HistoryRow>(f, `/api/appointments/${encodeURIComponent(id)}/history`);
 
 /** Messages sent to one patient and texts received from them, newest first (never the text of a message). */
-export const contactLog = (f: FetchFn, id: string) =>
-  pasPage<HistoryRow>(f, `/api/patients/${encodeURIComponent(id)}/contact-log`);
+export const contactLog = (f: FetchFn, id: string, cursor?: string | null) =>
+  pasPage<HistoryRow>(f, `/api/patients/${encodeURIComponent(id)}/contact-log`, cursor);
 
 export type DueCheck = Schemas["DueCheck"];
 
 /** Long waiters nobody has asked recently whether they still need this, longest first. */
-export const dueChecks = (f: FetchFn) => pasPage<DueCheck>(f, "/api/pathways/due-check");
+export const dueChecks = (f: FetchFn, cursor?: string | null) =>
+  pasPage<DueCheck>(f, "/api/pathways/due-check", cursor);
 
 /** A person asks a patient whether they still need this. Nothing is removed. */
 export const askStillNeeded = (f: FetchFn, pathwayId: string, askedBy: string) =>
@@ -185,7 +208,8 @@ export type ToleranceStatus = Schemas["ToleranceStatus"];
 /** A measure that went past its red limit. Open until the measure is no longer red. */
 export type ToleranceAlert = Schemas["Alert"];
 
-export const toleranceAlerts = (f: FetchFn) => pasPage<ToleranceAlert>(f, "/api/tolerance-alerts?open=true");
+export const toleranceAlerts = (f: FetchFn, cursor?: string | null) =>
+  pasPage<ToleranceAlert>(f, "/api/tolerance-alerts?open=true", cursor);
 
 /** A named person says they are looking at an open alert. */
 export const acknowledgeToleranceAlert = (f: FetchFn, id: string, by: string) =>

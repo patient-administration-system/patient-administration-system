@@ -86,9 +86,21 @@ async function verify(header: string | undefined) {
 let chaos = "off";
 let chaosState = 1;
 const envelope = <T>(data: T) => JSON.stringify({ success: true, data });
-// What a list says about itself. `/__cut?on=true` makes the paged lists say they were cut (NFR-23).
+// What a list says about itself. `/__cut?on=true` makes the paged lists say they were cut (NFR-23), and point
+// to a next page with the cursor `page-2`. Asked for with a cursor, a list answers its last page, and records
+// the cursor in `/__acts`; the cursor `stale-cursor` is refused with a 422, as the API refuses one it did not sign.
 let cut = false;
-const paged = <T>(data: T) => JSON.stringify({ success: true, data, meta: { limit: 7, returned: 7, truncated: cut } });
+const pagesSeen: string[] = [];
+const paged = <T>(data: T, url?: URL) => {
+  const cursor = url?.searchParams.get("cursor") ?? null;
+  if (cursor && url) pagesSeen.push(`${url.pathname}?${url.searchParams.toString()}`);
+  const truncated = cut && !cursor;
+  const next =
+    truncated && url
+      ? `${url.pathname}?${url.searchParams.toString()}${url.search ? "&" : ""}cursor=page-2`
+      : undefined;
+  return JSON.stringify({ success: true, data, meta: { limit: 7, returned: 7, truncated, ...(next ? { next } : {}) } });
+};
 const STAMP = "2026-10-01T00:00:00Z";
 const appointment = (
   a: Pick<S["Appointment"], "id" | "start_datetime" | "end_datetime"> & { reason: string | null },
@@ -129,7 +141,21 @@ http
     if (url.pathname === "/__acts") return res.end(JSON.stringify(acts));
     if (url.pathname === "/__cut") {
       cut = url.searchParams.get("on") === "true";
+      if (!cut) pagesSeen.length = 0;
       return res.end(JSON.stringify({ cut }));
+    }
+    if (url.pathname === "/__pages") return res.end(JSON.stringify(pagesSeen));
+    if (url.searchParams.get("cursor") === "stale-cursor") {
+      res.statusCode = 422;
+      res.setHeader("content-type", "application/problem+json");
+      return res.end(
+        JSON.stringify({
+          type: "about:blank",
+          status: 422,
+          code: "unprocessable_entity",
+          detail: "cursor is not valid for this list",
+        }),
+      );
     }
     // Chaos: make the API misbehave on purpose (see tests/e2e/chaos.spec.ts). `random` picks a fault per request
     // from a seeded generator, so a failing run can be repeated with the same seed.
@@ -435,9 +461,10 @@ http
     }
     if (url.pathname === `/api/patients/${PATIENT}/contact-log`) {
       return res.end(
-        paged<S["HistoryRow"][]>([
-          { at: at(-1, 9), kind: "message", action: "reminder", by: null, reason_code: null, context: null },
-        ]),
+        paged<S["HistoryRow"][]>(
+          [{ at: at(-1, 9), kind: "message", action: "reminder", by: null, reason_code: null, context: null }],
+          url,
+        ),
       );
     }
     if (url.pathname === "/api/tolerances/status") {
@@ -530,26 +557,29 @@ http
     }
     if (url.pathname === "/api/tolerance-alerts") {
       return res.end(
-        paged<S["Alert"][]>([
-          {
-            id: "aaaaaaaa-0000-4000-8000-00000000000a",
-            label: "did_not_attend_rate",
-            last_seen_at: new Date().toISOString(),
-            cleared_at: null,
-            note: "",
-            metric: "did_not_attend_rate",
-            scope_kind: "service",
-            scope_key: "cardiology",
-            value: 0.21,
-            target: 0.08,
-            tolerance: 0.02,
-            escalate_beyond: 0.06,
-            unit: "share",
-            raised_at: new Date().toISOString(),
-            acknowledged_by: acked.has("aaaaaaaa-0000-4000-8000-00000000000a") ? "Admin User" : null,
-            acknowledged_at: null,
-          },
-        ]),
+        paged<S["Alert"][]>(
+          [
+            {
+              id: "aaaaaaaa-0000-4000-8000-00000000000a",
+              label: "did_not_attend_rate",
+              last_seen_at: new Date().toISOString(),
+              cleared_at: null,
+              note: "",
+              metric: "did_not_attend_rate",
+              scope_kind: "service",
+              scope_key: "cardiology",
+              value: 0.21,
+              target: 0.08,
+              tolerance: 0.02,
+              escalate_beyond: 0.06,
+              unit: "share",
+              raised_at: new Date().toISOString(),
+              acknowledged_by: acked.has("aaaaaaaa-0000-4000-8000-00000000000a") ? "Admin User" : null,
+              acknowledged_at: null,
+            },
+          ],
+          url,
+        ),
       );
     }
     if (/^\/api\/tolerance-alerts\/[0-9a-f-]+\/acknowledge$/.test(url.pathname) && req.method === "POST") {
@@ -559,15 +589,18 @@ http
     }
     if (url.pathname === "/api/pathways/due-check") {
       return res.end(
-        paged<S["DueCheck"][]>([
-          {
-            pathway_id: "88888888-8888-8888-8888-888888888888",
-            person_id: PATIENT,
-            target_service: "orthopaedics",
-            weeks_waited: 31,
-            last_check_at: null,
-          },
-        ]),
+        paged<S["DueCheck"][]>(
+          [
+            {
+              pathway_id: "88888888-8888-8888-8888-888888888888",
+              person_id: PATIENT,
+              target_service: "orthopaedics",
+              weeks_waited: 31,
+              last_check_at: null,
+            },
+          ],
+          url,
+        ),
       );
     }
     if (/^\/api\/pathways\/[0-9a-f-]+\/still-needed-checks$/.test(url.pathname) && req.method === "POST") {
