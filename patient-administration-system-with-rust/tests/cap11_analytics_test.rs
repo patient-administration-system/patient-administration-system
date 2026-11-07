@@ -350,20 +350,24 @@ async fn outcome_and_notice_split_cancellations_misses_and_the_rest() {
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn the_http_endpoint_gives_json_and_csv_and_refuses_bad_input() {
-    // These tests ask as an anonymous caller, and a development database keeps every earlier run's queries on
-    // the record; the daily budget has its own test (`cap11_feed_test.rs`).
-    // SAFETY: only ever raises a limit, so racing another test in this binary is harmless.
-    unsafe { std::env::set_var("PAS_ANALYTICS_QUERY_BUDGET", "100000") };
     let w = world().await;
     let a = format!("a{}", short());
     w.book(&a, 12, 9).await;
     let (from, to) = w.window();
     let app = patient_administration_system::api::rest::router(w.s.clone());
+    // A caller of its own: the budget is per caller, and a long-used database remembers the anonymous one's.
+    let caller = format!("analytics-{}", Uuid::new_v4());
     let get = |uri: String| {
-        let app = app.clone();
+        let (app, caller) = (app.clone(), caller.clone());
         async move {
             let r = app
-                .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+                .oneshot(
+                    Request::builder()
+                        .uri(uri)
+                        .header("x-user-id", caller)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
                 .await
                 .unwrap();
             let st = r.status();

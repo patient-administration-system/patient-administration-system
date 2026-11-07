@@ -32,6 +32,10 @@ async fn send(app: &axum::Router, method: &str, uri: &str, body: Option<Value>) 
         .method(method)
         .uri(uri)
         .header("if-match", "*");
+    if uri.starts_with("/api/analytics") {
+        // A caller of its own: the budget is per caller, and a long-used database remembers the anonymous one's.
+        req = req.header("x-user-id", format!("qual34-{}", Uuid::new_v4()));
+    }
     if body.is_some() {
         req = req.header("content-type", "application/json");
     }
