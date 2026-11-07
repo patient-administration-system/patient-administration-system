@@ -8,6 +8,7 @@ crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Moved to axa 0.6.1. Every refusal is now an RFC 9457 problem, `application/problem+json` with `type`, `title`, `status`, `code` and, where there is more to say, `detail`, in place of `{error, description}`. An unmatched path and a missing file under `/static` were a bare `404` and are now problems too. An idle connection is kept for `KEEP_ALIVE_TIMEOUT_SECONDS`, 75 by default, and a violated database constraint answers `409`, not `500`. The `problem` feature is no longer named: `axa::problem` is always there.
 - The page policy allows only this service: no `'unsafe-inline'` and no unpkg (AXA-2). The styles moved from the layout and 50 `style` attributes into `assets/static/css/app.css`, and HTMX 2.0.3 is served from `/static/js`, with the same integrity hash. HTMX is configured not to add its own styles or evaluate text.
 - Calls to the PAS API and `person-service` carry the `X-Request-Id` of the request they serve (AXA-6), so a failing page can be followed across services.
 - `GET /_readiness` answers `503` naming `database` while the database cannot be reached (AXA-4). It is axa's route, as is `/_ping`; `/_health` still answers `200`, and says `unreachable`. Point an orchestrator at `/_readiness`.

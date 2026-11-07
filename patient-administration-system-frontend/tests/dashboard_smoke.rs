@@ -426,6 +426,45 @@ async fn the_page_assets_are_served_from_this_service() {
     .await;
 }
 
+/// axa 0.6: every refusal is an RFC 9457 problem, `code` and `detail` in place of `error` and `description`,
+/// including a bare `404` that had no body. Needs no database.
+#[tokio::test]
+async fn a_refusal_is_a_problem() {
+    request::<StoppedDatabase, _, _>(|request, _ctx| async move {
+        let resp = request
+            .post("/admissions/new")
+            .form(&[
+                ("person_id", "00000000-0000-0000-0000-000000000000"),
+                ("bed_id", "00000000-0000-0000-0000-000000000000"),
+                ("csrf_token", "not-the-real-token"),
+            ])
+            .await;
+        resp.assert_status_bad_request();
+        assert_eq!(resp.header("content-type"), "application/problem+json");
+        let body: serde_json::Value = resp.json();
+        assert_eq!(body["status"], 400, "{body}");
+        assert_eq!(body["code"], "bad_request", "{body}");
+        assert_eq!(body["detail"], "CSRF token mismatch", "{body}");
+        assert!(
+            body.get("error").is_none() && body.get("description").is_none(),
+            "{body}"
+        );
+
+        for path in ["/no-such-page", "/static/no-such-file.css"] {
+            let resp = request.get(path).await;
+            resp.assert_status_not_found();
+            assert_eq!(
+                resp.header("content-type"),
+                "application/problem+json",
+                "{path}"
+            );
+            let body: serde_json::Value = resp.json();
+            assert_eq!(body["status"], 404, "{path}: {body}");
+        }
+    })
+    .await;
+}
+
 /// AXA-4: an orchestrator is told the truth while the database is down, and the process stays alive for it.
 #[tokio::test]
 async fn readiness_fails_while_the_database_is_down_and_liveness_does_not() {
