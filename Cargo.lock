@@ -260,6 +260,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "axa-ratelimit"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "491a6eb3b9e613d12da6df0eea115ded93cdddf42f16157e272663a75bfbfab6"
+dependencies = [
+ "axa-problem",
+ "axum",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "axa-sqlx"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2598,6 +2610,7 @@ dependencies = [
  "authentication-verifier",
  "axa",
  "axa-problem",
+ "axa-ratelimit",
  "axa-sqlx",
  "axum",
  "base64 0.23.1",

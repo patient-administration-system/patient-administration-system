@@ -62,6 +62,8 @@ base64 = "0.23"
 axa-problem = "0.1"
 # Json, Path and Query that refuse a bad request with a problem quoting nothing sent (`axa::extract`).
 axa = { version = "0.7", default-features = false }
+# Requests per client, and the lockout after repeated 401s (`api::rest::rate_limit`).
+axa-ratelimit = "0.2"
 uuid = { version = "1.29", features = ["v4", "v5", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"

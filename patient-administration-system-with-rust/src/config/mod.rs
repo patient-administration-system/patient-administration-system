@@ -64,18 +64,13 @@ pub struct Config {
     /// `PAS_SMS_PROVIDER`. Unknown values fall back to `"none"` with a
     /// startup `warn!`.
     pub pas_sms_provider: String,
-    /// Per-IP rate-limit refill rate (v0.12). Sustained requests per
-    /// minute the limiter will allow before throttling. `0` disables
-    /// the limiter entirely — useful in dev / behind a load balancer
-    /// that does its own rate-limiting. Default `600` (10 req/sec).
-    /// Read from `PAS_RATE_LIMIT_RPM`.
+    /// Requests per client address in each minute (see [`crate::api::rest::rate_limit`]). `0` turns the
+    /// limit off, for a load balancer that limits for itself. Default `600`. Read from `PAS_RATE_LIMIT_RPM`.
     pub pas_rate_limit_rpm: u32,
-    /// Per-IP rate-limit bucket capacity (v0.12). A client may fire
-    /// `burst` requests back-to-back before the bucket drains;
-    /// subsequent requests are gated to `pas_rate_limit_rpm`. Default
-    /// `60`. Read from `PAS_RATE_LIMIT_BURST`. Ignored when
-    /// `pas_rate_limit_rpm == 0`.
-    pub pas_rate_limit_burst: u32,
+    /// `401`s per client address in 15 minutes before it is refused until they end. `0`, the default, turns
+    /// the lockout off, because the UI servers call for all their users from one address. Read from
+    /// `PAS_AUTH_LOCKOUT_FAILURES`.
+    pub pas_auth_lockout_failures: u32,
     /// Outbox webhook destination URL (v0.14). When set,
     /// [`crate::streaming::WebhookEventPublisher`] POSTs every outbox
     /// event to this URL as `application/json`. When unset, no webhook
@@ -147,7 +142,8 @@ impl Config {
             .map(|s| s.trim().to_lowercase())
             .unwrap_or_else(|| "none".to_string());
         let pas_rate_limit_rpm = u32::try_from(env::int("PAS_RATE_LIMIT_RPM")).unwrap_or(600);
-        let pas_rate_limit_burst = u32::try_from(env::int("PAS_RATE_LIMIT_BURST")).unwrap_or(60);
+        let pas_auth_lockout_failures =
+            u32::try_from(env::int("PAS_AUTH_LOCKOUT_FAILURES")).unwrap_or(0);
         let pas_webhook_url = env::text("PAS_WEBHOOK_URL");
         let pas_webhook_secret = env::text("PAS_WEBHOOK_SECRET");
         let pas_webhook_timeout_secs = u64::try_from(env::int("PAS_WEBHOOK_TIMEOUT_SECS"))
@@ -171,7 +167,7 @@ impl Config {
             pas_outbox_max_retries,
             pas_sms_provider,
             pas_rate_limit_rpm,
-            pas_rate_limit_burst,
+            pas_auth_lockout_failures,
             pas_webhook_url,
             pas_webhook_secret,
             pas_webhook_timeout_secs,
@@ -246,7 +242,7 @@ mod tests {
         "OTEL_SERVICE_NAME",
         "PAS_SMS_PROVIDER",
         "PAS_RATE_LIMIT_RPM",
-        "PAS_RATE_LIMIT_BURST",
+        "PAS_AUTH_LOCKOUT_FAILURES",
         "PAS_WEBHOOK_URL",
         "PAS_WEBHOOK_SECRET",
         "PAS_WEBHOOK_TIMEOUT_SECS",
@@ -308,7 +304,7 @@ mod tests {
         assert_eq!(cfg.pas_sms_provider, "none");
         // Rate-limit defaults: 600 rpm, 60 burst.
         assert_eq!(cfg.pas_rate_limit_rpm, 600);
-        assert_eq!(cfg.pas_rate_limit_burst, 60);
+        assert_eq!(cfg.pas_auth_lockout_failures, 0);
         // Webhook publisher disabled by default.
         assert!(cfg.pas_webhook_url.is_none());
         assert!(cfg.pas_webhook_secret.is_none());
@@ -341,11 +337,11 @@ mod tests {
 
         set("DATABASE_URL", "postgres://u:p@h:5432/pas");
         set("PAS_RATE_LIMIT_RPM", "120");
-        set("PAS_RATE_LIMIT_BURST", "20");
+        set("PAS_AUTH_LOCKOUT_FAILURES", "5");
 
         let cfg = Config::from_env().expect("env parses");
         assert_eq!(cfg.pas_rate_limit_rpm, 120);
-        assert_eq!(cfg.pas_rate_limit_burst, 20);
+        assert_eq!(cfg.pas_auth_lockout_failures, 5);
     }
 
     #[test]

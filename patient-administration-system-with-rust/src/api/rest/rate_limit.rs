@@ -1,302 +1,90 @@
-//! Per-IP token-bucket rate limiter (v0.12.0).
+//! Request limits per client, and a lockout after repeated `401`s, with `axa-ratelimit`.
 //!
-//! In-process tower middleware that caps request rate per peer IP. Two
-//! tuning knobs:
+//! - **The limit:** `PAS_RATE_LIMIT_RPM` requests per client address in each fixed minute (`0` leaves it
+//!   out). A client can send up to twice that across the end of a minute, and there is no separate burst.
+//! - **The lockout:** a client that earns `PAS_AUTH_LOCKOUT_FAILURES` `401`s in
+//!   [`LOCKOUT_WINDOW_SECONDS`] is refused until that window ends. It is off unless that is set above `0`:
+//!   the UI servers call the API for all their users from one address, so a lockout there would refuse
+//!   every user because some had expired tokens. Turn it on where callers reach the API directly. A client
+//!   that signs in correctly is never slowed. It sits outside authentication, so it sees its `401`s.
 //!
-//! - **`requests_per_minute`** — sustained refill rate. `0` disables the
-//!   middleware entirely (the layer is never installed in `main.rs`).
-//! - **`burst`** — bucket capacity. A client can fire `burst` requests
-//!   back-to-back before the bucket drains; after that, requests are
-//!   gated to the `requests_per_minute` refill rate.
+//! Both answer `429` as a problem with `code` `too_many_requests`, `Retry-After`, and the `RateLimit-*`
+//! headers. `/api/health` is never counted by the limit.
 //!
-//! The middleware is **not** behind-proxy aware. Peer IP comes from
-//! `axum::extract::ConnectInfo<SocketAddr>` — when the PAS is fronted by
-//! a load balancer, every request looks like it came from the LB and
-//! all clients share one bucket. Operators who need true per-client
-//! limiting in front of an L7 proxy should run a TrustedProxy /
-//! `X-Forwarded-For` layer above this one; that's out of v0.12 scope
-//! because honoring `X-Forwarded-For` without an explicit trust list
-//! is spoofable.
+//! **The client** is the peer address of the connection, which [`client_address`] copies from
+//! `ConnectInfo` to where `axa-ratelimit` reads it. `X-Forwarded-For` is never read, because a caller
+//! writes it. Behind a proxy every request comes from the proxy, and all clients share one limit. A
+//! request with no address (a test driving the router directly) shares one limit with every other such
+//! request. An address is held only as a keyed hash, and IPv6 counts by its `/64`.
 //!
-//! When `ConnectInfo` is missing (e.g. unit tests that drive the
-//! router via `tower::ServiceExt::oneshot`), all requests share one
-//! synthetic "unknown" bucket. That keeps the integration tests able
-//! to exercise the 429 path.
-//!
-//! **Exempt path**: `/api/health` is never rate-limited so operational
-//! pings can't trip the limiter. Same exemption shape as the bearer
-//! auth middleware.
-//!
-//! **Response on cap**: status `429 Too Many Requests`, header
-//! `Retry-After: <seconds>` (rounded up), body in the standard
-//! `ApiResponse` envelope with `error.code = "rate_limited"`.
+//! Each process counts for itself, so several replicas give a client one limit each. A limit protects the
+//! service from a noisy client; it does not stop a distributed attack.
 
-use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::net::{IpAddr, SocketAddr};
+use std::num::NonZeroU32;
 
-use axum::body::Body;
-use axum::extract::ConnectInfo;
-use axum::http::{HeaderName, HeaderValue, Request, StatusCode, header};
-use axum::middleware::Next;
-use axum::response::{IntoResponse, Response};
+use axa_ratelimit::{Limiter, by_key, client_key, lock_out_failures};
+use axum::Router;
+use axum::extract::{ConnectInfo, Request};
+use axum::middleware::{Next, from_fn, from_fn_with_state};
+use axum::response::Response;
 
-/// Soft cap on the in-memory bucket map. When `len() > MAX_BUCKETS`, the
-/// next request triggers a sweep that drops entries idle for more than
-/// [`STALE_AFTER`]. The combination bounds memory under abuse while
-/// still letting normal-traffic clients keep their token balance.
-const MAX_BUCKETS: usize = 50_000;
+/// The paths the limit never counts.
+pub const EXEMPT: [&str; 1] = ["/api/health"];
 
-/// How long a bucket must be idle before cleanup is allowed to evict it.
-/// Picked to be longer than a typical retry-loop interval so the sweep
-/// doesn't repeatedly evict an actively-throttling client.
-const STALE_AFTER: std::time::Duration = std::time::Duration::from_secs(300);
+/// The window the lockout counts `401`s in, and holds a locked-out client for: 15 minutes.
+pub const LOCKOUT_WINDOW_SECONDS: u32 = 900;
 
-/// Configuration for the rate limiter. `0` requests-per-minute means
-/// disabled — the caller is expected to skip installing the layer
-/// entirely in that case.
-#[derive(Clone, Debug)]
-pub struct RateLimitConfig {
-    pub requests_per_minute: u32,
-    pub burst: u32,
+/// The limits the server runs with. `None` leaves that layer out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RateLimits {
+    /// Requests per client in each minute.
+    pub requests_per_minute: Option<NonZeroU32>,
+    /// `401`s per client in [`LOCKOUT_WINDOW_SECONDS`] before it is locked out.
+    pub auth_failures: Option<NonZeroU32>,
 }
 
-impl RateLimitConfig {
-    /// Refill rate in tokens per second.
-    fn refill_per_second(&self) -> f64 {
-        f64::from(self.requests_per_minute) / 60.0
-    }
-}
-
-/// One token bucket — tracks the current token balance and when it was
-/// last refilled. `tokens` may run negative when a request is denied;
-/// that's the natural way to surface "next try in N seconds" via
-/// `Retry-After`.
-#[derive(Clone, Debug)]
-struct Bucket {
-    tokens: f64,
-    last_refill: Instant,
-}
-
-impl Bucket {
-    fn new(capacity: u32) -> Self {
+impl RateLimits {
+    /// From the settings, where `0` turns a layer off.
+    pub fn new(requests_per_minute: u32, auth_failures: u32) -> Self {
         Self {
-            tokens: f64::from(capacity),
-            last_refill: Instant::now(),
-        }
-    }
-
-    /// Refill based on elapsed time, capping at `capacity`. Returns the
-    /// new token count after refill.
-    fn refill(&mut self, capacity: u32, refill_per_second: f64) -> f64 {
-        let now = Instant::now();
-        let elapsed = now.duration_since(self.last_refill).as_secs_f64();
-        self.last_refill = now;
-        self.tokens = (self.tokens + elapsed * refill_per_second).min(f64::from(capacity));
-        self.tokens
-    }
-
-    /// Try to consume one token. Returns `Ok(())` if a token was taken,
-    /// or `Err(retry_after_seconds)` if the bucket is empty.
-    fn try_consume(&mut self, capacity: u32, refill_per_second: f64) -> Result<(), u64> {
-        self.refill(capacity, refill_per_second);
-        if self.tokens >= 1.0 {
-            self.tokens -= 1.0;
-            Ok(())
-        } else {
-            // Tokens is in [0, 1). Time to next whole token:
-            //   (1 - tokens) / refill_per_second seconds, rounded up.
-            let needed = 1.0 - self.tokens;
-            let seconds = (needed / refill_per_second).ceil() as u64;
-            Err(seconds.max(1))
+            requests_per_minute: NonZeroU32::new(requests_per_minute),
+            auth_failures: NonZeroU32::new(auth_failures),
         }
     }
 }
 
-/// The shared, cloneable rate-limiter handle. Each clone shares the
-/// same bucket map (it's an `Arc<Mutex<...>>` inside).
-#[derive(Clone)]
-pub struct RateLimiter {
-    config: RateLimitConfig,
-    inner: Arc<Mutex<HashMap<IpAddr, Bucket>>>,
-}
-
-impl RateLimiter {
-    /// Build a new limiter with the given config. Empty bucket map.
-    pub fn new(config: RateLimitConfig) -> Self {
-        Self {
-            config,
-            inner: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    /// Try to debit one token for `ip`. Creates the bucket on first
-    /// touch. Returns `Ok(())` on allow, `Err(retry_after_seconds)` on
-    /// deny.
-    fn try_consume(&self, ip: IpAddr) -> Result<(), u64> {
-        let mut map = self
-            .inner
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // Cheap cleanup: only when the map has grown past the soft cap.
-        if map.len() > MAX_BUCKETS {
-            let now = Instant::now();
-            map.retain(|_, b| now.duration_since(b.last_refill) < STALE_AFTER);
-        }
-        let bucket = map
-            .entry(ip)
-            .or_insert_with(|| Bucket::new(self.config.burst));
-        bucket.try_consume(self.config.burst, self.config.refill_per_second())
-    }
-}
-
-/// Tower middleware: extract peer IP, debit one token, allow or 429.
-///
-/// `/api/health` is exempt — it returns the inner response without
-/// touching the bucket so operator pings don't burn quota.
-pub async fn rate_limit_middleware(
-    axum::extract::State(limiter): axum::extract::State<RateLimiter>,
-    req: Request<Body>,
-    next: Next,
-) -> Response {
-    // Exempt operational endpoints. Mirrors the bearer-auth exemption.
-    if req.uri().path() == "/api/health" {
-        return next.run(req).await;
-    }
-
-    // Peer IP source: `ConnectInfo<SocketAddr>` from
-    // `into_make_service_with_connect_info`. When the layer is exercised
-    // without that wiring (unit tests via Router::oneshot), we fall back
-    // to a synthetic "unknown" IP so the bucket math still runs.
-    let ip = req
+/// Put the connection's peer address where `axa-ratelimit` reads it: a plain [`IpAddr`] request extension,
+/// as `axa`'s own stack resolves it. A request with no `ConnectInfo` is left without one.
+pub async fn client_address(mut request: Request, next: Next) -> Response {
+    if let Some(ConnectInfo(peer)) = request
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()
-        .map(|ci| ci.0.ip())
-        .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-
-    match limiter.try_consume(ip) {
-        Ok(()) => next.run(req).await,
-        Err(retry_after) => {
-            let mut resp = crate::api::problem(
-                StatusCode::TOO_MANY_REQUESTS,
-                "rate_limited",
-                format!("Too many requests; retry after {retry_after} seconds."),
-            )
-            .into_response();
-            // Retry-After is a standard HTTP header; the value is
-            // delta-seconds.
-            let header_value =
-                HeaderValue::from_str(&retry_after.to_string()).unwrap_or_else(|_| {
-                    // The seconds value comes from u64::to_string so it's always
-                    // ASCII; this branch is defensive only.
-                    HeaderValue::from_static("1")
-                });
-            resp.headers_mut()
-                .insert(HeaderName::from_static("retry-after"), header_value);
-            // Defensive: explicitly clear Content-Length so axum's body
-            // length wins (axum::Json sets the right content-type).
-            let _ = header::CONTENT_TYPE;
-            resp
-        }
+        .copied()
+    {
+        request.extensions_mut().insert::<IpAddr>(peer.ip());
     }
+    next.run(request).await
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::net::Ipv4Addr;
-    use std::thread::sleep;
-
-    fn cfg(rpm: u32, burst: u32) -> RateLimitConfig {
-        RateLimitConfig {
-            requests_per_minute: rpm,
-            burst,
-        }
+/// `app` with the lockout and the limit. Call it after authentication is added, so that both sit outside it.
+pub fn with_rate_limits(mut app: Router, limits: RateLimits) -> Router {
+    if let Some(failures) = limits.auth_failures {
+        let window = NonZeroU32::new(LOCKOUT_WINDOW_SECONDS).unwrap_or(NonZeroU32::MIN);
+        app = app.layer(from_fn_with_state(
+            Limiter::new(failures, window),
+            lock_out_failures,
+        ));
     }
-
-    #[test]
-    fn test_bucket_starts_full() {
-        let mut b = Bucket::new(5);
-        for _ in 0..5 {
-            assert!(b.try_consume(5, 1.0).is_ok());
-        }
-        assert!(b.try_consume(5, 1.0).is_err());
+    if let Some(per_minute) = limits.requests_per_minute {
+        let window = NonZeroU32::new(60).unwrap_or(NonZeroU32::MIN);
+        // `by_key` rather than `by_client`, so that `/api/health` is not counted. The key is `Some` for every
+        // other request, with or without an address, so a request with none shares one limit, not none.
+        let limiter = Limiter::new(per_minute, window).key(|request: &Request| {
+            (!EXEMPT.contains(&request.uri().path())).then(|| client_key(request.extensions()))
+        });
+        app = app.layer(from_fn_with_state(limiter, by_key));
     }
-
-    #[test]
-    fn test_bucket_refills_over_time() {
-        // 60 rpm = 1 token/sec.
-        let mut b = Bucket::new(2);
-        assert!(b.try_consume(2, 1.0).is_ok());
-        assert!(b.try_consume(2, 1.0).is_ok());
-        assert!(b.try_consume(2, 1.0).is_err(), "bucket should be empty");
-        sleep(std::time::Duration::from_millis(1100));
-        assert!(
-            b.try_consume(2, 1.0).is_ok(),
-            "should have refilled at least 1 token after 1.1s"
-        );
-    }
-
-    #[test]
-    fn test_bucket_caps_at_capacity() {
-        // After a long quiet period, the bucket must not exceed `capacity`.
-        let mut b = Bucket::new(2);
-        // Drain.
-        let _ = b.try_consume(2, 1.0);
-        let _ = b.try_consume(2, 1.0);
-        // Force a 10s elapse by rewinding last_refill.
-        b.last_refill = Instant::now() - std::time::Duration::from_secs(10);
-        let after = b.refill(2, 1.0);
-        assert!(
-            (after - 2.0).abs() < 1e-9,
-            "refill must cap at capacity 2; got {after}"
-        );
-    }
-
-    #[test]
-    fn test_retry_after_is_at_least_one_second() {
-        // With a very low refill rate, a denied request reports a sane
-        // retry. 60 rpm = 1/sec; bucket of 1 → consume → empty.
-        let mut b = Bucket::new(1);
-        assert!(b.try_consume(1, 1.0).is_ok());
-        let retry = b.try_consume(1, 1.0).expect_err("should deny");
-        assert!(retry >= 1, "retry-after must be >= 1, got {retry}");
-    }
-
-    #[tokio::test]
-    async fn test_limiter_per_ip_isolation() {
-        let lim = RateLimiter::new(cfg(60, 1));
-        let a = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1));
-        let b = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2));
-        // Each IP gets its own bucket; A's deny doesn't impact B.
-        assert!(lim.try_consume(a).is_ok());
-        assert!(lim.try_consume(a).is_err());
-        assert!(
-            lim.try_consume(b).is_ok(),
-            "B's bucket should be independent"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_limiter_cleanup_runs_when_oversize() {
-        // Smoke test: the cleanup branch executes without panic when the
-        // map size crosses MAX_BUCKETS. We can't easily push past 50k in
-        // a unit test, so just exercise the consume path repeatedly with
-        // small IPs and verify nothing blows up.
-        let lim = RateLimiter::new(cfg(6000, 100));
-        for i in 0..1000u32 {
-            let ip = IpAddr::V4(Ipv4Addr::from(i.to_le_bytes()));
-            let _ = lim.try_consume(ip);
-        }
-        // No assertion — the point is "didn't panic".
-    }
-
-    #[test]
-    fn test_refill_per_second_math() {
-        let c = cfg(600, 10);
-        assert!((c.refill_per_second() - 10.0).abs() < 1e-9);
-        let c = cfg(60, 1);
-        assert!((c.refill_per_second() - 1.0).abs() < 1e-9);
-    }
+    // Outermost, so that both limits see the address.
+    app.layer(from_fn(client_address))
 }

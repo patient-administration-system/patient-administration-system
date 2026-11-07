@@ -54,7 +54,8 @@ Development: `podman compose -f podman/compose.yml up -d` (ports overridable wit
 | `PAS_TOLERANCE_CHECK_MINUTES` | API | How often tolerances are checked for red (default 60; `0` turns the timer off) |
 | `PAS_OUTBOX_MAX_RETRIES` | API | Attempts before an outbox event is dead-lettered (default 10) |
 | `PAS_WEBHOOK_URL`, `PAS_WEBHOOK_SECRET`, `PAS_WEBHOOK_TIMEOUT_SECS` | API | Where domain events are posted; with a secret each post carries `X-PAS-Signature: sha256=<hex>` (HMAC-SHA256 of the body), which receivers must verify; timeout default 10 seconds |
-| `PAS_RATE_LIMIT_RPM`, `PAS_RATE_LIMIT_BURST` | API | Request rate limit per client IP address (default 600 a minute, burst 60; `0` turns it off). Behind a proxy every request may share one address: check before going live |
+| `PAS_RATE_LIMIT_RPM` | API | Requests per client IP address in each fixed minute (default 600; `0` turns it off). A client can send up to twice that across the end of a minute. Behind a proxy every request may share one address: check before going live. `PAS_RATE_LIMIT_BURST` is no longer read, and the server warns if it is set |
+| `PAS_AUTH_LOCKOUT_FAILURES` | API | `401`s from one client IP address in 15 minutes before it is refused (`429`) until they end (default `0`, off). The SvelteKit UI and the operator front-end call the API for all their users from their own address, so with them in front a lockout refuses every user once some have sent expired tokens: turn it on only where callers reach the API directly. Behind a proxy it likewise locks every client out together |
 | `PAS_BED_HOLD_MINUTES` | API | How long a pre-admission holds a bed, 1 to 10080 minutes (OFH-4). `0` or unset (the default) means a hold never lapses, as before. A `hold_minutes` on the pre-admit request overrides it. A job runs every minute and gives back a bed whose hold has lapsed, cancelling the planned encounter |
 
 ## TLS

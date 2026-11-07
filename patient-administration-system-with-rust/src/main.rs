@@ -16,7 +16,7 @@ use patient_administration_system::{
     api::ApiDoc,
     api::dashboard,
     api::fhir::fhir_router,
-    api::rest::{AppState, RateLimitConfig, RateLimiter, rate_limit_middleware, router},
+    api::rest::{AppState, RateLimits, router, with_rate_limits},
     config::Config,
     db::connect,
     observability,
@@ -552,26 +552,23 @@ async fn build_app(cfg: &Config, state: AppState) -> Result<axum::Router> {
         Err(e) => return Err(Error::Config(e)),
     }
 
-    // Per-IP rate-limit middleware (v0.12). Slotted OUTSIDE bearer auth
-    // so brute-force token-guessing is throttled, but INSIDE trace so
-    // 429s still get logged. `PAS_RATE_LIMIT_RPM=0` disables.
-    if cfg.pas_rate_limit_rpm > 0 {
-        tracing::info!(
-            "Rate-limit middleware enabled: {} req/min, burst {}",
-            cfg.pas_rate_limit_rpm,
-            cfg.pas_rate_limit_burst
+    // The limit per client and the lockout after repeated 401s (axa-ratelimit), outside authentication so
+    // that token guessing is slowed and the lockout sees its 401s, and inside the request telemetry so that
+    // a 429 is logged. `0` turns either off.
+    tracing::info!(
+        requests_per_minute = cfg.pas_rate_limit_rpm,
+        auth_lockout_failures = cfg.pas_auth_lockout_failures,
+        "request limits"
+    );
+    if patient_administration_system::config::env::text("PAS_RATE_LIMIT_BURST").is_some() {
+        tracing::warn!(
+            "PAS_RATE_LIMIT_BURST is no longer read: the limit is PAS_RATE_LIMIT_RPM in each fixed minute"
         );
-        let limiter = RateLimiter::new(RateLimitConfig {
-            requests_per_minute: cfg.pas_rate_limit_rpm,
-            burst: cfg.pas_rate_limit_burst,
-        });
-        app = app.layer(axum::middleware::from_fn_with_state(
-            limiter,
-            rate_limit_middleware,
-        ));
-    } else {
-        tracing::info!("Rate-limit middleware disabled (PAS_RATE_LIMIT_RPM=0)");
     }
+    app = with_rate_limits(
+        app,
+        RateLimits::new(cfg.pas_rate_limit_rpm, cfg.pas_auth_lockout_failures),
+    );
 
     let compress = tower_http::compression::CompressionLayer::new();
     Ok(

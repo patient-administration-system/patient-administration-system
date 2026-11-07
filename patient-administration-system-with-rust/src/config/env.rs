@@ -76,7 +76,9 @@ pub const VARS: &[Var] = &[
     int_var("PAS_OUTBOX_MAX_RETRIES", 10, 0, 1_000),
     // 0 turns the limiter off (documented in operations/deployment.md), so 0 must stay valid.
     int_var("PAS_RATE_LIMIT_RPM", 600, 0, 1_000_000),
-    int_var("PAS_RATE_LIMIT_BURST", 60, 0, 1_000_000),
+    // 401s from one client in 15 minutes before it is refused until they end. 0, the default, turns the lockout
+    // off: the UI servers call the API for all their users from one address, so their users' 401s add up.
+    int_var("PAS_AUTH_LOCKOUT_FAILURES", 0, 0, 1_000_000),
     // How long a pre-admission holds a bed, in minutes. 0 (the default) means no expiry, as before OFH-4.
     int_var("PAS_BED_HOLD_MINUTES", 0, 0, 10_080),
     int_var("PAS_WEBHOOK_TIMEOUT_SECS", 10, 1, 3_600),
@@ -283,7 +285,7 @@ mod tests {
     fn documented_zeros_are_valid() {
         for name in [
             "PAS_RATE_LIMIT_RPM",
-            "PAS_RATE_LIMIT_BURST",
+            "PAS_AUTH_LOCKOUT_FAILURES",
             "PAS_TOLERANCE_CHECK_MINUTES",
             "PAS_OUTBOX_MAX_RETRIES",
         ] {

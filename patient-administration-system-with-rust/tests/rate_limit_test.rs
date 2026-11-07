@@ -1,113 +1,142 @@
-//! Integration test for the v0.12 per-IP rate-limit middleware.
+//! The limit per client and the lockout after repeated `401`s (`api::rest::rate_limit`, axa-ratelimit).
 //!
-//! Exercises the layer end-to-end via `tower::ServiceExt::oneshot` against
-//! a router that has the rate-limit middleware installed with a tight
-//! budget. Verifies:
-//!
-//! - `/api/health` is exempt — never trips the limiter even when other
-//!   endpoints have been throttled to zero.
-//! - Within burst capacity, requests pass through.
-//! - Past burst, requests get a `429 Too Many Requests` with a
-//!   `Retry-After` header and the standard `ApiResponse` envelope
-//!   carrying `error.code = "rate_limited"`.
-//!
-//! Doesn't need `DATABASE_URL` — exempt path requires no DB, and the
-//! 429 path is generated entirely by the middleware. Hits a non-DB
-//! endpoint (`/api/health` doesn't go through the limiter, so we use
-//! a path that always 404s — the middleware runs before the route
-//! lookup, so it still gets to apply its decision).
+//! Needs no database: each test wraps a tiny router with `with_rate_limits`, and gives each request the
+//! `ConnectInfo` that `axum::serve` would, so that clients are told apart by address.
+
+use std::net::SocketAddr;
 
 use axum::Router;
 use axum::body::Body;
+use axum::extract::ConnectInfo;
 use axum::http::{Request, StatusCode};
-use patient_administration_system::api::rest::{
-    RateLimitConfig, RateLimiter, rate_limit_middleware,
-};
+use axum::response::Response;
+use axum::routing::get;
+use patient_administration_system::api::rest::{RateLimits, with_rate_limits};
 use tower::ServiceExt;
 
-/// Build a tiny test app: one fake handler that always returns 200 OK
-/// for `/test` and `/api/health`. Wrap with the rate-limit middleware
-/// at the requested config. We deliberately don't use the real PAS
-/// router — this test isolates the middleware behavior.
-fn build_app(cfg: RateLimitConfig) -> Router {
-    let limiter = RateLimiter::new(cfg);
-    Router::new()
-        .route("/test", axum::routing::get(|| async { "ok" }))
-        .route("/api/health", axum::routing::get(|| async { "ok" }))
-        .layer(axum::middleware::from_fn_with_state(
-            limiter,
-            rate_limit_middleware,
-        ))
+/// `/test` answers `200`; `/secret` answers `401` unless the request says `authorization: good`.
+fn build_app(limits: RateLimits) -> Router {
+    let routes = Router::new()
+        .route("/test", get(|| async { "ok" }))
+        .route("/api/health", get(|| async { "ok" }))
+        .route(
+            "/secret",
+            get(|headers: axum::http::HeaderMap| async move {
+                if headers.get("authorization").is_some_and(|v| v == "good") {
+                    StatusCode::OK
+                } else {
+                    StatusCode::UNAUTHORIZED
+                }
+            }),
+        );
+    with_rate_limits(routes, limits)
 }
 
-async fn hit(app: &Router, uri: &str) -> StatusCode {
-    let resp = app
-        .clone()
-        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
-        .await
-        .expect("response");
-    resp.status()
+async fn send(app: &Router, uri: &str, from: Option<&str>, auth: Option<&str>) -> Response {
+    let mut request = Request::builder().uri(uri);
+    if let Some(auth) = auth {
+        request = request.header("authorization", auth);
+    }
+    let mut request = request.body(Body::empty()).unwrap();
+    if let Some(from) = from {
+        let peer: SocketAddr = format!("{from}:40000").parse().unwrap();
+        request.extensions_mut().insert(ConnectInfo(peer));
+    }
+    app.clone().oneshot(request).await.unwrap()
+}
+
+async fn status(app: &Router, uri: &str, from: Option<&str>) -> StatusCode {
+    send(app, uri, from, None).await.status()
 }
 
 #[tokio::test]
-async fn rate_limit_blocks_after_burst_and_serves_429_with_retry_after() {
-    // Burst 2 → first two requests pass, third gets 429.
-    let app = build_app(RateLimitConfig {
-        requests_per_minute: 60, // 1 token/sec — so the bucket won't refill instantly
-        burst: 2,
-    });
+async fn a_client_over_its_limit_gets_a_429_problem() {
+    let app = build_app(RateLimits::new(2, 0));
+    let a = Some("203.0.113.1");
+    assert_eq!(status(&app, "/test", a).await, StatusCode::OK);
+    let ok = send(&app, "/test", a, None).await;
+    assert_eq!(ok.headers()["ratelimit-remaining"], "0");
 
-    assert_eq!(hit(&app, "/test").await, StatusCode::OK);
-    assert_eq!(hit(&app, "/test").await, StatusCode::OK);
-
-    // Third hit should be denied.
-    let resp = app
-        .clone()
-        .oneshot(Request::builder().uri("/test").body(Body::empty()).unwrap())
-        .await
-        .expect("response");
-    assert_eq!(
-        resp.status(),
-        StatusCode::TOO_MANY_REQUESTS,
-        "third request should be 429"
-    );
-    assert!(
-        resp.headers().get("retry-after").is_some(),
-        "429 must carry Retry-After header"
-    );
-    assert_eq!(
-        resp.headers()["content-type"],
-        "application/problem+json",
-        "FR-206"
-    );
+    let resp = send(&app, "/test", a, None).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(resp.headers().get("retry-after").is_some());
+    assert_eq!(resp.headers()["content-type"], "application/problem+json");
     let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
         .await
-        .expect("body");
-    let v: serde_json::Value = serde_json::from_slice(&bytes).expect("json body");
-    assert_eq!(v["code"], "rate_limited");
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(v["code"], "too_many_requests", "{v}");
 }
 
 #[tokio::test]
-async fn rate_limit_exempts_health_endpoint() {
-    // Burst 0 + RPM 0 disables the limiter, but we want to prove the
-    // EXEMPT path works — so build with a tight non-zero config and
-    // hammer /api/health. Even with the bucket fully drained, health
-    // pings must succeed.
-    let app = build_app(RateLimitConfig {
-        requests_per_minute: 60,
-        burst: 1,
-    });
-
-    // Drain the bucket on /test.
-    assert_eq!(hit(&app, "/test").await, StatusCode::OK);
-    assert_eq!(hit(&app, "/test").await, StatusCode::TOO_MANY_REQUESTS);
-
-    // /api/health should keep returning 200 — it's exempt.
+async fn each_address_has_its_own_limit_and_health_is_never_counted() {
+    let app = build_app(RateLimits::new(1, 0));
+    let a = Some("203.0.113.1");
+    let b = Some("198.51.100.7");
+    assert_eq!(status(&app, "/test", a).await, StatusCode::OK);
+    assert_eq!(
+        status(&app, "/test", a).await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    assert_eq!(
+        status(&app, "/test", b).await,
+        StatusCode::OK,
+        "another client is not held up"
+    );
     for _ in 0..5 {
+        assert_eq!(status(&app, "/api/health", a).await, StatusCode::OK);
+    }
+}
+
+/// With no `ConnectInfo`, as when a test drives the router, requests share one limit rather than none.
+#[tokio::test]
+async fn requests_with_no_address_share_one_limit() {
+    let app = build_app(RateLimits::new(1, 0));
+    assert_eq!(status(&app, "/test", None).await, StatusCode::OK);
+    assert_eq!(
+        status(&app, "/test", None).await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+}
+
+#[tokio::test]
+async fn repeated_401s_lock_a_client_out_and_successes_do_not_count() {
+    let app = build_app(RateLimits::new(0, 2));
+    let a = Some("203.0.113.1");
+    for _ in 0..5 {
+        let good = send(&app, "/secret", a, Some("good")).await;
         assert_eq!(
-            hit(&app, "/api/health").await,
+            good.status(),
             StatusCode::OK,
-            "/api/health must be exempt from the rate limiter"
+            "signing in correctly is never slowed"
         );
+    }
+    assert_eq!(status(&app, "/secret", a).await, StatusCode::UNAUTHORIZED);
+    assert_eq!(status(&app, "/secret", a).await, StatusCode::UNAUTHORIZED);
+    let locked = send(&app, "/secret", a, Some("good")).await;
+    assert_eq!(
+        locked.status(),
+        StatusCode::TOO_MANY_REQUESTS,
+        "locked out, even with the right token"
+    );
+    assert_eq!(
+        status(&app, "/test", a).await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    let other = send(&app, "/secret", Some("198.51.100.7"), Some("good")).await;
+    assert_eq!(
+        other.status(),
+        StatusCode::OK,
+        "another client is not locked out"
+    );
+}
+
+#[tokio::test]
+async fn zero_turns_each_layer_off() {
+    let app = build_app(RateLimits::new(0, 0));
+    let a = Some("203.0.113.1");
+    for _ in 0..50 {
+        assert_eq!(status(&app, "/test", a).await, StatusCode::OK);
+        assert_eq!(status(&app, "/secret", a).await, StatusCode::UNAUTHORIZED);
     }
 }

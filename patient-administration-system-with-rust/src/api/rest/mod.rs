@@ -59,6 +59,6 @@ pub mod upstream_proxy;
 pub mod user_auth;
 
 pub use auth::{RequireBearerToken, require_bearer};
-pub use rate_limit::{RateLimitConfig, RateLimiter, rate_limit_middleware};
+pub use rate_limit::{RateLimits, with_rate_limits};
 pub use routes::router;
 pub use state::AppState;
