@@ -10,8 +10,8 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | Server route registrations | 298 |
 | Migrations | 57 |
 | UI page routes | 13 |
-| UI unit test files | 22 |
-| UI browser spec files | 16 |
+| UI unit test files | 23 |
+| UI browser spec files | 17 |
 | UI locale catalogues | 10 |
 | Functional requirements | 201 |
 | Non-functional requirements | 28 |

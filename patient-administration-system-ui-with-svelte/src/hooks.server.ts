@@ -1,10 +1,11 @@
 import type { Cookies } from "@sveltejs/kit";
-import type { Handle } from "@sveltejs/kit/hooks";
+import type { Handle, HandleFetch } from "@sveltejs/kit/hooks";
 import { redirect } from "@sveltejs/kit";
 
 import { OIDC_COOKIE, OIDC_COOKIE_OPTIONS } from "#lib/server/oidc-session.js";
 import { sessions } from "#lib/server/session-store-instance.js";
-import { oidcOptions } from "#lib/server/config.js";
+import { PAS_API_URL, oidcOptions } from "#lib/server/config.js";
+import { REQUEST_ID, requestIdFor, withRequestId } from "#lib/server/request-id.js";
 import { applySecurityHeaders, isHttps } from "#lib/security-headers.js";
 import {
   DEFAULT_LOCALE,
@@ -30,6 +31,7 @@ sessions().setIdleSeconds(oidcOptions().idleSeconds);
 // BFF entry point: resolve the httpOnly session cookie to a server-side OIDC session, and the URL
 // to a locale, on every request. The browser never holds a token.
 export const handle: Handle = async ({ event, resolve }) => {
+  event.locals.requestId = requestIdFor(event.request.headers.get(REQUEST_ID));
   const negotiated = negotiateLocale(event.cookies, event.request.headers.get("accept-language"));
   const cookie = event.cookies.get(OIDC_COOKIE);
   event.locals.oidc = await sessions().get(cookie);
@@ -74,8 +76,14 @@ export const handle: Handle = async ({ event, resolve }) => {
   });
   try {
     applySecurityHeaders(response.headers, isHttps(event.url, event.request.headers.get("x-forwarded-proto")));
+    response.headers.set(REQUEST_ID, event.locals.requestId);
   } catch {
     // Immutable headers (e.g. a redirect response from `fetch`): leave as is.
   }
   return response;
 };
+
+// Every server-side call to the PAS API carries this request's id, so the API's log lines for it can be found
+// from the page's (AXA-6 did the same for the operator front-end).
+export const handleFetch: HandleFetch = async ({ event, request, fetch }) =>
+  fetch(withRequestId(request, event.locals.requestId, PAS_API_URL));

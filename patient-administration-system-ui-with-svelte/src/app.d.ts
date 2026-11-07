@@ -11,6 +11,8 @@ declare global {
       oidc: import("#lib/server/oidc-session.js").OidcSession | null;
       // The locale of this request: from the URL prefix, else negotiated. Always set by `hooks.server.ts`.
       locale: import("#lib/locales.js").Locale;
+      // This request's id, carried to the PAS API as `X-Request-Id`. Always set by `hooks.server.ts`.
+      requestId: string;
     }
     interface PageData {
       title?: string;

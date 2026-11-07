@@ -12,6 +12,8 @@ type S = components["schemas"];
 const MOCK_PORT = Number(process.env.MOCK_PORT ?? 4181);
 const PATIENT = "00000000-0000-0000-0000-000000000000";
 const requests: string[] = [];
+// The `X-Request-Id` each API call carried, with its path (AXA-6 for the UI).
+const requestIds: { path: string; id: string | null }[] = [];
 // Who each request claimed to act for, and whether its token was genuine (see `verify`).
 const actors: { path: string; actor: unknown; sub: unknown; service: boolean }[] = [];
 // Reply links (CAP-13): any 64-hex token is a fresh, open link until it is acted on once. `0`s is unknown and
@@ -129,6 +131,7 @@ http
     res.setHeader("content-type", "application/json");
     if (url.pathname === "/__health") return res.end("{}");
     if (url.pathname === "/__requests") return res.end(JSON.stringify(requests));
+    if (url.pathname === "/__request-ids") return res.end(JSON.stringify(requestIds.slice(-50)));
     if (url.pathname === "/__actors") return res.end(JSON.stringify(actors));
     if (url.pathname === "/__templates/reset") {
       template = { ...DEFAULT_TEMPLATE };
@@ -165,6 +168,8 @@ http
       return res.end(JSON.stringify({ chaos }));
     }
     requests.push(url.pathname + url.search);
+    const rid = req.headers["x-request-id"];
+    requestIds.push({ path: url.pathname, id: typeof rid === "string" ? rid : null });
     if (chaos !== "off" && url.pathname.startsWith("/api/")) {
       const modes = ["500", "garbage", "html", "empty", "wrongshape", "null", "off"];
       let mode = chaos;
