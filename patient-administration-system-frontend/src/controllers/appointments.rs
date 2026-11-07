@@ -45,7 +45,7 @@ pub async fn new_form(
     State(ctx): State<AppContext>,
     jar: CookieJar,
 ) -> Result<(CookieJar, Response)> {
-    let (csrf_token, jar) = csrf::ensure_token(jar);
+    let (csrf_token, jar) = csrf::ensure_token(jar, &ctx.environment);
     let resp = render_form(&v, &ctx, &csrf_token, None, None).await?;
     Ok((jar, resp))
 }
@@ -65,7 +65,7 @@ pub async fn submit(
     Form(form): Form<BookForm>,
 ) -> Result<(CookieJar, Response)> {
     csrf::verify_token(&jar, &form.csrf_token)?;
-    let (csrf_token, jar) = csrf::ensure_token(jar);
+    let (csrf_token, jar) = csrf::ensure_token(jar, &ctx.environment);
     let req = BookSlotRequest {
         person_id: form.person_id,
     };

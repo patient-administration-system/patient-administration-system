@@ -48,11 +48,9 @@ Reads the `pas_csrf` cookie value from the jar. Returns `Err(Error::BadRequest("
 - The cookie value is empty.
 - The cookie value does not match the form token byte-for-byte (constant-time XOR; length-checked first).
 
-### `cookie_secure() -> bool`
+### `cookie_secure(environment) -> bool`
 
-Returns `true` iff `PAS_COOKIE_SECURE` is set to `1` / `true` / `TRUE` / `yes` / `YES`. Anything else (including unset, empty string, `0`, `false`) returns `false`.
-
-Read on every call (env access is cheap) so tests can flip the variable mid-process to assert both states.
+`PAS_COOKIE_SECURE` set to `1` / `true` / `TRUE` / `yes` / `YES` is `true`, and `0` / `false` / `FALSE` / `no` / `NO` is `false`. Anything else, unset or a typing mistake included, follows the environment: `true` wherever `is_production_like()`, `false` in development and test.
 
 ## Constant-time compare
 
@@ -74,7 +72,7 @@ The length-mismatch early-return leaks the length, but the token length is a con
 ## Operational notes
 
 - **Dev**: leave `PAS_COOKIE_SECURE` unset. Plaintext-HTTP localhost works.
-- **Production**: set `PAS_COOKIE_SECURE=1`. The cookie will not be sent over plaintext HTTP, which prevents accidental leakage if a misconfigured proxy serves the form over HTTP.
+- **Production**: leave it unset too. The cookie will not be sent over plaintext HTTP, which prevents accidental leakage if a misconfigured proxy serves the form over HTTP. `PAS_COOKIE_SECURE=0` turns it off and names the decision.
 - **Cookie rotation**: not implemented (still true at v0.2.0). The token is stable for the lifetime of the cookie (browser-controlled; no server-side expiry header is set). A logout / rotate flow would simply `Set-Cookie: pas_csrf=; Max-Age=0`.
 - **Session binding**: not implemented (no sessions exist). When sessions land, bind the CSRF token to the session id (e.g. derive `HMAC(session_id, "csrf")`) so a stolen cookie alone is not enough.
 
@@ -90,7 +88,7 @@ The length-mismatch early-return leaks the length, but the token length is a con
 - `test_verify_token_rejects_mismatch` — cookie and form differ by one byte.
 - `test_verify_token_rejects_missing_cookie` — empty jar.
 - `test_verify_token_rejects_empty_form` — cookie present, form value empty.
-- `test_ensure_token_sets_secure_when_env_truthy` — saves + restores `PAS_COOKIE_SECURE` to stay independent of other concurrent tests.
+- `the_secure_flag_follows_the_environment_unless_told` — each environment, with and without the setting.
 
 Integration tests in `tests/dashboard_smoke.rs` also assert end-to-end that GET sets the cookie and POST without a valid token returns 400. See [testing.md](testing.md).
 

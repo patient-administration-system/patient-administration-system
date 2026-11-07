@@ -57,7 +57,9 @@ DATABASE_URL=postgres://pas:pas_dev_password@localhost:5432/pas \
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET    | `/_health` | Liveness probe (`{ service, version, database }`) |
+| GET    | `/_health` | What is running (`{ service, version, database }`); `200` even when the database is down |
+| GET    | `/_ping` | Liveness: the process answers, with no database call |
+| GET    | `/_readiness` | Readiness: `503` naming `database` while it cannot be reached, so point an orchestrator here |
 | GET    | `/dashboard` | Ops dashboard — full page render |
 | GET    | `/dashboard/wards` | HTMX fragment: ward occupancy |
 | GET    | `/dashboard/outbox` | HTMX fragment: unpublished outbox count |
@@ -84,7 +86,7 @@ All write flows (POST endpoints) go through the PAS Axum API so audit + outbox e
 | `HTTP_CSP` | the policy in `src/app.rs` | Replaces the `content-security-policy` header. Every environment sends the same one, so a page that breaks under it breaks in development first |
 | `PORT` | `5150` | The port to listen on |
 | `PAS_API_URL` | `http://localhost:8080` | Base URL for the PAS Axum API — every write flow routes through it |
-| `PAS_COOKIE_SECURE` | unset (off) | Set to `1` / `true` / `yes` in production so the `pas_csrf` cookie carries the `Secure` flag (HTTPS-only). Off in dev so plaintext-HTTP localhost works. |
+| `PAS_COOKIE_SECURE` | follows the environment | The `pas_csrf` cookie carries the `Secure` flag (HTTPS-only) everywhere production-like, and not in development or test, so plaintext-HTTP localhost works. `1` / `true` / `yes` turns it on and `0` / `false` / `no` turns it off, whatever the environment. |
 
 Run `patient-administration-system-frontend check` with a deployment's settings before starting it. It prints what the service will use, needs no database, and fails on a setting that makes no sense.
 
@@ -94,7 +96,7 @@ The three POST routes are protected by a double-submit-cookie pattern in `src/cs
 
 1. On every form `GET`, the handler reads or mints a `pas_csrf` cookie (`SameSite=Strict; HttpOnly; Path=/`, value = 128-bit UUID) and embeds the same token as a hidden `csrf_token` input.
 2. On `POST`, the handler compares the form field against the cookie via a constant-time byte comparison. Any mismatch (or missing cookie) returns HTTP 400 *before* any side effects.
-3. In production, set `PAS_COOKIE_SECURE=1` so the cookie also carries the `Secure` flag.
+3. In production the cookie also carries the `Secure` flag, with no setting needed.
 
 `SameSite=Strict` + `HttpOnly` mean a third-party site can neither read the cookie nor cause it to be sent on a cross-origin POST, so an attacker has no way to supply a matching token.
 

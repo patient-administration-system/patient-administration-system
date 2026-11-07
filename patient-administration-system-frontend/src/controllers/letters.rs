@@ -31,7 +31,7 @@ pub async fn new_form(
     State(ctx): State<AppContext>,
     jar: CookieJar,
 ) -> Result<(CookieJar, Response)> {
-    let (csrf_token, jar) = csrf::ensure_token(jar);
+    let (csrf_token, jar) = csrf::ensure_token(jar, &ctx.environment);
     let templates = list_active_templates(&ctx.db).await.map_err(Error::wrap)?;
     let patients = list_active_patients(200).await;
     let resp = v.render(
@@ -68,7 +68,7 @@ pub async fn submit(
     Form(form): Form<ComposeForm>,
 ) -> Result<(CookieJar, Response)> {
     csrf::verify_token(&jar, &form.csrf_token)?;
-    let (csrf_token, jar) = csrf::ensure_token(jar);
+    let (csrf_token, jar) = csrf::ensure_token(jar, &ctx.environment);
     let req = GenerateLetterRequest {
         template_id: form.template_id,
         person_id: form.person_id,

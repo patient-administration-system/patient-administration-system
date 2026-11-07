@@ -15,11 +15,10 @@
 //! `SameSite=Strict` + `HttpOnly` mean a third-party site can neither
 //! read the cookie nor cause the browser to send it on a cross-origin
 //! POST, so the attacker can't supply a matching `csrf_token` field.
-//! The `Secure` flag (production only) blocks the cookie from ever
-//! travelling over plaintext HTTP — set `PAS_COOKIE_SECURE=1` in any
-//! environment terminated behind HTTPS.
+//! The `Secure` flag (on by default wherever production-like) blocks the
+//! cookie from ever travelling over plaintext HTTP.
 
-use axa::{Error, Result};
+use axa::{Environment, Error, Result};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use uuid::Uuid;
 
@@ -29,26 +28,31 @@ pub const COOKIE_NAME: &str = "pas_csrf";
 /// Name of the form field every protected form must include.
 pub const FORM_FIELD: &str = "csrf_token";
 
-/// Env var that toggles the `Secure` cookie flag. Defaults to **off** so
-/// local-dev over plaintext HTTP still works; production deployments
-/// (HTTPS) must set this to `1` / `true` / `yes`.
+/// Env var that overrides the `Secure` cookie flag. Left out, the flag follows the environment: on anywhere
+/// production-like, so a deployment that forgets it is not sending the token in the clear, and off in
+/// development and test, so plaintext-HTTP localhost still works.
 pub const SECURE_ENV: &str = "PAS_COOKIE_SECURE";
 
-/// True iff the `Secure` cookie flag should be set on `pas_csrf`. Reads
-/// [`SECURE_ENV`] each call (cheap; std env access is a Mutex around a
-/// HashMap lookup) so tests can flip it via `std::env::set_var`.
-pub fn cookie_secure() -> bool {
-    matches!(
-        std::env::var(SECURE_ENV).as_deref(),
-        Ok("1" | "true" | "TRUE" | "yes" | "YES")
-    )
+/// True iff the `Secure` cookie flag should be set on `pas_csrf`.
+pub fn cookie_secure(environment: &Environment) -> bool {
+    secure_for(environment, std::env::var(SECURE_ENV).ok().as_deref())
+}
+
+/// `setting` decides when it says yes or no. Anything else, a typing mistake included, leaves the environment's
+/// default in place, so a mistake cannot take the flag away.
+fn secure_for(environment: &Environment, setting: Option<&str>) -> bool {
+    match setting {
+        Some("1" | "true" | "TRUE" | "yes" | "YES") => true,
+        Some("0" | "false" | "FALSE" | "no" | "NO") => false,
+        _ => environment.is_production_like(),
+    }
 }
 
 /// Return the CSRF token attached to this jar, generating + setting a
 /// fresh one if no cookie is present. The returned [`CookieJar`] must be
 /// returned to axum from the handler so the `Set-Cookie` header reaches
 /// the browser.
-pub fn ensure_token(jar: CookieJar) -> (String, CookieJar) {
+pub fn ensure_token(jar: CookieJar, environment: &Environment) -> (String, CookieJar) {
     if let Some(c) = jar.get(COOKIE_NAME) {
         let value = c.value().to_string();
         if !value.is_empty() {
@@ -59,7 +63,7 @@ pub fn ensure_token(jar: CookieJar) -> (String, CookieJar) {
     let cookie = Cookie::build((COOKIE_NAME, token.clone()))
         .path("/")
         .http_only(true)
-        .secure(cookie_secure())
+        .secure(cookie_secure(environment))
         .same_site(SameSite::Strict)
         .build();
     (token, jar.add(cookie))
@@ -113,7 +117,7 @@ mod tests {
     #[test]
     fn test_ensure_token_generates_when_missing() {
         let jar = CookieJar::new();
-        let (token, jar) = ensure_token(jar);
+        let (token, jar) = ensure_token(jar, &Environment::Test);
         assert_eq!(token.len(), 32, "uuid simple format is 32 hex chars");
         assert_eq!(
             jar.get(COOKIE_NAME).map(Cookie::value),
@@ -128,7 +132,7 @@ mod tests {
                 .path("/")
                 .build(),
         );
-        let (token, _jar) = ensure_token(jar);
+        let (token, _jar) = ensure_token(jar, &Environment::Test);
         assert_eq!(token, "existing-token-value");
     }
 
@@ -156,27 +160,33 @@ mod tests {
         assert!(verify_token(&jar, "").is_err());
     }
 
-    // The `cookie_secure` env-var helper is exercised end-to-end in
-    // `test_ensure_token_sets_secure_when_env_truthy` below. We avoid
-    // asserting `cookie_secure() == false` in isolation because
-    // `std::env` is process-global and another concurrent test in the
-    // same binary could flip the var.
+    #[test]
+    fn the_secure_flag_follows_the_environment_unless_told() {
+        let staging = Environment::Other("staging".to_string());
+        for production in [&Environment::Production, &staging] {
+            assert!(secure_for(production, None), "{production}: on by default");
+            assert!(
+                !secure_for(production, Some("0")),
+                "{production}: a plain no"
+            );
+            assert!(
+                secure_for(production, Some("flase")),
+                "{production}: a typing mistake does not turn it off"
+            );
+        }
+        for local in [&Environment::Development, &Environment::Test] {
+            assert!(!secure_for(local, None), "{local}: off by default");
+            assert!(secure_for(local, Some("1")), "{local}: a plain yes");
+        }
+    }
 
     #[test]
-    fn test_ensure_token_sets_secure_when_env_truthy() {
-        // Save + restore the env so this test stays independent.
-        let prev = std::env::var(SECURE_ENV).ok();
-        unsafe {
-            std::env::set_var(SECURE_ENV, "1");
-        }
-        let (_token, jar) = ensure_token(CookieJar::new());
+    fn a_new_cookie_in_production_carries_the_secure_flag() {
+        let (_token, jar) = ensure_token(CookieJar::new(), &Environment::Production);
         let cookie = jar.get(COOKIE_NAME).expect("cookie must be set");
-        assert_eq!(cookie.secure(), Some(true), "Secure flag must be set");
-        unsafe {
-            match prev {
-                Some(v) => std::env::set_var(SECURE_ENV, v),
-                None => std::env::remove_var(SECURE_ENV),
-            }
+        // `PAS_COOKIE_SECURE=0` in the environment running the tests would be a plain no.
+        if std::env::var(SECURE_ENV).is_err() {
+            assert_eq!(cookie.secure(), Some(true));
         }
     }
 }

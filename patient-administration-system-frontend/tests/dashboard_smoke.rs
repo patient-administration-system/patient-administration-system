@@ -391,6 +391,59 @@ async fn health_endpoint_returns_json() {
     .await;
 }
 
+/// The service with its database stopped: a pool of connections to a port nothing listens on. Needs no database.
+struct StoppedDatabase;
+
+impl TestApp for StoppedDatabase {
+    async fn boot_test() -> Result<BootResult> {
+        let environment = Environment::Test;
+        let config = Service::config(&environment)?;
+        let db = sqlx::postgres::PgPoolOptions::new()
+            .acquire_timeout(std::time::Duration::from_millis(200))
+            .connect_lazy("postgres://pas:pas@127.0.0.1:1/pas")
+            .expect("a lazy pool does not connect");
+        let ctx = axa::AppContext::new(environment, db, config);
+        let router = Service::router(&ctx)?;
+        Ok(BootResult {
+            app_context: ctx,
+            router: Some(router),
+        })
+    }
+}
+
+/// AXA-4: an orchestrator is told the truth while the database is down, and the process stays alive for it.
+#[tokio::test]
+async fn readiness_fails_while_the_database_is_down_and_liveness_does_not() {
+    request::<StoppedDatabase, _, _>(|request, _ctx| async move {
+        let ready = request.get("/_readiness").await;
+        assert_eq!(ready.status_code(), 503);
+        let v: serde_json::Value = ready.json();
+        assert_eq!(v["ok"], false);
+        assert_eq!(v["failed"][0], "database");
+
+        request.get("/_ping").await.assert_status_ok();
+        let health = request.get("/_health").await;
+        health.assert_status_ok();
+        let v: serde_json::Value = health.json();
+        assert_eq!(v["database"], "unreachable");
+    })
+    .await;
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+#[serial]
+async fn readiness_passes_with_the_database_up() {
+    database_url();
+    request::<App, _, _>(|request, _ctx| async move {
+        let ready = request.get("/_readiness").await;
+        ready.assert_status_ok();
+        let v: serde_json::Value = ready.json();
+        assert_eq!(v["ok"], true);
+    })
+    .await;
+}
+
 /// A one-purpose person-service: answers `GET /api/persons/{id}` with a
 /// fixed name and returns its base URL.
 async fn stub_person_service() -> String {

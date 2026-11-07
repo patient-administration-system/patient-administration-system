@@ -17,11 +17,11 @@ pub async fn index(State(ctx): State<AppContext>) -> Result<Response> {
     format::json(body)
 }
 
-/// `GET /_ping` — process liveness with no database call.
-pub fn ping_routes() -> Routes {
-    Routes::new().add("/_ping", get(ping))
-}
-
-pub async fn ping() -> Result<Response> {
-    format::json(serde_json::json!({ "ok": true }))
+/// `GET /_ping` (the process is up) and `GET /_readiness` (`503` while the database cannot be reached), from
+/// axa, so an orchestrator stops sending traffic to an instance that cannot serve it (AXA-4). axa's own `/_health`
+/// is left out: [`index`] says more.
+pub fn probe_routes() -> Routes {
+    let mut routes = axa::health::routes();
+    routes.handlers.retain(|h| h.uri != "/_health");
+    routes
 }

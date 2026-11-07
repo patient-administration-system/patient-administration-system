@@ -87,7 +87,7 @@ impl App {
 
     fn routes() -> AppRoutes {
         // Not `with_default_routes()`: `controllers::health` has its own `/_health`, which also
-        // reports the database.
+        // reports the service and its version. `probe_routes` is axa's `/_ping` and `/_readiness`.
         AppRoutes::empty()
             .add_route(controllers::dashboard::routes())
             .add_route(controllers::patients::routes())
@@ -97,7 +97,7 @@ impl App {
             .add_route(controllers::appointments::routes())
             .add_route(controllers::letters::routes())
             .add_route(controllers::health::routes())
-            .add_route(controllers::health::ping_routes())
+            .add_route(controllers::health::probe_routes())
     }
 
     /// The whole service. The static files are inside the middleware, so they get its headers.
