@@ -16,11 +16,11 @@ The PAS crate exposes a Rust library API mirroring the module layout under `src/
 
 ## Response Envelope
 
-All REST endpoints (everything under `/api/`) return the first form on success and an RFC 9457 problem (`application/problem+json`, built by `api::problem` with `axa-problem`) on a refusal or failure. `code` is the machine-readable code; `detail` is safe to show the caller:
+All REST endpoints (everything under `/api/`) return the first form on success and an RFC 9457 problem (`application/problem+json`, built by `api::problem` with `axa-problem`) on a refusal or failure. `code` is the machine-readable code, in lowercase snake case as axa writes its own (`not_found`, `validation`, `bad_request`); `detail` is safe to show the caller:
 
 ```json
 { "success": true, "data": { ... } }
-{ "type": "about:blank", "title": "Not Found", "status": 404, "detail": "...", "code": "NOT_FOUND" }
+{ "type": "about:blank", "title": "Not Found", "status": 404, "detail": "...", "code": "not_found" }
 ```
 
 FHIR endpoints (`/fhir/...`) return canonical FHIR resources on success and FHIR `OperationOutcome` JSON on failure.
@@ -47,7 +47,7 @@ Success responses use `200 OK` (or `204 No Content` for `DELETE /fhir/Patient/:i
 
 ## Authentication
 
-When the `API_TOKEN` env var is set, every `/api/*` request — except `/api/health` — must carry `Authorization: Bearer <token>` matching the configured value. Mismatched or missing tokens return `401 + ApiResponse::err("UNAUTHORIZED", ...)`. The bearer middleware is closer to the handlers than CORS/trace/compress, so a 401 still has the response middleware applied to it.
+When the `API_TOKEN` env var is set, every `/api/*` request — except `/api/health` — must carry `Authorization: Bearer <token>` matching the configured value. Mismatched or missing tokens return a `401` problem with `code` `unauthorized`. The bearer middleware is closer to the handlers than CORS/trace/compress, so a 401 still has the response middleware applied to it.
 
 When `API_TOKEN` is unset, the API runs in **trusted-caller mode** with a startup `warn!` log. Full JWT/OAuth identity-provider integration is out of scope for v0.1; bearer-token is the implemented mechanism.
 

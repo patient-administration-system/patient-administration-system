@@ -12,6 +12,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Breaking:** every problem's `code` is lowercase snake case, as axa writes its own: `not_found`, `validation`, `conflict`, `unauthorized`, `forbidden`, `rate_limited`, `upstream_unavailable`, `internal` and the rest, where they were uppercase. A client matching on `code` must match the lowercase form. FHIR and HL7 v2 answers are unchanged.
 - `GET /api/session-templates`, `GET /api/experiments` and `GET /api/pathways/due-check` take `limit` and say `meta.truncated` (QUAL-48). `GET /api/pathways/due-check` now returns the 500 longest waiters by default.
 - `GET /api/noshow/fairness-audit` has `truncated`, which is true when the period held more than the 50,000 appointments one audit reads (QUAL-48).
 - `GET /api/slot-releases`, `GET /api/tolerances/status` and `GET /api/tolerance-alerts` take `limit` and say `meta.truncated` (QUAL-47). `GET /api/slot-releases` now returns the newest 100 by default, with a summary of the whole window; it returned every release before. Status keeps the worst readings of `by_service` and `by_ward`, 500 each by default.

@@ -95,7 +95,7 @@ async fn the_second_writer_of_one_appointment_gets_412_and_a_missing_version_get
 
     let (st, _, v) = call(&app, "POST", &format!("{uri}/cancel"), None, "{}").await;
     assert_eq!(st, StatusCode::PRECONDITION_REQUIRED, "{v}");
-    assert_eq!(v["code"], "PRECONDITION_REQUIRED");
+    assert_eq!(v["code"], "precondition_required");
     assert_eq!(status_of(&s, a.id).await, AppointmentStatus::Booked);
 
     let (st, new_tag, _) = call(&app, "POST", &format!("{uri}/cancel"), Some(&tag_a), "{}").await;
@@ -108,7 +108,7 @@ async fn the_second_writer_of_one_appointment_gets_412_and_a_missing_version_get
 
     let (st, _, v) = call(&app, "POST", &format!("{uri}/cancel"), Some(&tag_a), "{}").await;
     assert_eq!(st, StatusCode::PRECONDITION_FAILED, "{v}");
-    assert_eq!(v["code"], "PRECONDITION_FAILED");
+    assert_eq!(v["code"], "precondition_failed");
     let cancels = s
         .db
         .one(Stmt::new("SELECT count(*) AS n FROM audit_log WHERE entity_type = 'appointment' AND entity_id = $1 AND action = 'cancel'",

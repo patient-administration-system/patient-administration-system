@@ -50,7 +50,7 @@ pub async fn require_bearer(
         Some(t) if t == state.0.expected => next.run(req).await,
         _ => crate::api::problem(
             StatusCode::UNAUTHORIZED,
-            "UNAUTHORIZED",
+            "unauthorized",
             "missing or invalid bearer token",
         )
         .into_response(),

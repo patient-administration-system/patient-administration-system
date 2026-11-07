@@ -108,7 +108,7 @@ async fn test_person_merged_webhook_wrong_signature_returns_401() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let env = body_json(resp).await;
-    assert_eq!(env["code"], serde_json::json!("UNSIGNED_WEBHOOK"));
+    assert_eq!(env["code"], serde_json::json!("unsigned_webhook"));
     unsafe {
         std::env::remove_var("PERSON_SERVICE_WEBHOOK_SECRET");
     }

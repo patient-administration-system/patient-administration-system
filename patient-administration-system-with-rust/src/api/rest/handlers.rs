@@ -21,23 +21,23 @@ pub type HandlerResult = Response;
 /// error code.
 pub fn error_to_response(err: Error) -> HandlerResult {
     let (status, code) = match &err {
-        Error::NotFound(_) => (StatusCode::NOT_FOUND, "NOT_FOUND"),
-        Error::Validation(_) => (StatusCode::BAD_REQUEST, "VALIDATION"),
-        Error::InvalidStateTransition(_) => (StatusCode::CONFLICT, "INVALID_STATE_TRANSITION"),
-        Error::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT"),
-        Error::PreconditionFailed(_) => (StatusCode::PRECONDITION_FAILED, "PRECONDITION_FAILED"),
+        Error::NotFound(_) => (StatusCode::NOT_FOUND, "not_found"),
+        Error::Validation(_) => (StatusCode::BAD_REQUEST, "validation"),
+        Error::InvalidStateTransition(_) => (StatusCode::CONFLICT, "invalid_state_transition"),
+        Error::Conflict(_) => (StatusCode::CONFLICT, "conflict"),
+        Error::PreconditionFailed(_) => (StatusCode::PRECONDITION_FAILED, "precondition_failed"),
         Error::PreconditionRequired(_) => {
-            (StatusCode::PRECONDITION_REQUIRED, "PRECONDITION_REQUIRED")
+            (StatusCode::PRECONDITION_REQUIRED, "precondition_required")
         }
-        Error::Forbidden(_) => (StatusCode::FORBIDDEN, "FORBIDDEN"),
-        Error::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "DATABASE"),
-        Error::Search(_) => (StatusCode::INTERNAL_SERVER_ERROR, "SEARCH"),
-        Error::Streaming(_) => (StatusCode::INTERNAL_SERVER_ERROR, "STREAMING"),
+        Error::Forbidden(_) => (StatusCode::FORBIDDEN, "forbidden"),
+        Error::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "database"),
+        Error::Search(_) => (StatusCode::INTERNAL_SERVER_ERROR, "search"),
+        Error::Streaming(_) => (StatusCode::INTERNAL_SERVER_ERROR, "streaming"),
         Error::Fhir(_) => (StatusCode::BAD_REQUEST, "FHIR"),
-        Error::Render(_) => (StatusCode::INTERNAL_SERVER_ERROR, "RENDER"),
-        Error::Config(_) => (StatusCode::INTERNAL_SERVER_ERROR, "CONFIG"),
-        Error::Upstream(_) => (StatusCode::SERVICE_UNAVAILABLE, "UPSTREAM_UNAVAILABLE"),
-        Error::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL"),
+        Error::Render(_) => (StatusCode::INTERNAL_SERVER_ERROR, "render"),
+        Error::Config(_) => (StatusCode::INTERNAL_SERVER_ERROR, "config"),
+        Error::Upstream(_) => (StatusCode::SERVICE_UNAVAILABLE, "upstream_unavailable"),
+        Error::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "internal"),
     };
     problem(status, code, err.client_message()).into_response()
 }
@@ -159,7 +159,7 @@ mod serialization_tests {
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         let text = body_text(response).await;
         assert!(!text.contains("secret detail"), "{text}");
-        assert!(text.contains("INTERNAL"), "{text}");
+        assert!(text.contains("internal"), "{text}");
     }
 
     #[tokio::test]
@@ -182,7 +182,7 @@ mod serialization_tests {
         assert_eq!(v["type"], "about:blank");
         assert_eq!(v["title"], "Not Found");
         assert_eq!(v["status"], 404);
-        assert_eq!(v["code"], "NOT_FOUND");
+        assert_eq!(v["code"], "not_found");
         assert!(v["detail"].as_str().unwrap().contains("appointment 1"));
         assert!(
             v.get("success").is_none() && v.get("error").is_none(),

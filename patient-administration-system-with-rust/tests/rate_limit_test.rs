@@ -9,7 +9,7 @@
 //! - Within burst capacity, requests pass through.
 //! - Past burst, requests get a `429 Too Many Requests` with a
 //!   `Retry-After` header and the standard `ApiResponse` envelope
-//!   carrying `error.code = "RATE_LIMITED"`.
+//!   carrying `error.code = "rate_limited"`.
 //!
 //! Doesn't need `DATABASE_URL` — exempt path requires no DB, and the
 //! 429 path is generated entirely by the middleware. Hits a non-DB
@@ -84,7 +84,7 @@ async fn rate_limit_blocks_after_burst_and_serves_429_with_retry_after() {
         .await
         .expect("body");
     let v: serde_json::Value = serde_json::from_slice(&bytes).expect("json body");
-    assert_eq!(v["code"], "RATE_LIMITED");
+    assert_eq!(v["code"], "rate_limited");
 }
 
 #[tokio::test]

@@ -29,7 +29,7 @@
 //!
 //! **Response on cap**: status `429 Too Many Requests`, header
 //! `Retry-After: <seconds>` (rounded up), body in the standard
-//! `ApiResponse` envelope with `error.code = "RATE_LIMITED"`.
+//! `ApiResponse` envelope with `error.code = "rate_limited"`.
 
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -180,7 +180,7 @@ pub async fn rate_limit_middleware(
         Err(retry_after) => {
             let mut resp = crate::api::problem(
                 StatusCode::TOO_MANY_REQUESTS,
-                "RATE_LIMITED",
+                "rate_limited",
                 format!("Too many requests; retry after {retry_after} seconds."),
             )
             .into_response();

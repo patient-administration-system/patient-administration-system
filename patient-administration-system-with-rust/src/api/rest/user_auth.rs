@@ -381,7 +381,7 @@ pub async fn user_auth_middleware(
         if req.method() != Method::POST || !CARRIER_PATHS.contains(&path.as_str()) {
             return refuse(
                 StatusCode::UNAUTHORIZED,
-                "UNAUTHORIZED",
+                "unauthorized",
                 "invalid or expired credentials",
             );
         }
@@ -390,15 +390,15 @@ pub async fn user_auth_middleware(
     let principal = match auth.authenticate(req.headers()) {
         Ok(p) => p,
         Err(Denied::Unauthenticated(msg)) => {
-            return refuse(StatusCode::UNAUTHORIZED, "UNAUTHORIZED", msg);
+            return refuse(StatusCode::UNAUTHORIZED, "unauthorized", msg);
         }
-        Err(Denied::Forbidden(m)) => return refuse(StatusCode::FORBIDDEN, "FORBIDDEN", &m),
+        Err(Denied::Forbidden(m)) => return refuse(StatusCode::FORBIDDEN, "forbidden", &m),
     };
     if let Err(Denied::Forbidden(reason)) = auth.authorize(&principal, req.method(), &path) {
         tracing::info!(target: "pas::auth", "refused {} {path}: {reason}", req.method());
         return refuse(
             StatusCode::FORBIDDEN,
-            "FORBIDDEN",
+            "forbidden",
             "your account is not permitted to do that",
         );
     }
@@ -451,14 +451,14 @@ async fn carrier_request(auth: &UserAuth, req: Request, next: Next) -> Response 
     ) else {
         return refuse(
             StatusCode::UNAUTHORIZED,
-            "UNAUTHORIZED",
+            "unauthorized",
             "invalid or expired credentials",
         );
     };
     let Ok(bytes) = axum::body::to_bytes(body, MAX_CARRIER_BODY).await else {
         return refuse(
             StatusCode::PAYLOAD_TOO_LARGE,
-            "TOO_LARGE",
+            "too_large",
             "request body too large",
         );
     };
@@ -476,7 +476,7 @@ async fn carrier_request(auth: &UserAuth, req: Request, next: Next) -> Response 
         tracing::warn!(target: "pas::auth", "carrier {id:?} refused: {e:?}");
         return refuse(
             StatusCode::UNAUTHORIZED,
-            "UNAUTHORIZED",
+            "unauthorized",
             "invalid or expired credentials",
         );
     }

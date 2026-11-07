@@ -179,7 +179,7 @@ mod tests {
     fn a_refusal_is_read_from_the_problem() {
         let body = serde_json::json!({
             "type": "about:blank", "title": "Conflict", "status": 409,
-            "detail": "that slot has gone", "code": "CONFLICT",
+            "detail": "that slot has gone", "code": "conflict",
         });
         assert_eq!(problem_detail(body), "that slot has gone");
     }

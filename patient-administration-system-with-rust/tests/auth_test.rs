@@ -58,7 +58,7 @@ async fn missing_token_returns_401() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = body_text(resp).await;
-    assert!(body.contains("UNAUTHORIZED"), "body: {body}");
+    assert!(body.contains("unauthorized"), "body: {body}");
 }
 
 #[tokio::test]

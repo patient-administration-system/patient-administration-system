@@ -194,7 +194,7 @@ pub async fn person_merged_webhook(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
     if let Err(e) = verify_hmac(secret.as_bytes(), &raw, sig) {
-        return crate::api::problem(StatusCode::UNAUTHORIZED, "UNSIGNED_WEBHOOK", e.to_string())
+        return crate::api::problem(StatusCode::UNAUTHORIZED, "unsigned_webhook", e.to_string())
             .into_response();
     }
 
@@ -288,7 +288,7 @@ pub async fn worker_merged_webhook(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
     if let Err(e) = verify_hmac(secret.as_bytes(), &raw, sig) {
-        return crate::api::problem(StatusCode::UNAUTHORIZED, "UNSIGNED_WEBHOOK", e.to_string())
+        return crate::api::problem(StatusCode::UNAUTHORIZED, "unsigned_webhook", e.to_string())
             .into_response();
     }
     let body: MergeWebhookBody = match serde_json::from_slice(&raw) {

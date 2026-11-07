@@ -301,7 +301,7 @@ async fn the_policy_decides_from_the_tokens_attributes() {
     // A refusal says so without leaking the rule.
     let (_, body) = call(&app, "POST", "/api/echo", Some(&none), &[]).await;
     assert!(
-        body.contains("FORBIDDEN") && !body.contains("rule"),
+        body.contains("forbidden") && !body.contains("rule"),
         "{body}"
     );
 }

@@ -30,10 +30,10 @@ pub struct ApiResponse<T> {
 /// use axum::http::StatusCode;
 /// use patient_administration_system::api::problem;
 ///
-/// let p = problem(StatusCode::CONFLICT, "CONFLICT", "that slot has gone");
+/// let p = problem(StatusCode::CONFLICT, "conflict", "that slot has gone");
 /// assert_eq!(p.title, "Conflict");
 /// assert_eq!(p.status, 409);
-/// assert_eq!(p.extensions["code"], "CONFLICT");
+/// assert_eq!(p.extensions["code"], "conflict");
 /// ```
 pub fn problem(
     status: axum::http::StatusCode,
