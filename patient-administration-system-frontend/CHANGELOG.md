@@ -29,6 +29,7 @@ crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- With the database down, `/dashboard` said "0 unpublished events", "No wards configured" and "No audit entries", which read as all clear. Each panel now says the database cannot be reached, and logs a warning. Against a database that does not answer, the three panels are read at once, so the page waits one connect timeout rather than three.
 - Production boots. `config/production.yaml` quoted its port, which Loco 1.2 refused, and required a `404.html` that was never in the repository.
 
 ## [Unreleased]

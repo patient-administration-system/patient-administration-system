@@ -1,4 +1,6 @@
-{% if audit | length == 0 %}
+{% if audit_unreachable %}
+  <div class="alert" data-status="error" role="alert">The database cannot be reached, so this panel shows nothing. It refreshes on its own.</div>
+{% elif audit | length == 0 %}
   <div class="alert" role="status">No audit entries yet.</div>
 {% else %}
   <table class="data-table" aria-label="Recent audit entries">

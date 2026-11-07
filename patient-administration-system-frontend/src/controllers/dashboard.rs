@@ -4,6 +4,9 @@
 //! The full page lives at `/dashboard`; each panel has its own
 //! HTMX-targeted fragment endpoint so the dashboard refreshes per-panel
 //! without a full page swap.
+//!
+//! A panel that cannot read the database says so (`*_unreachable`), and logs a warning, rather than showing
+//! a zero or an empty table: "0 unpublished" and "no wards" read as all clear while the database is down.
 
 use crate::tpl::json;
 use crate::views::Views;
@@ -50,9 +53,9 @@ pub async fn index(
     Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
-    let wards = load_wards(&ctx).await;
-    let unpublished = count_unpublished(&ctx.db).await.unwrap_or(0);
-    let audit = load_audit(&ctx).await;
+    // At once, so that a database that does not answer costs one connect timeout, not three.
+    let (wards, unpublished, audit) =
+        tokio::join!(load_wards(&ctx), load_unpublished(&ctx), load_audit(&ctx));
 
     v.render(
         "dashboard/index.html",
@@ -60,9 +63,12 @@ pub async fn index(
             "version": env!("CARGO_PKG_VERSION"),
             "rendered_at": chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string(),
             "refresh_seconds": REFRESH_SECONDS,
-            "wards": wards,
-            "unpublished_count": unpublished,
-            "audit": audit,
+            "wards_unreachable": wards.is_none(),
+            "wards": wards.unwrap_or_default(),
+            "outbox_unreachable": unpublished.is_none(),
+            "unpublished_count": unpublished.unwrap_or(0),
+            "audit_unreachable": audit.is_none(),
+            "audit": audit.unwrap_or_default(),
         }),
     )
 }
@@ -73,7 +79,10 @@ pub async fn wards_fragment(
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let wards = load_wards(&ctx).await;
-    v.render("dashboard/_wards.html", json!({ "wards": wards }))
+    v.render(
+        "dashboard/_wards.html",
+        json!({ "wards_unreachable": wards.is_none(), "wards": wards.unwrap_or_default() }),
+    )
 }
 
 /// `GET /dashboard/outbox` — HTMX fragment: single big-stat unpublished count.
@@ -81,10 +90,13 @@ pub async fn outbox_fragment(
     Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
-    let unpublished = count_unpublished(&ctx.db).await.unwrap_or(0);
+    let unpublished = load_unpublished(&ctx).await;
     v.render(
         "dashboard/_outbox.html",
-        json!({ "unpublished_count": unpublished }),
+        json!({
+            "outbox_unreachable": unpublished.is_none(),
+            "unpublished_count": unpublished.unwrap_or(0),
+        }),
     )
 }
 
@@ -94,18 +106,38 @@ pub async fn audit_fragment(
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let audit = load_audit(&ctx).await;
-    v.render("dashboard/_audit.html", json!({ "audit": audit }))
+    v.render(
+        "dashboard/_audit.html",
+        json!({ "audit_unreachable": audit.is_none(), "audit": audit.unwrap_or_default() }),
+    )
 }
 
 // ---- data loaders ---------------------------------------------------------
 
-async fn load_wards(ctx: &AppContext) -> Vec<WardRow> {
+/// `None`, and a warning, when the database cannot be read.
+fn unreachable<T, E: std::fmt::Display>(
+    panel: &str,
+    result: std::result::Result<T, E>,
+) -> Option<T> {
+    result
+        .inspect_err(
+            |e| tracing::warn!(panel, error = %e, "a dashboard panel could not read the database"),
+        )
+        .ok()
+}
+
+async fn load_unpublished(ctx: &AppContext) -> Option<usize> {
+    unreachable("outbox", count_unpublished(&ctx.db).await)
+}
+
+async fn load_wards(ctx: &AppContext) -> Option<Vec<WardRow>> {
     let mut rows = Vec::new();
-    let wards = list_active_wards(&ctx.db).await.unwrap_or_default();
+    let wards = unreachable("wards", list_active_wards(&ctx.db).await)?;
     for w in wards {
-        let beds = crate::models::bed::list_by_ward(&ctx.db, w.id)
-            .await
-            .unwrap_or_default();
+        let beds = unreachable(
+            "wards",
+            crate::models::bed::list_by_ward(&ctx.db, w.id).await,
+        )?;
         let total_beds = beds.len();
         let mut occupied = 0;
         let mut available = 0;
@@ -128,13 +160,12 @@ async fn load_wards(ctx: &AppContext) -> Vec<WardRow> {
         });
     }
     rows.sort_by(|a, b| a.code.cmp(&b.code));
-    rows
+    Some(rows)
 }
 
-async fn load_audit(ctx: &AppContext) -> Vec<AuditRow> {
-    list_recent_audit(&ctx.db, 10)
-        .await
-        .unwrap_or_default()
+async fn load_audit(ctx: &AppContext) -> Option<Vec<AuditRow>> {
+    let rows = unreachable("audit", list_recent_audit(&ctx.db, 10).await)?;
+    let rows = rows
         .into_iter()
         .map(|m| AuditRow {
             at_short: m.at.format("%Y-%m-%d %H:%M:%S").to_string(),
@@ -142,5 +173,6 @@ async fn load_audit(ctx: &AppContext) -> Vec<AuditRow> {
             action: m.action,
             user_id: m.user_id,
         })
-        .collect()
+        .collect();
+    Some(rows)
 }

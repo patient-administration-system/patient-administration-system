@@ -1,4 +1,6 @@
-{% if wards | length == 0 %}
+{% if wards_unreachable %}
+  <div class="alert" data-status="error" role="alert">The database cannot be reached, so this panel shows nothing. It refreshes on its own.</div>
+{% elif wards | length == 0 %}
   <div class="alert" role="status">No wards configured yet — bootstrap one via <code class="code">POST /api/facilities</code> + <code class="code">POST /api/wards</code> on the PAS Axum server.</div>
 {% else %}
   <table class="data-table" aria-label="Ward occupancy">

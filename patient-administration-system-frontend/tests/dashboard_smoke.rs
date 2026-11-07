@@ -406,6 +406,59 @@ impl TestApp for StoppedDatabase {
     }
 }
 
+/// The service with a database that takes connections and never answers, as a hung server or a dropped route
+/// does: each query waits for the pool's one-second timeout. Needs no database.
+struct HangingDatabase;
+
+impl TestApp for HangingDatabase {
+    async fn boot_test() -> Result<BootResult> {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("a free port");
+        let port = listener.local_addr().expect("its address").port();
+        // Accept every connection and hold it open, saying nothing.
+        std::thread::spawn(move || {
+            let mut held = Vec::new();
+            for stream in listener.incoming().flatten() {
+                held.push(stream);
+            }
+        });
+        let environment = Environment::Test;
+        let config = Service::config(&environment)?;
+        let db = sqlx::postgres::PgPoolOptions::new()
+            .acquire_timeout(std::time::Duration::from_secs(1))
+            .connect_lazy(&format!("postgres://pas:pas@127.0.0.1:{port}/pas"))
+            .expect("a lazy pool does not connect");
+        let ctx = axa::AppContext::new(environment, db, config);
+        let router = Service::router(&ctx)?;
+        Ok(BootResult {
+            app_context: ctx,
+            router: Some(router),
+        })
+    }
+}
+
+/// A database that hangs costs the dashboard one connect timeout, not one per panel: its three panels are read
+/// at once, and each says the database cannot be reached.
+#[tokio::test]
+async fn a_hanging_database_costs_the_dashboard_one_timeout() {
+    request::<HangingDatabase, _, _>(|request, _ctx| async move {
+        let started = std::time::Instant::now();
+        let resp = request.get("/dashboard").await;
+        let took = started.elapsed();
+        resp.assert_status_ok();
+        assert_eq!(
+            resp.text()
+                .matches("The database cannot be reached")
+                .count(),
+            3
+        );
+        assert!(
+            took < std::time::Duration::from_millis(2_500),
+            "three one-second timeouts one after another: {took:?}"
+        );
+    })
+    .await;
+}
+
 /// AXA-2: what the pages load comes from this service. Needs no database.
 #[tokio::test]
 async fn the_page_assets_are_served_from_this_service() {
@@ -471,6 +524,45 @@ async fn a_refusal_is_a_problem() {
             assert!(body["detail"].is_string(), "{path}: {body}");
             assert!(!body.to_string().contains("secret"), "{path}: {body}");
         }
+    })
+    .await;
+}
+
+/// With the database down each dashboard panel says so, and none says "0 unpublished", "no wards" or "no
+/// audit entries", which read as all clear. Needs no database.
+#[tokio::test]
+async fn the_dashboard_says_when_it_cannot_reach_the_database() {
+    request::<StoppedDatabase, _, _>(|request, _ctx| async move {
+        for path in [
+            "/dashboard",
+            "/dashboard/wards",
+            "/dashboard/outbox",
+            "/dashboard/audit",
+        ] {
+            let resp = request.get(path).await;
+            resp.assert_status_ok();
+            let body = resp.text();
+            assert!(
+                body.contains("The database cannot be reached"),
+                "{path}: {body}"
+            );
+            for all_clear in [
+                "All events delivered",
+                "No wards configured",
+                "No audit entries",
+            ] {
+                assert!(
+                    !body.contains(all_clear),
+                    "{path} says {all_clear:?} while the database is down"
+                );
+            }
+        }
+        let page = request.get("/dashboard").await.text();
+        assert_eq!(
+            page.matches("The database cannot be reached").count(),
+            3,
+            "one per panel"
+        );
     })
     .await;
 }
