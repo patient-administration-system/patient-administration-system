@@ -7,6 +7,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Two replays of one dead letter at once (`POST /api/admin/outbox/dead-letters/{id}/replay`) both queued its event again, each under a new id, so a subscriber got it twice and could not tell. The replay now takes the dead letter first, and the second answers `404` (OFH-11).
 - Reports count every open pathway. They read 20,000 in no order, so a larger list's counts, breaches and tolerances could come from an arbitrary part of it (QUAL-48).
 - `GET /api/pathways/due-check` and validation campaigns consider every open pathway. They stopped at the 5,000 oldest, before any filter by service, which could leave a newer service with no cohort (QUAL-48).
 

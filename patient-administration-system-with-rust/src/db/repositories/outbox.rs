@@ -168,15 +168,19 @@ impl DeadLetterRepository {
     /// Replay a DLQ row back into `outbox_events`: insert a fresh outbox
     /// row carrying the same payload (and the original `at` so dispatcher
     /// ordering reflects the original event order, not the replay time),
-    /// then delete the DLQ row. The new row has `retry_count = 0` and
+    /// having deleted the DLQ row. The new row has `retry_count = 0` and
     /// `last_error = NULL` so the dispatcher gets a clean slate.
     ///
     /// Returns the new outbox row id. `Error::NotFound` if the DLQ id is
     /// already gone. The caller should pass a `DatabaseTransaction`.
+    ///
+    /// The dead letter is taken with `DELETE … RETURNING` before anything is written, so two replays of it at
+    /// once cannot both send it: the second waits on the row's lock, finds it gone, and is a `NotFound`. A
+    /// read and a later delete let both through, each queueing the event again under a new id (OFH-11).
     pub async fn replay<C: Conn>(conn: &C, id: Uuid) -> Result<Uuid> {
         let dl = conn
             .one_as::<outbox_dead_letter::Model>(Stmt::new(
-                "SELECT * FROM outbox_dead_letters WHERE id = $1 LIMIT 1",
+                "DELETE FROM outbox_dead_letters WHERE id = $1 RETURNING *",
                 [id.into()],
             ))
             .await?
@@ -193,11 +197,6 @@ impl DeadLetterRepository {
             last_error: None,
         };
         am.insert(conn).await?;
-        conn.run(Stmt::new(
-            "DELETE FROM outbox_dead_letters WHERE id = $1",
-            [id.into()],
-        ))
-        .await?;
         Ok(new_id)
     }
 }
