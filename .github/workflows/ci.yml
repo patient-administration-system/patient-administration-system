@@ -274,9 +274,11 @@ jobs:
     name: Container image builds (${{ matrix.image }})
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    # The two images build side by side, with the settings they ship with. The server image compiles every
-    # dependency from scratch (about ten minutes) and is the slowest job of the run; turning off its LTO here
-    # made no difference, so a build cache that survives between runs is the next step (QUAL-24).
+    # The two images build side by side, with the settings they ship with. The server image compiled every
+    # dependency from scratch (about ten minutes), the slowest job of the run; turning off its LTO made no
+    # difference (QUAL-24). Its Containerfile keeps the cargo registry and target/ in cache mounts, which
+    # rootless podman holds in buildah's cache directory on the runner, so that directory is kept between runs
+    # (QUAL-46): a rebuild then compiles only this workspace's crates.
     strategy:
       fail-fast: false
       matrix:
@@ -288,9 +290,18 @@ jobs:
       - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with:
           tool: just
+      - if: matrix.image == 'server'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /var/tmp/buildah-cache-*
+          key: server-image-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'patient-administration-system-with-rust/Containerfile') }}
+          restore-keys: server-image-
       - run: just container "$IMAGE"
         env:
           IMAGE: ${{ matrix.image }}
+      # Where the cache mounts are and how big, so a cache that keeps nothing shows here.
+      - if: matrix.image == 'server'
+        run: du -sh /var/tmp/buildah-cache-* || echo "no buildah cache directory under /var/tmp"
 
   fresh-clone:
     name: Fresh clone builds with locked dependencies
