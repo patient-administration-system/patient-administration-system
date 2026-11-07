@@ -396,11 +396,8 @@ async fn a_patients_cancel_on_a_listed_service_is_held_for_a_person_to_phone_fir
     .unwrap()
     .unwrap();
     assert_eq!(slot.status, SlotStatus::Busy, "the slot is not released");
-    let calls = w.s.ladder.open_calls(500).await.unwrap();
     assert!(
-        calls
-            .iter()
-            .any(|c| c["appointment_id"] == a.id.to_string() && c["reason"] == "urgent_pathway"),
+        common::call_is_open(&w.s.db, a.id, "urgent_pathway").await,
         "a person is asked to phone"
     );
 

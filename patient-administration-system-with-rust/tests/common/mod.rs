@@ -69,6 +69,26 @@ pub async fn free_slot(
         .expect("create slot")
 }
 
+/// Is a person asked to ring about this appointment for this reason? Asked of the table: `open_calls` shows the
+/// first 500 open tasks, so it loses a new one on a database that has seen many runs.
+#[allow(
+    dead_code,
+    reason = "each test binary uses only some of the shared helpers"
+)]
+pub async fn call_is_open(
+    db: &patient_administration_system::db::sql::Pool,
+    appointment: uuid::Uuid,
+    reason: &str,
+) -> bool {
+    db.count(Stmt::new(
+        "SELECT count(*) AS n FROM staff_call_tasks WHERE appointment_id = $1 AND reason = $2 AND handled_at IS NULL",
+        [appointment.into(), reason.to_string().into()],
+    ))
+    .await
+    .unwrap()
+        > 0
+}
+
 /// How many audit rows exist for an entity and action.
 #[allow(
     dead_code,

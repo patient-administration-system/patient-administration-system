@@ -339,12 +339,7 @@ async fn a_provider_failure_keeps_the_appointment_and_puts_the_patient_on_the_ca
         !b.last_error.unwrap().contains("Mill Lane"),
         "the address is not kept in an error"
     );
-    let calls = w.s.ladder.open_calls(500).await.unwrap();
-    assert!(
-        calls
-            .iter()
-            .any(|c| c["appointment_id"] == a.id.to_string() && c["reason"] == "transport_failed")
-    );
+    assert!(common::call_is_open(&w.s.db, a.id, "transport_failed").await);
 
     // A failed cancel is also put to a person.
     let w = world(true).await;
@@ -360,12 +355,7 @@ async fn a_provider_failure_keeps_the_appointment_and_puts_the_patient_on_the_ca
         )
         .await
         .unwrap();
-    let calls = w.s.ladder.open_calls(500).await.unwrap();
-    assert!(
-        calls
-            .iter()
-            .any(|c| c["appointment_id"] == a.id.to_string() && c["reason"] == "transport_failed")
-    );
+    assert!(common::call_is_open(&w.s.db, a.id, "transport_failed").await);
 }
 
 #[tokio::test]

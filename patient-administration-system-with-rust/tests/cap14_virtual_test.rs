@@ -465,14 +465,7 @@ async fn a_video_visit_that_fails_falls_back_to_a_phone_call_once() {
         .await
         .unwrap();
     assert_eq!(tasks(&w.s, w.appt.id).await, 1);
-    assert!(
-        w.s.ladder
-            .open_calls(500)
-            .await
-            .unwrap()
-            .iter()
-            .any(|c| c["appointment_id"] == w.appt.id.to_string() && c["reason"] == "video_failed")
-    );
+    assert!(common::call_is_open(&w.s.db, w.appt.id, "video_failed").await);
 
     // Over HTTP.
     let w2 = world().await;
