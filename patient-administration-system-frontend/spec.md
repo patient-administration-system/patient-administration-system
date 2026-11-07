@@ -276,7 +276,7 @@ Mirrors `Cargo.toml`. Anything below is actually compiled.
 
 | Component | Crate | Purpose |
 |---|---|---|
-| Service plumbing | `axa` 0.6 (`sqlx` and `tracing` features) | Routes, middleware, configuration, logging, shutdown, the command line |
+| Service plumbing | `axa` 0.7 (`sqlx` and `tracing` features) | Routes, middleware, configuration, logging, shutdown, the command line |
 | Web | `axum` 0.8, `tower-http` 0.6 (`fs`) | `Extension`, `/static` |
 | Templates | `tera` 2 | `Views` |
 | Command line | `clap` 4 | `Cli::parse` |

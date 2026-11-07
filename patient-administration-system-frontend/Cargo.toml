@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 # Shared service plumbing: routes, middleware, configuration, logging, shutdown, the command line.
-axa = { version = "0.6", features = ["sqlx", "tracing"] }
+axa = { version = "0.7", features = ["sqlx", "tracing"] }
 axum = { version = "0.8", default-features = false }
 
 # HTML templates (`views`), and the files under `/static`.
@@ -45,7 +45,7 @@ thiserror = "2.0"
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive"] }
-axa = { version = "0.6", features = ["sqlx", "testing", "tracing"] }
+axa = { version = "0.7", features = ["sqlx", "testing", "tracing"] }
 serial_test = "4.0"
 
 [[bin]]

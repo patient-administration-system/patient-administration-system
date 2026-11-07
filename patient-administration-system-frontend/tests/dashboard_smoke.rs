@@ -461,6 +461,16 @@ async fn a_refusal_is_a_problem() {
             let body: serde_json::Value = resp.json();
             assert_eq!(body["status"], 404, "{path}: {body}");
         }
+
+        // axa::extract::Path: a malformed id says what was wrong, and quotes nothing the caller sent.
+        for path in ["/wards/secret-not-a-uuid", "/patients/secret-not-a-uuid"] {
+            let resp = request.get(path).await;
+            resp.assert_status_bad_request();
+            let body: serde_json::Value = resp.json();
+            assert_eq!(body["code"], "bad_request", "{path}: {body}");
+            assert!(body["detail"].is_string(), "{path}: {body}");
+            assert!(!body.to_string().contains("secret"), "{path}: {body}");
+        }
     })
     .await;
 }
