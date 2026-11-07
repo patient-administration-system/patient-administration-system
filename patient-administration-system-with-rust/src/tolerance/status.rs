@@ -3,6 +3,39 @@
 use super::*;
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt};
+use crate::paging::PageMeta;
+
+/// Keep the `limit` worst rows, in the order they came. A list cut in that order alone could drop the one red
+/// row and leave a page that says red overall with nothing red on it.
+fn keep_worst<T>(rows: Vec<T>, limit: usize, rank: impl Fn(&T) -> u8) -> Vec<T> {
+    if rows.len() <= limit {
+        return rows;
+    }
+    let mut kept: Vec<(usize, T)> = rows.into_iter().enumerate().collect();
+    kept.sort_by_key(|(_, r)| std::cmp::Reverse(rank(r)));
+    kept.truncate(limit);
+    kept.sort_by_key(|(i, _)| *i);
+    kept.into_iter().map(|(_, r)| r).collect()
+}
+
+impl Status {
+    /// Cut `by_service` and `by_ward` to at most `limit` readings each, keeping the worst, and say whether
+    /// either lost any (QUAL-47). The whole-service `readings` are one per measure, and `overall` was read from
+    /// everything before the cut.
+    pub fn page(mut self, limit: i64) -> (Self, PageMeta) {
+        let keep = usize::try_from(limit).unwrap_or(0);
+        let before = self.by_service.len() + self.by_ward.len();
+        self.by_service = keep_worst(self.by_service, keep, |r| r.rag.rank());
+        self.by_ward = keep_worst(self.by_ward, keep, |r| r.rag.rank());
+        let returned = self.by_service.len() + self.by_ward.len();
+        let meta = PageMeta {
+            limit,
+            returned,
+            truncated: returned < before,
+        };
+        (self, meta)
+    }
+}
 
 impl ToleranceService {
     /// Read every measure over the last `days` days (waits are as of now), for the whole service and then for
@@ -273,5 +306,22 @@ impl ToleranceService {
             return Ok((0.0, 0.0, 0));
         };
         Ok((r.col("invoiced")?, r.col("collected")?, r.col("n")?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::keep_worst;
+
+    #[test]
+    fn a_list_that_is_cut_keeps_its_worst_rows_in_their_own_order() {
+        // (name, rank): the red rows are last alphabetically, so a plain cut would lose them.
+        let rows = vec![("a", 1), ("b", 3), ("c", 0), ("d", 2), ("e", 3)];
+        assert_eq!(
+            keep_worst(rows.clone(), 3, |r| r.1),
+            vec![("b", 3), ("d", 2), ("e", 3)]
+        );
+        assert_eq!(keep_worst(rows.clone(), 1, |r| r.1), vec![("b", 3)]);
+        assert_eq!(keep_worst(rows.clone(), 5, |r| r.1), rows, "nothing to cut");
     }
 }

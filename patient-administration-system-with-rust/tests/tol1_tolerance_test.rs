@@ -14,6 +14,7 @@ use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
+use patient_administration_system::paging::MAX_LIMIT;
 use patient_administration_system::tolerance::{Limits, METRICS, Rag, Scope, ScopeKind};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -505,7 +506,7 @@ async fn a_red_measure_opens_one_alert_that_closes_when_it_recovers() {
         let svc = svc.clone();
         async move {
             s.tolerance
-                .alerts(open)
+                .alerts(open, MAX_LIMIT)
                 .await
                 .unwrap()
                 .into_iter()
@@ -646,15 +647,13 @@ async fn the_http_endpoints_take_a_service_and_serve_the_alerts() {
 
     let (st, v) = call("GET", "/api/tolerances/status?days=30".into(), None).await;
     assert_eq!(st, StatusCode::OK);
-    let mine = v["data"]["by_service"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|r| r["metric"] == "slot_utilisation" && r["scope_key"] == svc.as_str())
-        .unwrap()
-        .clone();
-    assert_eq!(mine["rag"], "red");
     assert_eq!(v["data"]["overall"], "red");
+    // Read from the service: a long-used database has more than one page of red readings.
+    let all = s.tolerance.status(30).await.unwrap();
+    assert_eq!(
+        reading(&all.by_service, "slot_utilisation", &svc).rag,
+        Rag::Red
+    );
 
     let (st, v) = call("POST", "/api/tolerances/evaluate?days=30".into(), None).await;
     assert_eq!(st, StatusCode::OK);
@@ -691,5 +690,65 @@ async fn the_http_endpoints_take_a_service_and_serve_the_alerts() {
     )
     .await;
     assert_eq!(st, StatusCode::OK);
+    reset_all(&s).await;
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_status_or_alert_list_cut_short_says_so_and_keeps_what_is_red() {
+    let s = state().await;
+    reset_all(&s).await;
+    // Sorts before the red service, has nothing to measure: a cut by name alone would keep this and lose the red.
+    let quiet = Scope::from_parts(Some("a-quiet-service"), None).unwrap();
+    s.tolerance
+        .set(
+            "slot_utilisation",
+            &quiet,
+            limits(0.9, 0.0, 0.05),
+            "Clinic manager",
+            "",
+            &sys(),
+        )
+        .await
+        .unwrap();
+    idle_service(&s).await;
+    idle_service(&s).await;
+    s.tolerance.evaluate(30).await.unwrap();
+    let app = patient_administration_system::api::rest::router(s.clone());
+    let get = |uri: &'static str| {
+        let app = app.clone();
+        async move {
+            let r = app
+                .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(r.status(), StatusCode::OK, "{uri}");
+            serde_json::from_slice::<serde_json::Value>(
+                &to_bytes(r.into_body(), usize::MAX).await.unwrap(),
+            )
+            .unwrap()
+        }
+    };
+
+    let v = get("/api/tolerances/status?days=30&limit=1").await;
+    let kept = v["data"]["by_service"].as_array().unwrap();
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept[0]["rag"], "red", "the cut keeps the worst: {kept:?}");
+    assert_eq!(v["data"]["overall"], "red");
+    assert_eq!(v["meta"]["limit"], 1);
+    assert_eq!(v["meta"]["truncated"], true);
+    assert!(v["data"]["by_ward"].as_array().unwrap().len() <= 1);
+    assert_eq!(
+        v["data"]["readings"].as_array().unwrap().len(),
+        s.tolerance.status(30).await.unwrap().readings.len(),
+        "the whole-service readings are not cut"
+    );
+    // Only the response is cut: the read that evaluation uses still sees every service.
+    assert!(s.tolerance.status(30).await.unwrap().by_service.len() > 1);
+
+    let v = get("/api/tolerance-alerts?open=true&limit=1").await;
+    assert_eq!(v["data"].as_array().unwrap().len(), 1);
+    assert_eq!(v["meta"]["returned"], 1);
+    assert_eq!(v["meta"]["truncated"], true);
     reset_all(&s).await;
 }

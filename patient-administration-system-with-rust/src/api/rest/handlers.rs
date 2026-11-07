@@ -76,6 +76,17 @@ pub fn ok_page<T: serde::Serialize>(rows: Vec<T>, limit: i64) -> HandlerResult {
     }
 }
 
+/// `200` with a value that holds a list, and `meta` saying whether that list was cut short: for a body with more
+/// in it than the list, such as a summary of every row (QUAL-47).
+pub fn ok_json_page<T: serde::Serialize>(value: T, meta: crate::paging::PageMeta) -> HandlerResult {
+    match serde_json::to_value(value) {
+        Ok(v) => (StatusCode::OK, Json(ApiResponse::ok_page(v, meta))).into_response(),
+        Err(e) => error_to_response(Error::internal(format!(
+            "response could not be serialized: {e}"
+        ))),
+    }
+}
+
 /// The audit context of a request, from its headers.
 pub fn request_audit_ctx(
     headers: &axum::http::HeaderMap,

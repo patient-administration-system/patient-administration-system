@@ -7,6 +7,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `GET /api/slot-releases`, `GET /api/tolerances/status` and `GET /api/tolerance-alerts` take `limit` and say `meta.truncated` (QUAL-47). `GET /api/slot-releases` now returns the newest 100 by default, with a summary of the whole window; it returned every release before. Status keeps the worst readings of `by_service` and `by_ward`, 500 each by default.
 - The server talks to PostgreSQL with sqlx, not SeaORM (SQLX-1). Every query is literal SQL through `src/db/sql.rs`. Responses and behaviour are unchanged, with one exception: a lost connection while recording demographics is now a database error, not a validation message about `age_band`.
 - Migrations are SQL files under sqlx (`migrations/sql/`), and `pas-migrate up` adopts the record in `seaql_migrations` once, running nothing twice (SQLX-1). The six forward-only migrations have no down file, so `pas-migrate down` now stops at them rather than failing. See `operations/runbook.md` before upgrading a database.
 - **Breaking (FR-206):** REST errors are now RFC 9457 problems (`application/problem+json`, with `axa-problem`), not the `ApiResponse` envelope. Read `code` where you read `error.code`, and `detail` where you read `error.message`. `success: false` is gone, and a success no longer carries `"error": null`. FHIR and HL7 v2 answers are unchanged.

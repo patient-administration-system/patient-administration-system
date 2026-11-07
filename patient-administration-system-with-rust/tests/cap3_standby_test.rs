@@ -492,6 +492,15 @@ async fn the_booking_team_sees_open_refilled_and_expired_releases_with_a_summary
     assert!(mine.iter().any(|r| r["status"] == "open"));
     assert!(v["data"]["summary"]["total"].as_i64().unwrap() >= 3);
 
+    // Cut short, it says so, and the summary still counts every release in the window (QUAL-47).
+    let (s, one) = get(app.clone(), "/api/slot-releases?limit=1").await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(one["data"]["releases"].as_array().unwrap().len(), 1);
+    assert_eq!(one["meta"]["limit"], 1);
+    assert_eq!(one["meta"]["returned"], 1);
+    assert_eq!(one["meta"]["truncated"], true);
+    assert!(one["data"]["summary"]["total"].as_i64().unwrap() >= 3);
+
     let (s, only) = get(app.clone(), "/api/slot-releases?status=refilled").await;
     assert_eq!(s, StatusCode::OK);
     assert!(

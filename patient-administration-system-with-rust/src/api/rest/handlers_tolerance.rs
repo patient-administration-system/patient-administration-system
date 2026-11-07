@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
-use crate::api::rest::handlers::{ok, ok_json};
+use crate::api::rest::handlers::{ok, ok_json, ok_json_page, ok_page};
 use crate::tolerance::{Limits, Scope};
 
 /// `GET /api/tolerances`: every measure with its target, tolerance and limit, and whether a person changed it.
@@ -134,9 +134,13 @@ pub async fn reset(
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct StatusQuery {
     pub days: Option<i64>,
+    /// How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is
+    /// cut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.
+    pub limit: Option<i64>,
 }
 
-/// `GET /api/tolerances/status?days=30`: each measure's value and its tier, and the worst tier overall.
+/// `GET /api/tolerances/status?days=30&limit=`: each measure's value and its tier, and the worst tier overall.
+/// Paged (NFR-23).
 #[utoipa::path(
     get,
     path = "/api/tolerances/status",
@@ -149,8 +153,15 @@ pub struct StatusQuery {
     )
 )]
 pub async fn status(State(state): State<AppState>, Query(q): Query<StatusQuery>) -> HandlerResult {
+    let limit = match crate::paging::limit(q.limit, crate::paging::MAX_LIMIT) {
+        Ok(n) => n,
+        Err(e) => return error_to_response(e),
+    };
     match state.tolerance.status(q.days.unwrap_or(30)).await {
-        Ok(v) => ok_json(v),
+        Ok(v) => {
+            let (status, meta) = v.page(limit);
+            ok_json_page(status, meta)
+        }
         Err(e) => error_to_response(e),
     }
 }
@@ -182,9 +193,12 @@ pub async fn evaluate(
 pub struct AlertsQuery {
     /// `true` for the alerts still open; the default is all of them.
     pub open: Option<bool>,
+    /// How many alerts to return, newest first (1 to 500, default 200). `meta.truncated` says when there were
+    /// more.
+    pub limit: Option<i64>,
 }
 
-/// `GET /api/tolerance-alerts?open=true`: alerts, newest first.
+/// `GET /api/tolerance-alerts?open=true&limit=`: alerts, newest first. Paged (NFR-23).
 #[utoipa::path(
     get,
     path = "/api/tolerance-alerts",
@@ -197,8 +211,13 @@ pub struct AlertsQuery {
     )
 )]
 pub async fn alerts(State(state): State<AppState>, Query(q): Query<AlertsQuery>) -> HandlerResult {
-    match state.tolerance.alerts(q.open.unwrap_or(false)).await {
-        Ok(v) => ok_json(v),
+    let limit = match crate::paging::limit(q.limit, 200) {
+        Ok(n) => n,
+        Err(e) => return error_to_response(e),
+    };
+    let asked = crate::paging::ask_for(limit);
+    match state.tolerance.alerts(q.open.unwrap_or(false), asked).await {
+        Ok(v) => ok_page(v, limit),
         Err(e) => error_to_response(e),
     }
 }

@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
-use crate::api::rest::handlers::{ok, ok_json};
+use crate::api::rest::handlers::{ok, ok_json, ok_json_page};
 use crate::standby::{CandidateFilter, Releases, StandbyInput};
 
 /// `POST /api/standby`: put a patient on standby for a service (or update their tags).
@@ -165,10 +165,13 @@ pub struct ReleasesQuery {
     pub to: Option<DateTime<Utc>>,
     /// `open`, `refilled` or `expired`.
     pub status: Option<String>,
+    /// How many releases to return, newest first (1 to 500, default 100). `meta.truncated` says when there
+    /// were more; the summary always covers the whole window.
+    pub limit: Option<i64>,
 }
 
-/// `GET /api/slot-releases?from&to&status`: what was released, whether it was refilled and how fast.
-/// Defaults to the last 30 days.
+/// `GET /api/slot-releases?from&to&status&limit`: what was released, whether it was refilled and how fast.
+/// Defaults to the last 30 days. Paged (NFR-23).
 #[utoipa::path(
     get,
     path = "/api/slot-releases",
@@ -186,8 +189,20 @@ pub async fn list_releases(
 ) -> HandlerResult {
     let to = q.to.unwrap_or_else(|| Utc::now() + Duration::minutes(1));
     let from = q.from.unwrap_or(to - Duration::days(30));
-    match state.standby.releases(from, to, q.status.as_deref()).await {
-        Ok((summary, releases)) => ok_json(Releases { summary, releases }),
+    let limit = match crate::paging::limit(q.limit, 100) {
+        Ok(n) => n,
+        Err(e) => return error_to_response(e),
+    };
+    let asked = crate::paging::ask_for(limit);
+    match state
+        .standby
+        .releases(from, to, q.status.as_deref(), asked)
+        .await
+    {
+        Ok((summary, rows)) => {
+            let (releases, meta) = crate::paging::cut(rows, limit);
+            ok_json_page(Releases { summary, releases }, meta)
+        }
         Err(e) => error_to_response(e),
     }
 }

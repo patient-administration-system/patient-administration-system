@@ -86,6 +86,9 @@ async fn a_limit_outside_the_range_is_a_400_not_a_silent_change() {
         "/api/print-queue",
         "/api/audit/recent",
         "/api/admin/outbox/dead-letters",
+        "/api/slot-releases",
+        "/api/tolerance-alerts",
+        "/api/tolerances/status",
     ] {
         for bad in ["0", "-1", "501", "99999999999"] {
             let (st, v) = get(&app, &format!("{path}?limit={bad}")).await;

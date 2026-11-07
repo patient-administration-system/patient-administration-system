@@ -112,16 +112,17 @@ impl ToleranceService {
         Ok(inserted)
     }
 
-    /// Alerts, newest first: the open ones, or every one (up to 200).
-    pub async fn alerts(&self, open_only: bool) -> Result<Vec<Alert>> {
+    /// Alerts, newest first: the open ones, or every one, up to `limit` (see [`crate::paging`]).
+    pub async fn alerts(&self, open_only: bool, limit: i64) -> Result<Vec<Alert>> {
         let rows = self
             .db
-            .all(Stmt::text(format!(
+            .all(Stmt::new(format!(
                     "SELECT id, metric, scope_kind, scope_key, value, target, tolerance, escalate_beyond, raised_at, \
                             last_seen_at, cleared_at, acknowledged_by, acknowledged_at, note \
-                     FROM tolerance_alerts {} ORDER BY raised_at DESC LIMIT 200",
+                     FROM tolerance_alerts {} ORDER BY raised_at DESC, id DESC LIMIT $1",
                     if open_only { "WHERE cleared_at IS NULL" } else { "" }
                 ),
+                [crate::paging::fetch(limit).into()],
             ))
 .await?;
         let mut out = Vec::new();

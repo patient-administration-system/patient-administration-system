@@ -28871,6 +28871,19 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "How many releases to return, newest first (1 to 500, default 100). `meta.truncated` says when there\nwere more; the summary always covers the whole window.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -28896,7 +28909,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/slot-releases?from&to&status`: what was released, whether it was refilled and how fast.\nDefaults to the last 30 days.",
+        "summary": "`GET /api/slot-releases?from&to&status&limit`: what was released, whether it was refilled and how fast.\nDefaults to the last 30 days. Paged (NFR-23).",
         "tags": [
           "Slot releases"
         ]
@@ -29790,6 +29803,19 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "How many alerts to return, newest first (1 to 500, default 200). `meta.truncated` says when there were\nmore.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -29815,7 +29841,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/tolerance-alerts?open=true`: alerts, newest first.",
+        "summary": "`GET /api/tolerance-alerts?open=true&limit=`: alerts, newest first. Paged (NFR-23).",
         "tags": [
           "Tolerance alerts"
         ]
@@ -29914,6 +29940,19 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is\ncut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -29953,6 +29992,19 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is\ncut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -29978,7 +30030,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/tolerances/status?days=30`: each measure's value and its tier, and the worst tier overall.",
+        "summary": "`GET /api/tolerances/status?days=30&limit=`: each measure's value and its tier, and the worst tier overall.\nPaged (NFR-23).",
         "tags": [
           "Tolerances"
         ]

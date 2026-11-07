@@ -4065,8 +4065,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * `GET /api/slot-releases?from&to&status`: what was released, whether it was refilled and how fast.
-     *     Defaults to the last 30 days.
+     * `GET /api/slot-releases?from&to&status&limit`: what was released, whether it was refilled and how fast.
+     *     Defaults to the last 30 days. Paged (NFR-23).
      */
     get: operations["get_api_slot_releases"];
     put?: never;
@@ -4410,7 +4410,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** `GET /api/tolerance-alerts?open=true`: alerts, newest first. */
+    /** `GET /api/tolerance-alerts?open=true&limit=`: alerts, newest first. Paged (NFR-23). */
     get: operations["get_api_tolerance_alerts"];
     put?: never;
     post?: never;
@@ -4481,7 +4481,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** `GET /api/tolerances/status?days=30`: each measure's value and its tier, and the worst tier overall. */
+    /**
+     * `GET /api/tolerances/status?days=30&limit=`: each measure's value and its tier, and the worst tier overall.
+     *     Paged (NFR-23).
+     */
     get: operations["get_api_tolerances_status"];
     put?: never;
     post?: never;
@@ -20974,6 +20977,11 @@ export interface operations {
         to: string | null;
         /** @description `open`, `refilled` or `expired`. */
         status: string | null;
+        /**
+         * @description How many releases to return, newest first (1 to 500, default 100). `meta.truncated` says when there
+         *     were more; the summary always covers the whole window.
+         */
+        limit: number | null;
       };
       cookie?: never;
     };
@@ -21730,6 +21738,11 @@ export interface operations {
       path: {
         /** @description `true` for the alerts still open; the default is all of them. */
         open: boolean | null;
+        /**
+         * @description How many alerts to return, newest first (1 to 500, default 200). `meta.truncated` says when there were
+         *     more.
+         */
+        limit: number | null;
       };
       cookie?: never;
     };
@@ -21839,6 +21852,11 @@ export interface operations {
       header?: never;
       path: {
         days: number | null;
+        /**
+         * @description How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is
+         *     cut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.
+         */
+        limit: number | null;
       };
       cookie?: never;
     };
@@ -21873,6 +21891,11 @@ export interface operations {
       header?: never;
       path: {
         days: number | null;
+        /**
+         * @description How many readings to return in each of `by_service` and `by_ward` (1 to 500, default 500). A list that is
+         *     cut keeps its worst readings, and `meta.truncated` says so; `readings` and `overall` are never cut.
+         */
+        limit: number | null;
       };
       cookie?: never;
     };

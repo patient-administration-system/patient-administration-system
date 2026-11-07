@@ -435,6 +435,7 @@ impl StandbyService {
         from: DateTime<Utc>,
         to: DateTime<Utc>,
         status: Option<&str>,
+        limit: i64,
     ) -> Result<(ReleaseSummary, Vec<SlotRelease>)> {
         if to <= from {
             return Err(Error::validation("`from` must precede `to`"));
@@ -447,8 +448,8 @@ impl StandbyService {
             ));
         }
         let window = "r.released_at >= $1 AND r.released_at < $2";
-        let rows = self.db.all_as::<SlotRelease>(Stmt::new(format!("SELECT * FROM ({RELEASE_SELECT} WHERE {window}) x WHERE ($3::text IS NULL OR x.status = $3) ORDER BY x.released_at DESC"),
-            [from.into(), to.into(), status.map(String::from).into()],
+        let rows = self.db.all_as::<SlotRelease>(Stmt::new(format!("SELECT * FROM ({RELEASE_SELECT} WHERE {window}) x WHERE ($3::text IS NULL OR x.status = $3) ORDER BY x.released_at DESC, x.id DESC LIMIT $4"),
+            [from.into(), to.into(), status.map(String::from).into(), crate::paging::fetch(limit).into()],
         )).await?;
         let summary = self.db.one_as::<ReleaseSummary>(Stmt::new(format!(
                 "SELECT count(*)::bigint AS total, \
