@@ -303,6 +303,21 @@ Asked: do more with local CI/CD rather than rely on GitHub, which is unreliable 
 | **Dagger** (pipelines as code, same locally and in CI) | Container steps (restore drill, image builds, FHIR validator, Keycloak) cached and portable. Installed here. Docs mention Podman. | The official SDK list shows Go, PHP, Python and TypeScript; Rust is a separate community crate. Another language and engine to learn. | **Later, only if** the `just` recipes grow tangled. |
 | **`act`** (run GitHub workflows locally) | Quick smoke of a workflow file. | Weak on service containers, caches, third-party actions and tokens; our workflows use all of them. | Not as the gate. |
 
+**Measured 2026-11-07, on commit `bc3704a`.** Local is arm64 macOS on a busy machine, with a warm build directory. CI is x86_64 Linux, cold, and its database job runs under coverage, so this is not a like-for-like race.
+
+| Job | Local (seconds) | CI (seconds) |
+|---|---:|---:|
+| `rust` | 98 | 373 |
+| `rust-db` | 64 | 395 |
+| `deny` | 2 | 20 |
+| `ui` | 14 | 55 |
+| `docs` | 1 | 8 |
+| **The five together** | **179** | **851** |
+
+CI's other jobs have no local equivalent in the gate: container images 622 and 41, the FHIR validator 517, browser suites 278, fresh clone 301, restore drill 62, workflows 10. CI took 10.5 minutes from end to end. So a warm local gate answers in 3 minutes and covers the five jobs only.
+
+`cargo nextest` against `cargo test`, same tree, same machine. These are small samples: two runs each for unit tests, one for database tests, under load. Unit tests: 12 against 25 seconds, but 688 tests against 693, because `nextest` does not run doc tests. Database tests, serial, on a fresh database: 95 against 68 seconds, with 445 tests on both, because `nextest` starts a process for each test. So the database tests stay on `cargo test`, and the unit saving does not pay for another tool in CI. The time worth winning is the image build.
+
 **Advice, in order.** (1) QUAL-41 `just` recipes and thin workflows. (2) QUAL-42 the clean local gate with the clock check, measured against CI's times. (3) QUAL-45 the quick pre-push hook. (4) QUAL-46 `cargo nextest` and a build cache, only if the measurements in QUAL-42 show where the time goes. (5) Then decide QUAL-43 (status) and QUAL-44 (second CI) with real numbers. **Keep GitHub as the independent x86_64 check** until a second one exists; do not make a laptop the only gate for software that feeds clinical systems.
 
 **Do not.** Switch the repository private to "save" money that is not being spent. Run fork pull requests on a self-hosted runner. Make the local result a required check without a second reader.
