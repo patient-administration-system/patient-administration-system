@@ -55,7 +55,7 @@ cargo run --release
 ./demo.sh
 ```
 
-Server defaults to `http://localhost:8080`. `pas-seed` creates one facility (`DEMO`), one ward (`WARD-A`), one room and three beds, and nothing else: the PAS holds no people, so patients and staff are created in `person-service` and `worker-service`. `demo.sh` takes `PERSON_ID` (a real person's id from person-service); without it, it uses a made-up id, which is enough for the bed movements.
+Server defaults to `http://localhost:8080`. `pas-seed` creates one facility (`DEMO`), one ward (`WARD-A`), one room and three beds, and nothing else. It runs only in development or test (`APP_ENV`; with none set, a release build counts as production and is refused): the PAS holds no people, so patients and staff are created in `person-service` and `worker-service`. `demo.sh` takes `PERSON_ID` (a real person's id from person-service); without it, it uses a made-up id, which is enough for the bed movements.
 
 `pas-migrate` lives in the nested `migrations/` crate; subcommands are `up`, `down`, `fresh`, `status`.
 
