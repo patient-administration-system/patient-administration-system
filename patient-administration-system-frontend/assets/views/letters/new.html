@@ -7,24 +7,24 @@
   <h2>Compose letter</h2>
 
   {% if error %}
-    <div class="alert" role="alert" data-status="error" style="color:var(--error);font-style:normal;">
+    <div class="alert s-result-error" role="alert" data-status="error">
       <strong>Couldn't generate letter:</strong> {{ error }}
     </div>
   {% endif %}
 
   {% if result %}
-    <div class="alert" role="status" data-status="ok" style="color:var(--ok);font-style:normal;">
+    <div class="alert s-result-ok" role="status" data-status="ok">
       <strong>Generated</strong> — <code class="code">{{ result.id }}</code> · channel <span class="badge" data-status="ok">{{ result.channel }}</span> · status <span class="badge" data-status="ok">{{ result.status }}</span>
     </div>
-    <table class="data-table" aria-label="Rendered letter" style="margin-top:8px;">
+    <table class="data-table s-mt-8" aria-label="Rendered letter">
       <tbody class="data-table-body">
         <tr class="data-table-row">
-          <th class="data-table-th" scope="row" style="width:120px;">Subject</th>
+          <th class="data-table-th s-w-120" scope="row">Subject</th>
           <td class="data-table-td"><strong>{{ result.subject }}</strong></td>
         </tr>
         <tr class="data-table-row">
           <th class="data-table-th" scope="row">Body</th>
-          <td class="data-table-td"><pre style="white-space:pre-wrap;margin:0;font-family:inherit;">{{ result.body }}</pre></td>
+          <td class="data-table-td"><pre class="s-pre-text">{{ result.body }}</pre></td>
         </tr>
       </tbody>
     </table>
@@ -33,12 +33,12 @@
   {% if templates | length == 0 %}
     <div class="alert" role="status">No active letter templates — create one via <code class="code">POST /api/letter-templates</code> on the PAS Axum server.</div>
   {% else %}
-    <form class="form" method="post" action="/letters/new" style="margin-top:16px;display:grid;gap:12px;max-width:520px;">
+    <form class="form s-form-grid" method="post" action="/letters/new">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
       <div class="field">
-        <label class="label" for="template_id" style="display:block;font-size:13px;color:var(--muted);">Template</label>
-        <select class="select" id="template_id" name="template_id" required style="width:100%;padding:6px 8px;">
+        <label class="label s-field-label" for="template_id">Template</label>
+        <select class="select s-field" id="template_id" name="template_id" required>
           {% for t in templates %}
             <option value="{{ t.id }}">{{ t.name }} · <em>{{ t.subject }}</em></option>
           {% endfor %}
@@ -46,8 +46,8 @@
       </div>
 
       <div class="field">
-        <label class="label" for="person_id" style="display:block;font-size:13px;color:var(--muted);">Patient</label>
-        <select class="select" id="person_id" name="person_id" required style="width:100%;padding:6px 8px;">
+        <label class="label s-field-label" for="person_id">Patient</label>
+        <select class="select s-field" id="person_id" name="person_id" required>
           {% for p in patients %}
             <option value="{{ p.id }}">{{ p.family }}, {{ p.given }}{% if p.birth_date %} · {{ p.birth_date }}{% endif %}</option>
           {% endfor %}
@@ -55,18 +55,18 @@
       </div>
 
       <div class="field">
-        <label class="label" for="channel" style="display:block;font-size:13px;color:var(--muted);">Delivery channel</label>
-        <select class="select" id="channel" name="channel" required style="width:100%;padding:6px 8px;">
+        <label class="label s-field-label" for="channel">Delivery channel</label>
+        <select class="select s-field" id="channel" name="channel" required>
           <option value="print">Print</option>
           <option value="email">Email</option>
         </select>
       </div>
 
       <div>
-        <button class="submit-input button" type="submit" style="padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:4px;cursor:pointer;">
+        <button class="submit-input button s-button" type="submit">
           Generate letter
         </button>
-        <span style="margin-left:8px;color:var(--muted);font-size:12px;">
+        <span class="s-hint">
           Submits to <code class="code">POST /api/letters/generate</code> on the PAS Axum API.
         </span>
       </div>
@@ -74,7 +74,7 @@
     </form>
   {% endif %}
 
-  <p style="margin-top:16px;">
+  <p class="s-mt-16">
     <a href="/dashboard">&larr; Back to dashboard</a>
   </p>
 </div>

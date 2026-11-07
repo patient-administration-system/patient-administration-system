@@ -3,9 +3,9 @@
 
 {% block content %}
 
-<div class="header" style="margin-top:-16px;">
+<div class="header s-pull-up">
   <span class="meta">Ops dashboard</span>
-  <span class="meta" style="margin-left:auto;">live · {{ refresh_seconds }}s refresh</span>
+  <span class="meta s-push-right">live · {{ refresh_seconds }}s refresh</span>
 </div>
 
 <div class="grid">
@@ -28,12 +28,12 @@
     <div class="panel-body">{% include "dashboard/_outbox.html" %}</div>
   </div>
 
-  <div class="panel" role="region" aria-label="Recent audit"
+  <div class="panel s-span-all" role="region" aria-label="Recent audit"
        hx-get="/dashboard/audit"
        hx-trigger="load, every {{ refresh_seconds }}s"
        hx-swap="innerHTML show:no-scroll"
        hx-target="find .panel-body"
-       style="grid-column: 1 / -1;">
+      >
     <h2>Recent audit <span class="dot"></span></h2>
     <div class="panel-body">{% include "dashboard/_audit.html" %}</div>
   </div>

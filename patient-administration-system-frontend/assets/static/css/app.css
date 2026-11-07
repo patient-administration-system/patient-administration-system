@@ -1,0 +1,74 @@
+/* The operator front-end's styles, served from /static so the page policy needs no 'unsafe-inline' (AXA-2). */
+:root {
+  --fg: #1a1a1a;
+  --muted: #6b7280;
+  --bg: #fafafa;
+  --panel: #ffffff;
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --warn: #d97706;
+  --error: #dc2626;
+  --ok: #16a34a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--fg); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Lily `header` / `footer` — page chrome. */
+.header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.header h1 { margin: 0; font-size: 22px; }
+.header .meta { color: var(--muted); font-size: 13px; }
+.header nav { display: flex; gap: 16px; }
+.footer { margin-top: 24px; color: var(--muted); font-size: 12px; text-align: center; }
+
+/* Page grid + Lily `panel`. */
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.panel h2 { margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.panel h2 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); display: inline-block; opacity: 0; transition: opacity 0.4s; }
+.panel.htmx-request h2 .dot { opacity: 1; }
+
+/* Lily `data-table` family. */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table-th, .data-table-td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.data-table-th { color: var(--muted); font-weight: 500; }
+.data-table-body .data-table-row:last-child .data-table-td { border-bottom: none; }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Lily `badge`. */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: #f1f5f9; color: var(--fg); }
+.badge[data-status="ok"] { background: #dcfce7; color: var(--ok); }
+.badge[data-status="warn"] { background: #fef3c7; color: var(--warn); }
+.badge[data-status="error"] { background: #fee2e2; color: var(--error); }
+
+/* Lily `alert` — used for empty states + inline diagnostics. */
+.alert { color: var(--muted); font-style: italic; padding: 8px 0; }
+
+/* Lily `code`. */
+.code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: monospace; }
+
+.stat { display: flex; align-items: baseline; gap: 8px; }
+.stat-value { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat-label { color: var(--muted); font-size: 13px; }
+
+/* One class per style the templates used to carry inline (AXA-2). */
+.s-aside { margin-left:auto;color:var(--muted);font-weight:400; }
+.s-aside-small { margin-left:auto;color:var(--muted);font-weight:400;font-size:12px; }
+.s-button { padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:4px;cursor:pointer; }
+.s-field { width:100%;padding:6px 8px; }
+.s-field-label { display:block;font-size:13px;color:var(--muted); }
+.s-form-grid { margin-top:16px;display:grid;gap:12px;max-width:520px; }
+.s-hint { margin-left:8px;color:var(--muted);font-size:12px; }
+.s-mt-16 { margin-top:16px; }
+.s-mt-8 { margin-top:8px; }
+.s-muted-small { color:var(--muted);font-size:12px; }
+.s-note { font-size:12px;margin-top:8px; }
+.s-pre-text { white-space:pre-wrap;margin:0;font-family:inherit; }
+.s-pull-up { margin-top:-16px; }
+.s-push-right { margin-left:auto; }
+.s-result-error { color:var(--error);font-style:normal; }
+.s-result-ok { color:var(--ok);font-style:normal; }
+.s-span-all { grid-column: 1 / -1; }
+.s-w-120 { width:120px; }

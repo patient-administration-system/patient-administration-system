@@ -5,7 +5,7 @@
 
 <div class="panel" role="region" aria-label="RTT cockpit">
   <h2>RTT cockpit
-    <span style="margin-left:auto;color:var(--muted);font-weight:400;font-size:12px;">
+    <span class="s-aside-small">
       {{ total_pathways }} active pathway{% if total_pathways != 1 %}s{% endif %}
       {% if breach_count > 0 %}
         · <span class="badge" data-status="error" aria-label="Breaching pathways">{{ breach_count }} breaching</span>
@@ -64,7 +64,7 @@
     </table>
   {% endif %}
 
-  <p style="margin-top:16px;">
+  <p class="s-mt-16">
     <a href="/dashboard">&larr; Back to dashboard</a>
   </p>
 </div>

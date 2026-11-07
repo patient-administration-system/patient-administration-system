@@ -14,7 +14,7 @@
     <tbody class="data-table-body">
       {% for w in wards %}
       <tr class="data-table-row">
-        <td class="data-table-td"><a href="/wards/{{ w.id }}"><strong>{{ w.name }}</strong></a> <span style="color:var(--muted);font-size:12px;">{{ w.code }}</span></td>
+        <td class="data-table-td"><a href="/wards/{{ w.id }}"><strong>{{ w.name }}</strong></a> <span class="s-muted-small">{{ w.code }}</span></td>
         <td class="data-table-td num">{{ w.total_beds }}</td>
         <td class="data-table-td num">
           {% if w.occupied > 0 %}<span class="badge" data-status="warn" aria-label="Occupied beds">{{ w.occupied }}</span>{% else %}{{ w.occupied }}{% endif %}

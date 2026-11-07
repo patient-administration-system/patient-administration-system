@@ -52,15 +52,10 @@ async fn dashboard_renders_lily_markup() {
 
         // The policy is for pages: axa's default would blank this one.
         let policy = resp.header("content-security-policy");
-        assert!(
-            policy
-                .to_str()
-                .unwrap()
-                .contains("style-src 'unsafe-inline'")
-        );
+        assert!(policy.to_str().unwrap().contains("style-src 'self'"));
 
         // HTMX is loaded as a CDN script.
-        assert!(body.contains("htmx.org@"), "page should embed HTMX");
+        assert!(body.contains("/static/js/htmx-"), "page should load HTMX");
 
         // The four polling panels are wired with hx-get URLs.
         for hx in [
@@ -109,7 +104,7 @@ async fn dashboard_fragments_return_body_only() {
                 "fragment {path} must not include the <header>; got: {body}"
             );
             assert!(
-                !body.contains("htmx.org@"),
+                !body.contains("/static/js/htmx-"),
                 "fragment {path} must not embed the HTMX script; got: {body}"
             );
         }
@@ -409,6 +404,26 @@ impl TestApp for StoppedDatabase {
             router: Some(router),
         })
     }
+}
+
+/// AXA-2: what the pages load comes from this service. Needs no database.
+#[tokio::test]
+async fn the_page_assets_are_served_from_this_service() {
+    request::<StoppedDatabase, _, _>(|request, _ctx| async move {
+        for (path, kind) in [
+            ("/static/css/app.css", "text/css"),
+            ("/static/js/htmx-2.0.3.min.js", "javascript"),
+        ] {
+            let resp = request.get(path).await;
+            resp.assert_status_ok();
+            let content_type = resp.header("content-type");
+            assert!(
+                content_type.to_str().unwrap().contains(kind),
+                "{path}: {content_type:?}"
+            );
+        }
+    })
+    .await;
 }
 
 /// AXA-4: an orchestrator is told the truth while the database is down, and the process stays alive for it.

@@ -111,7 +111,7 @@ Every template uses Lily Design System headless HTML class names. Lily provides:
 - `alert` (with `role="status"`) for inline diagnostics + empty states
 - `code` for inline code
 
-Lily is *headless* — zero CSS — so all the styling lives in `assets/views/layouts/main.html`'s `<style>` block. Swap that block for Tailwind, a Sass build, or any other styling without touching the templates.
+Lily is *headless* — zero CSS — so all the styling lives in `assets/static/css/app.css`, and HTMX is served from `assets/static/js`. Nothing is inline and nothing comes from another origin, so the page policy allows only this service (AXA-2); run the binary from this folder, or the pages lose their styles and HTMX. Swap that file for Tailwind, a Sass build, or any other styling without touching the templates.
 
 ## Why a separate crate
 

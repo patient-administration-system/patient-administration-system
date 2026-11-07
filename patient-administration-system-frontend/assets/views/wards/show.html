@@ -5,7 +5,7 @@
 
 <div class="panel" role="region" aria-label="Ward header">
   <h2>{{ ward.name }}
-    <span style="margin-left:auto;color:var(--muted);font-weight:400;font-size:12px;">
+    <span class="s-aside-small">
       <code class="code">{{ ward.code }}</code>
       · {{ occupied_beds }} of {{ total_beds }} bed{% if total_beds != 1 %}s{% endif %} occupied
     </span>
@@ -27,7 +27,7 @@
         {% for b in beds %}
         <tr class="data-table-row">
           <td class="data-table-td"><code class="code">{{ b.room_code }}</code></td>
-          <td class="data-table-td"><strong>{{ b.name }}</strong> <span style="color:var(--muted);font-size:12px;">{{ b.code }}</span></td>
+          <td class="data-table-td"><strong>{{ b.name }}</strong> <span class="s-muted-small">{{ b.code }}</span></td>
           <td class="data-table-td">
             {% if b.status == "occupied" %}
               <span class="badge" data-status="warn" aria-label="Bed status">occupied</span>
@@ -52,7 +52,7 @@
     </table>
   {% endif %}
 
-  <p style="margin-top:16px;">
+  <p class="s-mt-16">
     <a href="/dashboard">&larr; Back to dashboard</a>
   </p>
 </div>

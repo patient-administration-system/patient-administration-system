@@ -19,12 +19,12 @@ use crate::{controllers, views::Views};
 /// Served at `/static`. Files may be absent: a service with no static files still boots.
 const STATIC_FOLDER: &str = "assets/static";
 
-/// What the pages load: the layout's `<style>` block and `style` attributes, HTMX from unpkg (pinned
-/// by its integrity hash), and HTMX's panel refreshes. axa's default policy suits a JSON API and
-/// would block all of these. `HTTP_CSP` replaces it.
-const PAGE_CSP: &str = "default-src 'none'; script-src https://unpkg.com; style-src 'unsafe-inline'; \
-                        connect-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; \
-                        frame-ancestors 'none'";
+/// What the pages load, all from this service: `/static/css/app.css`, HTMX from `/static/js` (pinned
+/// by its integrity hash), and HTMX's panel refreshes. No inline style or script and no other origin
+/// (AXA-2): HTMX is told not to add its own `<style>` and not to evaluate text. axa's default
+/// policy suits a JSON API and would block all of these. `HTTP_CSP` replaces it.
+const PAGE_CSP: &str = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; \
+                        img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
 pub struct App;
 
@@ -233,22 +233,48 @@ mod tests {
         }
     }
 
-    /// If the layout starts loading something else, this says the policy would block it.
+    /// AXA-2: the policy allows nothing inline and no other origin, and no template needs either.
+    /// What a template loads is a file this service serves.
     #[test]
-    fn the_page_policy_allows_what_the_layout_loads() {
-        let layout = std::fs::read_to_string("assets/views/layouts/main.html").unwrap();
-        assert!(layout.contains("<style>") && PAGE_CSP.contains("style-src 'unsafe-inline'"));
-        let scripts: Vec<&str> = layout
-            .split("src=\"")
-            .skip(1)
-            .filter_map(|rest| rest.split('"').next())
-            .collect();
-        assert_eq!(scripts.len(), 1, "{scripts:?}");
-        let origin = scripts[0].split('/').take(3).collect::<Vec<_>>().join("/");
-        assert!(
-            PAGE_CSP.contains(&format!("script-src {origin}")),
-            "{origin}"
-        );
+    fn the_page_policy_is_strict_and_the_templates_fit_it() {
+        assert!(!PAGE_CSP.contains("unsafe-"), "{PAGE_CSP}");
+        assert!(!PAGE_CSP.contains("http"), "{PAGE_CSP}");
+        let mut templates = vec![];
+        let mut folders = vec![std::path::PathBuf::from("assets/views")];
+        while let Some(folder) = folders.pop() {
+            for entry in std::fs::read_dir(folder).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    folders.push(path);
+                } else {
+                    templates.push(path);
+                }
+            }
+        }
+        assert!(templates.len() > 10, "{templates:?}");
+        for path in templates {
+            let text = std::fs::read_to_string(&path).unwrap();
+            for inline in ["<style", "style=\"", "<script>", " on"] {
+                let found = if inline == " on" {
+                    text.contains(" onclick=")
+                        || text.contains(" onload=")
+                        || text.contains("hx-on")
+                } else {
+                    text.contains(inline)
+                };
+                assert!(!found, "{} has {inline}", path.display());
+            }
+            for attribute in ["src=\"", "href=\""] {
+                for rest in text.split(attribute).skip(1) {
+                    let target = rest.split('"').next().unwrap();
+                    assert!(!target.contains("//"), "{} loads {target}", path.display());
+                    if let Some(file) = target.strip_prefix("/static/") {
+                        let on_disk = format!("{STATIC_FOLDER}/{file}");
+                        assert!(std::path::Path::new(&on_disk).is_file(), "{on_disk}");
+                    }
+                }
+            }
+        }
     }
 
     /// The operator's way to see these settings, and it must work without a database.

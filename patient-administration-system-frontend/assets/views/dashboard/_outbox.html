@@ -9,7 +9,7 @@
   <span class="stat-label">unpublished event{% if unpublished_count != 1 %}s{% endif %}</span>
 </div>
 {% if unpublished_count > 0 %}
-  <div class="alert" role="status" style="font-size:12px;margin-top:8px;">Dispatcher polls every 2s on the PAS Axum server; persistently stuck rows mean the configured <code class="code">EventPublisher</code> is rejecting events.</div>
+  <div class="alert s-note" role="status">Dispatcher polls every 2s on the PAS Axum server; persistently stuck rows mean the configured <code class="code">EventPublisher</code> is rejecting events.</div>
 {% else %}
-  <div class="alert" role="status" style="font-size:12px;margin-top:8px;">All events delivered.</div>
+  <div class="alert s-note" role="status">All events delivered.</div>
 {% endif %}

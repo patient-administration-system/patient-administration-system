@@ -4,7 +4,7 @@
 {% block content %}
 
 <div class="panel" role="region" aria-label="Patient list">
-  <h2>Patients <span style="margin-left:auto;color:var(--muted);font-weight:400;">{{ patients | length }} active</span></h2>
+  <h2>Patients <span class="s-aside">{{ patients | length }} active</span></h2>
 
   {% if patients | length == 0 %}
     <div class="alert" role="status">No patients yet — create one via <code class="code">POST /api/patients</code> on the PAS Axum server.</div>
