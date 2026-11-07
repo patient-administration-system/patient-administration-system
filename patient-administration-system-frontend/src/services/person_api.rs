@@ -79,6 +79,7 @@ pub async fn list_persons(limit: u32) -> Result<Vec<UpstreamPerson>, PersonApiEr
     let url = format!("{}/api/persons", base_url());
     let resp = client()
         .get(&url)
+        .headers(super::request_id())
         .query(&[("limit", limit.to_string())])
         .send()
         .await?;
@@ -105,7 +106,11 @@ pub async fn list_persons(limit: u32) -> Result<Vec<UpstreamPerson>, PersonApiEr
 /// `GET /api/persons/{id}` — fetch one person.
 pub async fn get_person(id: Uuid) -> Result<Option<UpstreamPerson>, PersonApiError> {
     let url = format!("{}/api/persons/{id}", base_url());
-    let resp = client().get(&url).send().await?;
+    let resp = client()
+        .get(&url)
+        .headers(super::request_id())
+        .send()
+        .await?;
     let status = resp.status();
     if status.as_u16() == 404 {
         return Ok(None);

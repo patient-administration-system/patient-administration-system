@@ -225,6 +225,7 @@ dependencies = [
  "axa-environment",
  "axa-problem",
  "axa-sqlx",
+ "axa-tracing",
  "axum",
  "axum-test",
  "clap",
@@ -265,6 +266,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9cd2ea55e649597a7b8ad96ba4801500887a9eca630fd32b4d36c820a54c3028"
 dependencies = [
  "sqlx",
+]
+
+[[package]]
+name = "axa-tracing"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff029f855deba0e81d50968aaad14c41d4ad9dfe58514196887e91318da62a25"
+dependencies = [
+ "axum",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

@@ -11,7 +11,7 @@ use axa::{
     routes::AppRoutes,
     server,
 };
-use axum::{Extension, Router};
+use axum::{Extension, Router, middleware::from_fn};
 use tower_http::services::ServeDir;
 
 use crate::{controllers, views::Views};
@@ -109,7 +109,9 @@ impl App {
         let router = Self::routes()
             .into_router(ctx.clone())
             .nest_service("/static", ServeDir::new(STATIC_FOLDER).precompressed_gzip())
-            .layer(Extension(Views::load()?));
+            .layer(Extension(Views::load()?))
+            // Inside axa's middleware, which has already cleaned the id or made one (AXA-6).
+            .layer(from_fn(axa::tracing::track));
         middleware::apply(router, &ctx.config.http)
     }
 

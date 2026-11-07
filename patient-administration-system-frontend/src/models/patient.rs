@@ -66,13 +66,14 @@ pub async fn names_for(ids: &[Uuid]) -> HashMap<Uuid, (String, String)> {
     unique.sort();
     unique.dedup();
     unique.truncate(NAMES_FOR_LIMIT);
-    let mut tasks = tokio::task::JoinSet::new();
-    for id in unique {
-        tasks.spawn(async move { (id, person_api::get_person(id).await) });
-    }
+    // `axa::tracing::spawn`, so that each lookup keeps the request's id (AXA-6).
+    let tasks: Vec<_> = unique
+        .into_iter()
+        .map(|id| axa::tracing::spawn(async move { (id, person_api::get_person(id).await) }))
+        .collect();
     let mut out = HashMap::new();
-    while let Some(joined) = tasks.join_next().await {
-        match joined {
+    for task in tasks {
+        match task.await {
             Ok((id, Ok(Some(p)))) => {
                 out.insert(id, name_parts(p.name.as_ref().or(p.names.as_ref())));
             }

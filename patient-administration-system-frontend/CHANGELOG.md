@@ -8,6 +8,7 @@ crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Calls to the PAS API and `person-service` carry the `X-Request-Id` of the request they serve (AXA-6), so a failing page can be followed across services.
 - `GET /_readiness` answers `503` naming `database` while the database cannot be reached (AXA-4). It is axa's route, as is `/_ping`; `/_health` still answers `200`, and says `unreachable`. Point an orchestrator at `/_readiness`.
 - The `pas_csrf` cookie carries `Secure` by default everywhere production-like (AXA-5). `PAS_COOKIE_SECURE` overrides it either way, and a value that is neither yes nor no leaves the default.
 - Moved from SeaORM to sqlx (SQLX-1): axa's `sqlx` feature, literal SQL in `src/models/`, and `db migrate` and `db status` directly on the pool. Each query asks for the same rows as before, and pages sort as before.

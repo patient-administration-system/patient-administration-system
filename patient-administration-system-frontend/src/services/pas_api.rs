@@ -69,7 +69,12 @@ async fn post_envelope<B: Serialize>(
     body: &B,
 ) -> Result<serde_json::Value, PasApiError> {
     let url = format!("{}{path}", base_url());
-    let resp = client()?.post(&url).json(body).send().await?;
+    let resp = client()?
+        .post(&url)
+        .headers(super::request_id())
+        .json(body)
+        .send()
+        .await?;
     let status = resp.status();
     let payload: serde_json::Value = resp.json().await?;
     if !status.is_success() {
@@ -142,7 +147,12 @@ pub async fn book_slot(
 /// `POST /api/letters/generate` on the PAS Axum binary.
 pub async fn generate_letter(req: &GenerateLetterRequest) -> Result<GeneratedLetter, PasApiError> {
     let url = format!("{}/api/letters/generate", base_url());
-    let resp = client()?.post(&url).json(req).send().await?;
+    let resp = client()?
+        .post(&url)
+        .headers(super::request_id())
+        .json(req)
+        .send()
+        .await?;
     let status = resp.status();
     let body: serde_json::Value = resp.json().await?;
     if !status.is_success() {
