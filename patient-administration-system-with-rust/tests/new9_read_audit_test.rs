@@ -207,4 +207,96 @@ async fn a_batch_read_is_audited_by_parameter_names_and_not_by_values() {
         !context.contains(&asked.to_string()),
         "never the value: {context}"
     );
+    assert!(context.contains("\"returned\""), "with a count: {context}");
+}
+
+async fn search_rows(
+    db: &patient_administration_system::db::sql::Pool,
+    user: &str,
+) -> Vec<serde_json::Value> {
+    db.all(Stmt::new(
+        "SELECT context::text AS c FROM audit_log \
+         WHERE entity_type = 'patient_search' AND action = 'read' AND user_id = $1",
+        [user.to_string().into()],
+    ))
+    .await
+    .unwrap()
+    .iter()
+    .map(|r| serde_json::from_str(&r.col::<String>("c").unwrap()).unwrap())
+    .collect()
+}
+
+/// OFH-2: any list whose rows name people writes one `patient_search` row with the route, the parameter
+/// names and how many came back; an empty list, or a list that names nobody, writes none.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_list_of_people_is_audited_with_its_count_and_a_list_of_nobody_is_not() {
+    use patient_administration_system::db::repositories::audit::UserContext;
+    use patient_administration_system::referrals::NewReferral;
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let app = router(state.clone());
+    let service = format!("svc-{}", Uuid::new_v4());
+    let person = Uuid::new_v4();
+    for _ in 0..2 {
+        state
+            .referrals
+            .create(
+                NewReferral {
+                    person_id: person,
+                    source: "gp".into(),
+                    external_ref: None,
+                    target_service: service.clone(),
+                    reason: None,
+                    referring_worker_id: None,
+                    received_at: None,
+                },
+                &UserContext::system(),
+            )
+            .await
+            .unwrap();
+    }
+    let get = |uri: String, user: &str| {
+        Request::get(uri)
+            .header("x-user-id", user)
+            .body(Body::empty())
+            .unwrap()
+    };
+
+    let user = format!("auditor-{}", Uuid::new_v4());
+    let (status, _, _) = call(
+        &app,
+        get(format!("/api/referrals?service={service}&limit=1"), &user),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let rows = search_rows(&state.db, &user).await;
+    assert_eq!(rows.len(), 1, "one list, one event: {rows:?}");
+    assert_eq!(rows[0]["route"], "/api/referrals");
+    assert_eq!(rows[0]["returned"], 1);
+    assert_eq!(
+        rows[0]["query_params"],
+        serde_json::json!(["limit", "service"])
+    );
+    let text = rows[0].to_string();
+    assert!(
+        !text.contains(&service) && !text.contains(&person.to_string()),
+        "never the values: {text}"
+    );
+
+    let nobody = format!("auditor-{}", Uuid::new_v4());
+    let (status, _, _) = call(
+        &app,
+        get(
+            format!("/api/referrals?service=none-{}", Uuid::new_v4()),
+            &nobody,
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _, _) = call(&app, get("/api/experiments?limit=5".into(), &nobody)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        search_rows(&state.db, &nobody).await.is_empty(),
+        "an empty list and a list of no one name nobody"
+    );
 }

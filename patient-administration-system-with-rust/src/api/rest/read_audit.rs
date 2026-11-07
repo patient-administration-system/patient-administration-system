@@ -9,8 +9,15 @@
 //! `/fhir/Patient`, `/fhir/Flag` or `/api/reasonable-adjustments/for-appointments` writes one `read` row of
 //! entity type `patient_search` (entity id the nil UUID, because no one patient is named) whose context is
 //! the route, the status and the *names* of the query parameters, sorted. Never the values, which carry
-//! names, dates and ids. **Not covered:** how many records came back (that needs the body), the report and
-//! export routes, and any other list route. The retention is in `governance/retention-schedule.md`.
+//! names, dates and ids. The context also says how many records came back (`returned`), read from the body:
+//! the envelope's `meta.returned` or `data`, a FHIR Bundle's `entry`, or a bare array.
+//!
+//! **Lists and exports of people (OFH-2).** Any other successful response that lists people says so with a
+//! [`PeopleListed`] response extension, and writes the same `patient_search` row with its count. The list
+//! helpers set it on every list whose rows carry a `person_id` (`handlers::ok_json_page`), so a new list is
+//! covered without being named here; the patient exports set it with the records they hold, or no count
+//! for XML, whose shape is the person-service's. A list of rows with no `person_id`, or a report of counts,
+//! writes nothing. The retention is in `governance/retention-schedule.md`.
 
 use axum::{
     body::Body,
@@ -50,6 +57,38 @@ pub fn patient_read_target(method: &Method, path: &str) -> Option<(Uuid, String)
     ))
 }
 
+/// A response that lists people, and how many when that is known (OFH-2). The audit middleware writes one
+/// `patient_search` row for it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PeopleListed(pub Option<usize>);
+
+/// `Some(n)` when `rows` is an array of `n` rows of which at least one names a person (`person_id`).
+pub fn people_in(rows: &serde_json::Value) -> Option<usize> {
+    let rows = rows.as_array()?;
+    rows.iter()
+        .any(|r| r.get("person_id").is_some_and(|v| !v.is_null()))
+        .then_some(rows.len())
+}
+
+/// How many records a search answered with: the envelope's `meta.returned` or `data`, a FHIR Bundle's
+/// `entry`, or a bare array. `None` when the body is none of these.
+pub fn records_in(body: &[u8]) -> Option<usize> {
+    let v: serde_json::Value = serde_json::from_slice(body).ok()?;
+    if let Some(n) = v["meta"]["returned"].as_u64() {
+        return usize::try_from(n).ok();
+    }
+    if let Some(rows) = v["data"].as_array() {
+        return Some(rows.len());
+    }
+    if v["resourceType"] == "Bundle" {
+        return Some(v["entry"].as_array().map_or(0, Vec::len));
+    }
+    v.as_array().map(Vec::len)
+}
+
+/// The largest search body read to count its records. A bigger one is recorded with no count.
+const MAX_COUNTED_BODY: usize = 32 * 1024 * 1024;
+
 /// The routes that read many patients' data at once, by exact path (OFH-2).
 const SEARCH_ROUTES: [&str; 5] = [
     "/api/patients/search",
@@ -72,6 +111,11 @@ pub fn search_read_target(
     if !SEARCH_ROUTES.contains(&path) {
         return None;
     }
+    Some((path.to_string(), query_names(query)))
+}
+
+/// The sorted, de-duplicated names of a query's parameters, never their values.
+fn query_names(query: Option<&str>) -> Vec<String> {
     let mut names: Vec<String> = query
         .unwrap_or_default()
         .split('&')
@@ -81,7 +125,7 @@ pub fn search_read_target(
         .collect();
     names.sort();
     names.dedup();
-    Some((path.to_string(), names))
+    names
 }
 
 /// Record the read when it succeeded; refuse the response if the record cannot be written.
@@ -93,26 +137,59 @@ pub async fn read_audit_middleware(
     let target = patient_read_target(req.method(), req.uri().path());
     let search = search_read_target(req.method(), req.uri().path(), req.uri().query());
     let ctx = request_audit_ctx(req.headers());
+    let path = req.uri().path().to_string();
+    let names = query_names(req.uri().query());
     let res = next.run(req).await;
     if !res.status().is_success() {
         return res;
     }
-    let (entity_type, entity_id, context) = match (target, search) {
-        (Some((patient, route)), _) => (
+    let status = res.status().as_u16();
+    let listed = res.extensions().get::<PeopleListed>().copied();
+    let (res, entity_type, entity_id, context) = match (target, search, listed) {
+        (Some((patient, route)), _, _) => (
+            res,
             "patient",
             patient,
-            serde_json::json!({ "route": route, "status": res.status().as_u16() }),
+            serde_json::json!({ "route": route, "status": status }),
         ),
-        (None, Some((route, params))) => (
+        (None, Some((route, params)), _) => {
+            // The count is in the body, so read it and put it back.
+            let (parts, body) = res.into_parts();
+            let (res, returned) = match axum::body::to_bytes(body, MAX_COUNTED_BODY).await {
+                Ok(bytes) => {
+                    let returned = records_in(&bytes);
+                    (Response::from_parts(parts, Body::from(bytes)), returned)
+                }
+                Err(e) => {
+                    tracing::error!(error = %e, "a search body could not be read to count it");
+                    return error_to_response(Error::internal("the read could not be recorded"))
+                        .into_response();
+                }
+            };
+            (
+                res,
+                "patient_search",
+                Uuid::nil(),
+                serde_json::json!({
+                    "route": route,
+                    "status": status,
+                    "query_params": params,
+                    "returned": returned,
+                }),
+            )
+        }
+        (None, None, Some(PeopleListed(returned))) => (
+            res,
             "patient_search",
             Uuid::nil(),
             serde_json::json!({
-                "route": route,
-                "status": res.status().as_u16(),
-                "query_params": params,
+                "route": path,
+                "status": status,
+                "query_params": names,
+                "returned": returned,
             }),
         ),
-        (None, None) => return res,
+        (None, None, None) => return res,
     };
     let logged = AuditLogRepository::log_with(
         &state.db,
@@ -172,6 +249,34 @@ mod tests {
         assert!(t("/api/patients/export.json", None).is_none());
         assert!(t(&format!("/api/patients/{ID}"), None).is_none());
         assert!(search_read_target(&Method::POST, "/api/patients/search", None).is_none());
+    }
+
+    #[test]
+    fn a_list_names_people_only_when_its_rows_carry_a_person_id() {
+        use serde_json::json;
+        assert_eq!(
+            people_in(&json!([{ "person_id": ID }, { "person_id": null }])),
+            Some(2)
+        );
+        assert_eq!(
+            people_in(&json!([{ "id": ID, "name": "a template" }])),
+            None
+        );
+        assert_eq!(people_in(&json!([{ "person_id": null }])), None);
+        assert_eq!(people_in(&json!([])), None);
+        assert_eq!(people_in(&json!({ "person_id": ID })), None);
+    }
+
+    #[test]
+    fn a_search_is_counted_from_its_body() {
+        let n = |b: &str| records_in(b.as_bytes());
+        assert_eq!(n(r#"{"data":[1,2,3],"meta":{"returned":2}}"#), Some(2));
+        assert_eq!(n(r#"{"success":true,"data":[1,2,3]}"#), Some(3));
+        assert_eq!(n(r#"{"resourceType":"Bundle","entry":[{},{}]}"#), Some(2));
+        assert_eq!(n(r#"{"resourceType":"Bundle","total":0}"#), Some(0));
+        assert_eq!(n("[1]"), Some(1));
+        assert_eq!(n("<xml/>"), None);
+        assert_eq!(n(r#"{"data":{"one":1}}"#), None);
     }
 
     #[test]

@@ -270,13 +270,40 @@ pub(super) async fn bulk_export_format(
     };
     let ctx = user_context_from_headers(headers);
     match client.bulk_export(format, &ctx).await {
-        Ok((content_type, body)) => (
-            StatusCode::OK,
-            [(axum::http::header::CONTENT_TYPE, content_type)],
-            body,
-        )
-            .into_response(),
+        Ok((content_type, body)) => {
+            // Every patient's record leaves in one file: the read audit records it, with the count when the
+            // format makes one plain (OFH-2).
+            let count = export_records(format, body.as_ref());
+            let mut response = (
+                StatusCode::OK,
+                [(axum::http::header::CONTENT_TYPE, content_type)],
+                body,
+            )
+                .into_response();
+            response
+                .extensions_mut()
+                .insert(crate::api::rest::read_audit::PeopleListed(count));
+            response
+        }
         Err(e) => error_to_response(e).into_response(),
+    }
+}
+
+/// How many records an export holds: a JSON array's length, or the lines after a CSV or TSV header. `None` for
+/// XML, whose shape is the person-service's, or for anything that does not parse.
+pub(super) fn export_records(format: &str, body: &[u8]) -> Option<usize> {
+    match format {
+        "json" => crate::api::rest::read_audit::records_in(body),
+        "csv" | "tsv" => {
+            let text = std::str::from_utf8(body).ok()?;
+            Some(
+                text.lines()
+                    .filter(|l| !l.trim().is_empty())
+                    .count()
+                    .saturating_sub(1),
+            )
+        }
+        _ => None,
     }
 }
 

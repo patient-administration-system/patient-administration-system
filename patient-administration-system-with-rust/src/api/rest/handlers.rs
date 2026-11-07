@@ -109,7 +109,18 @@ pub fn with_next_link(
 /// in it than the list, such as a summary of every row (QUAL-47).
 pub fn ok_json_page<T: serde::Serialize>(value: T, meta: crate::paging::PageMeta) -> HandlerResult {
     match serde_json::to_value(value) {
-        Ok(v) => (StatusCode::OK, Json(ApiResponse::ok_page(v, meta))).into_response(),
+        Ok(v) => {
+            // A list of people is a read of their data (OFH-2): say so, for the read audit.
+            let listed = crate::api::rest::read_audit::people_in(&v);
+            let mut response =
+                (StatusCode::OK, Json(ApiResponse::ok_page(v, meta))).into_response();
+            if let Some(n) = listed {
+                response
+                    .extensions_mut()
+                    .insert(crate::api::rest::read_audit::PeopleListed(Some(n)));
+            }
+            response
+        }
         Err(e) => error_to_response(Error::internal(format!(
             "response could not be serialized: {e}"
         ))),

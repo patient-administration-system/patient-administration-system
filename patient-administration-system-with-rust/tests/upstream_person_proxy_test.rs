@@ -174,3 +174,51 @@ async fn test_proxy_returns_503_when_upstream_client_unset() {
     let env = body_json(resp).await;
     assert_eq!(env["code"], serde_json::json!("upstream_unavailable"));
 }
+
+/// OFH-2: a bulk export of patients is audited as one `patient_search` read, with the records it held when
+/// the format makes the count plain (JSON here) and no count for XML, whose shape is the person-service's.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_patient_export_is_audited_with_its_count() {
+    use patient_administration_system::db::row::RowExt;
+    use patient_administration_system::db::sql::{Conn, Stmt};
+    let url = common::database_url().unwrap();
+    let stub = Arc::new(StubPersonClient::new());
+    stub.insert(person_with_id(Uuid::new_v4(), "Doe"));
+    stub.insert(person_with_id(Uuid::new_v4(), "Roe"));
+    let state = common::build_state(&url).await.with_person_client(stub);
+    let app = patient_administration_system::api::rest::router(state.clone());
+
+    let user = format!("exporter-{}", Uuid::new_v4());
+    for format in ["json", "xml"] {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/patients/export.{format}"))
+                    .header("x-user-id", &user)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK, "{format}");
+    }
+    let rows: Vec<Value> = state
+        .db
+        .all(Stmt::new(
+            "SELECT context::text AS c FROM audit_log \
+             WHERE entity_type = 'patient_search' AND action = 'read' AND user_id = $1 ORDER BY at",
+            [user.into()],
+        ))
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| serde_json::from_str(&r.col::<String>("c").unwrap()).unwrap())
+        .collect();
+    assert_eq!(rows.len(), 2, "{rows:?}");
+    assert_eq!(rows[0]["route"], "/api/patients/export.json");
+    assert_eq!(rows[0]["returned"], 2);
+    assert_eq!(rows[1]["route"], "/api/patients/export.xml");
+    assert!(rows[1]["returned"].is_null(), "{rows:?}");
+}
