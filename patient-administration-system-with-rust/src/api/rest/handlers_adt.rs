@@ -1,11 +1,8 @@
 //! REST handlers for the ADT (admission / discharge / transfer) surface: `POST /api/admissions` and its
 //! transfer, discharge and cancel variants on top of [`crate::adt::AdtService`].
 
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use uuid::Uuid;
 

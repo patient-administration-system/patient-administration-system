@@ -1,11 +1,8 @@
 //! REST handlers for video and phone consultations (CAP-14): the approved-services list and the
 //! clinician's review of a conversion.
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;

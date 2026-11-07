@@ -1,9 +1,9 @@
 //! REST handlers for the write-back API (CAP-2): a patient's reply changes the appointment now.
 
+use axa::extract::{Json, Path, Query};
 use axum::{
-    Json,
     body::Bytes,
-    extract::{Query, State},
+    extract::State,
     http::{HeaderMap, header},
 };
 
@@ -13,7 +13,6 @@ use crate::api::rest::handlers::ok_json;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, ok_page, request_audit_ctx};
 use crate::inbound::InboundText;
 use crate::writeback::{MAX_BATCH, ReplyRequest};
-use axum::extract::Path;
 use uuid::Uuid;
 
 /// `POST /api/write-back/replies`: apply one reply. A reply that cannot be applied for a

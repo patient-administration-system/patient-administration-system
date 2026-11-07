@@ -1,10 +1,7 @@
 //! REST handlers for a clinician's priority on a waiting-list entry (NEW-17).
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use chrono::NaiveDate;
 use serde::Deserialize;
 use uuid::Uuid;

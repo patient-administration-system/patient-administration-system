@@ -3,11 +3,9 @@
 //! The link endpoints are called by the UI's server for a patient who has tapped a link in a message. The
 //! token is the only thing in the URL; it carries no personal data.
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use crate::api::rest::extract::OptionalJson;
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -66,7 +64,7 @@ pub async fn post_link_action(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((token, action)): Path<(String, String)>,
-    body: Option<Json<ActBody>>,
+    OptionalJson(body): OptionalJson<ActBody>,
 ) -> HandlerResult {
     let Some(action) = LinkAction::parse(&action) else {
         return error_to_response(Error::validation(
@@ -83,7 +81,7 @@ pub async fn post_link_action(
         user_ip: uc.user_ip,
         user_agent: uc.user_agent,
     };
-    let body = body.map(|b| b.0).unwrap_or_default();
+    let body = body.unwrap_or_default();
     match state
         .reply_links
         .act_with(&token, action, body.confirmed, body.barrier_code, &ctx)

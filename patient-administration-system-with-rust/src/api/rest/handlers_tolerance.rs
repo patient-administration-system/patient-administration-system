@@ -1,10 +1,7 @@
 //! REST handlers for tolerances: how far a measure may drift before it is amber, then red.
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use serde_json::Value;
 

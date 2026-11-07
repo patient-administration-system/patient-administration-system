@@ -1,11 +1,8 @@
 //! REST handlers for non-emergency transport (CAP-15): staff record eligibility and the patient's consent;
 //! the booking itself follows confirmation and needs no call.
 
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;

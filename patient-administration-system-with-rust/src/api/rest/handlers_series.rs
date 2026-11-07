@@ -1,10 +1,7 @@
 //! REST handlers for appointment series.
 
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path};
+use axum::{extract::State, http::HeaderMap};
 use uuid::Uuid;
 
 use crate::Error;

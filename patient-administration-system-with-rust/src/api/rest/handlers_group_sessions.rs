@@ -1,10 +1,7 @@
 //! REST handlers for group consultations (NEW-18).
 
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use uuid::Uuid;
 

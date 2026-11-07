@@ -1,7 +1,8 @@
 //! REST handlers for activity and performance reporting (CORE-7).
 
+use axa::extract::Query;
 use axum::{
-    extract::{Query, State},
+    extract::State,
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };

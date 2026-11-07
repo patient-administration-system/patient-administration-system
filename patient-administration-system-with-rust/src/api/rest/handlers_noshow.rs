@@ -1,10 +1,7 @@
 //! REST handlers for the no-show probability (CAP-12). Support only, and off until people approve it.
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;

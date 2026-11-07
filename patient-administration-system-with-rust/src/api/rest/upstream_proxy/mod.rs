@@ -21,9 +21,9 @@
 //! upstream's audit log credits the original PAS-side caller. Headers
 //! that are absent from the inbound request are not attached.
 
+use axa::extract::{Json, Path, Query};
 use axum::{
-    Json,
-    extract::{Path, Query, State},
+    extract::State,
     http::{HeaderMap, StatusCode},
 };
 use serde::Deserialize;

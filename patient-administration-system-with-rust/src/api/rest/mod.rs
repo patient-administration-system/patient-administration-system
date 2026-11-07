@@ -2,6 +2,7 @@
 pub mod auth;
 pub mod carrier_auth;
 pub mod concurrency;
+pub mod extract;
 pub mod handlers;
 pub mod handlers_adjustments;
 pub mod handlers_admin;

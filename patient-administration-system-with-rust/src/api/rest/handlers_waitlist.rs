@@ -1,10 +1,7 @@
 //! REST handlers for waitlist + RTT.
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use uuid::Uuid;
 

@@ -1,10 +1,7 @@
 //! REST handlers for human follow-up after a missed appointment (CAP-7).
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;

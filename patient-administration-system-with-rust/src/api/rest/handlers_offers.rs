@@ -3,10 +3,8 @@
 //! The link endpoints are called by the UI's server for a patient who tapped a link in an offer message.
 //! The token is the only thing in the URL and carries no personal data. A GET only reads.
 
-use axum::{
-    extract::{Path, State},
-    http::HeaderMap,
-};
+use axa::extract::Path;
+use axum::{extract::State, http::HeaderMap};
 use serde_json::Value;
 use uuid::Uuid;
 

@@ -1,10 +1,8 @@
 //! REST handlers for operational admin: outbox diagnostics + DLQ.
 
 use crate::db::sql::Transact;
-use axum::{
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use uuid::Uuid;
 

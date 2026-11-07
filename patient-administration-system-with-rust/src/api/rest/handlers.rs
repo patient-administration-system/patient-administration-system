@@ -2,8 +2,8 @@
 //! (`error_to_response`), the audit-context helpers, and `GET /api/health`. The domain handlers live in the
 //! `handlers_*` modules and `upstream_proxy`, wired up in `routes.rs`.
 
+use axa::extract::Json;
 use axum::{
-    Json,
     extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},

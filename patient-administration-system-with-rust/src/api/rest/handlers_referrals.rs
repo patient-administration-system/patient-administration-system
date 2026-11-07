@@ -1,10 +1,8 @@
 //! REST handlers for referrals (CORE-1).
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use crate::api::rest::extract::OptionalJson;
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -183,9 +181,9 @@ pub async fn waitlist(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
-    body: Option<Json<WaitlistBody>>,
+    OptionalJson(body): OptionalJson<WaitlistBody>,
 ) -> HandlerResult {
-    let p = body.and_then(|b| b.0.priority).unwrap_or(Priority::Routine);
+    let p = body.and_then(|b| b.priority).unwrap_or(Priority::Routine);
     match state
         .referrals
         .waitlist(id, p, &request_audit_ctx(&headers))
@@ -221,13 +219,13 @@ pub async fn close(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
-    body: Option<Json<CloseBody>>,
+    OptionalJson(body): OptionalJson<CloseBody>,
 ) -> HandlerResult {
     let expected = match crate::api::rest::concurrency::require_if_match(&headers, "referral") {
         Ok(t) => t,
         Err(e) => return error_to_response(e),
     };
-    let reason = body.and_then(|b| b.0.reason);
+    let reason = body.and_then(|b| b.reason);
     match state
         .referrals
         .close_if_unchanged(

@@ -12,6 +12,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- A malformed body, path or query is a problem, `application/problem+json` with a `detail` that says what was wrong and quotes nothing sent: `bad_request` for bad syntax, a path or a query, `unprocessable_entity` for JSON of the wrong shape, and `unsupported_media_type` for a body that is not JSON. Handlers read them with `axa::extract::{Json, Path, Query}`; Axum's answered plain text, which could quote the request. The status codes are unchanged. FHIR routes keep Axum's, so their answers are unchanged.
 - **Breaking:** every problem's `code` is lowercase snake case, as axa writes its own: `not_found`, `validation`, `conflict`, `unauthorized`, `forbidden`, `rate_limited`, `upstream_unavailable`, `internal` and the rest, where they were uppercase. A client matching on `code` must match the lowercase form. FHIR and HL7 v2 answers are unchanged.
 - `GET /api/session-templates`, `GET /api/experiments` and `GET /api/pathways/due-check` take `limit` and say `meta.truncated` (QUAL-48). `GET /api/pathways/due-check` now returns the 500 longest waiters by default.
 - `GET /api/noshow/fairness-audit` has `truncated`, which is true when the period held more than the 50,000 appointments one audit reads (QUAL-48).

@@ -1,11 +1,8 @@
 //! REST handlers for waiting-list validation campaigns (NEW-2). The rules are in
 //! [`crate::list_validation`]: nothing here removes a patient without a named person's decision.
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
 use uuid::Uuid;

@@ -1,7 +1,8 @@
 //! REST handlers for voice reminders with keypad options (CAP-13). Called by the telephony carrier, with the
 //! same signed credential as the other write-back endpoints.
 
-use axum::{Json, extract::State, http::HeaderMap};
+use axa::extract::Json;
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 
 use crate::api::rest::AppState;

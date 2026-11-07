@@ -1,8 +1,8 @@
 //! REST handlers for the privacy-safe analytics feed (CAP-11).
 
+use axa::extract::{Json, Path, Query};
 use axum::{
-    Json,
-    extract::{Path, Query, State},
+    extract::State,
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };

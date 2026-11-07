@@ -16,7 +16,7 @@ The PAS crate exposes a Rust library API mirroring the module layout under `src/
 
 ## Response Envelope
 
-All REST endpoints (everything under `/api/`) return the first form on success and an RFC 9457 problem (`application/problem+json`, built by `api::problem` with `axa-problem`) on a refusal or failure. `code` is the machine-readable code, in lowercase snake case as axa writes its own (`not_found`, `validation`, `bad_request`); `detail` is safe to show the caller:
+All REST endpoints (everything under `/api/`) return the first form on success and an RFC 9457 problem (`application/problem+json`, built by `api::problem` with `axa-problem`) on a refusal or failure. `code` is the machine-readable code, in lowercase snake case as axa writes its own (`not_found`, `validation`, `bad_request`); `detail` is safe to show the caller. Handlers take `Json`, `Path` and `Query` from `axa::extract`, never from `axum` (FHIR routes, which answer `OperationOutcome`, keep Axum's), so a malformed request is a problem too; an optional body is `api::rest::extract::OptionalJson`:
 
 ```json
 { "success": true, "data": { ... } }

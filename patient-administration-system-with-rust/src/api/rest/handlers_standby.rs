@@ -1,10 +1,7 @@
 //! REST handlers for released slots and the standby list (CAP-3).
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
 use serde_json::Value;

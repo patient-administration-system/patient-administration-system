@@ -1,10 +1,7 @@
 //! REST handlers for follow-up target dates and the delayed-follow-up report (NEW-15).
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use chrono::NaiveDate;
 use serde::Deserialize;
 use uuid::Uuid;

@@ -2596,6 +2596,7 @@ dependencies = [
  "assertables",
  "async-trait",
  "authentication-verifier",
+ "axa",
  "axa-problem",
  "axa-sqlx",
  "axum",

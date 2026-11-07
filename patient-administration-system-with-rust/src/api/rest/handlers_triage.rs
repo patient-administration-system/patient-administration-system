@@ -1,10 +1,7 @@
 //! REST handlers for a triage category recorded on an emergency encounter (NEW-22).
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use uuid::Uuid;

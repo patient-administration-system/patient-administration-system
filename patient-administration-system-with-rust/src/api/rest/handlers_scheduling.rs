@@ -1,11 +1,9 @@
 //! REST handlers for the scheduling surface: slot booking and the appointment lifecycle on top of
 //! [`crate::scheduling::SchedulingService`]. Appointment series are in `handlers_series`.
 
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-    http::HeaderMap,
-};
+use crate::api::rest::extract::OptionalJson;
+use axa::extract::{Json, Path, Query};
+use axum::{extract::State, http::HeaderMap};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -207,10 +205,10 @@ pub async fn cancel_appointment(
     State(state): State<AppState>,
     Path(appointment_id): Path<Uuid>,
     headers: HeaderMap,
-    body: Option<Json<CancelBody>>,
+    OptionalJson(body): OptionalJson<CancelBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    let body = body.map(|Json(b)| b).unwrap_or_default();
+    let body = body.unwrap_or_default();
     let details = crate::scheduling::CancelDetails {
         cancelled_by: body
             .cancelled_by

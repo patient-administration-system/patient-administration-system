@@ -1,10 +1,7 @@
 //! REST handlers for event subscriptions (NEW-4). Administrator only (`user_auth::administrator_only`).
 
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::HeaderMap,
-};
+use axa::extract::{Json, Path};
+use axum::{extract::State, http::HeaderMap};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
