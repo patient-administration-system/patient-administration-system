@@ -23,17 +23,17 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@lilydesignsystem/svelte-calendar": "0.7.0",
-    "@lilydesignsystem/svelte-data-grid": "0.11.0",
-    "@lilydesignsystem/svelte-gantt-chart": "0.8.0",
-    "@lilydesignsystem/svelte-headless": "0.6.2",
-    "@lilydesignsystem/svelte-kanban-board": "0.8.1",
+    "@lilydesignsystem/svelte-calendar": "0.7.1",
+    "@lilydesignsystem/svelte-data-grid": "0.11.1",
+    "@lilydesignsystem/svelte-gantt-chart": "0.8.1",
+    "@lilydesignsystem/svelte-headless": "0.7.0",
+    "@lilydesignsystem/svelte-kanban-board": "0.8.2",
     "@sveltia/i18n": "^1.5.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.64.1",
+    "@playwright/test": "^1.65.0",
     "@sveltejs/adapter-node": "^6.0.1",
     "@sveltejs/kit": "^3.1.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
@@ -51,7 +51,7 @@
     "svelte-check": "^4.7.8",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1",
-    "vite": "^8.3.5",
+    "vite": "^8.3.6",
     "vitest": "^5.1.0"
   },
   "imports": {
