@@ -23,6 +23,10 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    groups:
+      # init and analyze must be the same version, or every CodeQL job fails; one pull request bumps both.
+      codeql-action:
+        patterns: ["github/codeql-action*"]
   # The development stack's images (Postgres, Keycloak, Redis) in podman/compose.yml.
   - package-ecosystem: docker-compose
     directory: /podman
