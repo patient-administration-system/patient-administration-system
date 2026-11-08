@@ -28,6 +28,10 @@ jobs:
       - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with:
           tool: cargo-fuzz
+      # The fuzz crate is its own workspace with no lockfile of its own. Starting from the main one builds the
+      # crate versions CI tests, rather than whatever is newest that week.
+      - name: Start from the workspace lockfile
+        run: cp Cargo.lock patient-administration-system-with-rust/fuzz/Cargo.lock
       - name: Fuzz for five minutes
         working-directory: patient-administration-system-with-rust/fuzz
         env:

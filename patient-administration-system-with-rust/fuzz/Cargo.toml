@@ -13,7 +13,8 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-patient-administration-system = { path = ".." }
+# Without Swagger UI, whose build script downloads from GitHub.
+patient-administration-system = { path = "..", default-features = false }
 
 # Its own workspace, so the main one (and its single lockfile) is untouched.
 [workspace]

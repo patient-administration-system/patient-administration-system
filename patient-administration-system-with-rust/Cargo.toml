@@ -37,7 +37,9 @@ tera = "1.20"
 
 # OpenAPI Documentation
 utoipa = { version = "6.0", features = ["chrono", "uuid"] }
-utoipa-swagger-ui = { version = "10.0", features = ["axum"] }
+# Optional so the fuzz crate can build the library without it: its build script downloads Swagger UI
+# from GitHub, and a failed download fails the build. The server binary requires it.
+utoipa-swagger-ui = { version = "10.0", features = ["axum"], optional = true }
 
 # Observability — `tracing-subscriber` reads `RUST_LOG`. When `OTLP_ENDPOINT`
 # is set, `observability::init` also wires an OpenTelemetry OTLP exporter
@@ -86,6 +88,10 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "rus
 sha2 = "0.11"
 hmac = "0.13"
 
+[features]
+default = ["swagger-ui"]
+swagger-ui = ["dep:utoipa-swagger-ui"]
+
 [dev-dependencies]
 # Testing
 assertables = "10"
@@ -111,6 +117,7 @@ criterion = { version = "0.8", features = ["html_reports", "async_tokio"] }
 [[bin]]
 name = "patient-administration-system"
 path = "src/main.rs"
+required-features = ["swagger-ui"]
 
 [[bin]]
 name = "pas-token-issuer"
