@@ -5,7 +5,7 @@
 // so anything that acted on a GET would cancel appointments. Only a deliberate tap, which is a POST to one
 // of the actions below, confirms, cancels or asks to reschedule.
 import { fail } from "@sveltejs/kit";
-import { isReason } from "#lib/reasons.js";
+import { isReason, type Reason } from "#lib/reasons.js";
 import type { Actions, PageServerLoad } from "./$types";
 import { replyLinkAct, replyLinkInfo, replyLinkRebook } from "#lib/server/pas.js";
 import { LINK_PAGE_HEADERS, isLinkToken, linkFailureStatus, linkStateFor as stateFor } from "#lib/server/token-link.js";
@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ params, fetch, setHeaders }) => {
   }
 };
 
-async function act(token: string, action: string, confirmed: boolean, f: typeof fetch, reason?: string) {
+async function act(token: string, action: string, confirmed: boolean, f: typeof fetch, reason?: Reason) {
   if (!isLinkToken(token)) return fail(404, { state: "invalid" as LinkState });
   try {
     const r = await replyLinkAct(f, token, action, confirmed, reason);

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Changed
+- The request bodies the server side sends to the PAS API are typed from the API contract, so a misspelt or missing field fails `pnpm run check`. A cancelling patient's reason must be one of the PAS's barrier codes (QUAL-15).
 - Every server-side call to the PAS API carries the page request's `X-Request-Id`, so a failing page can be followed into the API's logs, and every response says it. An incoming id is kept when it is a safe shape (letters, digits, `.`, `_` and `-`, at most 128) and replaced with a new one otherwise.
 - A cut list on `/waits`, on `/tolerances` (the open alerts) and in a patient's contact log on `/history` links to its next page, and a later page links back to the first. The page passes the PAS's signed cursor through its own `?cursor=`; one that is not the shape the PAS writes is never sent, and one the PAS refuses (from before a restart, say) goes back to the first page. The two link texts are first drafts in every locale but English.
 - `/tolerances`, `/waits` and a patient's contact log on `/history` say when the list is not complete, and how many it shows (QUAL-49). The text is a first draft in every locale but English.

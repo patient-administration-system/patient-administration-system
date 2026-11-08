@@ -1,12 +1,20 @@
 // The BFF's client for the PAS REST API. The bearer token lives here, on the
 // server; the browser only ever talks to this app's own routes.
 
-import type { components } from "./api-types";
+import type { components, paths } from "./api-types";
 import { PAS_API_URL, serviceToken } from "./config";
 
 // The shapes below come from the API contract (`spec/openapi.json`) through `api-types.ts`, which
 // `pnpm run types` regenerates; changing a Rust response field breaks `pnpm run check`.
 type Schemas = components["schemas"];
+
+/** The JSON body that method `M` of `P` takes, as the contract declares it: a misspelt or missing field fails
+ * `pnpm run check`. */
+type RequestBody<P extends keyof paths, M extends keyof paths[P]> = paths[P][M] extends {
+  requestBody?: { content: { "application/json": infer B } };
+}
+  ? B
+  : never;
 
 export type FetchFn = typeof fetch;
 
@@ -139,7 +147,10 @@ export type LetterTemplate = Schemas["LetterTemplate"];
 export const letterTemplates = (f: FetchFn) => pasArray<LetterTemplate>(f, "/api/letter-templates");
 
 export const updateLetterTemplate = (f: FetchFn, t: LetterTemplate) =>
-  pas<LetterTemplate>(f, `/api/letter-templates/${encodeURIComponent(t.id)}`, { method: "PUT", body: t });
+  pas<LetterTemplate>(f, `/api/letter-templates/${encodeURIComponent(t.id)}`, {
+    method: "PUT",
+    body: t satisfies RequestBody<"/api/letter-templates/{id}", "put">,
+  });
 
 export type WaitlistEntry = Schemas["WaitlistEntry"];
 
@@ -194,7 +205,7 @@ export const dueChecks = (f: FetchFn, cursor?: string | null) =>
 export const askStillNeeded = (f: FetchFn, pathwayId: string, askedBy: string) =>
   pas<Schemas["Asked"]>(f, `/api/pathways/${encodeURIComponent(pathwayId)}/still-needed-checks`, {
     method: "POST",
-    body: { asked_by: askedBy },
+    body: { asked_by: askedBy } satisfies RequestBody<"/api/pathways/{id}/still-needed-checks", "post">,
   });
 
 // ---- Tolerances (red / amber / green) --------------------------------------------------------
@@ -215,7 +226,7 @@ export const toleranceAlerts = (f: FetchFn, cursor?: string | null) =>
 export const acknowledgeToleranceAlert = (f: FetchFn, id: string, by: string) =>
   pas<null>(f, `/api/tolerance-alerts/${encodeURIComponent(id)}/acknowledge`, {
     method: "POST",
-    body: { acknowledged_by: by },
+    body: { acknowledged_by: by } satisfies RequestBody<"/api/tolerance-alerts/{id}/acknowledge", "post">,
   });
 
 /** Each measure against its target and tolerances, and the worst tier overall. */
@@ -256,17 +267,26 @@ export const replyLinkInfo = (f: FetchFn, token: string) =>
   pas<ReplyLinkInfo>(f, `/api/reply-links/${encodeURIComponent(token)}`);
 
 /** A deliberate tap. The first `cancel` answers `needs_confirmation`; send it again with `confirmed`. */
-export const replyLinkAct = (f: FetchFn, token: string, action: string, confirmed = false, barrierCode?: string) =>
+export const replyLinkAct = (
+  f: FetchFn,
+  token: string,
+  action: string,
+  confirmed = false,
+  barrierCode?: Schemas["BarrierCode"],
+) =>
   pas<Schemas["LinkOutcome"]>(f, `/api/reply-links/${encodeURIComponent(token)}/${encodeURIComponent(action)}`, {
     method: "POST",
-    body: barrierCode ? { confirmed, barrier_code: barrierCode } : { confirmed },
+    body: (barrierCode ? { confirmed, barrier_code: barrierCode } : { confirmed }) satisfies RequestBody<
+      "/api/reply-links/{token}/{action}",
+      "post"
+    >,
   });
 
 /** The patient chose one of the times offered. Uses the link up; if the move is refused it is given back. */
 export const replyLinkRebook = (f: FetchFn, token: string, slotId: string) =>
   pas<Schemas["LinkOutcome"]>(f, `/api/reply-links/${encodeURIComponent(token)}/rebook`, {
     method: "POST",
-    body: { slot_id: slotId },
+    body: { slot_id: slotId } satisfies RequestBody<"/api/reply-links/{token}/rebook", "post">,
   });
 
 // ---- Backfill offers (PILOT-8) ---------------------------------------------------------------
