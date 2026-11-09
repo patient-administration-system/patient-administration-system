@@ -5,6 +5,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- axa 0.7 to 0.10, for the API server and the operator front-end (whose tests now use `axa-test`). Two of its crates were renamed in 0.10 and are used under their new names: `axa-problem` is `axa-problem-details-for-http-apis` and `axa-ratelimit` is `axa-request-rate-limit`. The code is the same; nothing a client sees changes. The breaking changes of 0.8 to 0.10 are in parts of axa this server does not use (its outbox, job queue, idempotency keys and offset paging).
+
 ### Added
 
 - Suspected conditions on a referral (WPAS-1, spec 20, FR-207 to FR-216). A referral can record that a named clinician suspects cancer, obstructive sleep apnoea, diabetes, cardiovascular disease, Parkinson's or Alzheimer's, from a point of suspicion. The wait counts in whole days from that point and never pauses; the clock stops once, for treatment started, downgraded, died or entered in error. Cancer carries a tumour site from the Welsh primary cancer site list and the Suspected Cancer Pathway's 62-day target; the other conditions have no target until a lead names one. `GET /api/suspicions` lists the open ones longest first, `GET /api/suspicions/report` gives the share within target, and a patient's own cancel by reply on a suspected-cancer pathway is held for a person. The rules are a draft for sign-off (WPAS-1a).

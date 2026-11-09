@@ -553,7 +553,7 @@ async fn build_app(cfg: &Config, state: AppState) -> Result<axum::Router> {
         Err(e) => return Err(Error::Config(e)),
     }
 
-    // The limit per client and the lockout after repeated 401s (axa-ratelimit), outside authentication so
+    // The limit per client and the lockout after repeated 401s (axa-request-rate-limit), outside authentication so
     // that token guessing is slowed and the lockout sees its 401s, and inside the request telemetry so that
     // a 429 is logged. `0` turns either off.
     tracing::info!(

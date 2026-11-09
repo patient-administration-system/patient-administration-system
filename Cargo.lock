@@ -226,17 +226,16 @@ dependencies = [
 
 [[package]]
 name = "axa"
-version = "0.7.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7f321d0968f2ca45ddc6d0a6f2d48f2682f9d680ba2a50c3b7a69f28444a41f"
+checksum = "749003a8ad036a3290cfa8ba199784bb6cc3cb981dbafaa40aced8cefeb0d48f"
 dependencies = [
  "async-trait",
  "axa-environment",
- "axa-problem",
+ "axa-problem-details-for-http-apis",
  "axa-sqlx",
  "axa-tracing",
  "axum",
- "axum-test",
  "clap",
  "hyper",
  "hyper-util",
@@ -271,10 +270,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aeb36293430bafb06d1e29f5e213623d127444cdd234003b413a46207c03bbd3"
 
 [[package]]
-name = "axa-problem"
+name = "axa-problem-details-for-http-apis"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb39b7bacf93de6ee4fc19e1816be36cb9b43db4cb75d9f9cb85560130c01025"
+checksum = "5f38120df3cab7c23d904781dab36f2b11b6167b260eaf9b89284539e32f759f"
 dependencies = [
  "axum",
  "serde",
@@ -282,12 +281,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "axa-ratelimit"
+name = "axa-request-rate-limit"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "491a6eb3b9e613d12da6df0eea115ded93cdddf42f16157e272663a75bfbfab6"
+checksum = "b21a6d7122840293b59a2eabd62e92865a6945e4dfa8101996deb41d203ab04c"
 dependencies = [
- "axa-problem",
+ "axa-problem-details-for-http-apis",
  "axum",
  "serde_json",
  "tracing",
@@ -300,6 +299,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9cd2ea55e649597a7b8ad96ba4801500887a9eca630fd32b4d36c820a54c3028"
 dependencies = [
  "sqlx",
+]
+
+[[package]]
+name = "axa-test"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4d675f10aa4fdfa3ae28b903c5eb0173026afbc247992b348dc9ec539981000"
+dependencies = [
+ "axa",
+ "axum-test",
 ]
 
 [[package]]
@@ -2612,8 +2621,8 @@ dependencies = [
  "axa",
  "axa-cursor-pagination",
  "axa-environment",
- "axa-problem",
- "axa-ratelimit",
+ "axa-problem-details-for-http-apis",
+ "axa-request-rate-limit",
  "axa-sqlx",
  "axum",
  "base64 0.23.1",
@@ -2657,6 +2666,7 @@ name = "patient-administration-system-frontend"
 version = "0.2.0"
 dependencies = [
  "axa",
+ "axa-test",
  "axum",
  "axum-extra",
  "chrono",

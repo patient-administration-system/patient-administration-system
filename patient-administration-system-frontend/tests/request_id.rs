@@ -5,8 +5,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use axa::testing::prelude::*;
 use axa::{AppContext, Environment, Result};
+use axa_test::prelude::*;
 use axum::{Router, middleware::from_fn, routing::get};
 use patient_administration_system_frontend::app::App as Service;
 use patient_administration_system_frontend::models::patient::names_for;

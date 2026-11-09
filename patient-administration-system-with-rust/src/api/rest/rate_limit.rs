@@ -1,4 +1,4 @@
-//! Request limits per client, and a lockout after repeated `401`s, with `axa-ratelimit`.
+//! Request limits per client, and a lockout after repeated `401`s, with `axa-request-rate-limit`.
 //!
 //! - **The limit:** `PAS_RATE_LIMIT_RPM` requests per client address in each fixed minute (`0` leaves it
 //!   out). A client can send up to twice that across the end of a minute, and there is no separate burst.
@@ -12,7 +12,7 @@
 //! headers. `/api/health` is never counted by the limit.
 //!
 //! **The client** is the peer address of the connection, which [`client_address`] copies from
-//! `ConnectInfo` to where `axa-ratelimit` reads it. `X-Forwarded-For` is never read, because a caller
+//! `ConnectInfo` to where `axa-request-rate-limit` reads it. `X-Forwarded-For` is never read, because a caller
 //! writes it. Behind a proxy every request comes from the proxy, and all clients share one limit. A
 //! request with no address (a test driving the router directly) shares one limit with every other such
 //! request. An address is held only as a keyed hash, and IPv6 counts by its `/64`.
@@ -23,7 +23,7 @@
 use std::net::{IpAddr, SocketAddr};
 use std::num::NonZeroU32;
 
-use axa_ratelimit::{Limiter, by_key, client_key, lock_out_failures};
+use axa_request_rate_limit::{Limiter, by_key, client_key, lock_out_failures};
 use axum::Router;
 use axum::extract::{ConnectInfo, Request};
 use axum::middleware::{Next, from_fn, from_fn_with_state};
@@ -54,7 +54,7 @@ impl RateLimits {
     }
 }
 
-/// Put the connection's peer address where `axa-ratelimit` reads it: a plain [`IpAddr`] request extension,
+/// Put the connection's peer address where `axa-request-rate-limit` reads it: a plain [`IpAddr`] request extension,
 /// as `axa`'s own stack resolves it. A request with no `ConnectInfo` is left without one.
 pub async fn client_address(mut request: Request, next: Next) -> Response {
     if let Some(ConnectInfo(peer)) = request

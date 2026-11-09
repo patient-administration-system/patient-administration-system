@@ -5,8 +5,8 @@
 //! expected markup (or JSON shape). `#[ignore]`d like the PAS Axum
 //! integration tests: run with `DATABASE_URL=… cargo test -- --ignored`.
 
-use axa::testing::prelude::*;
 use axa::{Environment, Result, cli::Cli};
+use axa_test::prelude::*;
 use clap::Parser;
 use patient_administration_system_frontend::app::App as Service;
 use serial_test::serial;
