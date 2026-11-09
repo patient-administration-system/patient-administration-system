@@ -2,6 +2,8 @@
 name = "patient-administration-system-frontend"
 version = "0.2.0"
 edition = "2024"
+# MSRV: two releases behind the pinned toolchain (rust-toolchain.toml); `cargo +1.97 check` proves it.
+rust-version = "1.97"
 authors = ["joel@joelparkerhenderson.com"]
 description = "Axum and axa front-end for the Patient Administration System (PAS). Tera templates + HTMX live-refresh + Lily Design System markup. Patient reads delegate to person-service (v0.2.0); PAS-owned reads share the PAS PostgreSQL database via sqlx; writes go through the PAS Axum API server."
 license = "MIT OR Apache-2.0"

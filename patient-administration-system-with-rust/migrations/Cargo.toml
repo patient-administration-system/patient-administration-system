@@ -2,6 +2,8 @@
 name = "patient-administration-system-migrations"
 version = "0.3.0"
 edition = "2024"
+# MSRV: two releases behind the pinned toolchain (rust-toolchain.toml); `cargo +1.97 check` proves it.
+rust-version = "1.97"
 authors = ["joel@joelparkerhenderson.com"]
 description = "Database migrations (SQL files, sqlx) for the Patient Administration System, with the pas-migrate command"
 license = "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only"

@@ -30,7 +30,7 @@ The PAS owns the administrative *who, when, where, what visit type, what bed, wh
 
 ### Prerequisites
 
-- Rust 1.99.1, the version pinned in `rust-toolchain.toml` (the 2024 edition and let-chains need at least 1.88)
+- Rust 1.99.1, the version pinned in `rust-toolchain.toml`. The crates declare `rust-version = "1.97"` (two releases behind) and build with it
 - PostgreSQL 18+
 - Podman (optional, recommended for local Postgres)
 
@@ -94,7 +94,7 @@ A summary. `Cargo.toml` is the source of truth.
 
 | Component            | Technology                                  | Purpose                                  |
 | -------------------- | ------------------------------------------- | ---------------------------------------- |
-| **Language**         | Rust 1.99.1 (pinned in `rust-toolchain.toml`), 2024 Edition                    | Systems programming, performance, safety |
+| **Language**         | Rust 1.99.1 (pinned in `rust-toolchain.toml`; MSRV 1.97), 2024 Edition         | Systems programming, performance, safety |
 | **Async Runtime**    | Tokio (`full`)                              | Asynchronous I/O and concurrency         |
 | **Web Framework**    | Axum 0.8 (`macros`)                         | HTTP server and routing                  |
 | **HTTP middleware**  | tower (`util`), tower-http (`cors`, `trace`, `compression-full`, `request-id`) | CORS / trace / compression / request id |
