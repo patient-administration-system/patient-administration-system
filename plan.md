@@ -365,3 +365,15 @@ Asked for again 2026-11-06 (SQLX-1). Measured from the tree: 253 files use `sea_
 
 **Limits.** The counts are text searches. Effort is not estimated from a trial: no stage has been tried, and stage 3 is the largest and the most likely to find surprises. SQLX-1 was deleted from the queue on 2026-11-06 with no reason recorded, and restored the same day when it was asked for again.
 
+## 18. Welsh PAS (WPAS, Digital Health and Care Wales): research and advice 2026-11-09
+
+Source: <https://dhcw.nhs.wales/staff-resources/business-change/links/welshpas-elearning-resources/> and public NHS Wales material. Full comparison: [`spec/compare/nhs-wales-dhcw-pas/index.md`](spec/compare/nhs-wales-dhcw-pas/index.md). Tasks: `WPAS-1` to `WPAS-7`.
+
+- **What it is.** The national PAS for Wales: identity, outpatients, letters, waiting lists, inpatients, emergency attendances, maternity and cancer tracking, linked to the national Master Patient Index and other national systems.
+- **Limit.** The page's nine e-learning items sit behind an NHS Wales sign-in; we read their titles and the release 20.1 summary, not their content. Ask a WPAS user before building any of this.
+- **The big gap: cancer pathway tracking.** The Single Cancer Pathway clock starts at the point of suspicion, stops at first definitive treatment, targets 75% within 62 days, and since December 2020 has no adjustments. Our RTT clock starts at referral and pauses, so cancer waits cannot be a flag on RTT; they need their own clock (WPAS-1), and the rules need checking and signing off first (WPAS-1a).
+- **Smaller views we lack:** patient enquiry, one page for everything the PAS knows about a patient (WPAS-3); an admitted-patient overview by ward (WPAS-4); a staff home page by role (WPAS-5).
+- **Not adopted:** the maternity data items are clinical (WPAS-7). An ED discharge letter's content is clinical; sending it could be ours if asked (WPAS-6).
+- **Credibility in Wales** needs the Welsh translation reviewed by a first-language speaker (already tracked).
+- **Order.** WPAS-1a, then WPAS-1 and WPAS-2; WPAS-3; WPAS-4 and WPAS-5 when a clerk asks; WPAS-6 only on request.
+
