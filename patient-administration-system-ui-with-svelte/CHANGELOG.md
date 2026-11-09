@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+- A home page for staff (WPAS-5, FR-219), where staff now land: a tile for each area their role may use, and how many suspected conditions are past their target.
+- `/suspicions`: open suspected conditions, longest wait first, filtered by condition, with the tumour site and the target (WPAS-1).
+- `/enquiry?patient=`: everything the PAS holds for one patient (WPAS-3). The PAS records the read.
+- `/wards?ward=`: each bed of a ward and who is in it (WPAS-4).
+- The 68 new strings are first drafts in every locale but English.
+
 ### Changed
 - The request bodies the server side sends to the PAS API are typed from the API contract, so a misspelt or missing field fails `pnpm run check`. A cancelling patient's reason must be one of the PAS's barrier codes (QUAL-15).
 - Every server-side call to the PAS API carries the page request's `X-Request-Id`, so a failing page can be followed into the API's logs, and every response says it. An incoming id is kept when it is a safe shape (letters, digits, `.`, `_` and `-`, at most 128) and replaced with a new one otherwise.

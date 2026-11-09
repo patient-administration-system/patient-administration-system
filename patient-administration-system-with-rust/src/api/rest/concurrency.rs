@@ -12,7 +12,7 @@
 //!
 //! A record's version is its `updated_at`, to the microsecond (the precision the database keeps). A single
 //! record in a response from `/api/appointments/`, `/api/waitlist/`, `/api/admissions/`, `/api/encounters/`,
-//! `/api/beds/` or `/api/slots/` carries it as `ETag: "<updated_at>"`. A write sends it back as `If-Match`:
+//! `/api/beds/`, `/api/slots/` or `/api/suspicions/` carries it as `ETag: "<updated_at>"`. A write sends it back as `If-Match`:
 //!
 //! - absent: `428 PRECONDITION_REQUIRED`, nothing changed;
 //! - `*`: any version (a caller that does not care says so; inbound HL7 v2 and FHIR writes are treated so);
@@ -134,6 +134,7 @@ fn versioned_id(path: &str) -> Option<&str> {
         "/api/coverages/",
         "/api/letter-templates/",
         "/api/standby/",
+        "/api/suspicions/",
     ]
     .iter()
     .find_map(|p| path.strip_prefix(p))

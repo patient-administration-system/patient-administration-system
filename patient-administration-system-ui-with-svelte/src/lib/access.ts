@@ -36,6 +36,7 @@ export interface NavItem {
 export function navFor(p: Principal | null | undefined): NavItem[] {
   if (isStaff(p)) {
     const items: NavItem[] = [
+      { href: "/home", key: "nav.home" },
       { href: "/appointments", key: "nav.appointments" },
       { href: "/waitlist", key: "nav.waitlist" },
       { href: "/schedule", key: "nav.schedule" },
@@ -43,6 +44,8 @@ export function navFor(p: Principal | null | undefined): NavItem[] {
       { href: "/history", key: "nav.history" },
       { href: "/waits", key: "nav.waits" },
       { href: "/tolerances", key: "nav.tolerances" },
+      { href: "/suspicions", key: "nav.suspicions" },
+      { href: "/wards", key: "nav.wards" },
     ];
     if (isAdmin(p)) items.push({ href: "/admin/reminders", key: "nav.reminders" });
     return items;

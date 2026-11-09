@@ -17,8 +17,17 @@ const PROPER = [
   "calendar.exportExcel",
 ];
 const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
-  "cy-001": [...PROPER, "calendar.agenda", "tol.col.ward", "tol.scope.ward", "adjustment.braille"],
+  "cy-001": [
+    "condition.diabetes",
+    "tumour.05",
+    ...PROPER,
+    "calendar.agenda",
+    "tol.col.ward",
+    "tol.scope.ward",
+    "adjustment.braille",
+  ],
   "de-001": [
+    "condition.diabetes",
     ...PROPER,
     "col.status",
     "col.name",
@@ -30,6 +39,7 @@ const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
     "adjustment.braille",
   ],
   "de-de": [
+    "condition.diabetes",
     ...PROPER,
     "col.status",
     "col.name",
@@ -40,8 +50,9 @@ const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
     "tol.col.status",
     "adjustment.braille",
   ],
-  "es-001": [...PROPER, "error.title", "calendar.agenda", "adjustment.braille"],
+  "es-001": ["condition.diabetes", "tumour.05", ...PROPER, "error.title", "calendar.agenda", "adjustment.braille"],
   "fr-001": [
+    "condition.cancer",
     ...PROPER,
     "nav.patients",
     "col.date",

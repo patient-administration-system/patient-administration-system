@@ -35,6 +35,7 @@ How it is kept honest: `tests/qual40_national_assumptions_test.rs` counts nation
 | 11 | Compliance documents and wording are **UK**: DTAC, DCB0129, UK GDPR, PECR, DSPT; the consent model says GDPR/HIPAA. | `governance/`, `communication/consent.rs`, `models/consent.rs` | A regime map (GDPR, UK GDPR, HIPAA, PIPEDA, LGPD, POPIA, PDPA and others) naming which controls each satisfies; marketing-consent rules a configured regime, not PECR in the code. | Open |
 | 12 | The seed and the examples use UK and US names (`NHS England`, `Medicare`, `Aetna`) as illustrations. | comments and fixtures | Mixed examples from several regions. Cosmetic. | Open, low |
 | 13 | Languages: eight, all AI drafts, none for several of the world's largest. | `spec/locales.md` | A process to add a locale, and a rule that a region's language is not second to a UK or US one. | Open |
+| 14 | Suspected conditions (WPAS-1, spec 20): the **tumour site list is the Welsh "Primary Cancer Site Description"** (15 codes), and the **only target is the Welsh Suspected Cancer Pathway's 62 days**, both in code. | `suspicions/mod.rs` (`TumourSite`, `target_days`), migration 58 (`CHECK`) | A profile per country: its site list (or ICD-O topography) and its targets per condition, loaded by the operator; the clock rule (from the point of suspicion, no pauses) stays core | Open (WPAS-8) |
 
 ## Not looked at (so not cleared)
 

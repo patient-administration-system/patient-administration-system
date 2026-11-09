@@ -303,3 +303,32 @@ export const offerLinkAct = (f: FetchFn, token: string, action: "accept" | "decl
     method: "POST",
     body: {},
   });
+
+// ---- Suspected conditions, patient enquiry and the ward overview (WPAS-1, WPAS-3, WPAS-4) ----
+
+export type Suspicion = Schemas["Suspicion"];
+export type SuspectedCondition = Schemas["SuspectedCondition"];
+export const SUSPECTED_CONDITIONS: readonly SuspectedCondition[] = [
+  "cancer",
+  "obstructive_sleep_apnoea",
+  "diabetes",
+  "cardiovascular_disease",
+  "parkinsons_disease",
+  "alzheimers_disease",
+];
+
+/** Open suspected conditions, longest wait first, optionally of one condition. */
+export const openSuspicions = (f: FetchFn, condition: SuspectedCondition | null, cursor?: string | null) =>
+  pasPage<Suspicion>(f, condition ? `/api/suspicions?condition=${condition}` : "/api/suspicions", cursor);
+
+export type Enquiry = Schemas["Enquiry"];
+
+/** Everything the PAS holds for one person. The PAS audits the read. */
+export const patientEnquiry = (f: FetchFn, personId: string) =>
+  pas<Enquiry>(f, `/api/patients/${encodeURIComponent(personId)}/enquiry`);
+
+export type WardOverview = Schemas["WardOverview"];
+
+/** Every bed of a ward and who is in it. */
+export const wardOverview = (f: FetchFn, wardId: string) =>
+  pas<WardOverview>(f, `/api/wards/${encodeURIComponent(wardId)}/overview`);

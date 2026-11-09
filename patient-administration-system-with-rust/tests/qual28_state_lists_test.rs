@@ -14,7 +14,7 @@ use std::collections::BTreeSet;
 use patient_administration_system::{
     clinic_templates, clinical_priority, communication, contact, follow_up, identity, inbound,
     interpreter, list_validation, pifu, proxy, receipts, referrals, standby, subscriptions,
-    support, transport, triage, waits,
+    support, suspicions, transport, triage, waits,
 };
 
 /// The quoted values in a CHECK constraint, e.g. `status = ANY (ARRAY['a'::text, 'b'::text])` gives {a, b}.
@@ -92,6 +92,18 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ),
         ("slot_releases_status_check", standby::ReleaseStatus::STORED),
         ("inbound_texts_outcome_check", inbound::TextOutcome::NAMES),
+        (
+            "suspected_conditions_condition_check",
+            suspicions::SuspectedCondition::NAMES,
+        ),
+        (
+            "suspected_conditions_tumour_site_check",
+            suspicions::TumourSite::NAMES,
+        ),
+        (
+            "suspected_conditions_stop_reason_check",
+            suspicions::StopReason::NAMES,
+        ),
         (
             "transport_bookings_status_check",
             transport::BookingStatus::NAMES,

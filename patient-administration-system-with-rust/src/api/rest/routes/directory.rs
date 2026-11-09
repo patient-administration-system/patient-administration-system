@@ -123,6 +123,7 @@ pub(super) fn people() -> Router<AppState> {
             "/api/patients/{id}/contact-log",
             get(handlers_history::contact_log),
         )
+        .route("/api/patients/{id}/enquiry", get(handlers_enquiry::enquiry))
         .route(
             "/api/patients/{id}/waits",
             get(handlers_waits::patient_waits),

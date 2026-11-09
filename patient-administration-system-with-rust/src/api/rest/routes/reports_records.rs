@@ -155,6 +155,10 @@ pub(super) fn records() -> Router<AppState> {
     Router::new()
         // Resources — ward occupancy + bed reads + bed status change.
         .route(
+            "/api/wards/{id}/overview",
+            get(handlers_resources::ward_overview),
+        )
+        .route(
             "/api/wards/{id}/occupancy",
             get(handlers_resources::ward_occupancy),
         )

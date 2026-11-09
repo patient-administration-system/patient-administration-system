@@ -612,6 +612,108 @@ http
       acts.push({ token: url.pathname.split("/")[3] ?? "", action: "still-needed-asked" });
       return res.end(envelope<S["Asked"]>({ id: "99999999-9999-9999-9999-999999999999" }));
     }
+    // WPAS-1, WPAS-3, WPAS-4: suspected conditions, patient enquiry and the ward overview.
+    if (url.pathname === "/api/suspicions") {
+      const all: S["Suspicion"][] = [
+        {
+          id: "51515151-5151-4515-8515-515151515151",
+          referral_id: "52525252-5252-4525-8525-525252525252",
+          person_id: PATIENT,
+          condition: "cancer",
+          tumour_site: "04",
+          unique_pathway_identifier: null,
+          suspected_on: "2026-01-02",
+          suspected_by: "Dr Rhian Evans",
+          recorded_by: "Gareth Jones",
+          recorded_at: STAMP,
+          stop_reason: null,
+          stopped_on: null,
+          stopped_by: null,
+          days_waited: 70,
+          target_days: 62,
+          target_status: "past",
+          updated_at: STAMP,
+        },
+        {
+          id: "53535353-5353-4535-8535-535353535353",
+          referral_id: "54545454-5454-4545-8545-545454545454",
+          person_id: PATIENT,
+          condition: "obstructive_sleep_apnoea",
+          tumour_site: null,
+          unique_pathway_identifier: null,
+          suspected_on: "2026-02-01",
+          suspected_by: "Dr Rhian Evans",
+          recorded_by: "Gareth Jones",
+          recorded_at: STAMP,
+          stop_reason: null,
+          stopped_on: null,
+          stopped_by: null,
+          days_waited: 40,
+          target_days: null,
+          target_status: "no_target",
+          updated_at: STAMP,
+        },
+      ];
+      const c = url.searchParams.get("condition");
+      return res.end(paged<S["Suspicion"][]>(c ? all.filter((x) => x.condition === c) : all, url));
+    }
+    if (/^\/api\/patients\/[0-9a-f-]+\/enquiry$/.test(url.pathname)) {
+      return res.end(
+        envelope<S["Enquiry"]>({
+          person_id: url.pathname.split("/")[3] ?? PATIENT,
+          appointments: [],
+          waitlist_entries: [],
+          rtt_pathways: [],
+          referrals: [],
+          suspected_conditions: [],
+          admissions: [],
+          letters: [],
+        }),
+      );
+    }
+    if (/^\/api\/wards\/[0-9a-f-]+\/overview$/.test(url.pathname)) {
+      const ward = url.pathname.split("/")[3] ?? "";
+      return res.end(
+        envelope<S["WardOverview"]>({
+          ward_id: ward,
+          occupancy: {
+            ward_id: ward,
+            total_beds: 2,
+            available: 1,
+            occupied: 1,
+            cleaning: 0,
+            reserved: 0,
+            out_of_service: 0,
+          },
+          beds: [
+            {
+              bed_id: "55555555-5555-4555-8555-555555555555",
+              bed: "B1",
+              room: "R1",
+              status: "occupied",
+              person_id: PATIENT,
+              encounter_id: "56565656-5656-4565-8565-565656565656",
+              admission_id: "57575757-5757-4575-8575-575757575757",
+              in_bed_since: STAMP,
+              admitted_at: STAMP,
+              days_in_hospital: 3,
+            },
+            {
+              bed_id: "58585858-5858-4585-8585-585858585858",
+              bed: "B2",
+              room: "R1",
+              status: "available",
+              person_id: null,
+              encounter_id: null,
+              admission_id: null,
+              in_bed_since: null,
+              admitted_at: null,
+              days_in_hospital: null,
+            },
+          ],
+        }),
+      );
+    }
     if (url.pathname === "/api/waitlist") {
       return res.end(
         envelope<S["WaitlistEntry"][]>([

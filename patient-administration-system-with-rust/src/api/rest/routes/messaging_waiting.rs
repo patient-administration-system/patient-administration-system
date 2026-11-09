@@ -117,6 +117,15 @@ pub(super) fn messaging() -> Router<AppState> {
 /// Waiting lists, RTT, standby, released slots, referrals and long waits.
 pub(super) fn waiting() -> Router<AppState> {
     Router::new()
+        // Suspected conditions on a referral (WPAS-1, spec 20).
+        .route(
+            "/api/referrals/{id}/suspicions",
+            post(handlers_suspicions::record).get(handlers_suspicions::for_referral),
+        )
+        .route("/api/suspicions", get(handlers_suspicions::open))
+        .route("/api/suspicions/report", get(handlers_suspicions::report))
+        .route("/api/suspicions/{id}", get(handlers_suspicions::get))
+        .route("/api/suspicions/{id}/stop", post(handlers_suspicions::stop))
         .route(
             "/api/waitlist/{id}/clinical-priority",
             put(handlers_clinical_priority::set_priority),

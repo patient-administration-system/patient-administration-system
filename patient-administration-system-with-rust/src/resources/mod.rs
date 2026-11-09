@@ -25,6 +25,37 @@ pub struct WardOccupancy {
     pub out_of_service: usize,
 }
 
+/// One bed on the ward overview (WPAS-4, FR-218). Nothing clinical: who, where, since when.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct BedLine {
+    pub bed_id: Uuid,
+    pub bed: String,
+    pub room: String,
+    pub status: BedStatus,
+    /// The person in the bed, if anyone is.
+    #[schema(required = true)]
+    pub person_id: Option<Uuid>,
+    #[schema(required = true)]
+    pub encounter_id: Option<Uuid>,
+    #[schema(required = true)]
+    pub admission_id: Option<Uuid>,
+    /// When the person was put in this bed.
+    #[schema(required = true)]
+    pub in_bed_since: Option<chrono::DateTime<chrono::Utc>>,
+    #[schema(required = true)]
+    pub admitted_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Whole days since admission, counted in the service's time zone.
+    #[schema(required = true)]
+    pub days_in_hospital: Option<i64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct WardOverview {
+    pub ward_id: Uuid,
+    pub occupancy: WardOccupancy,
+    pub beds: Vec<BedLine>,
+}
+
 pub struct ResourcesService {
     db: Pool,
     publisher: Arc<dyn EventPublisher>,
@@ -33,6 +64,57 @@ pub struct ResourcesService {
 impl ResourcesService {
     pub fn new(db: Pool, publisher: Arc<dyn EventPublisher>) -> Self {
         Self { db, publisher }
+    }
+
+    /// Every bed of a ward, by room and bed name, with who is in it (WPAS-4, FR-218).
+    pub async fn ward_overview(&self, ward_id: Uuid) -> Result<WardOverview> {
+        use crate::db::row::RowExt;
+        use crate::db::sql::{Conn, Stmt};
+        let occupancy = self.ward_occupancy(ward_id).await?;
+        let tz = crate::inbound::messages::timezone();
+        let today = chrono::Utc::now().with_timezone(&tz).date_naive();
+        let rows = self
+            .db
+            .all(Stmt::new(
+                "SELECT b.id AS bed_id, b.name AS bed, r.name AS room, b.status, e.person_id, ba.encounter_id, \
+                   a.id AS admission_id, ba.assigned_at, a.admitted_at \
+                 FROM beds b JOIN rooms r ON r.id = b.room_id \
+                 LEFT JOIN bed_assignments ba ON ba.bed_id = b.id AND ba.released_at IS NULL \
+                 LEFT JOIN encounters e ON e.id = ba.encounter_id \
+                 LEFT JOIN admissions a ON a.encounter_id = ba.encounter_id \
+                 WHERE r.ward_id = $1 ORDER BY r.name, b.name, b.id",
+                [ward_id.into()],
+            ))
+            .await?;
+        let beds = rows
+            .iter()
+            .map(|r| {
+                let admitted_at: Option<chrono::DateTime<chrono::Utc>> = r.col("admitted_at")?;
+                Ok(BedLine {
+                    bed_id: r.col("bed_id")?,
+                    bed: r.col("bed")?,
+                    room: r.col("room")?,
+                    status: crate::db::repositories::bed::bed_status_from_str(
+                        &r.col::<String>("status")?,
+                    )?,
+                    person_id: r.col("person_id")?,
+                    encounter_id: r.col("encounter_id")?,
+                    admission_id: r.col("admission_id")?,
+                    in_bed_since: r.col("assigned_at")?,
+                    admitted_at,
+                    days_in_hospital: admitted_at.map(|t| {
+                        (today - t.with_timezone(&tz).date_naive())
+                            .num_days()
+                            .max(0)
+                    }),
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(WardOverview {
+            ward_id,
+            occupancy,
+            beds,
+        })
     }
 
     pub async fn ward_occupancy(&self, ward_id: Uuid) -> Result<WardOccupancy> {

@@ -9,7 +9,8 @@ The generated contract is the OpenAPI document served at `/api-docs/openapi.json
 | `PUT /api/encounters/{id}/status`, `POST /api/encounters/{id}/cancel`; `PUT /api/beds/{id}/status`; `PUT /api/slots/{id}/capacity`, `/ring-fence` | `If-Match` required (FR-195, FR-199) |
 | `POST /api/admissions/pre-admit` | Optional `hold_minutes` (1 to 10080); the bed is given back when it lapses (FR-200) |
 | `GET /api/beds/{id}/occupancy-events` | What happened to a bed's hold: reserved, cancelled, expired; newest first, paged (FR-200) |
-| `GET /api/appointments/{id}`, `/api/waitlist/{id}`, `/api/admissions/{id}`, `/api/encounters/{id}`, `/api/beds/{id}`, `/api/slots/{id}` | One record, with its version as `ETag` (FR-199) |
+| `GET /api/appointments/{id}`, `/api/waitlist/{id}`, `/api/admissions/{id}`, `/api/encounters/{id}`, `/api/beds/{id}`, `/api/slots/{id}`, `/api/suspicions/{id}` | One record, with its version as `ETag` (FR-199) |
+| `POST /api/suspicions/{id}/stop` | `If-Match` required (FR-216) |
 | `DELETE /api/waitlist/{id}`, `POST /api/waitlist/{id}/book`, `PUT /api/waitlist/{id}/clinical-priority`, `PUT /api/waitlist/{id}/follow-up-target` | `If-Match` required (FR-195) |
 | `POST /api/admissions/{id}/transfer`, `/discharge`, `/cancel-admit`, `/cancel-discharge`, `/cancel-transfer`, `/change-to-outpatient`, `/leave-start`, `/leave-end` | `If-Match` required (FR-195) |
 | `GET /api/appointments?from&to` | Appointments starting in `[from, to)`, at most 366 days |
@@ -49,6 +50,21 @@ Routes use `{param}` syntax (axum 0.8).
 | In-place edits and state changes with no version, **not yet examined**: RTT pause, resume and stop (no read route returns a pathway's version; OFH-12) | **No: last writer wins** (patients and practitioners are separate: this service only proxies them to the person-service and worker-service, which own the record and would have to honour `If-Match` themselves) | Each refuses an illegal state change where it has a state machine, but none compares a version. Open: OFH-11 |
 
 HL7 v2 and FHIR writes that change an appointment's status without going through the routes above (`cancel_with`, for one) take no row lock either.
+## Suspected conditions, patient enquiry and the ward overview (WPAS-1 to WPAS-4, spec 20)
+
+| Route | What it does |
+|---|---|
+| `POST /api/referrals/{id}/suspicions` | Record a suspected condition on a referral: condition, point of suspicion, who suspected it, who recorded it; a tumour site for cancer (FR-207, FR-210) |
+| `GET /api/referrals/{id}/suspicions` | A referral's suspected conditions |
+| `GET /api/suspicions?condition&tumour_site` | The open list, longest wait first, with days waited and target status (FR-212); paged |
+| `GET /api/suspicions/{id}` | One suspected condition, with `ETag` |
+| `POST /api/suspicions/{id}/stop` | Stop its clock, once: `treatment_started`, `downgraded`, `died` or `entered_in_error` (FR-209, FR-216) |
+| `GET /api/suspicions/report?from&to` | Stopped in the period, per condition and tumour site, with the share within target and the median days (FR-213) |
+| `GET /api/patients/{id}/enquiry` | What the PAS holds for a person, read-audited as one access (FR-217) |
+| `GET /api/wards/{id}/overview` | Each bed of a ward and who is in it, since when (FR-218) |
+
+Events: `SuspicionRecorded` and `SuspicionStopped` (FR-215).
+
 ## Errors (FR-206)
 
 A refused or failed REST request answers with an RFC 9457 problem, built with `axa-problem`:

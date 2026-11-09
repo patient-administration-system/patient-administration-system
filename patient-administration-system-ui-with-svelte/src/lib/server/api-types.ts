@@ -2981,6 +2981,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/patients/{id}/enquiry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/patients/{id}/enquiry`: what the PAS holds for a person, from one route. Read-audited as one
+     *     access (NEW-9).
+     */
+    get: operations["get_api_patients__id__enquiry"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/patients/{id}/export": {
     parameters: {
       query?: never;
@@ -3665,6 +3685,24 @@ export interface paths {
      *     Needs `If-Match` with the referral's version, the `ETag` of `GET /api/referrals/{id}`: none is `428`, a stale one `412` (OFH-11).
      */
     post: operations["post_api_referrals__id__close"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/referrals/{id}/suspicions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** `GET /api/referrals/{id}/suspicions`: every suspicion on a referral, oldest point of suspicion first. */
+    get: operations["get_api_referrals__id__suspicions"];
+    put?: never;
+    /** `POST /api/referrals/{id}/suspicions`: record that a named clinician suspects a condition (FR-207). */
+    post: operations["post_api_referrals__id__suspicions"];
     delete?: never;
     options?: never;
     head?: never;
@@ -4403,6 +4441,80 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/suspicions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** `GET /api/suspicions?condition&tumour_site&limit`: the open list, longest wait first (FR-212). Paged. */
+    get: operations["get_api_suspicions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/suspicions/report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/suspicions/report?from&to`: suspicions whose clock stopped in the period, per condition and tumour
+     *     site, with the share within target (FR-213).
+     */
+    get: operations["get_api_suspicions_report"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/suspicions/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** `GET /api/suspicions/{id}`: one suspicion, with its version as `ETag`. */
+    get: operations["get_api_suspicions__id"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/suspicions/{id}/stop": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * `POST /api/suspicions/{id}/stop`: stop the clock, once, for one reason (FR-209).
+     *     Needs `If-Match` with the suspicion's version, the `ETag` of `GET /api/suspicions/{id}`: none is `428`, a stale one `412` (FR-216).
+     */
+    post: operations["post_api_suspicions__id__stop"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/tolerance-alerts": {
     parameters: {
       query?: never;
@@ -4965,6 +5077,23 @@ export interface paths {
     };
     /** `GET /api/wards/:id/occupancy` — counts of beds by status. */
     get: operations["get_api_wards__id__occupancy"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/wards/{id}/overview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** `GET /api/wards/{id}/overview`: every bed of the ward and who is in it, since when (WPAS-4, FR-218). */
+    get: operations["get_api_wards__id__overview"];
     put?: never;
     post?: never;
     delete?: never;
@@ -6378,6 +6507,25 @@ export interface components {
      * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
      *     an RFC 9457 problem: see [`problem`].
      */
+    ApiResponse_Enquiry: {
+      data?: {
+        admissions: components["schemas"]["Admission"][];
+        appointments: components["schemas"]["Appointment"][];
+        letters: components["schemas"]["LetterSummary"][];
+        /** Format: uuid */
+        person_id: string;
+        referrals: components["schemas"]["Referral"][];
+        rtt_pathways: components["schemas"]["RTTPathway"][];
+        suspected_conditions: components["schemas"]["Suspicion"][];
+        waitlist_entries: components["schemas"]["WaitlistEntry"][];
+      };
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
     ApiResponse_Evaluation: {
       data?: {
         calibration: components["schemas"]["CalibrationCell"][];
@@ -7404,6 +7552,67 @@ export interface components {
      * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
      *     an RFC 9457 problem: see [`problem`].
      */
+    ApiResponse_Suspicion: {
+      data?: {
+        condition: components["schemas"]["SuspectedCondition"];
+        /**
+         * Format: int64
+         * @description Whole days from the point of suspicion to the stop date, or to today while open. Never paused.
+         */
+        days_waited: number;
+        /** Format: uuid */
+        id: string;
+        /** Format: uuid */
+        person_id: string;
+        /** Format: date-time */
+        recorded_at: string;
+        recorded_by: string;
+        /** Format: uuid */
+        referral_id: string;
+        stop_reason: components["schemas"]["StopReason"] | null;
+        stopped_by: string | null;
+        /** Format: date */
+        stopped_on: string | null;
+        /** @description The clinician who suspected it. */
+        suspected_by: string;
+        /**
+         * Format: date
+         * @description The point of suspicion: the clock's start.
+         */
+        suspected_on: string;
+        /**
+         * Format: int64
+         * @description The published target in days, or none (FR-211).
+         */
+        target_days: number | null;
+        target_status: components["schemas"]["TargetStatus"];
+        tumour_site: components["schemas"]["TumourSite"] | null;
+        unique_pathway_identifier: string | null;
+        /** Format: date-time */
+        updated_at: string;
+      };
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
+    ApiResponse_SuspicionReport: {
+      data?: {
+        /** Format: date */
+        from: string;
+        rows: components["schemas"]["ReportRow"][];
+        /** Format: date */
+        to: string;
+      };
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
     ApiResponse_TemplateCreated: {
       /** @description The template that was started. */
       data?: {
@@ -8395,6 +8604,52 @@ export interface components {
      * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
      *     an RFC 9457 problem: see [`problem`].
      */
+    ApiResponse_Vec_Suspicion: {
+      data?: {
+        condition: components["schemas"]["SuspectedCondition"];
+        /**
+         * Format: int64
+         * @description Whole days from the point of suspicion to the stop date, or to today while open. Never paused.
+         */
+        days_waited: number;
+        /** Format: uuid */
+        id: string;
+        /** Format: uuid */
+        person_id: string;
+        /** Format: date-time */
+        recorded_at: string;
+        recorded_by: string;
+        /** Format: uuid */
+        referral_id: string;
+        stop_reason: components["schemas"]["StopReason"] | null;
+        stopped_by: string | null;
+        /** Format: date */
+        stopped_on: string | null;
+        /** @description The clinician who suspected it. */
+        suspected_by: string;
+        /**
+         * Format: date
+         * @description The point of suspicion: the clock's start.
+         */
+        suspected_on: string;
+        /**
+         * Format: int64
+         * @description The published target in days, or none (FR-211).
+         */
+        target_days: number | null;
+        target_status: components["schemas"]["TargetStatus"];
+        tumour_site: components["schemas"]["TumourSite"] | null;
+        unique_pathway_identifier: string | null;
+        /** Format: date-time */
+        updated_at: string;
+      }[];
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
     ApiResponse_Vec_Task: {
       data?: {
         /** Format: uuid */
@@ -8809,6 +9064,20 @@ export interface components {
         out_of_service: number;
         reserved: number;
         total_beds: number;
+        /** Format: uuid */
+        ward_id: string;
+      };
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
+    ApiResponse_WardOverview: {
+      data?: {
+        beds: components["schemas"]["BedLine"][];
+        occupancy: components["schemas"]["WardOccupancy"];
         /** Format: uuid */
         ward_id: string;
       };
@@ -9247,6 +9516,35 @@ export interface components {
       released_at: string | null;
       /** Format: date-time */
       updated_at: string;
+    };
+    /** @description One bed on the ward overview (WPAS-4, FR-218). Nothing clinical: who, where, since when. */
+    BedLine: {
+      /** Format: uuid */
+      admission_id: string | null;
+      /** Format: date-time */
+      admitted_at: string | null;
+      bed: string;
+      /** Format: uuid */
+      bed_id: string;
+      /**
+       * Format: int64
+       * @description Whole days since admission, counted in the service's time zone.
+       */
+      days_in_hospital: number | null;
+      /** Format: uuid */
+      encounter_id: string | null;
+      /**
+       * Format: date-time
+       * @description When the person was put in this bed.
+       */
+      in_bed_since: string | null;
+      /**
+       * Format: uuid
+       * @description The person in the bed, if anyone is.
+       */
+      person_id: string | null;
+      room: string;
+      status: components["schemas"]["BedStatus"];
     };
     /**
      * @description Bed status enum. Drives the bed-lifecycle state machine.
@@ -9787,6 +10085,17 @@ export interface components {
     EndBody: {
       ended_by: string;
     };
+    Enquiry: {
+      admissions: components["schemas"]["Admission"][];
+      appointments: components["schemas"]["Appointment"][];
+      letters: components["schemas"]["LetterSummary"][];
+      /** Format: uuid */
+      person_id: string;
+      referrals: components["schemas"]["Referral"][];
+      rtt_pathways: components["schemas"]["RTTPathway"][];
+      suspected_conditions: components["schemas"]["Suspicion"][];
+      waitlist_entries: components["schemas"]["WaitlistEntry"][];
+    };
     /**
      * @description Whether an episode is still open.
      * @enum {string}
@@ -10171,6 +10480,19 @@ export interface components {
     };
     /** @enum {string} */
     LetterStatus: "pending" | "sent" | "failed";
+    /** @description A letter without its words. */
+    LetterSummary: {
+      /** Format: uuid */
+      appointment_id: string | null;
+      channel: components["schemas"]["DeliveryChannel"];
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      sent_at: string | null;
+      status: components["schemas"]["LetterStatus"];
+    };
     LetterTemplate: {
       active: boolean;
       body_tera: string;
@@ -10319,6 +10641,16 @@ export interface components {
       language: string | null;
       /** Format: uuid */
       person_id: string;
+    };
+    /** @description What a person records: the condition, the point of suspicion and who suspected it. */
+    NewSuspicion: {
+      condition: components["schemas"]["SuspectedCondition"];
+      recorded_by: string;
+      suspected_by: string;
+      /** Format: date */
+      suspected_on: string;
+      tumour_site?: components["schemas"]["TumourSite"] | null;
+      unique_pathway_identifier?: string | null;
     };
     NhsNumberBody: {
       value: string;
@@ -11048,6 +11380,24 @@ export interface components {
     };
     /** @enum {string} */
     ReplyStatus: "applied" | "rejected";
+    /** @description One row of the report (FR-213): suspicions whose clock stopped in the period. */
+    ReportRow: {
+      condition: components["schemas"]["SuspectedCondition"];
+      /** Format: double */
+      median_days: number | null;
+      /** Format: double */
+      share_within_target: number | null;
+      /** Format: int64 */
+      stopped: number;
+      /** Format: int64 */
+      target_days: number | null;
+      tumour_site: components["schemas"]["TumourSite"] | null;
+      /**
+       * Format: int64
+       * @description None when the condition has no target.
+       */
+      within_target: number | null;
+    };
     RequestBody: {
       /** @description `staff`, `phone`, `text`, `reply_link` or `portal`. */
       channel: string;
@@ -11284,6 +11634,11 @@ export interface components {
     StopBody: {
       stopped_by: string;
     };
+    /**
+     * @description Why a suspicion's clock stopped. Any one stops it, and only one is recorded.
+     * @enum {string}
+     */
+    StopReason: "treatment_started" | "downgraded" | "died" | "entered_in_error";
     Subscription: {
       /** Format: date-time */
       created_at: string;
@@ -11331,12 +11686,73 @@ export interface components {
      * @enum {string}
      */
     SupportOutcome: "helped" | "no_answer" | "declined_help" | "not_needed";
+    /**
+     * @description The condition a referral is made on suspicion of (spec 20). Closed and coded: adding one is a migration.
+     * @enum {string}
+     */
+    SuspectedCondition:
+      | "cancer"
+      | "obstructive_sleep_apnoea"
+      | "diabetes"
+      | "cardiovascular_disease"
+      | "parkinsons_disease"
+      | "alzheimers_disease";
+    Suspicion: {
+      condition: components["schemas"]["SuspectedCondition"];
+      /**
+       * Format: int64
+       * @description Whole days from the point of suspicion to the stop date, or to today while open. Never paused.
+       */
+      days_waited: number;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      person_id: string;
+      /** Format: date-time */
+      recorded_at: string;
+      recorded_by: string;
+      /** Format: uuid */
+      referral_id: string;
+      stop_reason: components["schemas"]["StopReason"] | null;
+      stopped_by: string | null;
+      /** Format: date */
+      stopped_on: string | null;
+      /** @description The clinician who suspected it. */
+      suspected_by: string;
+      /**
+       * Format: date
+       * @description The point of suspicion: the clock's start.
+       */
+      suspected_on: string;
+      /**
+       * Format: int64
+       * @description The published target in days, or none (FR-211).
+       */
+      target_days: number | null;
+      target_status: components["schemas"]["TargetStatus"];
+      tumour_site: components["schemas"]["TumourSite"] | null;
+      unique_pathway_identifier: string | null;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    SuspicionReport: {
+      /** Format: date */
+      from: string;
+      rows: components["schemas"]["ReportRow"][];
+      /** Format: date */
+      to: string;
+    };
     TargetBody: {
       /** @description The person setting the target. */
       set_by: string;
       /** Format: date */
       target_date: string;
     };
+    /**
+     * @description Where a suspicion's wait stands against its target. Computed, never stored.
+     * @enum {string}
+     */
+    TargetStatus: "no_target" | "within" | "near" | "past";
     Task: {
       /** Format: uuid */
       appointment_id: string;
@@ -11461,6 +11877,12 @@ export interface components {
       system_version: string | null;
       triage_system: string;
     };
+    /**
+     * @description The primary cancer site, from the Welsh "Primary Cancer Site Description" list (NHS Wales Data
+     *     Dictionary, valid from 2021-01-01, last changed by DSCN 2023/45).
+     * @enum {string}
+     */
+    TumourSite: "01" | "02" | "03" | "04" | "05" | "06" | "07" | "08" | "09" | "10" | "11" | "12" | "13" | "14" | "98";
     TypeRow: {
       /** Format: int64 */
       free: number;
@@ -11563,6 +11985,12 @@ export interface components {
       out_of_service: number;
       reserved: number;
       total_beds: number;
+      /** Format: uuid */
+      ward_id: string;
+    };
+    WardOverview: {
+      beds: components["schemas"]["BedLine"][];
+      occupancy: components["schemas"]["WardOccupancy"];
       /** Format: uuid */
       ward_id: string;
     };
@@ -11727,6 +12155,15 @@ export interface components {
     "handlers_support.ResolveBody": {
       outcome: components["schemas"]["SupportOutcome"];
       resolved_by: string;
+    };
+    "handlers_suspicions.StopBody": {
+      reason: components["schemas"]["StopReason"];
+      stopped_by: string;
+      /**
+       * Format: date
+       * @description The date the clock stopped: the treatment start, the downgrade, or the death.
+       */
+      stopped_on: string;
     };
     "handlers_triage.TriageBody": {
       /**
@@ -18555,6 +18992,43 @@ export interface operations {
       };
     };
   };
+  get_api_patients__id__enquiry: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The person (a person-service id) */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Enquiry"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   get_api_patients__id__export: {
     parameters: {
       query?: never;
@@ -20324,6 +20798,84 @@ export interface operations {
       };
     };
   };
+  get_api_referrals__id__suspicions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The referral */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Suspicion"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_referrals__id__suspicions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The referral */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NewSuspicion"];
+      };
+    };
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Suspicion"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   post_api_referrals__id__triage: {
     parameters: {
       query?: never;
@@ -21962,6 +22514,170 @@ export interface operations {
       };
     };
   };
+  get_api_suspicions: {
+    parameters: {
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
+      header?: never;
+      path: {
+        /** @description Only this condition. */
+        condition: components["schemas"]["SuspectedCondition"] | null;
+        /** @description Only this tumour site (cancer). */
+        tumour_site: components["schemas"]["TumourSite"] | null;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_Suspicion"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_suspicions_report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description First stop date counted (inclusive). */
+        from: string;
+        /** @description Last stop date counted (inclusive). */
+        to: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_SuspicionReport"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_suspicions__id: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Suspicion"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_suspicions__id__stop: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["handlers_suspicions.StopBody"];
+      };
+    };
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Suspicion"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   get_api_tolerance_alerts: {
     parameters: {
       query?: {
@@ -23301,6 +24017,43 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponse_WardOccupancy"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_wards__id__overview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_WardOverview"];
         };
       };
       /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */

@@ -69,5 +69,11 @@ describe("navFor", () => {
     expect(navFor({ roles: ["staff"] }).some((n) => n.href === "/admin/reminders")).toBe(false);
     expect(navFor({ roles: ["staff", "admin"] }).some((n) => n.href === "/admin/reminders")).toBe(true);
   });
+  it("lands staff on their home page and lists the suspected-condition and ward pages (WPAS-5)", () => {
+    const staff = navFor({ roles: ["staff"] }).map((n) => n.href);
+    expect(staff[0]).toBe("/home");
+    expect(staff).toEqual(expect.arrayContaining(["/suspicions", "/wards"]));
+    expect(navFor({ roles: ["patient"] }).map((n) => n.href)).not.toContain("/home");
+  });
   it("shows nothing when signed out", () => expect(navFor(null)).toEqual([]));
 });

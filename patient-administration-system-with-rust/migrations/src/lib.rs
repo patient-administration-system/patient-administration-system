@@ -172,12 +172,12 @@ mod tests {
             .iter()
             .filter(|m| !m.migration_type.is_down_migration())
             .collect();
-        assert_eq!(ups.len(), 57);
+        assert_eq!(ups.len(), 58);
         let downs = MIGRATOR
             .iter()
             .filter(|m| m.migration_type.is_down_migration())
             .count();
-        assert_eq!(downs, 51);
+        assert_eq!(downs, 52);
         assert!(ups[..6].iter().all(|m| !m.migration_type.is_reversible()));
         assert!(ups[6..].iter().all(|m| m.migration_type.is_reversible()));
     }

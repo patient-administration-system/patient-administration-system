@@ -34,6 +34,10 @@ const STAFF_AND_ADMIN = [
   "/history",
   "/waits",
   "/tolerances",
+  "/home",
+  "/suspicions",
+  "/enquiry?patient=00000000-0000-0000-0000-000000000000",
+  "/wards?ward=77777777-7777-7777-7777-777777777777",
 ];
 
 async function audit(page: Page, path: string, locale = "en-001") {

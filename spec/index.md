@@ -25,6 +25,7 @@
 | 17 | [References](17-references.md) |
 | 18 | [Change control](18-change-control.md) |
 | 19 | [Schema map](19-schema-map.md) (generated) |
+| 20 | [Suspected conditions](20-suspected-conditions.md): tracking suspicion during referrals |
 
 Cross-cutting chapters: [Locales](locales.md). Safety: [Hazards, who may remove one and on what evidence](hazard/index.md).
 

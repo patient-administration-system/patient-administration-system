@@ -17,6 +17,10 @@ const STAFF_PAGES = [
   "/waits",
   "/tolerances",
   "/admin/reminders",
+  "/home",
+  "/suspicions",
+  "/enquiry?patient=00000000-0000-0000-0000-000000000000",
+  "/wards?ward=77777777-7777-7777-7777-777777777777",
 ];
 // Every page lives in one of these four lists; `tests/unit/error-page-coverage.test.ts` reads them and fails
 // on a page that is in none.

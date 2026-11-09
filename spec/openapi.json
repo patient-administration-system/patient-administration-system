@@ -2132,6 +2132,90 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Enquiry": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "properties": {
+              "admissions": {
+                "items": {
+                  "$ref": "#/components/schemas/Admission"
+                },
+                "type": "array"
+              },
+              "appointments": {
+                "items": {
+                  "$ref": "#/components/schemas/Appointment"
+                },
+                "type": "array"
+              },
+              "letters": {
+                "items": {
+                  "$ref": "#/components/schemas/LetterSummary"
+                },
+                "type": "array"
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "referrals": {
+                "items": {
+                  "$ref": "#/components/schemas/Referral"
+                },
+                "type": "array"
+              },
+              "rtt_pathways": {
+                "items": {
+                  "$ref": "#/components/schemas/RTTPathway"
+                },
+                "type": "array"
+              },
+              "suspected_conditions": {
+                "items": {
+                  "$ref": "#/components/schemas/Suspicion"
+                },
+                "type": "array"
+              },
+              "waitlist_entries": {
+                "items": {
+                  "$ref": "#/components/schemas/WaitlistEntry"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "person_id",
+              "appointments",
+              "waitlist_entries",
+              "rtt_pathways",
+              "referrals",
+              "suspected_conditions",
+              "admissions",
+              "letters"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Evaluation": {
         "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
         "properties": {
@@ -5087,6 +5171,191 @@
               "pending",
               "delivered",
               "failed"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Suspicion": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "properties": {
+              "condition": {
+                "$ref": "#/components/schemas/SuspectedCondition"
+              },
+              "days_waited": {
+                "description": "Whole days from the point of suspicion to the stop date, or to today while open. Never paused.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "person_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "recorded_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "recorded_by": {
+                "type": "string"
+              },
+              "referral_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "stop_reason": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/StopReason"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "stopped_by": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "stopped_on": {
+                "format": "date",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "suspected_by": {
+                "description": "The clinician who suspected it.",
+                "type": "string"
+              },
+              "suspected_on": {
+                "description": "The point of suspicion: the clock's start.",
+                "format": "date",
+                "type": "string"
+              },
+              "target_days": {
+                "description": "The published target in days, or none (FR-211).",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "target_status": {
+                "$ref": "#/components/schemas/TargetStatus"
+              },
+              "tumour_site": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TumourSite",
+                    "description": "Cancer only."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "unique_pathway_identifier": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "updated_at": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "referral_id",
+              "person_id",
+              "condition",
+              "tumour_site",
+              "unique_pathway_identifier",
+              "suspected_on",
+              "suspected_by",
+              "recorded_by",
+              "recorded_at",
+              "stop_reason",
+              "stopped_on",
+              "stopped_by",
+              "days_waited",
+              "target_days",
+              "target_status",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_SuspicionReport": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "properties": {
+              "from": {
+                "format": "date",
+                "type": "string"
+              },
+              "rows": {
+                "items": {
+                  "$ref": "#/components/schemas/ReportRow"
+                },
+                "type": "array"
+              },
+              "to": {
+                "format": "date",
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "rows"
             ],
             "type": "object"
           },
@@ -8173,6 +8442,147 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Vec_Suspicion": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "items": {
+              "properties": {
+                "condition": {
+                  "$ref": "#/components/schemas/SuspectedCondition"
+                },
+                "days_waited": {
+                  "description": "Whole days from the point of suspicion to the stop date, or to today while open. Never paused.",
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "recorded_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "recorded_by": {
+                  "type": "string"
+                },
+                "referral_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "stop_reason": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/StopReason"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "stopped_by": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "stopped_on": {
+                  "format": "date",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "suspected_by": {
+                  "description": "The clinician who suspected it.",
+                  "type": "string"
+                },
+                "suspected_on": {
+                  "description": "The point of suspicion: the clock's start.",
+                  "format": "date",
+                  "type": "string"
+                },
+                "target_days": {
+                  "description": "The published target in days, or none (FR-211).",
+                  "format": "int64",
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "target_status": {
+                  "$ref": "#/components/schemas/TargetStatus"
+                },
+                "tumour_site": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TumourSite",
+                      "description": "Cancer only."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "unique_pathway_identifier": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "updated_at": {
+                  "format": "date-time",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "referral_id",
+                "person_id",
+                "condition",
+                "tumour_site",
+                "unique_pathway_identifier",
+                "suspected_on",
+                "suspected_by",
+                "recorded_by",
+                "recorded_at",
+                "stop_reason",
+                "stopped_on",
+                "stopped_by",
+                "days_waited",
+                "target_days",
+                "target_status",
+                "updated_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Vec_Task": {
         "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
         "properties": {
@@ -9428,6 +9838,52 @@
               "cleaning",
               "reserved",
               "out_of_service"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_WardOverview": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "properties": {
+              "beds": {
+                "items": {
+                  "$ref": "#/components/schemas/BedLine"
+                },
+                "type": "array"
+              },
+              "occupancy": {
+                "$ref": "#/components/schemas/WardOccupancy"
+              },
+              "ward_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "ward_id",
+              "occupancy",
+              "beds"
             ],
             "type": "object"
           },
@@ -10727,6 +11183,82 @@
         ],
         "type": "object"
       },
+      "BedLine": {
+        "description": "One bed on the ward overview (WPAS-4, FR-218). Nothing clinical: who, where, since when.",
+        "properties": {
+          "admission_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "admitted_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bed": {
+            "type": "string"
+          },
+          "bed_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "days_in_hospital": {
+            "description": "Whole days since admission, counted in the service's time zone.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "encounter_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "in_bed_since": {
+            "description": "When the person was put in this bed.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "person_id": {
+            "description": "The person in the bed, if anyone is.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "room": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BedStatus"
+          }
+        },
+        "required": [
+          "bed_id",
+          "bed",
+          "room",
+          "status",
+          "person_id",
+          "encounter_id",
+          "admission_id",
+          "in_bed_since",
+          "admitted_at",
+          "days_in_hospital"
+        ],
+        "type": "object"
+      },
       "BedStatus": {
         "description": "Bed status enum. Drives the bed-lifecycle state machine.\n\nValid transitions:\n- Available → Occupied | Reserved | OutOfService\n- Occupied → Cleaning | OutOfService\n- Cleaning → Available | OutOfService\n- Reserved → Occupied | Available | OutOfService\n- OutOfService → Available",
         "enum": [
@@ -11996,6 +12528,67 @@
         ],
         "type": "object"
       },
+      "Enquiry": {
+        "properties": {
+          "admissions": {
+            "items": {
+              "$ref": "#/components/schemas/Admission"
+            },
+            "type": "array"
+          },
+          "appointments": {
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            },
+            "type": "array"
+          },
+          "letters": {
+            "items": {
+              "$ref": "#/components/schemas/LetterSummary"
+            },
+            "type": "array"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "referrals": {
+            "items": {
+              "$ref": "#/components/schemas/Referral"
+            },
+            "type": "array"
+          },
+          "rtt_pathways": {
+            "items": {
+              "$ref": "#/components/schemas/RTTPathway"
+            },
+            "type": "array"
+          },
+          "suspected_conditions": {
+            "items": {
+              "$ref": "#/components/schemas/Suspicion"
+            },
+            "type": "array"
+          },
+          "waitlist_entries": {
+            "items": {
+              "$ref": "#/components/schemas/WaitlistEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "person_id",
+          "appointments",
+          "waitlist_entries",
+          "rtt_pathways",
+          "referrals",
+          "suspected_conditions",
+          "admissions",
+          "letters"
+        ],
+        "type": "object"
+      },
       "EpisodeStatus": {
         "description": "Whether an episode is still open.",
         "enum": [
@@ -13036,6 +13629,48 @@
         ],
         "type": "string"
       },
+      "LetterSummary": {
+        "description": "A letter without its words.",
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "channel": {
+            "$ref": "#/components/schemas/DeliveryChannel"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/LetterStatus"
+          }
+        },
+        "required": [
+          "id",
+          "appointment_id",
+          "channel",
+          "status",
+          "created_at",
+          "sent_at"
+        ],
+        "type": "object"
+      },
       "LetterTemplate": {
         "properties": {
           "active": {
@@ -13442,6 +14077,48 @@
           "person_id",
           "kind",
           "language"
+        ],
+        "type": "object"
+      },
+      "NewSuspicion": {
+        "description": "What a person records: the condition, the point of suspicion and who suspected it.",
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/SuspectedCondition"
+          },
+          "recorded_by": {
+            "type": "string"
+          },
+          "suspected_by": {
+            "type": "string"
+          },
+          "suspected_on": {
+            "format": "date",
+            "type": "string"
+          },
+          "tumour_site": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TumourSite",
+                "description": "Required for cancer; refused for any other condition."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unique_pathway_identifier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "condition",
+          "suspected_on",
+          "suspected_by",
+          "recorded_by"
         ],
         "type": "object"
       },
@@ -15562,6 +16239,68 @@
         ],
         "type": "string"
       },
+      "ReportRow": {
+        "description": "One row of the report (FR-213): suspicions whose clock stopped in the period.",
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/SuspectedCondition"
+          },
+          "median_days": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "share_within_target": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "stopped": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "target_days": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "tumour_site": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TumourSite",
+                "description": "Cancer rows are per tumour site; other conditions have none."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "within_target": {
+            "description": "None when the condition has no target.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "condition",
+          "tumour_site",
+          "stopped",
+          "within_target",
+          "share_within_target",
+          "median_days",
+          "target_days"
+        ],
+        "type": "object"
+      },
       "RequestBody": {
         "properties": {
           "channel": {
@@ -16260,6 +16999,16 @@
         ],
         "type": "object"
       },
+      "StopReason": {
+        "description": "Why a suspicion's clock stopped. Any one stops it, and only one is recorded.",
+        "enum": [
+          "treatment_started",
+          "downgraded",
+          "died",
+          "entered_in_error"
+        ],
+        "type": "string"
+      },
       "Subscription": {
         "properties": {
           "created_at": {
@@ -16394,6 +17143,157 @@
         ],
         "type": "string"
       },
+      "SuspectedCondition": {
+        "description": "The condition a referral is made on suspicion of (spec 20). Closed and coded: adding one is a migration.",
+        "enum": [
+          "cancer",
+          "obstructive_sleep_apnoea",
+          "diabetes",
+          "cardiovascular_disease",
+          "parkinsons_disease",
+          "alzheimers_disease"
+        ],
+        "type": "string"
+      },
+      "Suspicion": {
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/SuspectedCondition"
+          },
+          "days_waited": {
+            "description": "Whole days from the point of suspicion to the stop date, or to today while open. Never paused.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "recorded_by": {
+            "type": "string"
+          },
+          "referral_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "stop_reason": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/StopReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stopped_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stopped_on": {
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "suspected_by": {
+            "description": "The clinician who suspected it.",
+            "type": "string"
+          },
+          "suspected_on": {
+            "description": "The point of suspicion: the clock's start.",
+            "format": "date",
+            "type": "string"
+          },
+          "target_days": {
+            "description": "The published target in days, or none (FR-211).",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "target_status": {
+            "$ref": "#/components/schemas/TargetStatus"
+          },
+          "tumour_site": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TumourSite",
+                "description": "Cancer only."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unique_pathway_identifier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "referral_id",
+          "person_id",
+          "condition",
+          "tumour_site",
+          "unique_pathway_identifier",
+          "suspected_on",
+          "suspected_by",
+          "recorded_by",
+          "recorded_at",
+          "stop_reason",
+          "stopped_on",
+          "stopped_by",
+          "days_waited",
+          "target_days",
+          "target_status",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "SuspicionReport": {
+        "properties": {
+          "from": {
+            "format": "date",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ReportRow"
+            },
+            "type": "array"
+          },
+          "to": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "rows"
+        ],
+        "type": "object"
+      },
       "TargetBody": {
         "properties": {
           "set_by": {
@@ -16410,6 +17310,16 @@
           "set_by"
         ],
         "type": "object"
+      },
+      "TargetStatus": {
+        "description": "Where a suspicion's wait stands against its target. Computed, never stored.",
+        "enum": [
+          "no_target",
+          "within",
+          "near",
+          "past"
+        ],
+        "type": "string"
       },
       "Task": {
         "properties": {
@@ -16751,6 +17661,27 @@
           "assessed_at"
         ],
         "type": "object"
+      },
+      "TumourSite": {
+        "description": "The primary cancer site, from the Welsh \"Primary Cancer Site Description\" list (NHS Wales Data\nDictionary, valid from 2021-01-01, last changed by DSCN 2023/45).",
+        "enum": [
+          "01",
+          "02",
+          "03",
+          "04",
+          "05",
+          "06",
+          "07",
+          "08",
+          "09",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "98"
+        ],
+        "type": "string"
       },
       "TypeRow": {
         "properties": {
@@ -17099,6 +18030,29 @@
           "cleaning",
           "reserved",
           "out_of_service"
+        ],
+        "type": "object"
+      },
+      "WardOverview": {
+        "properties": {
+          "beds": {
+            "items": {
+              "$ref": "#/components/schemas/BedLine"
+            },
+            "type": "array"
+          },
+          "occupancy": {
+            "$ref": "#/components/schemas/WardOccupancy"
+          },
+          "ward_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ward_id",
+          "occupancy",
+          "beds"
         ],
         "type": "object"
       },
@@ -17634,6 +18588,27 @@
         "required": [
           "outcome",
           "resolved_by"
+        ],
+        "type": "object"
+      },
+      "handlers_suspicions.StopBody": {
+        "properties": {
+          "reason": {
+            "$ref": "#/components/schemas/StopReason"
+          },
+          "stopped_by": {
+            "type": "string"
+          },
+          "stopped_on": {
+            "description": "The date the clock stopped: the treatment start, the downgrade, or the death.",
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "stopped_on",
+          "stopped_by"
         ],
         "type": "object"
       },
@@ -25886,6 +26861,49 @@
         ]
       }
     },
+    "/api/patients/{id}/enquiry": {
+      "get": {
+        "operationId": "get_api_patients__id__enquiry",
+        "parameters": [
+          {
+            "description": "The person (a person-service id)",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Enquiry"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/patients/{id}/enquiry`: what the PAS holds for a person, from one route. Read-audited as one\naccess (NEW-9).",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
     "/api/patients/{id}/export": {
       "get": {
         "operationId": "get_api_patients__id__export",
@@ -28017,6 +29035,100 @@
         ]
       }
     },
+    "/api/referrals/{id}/suspicions": {
+      "get": {
+        "operationId": "get_api_referrals__id__suspicions",
+        "parameters": [
+          {
+            "description": "The referral",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Suspicion"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/referrals/{id}/suspicions`: every suspicion on a referral, oldest point of suspicion first.",
+        "tags": [
+          "Suspected conditions"
+        ]
+      },
+      "post": {
+        "operationId": "post_api_referrals__id__suspicions",
+        "parameters": [
+          {
+            "description": "The referral",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewSuspicion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Suspicion"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/referrals/{id}/suspicions`: record that a named clinician suspects a condition (FR-207).",
+        "tags": [
+          "Suspected conditions"
+        ]
+      }
+    },
     "/api/referrals/{id}/triage": {
       "post": {
         "operationId": "post_api_referrals__id__triage",
@@ -30098,6 +31210,241 @@
         ]
       }
     },
+    "/api/suspicions": {
+      "get": {
+        "operationId": "get_api_suspicions",
+        "parameters": [
+          {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only this condition.",
+            "in": "path",
+            "name": "condition",
+            "required": true,
+            "schema": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/SuspectedCondition"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "description": "Only this tumour site (cancer).",
+            "in": "path",
+            "name": "tumour_site",
+            "required": true,
+            "schema": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TumourSite"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Suspicion"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/suspicions?condition&tumour_site&limit`: the open list, longest wait first (FR-212). Paged.",
+        "tags": [
+          "Suspected conditions"
+        ]
+      }
+    },
+    "/api/suspicions/report": {
+      "get": {
+        "operationId": "get_api_suspicions_report",
+        "parameters": [
+          {
+            "description": "First stop date counted (inclusive).",
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Last stop date counted (inclusive).",
+            "in": "path",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SuspicionReport"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/suspicions/report?from&to`: suspicions whose clock stopped in the period, per condition and tumour\nsite, with the share within target (FR-213).",
+        "tags": [
+          "Suspected conditions"
+        ]
+      }
+    },
+    "/api/suspicions/{id}": {
+      "get": {
+        "operationId": "get_api_suspicions__id",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Suspicion"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/suspicions/{id}`: one suspicion, with its version as `ETag`.",
+        "tags": [
+          "Suspected conditions"
+        ]
+      }
+    },
+    "/api/suspicions/{id}/stop": {
+      "post": {
+        "operationId": "post_api_suspicions__id__stop",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handlers_suspicions.StopBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Suspicion"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/suspicions/{id}/stop`: stop the clock, once, for one reason (FR-209).\nNeeds `If-Match` with the suspicion's version, the `ETag` of `GET /api/suspicions/{id}`: none is `428`, a stale one `412` (FR-216).",
+        "tags": [
+          "Suspected conditions"
+        ]
+      }
+    },
     "/api/tolerance-alerts": {
       "get": {
         "operationId": "get_api_tolerance_alerts",
@@ -31780,6 +33127,49 @@
           }
         ],
         "summary": "`GET /api/wards/:id/occupancy` — counts of beds by status.",
+        "tags": [
+          "Wards"
+        ]
+      }
+    },
+    "/api/wards/{id}/overview": {
+      "get": {
+        "operationId": "get_api_wards__id__overview",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_WardOverview"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/wards/{id}/overview`: every bed of the ward and who is in it, since when (WPAS-4, FR-218).",
         "tags": [
           "Wards"
         ]

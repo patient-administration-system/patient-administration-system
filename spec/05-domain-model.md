@@ -75,6 +75,10 @@ The guide (PatientCareCoordination, a draft proof of concept) has twelve states:
 
 We receive and triage referrals; we do not tell the sender (PCC-4).
 
+## Suspected conditions (WPAS-1, spec 20)
+
+A referral may carry suspected conditions. Each has a coded condition (`cancer`, `obstructive_sleep_apnoea`, `diabetes`, `cardiovascular_disease`, `parkinsons_disease`, `alzheimers_disease`), a point of suspicion (a date), the named clinician who suspected it, the member of staff who recorded it, and for cancer a tumour site and an optional Unique Pathway Identifier. It is `open` until its clock stops, once, for one reason: `treatment_started`, `downgraded`, `died` or `entered_in_error`, with the stop date and who recorded it. A stopped suspicion is final. Its wait is whole days from the point of suspicion to the stop date (or today), with no pauses.
+
 ## Delivery channels
 
 `print` (postal letter), `email`, `sms`, `whatsapp`, `apple_messages`, `portal`. A template lists its channels in preference order.

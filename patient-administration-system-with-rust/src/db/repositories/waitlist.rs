@@ -54,6 +54,17 @@ impl WaitlistRepository {
         Ok(e.clone())
     }
 
+    /// A person's entries, oldest first (patient enquiry, WPAS-3).
+    pub async fn list_by_person<C: Conn>(conn: &C, person_id: Uuid) -> Result<Vec<WaitlistEntry>> {
+        let rows = conn
+            .all_as::<waitlist_entry::Model>(Stmt::new(
+                "SELECT * FROM waitlist_entries WHERE person_id = $1 ORDER BY created_at, id",
+                [person_id.into()],
+            ))
+            .await?;
+        rows.into_iter().map(from_model).collect()
+    }
+
     pub async fn list_by_service<C: Conn>(conn: &C, service: &str) -> Result<Vec<WaitlistEntry>> {
         // Longest on the list first. Without an order Postgres returns rows in the order they happen to lie on
         // disk, and an UPDATE moves a row.

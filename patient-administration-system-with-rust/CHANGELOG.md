@@ -5,6 +5,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Suspected conditions on a referral (WPAS-1, spec 20, FR-207 to FR-216). A referral can record that a named clinician suspects cancer, obstructive sleep apnoea, diabetes, cardiovascular disease, Parkinson's or Alzheimer's, from a point of suspicion. The wait counts in whole days from that point and never pauses; the clock stops once, for treatment started, downgraded, died or entered in error. Cancer carries a tumour site from the Welsh primary cancer site list and the Suspected Cancer Pathway's 62-day target; the other conditions have no target until a lead names one. `GET /api/suspicions` lists the open ones longest first, `GET /api/suspicions/report` gives the share within target, and a patient's own cancel by reply on a suspected-cancer pathway is held for a person. The rules are a draft for sign-off (WPAS-1a).
+- Patient enquiry, `GET /api/patients/{id}/enquiry` (WPAS-3, FR-217): appointments, waiting-list entries, RTT pathways, referrals, suspected conditions, admissions and letters (without their words) for one person, audited as one read.
+- The ward overview, `GET /api/wards/{id}/overview` (WPAS-4, FR-218): each bed, who is in it, since when and the days in hospital. No expected discharge date is held, so none is shown.
+
 ### Fixed
 
 - The API contract listed the Rust names of every state declared with `string_enum!` (`Open`, `LetterSent`, `ReturnedWithAdvice`) instead of the words the API sends and takes (`open`, `letter_sent`, `returned_with_advice`), so the UI's generated types named values the API never sends. Ten enums were affected; the JSON itself was always right. The macro now names the word for the schema too, and a test fails if the schema and the stored words differ (QUAL-28).

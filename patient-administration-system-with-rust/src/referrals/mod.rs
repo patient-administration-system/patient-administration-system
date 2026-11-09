@@ -194,6 +194,18 @@ impl ReferralService {
             .ok_or_else(|| Error::not_found(format!("referral {id}")))
     }
 
+    /// A person's referrals, oldest first (patient enquiry, WPAS-3).
+    pub async fn for_person(&self, person_id: Uuid) -> Result<Vec<Referral>> {
+        let rows = self
+            .db
+            .all(Stmt::new(
+                format!("SELECT {COLS} FROM referrals r WHERE r.person_id = $1 ORDER BY r.received_at, r.id"),
+                [person_id.into()],
+            ))
+            .await?;
+        rows.iter().map(row_to_referral).collect()
+    }
+
     pub async fn list(
         &self,
         status: Option<&str>,

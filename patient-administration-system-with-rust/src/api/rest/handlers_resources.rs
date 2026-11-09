@@ -46,6 +46,28 @@ pub async fn ward_occupancy(
     }
 }
 
+/// `GET /api/wards/{id}/overview`: every bed of the ward and who is in it, since when (WPAS-4, FR-218).
+#[utoipa::path(
+    get,
+    path = "/api/wards/{id}/overview",
+    tag = "Wards",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::resources::WardOverview>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn ward_overview(
+    State(state): State<AppState>,
+    Path(ward_id): Path<Uuid>,
+) -> HandlerResult {
+    match state.resources.ward_overview(ward_id).await {
+        Ok(o) => ok_json(o),
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `PUT /api/beds/:id/status` — state-machine-checked bed status change.
 /// Body: `{ "status": "Available" }`.
 /// Needs `If-Match` with the bed's version, the `ETag` of `GET /api/beds/{id}`: none is `428`, a stale one `412` (OFH-10).
