@@ -17,7 +17,7 @@ macro_rules! string_enum {
         $(#[$meta])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
         $vis enum $name {
-            $( $(#[$vmeta])* #[serde(rename = $word)] $variant ),+
+            $( $(#[$vmeta])* #[serde(rename = $word)] #[schema(rename = $word)] $variant ),+
         }
 
         impl $name {
@@ -59,4 +59,24 @@ macro_rules! string_enum {
             }
         }
     };
+}
+
+#[cfg(test)]
+#[allow(
+    dead_code,
+    reason = "the sample enum exists for its schema; most of what the macro generates goes unused"
+)]
+mod tests {
+    crate::string_enum! {
+        /// A two-word value, to show the schema uses the stored word and not the variant name.
+        enum Sample { FirstOne = "first_one", Second = "second" }
+    }
+
+    #[test]
+    fn test_the_schema_lists_the_stored_words() {
+        let schema = serde_json::to_value(<Sample as utoipa::PartialSchema>::schema()).unwrap();
+        assert_eq!(schema["enum"], serde_json::json!(Sample::NAMES));
+        assert_eq!(serde_json::to_value(Sample::FirstOne).unwrap(), "first_one");
+        assert_eq!("second".parse::<Sample>().unwrap(), Sample::Second);
+    }
 }

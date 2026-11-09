@@ -9289,7 +9289,7 @@ export interface components {
      * @description Where a transport booking has got to.
      * @enum {string}
      */
-    BookingStatus: "Requested" | "Booked" | "Cancelled" | "Failed";
+    BookingStatus: "requested" | "booked" | "cancelled" | "failed";
     /**
      * @description Predicted against observed for one tenth of predicted probability. A tenth under the minimum size is
      *     listed with `suppressed: true` and none of the figures.
@@ -9330,7 +9330,7 @@ export interface components {
      * @description Whether a campaign still takes steps (`validation_campaigns.status`).
      * @enum {string}
      */
-    CampaignStatus: "Open" | "Closed";
+    CampaignStatus: "open" | "closed";
     CancelBody: {
       barrier_code?: components["schemas"]["BarrierCode"] | null;
       cancelled_by?: components["schemas"]["CancelledBy"] | null;
@@ -9795,7 +9795,7 @@ export interface components {
      * @description Whether an episode is still open.
      * @enum {string}
      */
-    EpisodeStatus: "Active" | "Closed";
+    EpisodeStatus: "active" | "closed";
     Evaluation: {
       calibration: components["schemas"]["CalibrationCell"][];
       clinics: components["schemas"]["ClinicEffect"][];
@@ -10110,7 +10110,7 @@ export interface components {
      * @description The kinds of interpreting a profile can record.
      * @enum {string}
      */
-    InterpreterKind: "Spoken" | "Bsl" | "Deafblind";
+    InterpreterKind: "spoken" | "bsl" | "deafblind";
     /**
      * @description A snapshot of charges presented to the patient for payment.
      *
@@ -10160,7 +10160,7 @@ export interface components {
      * @description Where one pathway is in its campaign (`validation_items.state`).
      * @enum {string}
      */
-    ItemState: "Selected" | "Asked" | "Answered" | "LetterSent" | "Kept" | "Removed" | "Reinstated";
+    ItemState: "selected" | "asked" | "answered" | "letter_sent" | "kept" | "removed" | "reinstated";
     LeadTime: {
       /** Format: uuid */
       appointment_id: string;
@@ -10925,12 +10925,12 @@ export interface components {
      * @description Where a referral came from.
      * @enum {string}
      */
-    ReferralSource: "Gp" | "ERs" | "Internal";
+    ReferralSource: "gp" | "e-rs" | "internal";
     /**
      * @description Where a referral has got to.
      * @enum {string}
      */
-    ReferralStatus: "Received" | "Waitlisted" | "Booked" | "Closed" | "ReturnedWithAdvice" | "Redirected";
+    ReferralStatus: "received" | "waitlisted" | "booked" | "closed" | "returned_with_advice" | "redirected";
     RefillCell: {
       dims: [string, string][];
       /**
@@ -10971,6 +10971,11 @@ export interface components {
      * @enum {string}
      */
     ReleaseClass: "early_release" | "late_release" | "silent_miss";
+    /**
+     * @description Where a released slot stands.
+     * @enum {string}
+     */
+    ReleaseStatus: "open" | "refilled" | "expired";
     ReleaseSummary: {
       /** Format: int64 */
       expired: number;
@@ -11059,7 +11064,7 @@ export interface components {
      * @description How a request reached the PAS.
      * @enum {string}
      */
-    RequestChannel: "Staff" | "Phone" | "Text" | "ReplyLink" | "Portal";
+    RequestChannel: "staff" | "phone" | "text" | "reply_link" | "portal";
     /** @description The answer to cancelling a transfer. */
     Reverted: {
       /** Format: uuid */
@@ -11212,7 +11217,7 @@ export interface components {
       refilled_at?: string | null;
       /** Format: uuid */
       refilled_by_appointment_id?: string | null;
-      release_class: string;
+      release_class: components["schemas"]["ReleaseClass"];
       /** Format: date-time */
       released_at: string;
       /** Format: int64 */
@@ -11222,8 +11227,7 @@ export interface components {
       slot_id: string;
       /** Format: date-time */
       start_datetime: string;
-      /** @description `open`, `refilled` or `expired` (derived). */
-      status: string;
+      status: components["schemas"]["ReleaseStatus"];
     };
     SmsLength: {
       encoding: components["schemas"]["Encoding"];
@@ -11311,7 +11315,7 @@ export interface components {
      * @description Whether a subscription still delivers.
      * @enum {string}
      */
-    SubscriptionState: "Active" | "Off";
+    SubscriptionState: "active" | "off";
     SupportFlag: {
       /** Format: uuid */
       appointment_id: string | null;
@@ -11329,7 +11333,7 @@ export interface components {
      * @description What kind of support a flag asks for.
      * @enum {string}
      */
-    SupportKind: "NeedsSupportCall" | "NavigatorReferral";
+    SupportKind: "needs_support_call" | "navigator_referral";
     TargetBody: {
       /** @description The person setting the target. */
       set_by: string;

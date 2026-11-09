@@ -158,21 +158,8 @@ async fn a_cancel_hours_before_is_a_late_release_and_a_miss_of_a_past_slot_relea
         .unwrap();
     assert_eq!(
         release_for(&w, soon_slot).await["release_class"],
-        ReleaseClass::SilentMiss.to_string_for_test()
+        ReleaseClass::SilentMiss.as_str()
     );
-}
-
-trait Wire {
-    fn to_string_for_test(&self) -> String;
-}
-impl Wire for ReleaseClass {
-    fn to_string_for_test(&self) -> String {
-        serde_json::to_value(self)
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string()
-    }
 }
 
 #[tokio::test]

@@ -105,13 +105,19 @@ pub struct CandidateFilter {
 
 // --- releases ---------------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ReleaseStatus {
-    Open,
-    Refilled,
-    /// Derived, never stored: still open after the slot's start time has passed.
-    Expired,
+crate::string_enum! {
+    /// Where a released slot stands.
+    pub enum ReleaseStatus {
+        Open = "open",
+        Refilled = "refilled",
+        /// Derived, never stored: still open after the slot's start time has passed.
+        Expired = "expired",
+    }
+}
+
+impl ReleaseStatus {
+    /// The values `slot_releases.status` stores; `expired` is only ever derived.
+    pub const STORED: &'static [&'static str] = &["open", "refilled"];
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
@@ -123,9 +129,8 @@ pub struct SlotRelease {
     pub start_datetime: DateTime<Utc>,
     pub released_at: DateTime<Utc>,
     pub notice_days: Option<i32>,
-    pub release_class: String,
-    /// `open`, `refilled` or `expired` (derived).
-    pub status: String,
+    pub release_class: crate::models::appointment::ReleaseClass,
+    pub status: ReleaseStatus,
     pub refilled_by_appointment_id: Option<Uuid>,
     pub refilled_at: Option<DateTime<Utc>>,
     pub seconds_to_refill: Option<i64>,
@@ -141,8 +146,8 @@ impl crate::db::sql::FromRow for SlotRelease {
             start_datetime: row.col("start_datetime")?,
             released_at: row.col("released_at")?,
             notice_days: row.col("notice_days")?,
-            release_class: row.col("release_class")?,
-            status: row.col("status")?,
+            release_class: row.col::<String>("release_class")?.parse()?,
+            status: row.col::<String>("status")?.parse()?,
             refilled_by_appointment_id: row.col("refilled_by_appointment_id")?,
             refilled_at: row.col("refilled_at")?,
             seconds_to_refill: row.col("seconds_to_refill")?,
@@ -210,10 +215,7 @@ pub(crate) async fn record_release(
 .await?
         .and_then(|r| r.col("service_type").ok());
     let id = Uuid::new_v4();
-    let class_str = serde_json::to_value(class)
-        .ok()
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_default();
+    let class_str = class.as_str();
     txn.run(Stmt::new("INSERT INTO slot_releases (id, slot_id, appointment_id, service_type, start_datetime, released_at, notice_days, release_class) \
          VALUES ($1,$2,$3,$4,$5,now(),$6,$7)",
         [
@@ -223,7 +225,7 @@ pub(crate) async fn record_release(
             service.clone().into(),
             appt.start_datetime.into(),
             appt.notice_days.into(),
-            class_str.clone().into(),
+            class_str.into(),
         ],
     ))
 .await?;
@@ -434,23 +436,16 @@ impl StandbyService {
         &self,
         from: DateTime<Utc>,
         to: DateTime<Utc>,
-        status: Option<&str>,
+        status: Option<ReleaseStatus>,
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<(ReleaseSummary, Vec<SlotRelease>)> {
         let rows = rows.into();
         if to <= from {
             return Err(Error::validation("`from` must precede `to`"));
         }
-        if let Some(s) = status
-            && !matches!(s, "open" | "refilled" | "expired")
-        {
-            return Err(Error::validation(
-                "status must be open, refilled or expired",
-            ));
-        }
         let window = "r.released_at >= $1 AND r.released_at < $2";
         let rows = self.db.all_as::<SlotRelease>(Stmt::new(format!("SELECT * FROM ({RELEASE_SELECT} WHERE {window}) x WHERE ($3::text IS NULL OR x.status = $3) ORDER BY x.released_at DESC, x.id DESC LIMIT $4 OFFSET $5"),
-            [from.into(), to.into(), status.map(String::from).into(), rows.fetch().into(), rows.offset().into()],
+            [from.into(), to.into(), status.map(|s| s.as_str().to_string()).into(), rows.fetch().into(), rows.offset().into()],
         )).await?;
         let summary = self.db.one_as::<ReleaseSummary>(Stmt::new(format!(
                 "SELECT count(*)::bigint AS total, \
@@ -483,8 +478,8 @@ impl StandbyService {
             ))
 .await?
             .ok_or_else(|| Error::not_found(format!("slot release {release_id}")))?;
-        let status: String = rel.col("status")?;
-        if status != "open" {
+        let status: ReleaseStatus = rel.col::<String>("status")?.parse()?;
+        if status != ReleaseStatus::Open {
             return Err(Error::conflict("that slot has already been refilled"));
         }
         let service: Option<String> = rel.col("service_type")?;

@@ -13,8 +13,8 @@ use std::collections::BTreeSet;
 
 use patient_administration_system::{
     clinic_templates, clinical_priority, communication, contact, follow_up, identity, interpreter,
-    list_validation, pifu, proxy, receipts, referrals, subscriptions, support, transport, triage,
-    waits,
+    list_validation, pifu, proxy, receipts, referrals, standby, subscriptions, support, transport,
+    triage, waits,
 };
 
 /// The quoted values in a CHECK constraint, e.g. `status = ANY (ARRAY['a'::text, 'b'::text])` gives {a, b}.
@@ -81,6 +81,11 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
             list_validation::ItemState::NAMES,
         ),
         (
+            "slot_releases_release_class_check",
+            patient_administration_system::models::appointment::ReleaseClass::NAMES,
+        ),
+        ("slot_releases_status_check", standby::ReleaseStatus::STORED),
+        (
             "transport_bookings_status_check",
             transport::BookingStatus::NAMES,
         ),
@@ -110,4 +115,15 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         }
     }
     assert!(drift.is_empty(), "{drift:#?}");
+}
+
+/// `slot_releases.status` stores every release status except the derived `expired`.
+#[test]
+fn release_status_stores_all_but_expired() {
+    let derived: Vec<&str> = standby::ReleaseStatus::NAMES
+        .iter()
+        .copied()
+        .filter(|n| !standby::ReleaseStatus::STORED.contains(n))
+        .collect();
+    assert_eq!(derived, [standby::ReleaseStatus::Expired.as_str()]);
 }

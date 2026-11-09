@@ -189,11 +189,11 @@ pub async fn list_releases(
         Err(e) => return error_to_response(e),
     };
     let asked = page.rows();
-    match state
-        .standby
-        .releases(from, to, q.status.as_deref(), asked)
-        .await
-    {
+    let status = match q.status.as_deref().map(str::parse).transpose() {
+        Ok(s) => s,
+        Err(e) => return error_to_response(e),
+    };
+    match state.standby.releases(from, to, status, asked).await {
         Ok((summary, rows)) => {
             let (releases, meta) = page.cut(rows);
             let response = ok_json_page(Releases { summary, releases }, meta.clone());

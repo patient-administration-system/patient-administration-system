@@ -7,12 +7,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The API contract listed the Rust names of every state declared with `string_enum!` (`Open`, `LetterSent`, `ReturnedWithAdvice`) instead of the words the API sends and takes (`open`, `letter_sent`, `returned_with_advice`), so the UI's generated types named values the API never sends. Ten enums were affected; the JSON itself was always right. The macro now names the word for the schema too, and a test fails if the schema and the stored words differ (QUAL-28).
 - Two replays of one dead letter at once (`POST /api/admin/outbox/dead-letters/{id}/replay`) both queued its event again, each under a new id, so a subscriber got it twice and could not tell. The replay now takes the dead letter first, and the second answers `404` (OFH-11).
 - Reports count every open pathway. They read 20,000 in no order, so a larger list's counts, breaches and tolerances could come from an arbitrary part of it (QUAL-48).
 - `GET /api/pathways/due-check` and validation campaigns consider every open pathway. They stopped at the 5,000 oldest, before any filter by service, which could leave a newer service with no cohort (QUAL-48).
 
 ### Changed
 
+- A slot release's `status` (`ReleaseStatus`: `open`, `refilled`, or the derived `expired`) and `release_class` (`ReleaseClass`) are typed, so the contract lists their values, and the drift test checks both against the database; the wire format is unchanged (QUAL-28).
 - A validation campaign's `status` and an item's `state` are enums (`CampaignStatus`, `ItemState`), so the API contract lists their values; the wire format is unchanged (QUAL-28).
 - The lockout after repeated `401`s is set with `LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT`: that many `401`s from one client address in 15 minutes, and it is refused until they end (axa-ratelimit; default `0`, off). `PAS_AUTH_LOCKOUT_FAILURES` is its old name: it is still read when the new one is not set, and the server warns at start-up while it is set.
 - Swagger UI is a default feature, `swagger-ui`, and the server binary requires it. The library builds without it (`default-features = false`), which the fuzz crate does, so its build no longer downloads Swagger UI from GitHub (QUAL-17).

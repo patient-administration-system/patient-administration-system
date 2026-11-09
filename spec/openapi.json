@@ -10820,10 +10820,10 @@
       "BookingStatus": {
         "description": "Where a transport booking has got to.",
         "enum": [
-          "Requested",
-          "Booked",
-          "Cancelled",
-          "Failed"
+          "requested",
+          "booked",
+          "cancelled",
+          "failed"
         ],
         "type": "string"
       },
@@ -10917,8 +10917,8 @@
       "CampaignStatus": {
         "description": "Whether a campaign still takes steps (`validation_campaigns.status`).",
         "enum": [
-          "Open",
-          "Closed"
+          "open",
+          "closed"
         ],
         "type": "string"
       },
@@ -12000,8 +12000,8 @@
       "EpisodeStatus": {
         "description": "Whether an episode is still open.",
         "enum": [
-          "Active",
-          "Closed"
+          "active",
+          "closed"
         ],
         "type": "string"
       },
@@ -12898,9 +12898,9 @@
       "InterpreterKind": {
         "description": "The kinds of interpreting a profile can record.",
         "enum": [
-          "Spoken",
-          "Bsl",
-          "Deafblind"
+          "spoken",
+          "bsl",
+          "deafblind"
         ],
         "type": "string"
       },
@@ -12981,13 +12981,13 @@
       "ItemState": {
         "description": "Where one pathway is in its campaign (`validation_items.state`).",
         "enum": [
-          "Selected",
-          "Asked",
-          "Answered",
-          "LetterSent",
-          "Kept",
-          "Removed",
-          "Reinstated"
+          "selected",
+          "asked",
+          "answered",
+          "letter_sent",
+          "kept",
+          "removed",
+          "reinstated"
         ],
         "type": "string"
       },
@@ -15163,21 +15163,21 @@
       "ReferralSource": {
         "description": "Where a referral came from.",
         "enum": [
-          "Gp",
-          "ERs",
-          "Internal"
+          "gp",
+          "e-rs",
+          "internal"
         ],
         "type": "string"
       },
       "ReferralStatus": {
         "description": "Where a referral has got to.",
         "enum": [
-          "Received",
-          "Waitlisted",
-          "Booked",
-          "Closed",
-          "ReturnedWithAdvice",
-          "Redirected"
+          "received",
+          "waitlisted",
+          "booked",
+          "closed",
+          "returned_with_advice",
+          "redirected"
         ],
         "type": "string"
       },
@@ -15291,6 +15291,15 @@
           "early_release",
           "late_release",
           "silent_miss"
+        ],
+        "type": "string"
+      },
+      "ReleaseStatus": {
+        "description": "Where a released slot stands.",
+        "enum": [
+          "open",
+          "refilled",
+          "expired"
         ],
         "type": "string"
       },
@@ -15570,11 +15579,11 @@
       "RequestChannel": {
         "description": "How a request reached the PAS.",
         "enum": [
-          "Staff",
-          "Phone",
-          "Text",
-          "ReplyLink",
-          "Portal"
+          "staff",
+          "phone",
+          "text",
+          "reply_link",
+          "portal"
         ],
         "type": "string"
       },
@@ -16005,7 +16014,7 @@
             ]
           },
           "release_class": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReleaseClass"
           },
           "released_at": {
             "format": "date-time",
@@ -16033,8 +16042,7 @@
             "type": "string"
           },
           "status": {
-            "description": "`open`, `refilled` or `expired` (derived).",
-            "type": "string"
+            "$ref": "#/components/schemas/ReleaseStatus"
           }
         },
         "required": [
@@ -16320,8 +16328,8 @@
       "SubscriptionState": {
         "description": "Whether a subscription still delivers.",
         "enum": [
-          "Active",
-          "Off"
+          "active",
+          "off"
         ],
         "type": "string"
       },
@@ -16373,8 +16381,8 @@
       "SupportKind": {
         "description": "What kind of support a flag asks for.",
         "enum": [
-          "NeedsSupportCall",
-          "NavigatorReferral"
+          "needs_support_call",
+          "navigator_referral"
         ],
         "type": "string"
       },

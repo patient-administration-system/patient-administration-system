@@ -168,16 +168,16 @@ impl BarrierCode {
     }
 }
 
-/// How an ended appointment relates to the chance to refill its slot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum ReleaseClass {
-    /// Cancelled with at least [`EARLY_RELEASE_DAYS`] days' notice: the slot can be refilled.
-    EarlyRelease,
-    /// Cancelled with less notice: refilling is difficult.
-    LateRelease,
-    /// A no-show: nobody told us, and the slot was lost.
-    SilentMiss,
+crate::string_enum! {
+    /// How an ended appointment relates to the chance to refill its slot.
+    pub enum ReleaseClass {
+        /// Cancelled with at least [`EARLY_RELEASE_DAYS`] days' notice: the slot can be refilled.
+        EarlyRelease = "early_release",
+        /// Cancelled with less notice: refilling is difficult.
+        LateRelease = "late_release",
+        /// A no-show: nobody told us, and the slot was lost.
+        SilentMiss = "silent_miss",
+    }
 }
 
 /// Notice, in whole days, at or above which a cancellation counts as an early release.
