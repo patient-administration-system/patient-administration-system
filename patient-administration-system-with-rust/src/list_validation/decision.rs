@@ -46,7 +46,7 @@ impl ListValidationService {
 .await?
                         .ok_or_else(|| Error::not_found(format!("item {item} in campaign {campaign}")))?;
                     let row = DecisionRow {
-                        state: r.col("state")?,
+                        state: r.col::<String>("state")?.parse()?,
                         answer: r.col("answer")?,
                         next: r.col("next")?,
                         urgent: r.col("urgent")?,
@@ -108,8 +108,8 @@ impl ListValidationService {
                         ))
 .await?
                         .ok_or_else(|| Error::not_found(format!("item {item} in campaign {campaign}")))?;
-                    let state: String = r.col("state")?;
-                    if state != "removed" {
+                    let state: ItemState = r.col::<String>("state")?.parse()?;
+                    if state != ItemState::Removed {
                         return Err(Error::conflict(format!(
                             "only a removed item can be reinstated; this one is {state}"
                         )));
@@ -170,7 +170,7 @@ impl ListValidationService {
 
 /// What the decision rules need to know about an item.
 struct DecisionRow {
-    state: String,
+    state: ItemState,
     answer: Option<String>,
     next: Option<String>,
     urgent: bool,
@@ -180,7 +180,7 @@ struct DecisionRow {
 /// patient who said they still need the care or are unsure; either decision waits until the patient has said
 /// the care is no longer needed, or the wait for a reply to the letter has ended.
 fn check_decision_allowed(decision: &str, row: &DecisionRow) -> Result<()> {
-    let state = row.state.as_str();
+    let state = row.state;
     if decision == "remove" {
         if row.urgent {
             return Err(Error::conflict(
@@ -195,11 +195,11 @@ fn check_decision_allowed(decision: &str, row: &DecisionRow) -> Result<()> {
     }
     if row.next.as_deref() != Some("decision_due") {
         // A patient who answered still_needed may be recorded as kept at any time.
-        let closing_a_yes = decision == "keep" && state == "answered";
+        let closing_a_yes = decision == "keep" && state == ItemState::Answered;
         if !closing_a_yes {
             return Err(Error::conflict(format!(
                 "not ready for a decision: the item is {state}{}",
-                if state == "letter_sent" {
+                if state == ItemState::LetterSent {
                     " and the wait for a reply to the letter has not ended"
                 } else {
                     " and has no answer and no letter yet"
@@ -302,7 +302,7 @@ mod tests {
 
     fn row(state: &str, answer: Option<&str>, next: Option<&str>, urgent: bool) -> DecisionRow {
         DecisionRow {
-            state: state.into(),
+            state: state.parse().expect("a state"),
             answer: answer.map(Into::into),
             next: next.map(Into::into),
             urgent,

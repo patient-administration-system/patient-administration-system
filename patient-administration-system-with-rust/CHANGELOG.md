@@ -13,6 +13,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- A validation campaign's `status` and an item's `state` are enums (`CampaignStatus`, `ItemState`), so the API contract lists their values; the wire format is unchanged (QUAL-28).
 - The lockout after repeated `401`s is set with `LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT`: that many `401`s from one client address in 15 minutes, and it is refused until they end (axa-ratelimit; default `0`, off). `PAS_AUTH_LOCKOUT_FAILURES` is its old name: it is still read when the new one is not set, and the server warns at start-up while it is set.
 - Swagger UI is a default feature, `swagger-ui`, and the server binary requires it. The library builds without it (`default-features = false`), which the fuzz crate does, so its build no longer downloads Swagger UI from GitHub (QUAL-17).
 - The read audit covers lists and exports of people (OFH-2, FR-196). A search's `patient_search` row now says how many records came back (`returned`). Every list whose rows carry a `person_id`, and each `/api/patients/export.*`, writes one too; an empty list, a list that names nobody, and the reports write none. Expect more `audit_log` rows: one per page of such a list.

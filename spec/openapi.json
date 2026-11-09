@@ -8723,7 +8723,7 @@
                   "type": "string"
                 },
                 "status": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/CampaignStatus"
                 }
               },
               "required": [
@@ -8832,7 +8832,7 @@
                   ]
                 },
                 "state": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/ItemState"
                 },
                 "target_service": {
                   "type": "string"
@@ -9648,7 +9648,7 @@
                 "type": "string"
               },
               "status": {
-                "type": "string"
+                "$ref": "#/components/schemas/CampaignStatus"
               }
             },
             "required": [
@@ -9754,7 +9754,7 @@
                 ]
               },
               "state": {
-                "type": "string"
+                "$ref": "#/components/schemas/ItemState"
               },
               "target_service": {
                 "type": "string"
@@ -10913,6 +10913,14 @@
           "outcome"
         ],
         "type": "object"
+      },
+      "CampaignStatus": {
+        "description": "Whether a campaign still takes steps (`validation_campaigns.status`).",
+        "enum": [
+          "Open",
+          "Closed"
+        ],
+        "type": "string"
       },
       "CancelBody": {
         "properties": {
@@ -12968,6 +12976,19 @@
         "type": "string"
       },
       "Iso4217": {
+        "type": "string"
+      },
+      "ItemState": {
+        "description": "Where one pathway is in its campaign (`validation_items.state`).",
+        "enum": [
+          "Selected",
+          "Asked",
+          "Answered",
+          "LetterSent",
+          "Kept",
+          "Removed",
+          "Reinstated"
+        ],
         "type": "string"
       },
       "LeadTime": {
@@ -17742,7 +17763,7 @@
             "type": "string"
           },
           "status": {
-            "type": "string"
+            "$ref": "#/components/schemas/CampaignStatus"
           }
         },
         "required": [
@@ -17825,7 +17846,7 @@
             ]
           },
           "state": {
-            "type": "string"
+            "$ref": "#/components/schemas/ItemState"
           },
           "target_service": {
             "type": "string"

@@ -8569,7 +8569,7 @@ export interface components {
         reply_by: string;
         service_type: string | null;
         started_by: string;
-        status: string;
+        status: components["schemas"]["CampaignStatus"];
       }[];
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -8600,7 +8600,7 @@ export interface components {
         person_id: string;
         /** Format: date-time */
         removed_at: string | null;
-        state: string;
+        state: components["schemas"]["ItemState"];
         target_service: string;
       }[];
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8889,7 +8889,7 @@ export interface components {
         reply_by: string;
         service_type: string | null;
         started_by: string;
-        status: string;
+        status: components["schemas"]["CampaignStatus"];
       };
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -8920,7 +8920,7 @@ export interface components {
         person_id: string;
         /** Format: date-time */
         removed_at: string | null;
-        state: string;
+        state: components["schemas"]["ItemState"];
         target_service: string;
       };
       meta?: components["schemas"]["PageMeta"] | null;
@@ -9326,6 +9326,11 @@ export interface components {
     CallOutcomeBody: {
       outcome: string;
     };
+    /**
+     * @description Whether a campaign still takes steps (`validation_campaigns.status`).
+     * @enum {string}
+     */
+    CampaignStatus: "Open" | "Closed";
     CancelBody: {
       barrier_code?: components["schemas"]["BarrierCode"] | null;
       cancelled_by?: components["schemas"]["CancelledBy"] | null;
@@ -10151,6 +10156,11 @@ export interface components {
      */
     InvoiceStatus: "draft" | "finalized" | "paid" | "partially_paid" | "void";
     Iso4217: string;
+    /**
+     * @description Where one pathway is in its campaign (`validation_items.state`).
+     * @enum {string}
+     */
+    ItemState: "Selected" | "Asked" | "Answered" | "LetterSent" | "Kept" | "Removed" | "Reinstated";
     LeadTime: {
       /** Format: uuid */
       appointment_id: string;
@@ -11749,7 +11759,7 @@ export interface components {
       reply_by: string;
       service_type: string | null;
       started_by: string;
-      status: string;
+      status: components["schemas"]["CampaignStatus"];
     };
     "list_validation.Item": {
       answer: string | null;
@@ -11772,7 +11782,7 @@ export interface components {
       person_id: string;
       /** Format: date-time */
       removed_at: string | null;
-      state: string;
+      state: components["schemas"]["ItemState"];
       target_service: string;
     };
     "noshow.Status": {

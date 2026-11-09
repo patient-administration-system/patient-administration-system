@@ -13,7 +13,8 @@ use std::collections::BTreeSet;
 
 use patient_administration_system::{
     clinic_templates, clinical_priority, communication, contact, follow_up, identity, interpreter,
-    pifu, proxy, receipts, referrals, subscriptions, support, transport, triage, waits,
+    list_validation, pifu, proxy, receipts, referrals, subscriptions, support, transport, triage,
+    waits,
 };
 
 /// The quoted values in a CHECK constraint, e.g. `status = ANY (ARRAY['a'::text, 'b'::text])` gives {a, b}.
@@ -71,6 +72,14 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ),
         ("pifu_requests_channel_check", pifu::RequestChannel::NAMES),
         ("pifu_episodes_status_check", pifu::EpisodeStatus::NAMES),
+        (
+            "validation_campaigns_status_check",
+            list_validation::CampaignStatus::NAMES,
+        ),
+        (
+            "validation_items_state_check",
+            list_validation::ItemState::NAMES,
+        ),
         (
             "transport_bookings_status_check",
             transport::BookingStatus::NAMES,

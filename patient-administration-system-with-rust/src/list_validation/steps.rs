@@ -24,7 +24,7 @@ impl ListValidationService {
             "who asked the patient (asked_by) is required",
         )?;
         let cur = self.item(campaign, item).await?;
-        if cur.state != "selected" {
+        if cur.state != ItemState::Selected {
             return Err(Error::conflict(format!(
                 "only a selected item can be marked asked; this one is {}",
                 cur.state
@@ -88,7 +88,10 @@ impl ListValidationService {
         )?
         .to_string();
         let cur = self.item(campaign, item).await?;
-        if !["selected", "asked", "letter_sent"].contains(&cur.state.as_str()) {
+        if !matches!(
+            cur.state,
+            ItemState::Selected | ItemState::Asked | ItemState::LetterSent
+        ) {
             return Err(Error::conflict(format!(
                 "this item is {}: it can no longer be answered",
                 cur.state
@@ -158,7 +161,7 @@ impl ListValidationService {
         let cur = self.item(campaign, item).await?;
         if cur.next.as_deref() != Some("letter_due") {
             return Err(Error::conflict(
-                if ["selected", "asked"].contains(&cur.state.as_str()) {
+                if matches!(cur.state, ItemState::Selected | ItemState::Asked) {
                     "the reply date has not passed yet".to_string()
                 } else {
                     format!(

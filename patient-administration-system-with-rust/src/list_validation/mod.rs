@@ -38,6 +38,27 @@ pub const MAX_COHORT: i64 = 500;
 pub const ANSWERS: [&str; 3] = ["still_needed", "no_longer_needed", "unsure"];
 pub const CHANNELS: [&str; 5] = ["phone", "sms", "whatsapp", "email", "in_person"];
 
+crate::string_enum! {
+    /// Whether a campaign still takes steps (`validation_campaigns.status`).
+    pub enum CampaignStatus {
+        Open = "open",
+        Closed = "closed",
+    }
+}
+
+crate::string_enum! {
+    /// Where one pathway is in its campaign (`validation_items.state`).
+    pub enum ItemState {
+        Selected = "selected",
+        Asked = "asked",
+        Answered = "answered",
+        LetterSent = "letter_sent",
+        Kept = "kept",
+        Removed = "removed",
+        Reinstated = "reinstated",
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 #[schema(as = list_validation::Campaign)]
 pub struct Campaign {
@@ -49,7 +70,7 @@ pub struct Campaign {
     pub started_by: String,
     pub reply_by: NaiveDate,
     pub final_wait_days: i32,
-    pub status: String,
+    pub status: CampaignStatus,
     pub created_at: DateTime<Utc>,
     /// Items by state (`selected`, `asked`, ...), for the campaign page.
     #[schema(value_type = HashMap<String, i64>)]
@@ -64,7 +85,7 @@ pub struct Item {
     pub pathway_id: Uuid,
     pub person_id: Uuid,
     pub target_service: String,
-    pub state: String,
+    pub state: ItemState,
     #[schema(required = true)]
     pub answer: Option<String>,
     #[schema(required = true)]

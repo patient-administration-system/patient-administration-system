@@ -11,7 +11,7 @@ pub(super) fn row_to_item(r: &Row) -> Result<Item> {
         pathway_id: r.col("pathway_id")?,
         person_id: r.col("person_id")?,
         target_service: r.col("target_service")?,
-        state: r.col("state")?,
+        state: r.col::<String>("state")?.parse()?,
         answer: r.col("answer")?,
         asked_at: r.col("asked_at")?,
         letter_sent_at: r.col("letter_sent_at")?,
@@ -42,7 +42,7 @@ impl ListValidationService {
             started_by: r.col("started_by")?,
             reply_by: r.col("reply_by")?,
             final_wait_days: r.col("final_wait_days")?,
-            status: r.col("status")?,
+            status: r.col::<String>("status")?.parse()?,
             created_at: r.col("created_at")?,
             counts: r.col("counts")?,
         })
