@@ -260,7 +260,9 @@ async fn a_failed_reminder_is_retried_after_a_growing_delay_and_then_given_up_on
     let tried = || *attempts.lock().unwrap();
 
     // Every failure happens at about t0 by the database's clock, so each scan is compared with t0 plus the
-    // delay for the failures so far: 5 minutes after one, 15 after two, an hour, four hours, twelve.
+    // delay for the failures so far: 5 minutes after one, 15 after two, an hour, four hours, twelve. Each "due"
+    // check is 5 minutes past its delay: a scan of a long-used database can take a minute or more, and the
+    // failure it records is stamped with the database's real time, so a 1-minute margin failed there.
     let r = svc.run_once(t0, lead).await.unwrap();
     assert_eq!(tried(), 1, "tried once: {r:?}");
     let r = svc
@@ -270,15 +272,15 @@ async fn a_failed_reminder_is_retried_after_a_growing_delay_and_then_given_up_on
     assert!(r.backing_off >= 1, "straight away it backs off: {r:?}");
     assert_eq!(tried(), 1);
     for (offset, expect) in [
-        (Duration::minutes(6), 2),
-        (Duration::minutes(10), 2), // inside the fifteen
-        (Duration::minutes(16), 3),
-        (Duration::minutes(30), 3), // inside the hour
-        (Duration::minutes(61), 4),
+        (Duration::minutes(10), 2),
+        (Duration::minutes(12), 2), // inside the fifteen
+        (Duration::minutes(20), 3),
+        (Duration::minutes(40), 3), // inside the hour
+        (Duration::minutes(65), 4),
         (Duration::hours(2), 4), // inside the four hours
-        (Duration::hours(4) + Duration::minutes(1), 5),
+        (Duration::hours(4) + Duration::minutes(5), 5),
         (Duration::hours(8), 5), // inside the twelve
-        (Duration::hours(12) + Duration::minutes(1), 6),
+        (Duration::hours(12) + Duration::minutes(5), 6),
         (Duration::hours(13), 6), // the cap: no seventh
     ] {
         svc.run_once(t0 + offset, lead).await.unwrap();
