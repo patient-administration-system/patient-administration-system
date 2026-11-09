@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { CATALOGUES } from "#lib/messages/index.js";
 import { DEFAULT_LOCALE, LOCALES, isRtl, type Locale } from "#lib/locales.js";
-import { interpolate, toMessageFormat, translate } from "#lib/i18n.svelte.js";
+import { hasMessage, interpolate, labelFor, toMessageFormat, translate } from "#lib/i18n.svelte.js";
 
 const en = CATALOGUES[DEFAULT_LOCALE]!;
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
@@ -18,8 +18,9 @@ const PROPER = [
 ];
 const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
   "cy-001": [
+    "condition.dementia",
     "condition.diabetes",
-    "tumour.05",
+    "subtype.wales-primary-cancer-site.05",
     ...PROPER,
     "calendar.agenda",
     "tol.col.ward",
@@ -50,8 +51,17 @@ const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
     "tol.col.status",
     "adjustment.braille",
   ],
-  "es-001": ["condition.diabetes", "tumour.05", ...PROPER, "error.title", "calendar.agenda", "adjustment.braille"],
+  "es-001": [
+    "condition.diabetes",
+    "subtype.wales-primary-cancer-site.05",
+    ...PROPER,
+    "error.title",
+    "calendar.agenda",
+    "adjustment.braille",
+  ],
   "fr-001": [
+    "subtype.generic-diabetes-type.type_1",
+    "subtype.generic-diabetes-type.type_2",
     "condition.cancer",
     ...PROPER,
     "nav.patients",
@@ -123,6 +133,24 @@ describe("translate", () => {
   });
   it("interpolates plainly, leaving an unknown placeholder as written", () => {
     expect(interpolate("hi {name} {other}", { name: "Ada" })).toBe("hi Ada {other}");
+  });
+});
+
+describe("labels for configured codes (WPAS-8)", () => {
+  it("uses the catalogue when it has the code, then the configured name, then the code", () => {
+    expect(hasMessage("condition.cancer")).toBe(true);
+    expect(labelFor("condition.cancer", "Ignored", "cancer")).toBe("Cancer");
+    expect(hasMessage("condition.gout")).toBe(false);
+    expect(labelFor("condition.gout", "Gout", "gout")).toBe("Gout");
+    expect(labelFor("condition.gout", null, "gout")).toBe("gout");
+  });
+  it("names every subtype of the built-in profiles' lists", () => {
+    for (const code of ["01", "04", "14", "98"])
+      expect(hasMessage(`subtype.wales-primary-cancer-site.${code}`)).toBe(true);
+    for (const code of ["type_1", "gestational"])
+      expect(hasMessage(`subtype.generic-diabetes-type.${code}`)).toBe(true);
+    for (const code of ["alzheimers", "lewy_bodies"])
+      expect(hasMessage(`subtype.generic-dementia-type.${code}`)).toBe(true);
   });
 });
 

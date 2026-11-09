@@ -4441,6 +4441,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/suspicion-profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/suspicion-profile`: the active profile, which conditions are tracked and each one's subtypes,
+     *     target, cancel rule and booking priority (WPAS-8, FR-221).
+     */
+    get: operations["get_api_suspicion_profile"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/suspicions": {
     parameters: {
       query?: never;
@@ -4448,7 +4468,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** `GET /api/suspicions?condition&tumour_site&limit`: the open list, longest wait first (FR-212). Paged. */
+    /** `GET /api/suspicions?condition&subtype&limit`: the open list, longest wait first (FR-212). Paged. */
     get: operations["get_api_suspicions"];
     put?: never;
     post?: never;
@@ -7052,11 +7072,12 @@ export interface components {
      *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Profile: {
-      data?: components["schemas"]["ProfileRow"] & {
-        /** @description The same facts as a FHIR `Patient` fragment, for systems that speak FHIR. */
-        fhir: Record<string, never>;
-        /** @description True when the mobile is missing, unverified, or last verified more than a year ago. */
-        mobile_stale: boolean;
+      data?: {
+        conditions: components["schemas"]["Condition"][];
+        /** @description Stored on each suspicion. */
+        name: string;
+        notes: string | null;
+        title: string;
       };
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -7554,16 +7575,24 @@ export interface components {
      */
     ApiResponse_Suspicion: {
       data?: {
-        condition: components["schemas"]["SuspectedCondition"];
+        booking_priority: components["schemas"]["Priority"] | null;
+        /** @description A condition code of that profile. */
+        condition: string;
+        /** @description The condition's name in the active profile; none when it was recorded under another. */
+        condition_name: string | null;
         /**
          * Format: int64
          * @description Whole days from the point of suspicion to the stop date, or to today while open. Never paused.
          */
         days_waited: number;
+        /** @description Whether a patient's own cancel is held for a person while it is open (FR-214). */
+        hold_patient_cancel: boolean;
         /** Format: uuid */
         id: string;
         /** Format: uuid */
         person_id: string;
+        /** @description The profile it was recorded under. */
+        profile: string;
         /** Format: date-time */
         recorded_at: string;
         recorded_by: string;
@@ -7573,6 +7602,10 @@ export interface components {
         stopped_by: string | null;
         /** Format: date */
         stopped_on: string | null;
+        subtype: string | null;
+        subtype_name: string | null;
+        /** @description The list the subtype comes from. */
+        subtype_scheme: string | null;
         /** @description The clinician who suspected it. */
         suspected_by: string;
         /**
@@ -7582,11 +7615,10 @@ export interface components {
         suspected_on: string;
         /**
          * Format: int64
-         * @description The published target in days, or none (FR-211).
+         * @description The target recorded with it, or none (FR-211, FR-221).
          */
         target_days: number | null;
         target_status: components["schemas"]["TargetStatus"];
-        tumour_site: components["schemas"]["TumourSite"] | null;
         unique_pathway_identifier: string | null;
         /** Format: date-time */
         updated_at: string;
@@ -8606,16 +8638,24 @@ export interface components {
      */
     ApiResponse_Vec_Suspicion: {
       data?: {
-        condition: components["schemas"]["SuspectedCondition"];
+        booking_priority: components["schemas"]["Priority"] | null;
+        /** @description A condition code of that profile. */
+        condition: string;
+        /** @description The condition's name in the active profile; none when it was recorded under another. */
+        condition_name: string | null;
         /**
          * Format: int64
          * @description Whole days from the point of suspicion to the stop date, or to today while open. Never paused.
          */
         days_waited: number;
+        /** @description Whether a patient's own cancel is held for a person while it is open (FR-214). */
+        hold_patient_cancel: boolean;
         /** Format: uuid */
         id: string;
         /** Format: uuid */
         person_id: string;
+        /** @description The profile it was recorded under. */
+        profile: string;
         /** Format: date-time */
         recorded_at: string;
         recorded_by: string;
@@ -8625,6 +8665,10 @@ export interface components {
         stopped_by: string | null;
         /** Format: date */
         stopped_on: string | null;
+        subtype: string | null;
+        subtype_name: string | null;
+        /** @description The list the subtype comes from. */
+        subtype_scheme: string | null;
         /** @description The clinician who suspected it. */
         suspected_by: string;
         /**
@@ -8634,11 +8678,10 @@ export interface components {
         suspected_on: string;
         /**
          * Format: int64
-         * @description The published target in days, or none (FR-211).
+         * @description The target recorded with it, or none (FR-211, FR-221).
          */
         target_days: number | null;
         target_status: components["schemas"]["TargetStatus"];
-        tumour_site: components["schemas"]["TumourSite"] | null;
         unique_pathway_identifier: string | null;
         /** Format: date-time */
         updated_at: string;
@@ -9773,6 +9816,19 @@ export interface components {
       same_period_clinics_still_in_shadow: components["schemas"]["RateWindow"];
       service_type: string;
     };
+    Condition: {
+      booking_priority: components["schemas"]["Priority"] | null;
+      /** @description Stored on each suspicion: lower case, digits and `_`. */
+      code: string;
+      /**
+       * @description A patient's own cancel by reply, on an appointment from a referral with an open suspicion of this
+       *     condition, is held for a person to phone first (FR-214).
+       */
+      hold_patient_cancel?: boolean;
+      name: string;
+      subtypes: components["schemas"]["SubtypeList"] | null;
+      target: components["schemas"]["Target"] | null;
+    };
     ConfirmBody: {
       /** @description The interpreting service's booking reference, when it gave one. */
       booking_ref?: string | null;
@@ -10644,12 +10700,14 @@ export interface components {
     };
     /** @description What a person records: the condition, the point of suspicion and who suspected it. */
     NewSuspicion: {
-      condition: components["schemas"]["SuspectedCondition"];
+      /** @description A condition code of the active profile (`GET /api/suspicion-profile`). */
+      condition: string;
       recorded_by: string;
+      /** @description A code from the condition's subtype list, if it has one; refused if it has none. */
+      subtype?: string | null;
       suspected_by: string;
       /** Format: date */
       suspected_on: string;
-      tumour_site?: components["schemas"]["TumourSite"] | null;
       unique_pathway_identifier?: string | null;
     };
     NhsNumberBody: {
@@ -10935,11 +10993,12 @@ export interface components {
       /** @description The clinician setting it. */
       set_by: string;
     };
-    Profile: components["schemas"]["ProfileRow"] & {
-      /** @description The same facts as a FHIR `Patient` fragment, for systems that speak FHIR. */
-      fhir: Record<string, never>;
-      /** @description True when the mobile is missing, unverified, or last verified more than a year ago. */
-      mobile_stale: boolean;
+    Profile: {
+      conditions: components["schemas"]["Condition"][];
+      /** @description Stored on each suspicion. */
+      name: string;
+      notes: string | null;
+      title: string;
     };
     /** @description What a caller may set. The verification state is deliberately not here. */
     ProfileInput: {
@@ -11382,19 +11441,25 @@ export interface components {
     ReplyStatus: "applied" | "rejected";
     /** @description One row of the report (FR-213): suspicions whose clock stopped in the period. */
     ReportRow: {
-      condition: components["schemas"]["SuspectedCondition"];
+      condition: string;
+      condition_name: string | null;
       /** Format: double */
       median_days: number | null;
+      profile: string;
       /** Format: double */
       share_within_target: number | null;
       /** Format: int64 */
       stopped: number;
-      /** Format: int64 */
-      target_days: number | null;
-      tumour_site: components["schemas"]["TumourSite"] | null;
+      subtype: string | null;
+      subtype_scheme: string | null;
       /**
        * Format: int64
-       * @description None when the condition has no target.
+       * @description The target they were recorded with; rows with different targets are counted apart.
+       */
+      target_days: number | null;
+      /**
+       * Format: int64
+       * @description None when there is no target.
        */
       within_target: number | null;
     };
@@ -11663,6 +11728,24 @@ export interface components {
      * @enum {string}
      */
     SubscriptionState: "active" | "off";
+    /** @description One subtype a condition may carry (a tumour site, a type of diabetes, a type of dementia). */
+    Subtype: {
+      code: string;
+      name: string;
+    };
+    /**
+     * @description A condition's list of subtypes. Its `scheme` names the list and is stored with each code, because the
+     *     same code means different things in different lists.
+     */
+    SubtypeList: {
+      codes: components["schemas"]["Subtype"][];
+      /** @description Whether a suspicion of this condition must name a subtype. */
+      required?: boolean;
+      scheme: string;
+      /** @description Where the list comes from. */
+      source: string;
+      title: string;
+    };
     SupportFlag: {
       /** Format: uuid */
       appointment_id: string | null;
@@ -11686,28 +11769,25 @@ export interface components {
      * @enum {string}
      */
     SupportOutcome: "helped" | "no_answer" | "declined_help" | "not_needed";
-    /**
-     * @description The condition a referral is made on suspicion of (spec 20). Closed and coded: adding one is a migration.
-     * @enum {string}
-     */
-    SuspectedCondition:
-      | "cancer"
-      | "obstructive_sleep_apnoea"
-      | "diabetes"
-      | "cardiovascular_disease"
-      | "parkinsons_disease"
-      | "alzheimers_disease";
     Suspicion: {
-      condition: components["schemas"]["SuspectedCondition"];
+      booking_priority: components["schemas"]["Priority"] | null;
+      /** @description A condition code of that profile. */
+      condition: string;
+      /** @description The condition's name in the active profile; none when it was recorded under another. */
+      condition_name: string | null;
       /**
        * Format: int64
        * @description Whole days from the point of suspicion to the stop date, or to today while open. Never paused.
        */
       days_waited: number;
+      /** @description Whether a patient's own cancel is held for a person while it is open (FR-214). */
+      hold_patient_cancel: boolean;
       /** Format: uuid */
       id: string;
       /** Format: uuid */
       person_id: string;
+      /** @description The profile it was recorded under. */
+      profile: string;
       /** Format: date-time */
       recorded_at: string;
       recorded_by: string;
@@ -11717,6 +11797,10 @@ export interface components {
       stopped_by: string | null;
       /** Format: date */
       stopped_on: string | null;
+      subtype: string | null;
+      subtype_name: string | null;
+      /** @description The list the subtype comes from. */
+      subtype_scheme: string | null;
       /** @description The clinician who suspected it. */
       suspected_by: string;
       /**
@@ -11726,11 +11810,10 @@ export interface components {
       suspected_on: string;
       /**
        * Format: int64
-       * @description The published target in days, or none (FR-211).
+       * @description The target recorded with it, or none (FR-211, FR-221).
        */
       target_days: number | null;
       target_status: components["schemas"]["TargetStatus"];
-      tumour_site: components["schemas"]["TumourSite"] | null;
       unique_pathway_identifier: string | null;
       /** Format: date-time */
       updated_at: string;
@@ -11741,6 +11824,15 @@ export interface components {
       rows: components["schemas"]["ReportRow"][];
       /** Format: date */
       to: string;
+    };
+    /** @description A published target: days from the point of suspicion to the clock stopping. */
+    Target: {
+      /** Format: int64 */
+      days: number;
+      /** @description Who publishes it. A target without a source is refused: the PAS does not invent targets (FR-211). */
+      source: string;
+      /** @description The standard in words, as its publisher puts it. */
+      standard: string | null;
     };
     TargetBody: {
       /** @description The person setting the target. */
@@ -11877,12 +11969,6 @@ export interface components {
       system_version: string | null;
       triage_system: string;
     };
-    /**
-     * @description The primary cancer site, from the Welsh "Primary Cancer Site Description" list (NHS Wales Data
-     *     Dictionary, valid from 2021-01-01, last changed by DSCN 2023/45).
-     * @enum {string}
-     */
-    TumourSite: "01" | "02" | "03" | "04" | "05" | "06" | "07" | "08" | "09" | "10" | "11" | "12" | "13" | "14" | "98";
     TypeRow: {
       /** Format: int64 */
       free: number;
@@ -22514,6 +22600,40 @@ export interface operations {
       };
     };
   };
+  get_api_suspicion_profile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Profile"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   get_api_suspicions: {
     parameters: {
       query?: {
@@ -22527,10 +22647,10 @@ export interface operations {
       };
       header?: never;
       path: {
-        /** @description Only this condition. */
-        condition: components["schemas"]["SuspectedCondition"] | null;
-        /** @description Only this tumour site (cancer). */
-        tumour_site: components["schemas"]["TumourSite"] | null;
+        /** @description Only this condition (a code of the active profile). */
+        condition: string | null;
+        /** @description Only this subtype. */
+        subtype: string | null;
       };
       cookie?: never;
     };

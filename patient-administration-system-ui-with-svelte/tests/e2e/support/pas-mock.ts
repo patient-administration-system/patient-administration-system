@@ -613,14 +613,53 @@ http
       return res.end(envelope<S["Asked"]>({ id: "99999999-9999-9999-9999-999999999999" }));
     }
     // WPAS-1, WPAS-3, WPAS-4: suspected conditions, patient enquiry and the ward overview.
+    if (url.pathname === "/api/suspicion-profile") {
+      return res.end(
+        envelope<S["Profile"]>({
+          name: "wales",
+          title: "Wales: the Suspected Cancer Pathway",
+          notes: null,
+          conditions: [
+            {
+              code: "cancer",
+              name: "Cancer",
+              subtypes: null,
+              target: { days: 62, standard: null, source: "test" },
+              hold_patient_cancel: true,
+              booking_priority: "urgent",
+            },
+            {
+              code: "obstructive_sleep_apnoea",
+              name: "Obstructive sleep apnoea",
+              subtypes: null,
+              target: null,
+              hold_patient_cancel: false,
+              booking_priority: null,
+            },
+            {
+              code: "dementia",
+              name: "Dementia",
+              subtypes: null,
+              target: null,
+              hold_patient_cancel: false,
+              booking_priority: null,
+            },
+          ],
+        }),
+      );
+    }
     if (url.pathname === "/api/suspicions") {
       const all: S["Suspicion"][] = [
         {
           id: "51515151-5151-4515-8515-515151515151",
           referral_id: "52525252-5252-4525-8525-525252525252",
           person_id: PATIENT,
+          profile: "wales",
           condition: "cancer",
-          tumour_site: "04",
+          condition_name: "Cancer",
+          subtype: "04",
+          subtype_scheme: "wales-primary-cancer-site",
+          subtype_name: "Lung",
           unique_pathway_identifier: null,
           suspected_on: "2026-01-02",
           suspected_by: "Dr Rhian Evans",
@@ -632,14 +671,20 @@ http
           days_waited: 70,
           target_days: 62,
           target_status: "past",
+          hold_patient_cancel: true,
+          booking_priority: "urgent",
           updated_at: STAMP,
         },
         {
           id: "53535353-5353-4535-8535-535353535353",
           referral_id: "54545454-5454-4545-8545-545454545454",
           person_id: PATIENT,
+          profile: "wales",
           condition: "obstructive_sleep_apnoea",
-          tumour_site: null,
+          condition_name: "Obstructive sleep apnoea",
+          subtype: null,
+          subtype_scheme: null,
+          subtype_name: null,
           unique_pathway_identifier: null,
           suspected_on: "2026-02-01",
           suspected_by: "Dr Rhian Evans",
@@ -651,6 +696,8 @@ http
           days_waited: 40,
           target_days: null,
           target_status: "no_target",
+          hold_patient_cancel: false,
+          booking_priority: null,
           updated_at: STAMP,
         },
       ];

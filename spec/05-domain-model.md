@@ -75,9 +75,9 @@ The guide (PatientCareCoordination, a draft proof of concept) has twelve states:
 
 We receive and triage referrals; we do not tell the sender (PCC-4).
 
-## Suspected conditions (WPAS-1, spec 20)
+## Suspected conditions (WPAS-1, WPAS-8, spec 20)
 
-A referral may carry suspected conditions. Each has a coded condition (`cancer`, `obstructive_sleep_apnoea`, `diabetes`, `cardiovascular_disease`, `parkinsons_disease`, `alzheimers_disease`), a point of suspicion (a date), the named clinician who suspected it, the member of staff who recorded it, and for cancer a tumour site and an optional Unique Pathway Identifier. It is `open` until its clock stops, once, for one reason: `treatment_started`, `downgraded`, `died` or `entered_in_error`, with the stop date and who recorded it. A stopped suspicion is final. Its wait is whole days from the point of suspicion to the stop date (or today), with no pauses.
+A referral may carry suspected conditions. Each has a condition code from the active profile (WPAS-8: `cancer`, `obstructive_sleep_apnoea`, `diabetes`, `cardiovascular_disease`, `parkinsons_disease`, `dementia` in the built-in ones), an optional subtype with the scheme of its list, a point of suspicion (a date), the named clinician who suspected it, the member of staff who recorded it, an optional Unique Pathway Identifier, and the rules it was recorded under: the profile, the target in days, whether a patient's cancel is held, and the booking priority. It is `open` until its clock stops, once, for one reason: `treatment_started`, `downgraded`, `died` or `entered_in_error`, with the stop date and who recorded it. A stopped suspicion is final. Its wait is whole days from the point of suspicion to the stop date (or today), with no pauses.
 
 ## Delivery channels
 

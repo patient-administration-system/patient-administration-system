@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PageData } from "./$types";
-  import { i18n, t } from "#lib/i18n.svelte.js";
+  import { i18n, labelFor, t } from "#lib/i18n.svelte.js";
   import ListCut from "#lib/ListCut.svelte";
 
   let { data }: { data: PageData } = $props();
@@ -16,8 +16,10 @@
   <label for="condition">{t("suspicions.condition")}</label>
   <select id="condition" name="condition">
     <option value="" selected={data.condition === null}>{t("suspicions.all")}</option>
-    {#each data.conditions as c (c)}
-      <option value={c} selected={data.condition === c}>{t(`condition.${c}`)}</option>
+    {#each data.conditions as c (c.code)}
+      <option value={c.code} selected={data.condition === c.code}
+        >{labelFor(`condition.${c.code}`, c.name, c.code)}</option
+      >
     {/each}
   </select>
   <button class="button" type="submit">{t("waitlist.show")}</button>
@@ -32,7 +34,7 @@
       <tr>
         <th scope="col">{t("col.patientId")}</th>
         <th scope="col">{t("suspicions.condition")}</th>
-        <th scope="col">{t("suspicions.col.site")}</th>
+        <th scope="col">{t("suspicions.col.subtype")}</th>
         <th scope="col">{t("suspicions.col.since")}</th>
         <th scope="col">{t("suspicions.col.days")}</th>
         <th scope="col">{t("suspicions.col.target")}</th>
@@ -42,8 +44,10 @@
       {#each data.rows as s (s.id)}
         <tr>
           <td>{s.person_id}</td>
-          <td>{t(`condition.${s.condition}`)}</td>
-          <td>{s.tumour_site ? t(`tumour.${s.tumour_site}`) : "–"}</td>
+          <td>{labelFor(`condition.${s.condition}`, s.condition_name, s.condition)}</td>
+          <td>
+            {s.subtype ? labelFor(`subtype.${s.subtype_scheme}.${s.subtype}`, s.subtype_name, s.subtype) : "–"}
+          </td>
           <td>{day(s.suspected_on)}</td>
           <td>{s.days_waited}</td>
           <td>

@@ -9,7 +9,23 @@ use uuid::Uuid;
 use crate::api::rest::AppState;
 use crate::api::rest::handlers::ok_json;
 use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit_ctx};
-use crate::suspicions::{NewSuspicion, SuspectedCondition, TumourSite};
+use crate::suspicions::NewSuspicion;
+
+/// `GET /api/suspicion-profile`: the active profile, which conditions are tracked and each one's subtypes,
+/// target, cancel rule and booking priority (WPAS-8, FR-221).
+#[utoipa::path(
+    get,
+    path = "/api/suspicion-profile",
+    tag = "Suspected conditions",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::suspicions::Profile>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn profile(State(state): State<AppState>) -> HandlerResult {
+    ok_json(state.suspicions.profile())
+}
 
 /// `POST /api/referrals/{id}/suspicions`: record that a named clinician suspects a condition (FR-207).
 #[utoipa::path(
@@ -132,15 +148,13 @@ pub async fn stop(
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct OpenQuery {
-    /// Only this condition.
-    #[param(value_type = Option<SuspectedCondition>)]
+    /// Only this condition (a code of the active profile).
     pub condition: Option<String>,
-    /// Only this tumour site (cancer).
-    #[param(value_type = Option<TumourSite>)]
-    pub tumour_site: Option<String>,
+    /// Only this subtype.
+    pub subtype: Option<String>,
 }
 
-/// `GET /api/suspicions?condition&tumour_site&limit`: the open list, longest wait first (FR-212). Paged.
+/// `GET /api/suspicions?condition&subtype&limit`: the open list, longest wait first (FR-212). Paged.
 #[utoipa::path(
     get,
     path = "/api/suspicions",
@@ -161,17 +175,20 @@ pub async fn open(
         Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    let filters = (|| -> crate::Result<_> {
-        Ok((
-            q.condition.as_deref().map(str::parse).transpose()?,
-            q.tumour_site.as_deref().map(str::parse).transpose()?,
-        ))
-    })();
-    let (condition, site) = match filters {
-        Ok(f) => f,
-        Err(e) => return error_to_response(e),
-    };
-    match state.suspicions.open(condition, site, page.rows()).await {
+    // A condition the active profile does not define is a mistake, not an empty list.
+    if let Some(c) = q.condition.as_deref()
+        && state.suspicions.profile().condition(c).is_none()
+    {
+        return error_to_response(crate::Error::validation(format!(
+            "condition must be one of {}",
+            state.suspicions.profile().condition_codes().join(", ")
+        )));
+    }
+    match state
+        .suspicions
+        .open(q.condition.as_deref(), q.subtype.as_deref(), page.rows())
+        .await
+    {
         Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }

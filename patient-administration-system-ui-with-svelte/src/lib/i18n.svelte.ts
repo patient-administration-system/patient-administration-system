@@ -96,6 +96,19 @@ export function interpolate(template: string, values?: MessageValues): string {
   );
 }
 
+/** Whether the catalogues hold `key` (in English, which every locale must match). */
+export function hasMessage(key: string): boolean {
+  return CATALOGUES[DEFAULT_LOCALE]?.[key] !== undefined;
+}
+
+/**
+ * The label for a code that configuration defines (a suspected condition, a subtype): the translated catalogue
+ * entry when there is one, else the name configuration gave, else the code itself.
+ */
+export function labelFor(key: string, name: string | null | undefined, code: string): string {
+  return hasMessage(key) ? t(key) : (name ?? code);
+}
+
 /** Reactive translation for components: `t("nav.appointments")`. */
 export function t(key: string, values?: MessageValues): string {
   return translate(key, current, values);

@@ -27,6 +27,7 @@ Development: `podman compose -f podman/compose.yml up -d` (ports overridable wit
 | `PAS_REQUIRED_LOCALES` | API | Languages every active template must have, default `en-001,cy-001`. Create variants together with `POST /api/letter-template-groups` |
 | `PAS_QUIET_HOURS` | API | Window when text-style reminders wait (clinic time), default `21:00-08:00`; `off` disables. See `governance/messaging-rules.md` |
 | `PAS_TIMEZONE`, `PAS_HELP_LINE` | API | Clinic time zone for times in reply texts (default Europe/London) and an optional sentence appended where a person can help ("Call 01234 567890.") |
+| `PAS_SUSPICION_PROFILE` | API | Which suspected conditions are tracked, with each one's subtypes, target, cancel rule and booking priority (spec 20): `generic` (the default: no national lists, no targets), `wales` (the Suspected Cancer Pathway: cancer sites and 62 days), or the path of your own `.json` profile. Checked at start-up; a bad one stops the server. Changing it later does not rewrite suspicions already recorded |
 | `PAS_REQUIRE_AUTH` | API | `true` refuses to start without per-user auth. Set it in every real deployment |
 | `PERSON_SERVICE_URL`, `WORKER_SERVICE_URL` | API | Where the identity services are. Unset, letters, patient search and HL7 ADT fail |
 | `PAS_REQUIRE_UPSTREAMS` | API | `true` refuses to start without both URLs. It does not check that they answer, so an outage cannot stop a replica restarting; `/api/health` reports that. Set it in every real deployment |

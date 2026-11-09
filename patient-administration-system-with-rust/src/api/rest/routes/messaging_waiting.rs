@@ -123,6 +123,7 @@ pub(super) fn waiting() -> Router<AppState> {
             post(handlers_suspicions::record).get(handlers_suspicions::for_referral),
         )
         .route("/api/suspicions", get(handlers_suspicions::open))
+        .route("/api/suspicion-profile", get(handlers_suspicions::profile))
         .route("/api/suspicions/report", get(handlers_suspicions::report))
         .route("/api/suspicions/{id}", get(handlers_suspicions::get))
         .route("/api/suspicions/{id}/stop", post(handlers_suspicions::stop))

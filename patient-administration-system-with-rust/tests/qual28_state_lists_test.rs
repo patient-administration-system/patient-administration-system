@@ -93,14 +93,6 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ("slot_releases_status_check", standby::ReleaseStatus::STORED),
         ("inbound_texts_outcome_check", inbound::TextOutcome::NAMES),
         (
-            "suspected_conditions_condition_check",
-            suspicions::SuspectedCondition::NAMES,
-        ),
-        (
-            "suspected_conditions_tumour_site_check",
-            suspicions::TumourSite::NAMES,
-        ),
-        (
             "suspected_conditions_stop_reason_check",
             suspicions::StopReason::NAMES,
         ),

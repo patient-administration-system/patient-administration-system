@@ -403,6 +403,11 @@ impl ReferralService {
                 r.status
             )));
         }
+        // An open suspicion may raise the priority, never lower it (FR-220).
+        let priority = match crate::suspicions::booking_priority_of_referral(&self.db, id).await? {
+            Some(p) if p > priority => p,
+            _ => priority,
+        };
         self.waitlist
             .add(
                 Some(id),

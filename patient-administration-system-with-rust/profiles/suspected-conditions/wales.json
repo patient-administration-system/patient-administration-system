@@ -1,0 +1,162 @@
+{
+  "name": "wales",
+  "title": "Wales: the Suspected Cancer Pathway",
+  "notes": "The generic conditions, with cancer as Wales measures it: a primary cancer site from the NHS Wales Data Dictionary and the Suspected Cancer Pathway target. A draft for sign-off by a cancer services manager (WPAS-1a).",
+  "conditions": [
+    {
+      "code": "cancer",
+      "name": "Cancer",
+      "hold_patient_cancel": true,
+      "booking_priority": "urgent",
+      "target": {
+        "days": 62,
+        "standard": "At least 75% of patients start first definitive treatment within 62 days of the point of suspicion",
+        "source": "Welsh Government, Suspected Cancer Pathway, from December 2020: https://www.gov.wales/suspected-cancer-pathway-quality-report-html"
+      },
+      "subtypes": {
+        "scheme": "wales-primary-cancer-site",
+        "title": "Primary cancer site",
+        "source": "NHS Wales Data Dictionary, Primary Cancer Site Description, valid from 2021-01-01, last changed by DSCN 2023/45: https://www.datadictionary.wales.nhs.uk/worddocuments/primarycancersitedescription.htm",
+        "codes": [
+          {
+            "code": "01",
+            "name": "Head and Neck"
+          },
+          {
+            "code": "02",
+            "name": "Upper GI"
+          },
+          {
+            "code": "03",
+            "name": "Lower GI"
+          },
+          {
+            "code": "04",
+            "name": "Lung"
+          },
+          {
+            "code": "05",
+            "name": "Sarcoma"
+          },
+          {
+            "code": "06",
+            "name": "Skin (exc BCC)"
+          },
+          {
+            "code": "07",
+            "name": "Brain/CNS"
+          },
+          {
+            "code": "08",
+            "name": "Breast"
+          },
+          {
+            "code": "09",
+            "name": "Gynaecological"
+          },
+          {
+            "code": "10",
+            "name": "Urological"
+          },
+          {
+            "code": "11",
+            "name": "Haematological (exc Acute Leukaemia)"
+          },
+          {
+            "code": "12",
+            "name": "Acute Leukaemia"
+          },
+          {
+            "code": "13",
+            "name": "Children's"
+          },
+          {
+            "code": "14",
+            "name": "Unknown Primary"
+          },
+          {
+            "code": "98",
+            "name": "Other"
+          }
+        ],
+        "required": true
+      }
+    },
+    {
+      "code": "obstructive_sleep_apnoea",
+      "name": "Obstructive sleep apnoea"
+    },
+    {
+      "code": "diabetes",
+      "name": "Diabetes",
+      "subtypes": {
+        "scheme": "generic-diabetes-type",
+        "title": "Type of diabetes suspected",
+        "source": "Descriptive list for this profile; not a national code set",
+        "codes": [
+          {
+            "code": "type_1",
+            "name": "Type 1"
+          },
+          {
+            "code": "type_2",
+            "name": "Type 2"
+          },
+          {
+            "code": "gestational",
+            "name": "Gestational"
+          },
+          {
+            "code": "other",
+            "name": "Other or not yet known"
+          }
+        ],
+        "required": false
+      }
+    },
+    {
+      "code": "cardiovascular_disease",
+      "name": "Cardiovascular disease"
+    },
+    {
+      "code": "parkinsons_disease",
+      "name": "Parkinson's disease"
+    },
+    {
+      "code": "dementia",
+      "name": "Dementia",
+      "subtypes": {
+        "scheme": "generic-dementia-type",
+        "title": "Type of dementia suspected",
+        "source": "Descriptive list for this profile; not a national code set",
+        "codes": [
+          {
+            "code": "alzheimers",
+            "name": "Alzheimer's disease"
+          },
+          {
+            "code": "vascular",
+            "name": "Vascular dementia"
+          },
+          {
+            "code": "lewy_bodies",
+            "name": "Dementia with Lewy bodies"
+          },
+          {
+            "code": "frontotemporal",
+            "name": "Frontotemporal dementia"
+          },
+          {
+            "code": "mixed",
+            "name": "Mixed"
+          },
+          {
+            "code": "not_known",
+            "name": "Not yet known"
+          }
+        ],
+        "required": false
+      }
+    }
+  ]
+}

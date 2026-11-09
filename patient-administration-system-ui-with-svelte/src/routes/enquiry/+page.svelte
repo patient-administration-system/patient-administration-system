@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PageData } from "./$types";
-  import { i18n, t } from "#lib/i18n.svelte.js";
+  import { i18n, labelFor, t } from "#lib/i18n.svelte.js";
 
   let { data }: { data: PageData } = $props();
   const when = (iso: string) => new Intl.DateTimeFormat(i18n.locale, { dateStyle: "medium" }).format(new Date(iso));
@@ -25,7 +25,9 @@
     <ul>
       {#each e.suspected_conditions as s (s.id)}
         <li>
-          {t(`condition.${s.condition}`)}{s.tumour_site ? ` (${t(`tumour.${s.tumour_site}`)})` : ""}:
+          {labelFor(`condition.${s.condition}`, s.condition_name, s.condition)}{s.subtype
+            ? ` (${labelFor(`subtype.${s.subtype_scheme}.${s.subtype}`, s.subtype_name, s.subtype)})`
+            : ""}:
           {day(s.suspected_on)}, {s.days_waited}
           {t("suspicions.col.days")},
           {t(`target.${s.target_status}`, { days: s.target_days ?? 0 })}{s.stop_reason ? `, ${s.stop_reason}` : ""}

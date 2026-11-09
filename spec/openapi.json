@@ -3687,28 +3687,35 @@
         "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
         "properties": {
           "data": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ProfileRow"
-              },
-              {
-                "properties": {
-                  "fhir": {
-                    "description": "The same facts as a FHIR `Patient` fragment, for systems that speak FHIR.",
-                    "type": "object"
-                  },
-                  "mobile_stale": {
-                    "description": "True when the mobile is missing, unverified, or last verified more than a year ago.",
-                    "type": "boolean"
-                  }
+            "additionalProperties": false,
+            "properties": {
+              "conditions": {
+                "items": {
+                  "$ref": "#/components/schemas/Condition"
                 },
-                "required": [
-                  "mobile_stale",
-                  "fhir"
-                ],
-                "type": "object"
+                "type": "array"
+              },
+              "name": {
+                "description": "Stored on each suspicion.",
+                "type": "string"
+              },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": "string"
               }
-            ]
+            },
+            "required": [
+              "name",
+              "title",
+              "notes",
+              "conditions"
+            ],
+            "type": "object"
           },
           "meta": {
             "oneOf": [
@@ -5199,13 +5206,36 @@
         "properties": {
           "data": {
             "properties": {
+              "booking_priority": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Priority",
+                    "description": "The waiting-list priority it raises its referral to (FR-220)."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "condition": {
-                "$ref": "#/components/schemas/SuspectedCondition"
+                "description": "A condition code of that profile.",
+                "type": "string"
+              },
+              "condition_name": {
+                "description": "The condition's name in the active profile; none when it was recorded under another.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "days_waited": {
                 "description": "Whole days from the point of suspicion to the stop date, or to today while open. Never paused.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "hold_patient_cancel": {
+                "description": "Whether a patient's own cancel is held for a person while it is open (FR-214).",
+                "type": "boolean"
               },
               "id": {
                 "format": "uuid",
@@ -5213,6 +5243,10 @@
               },
               "person_id": {
                 "format": "uuid",
+                "type": "string"
+              },
+              "profile": {
+                "description": "The profile it was recorded under.",
                 "type": "string"
               },
               "recorded_at": {
@@ -5249,6 +5283,25 @@
                   "null"
                 ]
               },
+              "subtype": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "subtype_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "subtype_scheme": {
+                "description": "The list the subtype comes from.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "suspected_by": {
                 "description": "The clinician who suspected it.",
                 "type": "string"
@@ -5259,7 +5312,7 @@
                 "type": "string"
               },
               "target_days": {
-                "description": "The published target in days, or none (FR-211).",
+                "description": "The target recorded with it, or none (FR-211, FR-221).",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -5268,17 +5321,6 @@
               },
               "target_status": {
                 "$ref": "#/components/schemas/TargetStatus"
-              },
-              "tumour_site": {
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/TumourSite",
-                    "description": "Cancer only."
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
               },
               "unique_pathway_identifier": {
                 "type": [
@@ -5295,8 +5337,12 @@
               "id",
               "referral_id",
               "person_id",
+              "profile",
               "condition",
-              "tumour_site",
+              "condition_name",
+              "subtype",
+              "subtype_scheme",
+              "subtype_name",
               "unique_pathway_identifier",
               "suspected_on",
               "suspected_by",
@@ -5308,6 +5354,8 @@
               "days_waited",
               "target_days",
               "target_status",
+              "hold_patient_cancel",
+              "booking_priority",
               "updated_at"
             ],
             "type": "object"
@@ -8448,13 +8496,36 @@
           "data": {
             "items": {
               "properties": {
+                "booking_priority": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Priority",
+                      "description": "The waiting-list priority it raises its referral to (FR-220)."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "condition": {
-                  "$ref": "#/components/schemas/SuspectedCondition"
+                  "description": "A condition code of that profile.",
+                  "type": "string"
+                },
+                "condition_name": {
+                  "description": "The condition's name in the active profile; none when it was recorded under another.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "days_waited": {
                   "description": "Whole days from the point of suspicion to the stop date, or to today while open. Never paused.",
                   "format": "int64",
                   "type": "integer"
+                },
+                "hold_patient_cancel": {
+                  "description": "Whether a patient's own cancel is held for a person while it is open (FR-214).",
+                  "type": "boolean"
                 },
                 "id": {
                   "format": "uuid",
@@ -8462,6 +8533,10 @@
                 },
                 "person_id": {
                   "format": "uuid",
+                  "type": "string"
+                },
+                "profile": {
+                  "description": "The profile it was recorded under.",
                   "type": "string"
                 },
                 "recorded_at": {
@@ -8498,6 +8573,25 @@
                     "null"
                   ]
                 },
+                "subtype": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "subtype_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "subtype_scheme": {
+                  "description": "The list the subtype comes from.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "suspected_by": {
                   "description": "The clinician who suspected it.",
                   "type": "string"
@@ -8508,7 +8602,7 @@
                   "type": "string"
                 },
                 "target_days": {
-                  "description": "The published target in days, or none (FR-211).",
+                  "description": "The target recorded with it, or none (FR-211, FR-221).",
                   "format": "int64",
                   "type": [
                     "integer",
@@ -8517,17 +8611,6 @@
                 },
                 "target_status": {
                   "$ref": "#/components/schemas/TargetStatus"
-                },
-                "tumour_site": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/TumourSite",
-                      "description": "Cancer only."
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
                 },
                 "unique_pathway_identifier": {
                   "type": [
@@ -8544,8 +8627,12 @@
                 "id",
                 "referral_id",
                 "person_id",
+                "profile",
                 "condition",
-                "tumour_site",
+                "condition_name",
+                "subtype",
+                "subtype_scheme",
+                "subtype_name",
                 "unique_pathway_identifier",
                 "suspected_on",
                 "suspected_by",
@@ -8557,6 +8644,8 @@
                 "days_waited",
                 "target_days",
                 "target_status",
+                "hold_patient_cancel",
+                "booking_priority",
                 "updated_at"
               ],
               "type": "object"
@@ -11835,6 +11924,61 @@
         ],
         "type": "object"
       },
+      "Condition": {
+        "additionalProperties": false,
+        "properties": {
+          "booking_priority": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Priority",
+                "description": "The waiting-list priority a referral with an open suspicion of this condition is raised to, never\nlowered (FR-220)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "description": "Stored on each suspicion: lower case, digits and `_`.",
+            "type": "string"
+          },
+          "hold_patient_cancel": {
+            "description": "A patient's own cancel by reply, on an appointment from a referral with an open suspicion of this\ncondition, is held for a person to phone first (FR-214).",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "subtypes": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SubtypeList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Target"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "subtypes",
+          "target",
+          "booking_priority"
+        ],
+        "type": "object"
+      },
       "ConfirmBody": {
         "properties": {
           "booking_ref": {
@@ -14084,10 +14228,18 @@
         "description": "What a person records: the condition, the point of suspicion and who suspected it.",
         "properties": {
           "condition": {
-            "$ref": "#/components/schemas/SuspectedCondition"
+            "description": "A condition code of the active profile (`GET /api/suspicion-profile`).",
+            "type": "string"
           },
           "recorded_by": {
             "type": "string"
+          },
+          "subtype": {
+            "description": "A code from the condition's subtype list, if it has one; refused if it has none.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "suspected_by": {
             "type": "string"
@@ -14095,17 +14247,6 @@
           "suspected_on": {
             "format": "date",
             "type": "string"
-          },
-          "tumour_site": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/TumourSite",
-                "description": "Required for cancer; refused for any other condition."
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "unique_pathway_identifier": {
             "type": [
@@ -14889,28 +15030,35 @@
         "type": "object"
       },
       "Profile": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/ProfileRow"
-          },
-          {
-            "properties": {
-              "fhir": {
-                "description": "The same facts as a FHIR `Patient` fragment, for systems that speak FHIR.",
-                "type": "object"
-              },
-              "mobile_stale": {
-                "description": "True when the mobile is missing, unverified, or last verified more than a year ago.",
-                "type": "boolean"
-              }
+        "additionalProperties": false,
+        "properties": {
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/Condition"
             },
-            "required": [
-              "mobile_stale",
-              "fhir"
-            ],
-            "type": "object"
+            "type": "array"
+          },
+          "name": {
+            "description": "Stored on each suspicion.",
+            "type": "string"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
           }
-        ]
+        },
+        "required": [
+          "name",
+          "title",
+          "notes",
+          "conditions"
+        ],
+        "type": "object"
       },
       "ProfileInput": {
         "description": "What a caller may set. The verification state is deliberately not here.",
@@ -16243,7 +16391,13 @@
         "description": "One row of the report (FR-213): suspicions whose clock stopped in the period.",
         "properties": {
           "condition": {
-            "$ref": "#/components/schemas/SuspectedCondition"
+            "type": "string"
+          },
+          "condition_name": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "median_days": {
             "format": "double",
@@ -16251,6 +16405,9 @@
               "number",
               "null"
             ]
+          },
+          "profile": {
+            "type": "string"
           },
           "share_within_target": {
             "format": "double",
@@ -16263,26 +16420,28 @@
             "format": "int64",
             "type": "integer"
           },
+          "subtype": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subtype_scheme": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "target_days": {
+            "description": "The target they were recorded with; rows with different targets are counted apart.",
             "format": "int64",
             "type": [
               "integer",
               "null"
             ]
           },
-          "tumour_site": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/TumourSite",
-                "description": "Cancer rows are per tumour site; other conditions have none."
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "within_target": {
-            "description": "None when the condition has no target.",
+            "description": "None when there is no target.",
             "format": "int64",
             "type": [
               "integer",
@@ -16291,13 +16450,16 @@
           }
         },
         "required": [
+          "profile",
           "condition",
-          "tumour_site",
+          "condition_name",
+          "subtype",
+          "subtype_scheme",
+          "target_days",
           "stopped",
           "within_target",
           "share_within_target",
-          "median_days",
-          "target_days"
+          "median_days"
         ],
         "type": "object"
       },
@@ -17080,6 +17242,56 @@
         ],
         "type": "string"
       },
+      "Subtype": {
+        "additionalProperties": false,
+        "description": "One subtype a condition may carry (a tumour site, a type of diabetes, a type of dementia).",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "type": "object"
+      },
+      "SubtypeList": {
+        "additionalProperties": false,
+        "description": "A condition's list of subtypes. Its `scheme` names the list and is stored with each code, because the\nsame code means different things in different lists.",
+        "properties": {
+          "codes": {
+            "items": {
+              "$ref": "#/components/schemas/Subtype"
+            },
+            "type": "array"
+          },
+          "required": {
+            "description": "Whether a suspicion of this condition must name a subtype.",
+            "type": "boolean"
+          },
+          "scheme": {
+            "type": "string"
+          },
+          "source": {
+            "description": "Where the list comes from.",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "scheme",
+          "title",
+          "source",
+          "codes"
+        ],
+        "type": "object"
+      },
       "SupportFlag": {
         "properties": {
           "appointment_id": {
@@ -17143,27 +17355,38 @@
         ],
         "type": "string"
       },
-      "SuspectedCondition": {
-        "description": "The condition a referral is made on suspicion of (spec 20). Closed and coded: adding one is a migration.",
-        "enum": [
-          "cancer",
-          "obstructive_sleep_apnoea",
-          "diabetes",
-          "cardiovascular_disease",
-          "parkinsons_disease",
-          "alzheimers_disease"
-        ],
-        "type": "string"
-      },
       "Suspicion": {
         "properties": {
+          "booking_priority": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Priority",
+                "description": "The waiting-list priority it raises its referral to (FR-220)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "condition": {
-            "$ref": "#/components/schemas/SuspectedCondition"
+            "description": "A condition code of that profile.",
+            "type": "string"
+          },
+          "condition_name": {
+            "description": "The condition's name in the active profile; none when it was recorded under another.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "days_waited": {
             "description": "Whole days from the point of suspicion to the stop date, or to today while open. Never paused.",
             "format": "int64",
             "type": "integer"
+          },
+          "hold_patient_cancel": {
+            "description": "Whether a patient's own cancel is held for a person while it is open (FR-214).",
+            "type": "boolean"
           },
           "id": {
             "format": "uuid",
@@ -17171,6 +17394,10 @@
           },
           "person_id": {
             "format": "uuid",
+            "type": "string"
+          },
+          "profile": {
+            "description": "The profile it was recorded under.",
             "type": "string"
           },
           "recorded_at": {
@@ -17207,6 +17434,25 @@
               "null"
             ]
           },
+          "subtype": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subtype_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subtype_scheme": {
+            "description": "The list the subtype comes from.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "suspected_by": {
             "description": "The clinician who suspected it.",
             "type": "string"
@@ -17217,7 +17463,7 @@
             "type": "string"
           },
           "target_days": {
-            "description": "The published target in days, or none (FR-211).",
+            "description": "The target recorded with it, or none (FR-211, FR-221).",
             "format": "int64",
             "type": [
               "integer",
@@ -17226,17 +17472,6 @@
           },
           "target_status": {
             "$ref": "#/components/schemas/TargetStatus"
-          },
-          "tumour_site": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/TumourSite",
-                "description": "Cancer only."
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "unique_pathway_identifier": {
             "type": [
@@ -17253,8 +17488,12 @@
           "id",
           "referral_id",
           "person_id",
+          "profile",
           "condition",
-          "tumour_site",
+          "condition_name",
+          "subtype",
+          "subtype_scheme",
+          "subtype_name",
           "unique_pathway_identifier",
           "suspected_on",
           "suspected_by",
@@ -17266,6 +17505,8 @@
           "days_waited",
           "target_days",
           "target_status",
+          "hold_patient_cancel",
+          "booking_priority",
           "updated_at"
         ],
         "type": "object"
@@ -17291,6 +17532,33 @@
           "from",
           "to",
           "rows"
+        ],
+        "type": "object"
+      },
+      "Target": {
+        "additionalProperties": false,
+        "description": "A published target: days from the point of suspicion to the clock stopping.",
+        "properties": {
+          "days": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "source": {
+            "description": "Who publishes it. A target without a source is refused: the PAS does not invent targets (FR-211).",
+            "type": "string"
+          },
+          "standard": {
+            "description": "The standard in words, as its publisher puts it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "days",
+          "standard",
+          "source"
         ],
         "type": "object"
       },
@@ -17661,27 +17929,6 @@
           "assessed_at"
         ],
         "type": "object"
-      },
-      "TumourSite": {
-        "description": "The primary cancer site, from the Welsh \"Primary Cancer Site Description\" list (NHS Wales Data\nDictionary, valid from 2021-01-01, last changed by DSCN 2023/45).",
-        "enum": [
-          "01",
-          "02",
-          "03",
-          "04",
-          "05",
-          "06",
-          "07",
-          "08",
-          "09",
-          "10",
-          "11",
-          "12",
-          "13",
-          "14",
-          "98"
-        ],
-        "type": "string"
       },
       "TypeRow": {
         "properties": {
@@ -31210,6 +31457,38 @@
         ]
       }
     },
+    "/api/suspicion-profile": {
+      "get": {
+        "operationId": "get_api_suspicion_profile",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Profile"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/suspicion-profile`: the active profile, which conditions are tracked and each one's subtypes,\ntarget, cancel rule and booking priority (WPAS-8, FR-221).",
+        "tags": [
+          "Suspected conditions"
+        ]
+      }
+    },
     "/api/suspicions": {
       "get": {
         "operationId": "get_api_suspicions",
@@ -31234,34 +31513,26 @@
             }
           },
           {
-            "description": "Only this condition.",
+            "description": "Only this condition (a code of the active profile).",
             "in": "path",
             "name": "condition",
             "required": true,
             "schema": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/SuspectedCondition"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           },
           {
-            "description": "Only this tumour site (cancer).",
+            "description": "Only this subtype.",
             "in": "path",
-            "name": "tumour_site",
+            "name": "subtype",
             "required": true,
             "schema": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/TumourSite"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           }
@@ -31289,7 +31560,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/suspicions?condition&tumour_site&limit`: the open list, longest wait first (FR-212). Paged.",
+        "summary": "`GET /api/suspicions?condition&subtype&limit`: the open list, longest wait first (FR-212). Paged.",
         "tags": [
           "Suspected conditions"
         ]

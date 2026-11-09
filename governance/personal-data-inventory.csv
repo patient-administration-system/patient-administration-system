@@ -727,7 +727,7 @@ suspected_conditions,id,none,"Not personal data (structure, status, timestamps, 
 suspected_conditions,referral_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 suspected_conditions,person_id,identifier,Link a record to a person held by person-service,record
 suspected_conditions,condition,health,"Administrative care information (why, where, what service, outcome)",record
-suspected_conditions,tumour_site,health,"Administrative care information (why, where, what service, outcome)",record
+suspected_conditions,subtype,health,"Administrative care information (why, where, what service, outcome)",record
 suspected_conditions,unique_pathway_identifier,identifier,Link a record to a person held by person-service; a Unique Pathway Identifier identifies a pathway about a person,record
 suspected_conditions,suspected_on,health,"Administrative care information (why, where, what service, outcome)",record
 suspected_conditions,suspected_by,staff-identifier,Attribute work to a staff member held by worker-service,record
@@ -738,3 +738,8 @@ suspected_conditions,stopped_on,health,"Administrative care information (why, wh
 suspected_conditions,stopped_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 suspected_conditions,stopped_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 suspected_conditions,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+suspected_conditions,subtype_scheme,none,"Not personal data (structure, status, timestamps, places, templates)",record
+suspected_conditions,profile,none,"Not personal data (structure, status, timestamps, places, templates)",record
+suspected_conditions,target_days,none,"Not personal data (structure, status, timestamps, places, templates)",record
+suspected_conditions,hold_patient_cancel,none,"Not personal data (structure, status, timestamps, places, templates)",record
+suspected_conditions,booking_priority,health,"Administrative care information (why, where, what service, outcome)",record

@@ -307,19 +307,18 @@ export const offerLinkAct = (f: FetchFn, token: string, action: "accept" | "decl
 // ---- Suspected conditions, patient enquiry and the ward overview (WPAS-1, WPAS-3, WPAS-4) ----
 
 export type Suspicion = Schemas["Suspicion"];
-export type SuspectedCondition = Schemas["SuspectedCondition"];
-export const SUSPECTED_CONDITIONS: readonly SuspectedCondition[] = [
-  "cancer",
-  "obstructive_sleep_apnoea",
-  "diabetes",
-  "cardiovascular_disease",
-  "parkinsons_disease",
-  "alzheimers_disease",
-];
+export type SuspicionProfile = Schemas["Profile"];
 
-/** Open suspected conditions, longest wait first, optionally of one condition. */
-export const openSuspicions = (f: FetchFn, condition: SuspectedCondition | null, cursor?: string | null) =>
-  pasPage<Suspicion>(f, condition ? `/api/suspicions?condition=${condition}` : "/api/suspicions", cursor);
+/** The active profile: which conditions are tracked, with their subtypes and targets (WPAS-8). */
+export const suspicionProfile = (f: FetchFn) => pas<SuspicionProfile>(f, "/api/suspicion-profile");
+
+/** Open suspected conditions, longest wait first, optionally of one condition of the active profile. */
+export const openSuspicions = (f: FetchFn, condition: string | null, cursor?: string | null) =>
+  pasPage<Suspicion>(
+    f,
+    condition ? `/api/suspicions?condition=${encodeURIComponent(condition)}` : "/api/suspicions",
+    cursor,
+  );
 
 export type Enquiry = Schemas["Enquiry"];
 

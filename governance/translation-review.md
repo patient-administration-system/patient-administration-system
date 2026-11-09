@@ -24,7 +24,7 @@ All non-English catalogues in `patient-administration-system-ui-with-svelte/src/
 - **Product name** ("Patient Administration System") is translated literally in every language; it is not an established name.
 - **Gender**: Spanish and French status words agree with "cita" (feminine) and "rendez-vous" (masculine) respectively.
 
-- **Suspected conditions and tumour sites (WPAS, 2026-11-09).** The condition names and the 15 Welsh primary cancer sites are medical terms drafted without a clinician. Check them against each language's usual clinical terms: in Welsh, "Cyflyrau a amheuir" and "Gastroberfeddol uchaf/isaf"; in Hindi, the transliterated "ऑब्स्ट्रक्टिव स्लीप एप्निया"; in Arabic, "انقطاع النفس الانسدادي النومي". "Diabetes" (Welsh, German, Spanish), "Sarcoma" (Welsh, Spanish) and "Cancer" (French) are the same word as in English and are allow-listed as such.
+- **Suspected conditions and tumour sites (WPAS, 2026-11-09).** The condition names and the 15 Welsh primary cancer sites are medical terms drafted without a clinician. Check them against each language's usual clinical terms: in Welsh, "Cyflyrau a amheuir" and "Gastroberfeddol uchaf/isaf"; in Hindi, the transliterated "ऑब्स्ट्रक्टिव स्लीप एप्निया"; in Arabic, "انقطاع النفس الانسدادي النومي". "Diabetes" (Welsh, German, Spanish), "Sarcoma" (Welsh, Spanish) and "Cancer" (French) are the same word as in English and are allow-listed as such. Added with WPAS-8: the types of diabetes and dementia of the `generic` profile, and "Type or site"; "Dementia" (Welsh) and "Type 1"/"Type 2" (French) are allow-listed as the same word.
 
 ## How to record a review
 Fill in the table above, commit, and keep the reviewer's name out of the repository if they prefer (initials and a date are enough).

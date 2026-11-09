@@ -1,0 +1,58 @@
+{
+  "name": "generic",
+  "title": "Generic: common suspected conditions, no national lists or targets",
+  "notes": "The default. No country's code list and no target: a wait is shown, never judged against a target nobody set. A suspected cancer holds a patient's own cancel for a person to phone first, because a missed cancer appointment is a safety matter wherever the PAS runs.",
+  "conditions": [
+    {
+      "code": "cancer",
+      "name": "Cancer",
+      "hold_patient_cancel": true
+    },
+    {
+      "code": "obstructive_sleep_apnoea",
+      "name": "Obstructive sleep apnoea"
+    },
+    {
+      "code": "diabetes",
+      "name": "Diabetes",
+      "subtypes": {
+        "scheme": "generic-diabetes-type",
+        "title": "Type of diabetes suspected",
+        "source": "Descriptive list for this profile; not a national code set",
+        "codes": [
+          { "code": "type_1", "name": "Type 1" },
+          { "code": "type_2", "name": "Type 2" },
+          { "code": "gestational", "name": "Gestational" },
+          { "code": "other", "name": "Other or not yet known" }
+        ],
+        "required": false
+      }
+    },
+    {
+      "code": "cardiovascular_disease",
+      "name": "Cardiovascular disease"
+    },
+    {
+      "code": "parkinsons_disease",
+      "name": "Parkinson's disease"
+    },
+    {
+      "code": "dementia",
+      "name": "Dementia",
+      "subtypes": {
+        "scheme": "generic-dementia-type",
+        "title": "Type of dementia suspected",
+        "source": "Descriptive list for this profile; not a national code set",
+        "codes": [
+          { "code": "alzheimers", "name": "Alzheimer's disease" },
+          { "code": "vascular", "name": "Vascular dementia" },
+          { "code": "lewy_bodies", "name": "Dementia with Lewy bodies" },
+          { "code": "frontotemporal", "name": "Frontotemporal dementia" },
+          { "code": "mixed", "name": "Mixed" },
+          { "code": "not_known", "name": "Not yet known" }
+        ],
+        "required": false
+      }
+    }
+  ]
+}

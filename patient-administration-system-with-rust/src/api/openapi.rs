@@ -226,6 +226,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_offers::offer_now,
         crate::api::rest::handlers_enquiry::enquiry,
         crate::api::rest::handlers_resources::ward_overview,
+        crate::api::rest::handlers_suspicions::profile,
         crate::api::rest::handlers_suspicions::record,
         crate::api::rest::handlers_suspicions::for_referral,
         crate::api::rest::handlers_suspicions::open,

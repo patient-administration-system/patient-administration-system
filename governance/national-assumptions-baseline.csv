@@ -36,7 +36,6 @@ src/noshow/mod.rs,2
 src/privacy/consent.rs,1
 src/referrals/mod.rs,1
 src/reply_links/mod.rs,1
-src/suspicions/mod.rs,5
 src/token_issuer.rs,1
 src/triage/interchange.rs,16
 src/validation/mod.rs,14

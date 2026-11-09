@@ -138,7 +138,10 @@ impl AppState {
             )),
             tolerance: Arc::new(crate::tolerance::ToleranceService::new(db.clone())),
             support: Arc::new(crate::support::SupportService::new(db.clone())),
-            suspicions: Arc::new(crate::suspicions::SuspicionService::new(db.clone())),
+            suspicions: Arc::new(crate::suspicions::SuspicionService::new(
+                db.clone(),
+                Arc::new(crate::suspicions::Profile::from_env()),
+            )),
             history: Arc::new(crate::history::HistoryService::new(db.clone())),
             follow_up: Arc::new(crate::follow_up::FollowUpService::new(db.clone())),
             virtual_visits: Arc::new(crate::virtual_visits::VirtualVisitService::new(db.clone())),

@@ -1,8 +1,9 @@
-//! WPAS-1 (spec 20, FR-207 to FR-216): tracking suspicion during referrals. Needs PostgreSQL:
-//! `cargo test -- --ignored`.
+//! WPAS-1 and WPAS-8 (spec 20, FR-207 to FR-221): tracking suspicion during referrals, under a configurable
+//! profile. Needs PostgreSQL: `cargo test -- --ignored`.
 //!
-//! Other runs leave suspicions behind, so each test works with its own referrals and, for the list and the
-//! report, with differences or with rows it can find by id.
+//! Each test builds the service with the profile it means (`wales` for the cancer rules, `generic` for the
+//! default), so nothing depends on the environment. Other runs leave suspicions behind, so the list and the
+//! report are checked with rows the test can find by id, or by differences.
 
 mod common;
 
@@ -16,10 +17,12 @@ use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
+use patient_administration_system::models::waitlist::Priority;
 use patient_administration_system::referrals::NewReferral;
 use patient_administration_system::suspicions::{
-    NewSuspicion, StopReason, SuspectedCondition, TargetStatus, TumourSite, today,
+    NewSuspicion, Profile, StopReason, SuspicionService, TargetStatus, today,
 };
+use std::sync::Arc;
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -29,6 +32,10 @@ fn sys() -> UserContext {
 
 async fn state() -> AppState {
     common::build_state(&common::database_url().unwrap()).await
+}
+
+fn service(s: &AppState, profile: &str) -> SuspicionService {
+    SuspicionService::new(s.db.clone(), Arc::new(Profile::load(profile).unwrap()))
 }
 
 /// A referral of a new person to `service`.
@@ -52,15 +59,28 @@ async fn referral(s: &AppState, service: &str) -> Uuid {
     r.id
 }
 
-fn new(condition: &str, site: Option<&str>, days_ago: i64) -> NewSuspicion {
+fn new(condition: &str, subtype: Option<&str>, days_ago: i64) -> NewSuspicion {
     NewSuspicion {
         condition: condition.into(),
-        tumour_site: site.map(String::from),
+        subtype: subtype.map(String::from),
         unique_pathway_identifier: None,
         suspected_on: today() - Duration::days(days_ago),
         suspected_by: "Dr Rhian Evans".into(),
         recorded_by: "Gareth Jones".into(),
     }
+}
+
+/// The referral's waiting-list entry: its id and priority.
+async fn entry_of(s: &AppState, referral: Uuid) -> (Uuid, String) {
+    let r =
+        s.db.one(Stmt::new(
+            "SELECT id, priority FROM waitlist_entries WHERE referral_id = $1",
+            [referral.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    (r.col("id").unwrap(), r.col("priority").unwrap())
 }
 
 async fn call(
@@ -97,44 +117,73 @@ async fn call(
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn records_a_suspicion_and_refuses_bad_ones() {
     let s = state().await;
+    let wales = service(&s, "wales");
     let r = referral(&s, "wpas1-record").await;
 
-    // Cancer needs a tumour site from the Welsh list.
+    // Under the profile with a required site list, cancer needs a site from it.
     let mut n = new("cancer", Some("04"), 3);
     n.unique_pathway_identifier = Some("UPI-0001".into());
-    let one = s.suspicions.record(r, n, &sys()).await.unwrap();
-    assert_eq!(one.condition, SuspectedCondition::Cancer);
-    assert_eq!(one.tumour_site, Some(TumourSite::Lung));
+    let one = wales.record(r, n, &sys()).await.unwrap();
+    assert_eq!(one.condition, "cancer");
+    assert_eq!(one.condition_name.as_deref(), Some("Cancer"));
+    assert_eq!(one.subtype.as_deref(), Some("04"));
+    assert_eq!(
+        one.subtype_scheme.as_deref(),
+        Some("wales-primary-cancer-site")
+    );
+    assert_eq!(one.subtype_name.as_deref(), Some("Lung"));
+    assert_eq!(one.profile, "wales");
     assert_eq!(one.days_waited, 3);
-    assert_eq!(one.suspected_by, "Dr Rhian Evans");
+    assert_eq!(one.target_days, Some(62));
+    assert!(one.hold_patient_cancel);
+    assert_eq!(one.booking_priority, Some(Priority::Urgent));
     assert!(one.stop_reason.is_none());
 
     // The same condition twice on one referral would count one wait twice.
-    let again = s
-        .suspicions
-        .record(r, new("cancer", Some("04"), 1), &sys())
-        .await;
+    let again = wales.record(r, new("cancer", Some("04"), 1), &sys()).await;
     assert!(
         again.is_err(),
         "a second open cancer suspicion on one referral is refused"
     );
 
-    // Another condition on the same referral is fine, and has no site.
-    let osa = s
-        .suspicions
+    // Another condition on the same referral is fine; it has no subtypes and no target.
+    let osa = wales
         .record(r, new("obstructive_sleep_apnoea", None, 10), &sys())
         .await
         .unwrap();
-    assert_eq!(osa.tumour_site, None);
+    assert_eq!(osa.subtype, None);
+    assert_eq!(osa.target_days, None);
+    assert!(!osa.hold_patient_cancel);
+
+    // An optional subtype list: diabetes may name its type or not.
+    let r2 = referral(&s, "wpas1-record").await;
+    let t1 = wales
+        .record(r2, new("diabetes", Some("type_1"), 1), &sys())
+        .await
+        .unwrap();
+    assert_eq!(t1.subtype_name.as_deref(), Some("Type 1"));
+    let r3 = referral(&s, "wpas1-record").await;
+    assert!(
+        wales
+            .record(r3, new("diabetes", None, 1), &sys())
+            .await
+            .is_ok()
+    );
 
     for (bad, why) in [
-        (new("cancer", None, 1), "cancer without a site"),
+        (
+            new("cancer", None, 1),
+            "cancer without a site where the list is required",
+        ),
         (new("cancer", Some("99"), 1), "a site not on the list"),
         (
-            new("diabetes", Some("08"), 1),
-            "a site on a condition that is not cancer",
+            new("obstructive_sleep_apnoea", Some("08"), 1),
+            "a subtype on a condition with none",
         ),
-        (new("gout", None, 1), "a condition not on the list"),
+        (
+            new("gout", None, 1),
+            "a condition the profile does not define",
+        ),
         (
             new("diabetes", None, -1),
             "a point of suspicion in the future",
@@ -142,7 +191,7 @@ async fn records_a_suspicion_and_refuses_bad_ones() {
         (
             NewSuspicion {
                 suspected_by: "  ".into(),
-                ..new("diabetes", None, 1)
+                ..new("dementia", None, 1)
             },
             "no named clinician",
         ),
@@ -154,30 +203,93 @@ async fn records_a_suspicion_and_refuses_bad_ones() {
             "a pathway identifier longer than 24",
         ),
     ] {
-        let r2 = referral(&s, "wpas1-record").await;
-        assert!(s.suspicions.record(r2, bad, &sys()).await.is_err(), "{why}");
+        let rx = referral(&s, "wpas1-record").await;
+        assert!(wales.record(rx, bad, &sys()).await.is_err(), "{why}");
     }
-
-    // An unknown referral is not found.
     assert!(
-        s.suspicions
+        wales
             .record(Uuid::new_v4(), new("diabetes", None, 1), &sys())
             .await
-            .is_err()
+            .is_err(),
+        "an unknown referral"
     );
 
-    let listed = s.suspicions.for_referral(r).await.unwrap();
+    let listed = wales.for_referral(r).await.unwrap();
     assert_eq!(listed.len(), 2);
     assert_eq!(listed[0].id, osa.id, "oldest point of suspicion first");
 }
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_generic_profile_sets_no_target_and_names_no_national_list() {
+    let s = state().await;
+    let generic = service(&s, "generic");
+    let r = referral(&s, "wpas8-generic").await;
+    // Cancer with no site list: no site is asked for, and one given is refused.
+    let c = generic
+        .record(r, new("cancer", None, 80), &sys())
+        .await
+        .unwrap();
+    assert_eq!(c.target_days, None);
+    assert_eq!(
+        c.target_status,
+        TargetStatus::NoTarget,
+        "80 days, and never past a target nobody set"
+    );
+    assert!(
+        c.hold_patient_cancel,
+        "the generic profile still holds a suspected cancer's cancel"
+    );
+    assert_eq!(c.booking_priority, None);
+    let r2 = referral(&s, "wpas8-generic").await;
+    assert!(
+        generic
+            .record(r2, new("cancer", Some("04"), 1), &sys())
+            .await
+            .is_err()
+    );
+    // Dementia, with its type.
+    let d = generic
+        .record(r2, new("dementia", Some("lewy_bodies"), 2), &sys())
+        .await
+        .unwrap();
+    assert_eq!(d.subtype_name.as_deref(), Some("Dementia with Lewy bodies"));
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_rules_recorded_with_a_suspicion_outlive_a_change_of_profile() {
+    let s = state().await;
+    let r = referral(&s, "wpas8-snapshot").await;
+    let x = service(&s, "wales")
+        .record(r, new("cancer", Some("08"), 70), &sys())
+        .await
+        .unwrap();
+    // Read back under another profile: the target, hold and priority it was recorded with stand, and the
+    // codes are not relabelled with another list's words.
+    let seen = service(&s, "generic").get(x.id).await.unwrap();
+    assert_eq!(seen.target_days, Some(62));
+    assert_eq!(seen.target_status, TargetStatus::Past);
+    assert!(seen.hold_patient_cancel);
+    assert_eq!(seen.profile, "wales");
+    assert_eq!(seen.subtype.as_deref(), Some("08"));
+    assert_eq!(
+        seen.subtype_name, None,
+        "the generic profile has no such list"
+    );
+    assert_eq!(
+        seen.condition_name, None,
+        "named only by the profile it was recorded under"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn the_wait_never_pauses_and_counts_real_days() {
     let s = state().await;
+    let wales = service(&s, "wales");
     let r = referral(&s, "wpas1-wait").await;
-    let x = s
-        .suspicions
+    let x = wales
         .record(r, new("cancer", Some("08"), 40), &sys())
         .await
         .unwrap();
@@ -188,7 +300,7 @@ async fn the_wait_never_pauses_and_counts_real_days() {
     common::free_slot_in_hours(&s.db, sched.id, 48).await;
     s.referrals.book_first_available(r, &sys()).await.unwrap();
     s.referrals.close(r, Some("seen"), &sys()).await.unwrap();
-    let after = s.suspicions.get(x.id).await.unwrap();
+    let after = wales.get(x.id).await.unwrap();
     assert_eq!(after.days_waited, 40, "the same real days");
     assert!(
         after.stop_reason.is_none(),
@@ -200,9 +312,9 @@ async fn the_wait_never_pauses_and_counts_real_days() {
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn a_clock_stops_once_and_never_before_it_started() {
     let s = state().await;
+    let wales = service(&s, "wales");
     let r = referral(&s, "wpas1-stop").await;
-    let x = s
-        .suspicions
+    let x = wales
         .record(r, new("cancer", Some("03"), 30), &sys())
         .await
         .unwrap();
@@ -225,7 +337,7 @@ async fn a_clock_stops_once_and_never_before_it_started() {
         ("treatment_started", start, "  ", "no named person"),
     ] {
         assert!(
-            s.suspicions
+            wales
                 .stop_if_unchanged(x.id, reason, on, by, None, &sys())
                 .await
                 .is_err(),
@@ -233,8 +345,7 @@ async fn a_clock_stops_once_and_never_before_it_started() {
         );
     }
 
-    let stopped = s
-        .suspicions
+    let stopped = wales
         .stop_if_unchanged(
             x.id,
             "treatment_started",
@@ -254,7 +365,7 @@ async fn a_clock_stops_once_and_never_before_it_started() {
 
     // Stopped is final.
     assert!(
-        s.suspicions
+        wales
             .stop_if_unchanged(
                 x.id,
                 "died",
@@ -283,8 +394,8 @@ async fn a_clock_stops_once_and_never_before_it_started() {
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn the_open_list_orders_by_wait_and_marks_the_target() {
     let s = state().await;
-    let past = s
-        .suspicions
+    let wales = service(&s, "wales");
+    let past = wales
         .record(
             referral(&s, "wpas1-list").await,
             new("cancer", Some("10"), 70),
@@ -292,8 +403,7 @@ async fn the_open_list_orders_by_wait_and_marks_the_target() {
         )
         .await
         .unwrap();
-    let near = s
-        .suspicions
+    let near = wales
         .record(
             referral(&s, "wpas1-list").await,
             new("cancer", Some("10"), 58),
@@ -301,8 +411,7 @@ async fn the_open_list_orders_by_wait_and_marks_the_target() {
         )
         .await
         .unwrap();
-    let within = s
-        .suspicions
+    let within = wales
         .record(
             referral(&s, "wpas1-list").await,
             new("cancer", Some("10"), 5),
@@ -310,11 +419,10 @@ async fn the_open_list_orders_by_wait_and_marks_the_target() {
         )
         .await
         .unwrap();
-    let no_target = s
-        .suspicions
+    let no_target = wales
         .record(
             referral(&s, "wpas1-list").await,
-            new("alzheimers_disease", None, 400),
+            new("dementia", None, 400),
             &sys(),
         )
         .await
@@ -329,7 +437,7 @@ async fn the_open_list_orders_by_wait_and_marks_the_target() {
     );
     assert_eq!(no_target.target_days, None);
 
-    let all = common::every_page(|rows| s.suspicions.open(None, None, rows)).await;
+    let all = common::every_page(|rows| wales.open(None, None, rows)).await;
     let pos = |id: Uuid| all.iter().position(|x| x.id == id).unwrap();
     assert!(
         pos(no_target.id) < pos(past.id),
@@ -343,26 +451,15 @@ async fn the_open_list_orders_by_wait_and_marks_the_target() {
         assert!(x.stop_reason.is_none(), "only open suspicions");
     }
 
-    // Filtered to one site, and a stopped one leaves the list.
-    let urology = common::every_page(|rows| {
-        s.suspicions.open(
-            Some(SuspectedCondition::Cancer),
-            Some(TumourSite::Urological),
-            rows,
-        )
-    })
-    .await;
-    assert!(
-        urology
-            .iter()
-            .all(|x| x.tumour_site == Some(TumourSite::Urological))
-    );
+    // Filtered to one subtype, and a stopped one leaves the list.
+    let urology = common::every_page(|rows| wales.open(Some("cancer"), Some("10"), rows)).await;
+    assert!(urology.iter().all(|x| x.subtype.as_deref() == Some("10")));
     assert!(urology.iter().any(|x| x.id == near.id));
-    s.suspicions
+    wales
         .stop_if_unchanged(near.id, "downgraded", today(), "Dr A Bevan", None, &sys())
         .await
         .unwrap();
-    let after = common::every_page(|rows| s.suspicions.open(None, None, rows)).await;
+    let after = common::every_page(|rows| wales.open(None, None, rows)).await;
     assert!(after.iter().all(|x| x.id != near.id));
 }
 
@@ -370,23 +467,22 @@ async fn the_open_list_orders_by_wait_and_marks_the_target() {
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn the_report_counts_each_stopped_suspicion_once() {
     let s = state().await;
+    let wales = service(&s, "wales");
     // A day well in the past that no other test stops a clock on.
     let base = NaiveDate::from_ymd_opt(2001, 1, 1).unwrap()
         + Duration::days(i64::from(Uuid::new_v4().as_u128() as u16 % 3000));
     let stop = |days: i64| base + Duration::days(days);
-    let before = s.suspicions.report(stop(60), stop(80)).await.unwrap();
-    let cell = |r: &patient_administration_system::suspicions::SuspicionReport, c, site| {
+    let cell = |r: &patient_administration_system::suspicions::SuspicionReport| {
         r.rows
             .iter()
-            .find(|x| x.condition == c && x.tumour_site == site)
+            .find(|x| {
+                x.condition == "cancer"
+                    && x.subtype.as_deref() == Some("05")
+                    && x.profile == "wales"
+            })
             .cloned()
     };
-    let n0 = cell(
-        &before,
-        SuspectedCondition::Cancer,
-        Some(TumourSite::Sarcoma),
-    )
-    .map_or(0, |x| x.stopped);
+    let n0 = cell(&wales.report(stop(60), stop(80)).await.unwrap()).map_or(0, |x| x.stopped);
 
     // Three sarcoma suspicions stopped in the window (two within 62 days, one past), one entered in error.
     for (waited, reason) in [
@@ -398,7 +494,7 @@ async fn the_report_counts_each_stopped_suspicion_once() {
         let r = referral(&s, "wpas1-report").await;
         let mut n = new("cancer", Some("05"), 0);
         n.suspected_on = base + Duration::days(80 - waited);
-        let x = s.suspicions.record(r, n, &sys()).await.unwrap();
+        let x = wales.record(r, n, &sys()).await.unwrap();
         s.db.run(Stmt::new(
             "UPDATE suspected_conditions SET stop_reason = $2, stopped_on = $3, stopped_by = 'Dr A Bevan', stopped_at = now() WHERE id = $1",
             [x.id.into(), reason.into(), stop(80).into()],
@@ -406,50 +502,35 @@ async fn the_report_counts_each_stopped_suspicion_once() {
         .await
         .unwrap();
     }
-    let after = s.suspicions.report(stop(60), stop(80)).await.unwrap();
-    let c = cell(
-        &after,
-        SuspectedCondition::Cancer,
-        Some(TumourSite::Sarcoma),
-    )
-    .unwrap();
+    let c = cell(&wales.report(stop(60), stop(80)).await.unwrap()).unwrap();
     assert_eq!(
         c.stopped - n0,
         3,
         "each stopped once; entered in error left out"
     );
     assert_eq!(c.target_days, Some(62));
+    assert_eq!(c.condition_name.as_deref(), Some("Cancer"));
     if n0 == 0 {
         assert_eq!(c.within_target, Some(2));
         assert_eq!(c.median_days, Some(62.0));
     }
-    // Outside the window, none of them.
-    let outside = s.suspicions.report(stop(81), stop(90)).await.unwrap();
     assert!(
-        cell(
-            &outside,
-            SuspectedCondition::Cancer,
-            Some(TumourSite::Sarcoma)
-        )
-        .is_none_or(|x| x.stopped == 0)
-            || n0 > 0
-    );
-    assert!(
-        s.suspicions.report(stop(10), stop(1)).await.is_err(),
+        wales.report(stop(10), stop(1)).await.is_err(),
         "from after to"
     );
 }
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
-async fn a_patients_cancel_on_a_suspected_cancer_pathway_is_held() {
+async fn a_patients_cancel_is_held_when_the_condition_says_so() {
     use patient_administration_system::models::appointment::AppointmentStatus;
     use patient_administration_system::writeback::{
         HELD_FOR_STAFF, ReplyAction, ReplyRequest, ReplyStatus,
     };
     let s = state().await;
-    let service = format!("wpas1-held-{}", Uuid::new_v4());
-    let sched = common::new_schedule_for(&s.db, &service).await;
+    let wales = service(&s, "wales");
+    let service_name = format!("wpas1-held-{}", Uuid::new_v4());
+    let sched = common::new_schedule_for(&s.db, &service_name).await;
     common::free_slot_in_hours(&s.db, sched.id, 72).await;
     common::free_slot_in_hours(&s.db, sched.id, 96).await;
 
@@ -466,9 +547,9 @@ async fn a_patients_cancel_on_a_suspected_cancer_pathway_is_held() {
             received_at: None,
         };
 
-    // With an open cancer suspicion: held, and a person is asked to phone.
-    let r = referral(&s, &service).await;
-    s.suspicions
+    // A condition that holds a cancel: held, and a person is asked to phone.
+    let r = referral(&s, &service_name).await;
+    wales
         .record(r, new("cancer", Some("01"), 2), &sys())
         .await
         .unwrap();
@@ -488,9 +569,9 @@ async fn a_patients_cancel_on_a_suspected_cancer_pathway_is_held() {
     assert_eq!(still.status, AppointmentStatus::Booked, "not cancelled");
     assert!(common::call_is_open(&s.db, a.id, "urgent_pathway").await);
 
-    // A suspicion of something else does not hold the cancel.
-    let r2 = referral(&s, &service).await;
-    s.suspicions
+    // A condition that does not: the cancel goes through.
+    let r2 = referral(&s, &service_name).await;
+    wales
         .record(r2, new("diabetes", None, 2), &sys())
         .await
         .unwrap();
@@ -506,16 +587,79 @@ async fn a_patients_cancel_on_a_suspected_cancer_pathway_is_held() {
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_suspicion_raises_the_booking_priority_and_never_lowers_it() {
+    let s = state().await;
+    let wales = service(&s, "wales");
+
+    // Waitlisted first as routine, then a suspicion of cancer: the entry is raised to urgent, with an audit row.
+    let r = referral(&s, "wpas8-priority").await;
+    s.referrals
+        .waitlist(r, Priority::Routine, &sys())
+        .await
+        .unwrap();
+    wales
+        .record(r, new("cancer", Some("04"), 1), &sys())
+        .await
+        .unwrap();
+    let (entry, p) = entry_of(&s, r).await;
+    assert_eq!(p, "urgent");
+    assert_eq!(
+        common::audit_count(&s.db, entry, "priority_raised").await,
+        1,
+        "the raise is audited"
+    );
+
+    // The suspicion first, then waitlisted as routine: put on as urgent.
+    let r2 = referral(&s, "wpas8-priority").await;
+    wales
+        .record(r2, new("cancer", Some("04"), 1), &sys())
+        .await
+        .unwrap();
+    s.referrals
+        .waitlist(r2, Priority::Routine, &sys())
+        .await
+        .unwrap();
+    assert_eq!(entry_of(&s, r2).await.1, "urgent");
+
+    // Never lowered: an emergency stays an emergency.
+    let r3 = referral(&s, "wpas8-priority").await;
+    s.referrals
+        .waitlist(r3, Priority::Emergency, &sys())
+        .await
+        .unwrap();
+    wales
+        .record(r3, new("cancer", Some("04"), 1), &sys())
+        .await
+        .unwrap();
+    let (e3, p3) = entry_of(&s, r3).await;
+    assert_eq!(p3, "emergency");
+    assert_eq!(common::audit_count(&s.db, e3, "priority_raised").await, 0);
+
+    // A condition with no booking priority changes nothing.
+    let r4 = referral(&s, "wpas8-priority").await;
+    s.referrals
+        .waitlist(r4, Priority::Routine, &sys())
+        .await
+        .unwrap();
+    wales
+        .record(r4, new("dementia", None, 1), &sys())
+        .await
+        .unwrap();
+    assert_eq!(entry_of(&s, r4).await.1, "routine");
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn recording_and_stopping_audit_and_publish() {
     let s = state().await;
+    let wales = service(&s, "wales");
     let r = referral(&s, "wpas1-audit").await;
-    let x = s
-        .suspicions
+    let x = wales
         .record(r, new("cardiovascular_disease", None, 4), &sys())
         .await
         .unwrap();
     assert_eq!(common::audit_count(&s.db, x.id, "recorded").await, 1);
-    s.suspicions
+    wales
         .stop_if_unchanged(
             x.id,
             "treatment_started",
@@ -545,9 +689,28 @@ async fn recording_and_stopping_audit_and_publish() {
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn stopping_needs_the_version_read() {
-    let s = state().await;
+    let mut s = state().await;
+    s.suspicions = Arc::new(service(&s, "wales"));
     let app = patient_administration_system::api::rest::router(s.clone());
     let r = referral(&s, "wpas1-http").await;
+
+    let (st, _, v) = call(
+        &app,
+        "GET",
+        "/api/suspicion-profile",
+        None,
+        serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(v["data"]["name"], "wales");
+    assert!(
+        v["data"]["conditions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["code"] == "dementia")
+    );
 
     let (st, _, v) = call(
         &app,
@@ -555,7 +718,7 @@ async fn stopping_needs_the_version_read() {
         &format!("/api/referrals/{r}/suspicions"),
         None,
         serde_json::json!({
-            "condition": "cancer", "tumour_site": "08",
+            "condition": "cancer", "subtype": "08",
             "suspected_on": (Utc::now() - Duration::days(9)).date_naive(),
             "suspected_by": "Dr Rhian Evans", "recorded_by": "Gareth Jones"
         }),
@@ -563,7 +726,8 @@ async fn stopping_needs_the_version_read() {
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
     assert_eq!(v["data"]["condition"], "cancer");
-    assert_eq!(v["data"]["tumour_site"], "08");
+    assert_eq!(v["data"]["subtype"], "08");
+    assert_eq!(v["data"]["subtype_name"], "Breast");
     let id = v["data"]["id"].as_str().unwrap().to_string();
 
     let (st, tag, _) = call(
@@ -596,7 +760,7 @@ async fn stopping_needs_the_version_read() {
     let (st, _, _) = call(&app, "POST", &uri, Some("*"), body).await;
     assert_eq!(st, StatusCode::CONFLICT, "stopped once");
 
-    // The list and report routes answer, and a bad filter is a 400.
+    // The list and report routes answer, and a condition the profile does not define is a 400.
     let (st, _, _) = call(
         &app,
         "GET",

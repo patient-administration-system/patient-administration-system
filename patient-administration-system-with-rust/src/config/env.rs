@@ -35,6 +35,8 @@ pub enum Kind {
     Json,
     /// An IANA time zone name such as `Europe/London`.
     TimeZone,
+    /// Free text whose meaning is checked by its own reader in [`validate`].
+    Text,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -124,6 +126,11 @@ pub const VARS: &[Var] = &[
     Var {
         name: "PAS_TIMEZONE",
         kind: Kind::TimeZone,
+    },
+    // A built-in profile name or a path; checked by loading it (WPAS-8).
+    Var {
+        name: "PAS_SUSPICION_PROFILE",
+        kind: Kind::Text,
     },
 ];
 
@@ -217,6 +224,7 @@ fn problem(v: &Var, raw: &str) -> Option<String> {
             .parse::<chrono_tz::Tz>()
             .is_err()
             .then(|| "must be a time zone name such as Europe/London".to_string()),
+        Kind::Text => None,
     }
 }
 
@@ -233,6 +241,11 @@ pub fn validate() -> Result<()> {
     }
     if let Err(e) = crate::communication::consent::QuietHours::from_env() {
         problems.push(format!("PAS_QUIET_HOURS: {e}"));
+    }
+    if let Some(raw) = text(crate::suspicions::profile::SETTING)
+        && let Err(e) = crate::suspicions::Profile::load(&raw)
+    {
+        problems.push(e.to_string());
     }
     if let Some(raw) = text("PAS_TRIAGE_TARGETS")
         && let Err(e) = crate::triage::targets::Targets::from_json(&raw)

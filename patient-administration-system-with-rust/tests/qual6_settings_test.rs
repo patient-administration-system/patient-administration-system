@@ -79,6 +79,7 @@ fn every_accessor_name_is_registered_with_the_right_kind() {
                     Kind::Float { .. } => "Float",
                     Kind::Json => "Json",
                     Kind::TimeZone => "TimeZone",
+                    Kind::Text => "Text",
                 };
                 assert_eq!(
                     got,
@@ -114,6 +115,7 @@ fn a_bad_value_stops_the_server_and_names_the_variable() {
     let (ok, text) = start(&[
         ("PAS_TOLERANCE_CHECK_MINUTES", "abc"),
         ("PAS_NOSHOW_SCORE", "maybe"),
+        ("PAS_SUSPICION_PROFILE", "atlantis"),
     ]);
     assert!(!ok, "the server must not start: {text}");
     assert!(text.contains("invalid environment"), "{text}");
@@ -121,6 +123,10 @@ fn a_bad_value_stops_the_server_and_names_the_variable() {
     assert!(
         text.contains("PAS_NOSHOW_SCORE"),
         "all problems at once: {text}"
+    );
+    assert!(
+        text.contains("PAS_SUSPICION_PROFILE"),
+        "an unknown suspicion profile stops it too (WPAS-8): {text}"
     );
 }
 
@@ -134,6 +140,7 @@ fn good_values_get_past_the_check_and_fail_later_on_the_database() {
         // 0 turns the rate limiter and the lockout off; it must not stop the server starting.
         ("PAS_RATE_LIMIT_RPM", "0"),
         ("LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT", "0"),
+        ("PAS_SUSPICION_PROFILE", "wales"),
     ]);
     assert!(!ok);
     assert!(!text.contains("invalid environment"), "{text}");

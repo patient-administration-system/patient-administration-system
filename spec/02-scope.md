@@ -5,7 +5,7 @@
 - Admission, transfer and discharge (ADT), with bed and ward occupancy.
 - Appointments, slots, schedules and recurring series.
 - Waiting lists and referral-to-treatment (RTT) clocks.
-- Tracking suspicion during referrals: the condition a referral is made on suspicion of (cancer, sleep apnoea, diabetes, cardiovascular disease, Parkinson's, Alzheimer's), its point of suspicion and the wait until its clock stops ([20](20-suspected-conditions.md)). The PAS records a clinician's suspicion and decisions; it makes none.
+- Tracking suspicion during referrals: the condition a referral is made on suspicion of (cancer, sleep apnoea, diabetes, cardiovascular disease, Parkinson's, dementia, or any a profile configures, with its subtypes, target, cancel rule and booking priority), its point of suspicion and the wait until its clock stops ([20](20-suspected-conditions.md)). The PAS records a clinician's suspicion and decisions; it makes none.
 - Letters and patient notifications: postal letter, email, SMS, WhatsApp, Apple Messages and the secure portal.
 - Appointment reminders with administrator-edited templates.
 - Consent records, coverage and billing records.

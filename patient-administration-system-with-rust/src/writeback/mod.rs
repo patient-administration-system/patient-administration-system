@@ -466,9 +466,10 @@ impl WriteBackService {
         }
         // On a service a clinician has listed (urgent or cancer pathways), a patient's own cancel
         // is not applied: the slot is kept and a person phones first (CAP-7, FR-58).
-        // So is a cancel on an appointment booked from a referral with an open cancer suspicion (FR-214).
+        // So is a cancel on an appointment booked from a referral with an open suspicion whose condition holds
+        // a patient's cancel (FR-214; cancer, in the built-in profiles).
         if crate::follow_up::service_is_listed(txn, appt.slot_id).await?
-            || crate::suspicions::appointment_has_open_cancer_suspicion(txn, appt.id).await?
+            || crate::suspicions::appointment_is_held_by_a_suspicion(txn, appt.id).await?
         {
             txn.run(Stmt::new("INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
                  VALUES ($1,$2,$3,'urgent_pathway', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",
