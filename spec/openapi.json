@@ -2595,8 +2595,7 @@
                 "type": "string"
               },
               "outcome": {
-                "description": "`applied`, `rejected`, `asked`, `needs_staff`, `stop`, `help`, `unknown`, `unmatched`,\n`ambiguous_number` or `no_open_reminder`.",
-                "type": "string"
+                "$ref": "#/components/schemas/TextOutcome"
               },
               "person_id": {
                 "format": "uuid",
@@ -7887,7 +7886,7 @@
                   "type": "string"
                 },
                 "outcome": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/TextOutcome"
                 },
                 "person_id": {
                   "format": "uuid",
@@ -12825,8 +12824,7 @@
             "type": "string"
           },
           "outcome": {
-            "description": "`applied`, `rejected`, `asked`, `needs_staff`, `stop`, `help`, `unknown`, `unmatched`,\n`ambiguous_number` or `no_open_reminder`.",
-            "type": "string"
+            "$ref": "#/components/schemas/TextOutcome"
           },
           "person_id": {
             "format": "uuid",
@@ -16108,7 +16106,7 @@
             "type": "string"
           },
           "outcome": {
-            "type": "string"
+            "$ref": "#/components/schemas/TextOutcome"
           },
           "person_id": {
             "format": "uuid",
@@ -16555,6 +16553,23 @@
           "handled"
         ],
         "type": "object"
+      },
+      "TextOutcome": {
+        "description": "What became of an inbound text.",
+        "enum": [
+          "applied",
+          "rejected",
+          "asked",
+          "needs_staff",
+          "stop",
+          "start",
+          "help",
+          "unknown",
+          "unmatched",
+          "ambiguous_number",
+          "no_open_reminder"
+        ],
+        "type": "string"
       },
       "ToleranceStatus": {
         "properties": {

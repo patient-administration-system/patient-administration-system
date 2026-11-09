@@ -62,12 +62,35 @@ pub struct InboundText {
     pub received_at: Option<DateTime<Utc>>,
 }
 
+crate::string_enum! {
+    /// What became of an inbound text.
+    pub enum TextOutcome {
+        /// The confirm, cancel or rebook was done.
+        Applied = "applied",
+        /// It was understood but could not be done; the patient is told.
+        Rejected = "rejected",
+        /// A question went back (which appointment, or which time).
+        Asked = "asked",
+        /// A person has to act on it.
+        NeedsStaff = "needs_staff",
+        Stop = "stop",
+        Start = "start",
+        Help = "help",
+        /// Not understood.
+        Unknown = "unknown",
+        /// The number matches nobody.
+        Unmatched = "unmatched",
+        /// The number matches more than one person.
+        AmbiguousNumber = "ambiguous_number",
+        /// A confirm or cancel with no reminded appointment to apply it to.
+        NoOpenReminder = "no_open_reminder",
+    }
+}
+
 #[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct InboundOutcome {
     pub message_id: String,
-    /// `applied`, `rejected`, `asked`, `needs_staff`, `stop`, `help`, `unknown`, `unmatched`,
-    /// `ambiguous_number` or `no_open_reminder`.
-    pub outcome: String,
+    pub outcome: TextOutcome,
     pub intent: String,
     /// What to text back, or none (never to an unmatched or shared number).
     #[schema(required = true)]
@@ -86,7 +109,7 @@ pub struct InboundOutcome {
 pub struct StaffItem {
     pub id: Uuid,
     pub received_at: DateTime<Utc>,
-    pub outcome: String,
+    pub outcome: TextOutcome,
     pub intent: String,
     #[schema(required = true)]
     pub person_id: Option<Uuid>,
@@ -108,7 +131,7 @@ pub struct InboundService {
 
 struct Decision {
     intent: Intent,
-    outcome: &'static str,
+    outcome: TextOutcome,
     person_id: Option<Uuid>,
     appointment_id: Option<Uuid>,
     candidates: Option<Vec<Uuid>>,
@@ -143,7 +166,7 @@ enum Target {
 /// A decision that matched no appointment.
 fn blank(
     intent: Intent,
-    outcome: &'static str,
+    outcome: TextOutcome,
     person_id: Option<Uuid>,
     reply_text: Option<String>,
     lang: Option<Lang>,
@@ -164,7 +187,7 @@ fn blank(
 fn done(
     intent: Intent,
     who: &Who,
-    outcome: &'static str,
+    outcome: TextOutcome,
     reply: String,
     appointment_id: Uuid,
 ) -> Decision {
@@ -263,7 +286,7 @@ impl InboundService {
                     now.into(),
                     d.person_id.into(),
                     intent_str(d.intent).into(),
-                    d.outcome.into(),
+                    d.outcome.as_str().into(),
                     d.appointment_id.into(),
                     d.candidates.as_ref().map(|c| serde_json::json!(c)).into(),
                     d.pending_intent.map(String::from).into(),
@@ -280,7 +303,7 @@ impl InboundService {
         }
         Ok(InboundOutcome {
             message_id,
-            outcome: d.outcome.into(),
+            outcome: d.outcome,
             intent: intent_str(d.intent).into(),
             reply_text: d.reply_text,
             language: d.lang.map(|l| l.code().into()),
@@ -306,7 +329,7 @@ impl InboundService {
         }
         Ok(Some(InboundOutcome {
             message_id: message_id.into(),
-            outcome: r.col("outcome")?,
+            outcome: r.col::<String>("outcome")?.parse()?,
             intent: r.col("intent")?,
             reply_text: r.col("reply_text")?,
             language: None,
@@ -358,9 +381,9 @@ impl InboundService {
             ))
 .await?;
         let Some(r) = row else { return Ok(None) };
-        let outcome: String = r.col("outcome")?;
+        let outcome: TextOutcome = r.col::<String>("outcome")?.parse()?;
         let at: DateTime<Utc> = r.col("received_at")?;
-        if outcome != "asked" || now - at > Duration::minutes(QUESTION_TTL_MINUTES) {
+        if outcome != TextOutcome::Asked || now - at > Duration::minutes(QUESTION_TTL_MINUTES) {
             return Ok(None);
         }
         let cands: Option<serde_json::Value> = r.col("candidates")?;
@@ -401,9 +424,9 @@ impl InboundService {
         let Some(person) = single else {
             // Nobody, or more than one: say nothing, let staff see it.
             let outcome = if persons.is_empty() {
-                "unmatched"
+                TextOutcome::Unmatched
             } else {
-                "ambiguous_number"
+                TextOutcome::AmbiguousNumber
             };
             return Ok(blank(intent, outcome, None, None, None));
         };
@@ -422,7 +445,7 @@ impl InboundService {
         let (Some(appointment_id), true) = (target, action != Intent::Unknown) else {
             return Ok(blank(
                 intent,
-                "unknown",
+                TextOutcome::Unknown,
                 Some(who.person),
                 Some(messages::text(who.lang, Kind::Unknown, "", help)),
                 Some(who.lang),
@@ -460,7 +483,7 @@ impl InboundService {
                         c::resume(&self.db, &c::person_subject(p), ch).await?;
                     }
                 }
-                (Kind::Started, "start")
+                (Kind::Started, TextOutcome::Start)
             }
             Intent::Stop => {
                 for ch in c::TEXT_CHANNELS {
@@ -471,9 +494,9 @@ impl InboundService {
                             .await?;
                     }
                 }
-                (Kind::Stop, "stop")
+                (Kind::Stop, TextOutcome::Stop)
             }
-            Intent::Help => (Kind::Help, "help"),
+            Intent::Help => (Kind::Help, TextOutcome::Help),
             _ => return Ok(None),
         };
         let reply = match lang {
@@ -517,7 +540,7 @@ impl InboundService {
                 match open.len() {
                     0 => Target::Answer(blank(
                         intent,
-                        "no_open_reminder",
+                        TextOutcome::NoOpenReminder,
                         Some(who.person),
                         Some(messages::text(who.lang, Kind::NoOpenReminder, "", help)),
                         Some(who.lang),
@@ -535,7 +558,7 @@ impl InboundService {
                         };
                         Target::Answer(Decision {
                             intent,
-                            outcome: "asked",
+                            outcome: TextOutcome::Asked,
                             person_id: Some(who.person),
                             appointment_id: None,
                             candidates: Some(open.iter().map(|(id, _)| *id).collect()),
@@ -572,7 +595,7 @@ impl InboundService {
             ids.extend(offer.options.iter().map(|o| o.slot_id));
             return Ok(Decision {
                 intent,
-                outcome: "asked",
+                outcome: TextOutcome::Asked,
                 person_id: Some(who.person),
                 appointment_id: Some(appointment_id),
                 candidates: Some(ids),
@@ -588,7 +611,7 @@ impl InboundService {
         Ok(done(
             intent,
             who,
-            "needs_staff",
+            TextOutcome::NeedsStaff,
             messages::text(who.lang, Kind::NeedsStaff, &when, help),
             appointment_id,
         ))
@@ -633,18 +656,24 @@ impl InboundService {
         let (outcome, text) =
             if result.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) {
                 (
-                    "needs_staff",
+                    TextOutcome::NeedsStaff,
                     messages::text(who.lang, Kind::HeldForCall, &when, help),
                 )
             } else if result.status == ReplyStatus::Rejected {
-                ("rejected", messages::text(who.lang, Kind::Failed, "", help))
+                (
+                    TextOutcome::Rejected,
+                    messages::text(who.lang, Kind::Failed, "", help),
+                )
             } else {
                 let kind = if action == Intent::Confirm {
                     Kind::Confirmed
                 } else {
                     Kind::Cancelled
                 };
-                ("applied", messages::text(who.lang, kind, &when, help))
+                (
+                    TextOutcome::Applied,
+                    messages::text(who.lang, kind, &when, help),
+                )
             };
         Ok(done(intent, who, outcome, text, appointment_id))
     }
@@ -683,7 +712,10 @@ impl InboundService {
             &self.rebooking,
             ids.get(n).filter(|_| n >= 1),
         ) else {
-            return Ok(mk("unknown", messages::text(lang, Kind::Unknown, "", help)));
+            return Ok(mk(
+                TextOutcome::Unknown,
+                messages::text(lang, Kind::Unknown, "", help),
+            ));
         };
         let chosen = async {
             let offer_id = rebook
@@ -695,7 +727,7 @@ impl InboundService {
         .await;
         Ok(match chosen {
             Ok((_, new)) => mk(
-                "applied",
+                TextOutcome::Applied,
                 messages::text(
                     lang,
                     Kind::Rebooked,
@@ -703,7 +735,10 @@ impl InboundService {
                     help,
                 ),
             ),
-            Err(_) => mk("rejected", messages::text(lang, Kind::Failed, "", help)),
+            Err(_) => mk(
+                TextOutcome::Rejected,
+                messages::text(lang, Kind::Failed, "", help),
+            ),
         })
     }
 
@@ -723,7 +758,7 @@ impl InboundService {
                 Ok(StaffItem {
                     id: r.col("id")?,
                     received_at: r.col("received_at")?,
-                    outcome: r.col("outcome")?,
+                    outcome: r.col::<String>("outcome")?.parse()?,
                     intent: r.col("intent")?,
                     person_id: r.col("person_id")?,
                     appointment_id: r.col("appointment_id")?,

@@ -12,9 +12,9 @@ use patient_administration_system::db::sql::{Conn, Stmt};
 use std::collections::BTreeSet;
 
 use patient_administration_system::{
-    clinic_templates, clinical_priority, communication, contact, follow_up, identity, interpreter,
-    list_validation, pifu, proxy, receipts, referrals, standby, subscriptions, support, transport,
-    triage, waits,
+    clinic_templates, clinical_priority, communication, contact, follow_up, identity, inbound,
+    interpreter, list_validation, pifu, proxy, receipts, referrals, standby, subscriptions,
+    support, transport, triage, waits,
 };
 
 /// The quoted values in a CHECK constraint, e.g. `status = ANY (ARRAY['a'::text, 'b'::text])` gives {a, b}.
@@ -85,6 +85,7 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
             patient_administration_system::models::appointment::ReleaseClass::NAMES,
         ),
         ("slot_releases_status_check", standby::ReleaseStatus::STORED),
+        ("inbound_texts_outcome_check", inbound::TextOutcome::NAMES),
         (
             "transport_bookings_status_check",
             transport::BookingStatus::NAMES,

@@ -14,6 +14,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- An inbound text's `outcome` (`TextOutcome`) is an enum, in the inbound-text result and the staff list, so the contract lists its eleven values (it had said ten, leaving out `start`); the drift test checks it; the wire format is unchanged (QUAL-28).
 - A slot release's `status` (`ReleaseStatus`: `open`, `refilled`, or the derived `expired`) and `release_class` (`ReleaseClass`) are typed, so the contract lists their values, and the drift test checks both against the database; the wire format is unchanged (QUAL-28).
 - A validation campaign's `status` and an item's `state` are enums (`CampaignStatus`, `ItemState`), so the API contract lists their values; the wire format is unchanged (QUAL-28).
 - The lockout after repeated `401`s is set with `LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT`: that many `401`s from one client address in 15 minutes, and it is refused until they end (axa-ratelimit; default `0`, off). `PAS_AUTH_LOCKOUT_FAILURES` is its old name: it is still read when the new one is not set, and the server warns at start-up while it is set.

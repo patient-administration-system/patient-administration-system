@@ -6545,11 +6545,7 @@ export interface components {
         intent: string;
         language: string | null;
         message_id: string;
-        /**
-         * @description `applied`, `rejected`, `asked`, `needs_staff`, `stop`, `help`, `unknown`, `unmatched`,
-         *     `ambiguous_number` or `no_open_reminder`.
-         */
-        outcome: string;
+        outcome: components["schemas"]["TextOutcome"];
         /** Format: uuid */
         person_id: string | null;
         /** @description What to text back, or none (never to an unmatched or shared number). */
@@ -8313,7 +8309,7 @@ export interface components {
         /** Format: uuid */
         id: string;
         intent: string;
-        outcome: string;
+        outcome: components["schemas"]["TextOutcome"];
         /** Format: uuid */
         person_id: string | null;
         /** Format: date-time */
@@ -10082,11 +10078,7 @@ export interface components {
       intent: string;
       language: string | null;
       message_id: string;
-      /**
-       * @description `applied`, `rejected`, `asked`, `needs_staff`, `stop`, `help`, `unknown`, `unmatched`,
-       *     `ambiguous_number` or `no_open_reminder`.
-       */
-      outcome: string;
+      outcome: components["schemas"]["TextOutcome"];
       /** Format: uuid */
       person_id: string | null;
       /** @description What to text back, or none (never to an unmatched or shared number). */
@@ -11246,7 +11238,7 @@ export interface components {
       /** Format: uuid */
       id: string;
       intent: string;
-      outcome: string;
+      outcome: components["schemas"]["TextOutcome"];
       /** Format: uuid */
       person_id: string | null;
       /** Format: date-time */
@@ -11388,6 +11380,22 @@ export interface components {
     TextHandled: {
       handled: boolean;
     };
+    /**
+     * @description What became of an inbound text.
+     * @enum {string}
+     */
+    TextOutcome:
+      | "applied"
+      | "rejected"
+      | "asked"
+      | "needs_staff"
+      | "stop"
+      | "start"
+      | "help"
+      | "unknown"
+      | "unmatched"
+      | "ambiguous_number"
+      | "no_open_reminder";
     ToleranceStatus: {
       /** @description The measures that can be read for one service, for each service that has data (or its own tolerance). */
       by_service: components["schemas"]["Reading"][];
