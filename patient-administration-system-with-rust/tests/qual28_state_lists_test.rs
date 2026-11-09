@@ -47,8 +47,14 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ("referrals_status_chk", referrals::ReferralStatus::NAMES),
         ("referrals_source_chk", referrals::ReferralSource::NAMES),
         ("support_flags_kind_check", support::SupportKind::NAMES),
-        ("support_flags_outcome_check", &support::OUTCOMES),
-        ("follow_up_tasks_outcome_check", &follow_up::OUTCOMES),
+        (
+            "support_flags_outcome_check",
+            support::SupportOutcome::NAMES,
+        ),
+        (
+            "follow_up_tasks_outcome_check",
+            follow_up::TaskOutcome::NAMES,
+        ),
         ("identity_proofings_method_check", &identity::METHODS),
         ("message_receipts_event_check", &receipts::EVENTS),
         ("still_needed_checks_answer_check", &waits::ANSWERS),

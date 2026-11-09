@@ -133,7 +133,7 @@
             "type": "string"
           },
           "kind": {
-            "type": "string"
+            "$ref": "#/components/schemas/SupportKind"
           },
           "person_id": {
             "format": "uuid",
@@ -16384,6 +16384,16 @@
         ],
         "type": "string"
       },
+      "SupportOutcome": {
+        "description": "What happened when a person acted on a support flag.",
+        "enum": [
+          "helped",
+          "no_answer",
+          "declined_help",
+          "not_needed"
+        ],
+        "type": "string"
+      },
       "TargetBody": {
         "properties": {
           "set_by": {
@@ -16440,6 +16450,19 @@
           "appointment_start"
         ],
         "type": "object"
+      },
+      "TaskOutcome": {
+        "description": "What happened on a follow-up call.",
+        "enum": [
+          "reached_rebooked",
+          "reached_will_attend",
+          "reached_no_longer_needed",
+          "no_answer",
+          "wrong_number",
+          "declined_help",
+          "clinical_escalation"
+        ],
+        "type": "string"
       },
       "TemplateCreated": {
         "description": "The template that was started.",
@@ -17374,7 +17397,7 @@
             "type": "string"
           },
           "outcome": {
-            "type": "string"
+            "$ref": "#/components/schemas/TaskOutcome"
           }
         },
         "required": [
@@ -17602,7 +17625,7 @@
       "handlers_support.ResolveBody": {
         "properties": {
           "outcome": {
-            "type": "string"
+            "$ref": "#/components/schemas/SupportOutcome"
           },
           "resolved_by": {
             "type": "string"

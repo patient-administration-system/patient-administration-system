@@ -5623,7 +5623,7 @@ export interface components {
       /** Format: uuid */
       appointment_id?: string | null;
       created_by: string;
-      kind: string;
+      kind: components["schemas"]["SupportKind"];
       /** Format: uuid */
       person_id: string;
       reason_code?: string | null;
@@ -11326,6 +11326,11 @@ export interface components {
      * @enum {string}
      */
     SupportKind: "needs_support_call" | "navigator_referral";
+    /**
+     * @description What happened when a person acted on a support flag.
+     * @enum {string}
+     */
+    SupportOutcome: "helped" | "no_answer" | "declined_help" | "not_needed";
     TargetBody: {
       /** @description The person setting the target. */
       set_by: string;
@@ -11346,6 +11351,18 @@ export interface components {
       person_id: string;
       service_type: string;
     };
+    /**
+     * @description What happened on a follow-up call.
+     * @enum {string}
+     */
+    TaskOutcome:
+      | "reached_rebooked"
+      | "reached_will_attend"
+      | "reached_no_longer_needed"
+      | "no_answer"
+      | "wrong_number"
+      | "declined_help"
+      | "clinical_escalation";
     /** @description The template that was started. */
     TemplateCreated: {
       /** Format: uuid */
@@ -11636,7 +11653,7 @@ export interface components {
     };
     "handlers_followup.CloseBody": {
       closed_by: string;
-      outcome: string;
+      outcome: components["schemas"]["TaskOutcome"];
     };
     "handlers_needs_review.ReviewBody": {
       /** @description The person who reviewed the needs with the patient. */
@@ -11708,7 +11725,7 @@ export interface components {
       topic: string;
     };
     "handlers_support.ResolveBody": {
-      outcome: string;
+      outcome: components["schemas"]["SupportOutcome"];
       resolved_by: string;
     };
     "handlers_triage.TriageBody": {

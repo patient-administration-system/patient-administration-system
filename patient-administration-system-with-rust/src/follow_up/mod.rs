@@ -21,15 +21,18 @@ use crate::db::repositories::outbox::OutboxRepository;
 use crate::models::appointment::Appointment;
 use crate::{Error, Result};
 
-pub const OUTCOMES: [&str; 7] = [
-    "reached_rebooked",
-    "reached_will_attend",
-    "reached_no_longer_needed",
-    "no_answer",
-    "wrong_number",
-    "declined_help",
-    "clinical_escalation",
-];
+crate::string_enum! {
+    /// What happened on a follow-up call.
+    pub enum TaskOutcome {
+        ReachedRebooked = "reached_rebooked",
+        ReachedWillAttend = "reached_will_attend",
+        ReachedNoLongerNeeded = "reached_no_longer_needed",
+        NoAnswer = "no_answer",
+        WrongNumber = "wrong_number",
+        DeclinedHelp = "declined_help",
+        ClinicalEscalation = "clinical_escalation",
+    }
+}
 
 fn due_after() -> Duration {
     Duration::hours(env::int("PAS_FOLLOW_UP_HOURS"))
@@ -231,12 +234,12 @@ impl FollowUpService {
         closed_by: &str,
         ctx: &UserContext,
     ) -> Result<()> {
-        if !OUTCOMES.contains(&outcome) {
-            return Err(Error::validation(format!(
+        let outcome: TaskOutcome = outcome.parse().map_err(|_| {
+            Error::validation(format!(
                 "outcome must be one of {}",
-                OUTCOMES.join(", ")
-            )));
-        }
+                TaskOutcome::NAMES.join(", ")
+            ))
+        })?;
         let closed_by = crate::validation::named_person(
             closed_by,
             "a follow-up is closed by a named person (closed_by)",
@@ -246,7 +249,7 @@ impl FollowUpService {
             .one(Stmt::new(
                 "UPDATE follow_up_tasks SET outcome = $2, closed_by = $3, closed_at = now() \
                  WHERE id = $1 AND closed_at IS NULL RETURNING appointment_id",
-                [id.into(), outcome.into(), closed_by.into()],
+                [id.into(), outcome.as_str().into(), closed_by.into()],
             ))
             .await?;
         let Some(row) = row else {
@@ -259,7 +262,7 @@ impl FollowUpService {
             appointment_id,
             "follow_up_task_closed",
             None,
-            Some(serde_json::json!({ "task_id": id, "outcome": outcome, "closed_by": closed_by })),
+            Some(serde_json::json!({ "task_id": id, "outcome": outcome.as_str(), "closed_by": closed_by })),
             ctx,
         )
         .await

@@ -21,7 +21,15 @@ crate::string_enum! {
         NavigatorReferral = "navigator_referral",
     }
 }
-pub const OUTCOMES: [&str; 4] = ["helped", "no_answer", "declined_help", "not_needed"];
+crate::string_enum! {
+    /// What happened when a person acted on a support flag.
+    pub enum SupportOutcome {
+        Helped = "helped",
+        NoAnswer = "no_answer",
+        DeclinedHelp = "declined_help",
+        NotNeeded = "not_needed",
+    }
+}
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct SupportFlag {
@@ -136,12 +144,12 @@ impl SupportService {
         resolved_by: &str,
         ctx: &UserContext,
     ) -> Result<()> {
-        if !OUTCOMES.contains(&outcome) {
-            return Err(Error::validation(format!(
+        let outcome: SupportOutcome = outcome.parse().map_err(|_| {
+            Error::validation(format!(
                 "outcome must be one of {}",
-                OUTCOMES.join(", ")
-            )));
-        }
+                SupportOutcome::NAMES.join(", ")
+            ))
+        })?;
         let resolved_by = crate::validation::named_person(
             resolved_by,
             "a flag is resolved by a named person (resolved_by)",
@@ -151,7 +159,7 @@ impl SupportService {
             .run(Stmt::new(
                 "UPDATE support_flags SET resolved_at = now(), resolved_by = $3, outcome = $2 \
                  WHERE id = $1 AND resolved_at IS NULL",
-                [id.into(), outcome.into(), resolved_by.into()],
+                [id.into(), outcome.as_str().into(), resolved_by.into()],
             ))
             .await?;
         if r.rows_affected() == 0 {
@@ -163,8 +171,8 @@ impl SupportService {
             id,
             "resolved",
             None,
-            Some(serde_json::json!({ "outcome": outcome, "resolved_by": resolved_by })),
-            Some(outcome),
+            Some(serde_json::json!({ "outcome": outcome.as_str(), "resolved_by": resolved_by })),
+            Some(outcome.as_str()),
             None,
             ctx,
         )

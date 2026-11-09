@@ -96,6 +96,7 @@ pub async fn open_tasks(
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 #[schema(as = handlers_followup::CloseBody)]
 pub struct CloseBody {
+    #[schema(value_type = crate::follow_up::TaskOutcome)]
     pub outcome: String,
     pub closed_by: String,
 }

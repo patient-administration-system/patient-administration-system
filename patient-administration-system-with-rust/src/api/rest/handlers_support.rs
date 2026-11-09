@@ -14,6 +14,7 @@ use crate::api::rest::handlers::{HandlerResult, error_to_response, request_audit
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct AddBody {
     pub person_id: Uuid,
+    #[schema(value_type = crate::support::SupportKind)]
     pub kind: String,
     #[serde(default)]
     pub appointment_id: Option<Uuid>,
@@ -91,6 +92,7 @@ pub async fn open(
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 #[schema(as = handlers_support::ResolveBody)]
 pub struct ResolveBody {
+    #[schema(value_type = crate::support::SupportOutcome)]
     pub outcome: String,
     pub resolved_by: String,
 }
