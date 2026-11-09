@@ -10,6 +10,11 @@ pub mod env;
 
 use crate::{Error, Result};
 
+/// The variable that sets [`Config::lockout_client_address_after_count`].
+pub const LOCKOUT_VAR: &str = "LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT";
+/// Its old name, read only when [`LOCKOUT_VAR`] is not set. The server warns at start-up when it is set.
+pub const OLD_LOCKOUT_VAR: &str = "PAS_AUTH_LOCKOUT_FAILURES";
+
 /// Runtime configuration values for the PAS.
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -69,8 +74,9 @@ pub struct Config {
     pub pas_rate_limit_rpm: u32,
     /// `401`s per client address in 15 minutes before it is refused until they end. `0`, the default, turns
     /// the lockout off, because the UI servers call for all their users from one address. Read from
-    /// `PAS_AUTH_LOCKOUT_FAILURES`.
-    pub pas_auth_lockout_failures: u32,
+    /// `LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT`, or, when that is not set, from its old name
+    /// [`OLD_LOCKOUT_VAR`].
+    pub lockout_client_address_after_count: u32,
     /// Outbox webhook destination URL (v0.14). When set,
     /// [`crate::streaming::WebhookEventPublisher`] POSTs every outbox
     /// event to this URL as `application/json`. When unset, no webhook
@@ -142,8 +148,13 @@ impl Config {
             .map(|s| s.trim().to_lowercase())
             .unwrap_or_else(|| "none".to_string());
         let pas_rate_limit_rpm = u32::try_from(env::int("PAS_RATE_LIMIT_RPM")).unwrap_or(600);
-        let pas_auth_lockout_failures =
-            u32::try_from(env::int("PAS_AUTH_LOCKOUT_FAILURES")).unwrap_or(0);
+        let lockout_var =
+            if env::text(LOCKOUT_VAR).is_none() && env::text(OLD_LOCKOUT_VAR).is_some() {
+                OLD_LOCKOUT_VAR
+            } else {
+                LOCKOUT_VAR
+            };
+        let lockout_client_address_after_count = u32::try_from(env::int(lockout_var)).unwrap_or(0);
         let pas_webhook_url = env::text("PAS_WEBHOOK_URL");
         let pas_webhook_secret = env::text("PAS_WEBHOOK_SECRET");
         let pas_webhook_timeout_secs = u64::try_from(env::int("PAS_WEBHOOK_TIMEOUT_SECS"))
@@ -167,7 +178,7 @@ impl Config {
             pas_outbox_max_retries,
             pas_sms_provider,
             pas_rate_limit_rpm,
-            pas_auth_lockout_failures,
+            lockout_client_address_after_count,
             pas_webhook_url,
             pas_webhook_secret,
             pas_webhook_timeout_secs,
@@ -242,6 +253,7 @@ mod tests {
         "OTEL_SERVICE_NAME",
         "PAS_SMS_PROVIDER",
         "PAS_RATE_LIMIT_RPM",
+        "LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT",
         "PAS_AUTH_LOCKOUT_FAILURES",
         "PAS_WEBHOOK_URL",
         "PAS_WEBHOOK_SECRET",
@@ -304,7 +316,7 @@ mod tests {
         assert_eq!(cfg.pas_sms_provider, "none");
         // Rate-limit defaults: 600 rpm, 60 burst.
         assert_eq!(cfg.pas_rate_limit_rpm, 600);
-        assert_eq!(cfg.pas_auth_lockout_failures, 0);
+        assert_eq!(cfg.lockout_client_address_after_count, 0);
         // Webhook publisher disabled by default.
         assert!(cfg.pas_webhook_url.is_none());
         assert!(cfg.pas_webhook_secret.is_none());
@@ -337,11 +349,34 @@ mod tests {
 
         set("DATABASE_URL", "postgres://u:p@h:5432/pas");
         set("PAS_RATE_LIMIT_RPM", "120");
-        set("PAS_AUTH_LOCKOUT_FAILURES", "5");
+        set("LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT", "5");
 
         let cfg = Config::from_env().expect("env parses");
         assert_eq!(cfg.pas_rate_limit_rpm, 120);
-        assert_eq!(cfg.pas_auth_lockout_failures, 5);
+        assert_eq!(cfg.lockout_client_address_after_count, 5);
+    }
+
+    /// A deployment that set the lockout under its old name keeps it, and the new name wins when both are set.
+    #[test]
+    fn test_from_env_reads_the_old_lockout_name_only_without_the_new() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _g = EnvGuard::new(ENV_KEYS);
+
+        set("DATABASE_URL", "postgres://u:p@h:5432/pas");
+        set("PAS_AUTH_LOCKOUT_FAILURES", "7");
+        let cfg = Config::from_env().expect("env parses");
+        assert_eq!(cfg.lockout_client_address_after_count, 7);
+
+        set("LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT", "3");
+        let cfg = Config::from_env().expect("env parses");
+        assert_eq!(cfg.lockout_client_address_after_count, 3);
+
+        set("LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT", "0");
+        let cfg = Config::from_env().expect("env parses");
+        assert_eq!(
+            cfg.lockout_client_address_after_count, 0,
+            "the new name set to 0 turns the lockout off, whatever the old one says"
+        );
     }
 
     #[test]

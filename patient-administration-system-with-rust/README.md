@@ -506,7 +506,7 @@ Configuration is loaded from environment variables (or `.env`).
 | `PAS_SMS_PROVIDER`   | SMS provider selector (v0.8). `none` = no auto-send, SMS letters stay `pending`. `log` = log each outbound message to `tracing` and flip the letter to `sent`. Real production gateways are added by the consumer via the `SmsProvider` trait. Unknown values fall back to `none`. | `none` | No |
 | `PAS_CURSOR_KEY` | At least 32 bytes that sign list cursors (`meta.next`). Share it across replicas. Unset, each process makes its own. | none | In production |
 | `PAS_RATE_LIMIT_RPM` | Requests per client IP address in each fixed minute. `0` turns the limit off. | `600` | No |
-| `PAS_AUTH_LOCKOUT_FAILURES` | `401`s per client IP address in 15 minutes before it is refused until they end. `0` turns the lockout off; it is off by default because the UI servers call for all their users from one address. | `0` | No |
+| `LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT` | `401`s per client IP address in 15 minutes before it is refused until they end. `0` turns the lockout off; it is off by default because the UI servers call for all their users from one address. Was `PAS_AUTH_LOCKOUT_FAILURES`, still read when this is not set. | `0` | No |
 | `API_TOKEN`          | If set, bearer-auth is enforced on every `/api/*` except `/api/health` | -          | No       |
 | `CORS_ORIGINS`       | Comma-separated allowlist; empty/unset = permissive (with warn)   | -                | No       |
 | `HL7V2_MLLP_BIND`    | `host:port` for the MLLP TCP listener (HL7 v2 ADT). Unset = off   | -                | No       |

@@ -133,7 +133,7 @@ fn good_values_get_past_the_check_and_fail_later_on_the_database() {
         ("PAS_TOLERANCE_CHECK_MINUTES", "0"),
         // 0 turns the rate limiter and the lockout off; it must not stop the server starting.
         ("PAS_RATE_LIMIT_RPM", "0"),
-        ("PAS_AUTH_LOCKOUT_FAILURES", "0"),
+        ("LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT", "0"),
     ]);
     assert!(!ok);
     assert!(!text.contains("invalid environment"), "{text}");

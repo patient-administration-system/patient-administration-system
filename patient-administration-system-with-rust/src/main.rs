@@ -558,7 +558,7 @@ async fn build_app(cfg: &Config, state: AppState) -> Result<axum::Router> {
     // a 429 is logged. `0` turns either off.
     tracing::info!(
         requests_per_minute = cfg.pas_rate_limit_rpm,
-        auth_lockout_failures = cfg.pas_auth_lockout_failures,
+        lockout_client_address_after_count = cfg.lockout_client_address_after_count,
         "request limits"
     );
     if patient_administration_system::config::env::text("PAS_RATE_LIMIT_BURST").is_some() {
@@ -566,9 +566,24 @@ async fn build_app(cfg: &Config, state: AppState) -> Result<axum::Router> {
             "PAS_RATE_LIMIT_BURST is no longer read: the limit is PAS_RATE_LIMIT_RPM in each fixed minute"
         );
     }
+    {
+        use patient_administration_system::config::{LOCKOUT_VAR, OLD_LOCKOUT_VAR, env};
+        if env::text(OLD_LOCKOUT_VAR).is_some() {
+            if env::text(LOCKOUT_VAR).is_some() {
+                tracing::warn!(
+                    "{OLD_LOCKOUT_VAR} is not read while {LOCKOUT_VAR} is set: remove it"
+                );
+            } else {
+                tracing::warn!("{OLD_LOCKOUT_VAR} is the old name of {LOCKOUT_VAR}: rename it");
+            }
+        }
+    }
     app = with_rate_limits(
         app,
-        RateLimits::new(cfg.pas_rate_limit_rpm, cfg.pas_auth_lockout_failures),
+        RateLimits::new(
+            cfg.pas_rate_limit_rpm,
+            cfg.lockout_client_address_after_count,
+        ),
     );
 
     let compress = tower_http::compression::CompressionLayer::new();

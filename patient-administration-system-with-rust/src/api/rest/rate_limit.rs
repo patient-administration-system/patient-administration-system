@@ -2,7 +2,7 @@
 //!
 //! - **The limit:** `PAS_RATE_LIMIT_RPM` requests per client address in each fixed minute (`0` leaves it
 //!   out). A client can send up to twice that across the end of a minute, and there is no separate burst.
-//! - **The lockout:** a client that earns `PAS_AUTH_LOCKOUT_FAILURES` `401`s in
+//! - **The lockout:** a client that earns `LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT` `401`s in
 //!   [`LOCKOUT_WINDOW_SECONDS`] is refused until that window ends. It is off unless that is set above `0`:
 //!   the UI servers call the API for all their users from one address, so a lockout there would refuse
 //!   every user because some had expired tokens. Turn it on where callers reach the API directly. A client

@@ -18,7 +18,7 @@ The Patient Administration System (PAS) is an administrative workflow service fo
 - Complete OpenAPI 3.1 spec for every REST + FHIR + HL7 v2 endpoint at `/api-docs/openapi.json` + Swagger UI at `/swagger-ui` (92 handlers across 19 tags)
 - Ops dashboard at `GET /dashboard` (Tera + HTMX live-refresh + Lily Design System markup)
 - Bearer-token auth (opt-in via `API_TOKEN`), configurable CORS, compression, request tracing
-- Request limits with axa-ratelimit: 600 requests per client address in each fixed minute, and, when `PAS_AUTH_LOCKOUT_FAILURES` is set, a lockout after that many `401`s in 15 minutes; peer IP read from `ConnectInfo` (X-Forwarded-For not trusted), `/api/health` not counted, a `429` problem (`too_many_requests`) with `Retry-After`; `PAS_RATE_LIMIT_RPM=0` and `PAS_AUTH_LOCKOUT_FAILURES=0` turn them off
+- Request limits with axa-ratelimit: 600 requests per client address in each fixed minute, and, when `LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT` is set, a lockout after that many `401`s in 15 minutes; peer IP read from `ConnectInfo` (X-Forwarded-For not trusted), `/api/health` not counted, a `429` problem (`too_many_requests`) with `Retry-After`; `PAS_RATE_LIMIT_RPM=0` and `LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT=0` turn them off
 - PostgreSQL via sqlx; nested `pas-migrate` CLI; sibling read-mostly Axum and axa front-end at `../patient-administration-system-frontend` (port 5150)
 - 497 unit tests + 62 integration tests across 24 files (most gated on `DATABASE_URL`)
 

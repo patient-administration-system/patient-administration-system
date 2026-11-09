@@ -143,7 +143,7 @@ mod tests {
             pas_outbox_max_retries: 10,
             pas_sms_provider: "none".into(),
             pas_rate_limit_rpm: 600,
-            pas_auth_lockout_failures: 0,
+            lockout_client_address_after_count: 0,
             pas_webhook_url: None,
             pas_webhook_secret: None,
             pas_webhook_timeout_secs: 10,
