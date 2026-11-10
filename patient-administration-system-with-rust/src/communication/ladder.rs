@@ -81,6 +81,30 @@ impl Step {
     }
 }
 
+crate::string_enum! {
+    /// What came of one step of the ladder, as `reminder_steps.outcome` stores it (QUAL-28).
+    pub enum StepOutcome {
+        Sent = "sent",
+        Failed = "failed",
+        SkippedReplied = "skipped_replied",
+        SkippedLate = "skipped_late",
+        SkippedNoChannel = "skipped_no_channel",
+        SkippedOptedOut = "skipped_opted_out",
+        Capped = "capped",
+        CallTask = "call_task",
+    }
+}
+
+crate::string_enum! {
+    /// What came of a staff phone call, as `staff_call_tasks.call_outcome` stores it.
+    pub enum CallOutcome {
+        Reached = "reached",
+        NoAnswer = "no_answer",
+        DeclinedHelp = "declined_help",
+        WrongNumber = "wrong_number",
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StepSpec {
     pub step: Step,
@@ -299,7 +323,7 @@ impl LadderService {
         planned_for: DateTime<Utc>,
         channel: Option<DeliveryChannel>,
         locale: Option<&str>,
-        outcome: &str,
+        outcome: StepOutcome,
         letter_id: Option<Uuid>,
     ) -> Result<()> {
         self.db
@@ -312,7 +336,7 @@ impl LadderService {
                     planned_for.into(),
                     channel.map(|c| crate::db::repositories::letter::delivery_channel_to_str(c).to_string()).into(),
                     locale.map(String::from).into(),
-                    outcome.into(),
+                    outcome.as_str().into(),
                     letter_id.into(),
                 ],
             ))
@@ -463,7 +487,7 @@ impl LadderService {
             };
             // Earlier steps that were never run because the appointment was booked late.
             for (s, at) in &due[..due.len() - 1] {
-                self.log(a.id, *s, *at, None, None, "skipped_late", None)
+                self.log(a.id, *s, *at, None, None, StepOutcome::SkippedLate, None)
                     .await?;
                 report.skipped_late += 1;
             }
@@ -471,8 +495,16 @@ impl LadderService {
             let acted = self.has_acted(a.id).await?;
             match step {
                 Step::Second | Step::Call if acted => {
-                    self.log(a.id, step, planned, None, None, "skipped_replied", None)
-                        .await?;
+                    self.log(
+                        a.id,
+                        step,
+                        planned,
+                        None,
+                        None,
+                        StepOutcome::SkippedReplied,
+                        None,
+                    )
+                    .await?;
                     report.skipped_replied += 1;
                 }
                 Step::Call => {
@@ -482,21 +514,24 @@ impl LadderService {
                             [Uuid::new_v4().into(), a.id.into(), a.person_id.into(), planned.into()],
                         ))
 .await?;
-                    self.log(a.id, step, planned, None, None, "call_task", None)
+                    self.log(a.id, step, planned, None, None, StepOutcome::CallTask, None)
                         .await?;
                     report.call_tasks += 1;
                 }
                 _ => {
-                    let sent_touches = logged.iter().filter(|(_, o, _)| o == "sent").count();
+                    let sent_touches = logged
+                        .iter()
+                        .filter(|(_, o, _)| o == StepOutcome::Sent.as_str())
+                        .count();
                     if sent_touches >= self.max_touches {
-                        self.log(a.id, step, planned, None, None, "capped", None)
+                        self.log(a.id, step, planned, None, None, StepOutcome::Capped, None)
                             .await?;
                         report.capped += 1;
                         continue;
                     }
                     let first_channel = logged
                         .iter()
-                        .find(|(s, o, _)| s == "main" && o == "sent")
+                        .find(|(s, o, _)| s == "main" && o == StepOutcome::Sent.as_str())
                         .and_then(|(_, _, c)| c.as_deref())
                         .and_then(|c| {
                             crate::db::repositories::letter::delivery_channel_from_str(c).ok()
@@ -516,7 +551,7 @@ impl LadderService {
                                 planned,
                                 Some(channel),
                                 Some(&locale),
-                                "sent",
+                                StepOutcome::Sent,
                                 Some(letter_id),
                             )
                             .await?;
@@ -525,17 +560,33 @@ impl LadderService {
                         // A held step stays due and goes on a later scan.
                         Delivery::Deferred => report.deferred_quiet_hours += 1,
                         Delivery::OptedOut => {
-                            self.log(a.id, step, planned, None, None, "skipped_opted_out", None)
-                                .await?;
+                            self.log(
+                                a.id,
+                                step,
+                                planned,
+                                None,
+                                None,
+                                StepOutcome::SkippedOptedOut,
+                                None,
+                            )
+                            .await?;
                             report.skipped_opted_out += 1;
                         }
                         Delivery::NoChannel => {
-                            self.log(a.id, step, planned, None, None, "skipped_no_channel", None)
-                                .await?;
+                            self.log(
+                                a.id,
+                                step,
+                                planned,
+                                None,
+                                None,
+                                StepOutcome::SkippedNoChannel,
+                                None,
+                            )
+                            .await?;
                             report.skipped_no_channel += 1;
                         }
                         Delivery::Failed => {
-                            self.log(a.id, step, planned, None, None, "failed", None)
+                            self.log(a.id, step, planned, None, None, StepOutcome::Failed, None)
                                 .await?;
                             report.failed += 1;
                         }
@@ -575,15 +626,13 @@ impl LadderService {
 
     /// A person phoned: record what happened. Returns false when the task was not open.
     pub async fn complete_call(&self, id: Uuid, outcome: &str, by: Option<&str>) -> Result<bool> {
-        if !["reached", "no_answer", "declined_help", "wrong_number"].contains(&outcome) {
-            return Err(Error::validation(
-                "outcome must be reached, no_answer, declined_help or wrong_number",
-            ));
-        }
+        let outcome: CallOutcome = outcome.parse().map_err(|_| {
+            Error::validation("outcome must be reached, no_answer, declined_help or wrong_number")
+        })?;
         let r = self
             .db
             .run(Stmt::new("UPDATE staff_call_tasks SET handled_at = now(), handled_by = $3, call_outcome = $2 WHERE id = $1 AND handled_at IS NULL",
-                [id.into(), outcome.into(), by.map(String::from).into()],
+                [id.into(), outcome.as_str().into(), by.map(String::from).into()],
             ))
 .await?;
         Ok(r.rows_affected() > 0)

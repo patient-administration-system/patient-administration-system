@@ -9716,8 +9716,14 @@ export interface components {
       /** Format: uuid */
       task_id: string;
     };
+    /**
+     * @description What came of a staff phone call, as `staff_call_tasks.call_outcome` stores it.
+     * @enum {string}
+     */
+    CallOutcome: "reached" | "no_answer" | "declined_help" | "wrong_number";
     CallOutcomeBody: {
-      outcome: string;
+      /** @description `reached`, `no_answer`, `declined_help` or `wrong_number`. */
+      outcome: components["schemas"]["CallOutcome"];
     };
     /**
      * @description Whether a campaign still takes steps (`validation_campaigns.status`).

@@ -160,6 +160,8 @@ pub async fn open_calls(
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CallOutcomeBody {
+    /// `reached`, `no_answer`, `declined_help` or `wrong_number`.
+    #[schema(value_type = crate::communication::ladder::CallOutcome)]
     pub outcome: String,
 }
 

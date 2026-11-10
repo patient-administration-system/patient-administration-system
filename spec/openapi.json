@@ -11623,10 +11623,21 @@
         ],
         "type": "object"
       },
+      "CallOutcome": {
+        "description": "What came of a staff phone call, as `staff_call_tasks.call_outcome` stores it.",
+        "enum": [
+          "reached",
+          "no_answer",
+          "declined_help",
+          "wrong_number"
+        ],
+        "type": "string"
+      },
       "CallOutcomeBody": {
         "properties": {
           "outcome": {
-            "type": "string"
+            "$ref": "#/components/schemas/CallOutcome",
+            "description": "`reached`, `no_answer`, `declined_help` or `wrong_number`."
           }
         },
         "required": [

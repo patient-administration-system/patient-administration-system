@@ -92,6 +92,14 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ),
         ("slot_releases_status_check", standby::ReleaseStatus::STORED),
         ("slot_offers_status_check", backfill::SlotOfferStatus::NAMES),
+        (
+            "reminder_steps_outcome_check",
+            communication::ladder::StepOutcome::NAMES,
+        ),
+        (
+            "staff_call_tasks_call_outcome_check",
+            communication::ladder::CallOutcome::NAMES,
+        ),
         ("noshow_reviews_kind_check", noshow::ReviewKind::NAMES),
         ("noshow_reviews_outcome_check", noshow::ReviewOutcome::NAMES),
         (
