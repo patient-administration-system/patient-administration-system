@@ -220,7 +220,8 @@ Strict three-layer service: `controller → model (read) | services/pas_api (wri
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/_health` | Liveness probe (`{ service, version, database }`) |
+| GET | `/_health` | What is running (`{ service, version, database }`); not a probe |
+| GET | `/_health/live`, `/_health/ready`, `/_health/startup` | axa's liveness, readiness and startup probes |
 | GET | `/dashboard` | Ops dashboard — full page render |
 | GET | `/dashboard/wards` | HTMX fragment: ward occupancy |
 | GET | `/dashboard/outbox` | HTMX fragment: unpublished outbox count |
@@ -304,10 +305,10 @@ Read from the environment, with defaults in `src/app.rs` and in axa.
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `DATABASE_URL` | In production | the local PAS database | PostgreSQL connection string. Same DB as the PAS Axum binary. Production refuses to boot without it. |
+| `DB_URL` | In production | the local PAS database | PostgreSQL connection string. Same DB as the PAS Axum binary, which reads it as `DATABASE_URL`. Production refuses to boot without it. |
 | `PAS_API_URL` | No | `http://localhost:8080` | Base URL for the PAS Axum API — every write flow routes through it |
 | `PAS_COOKIE_SECURE` | No | unset (off) | Set to `1` / `true` / `TRUE` / `yes` / `YES` in production so the `pas_csrf` cookie carries `Secure` (HTTPS-only). Off in dev. |
-| `APP_ENV` | No | `development` | `production` or `staging` also turn on HSTS, the 60-second request timeout and JSON logs. `LOCO_ENV` is still read. |
+| `APP_ENV` | No | `development` | `production` or `staging` also turn on HSTS, the 60-second request timeout and JSON logs. `LOCO_ENV` is not read. |
 | `PORT` | No | `5150` | The port to listen on |
 | `CORS_ALLOWED_ORIGINS` | No | none in production | The front-end needs none: its pages and forms are same-origin |
 

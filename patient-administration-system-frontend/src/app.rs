@@ -22,7 +22,7 @@ const STATIC_FOLDER: &str = "assets/static";
 /// What the pages load, all from this service: `/static/css/app.css`, HTMX from `/static/js` (pinned
 /// by its integrity hash), and HTMX's panel refreshes. No inline style or script and no other origin
 /// (AXA-2): HTMX is told not to add its own `<style>` and not to evaluate text. axa's default
-/// policy suits a JSON API and would block all of these. `HTTP_CSP` replaces it.
+/// policy suits a JSON API and would block all of these. `HTTP_CONTENT_SECURITY_POLICY` replaces it.
 const PAGE_CSP: &str = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; \
                         img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
@@ -42,17 +42,17 @@ fn defaults() -> Defaults {
 }
 
 /// The value of a setting for this service when the environment does not give one, where it
-/// differs from axa's. Production has no `DATABASE_URL` here, so it refuses to boot without one.
+/// differs from axa's. Production has no `DB_URL` here, so it refuses to boot without one.
 fn setting(environment: &Environment, name: &str) -> Option<&'static str> {
     let production = environment.is_production_like();
     let test = *environment == Environment::Test;
     match name {
-        "DATABASE_URL" if test => Some("postgres://pas:pas_dev_password@localhost:5432/pas_test"),
-        "DATABASE_URL" if !production => Some("postgres://pas:pas_dev_password@localhost:5432/pas"),
+        "DB_URL" if test => Some("postgres://pas:pas_dev_password@localhost:5432/pas_test"),
+        "DB_URL" if !production => Some("postgres://pas:pas_dev_password@localhost:5432/pas"),
         "DB_CONNECT_TIMEOUT" => Some(if production { "10000" } else { "5000" }),
         "DB_IDLE_TIMEOUT" => Some(if production { "30000" } else { "5000" }),
         "DB_MAX_CONNECTIONS" if test => Some("2"),
-        "HTTP_CSP" => Some(PAGE_CSP),
+        "HTTP_CONTENT_SECURITY_POLICY" => Some(PAGE_CSP),
         "HTTP_COMPRESSION" if !test => Some("true"),
         _ => None,
     }
@@ -70,7 +70,7 @@ impl App {
     ///
     /// # Errors
     ///
-    /// Fails when production has no `DATABASE_URL`, or lists `*` as a CORS origin.
+    /// Fails when production has no `DB_URL`, or lists `*` as a CORS origin.
     pub fn config(environment: &Environment) -> Result<Config> {
         Config::from_lookup(environment, &defaults(), |name| lookup(environment, name))
     }
@@ -86,8 +86,8 @@ impl App {
     }
 
     fn routes() -> AppRoutes {
-        // Not `with_default_routes()`: `controllers::health` has its own `/_health`, which also
-        // reports the service and its version. `probe_routes` is axa's `/_ping` and `/_readiness`.
+        // `probe_routes` is axa's `/_health/live`, `/_health/ready` and `/_health/startup`; `controllers::health`
+        // adds `/_health`, which reports the service and its version.
         AppRoutes::empty()
             .add_route(controllers::dashboard::routes())
             .add_route(controllers::patients::routes())
@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn production_keeps_the_pool_it_had() {
         let settings = |name: &str| match name {
-            "DATABASE_URL" => Some("postgres://example/pas?sslmode=require".to_string()),
+            "DB_URL" => Some("postgres://example/pas?sslmode=require".to_string()),
             other => setting(&Environment::Production, other).map(String::from),
         };
         let config = Config::from_lookup(&Environment::Production, &defaults(), settings).unwrap();
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn production_refuses_a_database_url_that_does_not_ask_for_tls() {
         let settings = |name: &str| match name {
-            "DATABASE_URL" => Some("postgres://example/pas".to_string()),
+            "DB_URL" => Some("postgres://example/pas".to_string()),
             other => setting(&Environment::Production, other).map(String::from),
         };
         assert!(Config::from_lookup(&Environment::Production, &defaults(), settings).is_err());
@@ -284,6 +284,6 @@ mod tests {
             setting(&Environment::Development, name).map(String::from)
         })
         .unwrap();
-        assert!(report.contains("HTTP_CSP"), "{report}");
+        assert!(report.contains("HTTP_CONTENT_SECURITY_POLICY"), "{report}");
     }
 }

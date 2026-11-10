@@ -7,7 +7,8 @@
 #   just ci          every check that needs no image build (needs DATABASE_URL, see `rust-db`)
 #   just quick       the fast subset, under two minutes (QUAL-45)
 #
-# A recipe that needs PostgreSQL takes DATABASE_URL from the environment and refuses to start without it. On this
+# A recipe that needs PostgreSQL takes DATABASE_URL from the environment and refuses to start without it. The
+# front-end reads DB_URL (axa 0.11); the database recipes pass DATABASE_URL to it unless DB_URL is set. On this
 # project's development stack that is postgres://pas:pas_dev_password@127.0.0.1:5442/pas (see podman/compose.yml).
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
@@ -52,11 +53,11 @@ migrate: need-database
 
 # The `rust-db` job without coverage: the tests marked #[ignore], which fail (not skip) without a database.
 rust-db: migrate
-    cargo test --workspace -- --ignored --test-threads=1
+    DB_URL="${DB_URL:-$DATABASE_URL}" cargo test --workspace -- --ignored --test-threads=1
 
 # The `rust-db` job as CI runs it: database and unit tests under coverage, written to lcov.info (QUAL-17).
 rust-db-coverage: migrate
-    cargo llvm-cov --workspace --no-report -- --ignored --test-threads=1
+    DB_URL="${DB_URL:-$DATABASE_URL}" cargo llvm-cov --workspace --no-report -- --ignored --test-threads=1
     cargo llvm-cov --workspace --no-report
     cargo llvm-cov report --lcov --output-path lcov.info
 

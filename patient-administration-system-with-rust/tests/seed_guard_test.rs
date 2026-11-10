@@ -6,7 +6,6 @@ use std::process::Command;
 fn seed(environment: &str) -> (Option<i32>, String) {
     let out = Command::new(env!("CARGO_BIN_EXE_pas-seed"))
         .env("APP_ENV", environment)
-        .env_remove("LOCO_ENV")
         .env_remove("DATABASE_URL")
         .output()
         .expect("pas-seed runs");

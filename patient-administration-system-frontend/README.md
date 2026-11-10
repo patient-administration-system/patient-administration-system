@@ -47,7 +47,7 @@ DATABASE_URL=postgres://pas:pas_dev_password@localhost:5432/pas \
 
 # 2. Boot the front-end.
 cd ../patient-administration-system-frontend
-DATABASE_URL=postgres://pas:pas_dev_password@localhost:5432/pas \
+DB_URL=postgres://pas:pas_dev_password@localhost:5432/pas \
   cargo run -- start
 
 # Browse to http://localhost:5150/dashboard
@@ -57,9 +57,10 @@ DATABASE_URL=postgres://pas:pas_dev_password@localhost:5432/pas \
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET    | `/_health` | What is running (`{ service, version, database }`); `200` even when the database is down |
-| GET    | `/_ping` | Liveness: the process answers, with no database call |
-| GET    | `/_readiness` | Readiness: `503` naming `database` while it cannot be reached, so point an orchestrator here |
+| GET    | `/_health` | What is running (`{ service, version, database }`); `200` even when the database is down. Not a probe |
+| GET    | `/_health/live` | Liveness: the process answers, with no database call |
+| GET    | `/_health/ready` | Readiness: `503` naming `database` while it cannot be reached, and from the moment shutdown begins |
+| GET    | `/_health/startup` | Startup: `503` until the database has answered once, then `200` for good |
 | GET    | `/dashboard` | Ops dashboard — full page render |
 | GET    | `/dashboard/wards` | HTMX fragment: ward occupancy |
 | GET    | `/dashboard/outbox` | HTMX fragment: unpublished outbox count |
@@ -81,9 +82,9 @@ All write flows (POST endpoints) go through the PAS Axum API so audit + outbox e
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `DATABASE_URL` | the local PAS database; required in production | PostgreSQL connection string (same DB as PAS Axum). In production it must set `sslmode` to `require`, `verify-ca` or `verify-full`, unless it is a loopback address or `DB_ALLOW_INSECURE=true` |
-| `APP_ENV` | `development` in a debug build, `production` in a release build | `production` turns on HSTS and refuses to boot without `DATABASE_URL` |
-| `HTTP_CSP` | the policy in `src/app.rs` | Replaces the `content-security-policy` header. Every environment sends the same one, so a page that breaks under it breaks in development first |
+| `DB_URL` | the local PAS database; required in production | PostgreSQL connection string (same DB as PAS Axum). In production it must set `sslmode` to `require`, `verify-ca` or `verify-full`, unless it is a loopback address or `DB_ALLOW_INSECURE=true` |
+| `APP_ENV` | `development` in a debug build, `production` in a release build | `production` turns on HSTS and refuses to boot without `DB_URL` |
+| `HTTP_CONTENT_SECURITY_POLICY` | the policy in `src/app.rs` | Replaces the `content-security-policy` header. Every environment sends the same one, so a page that breaks under it breaks in development first |
 | `PORT` | `5150` | The port to listen on |
 | `PAS_API_URL` | `http://localhost:8080` | Base URL for the PAS Axum API — every write flow routes through it |
 | `PAS_COOKIE_SECURE` | follows the environment | The `pas_csrf` cookie carries the `Secure` flag (HTTPS-only) everywhere production-like, and not in development or test, so plaintext-HTTP localhost works. `1` / `true` / `yes` turns it on and `0` / `false` / `no` turns it off, whatever the environment. |

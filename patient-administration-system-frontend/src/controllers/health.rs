@@ -1,4 +1,4 @@
-//! Trivial liveness probe — confirms the service booted and can reach the DB.
+//! What is running, and axa's three probes.
 
 use axa::prelude::*;
 use serde_json::Value;
@@ -17,11 +17,10 @@ pub async fn index(State(ctx): State<AppContext>) -> Result<Response> {
     format::json(body)
 }
 
-/// `GET /_ping` (the process is up) and `GET /_readiness` (`503` while the database cannot be reached), from
-/// axa, so an orchestrator stops sending traffic to an instance that cannot serve it (AXA-4). axa's own `/_health`
-/// is left out: [`index`] says more.
+/// axa's probes: `GET /_health/live` (the process is up), `GET /_health/ready` (`503` while the database cannot be
+/// reached, or once shutdown begins) and `GET /_health/startup` (the database has answered once), so an orchestrator
+/// stops sending traffic to an instance that cannot serve it (AXA-4). [`index`] is not a probe: it says what is
+/// running.
 pub fn probe_routes() -> Routes {
-    let mut routes = axa::health::routes();
-    routes.handlers.retain(|h| h.uri != "/_health");
-    routes
+    axa::health::routes()
 }

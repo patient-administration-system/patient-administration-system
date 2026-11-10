@@ -27,13 +27,13 @@ All 9 unit tests cover `src/csrf.rs`. See [csrf.md](csrf.md) for the per-test de
 Run with:
 
 ```bash
-cargo test                                                # gated on DATABASE_URL; skips when unset
-DATABASE_URL=postgres://… cargo test                      # actually exercise them
+cargo test                                                # the database tests are #[ignore]d
+DB_URL=postgres://… cargo test -- --ignored               # actually exercise them (`just rust-db` sets DB_URL)
 ```
 
 **Current count: 16 integration tests** in `tests/dashboard_smoke.rs`. Every test:
 
-1. Returns early when `DATABASE_URL` is unset (via the shared gate helper) so `cargo test` works offline.
+1. Needs `DB_URL`, the variable the service reads, when run with `--ignored`; it is `#[ignore]`d otherwise (via the shared gate helper) so `cargo test` works offline.
 2. Carries `#[serial]`, because the tests share one database.
 3. Uses axa's `request::<App, _, _>` to run the full app in-process, with no listening port.
 
@@ -57,7 +57,7 @@ Coverage:
 
 ## `request::<App, _, _>`
 
-axa's helper runs the full app in-process against `DATABASE_URL`. `App` here is a local type in `tests/dashboard_smoke.rs` that implements `TestApp`; its boot connects and does not touch the schema, because this crate never resets the shared database. Use it like:
+axa's helper runs the full app in-process against `DB_URL`. `App` here is a local type in `tests/dashboard_smoke.rs` that implements `TestApp`; its boot connects and does not touch the schema, because this crate never resets the shared database. Use it like:
 
 ```rust
 #[tokio::test]
@@ -94,7 +94,7 @@ cargo build --workspace --all-targets                   # zero errors
 ### Integration tests
 
 1. Add to `tests/dashboard_smoke.rs`.
-2. Always gate on `DATABASE_URL` — return early when unset so CI without Postgres stays green.
+2. Always `#[ignore]` a test that needs the database, and call `database_url()`, which requires `DB_URL`.
 3. Always `#[serial]` — the tests share one database.
 4. Assert both status and body shape. For CSRF tests, capture the cookie on GET, then assert that POST without it returns 400.
 

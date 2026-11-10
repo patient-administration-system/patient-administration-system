@@ -216,7 +216,7 @@ mod serialization_tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         assert_eq!(
             response.headers()[axum::http::header::CONTENT_TYPE],
-            axa_problem_details_for_http_apis::PROBLEM_JSON
+            axa_problem::PROBLEM_JSON
         );
         let v: Value = serde_json::from_str(&body_text(response).await).unwrap();
         assert_eq!(v["type"], "about:blank");

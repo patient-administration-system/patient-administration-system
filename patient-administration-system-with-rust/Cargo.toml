@@ -63,13 +63,13 @@ rusty_paseto = { version = "0.10.1", default-features = false, features = ["v4_p
 base64 = "0.23"
 
 # Utilities
-axa-problem-details-for-http-apis = "0.1"
+axa-problem = "0.2"
 # Json, Path and Query that refuse a bad request with a problem quoting nothing sent (`axa::extract`).
-axa = { version = "0.10", default-features = false }
+axa = { version = "0.11", default-features = false }
 # Requests per client, and the lockout after repeated 401s (`api::rest::rate_limit`).
-axa-request-rate-limit = "0.2"
+axa-request-rate-limit = "0.3"
 # Which environment this is, so that `pas-seed` refuses outside development and test.
-axa-environment = "0.1"
+axa-environment = "0.2"
 # Signed cursors to the next page of a list (`paging`).
 axa-cursor-pagination = "0.1"
 uuid = { version = "1.29", features = ["v4", "v5", "serde"] }

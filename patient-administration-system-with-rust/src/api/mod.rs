@@ -39,8 +39,8 @@ pub fn problem(
     status: axum::http::StatusCode,
     code: &str,
     message: impl Into<String>,
-) -> axa_problem_details_for_http_apis::Problem {
-    axa_problem_details_for_http_apis::Problem::new(status)
+) -> axa_problem::Problem {
+    axa_problem::Problem::new(status)
         .with_detail(message)
         .with_extension("code", serde_json::Value::from(code))
 }
