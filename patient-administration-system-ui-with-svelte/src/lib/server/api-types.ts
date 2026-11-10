@@ -9493,7 +9493,7 @@ export interface components {
       worker_id: string | null;
     };
     /**
-     * @description The lifecycle status of an appointment.
+     * @description The lifecycle status of an appointment, as `appointments.status` stores it (QUAL-28).
      * @enum {string}
      */
     AppointmentStatus: "proposed" | "booked" | "arrived" | "fulfilled" | "cancelled" | "no_show";

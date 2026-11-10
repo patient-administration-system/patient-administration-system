@@ -14,7 +14,9 @@ use crate::db::sql::{Conn, Pool, Stmt, Transact, Txn};
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::db::repositories::appointment::appointment_status_from_str;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
+use crate::models::appointment::AppointmentStatus;
 use crate::validation::named_person;
 use crate::{Error, Result};
 
@@ -44,7 +46,7 @@ pub async fn is_group(txn: &Txn, slot_id: Uuid) -> Result<bool> {
 pub struct Attendee {
     pub appointment_id: Uuid,
     pub person_id: Uuid,
-    pub status: String,
+    pub status: AppointmentStatus,
 }
 
 #[derive(Debug, Serialize)]
@@ -157,7 +159,7 @@ impl GroupSessionService {
                 Ok(Attendee {
                     appointment_id: r.col("id")?,
                     person_id: r.col("person_id")?,
-                    status: r.col("status")?,
+                    status: appointment_status_from_str(&r.col::<String>("status")?)?,
                 })
             })
             .collect::<Result<Vec<_>>>()?;

@@ -8,7 +8,7 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | Rust test functions (server, front-end, migrations) | 1172 |
 | of which `#[ignore]`d (need PostgreSQL) | 466 |
 | Server route registrations | 307 |
-| Migrations | 61 |
+| Migrations | 62 |
 | UI page routes | 17 |
 | UI unit test files | 23 |
 | UI browser spec files | 18 |

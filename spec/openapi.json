@@ -11021,7 +11021,7 @@
         "type": "object"
       },
       "AppointmentStatus": {
-        "description": "The lifecycle status of an appointment.",
+        "description": "The lifecycle status of an appointment, as `appointments.status` stores it (QUAL-28).",
         "enum": [
           "proposed",
           "booked",

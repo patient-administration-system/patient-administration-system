@@ -92,6 +92,10 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ),
         ("slot_releases_status_check", standby::ReleaseStatus::STORED),
         ("slot_offers_status_check", backfill::SlotOfferStatus::NAMES),
+        (
+            "appointments_status_chk",
+            patient_administration_system::models::appointment::AppointmentStatus::NAMES,
+        ),
         ("tolerances_scope_kind_check", tolerance::ScopeKind::NAMES),
         (
             "tolerance_alerts_scope_kind_check",

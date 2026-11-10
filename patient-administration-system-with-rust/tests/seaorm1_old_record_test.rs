@@ -72,8 +72,8 @@ async fn a_fresh_database_migrates_and_never_had_the_old_record() {
     with_empty_database(async |pool| {
         migration::up(pool).await.unwrap();
         assert!(!has_the_old_record(pool).await);
-        // Taking the drop back down restores nothing and fails nothing.
-        migration::down(pool, 1).await.unwrap();
+        // Taking the drop back down (and migration 62 above it) restores nothing and fails nothing.
+        migration::down(pool, 2).await.unwrap();
         assert!(!has_the_old_record(pool).await);
         migration::up(pool).await.unwrap();
     })

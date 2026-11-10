@@ -124,7 +124,6 @@ async fn each_attendee_has_their_own_outcome_and_a_cancellation_frees_one_place(
             .find(|x| x.appointment_id == id)
             .unwrap()
             .status
-            .clone()
     };
     assert_eq!(
         (status(a.id).as_str(), status(b.id).as_str()),

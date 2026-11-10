@@ -6,16 +6,16 @@ use uuid::Uuid;
 
 use crate::{Error, Result};
 
-/// The lifecycle status of an appointment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum AppointmentStatus {
-    Proposed,
-    Booked,
-    Arrived,
-    Fulfilled,
-    Cancelled,
-    NoShow,
+crate::string_enum! {
+    /// The lifecycle status of an appointment, as `appointments.status` stores it (QUAL-28).
+    pub enum AppointmentStatus {
+        Proposed = "proposed",
+        Booked = "booked",
+        Arrived = "arrived",
+        Fulfilled = "fulfilled",
+        Cancelled = "cancelled",
+        NoShow = "no_show",
+    }
 }
 
 impl AppointmentStatus {

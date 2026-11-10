@@ -191,28 +191,13 @@ impl AppointmentRepository {
 // --- conversion helpers ---
 
 pub(crate) fn appointment_status_to_str(s: AppointmentStatus) -> &'static str {
-    match s {
-        AppointmentStatus::Proposed => "proposed",
-        AppointmentStatus::Booked => "booked",
-        AppointmentStatus::Arrived => "arrived",
-        AppointmentStatus::Fulfilled => "fulfilled",
-        AppointmentStatus::Cancelled => "cancelled",
-        AppointmentStatus::NoShow => "no_show",
-    }
+    s.as_str()
 }
 
+/// A stored status the code does not know is the server's fault, not the caller's.
 pub(crate) fn appointment_status_from_str(s: &str) -> Result<AppointmentStatus> {
-    match s {
-        "proposed" => Ok(AppointmentStatus::Proposed),
-        "booked" => Ok(AppointmentStatus::Booked),
-        "arrived" => Ok(AppointmentStatus::Arrived),
-        "fulfilled" => Ok(AppointmentStatus::Fulfilled),
-        "cancelled" => Ok(AppointmentStatus::Cancelled),
-        "no_show" => Ok(AppointmentStatus::NoShow),
-        other => Err(Error::internal(format!(
-            "unknown appointment status: {other}"
-        ))),
-    }
+    s.parse()
+        .map_err(|_| Error::internal(format!("unknown appointment status: {s}")))
 }
 
 pub(crate) fn cancellation_reason_to_str(c: CancellationReason) -> &'static str {
