@@ -3,13 +3,24 @@
   import type { DataGridColumn } from "@lilydesignsystem/svelte-data-grid";
   import type { PageData } from "./$types";
   import { i18n, t } from "#lib/i18n.svelte.js";
+  import { localizePath } from "#lib/locales.js";
 
   let { data }: { data: PageData } = $props();
   const columns = $derived<DataGridColumn[]>([
-    { id: "name", header: t("col.name"), sortable: true },
+    { id: "name", header: t("col.name"), sortable: true, type: "link" },
     { id: "birthDate", header: t("col.birthDate"), sortable: true },
     { id: "id", header: t("col.patientId") },
   ]);
+  // A name opens the patient's enquiry: everything held about them on one page (WPAS-3).
+  const rows = $derived(
+    data.rows.map((r) => ({
+      ...r,
+      name: {
+        href: localizePath(`/enquiry?patient=${encodeURIComponent(String(r.id))}`, i18n.locale),
+        label: String(r.name ?? ""),
+      },
+    })),
+  );
 </script>
 
 <svelte:head><title>{t("patients.title")} – {t("app.name")}</title></svelte:head>
@@ -26,7 +37,7 @@
     <DataGrid
       label={t("patients.gridLabel")}
       {columns}
-      rows={data.rows}
+      {rows}
       rowId={(r) => String(r.id)}
       locale={i18n.locale}
       exportFilename="patients"

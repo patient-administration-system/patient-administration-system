@@ -60,3 +60,11 @@ test("patient enquiry and the ward overview show what they hold, and a bad id is
   await expect(beds.getByText("Empty")).toBeVisible();
   expect(serious(await axe(page))).toEqual([]);
 });
+
+test("a patient's name in the search opens their enquiry", async ({ page }) => {
+  await keycloakLogin(page, "admin");
+  await page.goto("/en-001/patients?q=ada");
+  await page.getByRole("link", { name: "Ada Lovelace" }).click();
+  await expect(page).toHaveURL(/\/en-001\/enquiry\?patient=[0-9a-f-]+$/);
+  await expect(page.getByRole("heading", { name: "Suspected conditions" })).toBeVisible();
+});
