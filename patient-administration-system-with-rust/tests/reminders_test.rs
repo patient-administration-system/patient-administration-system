@@ -233,3 +233,56 @@ async fn portal_channel_stores_and_delivers_without_a_carrier_and_exposes_portal
         .unwrap();
     assert!(none.is_empty(), "channel filter excludes other channels");
 }
+
+/// H-02: only a booked appointment is reminded. A cancelled, completed,
+/// missed or arrived one inside the lead window gets nothing.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn only_a_booked_appointment_is_reminded() {
+    let Some(url) = common::database_url() else {
+        return;
+    };
+    let state = common::build_state(&url).await;
+    let reachable = person(serde_json::json!([{ "system": "phone", "value": "+15555550101" }]));
+    let stub = Arc::new(StubPersonClient::new());
+    stub.insert(reachable.clone());
+    let state = state.with_person_client(stub).with_sender(
+        DeliveryChannel::WhatsApp,
+        Arc::new(LogMessageSender {
+            channel: "whatsapp",
+        }),
+    );
+    let service = ReminderService::new(state.db.clone(), state.communication.clone());
+
+    let booked = book(&state.db, reachable.id, 2).await;
+    let mut others = Vec::new();
+    for status in [
+        AppointmentStatus::Cancelled,
+        AppointmentStatus::Fulfilled,
+        AppointmentStatus::NoShow,
+        AppointmentStatus::Arrived,
+        AppointmentStatus::Proposed,
+    ] {
+        let start = Utc::now() + Duration::hours(3);
+        let mut a = Appointment::new(reachable.id, start, start + Duration::minutes(30));
+        a.status = status;
+        a.reason = Some("Knee review".into());
+        others.push((
+            status,
+            AppointmentRepository::create(&state.db, &a).await.unwrap(),
+        ));
+    }
+
+    service
+        .run_once(Utc::now(), Duration::hours(24))
+        .await
+        .unwrap();
+    assert_eq!(letters_for(&state.db, booked.id).await, 1);
+    for (status, a) in others {
+        assert_eq!(
+            letters_for(&state.db, a.id).await,
+            0,
+            "{status:?} is not reminded"
+        );
+    }
+}
