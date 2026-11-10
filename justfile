@@ -154,6 +154,13 @@ script-tests:
     scripts/ci-local-test.sh
     python3 scripts/check-hazard-log.py --self-test
 
+# The hazard log against a base commit: no hazard row deleted, closures only appended (SAFE-2);
+# then the hazards whose code or tests the change since the base touches, for the CSO (SAFE-6).
+hazards base="HEAD^1":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    git diff --name-only "{{ base }}" HEAD | xargs python3 scripts/check-hazard-log.py --base "{{ base }}" --changed
+
 # The whole local gate on one commit, in its own worktree, with its own database and build directory (QUAL-42).
 gate *args:
     scripts/ci-local.sh {{ args }}

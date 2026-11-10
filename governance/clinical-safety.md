@@ -37,7 +37,7 @@ Scope: an administrative system whose events (admissions, bed status, appointmen
 
 ## Code each hazard rests on (SAFE-6)
 
-A change under one of these paths (relative to `patient-administration-system-with-rust/`), or to a test the log names, lists the hazard for the CSO to look at again: `python3 scripts/check-hazard-log.py --changed <files>` prints them, and CI prints them on a pull request. It is a heuristic and decides nothing: a hazard can rest on code not listed here.
+A change under one of these paths (relative to `patient-administration-system-with-rust/`), or to a test the log names, lists the hazard for the CSO to look at again: `python3 scripts/check-hazard-log.py --changed <files>` prints them, and CI prints them on every run (`just hazards`). It is a heuristic and decides nothing: a hazard can rest on code not listed here.
 
 | ID | Code |
 |---|---|

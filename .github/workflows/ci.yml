@@ -228,17 +228,13 @@ jobs:
         with:
           tool: just
       - run: just docs-scripts script-tests
-      # SAFE-2: no hazard row is deleted and the closure file only grows, against the
-      # commit before this one (a pull request's base, or main's previous commit).
+      # SAFE-2 and SAFE-6, against the commit before this one (a pull request's base, or
+      # main's previous commit): fails if a hazard row was deleted or a closure line edited,
+      # and lists the hazards the change touches in the step summary for the CSO.
       - name: Hazard log against its base
-        run: python3 scripts/check-hazard-log.py --base HEAD^1
-      # SAFE-6: list the hazards whose code or tests the pull request touches, for the
-      # CSO. Report only: it never fails the job.
-      - name: Hazards this change touches
-        if: github.event_name == 'pull_request'
+        shell: bash
         run: |
-          git diff --name-only HEAD^1 HEAD > "$RUNNER_TEMP/changed.txt"
-          { echo '```'; xargs python3 scripts/check-hazard-log.py --changed < "$RUNNER_TEMP/changed.txt"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+          { echo '```'; just hazards; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           args: --offline --config lychee.toml .
