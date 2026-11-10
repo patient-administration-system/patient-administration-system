@@ -75,7 +75,11 @@ async fn a_patients_cancel_shows_who_when_and_why() {
     let reply = find(&h, "audit", "reply_cancel");
     assert_eq!(reply["context"]["channel"], "sms");
     // Oldest first: booked, then the patient's reply, then the cancel.
-    let at: Vec<&str> = h.iter().map(|e| e["at"].as_str().unwrap()).collect();
+    // Compared as instants: as text, "…09.662Z" sorts after "…09.662870Z".
+    let at: Vec<chrono::DateTime<chrono::Utc>> = h
+        .iter()
+        .map(|e| e["at"].as_str().unwrap().parse().unwrap())
+        .collect();
     let mut sorted = at.clone();
     sorted.sort();
     assert_eq!(at, sorted);
