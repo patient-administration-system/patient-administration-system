@@ -1,6 +1,6 @@
 # Hazards: who may remove one, and on what evidence
 
-**Status: a rule for the hazard log, written 2026-10-28. Not yet enforced by code.** The hazard log is [`governance/clinical-safety.md`](../../governance/clinical-safety.md) (a markdown table, DRAFT). No Clinical Safety Officer is named yet, so today nobody can close a hazard under this rule; every hazard stays open. That is the safe failure.
+**Status: a rule for the hazard log, written 2026-10-28. Checked by `scripts/check-hazard-log.py` since 2026-11-10 (SAFE-2, SAFE-3); not yet routed to a CSO by CODEOWNERS, because none is named.** The hazard log is [`governance/clinical-safety.md`](../../governance/clinical-safety.md) (a markdown table, DRAFT). No Clinical Safety Officer is named yet, so today nobody can close a hazard under this rule; every hazard stays open. That is the safe failure.
 
 ## The rule
 
@@ -45,5 +45,6 @@ The request said "chief safety officer" and "remove". Both are tightened here; t
 
 ## How this applies today, and what is not built
 
-- Today the log is a markdown table in git. Anyone with write access can edit it; the rule is not enforced. See `tasks.md` SAFE-1 to SAFE-4 for the way to enforce it (a CODEOWNERS entry, a check that no hazard identifier disappears, a closure record, and a CSO-only route).
+- Today the log is a markdown table in git with a `Status` column, and closures are lines in [`governance/hazard-closures.csv`](../../governance/hazard-closures.csv). `scripts/check-hazard-log.py`, run by CI, refuses a status of `closed` or `accepted` with no record to match it; a record not by the CSO or deputy named in the log; evidence submitted by the person closing; a closure with no evidence, or with evidence whose reference can change (only a full commit hash, a test with its CI run, or a document with its SHA-256 is accepted); `controlled` or `accepted` with no residual score; a deleted hazard row; and an edited closure line (the file is append-only). While nobody is named, every closure is refused. It is still possible to change the rule by changing the script: CODEOWNERS on the script, the log and the closure file, routed to the CSO, is the remaining step (SAFE-2).
+- Stricter than the rule above: the evidence is always submitted by someone other than the person closing, not only where the CSO wrote the control, because the check cannot tell who wrote a control. See `tasks.md` SAFE-1 to SAFE-4 for the way to enforce it (a CODEOWNERS entry, a check that no hazard identifier disappears, a closure record, and a CSO-only route).
 - The rule does not make the system safe by itself. It controls who may say a hazard is gone and what they must show. Whether the hazard is gone is the CSO's clinical judgement.

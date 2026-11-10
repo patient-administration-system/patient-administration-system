@@ -147,12 +147,12 @@ docs-scripts:
     scripts/generate-status.sh --check
     python3 scripts/generate-llms.py --check
     python3 scripts/generate-schema-map.py --check
-    python3 scripts/check-hazard-tests.py
+    python3 scripts/check-hazard-log.py
 
 # Tests of the local gate and the hook; no database or build needed.
 script-tests:
     scripts/ci-local-test.sh
-    python3 scripts/check-hazard-tests.py --self-test
+    python3 scripts/check-hazard-log.py --self-test
 
 # The whole local gate on one commit, in its own worktree, with its own database and build directory (QUAL-42).
 gate *args:
