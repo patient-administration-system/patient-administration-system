@@ -615,7 +615,8 @@ http
     // WPAS-1, WPAS-3, WPAS-4: suspected conditions, patient enquiry and the ward overview.
     if (url.pathname === "/api/suspicion-profile") {
       return res.end(
-        envelope<S["Profile"]>({
+        envelope<S["ActiveProfile"]>({
+          time_zone: "Europe/London",
           name: "wales",
           title: "Wales: the Suspected Cancer Pathway",
           notes: null,

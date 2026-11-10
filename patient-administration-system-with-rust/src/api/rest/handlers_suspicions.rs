@@ -18,13 +18,61 @@ use crate::suspicions::NewSuspicion;
     path = "/api/suspicion-profile",
     tag = "Suspected conditions",
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::suspicions::Profile>),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<ActiveProfile>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
 pub async fn profile(State(state): State<AppState>) -> HandlerResult {
-    ok_json(state.suspicions.profile())
+    ok_json(ActiveProfile {
+        time_zone: crate::inbound::messages::timezone().name().to_string(),
+        profile: state.suspicions.profile().clone(),
+    })
+}
+
+/// The active profile, and the time zone a point of suspicion is a date in (`PAS_TIMEZONE`), so a sender that
+/// holds a time can send the right date.
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct ActiveProfile {
+    /// An IANA time zone name.
+    pub time_zone: String,
+    #[serde(flatten)]
+    pub profile: crate::suspicions::Profile,
+}
+
+/// `POST /api/suspicions/{id}/amend`: correct an open suspicion's point of suspicion, clinician or subtype, with
+/// a reason (FR-224). Needs `If-Match`: none is `428`, a stale one `412`.
+#[utoipa::path(
+    post,
+    path = "/api/suspicions/{id}/amend",
+    tag = "Suspected conditions",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = crate::suspicions::Amendment,
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::suspicions::Suspicion>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn amend(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(b): Json<crate::suspicions::Amendment>,
+) -> HandlerResult {
+    let expected =
+        match crate::api::rest::concurrency::require_if_match(&headers, "suspected condition") {
+            Ok(t) => t,
+            Err(e) => return error_to_response(e),
+        };
+    match state
+        .suspicions
+        .amend_if_unchanged(id, b, expected, &request_audit_ctx(&headers))
+        .await
+    {
+        Ok(s) => ok_json(s),
+        Err(e) => error_to_response(e),
+    }
 }
 
 /// `POST /api/referrals/{id}/suspicions`: record that a named clinician suspects a condition (FR-207).

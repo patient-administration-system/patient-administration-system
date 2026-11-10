@@ -51,14 +51,24 @@ The files are in `patient-administration-system-with-rust/profiles/suspected-con
   - `downgraded`: the suspicion was ruled out (for cancer, a downgrade);
   - `died`: the patient died.
 
-  A fourth stop, `entered_in_error`, removes a suspicion recorded by mistake; it is kept for the audit and left out of every count.
+  - `withdrawn`: a clinician withdrew the suspicion. It was not ruled out and was not a mistake, so it is neither of the others (WPAS-9).
+
+  A fifth stop, `entered_in_error`, removes a suspicion recorded by mistake; it is kept for the audit and left out of every count.
 - **No pauses** (FR-208). The days waited are the real days, from the point of suspicion to the stop date or to today. The Welsh Single Cancer Pathway rules that took effect on 1 December 2020 removed adjustments and suspensions from a patient's pathway. Unlike the RTT clock, nothing pauses a suspicion's clock: not a holiday, not a missed appointment, not a patient's choice.
 - **Open question for sign-off (WPAS-1a):** the NHS Wales Data Dictionary still asks reports to show results "with and without suspensions applied" and says suspensions before the decision to treat should be captured. This PAS records none, so its report is the "without" view only. If the current guidance keeps suspensions for reporting, they would be a separate record, never a pause.
 
 ## What the PAS shows
 
 - **The open list** (FR-212): every open suspicion, longest wait first, with its days waited, its target if it has one, and whether it is within 7 days of the target or past it. The 7 days is a display aid for whoever works the list, not a rule.
-- **The report** (FR-213): for suspicions whose clock stopped in a period, per profile, condition, subtype and recorded target, how many, how many within target, the share within target, and the median days. Each stopped suspicion is counted once; `entered_in_error` is left out; a condition without a target reports counts and the median only.
+- **The report** (FR-213): for suspicions whose clock stopped in a period, per profile, condition, subtype and recorded target, how many, how many within target, the share within target, and the median days. Each stopped suspicion is counted once; `entered_in_error` is left out; a condition without a target reports counts and the median only. Withdrawn suspicions are counted (`withdrawn`) but left out of the share and the median: whether a withdrawn wait counts against a target is for the sign-off (WPAS-1a).
+
+## Corrections (FR-224)
+
+An open suspicion's point of suspicion, clinician or subtype can be corrected with `POST /api/suspicions/{id}/amend`: a reason, a named person and the version read (`If-Match`), audited with the old and new values and announced as `SuspicionAmended`. Its condition cannot change, because the rules it was recorded with belong to the condition: a different condition is stopped as `entered_in_error` and recorded again. A stopped suspicion is not amended.
+
+## From an electronic patient record (WPAS-9, FR-222, FR-223)
+
+An EPR that records a clinician's suspicion sends the referral with source `epr` and its own referral id as `external_ref` (sending it again is the same referral), then the suspicion: the condition, a subtype with its `subtype_scheme` (refused if it is not the active profile's list), the point of suspicion as a date in the time zone `GET /api/suspicion-profile` gives, and the named clinician and EPR user. It does not send a diagnosis (a confirmed suspicion is not a PAS stop; the clock runs to first definitive treatment), its grounds or whether the patient was told (clinical, out of scope), or a clock of its own (a pathway counted from elsewhere is not this measure). A withdrawal is the `withdrawn` stop; a correction is an amendment.
 
 ## Not built, and why
 

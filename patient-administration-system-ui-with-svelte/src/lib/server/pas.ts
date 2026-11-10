@@ -307,7 +307,7 @@ export const offerLinkAct = (f: FetchFn, token: string, action: "accept" | "decl
 // ---- Suspected conditions, patient enquiry and the ward overview (WPAS-1, WPAS-3, WPAS-4) ----
 
 export type Suspicion = Schemas["Suspicion"];
-export type SuspicionProfile = Schemas["Profile"];
+export type SuspicionProfile = Schemas["ActiveProfile"];
 
 /** The active profile: which conditions are tracked, with their subtypes and targets (WPAS-8). */
 export const suspicionProfile = (f: FetchFn) => pas<SuspicionProfile>(f, "/api/suspicion-profile");

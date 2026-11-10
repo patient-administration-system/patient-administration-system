@@ -17,9 +17,10 @@ use crate::referrals::{Created, NewReferral};
 #[schema(as = handlers_referrals::CreateBody)]
 pub struct CreateBody {
     pub person_id: Uuid,
-    /// `gp`, `e-rs` or `internal`.
+    /// `gp`, `e-rs`, `internal` or `epr`.
     pub source: String,
-    /// The sender's own reference, for example an e-RS UBRN. Required for `e-rs`.
+    /// The sender's own reference, for example an e-RS UBRN or an EPR's referral id. Required for `e-rs` and
+    /// `epr`; unique per source, so sending the same one again returns the first referral.
     #[serde(default)]
     pub external_ref: Option<String>,
     pub target_service: String,

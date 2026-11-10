@@ -128,6 +128,10 @@ pub(super) fn waiting() -> Router<AppState> {
         .route("/api/suspicions/{id}", get(handlers_suspicions::get))
         .route("/api/suspicions/{id}/stop", post(handlers_suspicions::stop))
         .route(
+            "/api/suspicions/{id}/amend",
+            post(handlers_suspicions::amend),
+        )
+        .route(
             "/api/waitlist/{id}/clinical-priority",
             put(handlers_clinical_priority::set_priority),
         )

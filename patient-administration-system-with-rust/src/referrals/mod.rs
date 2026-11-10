@@ -32,6 +32,8 @@ crate::string_enum! {
         Gp = "gp",
         ERs = "e-rs",
         Internal = "internal",
+        /// An electronic patient record, sending its own referral id as `external_ref` (WPAS-9).
+        Epr = "epr",
     }
 }
 
@@ -237,7 +239,7 @@ impl ReferralService {
         let source: ReferralSource = n
             .source
             .parse()
-            .map_err(|_| Error::validation("source must be gp, e-rs or internal"))?;
+            .map_err(|_| Error::validation("source must be gp, e-rs, internal or epr"))?;
         let service = n.target_service.trim().to_string();
         if service.is_empty() || service.len() > 200 {
             return Err(Error::validation(
@@ -257,6 +259,12 @@ impl ReferralService {
         if source == ReferralSource::ERs && ext.is_none() {
             return Err(Error::validation(
                 "an e-RS referral needs its reference (the UBRN)",
+            ));
+        }
+        // The EPR's own referral id is how the two records are joined, and what makes a retry the same referral.
+        if source == ReferralSource::Epr && ext.is_none() {
+            return Err(Error::validation(
+                "an EPR referral needs the EPR's referral id as external_ref",
             ));
         }
         if n.reason.as_deref().is_some_and(|r| r.len() > 1000) {

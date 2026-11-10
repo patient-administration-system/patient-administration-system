@@ -233,6 +233,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_suspicions::report,
         crate::api::rest::handlers_suspicions::get,
         crate::api::rest::handlers_suspicions::stop,
+        crate::api::rest::handlers_suspicions::amend,
         crate::api::rest::handlers_referrals::create,
         crate::api::rest::handlers_referrals::list,
         crate::api::rest::handlers_referrals::get,

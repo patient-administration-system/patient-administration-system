@@ -63,6 +63,7 @@ fn new(condition: &str, subtype: Option<&str>, days_ago: i64) -> NewSuspicion {
     NewSuspicion {
         condition: condition.into(),
         subtype: subtype.map(String::from),
+        subtype_scheme: None,
         unique_pathway_identifier: None,
         suspected_on: today() - Duration::days(days_ago),
         suspected_by: "Dr Rhian Evans".into(),
@@ -802,4 +803,277 @@ async fn stopping_needs_the_version_read() {
     .await;
     assert_eq!(st, StatusCode::OK);
     assert_eq!(v["data"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn an_epr_referral_is_joined_by_its_own_id_and_a_retry_is_the_same_referral() {
+    let s = state().await;
+    let epr_id = format!("EPR-{}", Uuid::new_v4());
+    let person = Uuid::new_v4();
+    let send = || NewReferral {
+        person_id: person,
+        source: "epr".into(),
+        external_ref: Some(epr_id.clone()),
+        target_service: "wpas9-epr".into(),
+        reason: None,
+        referring_worker_id: None,
+        received_at: None,
+    };
+    let (first, dup) = s.referrals.create(send(), &sys()).await.unwrap();
+    assert!(!dup);
+    assert_eq!(first.source.as_str(), "epr");
+    assert_eq!(first.external_ref.as_deref(), Some(epr_id.as_str()));
+    let (again, dup) = s.referrals.create(send(), &sys()).await.unwrap();
+    assert!(dup, "a retried send is the same referral");
+    assert_eq!(again.id, first.id);
+    let no_id = NewReferral {
+        external_ref: None,
+        ..send()
+    };
+    assert!(
+        s.referrals.create(no_id, &sys()).await.is_err(),
+        "an EPR referral carries the EPR's id"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_subtype_from_another_list_is_refused_not_relabelled() {
+    let s = state().await;
+    let wales = service(&s, "wales");
+    let ok = NewSuspicion {
+        subtype_scheme: Some("wales-primary-cancer-site".into()),
+        ..new("cancer", Some("04"), 1)
+    };
+    assert!(
+        wales
+            .record(referral(&s, "wpas9-scheme").await, ok, &sys())
+            .await
+            .is_ok()
+    );
+    for (scheme, why) in [
+        ("icd-o-3-topography", "another list"),
+        ("generic-diabetes-type", "another condition's list"),
+    ] {
+        let bad = NewSuspicion {
+            subtype_scheme: Some(scheme.into()),
+            ..new("cancer", Some("04"), 1)
+        };
+        assert!(
+            wales
+                .record(referral(&s, "wpas9-scheme").await, bad, &sys())
+                .await
+                .is_err(),
+            "{why}"
+        );
+    }
+    let none = NewSuspicion {
+        subtype_scheme: Some("anything".into()),
+        ..new("obstructive_sleep_apnoea", None, 1)
+    };
+    assert!(
+        wales
+            .record(referral(&s, "wpas9-scheme").await, none, &sys())
+            .await
+            .is_err(),
+        "a scheme on a condition with no list"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_withdrawn_suspicion_is_counted_apart_from_the_share() {
+    let s = state().await;
+    let wales = service(&s, "wales");
+    let base = NaiveDate::from_ymd_opt(1990, 1, 1).unwrap()
+        + Duration::days(i64::from(Uuid::new_v4().as_u128() as u16 % 3000));
+    let stop = base + Duration::days(100);
+    for (waited, reason) in [
+        (30, "treatment_started"),
+        (90, "withdrawn"),
+        (95, "withdrawn"),
+    ] {
+        let r = referral(&s, "wpas9-withdrawn").await;
+        let mut n = new("cancer", Some("12"), 0);
+        n.suspected_on = stop - Duration::days(waited);
+        let x = wales.record(r, n, &sys()).await.unwrap();
+        s.db.run(Stmt::new(
+            "UPDATE suspected_conditions SET stop_reason = $2, stopped_on = $3, stopped_by = 'Dr A Bevan', stopped_at = now() WHERE id = $1",
+            [x.id.into(), reason.into(), stop.into()],
+        ))
+        .await
+        .unwrap();
+    }
+    let rep = wales.report(stop, stop).await.unwrap();
+    let c = rep
+        .rows
+        .iter()
+        .find(|x| x.subtype.as_deref() == Some("12") && x.profile == "wales")
+        .unwrap();
+    assert_eq!(
+        (c.stopped, c.withdrawn),
+        (3, 2),
+        "all three stopped, two of them withdrawn"
+    );
+    assert_eq!(c.within_target, Some(1), "only the treated one is judged");
+    assert_eq!(
+        c.share_within_target,
+        Some(1.0),
+        "the withdrawn waits of 90 and 95 days do not count against it"
+    );
+    assert_eq!(c.median_days, Some(30.0));
+    // Through the service too: withdrawn is a stop a person can record.
+    let r = referral(&s, "wpas9-withdrawn").await;
+    let x = wales
+        .record(r, new("dementia", None, 5), &sys())
+        .await
+        .unwrap();
+    let w = wales
+        .stop_if_unchanged(x.id, "withdrawn", today(), "Dr A Bevan", None, &sys())
+        .await
+        .unwrap();
+    assert_eq!(w.stop_reason, Some(StopReason::Withdrawn));
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn an_open_suspicion_is_amended_with_a_reason_and_the_version_read() {
+    use patient_administration_system::suspicions::Amendment;
+    let mut s = state().await;
+    s.suspicions = Arc::new(service(&s, "wales"));
+    let app = patient_administration_system::api::rest::router(s.clone());
+    let x = s
+        .suspicions
+        .record(
+            referral(&s, "wpas9-amend").await,
+            new("cancer", Some("04"), 10),
+            &sys(),
+        )
+        .await
+        .unwrap();
+    let amend = |a: serde_json::Value| a;
+    let uri = format!("/api/suspicions/{}/amend", x.id);
+    let body = amend(serde_json::json!({
+        "suspected_on": today() - Duration::days(12), "subtype": "03",
+        "reason": "the GP's letter gives an earlier date and a lower GI site", "amended_by": "Gareth Jones"
+    }));
+    let (st, _, _) = call(&app, "POST", &uri, None, body.clone()).await;
+    assert_eq!(st, StatusCode::PRECONDITION_REQUIRED);
+    let (st, tag, _) = call(
+        &app,
+        "GET",
+        &format!("/api/suspicions/{}", x.id),
+        None,
+        serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    let (st, _, v) = call(&app, "POST", &uri, tag.as_deref(), body).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert_eq!(
+        v["data"]["days_waited"], 12,
+        "the wait counts from the corrected point of suspicion"
+    );
+    assert_eq!(v["data"]["subtype"], "03");
+    assert_eq!(v["data"]["subtype_name"], "Lower GI");
+    assert_eq!(v["data"]["target_days"], 62, "the recorded rules stand");
+    assert_eq!(common::audit_count(&s.db, x.id, "amended").await, 1);
+    let events: i64 = s
+        .db
+        .one(Stmt::new(
+            "SELECT count(*) AS n FROM outbox_events WHERE event_type = 'SuspicionAmended' AND payload->>'suspicion_id' = $1",
+            [x.id.to_string().into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .col("n")
+        .unwrap();
+    assert_eq!(events, 1);
+
+    let a = |reason: &str| Amendment {
+        suspected_on: None,
+        suspected_by: Some("Dr Siân Morgan".into()),
+        subtype: None,
+        subtype_scheme: None,
+        reason: reason.into(),
+        amended_by: "Gareth Jones".into(),
+    };
+    assert!(
+        s.suspicions
+            .amend_if_unchanged(x.id, a("  "), None, &sys())
+            .await
+            .is_err(),
+        "no reason"
+    );
+    let nothing = Amendment {
+        suspected_by: None,
+        ..a("nothing to change")
+    };
+    assert!(
+        s.suspicions
+            .amend_if_unchanged(x.id, nothing, None, &sys())
+            .await
+            .is_err(),
+        "no change"
+    );
+    let future = Amendment {
+        suspected_on: Some(today() + Duration::days(1)),
+        ..a("typo")
+    };
+    assert!(
+        s.suspicions
+            .amend_if_unchanged(x.id, future, None, &sys())
+            .await
+            .is_err(),
+        "a future date"
+    );
+    let bad_site = Amendment {
+        subtype: Some("99".into()),
+        ..a("typo")
+    };
+    assert!(
+        s.suspicions
+            .amend_if_unchanged(x.id, bad_site, None, &sys())
+            .await
+            .is_err(),
+        "a site not on the list"
+    );
+    let ok = s
+        .suspicions
+        .amend_if_unchanged(x.id, a("named the wrong consultant"), None, &sys())
+        .await
+        .unwrap();
+    assert_eq!(ok.suspected_by, "Dr Siân Morgan");
+
+    // A stopped suspicion is not amended.
+    s.suspicions
+        .stop_if_unchanged(x.id, "downgraded", today(), "Dr A Bevan", None, &sys())
+        .await
+        .unwrap();
+    assert!(
+        s.suspicions
+            .amend_if_unchanged(x.id, a("too late"), None, &sys())
+            .await
+            .is_err()
+    );
+
+    // The profile route says which time zone a point of suspicion is a date in.
+    let (st, _, v) = call(
+        &app,
+        "GET",
+        "/api/suspicion-profile",
+        None,
+        serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    assert!(
+        v["data"]["time_zone"]
+            .as_str()
+            .is_some_and(|z| z.contains('/')),
+        "{v}"
+    );
+    assert_eq!(v["data"]["name"], "wales");
 }

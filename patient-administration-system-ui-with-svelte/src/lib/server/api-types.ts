@@ -4515,6 +4515,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/suspicions/{id}/amend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * `POST /api/suspicions/{id}/amend`: correct an open suspicion's point of suspicion, clinician or subtype, with
+     *     a reason (FR-224). Needs `If-Match`: none is `428`, a stale one `412`.
+     */
+    post: operations["post_api_suspicions__id__amend"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/suspicions/{id}/stop": {
     parameters: {
       query?: never;
@@ -5768,6 +5788,14 @@ export interface components {
        */
       slot_id?: string | null;
     };
+    /**
+     * @description The active profile, and the time zone a point of suspicion is a date in (`PAS_TIMEZONE`), so a sender that
+     *     holds a time can send the right date.
+     */
+    ActiveProfile: components["schemas"]["Profile"] & {
+      /** @description An IANA time zone name. */
+      time_zone: string;
+    };
     AddBody: {
       /** Format: uuid */
       appointment_id?: string | null;
@@ -5858,6 +5886,19 @@ export interface components {
       /** Format: double */
       value: number;
     };
+    /** @description A correction to an open suspicion (FR-224). Each field left out is kept; at least one must change. */
+    Amendment: {
+      amended_by: string;
+      /** @description Why it is being corrected. Kept in the audit. */
+      reason: string;
+      /** @description A code from the condition's list in the profile it was recorded under. */
+      subtype?: string | null;
+      /** @description When given, must be that list's scheme. */
+      subtype_scheme?: string | null;
+      suspected_by?: string | null;
+      /** Format: date */
+      suspected_on?: string | null;
+    };
     /**
      * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
      *     an RFC 9457 problem: see [`problem`].
@@ -5904,6 +5945,22 @@ export interface components {
          * @description Last update timestamp.
          */
         updated_at: string;
+      };
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
+    ApiResponse_ActiveProfile: {
+      /**
+       * @description The active profile, and the time zone a point of suspicion is a date in (`PAS_TIMEZONE`), so a sender that
+       *     holds a time can send the right date.
+       */
+      data?: components["schemas"]["Profile"] & {
+        /** @description An IANA time zone name. */
+        time_zone: string;
       };
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -7072,12 +7129,11 @@ export interface components {
      *     an RFC 9457 problem: see [`problem`].
      */
     ApiResponse_Profile: {
-      data?: {
-        conditions: components["schemas"]["Condition"][];
-        /** @description Stored on each suspicion. */
-        name: string;
-        notes: string | null;
-        title: string;
+      data?: components["schemas"]["ProfileRow"] & {
+        /** @description The same facts as a FHIR `Patient` fragment, for systems that speak FHIR. */
+        fhir: Record<string, never>;
+        /** @description True when the mobile is missing, unverified, or last verified more than a year ago. */
+        mobile_stale: boolean;
       };
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -10705,6 +10761,11 @@ export interface components {
       recorded_by: string;
       /** @description A code from the condition's subtype list, if it has one; refused if it has none. */
       subtype?: string | null;
+      /**
+       * @description The list the sender took `subtype` from. When given, it must be the active profile's list for the
+       *     condition, so a code from another list is refused rather than relabelled (FR-223).
+       */
+      subtype_scheme?: string | null;
       suspected_by: string;
       /** Format: date */
       suspected_on: string;
@@ -11308,7 +11369,7 @@ export interface components {
      * @description Where a referral came from.
      * @enum {string}
      */
-    ReferralSource: "gp" | "e-rs" | "internal";
+    ReferralSource: "gp" | "e-rs" | "internal" | "epr";
     /**
      * @description Where a referral has got to.
      * @enum {string}
@@ -11448,7 +11509,10 @@ export interface components {
       profile: string;
       /** Format: double */
       share_within_target: number | null;
-      /** Format: int64 */
+      /**
+       * Format: int64
+       * @description Every stop in the period, withdrawn ones included.
+       */
       stopped: number;
       subtype: string | null;
       subtype_scheme: string | null;
@@ -11457,6 +11521,12 @@ export interface components {
        * @description The target they were recorded with; rows with different targets are counted apart.
        */
       target_days: number | null;
+      /**
+       * Format: int64
+       * @description Of `stopped`, those a clinician withdrew. They are left out of `within_target`, the share and the
+       *     median until the sign-off decides how they count (WPAS-1a).
+       */
+      withdrawn: number;
       /**
        * Format: int64
        * @description None when there is no target.
@@ -11703,7 +11773,7 @@ export interface components {
      * @description Why a suspicion's clock stopped. Any one stops it, and only one is recorded.
      * @enum {string}
      */
-    StopReason: "treatment_started" | "downgraded" | "died" | "entered_in_error";
+    StopReason: "treatment_started" | "downgraded" | "died" | "withdrawn" | "entered_in_error";
     Subscription: {
       /** Format: date-time */
       created_at: string;
@@ -12199,7 +12269,10 @@ export interface components {
       reason?: string | null;
     };
     "handlers_referrals.CreateBody": {
-      /** @description The sender's own reference, for example an e-RS UBRN. Required for `e-rs`. */
+      /**
+       * @description The sender's own reference, for example an e-RS UBRN or an EPR's referral id. Required for `e-rs` and
+       *     `epr`; unique per source, so sending the same one again returns the first referral.
+       */
       external_ref?: string | null;
       /** Format: uuid */
       person_id: string;
@@ -12208,7 +12281,7 @@ export interface components {
       received_at?: string | null;
       /** Format: uuid */
       referring_worker_id?: string | null;
-      /** @description `gp`, `e-rs` or `internal`. */
+      /** @description `gp`, `e-rs`, `internal` or `epr`. */
       source: string;
       target_service: string;
     };
@@ -22615,7 +22688,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ApiResponse_Profile"];
+          "application/json": components["schemas"]["ApiResponse_ActiveProfile"];
         };
       };
       /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
@@ -22731,6 +22804,47 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Suspicion"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_suspicions__id__amend: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Amendment"];
+      };
+    };
     responses: {
       /** @description Success; the `ApiResponse` envelope */
       200: {

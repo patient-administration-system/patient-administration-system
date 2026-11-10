@@ -54,17 +54,18 @@ HL7 v2 and FHIR writes that change an appointment's status without going through
 
 | Route | What it does |
 |---|---|
-| `GET /api/suspicion-profile` | The active profile: its conditions and each one's subtypes, target, cancel rule and booking priority (FR-221) |
+| `GET /api/suspicion-profile` | The active profile: its conditions and each one's subtypes, target, cancel rule and booking priority, and the time zone a point of suspicion is a date in (FR-221, FR-223) |
 | `POST /api/referrals/{id}/suspicions` | Record a suspected condition on a referral: a condition of the active profile, a subtype where its list allows, the point of suspicion, who suspected it, who recorded it (FR-207, FR-210); raises the referral's waiting entries to the condition's booking priority (FR-220) |
 | `GET /api/referrals/{id}/suspicions` | A referral's suspected conditions |
 | `GET /api/suspicions?condition&subtype` | The open list, longest wait first, with days waited and target status (FR-212); paged |
 | `GET /api/suspicions/{id}` | One suspected condition, with `ETag` |
-| `POST /api/suspicions/{id}/stop` | Stop its clock, once: `treatment_started`, `downgraded`, `died` or `entered_in_error` (FR-209, FR-216) |
+| `POST /api/suspicions/{id}/stop` | Stop its clock, once: `treatment_started`, `downgraded`, `died`, `withdrawn` or `entered_in_error` (FR-209, FR-216) |
+| `POST /api/suspicions/{id}/amend` | Correct an open suspicion's point of suspicion, clinician or subtype, with a reason and `If-Match` (FR-224) |
 | `GET /api/suspicions/report?from&to` | Stopped in the period, per profile, condition, subtype and recorded target, with the share within target and the median days (FR-213) |
 | `GET /api/patients/{id}/enquiry` | What the PAS holds for a person, read-audited as one access (FR-217) |
 | `GET /api/wards/{id}/overview` | Each bed of a ward and who is in it, since when (FR-218) |
 
-Events: `SuspicionRecorded` and `SuspicionStopped` (FR-215).
+Events: `SuspicionRecorded`, `SuspicionStopped` (FR-215) and `SuspicionAmended` (FR-224). A referral from an EPR has source `epr` (FR-222).
 
 ## Errors (FR-206)
 

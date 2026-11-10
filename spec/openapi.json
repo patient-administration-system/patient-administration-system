@@ -120,6 +120,26 @@
         ],
         "type": "object"
       },
+      "ActiveProfile": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Profile"
+          },
+          {
+            "properties": {
+              "time_zone": {
+                "description": "An IANA time zone name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "time_zone"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "The active profile, and the time zone a point of suspicion is a date in (`PAS_TIMEZONE`), so a sender that\nholds a time can send the right date."
+      },
       "AddBody": {
         "properties": {
           "appointment_id": {
@@ -421,6 +441,50 @@
         ],
         "type": "object"
       },
+      "Amendment": {
+        "description": "A correction to an open suspicion (FR-224). Each field left out is kept; at least one must change.",
+        "properties": {
+          "amended_by": {
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why it is being corrected. Kept in the audit.",
+            "type": "string"
+          },
+          "subtype": {
+            "description": "A code from the condition's list in the profile it was recorded under.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subtype_scheme": {
+            "description": "When given, must be that list's scheme.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "suspected_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "suspected_on": {
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "reason",
+          "amended_by"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Account": {
         "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
         "properties": {
@@ -480,6 +544,49 @@
               "updated_at"
             ],
             "type": "object"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_ActiveProfile": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Profile"
+              },
+              {
+                "properties": {
+                  "time_zone": {
+                    "description": "An IANA time zone name.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "time_zone"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "The active profile, and the time zone a point of suspicion is a date in (`PAS_TIMEZONE`), so a sender that\nholds a time can send the right date."
           },
           "meta": {
             "oneOf": [
@@ -3687,35 +3794,28 @@
         "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
         "properties": {
           "data": {
-            "additionalProperties": false,
-            "properties": {
-              "conditions": {
-                "items": {
-                  "$ref": "#/components/schemas/Condition"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfileRow"
+              },
+              {
+                "properties": {
+                  "fhir": {
+                    "description": "The same facts as a FHIR `Patient` fragment, for systems that speak FHIR.",
+                    "type": "object"
+                  },
+                  "mobile_stale": {
+                    "description": "True when the mobile is missing, unverified, or last verified more than a year ago.",
+                    "type": "boolean"
+                  }
                 },
-                "type": "array"
-              },
-              "name": {
-                "description": "Stored on each suspicion.",
-                "type": "string"
-              },
-              "notes": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "title": {
-                "type": "string"
+                "required": [
+                  "mobile_stale",
+                  "fhir"
+                ],
+                "type": "object"
               }
-            },
-            "required": [
-              "name",
-              "title",
-              "notes",
-              "conditions"
-            ],
-            "type": "object"
+            ]
           },
           "meta": {
             "oneOf": [
@@ -14241,6 +14341,13 @@
               "null"
             ]
           },
+          "subtype_scheme": {
+            "description": "The list the sender took `subtype` from. When given, it must be the active profile's list for the\ncondition, so a code from another list is refused rather than relabelled (FR-223).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "suspected_by": {
             "type": "string"
           },
@@ -15988,7 +16095,8 @@
         "enum": [
           "gp",
           "e-rs",
-          "internal"
+          "internal",
+          "epr"
         ],
         "type": "string"
       },
@@ -16417,6 +16525,7 @@
             ]
           },
           "stopped": {
+            "description": "Every stop in the period, withdrawn ones included.",
             "format": "int64",
             "type": "integer"
           },
@@ -16440,6 +16549,11 @@
               "null"
             ]
           },
+          "withdrawn": {
+            "description": "Of `stopped`, those a clinician withdrew. They are left out of `within_target`, the share and the\nmedian until the sign-off decides how they count (WPAS-1a).",
+            "format": "int64",
+            "type": "integer"
+          },
           "within_target": {
             "description": "None when there is no target.",
             "format": "int64",
@@ -16457,6 +16571,7 @@
           "subtype_scheme",
           "target_days",
           "stopped",
+          "withdrawn",
           "within_target",
           "share_within_target",
           "median_days"
@@ -17167,6 +17282,7 @@
           "treatment_started",
           "downgraded",
           "died",
+          "withdrawn",
           "entered_in_error"
         ],
         "type": "string"
@@ -18699,7 +18815,7 @@
       "handlers_referrals.CreateBody": {
         "properties": {
           "external_ref": {
-            "description": "The sender's own reference, for example an e-RS UBRN. Required for `e-rs`.",
+            "description": "The sender's own reference, for example an e-RS UBRN or an EPR's referral id. Required for `e-rs` and\n`epr`; unique per source, so sending the same one again returns the first referral.",
             "type": [
               "string",
               "null"
@@ -18730,7 +18846,7 @@
             ]
           },
           "source": {
-            "description": "`gp`, `e-rs` or `internal`.",
+            "description": "`gp`, `e-rs`, `internal` or `epr`.",
             "type": "string"
           },
           "target_service": {
@@ -31465,7 +31581,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_Profile"
+                  "$ref": "#/components/schemas/ApiResponse_ActiveProfile"
                 }
               }
             },
@@ -31658,6 +31774,59 @@
           }
         ],
         "summary": "`GET /api/suspicions/{id}`: one suspicion, with its version as `ETag`.",
+        "tags": [
+          "Suspected conditions"
+        ]
+      }
+    },
+    "/api/suspicions/{id}/amend": {
+      "post": {
+        "operationId": "post_api_suspicions__id__amend",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Amendment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Suspicion"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/suspicions/{id}/amend`: correct an open suspicion's point of suspicion, clinician or subtype, with\na reason (FR-224). Needs `If-Match`: none is `428`, a stale one `412`.",
         "tags": [
           "Suspected conditions"
         ]

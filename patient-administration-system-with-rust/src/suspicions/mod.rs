@@ -39,6 +39,9 @@ crate::string_enum! {
         /// The suspicion was ruled out (for cancer, a downgrade).
         Downgraded = "downgraded",
         Died = "died",
+        /// A clinician withdrew the suspicion: not ruled out, and not a mistake. Counted as stopped, and
+        /// reported apart from the share within target until that is decided (WPAS-1a).
+        Withdrawn = "withdrawn",
         /// Recorded by mistake: kept for the audit, left out of every count.
         EnteredInError = "entered_in_error",
     }
@@ -200,11 +203,37 @@ pub struct NewSuspicion {
     /// A code from the condition's subtype list, if it has one; refused if it has none.
     #[serde(default)]
     pub subtype: Option<String>,
+    /// The list the sender took `subtype` from. When given, it must be the active profile's list for the
+    /// condition, so a code from another list is refused rather than relabelled (FR-223).
+    #[serde(default)]
+    pub subtype_scheme: Option<String>,
     #[serde(default)]
     pub unique_pathway_identifier: Option<String>,
     pub suspected_on: NaiveDate,
     pub suspected_by: String,
     pub recorded_by: String,
+}
+
+/// A correction to an open suspicion (FR-224). Each field left out is kept; at least one must change.
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
+pub struct Amendment {
+    #[serde(default)]
+    #[schema(required = false)]
+    pub suspected_on: Option<NaiveDate>,
+    #[serde(default)]
+    #[schema(required = false)]
+    pub suspected_by: Option<String>,
+    /// A code from the condition's list in the profile it was recorded under.
+    #[serde(default)]
+    #[schema(required = false)]
+    pub subtype: Option<String>,
+    /// When given, must be that list's scheme.
+    #[serde(default)]
+    #[schema(required = false)]
+    pub subtype_scheme: Option<String>,
+    /// Why it is being corrected. Kept in the audit.
+    pub reason: String,
+    pub amended_by: String,
 }
 
 /// One row of the report (FR-213): suspicions whose clock stopped in the period.
@@ -221,7 +250,11 @@ pub struct ReportRow {
     /// The target they were recorded with; rows with different targets are counted apart.
     #[schema(required = true)]
     pub target_days: Option<i64>,
+    /// Every stop in the period, withdrawn ones included.
     pub stopped: i64,
+    /// Of `stopped`, those a clinician withdrew. They are left out of `within_target`, the share and the
+    /// median until the sign-off decides how they count (WPAS-1a).
+    pub withdrawn: i64,
     /// None when there is no target.
     #[schema(required = true)]
     pub within_target: Option<i64>,
@@ -370,6 +403,22 @@ impl SuspicionService {
             ))
         })?;
         let (subtype, subtype_scheme) = self.subtype_for(condition, n.subtype.as_deref())?;
+        if let Some(sent) = n
+            .subtype_scheme
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            && subtype_scheme.as_deref() != Some(sent)
+        {
+            return Err(Error::validation(format!(
+                "subtype_scheme {sent} is not the list this profile uses for {} ({})",
+                condition.code,
+                condition
+                    .subtypes
+                    .as_ref()
+                    .map_or("none", |l| l.scheme.as_str())
+            )));
+        }
         let upi = n
             .unique_pathway_identifier
             .map(|u| u.trim().to_string())
@@ -617,8 +666,156 @@ impl SuspicionService {
         self.get(id).await
     }
 
+    /// Correct an open suspicion's point of suspicion, its clinician or its subtype (FR-224), if it is still the
+    /// version the caller read. The condition cannot change: its rules were recorded with it, so a different
+    /// condition is stopped as `entered_in_error` and recorded again.
+    pub async fn amend_if_unchanged(
+        &self,
+        id: Uuid,
+        a: Amendment,
+        expected: Option<DateTime<Utc>>,
+        ctx: &UserContext,
+    ) -> Result<Suspicion> {
+        let reason = a.reason.trim().to_string();
+        if reason.is_empty() || reason.chars().count() > 500 || reason.chars().any(char::is_control)
+        {
+            return Err(Error::validation(
+                "an amendment gives its reason: 1 to 500 characters, no control characters",
+            ));
+        }
+        let amended_by = crate::validation::named_person(
+            &a.amended_by,
+            "an amendment names who made it (amended_by)",
+        )?
+        .to_string();
+        let suspected_by = a
+            .suspected_by
+            .as_deref()
+            .map(|n| {
+                crate::validation::named_person(n, "suspected_by names the clinician")
+                    .map(String::from)
+            })
+            .transpose()?;
+        if a.suspected_on.is_some_and(|d| d > today()) {
+            return Err(Error::validation(
+                "suspected_on (the point of suspicion) cannot be in the future",
+            ));
+        }
+        let current = self.get(id).await?;
+        if current.stop_reason.is_some() {
+            return Err(Error::conflict(
+                "that suspicion's clock has stopped; a stopped suspicion is not amended",
+            ));
+        }
+        let subtype = match a
+            .subtype
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            None => None,
+            Some(code) => {
+                if current.profile != self.profile.name {
+                    return Err(Error::validation(format!(
+                        "it was recorded under profile {}, not the active {}, so its subtype cannot be checked",
+                        current.profile, self.profile.name
+                    )));
+                }
+                let condition = self.profile.condition(&current.condition).ok_or_else(|| {
+                    Error::validation("its condition is not in the active profile")
+                })?;
+                let (code, scheme) = self.subtype_for(condition, Some(code))?;
+                if let Some(sent) = a
+                    .subtype_scheme
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    && scheme.as_deref() != Some(sent)
+                {
+                    return Err(Error::validation(format!(
+                        "subtype_scheme {sent} is not the list this profile uses for {}",
+                        current.condition
+                    )));
+                }
+                code.zip(scheme)
+            }
+        };
+        if a.suspected_on.is_none() && suspected_by.is_none() && subtype.is_none() {
+            return Err(Error::validation(
+                "an amendment changes suspected_on, suspected_by or subtype",
+            ));
+        }
+        let ctx = ctx.clone();
+        self.db
+            .in_txn::<_, ()>(|txn| {
+                Box::pin(async move {
+                    let r = txn
+                        .one(Stmt::new(
+                            "SELECT suspected_on, suspected_by, subtype, subtype_scheme, stop_reason, updated_at \
+                             FROM suspected_conditions WHERE id = $1 FOR UPDATE",
+                            [id.into()],
+                        ))
+                        .await?
+                        .ok_or_else(|| Error::not_found(format!("suspected condition {id}")))?;
+                    let stored: DateTime<Utc> = r.col("updated_at")?;
+                    if !crate::api::rest::concurrency::is_current(stored, expected) {
+                        return Err(Error::precondition_failed(
+                            "that suspicion has changed since you read it; read it again",
+                        ));
+                    }
+                    if r.col::<Option<String>>("stop_reason")?.is_some() {
+                        return Err(Error::conflict("that suspicion's clock has stopped"));
+                    }
+                    let old = serde_json::json!({
+                        "suspected_on": r.col::<NaiveDate>("suspected_on")?,
+                        "suspected_by": r.col::<String>("suspected_by")?,
+                        "subtype": r.col::<Option<String>>("subtype")?,
+                        "subtype_scheme": r.col::<Option<String>>("subtype_scheme")?,
+                    });
+                    let (sub, scheme) = subtype.clone().unzip();
+                    txn.run(Stmt::new(
+                        "UPDATE suspected_conditions SET suspected_on = COALESCE($2, suspected_on), \
+                           suspected_by = COALESCE($3, suspected_by), subtype = COALESCE($4, subtype), \
+                           subtype_scheme = COALESCE($5, subtype_scheme), updated_at = now() WHERE id = $1",
+                        [
+                            id.into(),
+                            a.suspected_on.into(),
+                            suspected_by.clone().into(),
+                            sub.into(),
+                            scheme.into(),
+                        ],
+                    ))
+                    .await?;
+                    let detail = serde_json::json!({
+                        "suspicion_id": id,
+                        "suspected_on": a.suspected_on,
+                        "suspected_by": suspected_by,
+                        "subtype": subtype.as_ref().map(|s| &s.0),
+                        "subtype_scheme": subtype.as_ref().map(|s| &s.1),
+                        "reason": reason,
+                        "amended_by": amended_by,
+                    });
+                    AuditLogRepository::log(
+                        txn,
+                        "suspected_condition",
+                        id,
+                        "amended",
+                        Some(old),
+                        Some(detail.clone()),
+                        &ctx,
+                    )
+                    .await?;
+                    OutboxRepository::publish(txn, "SuspicionAmended", &detail).await?;
+                    Ok(())
+                })
+            })
+            .await?;
+        self.get(id).await
+    }
+
     /// The report (FR-213): suspicions whose clock stopped from `from` to `to` inclusive, each once, per
-    /// profile, condition, subtype and recorded target. `entered_in_error` is left out.
+    /// profile, condition, subtype and recorded target. `entered_in_error` is left out; `withdrawn` is counted
+    /// apart.
     pub async fn report(&self, from: NaiveDate, to: NaiveDate) -> Result<SuspicionReport> {
         if to < from {
             return Err(Error::validation("`from` must not be after `to`"));
@@ -626,7 +823,7 @@ impl SuspicionService {
         let rows = self
             .db
             .all(Stmt::new(
-                "SELECT profile, condition, subtype, subtype_scheme, target_days, suspected_on, stopped_on \
+                "SELECT profile, condition, subtype, subtype_scheme, target_days, suspected_on, stopped_on, stop_reason \
                  FROM suspected_conditions \
                  WHERE stop_reason IS NOT NULL AND stop_reason <> 'entered_in_error' \
                    AND stopped_on BETWEEN $1 AND $2",
@@ -634,12 +831,14 @@ impl SuspicionService {
             ))
             .await?;
         type Key = (String, String, Option<String>, Option<String>, Option<i32>);
-        let mut groups: std::collections::BTreeMap<Key, Vec<i64>> =
+        // Per group: the days of the stops that are judged, and how many were withdrawn.
+        let mut groups: std::collections::BTreeMap<Key, (Vec<i64>, i64)> =
             std::collections::BTreeMap::new();
         for r in &rows {
             let start: NaiveDate = r.col("suspected_on")?;
             let stop: NaiveDate = r.col("stopped_on")?;
-            groups
+            let withdrawn = r.col::<String>("stop_reason")? == StopReason::Withdrawn.as_str();
+            let group = groups
                 .entry((
                     r.col("profile")?,
                     r.col("condition")?,
@@ -647,11 +846,15 @@ impl SuspicionService {
                     r.col("subtype")?,
                     r.col("target_days")?,
                 ))
-                .or_default()
-                .push((stop - start).num_days());
+                .or_default();
+            if withdrawn {
+                group.1 += 1;
+            } else {
+                group.0.push((stop - start).num_days());
+            }
         }
         let mut out = Vec::new();
-        for ((profile, condition, scheme, subtype, target), mut days) in groups {
+        for ((profile, condition, scheme, subtype, target), (mut days, withdrawn)) in groups {
             let target = target.map(i64::from);
             days.sort_unstable();
             let n = days.len() as i64;
@@ -666,9 +869,10 @@ impl SuspicionService {
                 subtype,
                 subtype_scheme: scheme,
                 target_days: target,
-                stopped: n,
+                stopped: n + withdrawn,
+                withdrawn,
                 within_target: within,
-                share_within_target: within.map(|w| w as f64 / n as f64),
+                share_within_target: within.filter(|_| n > 0).map(|w| w as f64 / n as f64),
                 median_days: median(&days),
             });
         }

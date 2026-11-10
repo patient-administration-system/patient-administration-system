@@ -48,6 +48,7 @@ async fn one_enquiry_shows_the_patient_and_writes_one_audit_row() {
             NewSuspicion {
                 condition: "cancer".into(),
                 subtype: None,
+                subtype_scheme: None,
                 unique_pathway_identifier: None,
                 suspected_on: today() - Duration::days(6),
                 suspected_by: "Dr Rhian Evans".into(),
