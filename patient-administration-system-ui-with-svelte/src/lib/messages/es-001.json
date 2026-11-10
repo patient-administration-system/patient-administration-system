@@ -323,6 +323,8 @@
   "ward.col.since": "En la cama desde",
   "ward.col.days": "Días en el hospital",
   "ward.empty": "Libre",
+  "ward.choose": "Elija una planta",
+  "ward.none": "Todavía no hay plantas configuradas.",
   "bed.available": "Disponible",
   "bed.occupied": "Ocupada",
   "bed.reserved": "Reservada",

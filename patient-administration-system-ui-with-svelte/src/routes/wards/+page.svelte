@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageData } from "./$types";
   import { i18n, t } from "#lib/i18n.svelte.js";
+  import { localizePath } from "#lib/locales.js";
 
   let { data }: { data: PageData } = $props();
   const when = (iso: string) =>
@@ -15,7 +16,21 @@
   <input id="ward" name="ward" type="text" value={data.ward} />
   <button class="button" type="submit">{t("waitlist.show")}</button>
 </form>
-{#if data.invalid}
+{#if !data.ward}
+  <h2>{t("ward.choose")}</h2>
+  {#if data.places.every((p) => p.wards.length === 0)}
+    <p>{t("ward.none")}</p>
+  {:else}
+    {#each data.places.filter((p) => p.wards.length > 0) as p (p.facility.id)}
+      <h3>{p.facility.name}</h3>
+      <ul>
+        {#each p.wards as w (w.id)}
+          <li><a href={localizePath(`/wards?ward=${w.id}`, i18n.locale)}>{w.name}</a></li>
+        {/each}
+      </ul>
+    {/each}
+  {/if}
+{:else if data.invalid}
   <p role="alert">{t("history.invalid")}</p>
 {:else if data.overview}
   {@const o = data.overview}

@@ -719,6 +719,21 @@ http
         }),
       );
     }
+    if (url.pathname === "/api/facilities") {
+      return res.end(
+        envelope([
+          { id: "66666666-6666-6666-6666-666666666666", name: "General Hospital", code: "GH", active: true },
+        ] as unknown as S["Facility"][]),
+      );
+    }
+    if (url.pathname === "/api/facilities/66666666-6666-6666-6666-666666666666/wards") {
+      return res.end(
+        envelope([
+          { id: "77777777-7777-7777-7777-777777777777", name: "Ward 7", code: "W7", capacity: 2, active: true },
+          { id: "88888888-8888-8888-8888-888888888888", name: "Closed ward", code: "W8", capacity: 0, active: false },
+        ] as unknown as S["Ward"][]),
+      );
+    }
     if (/^\/api\/wards\/[0-9a-f-]+\/overview$/.test(url.pathname)) {
       const ward = url.pathname.split("/")[3] ?? "";
       return res.end(

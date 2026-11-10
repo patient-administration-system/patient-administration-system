@@ -323,6 +323,8 @@
   "ward.col.since": "入床时间",
   "ward.col.days": "住院天数",
   "ward.empty": "空床",
+  "ward.choose": "选择病区",
+  "ward.none": "尚未设置病区。",
   "bed.available": "可用",
   "bed.occupied": "已占用",
   "bed.reserved": "已预留",

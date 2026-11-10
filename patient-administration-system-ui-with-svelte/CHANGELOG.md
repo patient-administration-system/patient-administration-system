@@ -8,6 +8,8 @@
 - `/enquiry?patient=`: everything the PAS holds for one patient (WPAS-3). The PAS records the read.
 - `/wards?ward=`: each bed of a ward and who is in it (WPAS-4).
 - The 68 new strings are first drafts in every locale but English.
+- `/wards` with no ward chosen lists each facility's active wards to choose from. Its two strings are first drafts in every locale but English.
+- Each name in the patient search links to that patient's enquiry.
 
 ### Changed
 - The request bodies the server side sends to the PAS API are typed from the API contract, so a misspelt or missing field fails `pnpm run check`. A cancelling patient's reason must be one of the PAS's barrier codes (QUAL-15).

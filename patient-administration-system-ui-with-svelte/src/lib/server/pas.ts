@@ -331,3 +331,19 @@ export type WardOverview = Schemas["WardOverview"];
 /** Every bed of a ward and who is in it. */
 export const wardOverview = (f: FetchFn, wardId: string) =>
   pas<WardOverview>(f, `/api/wards/${encodeURIComponent(wardId)}/overview`);
+
+export type Facility = Schemas["Facility"];
+export type Ward = Schemas["Ward"];
+
+/** The active facilities, each with its wards, for choosing a ward to look at. */
+export async function facilitiesWithWards(f: FetchFn): Promise<{ facility: Facility; wards: Ward[] }[]> {
+  const facilities = await pasArray<Facility>(f, "/api/facilities");
+  return Promise.all(
+    facilities.map(async (facility) => ({
+      facility,
+      wards: (await pasArray<Ward>(f, `/api/facilities/${encodeURIComponent(facility.id)}/wards`)).filter(
+        (w) => w.active,
+      ),
+    })),
+  );
+}

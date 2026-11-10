@@ -68,3 +68,14 @@ test("a patient's name in the search opens their enquiry", async ({ page }) => {
   await expect(page).toHaveURL(/\/en-001\/enquiry\?patient=[0-9a-f-]+$/);
   await expect(page.getByRole("heading", { name: "Suspected conditions" })).toBeVisible();
 });
+
+test("the ward overview lists the active wards to choose from", async ({ page }) => {
+  await keycloakLogin(page, "admin");
+  await page.goto("/en-001/wards");
+  await expect(page.getByRole("heading", { name: "Choose a ward" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Closed ward" })).toHaveCount(0);
+  expect(serious(await axe(page))).toEqual([]);
+  await page.getByRole("link", { name: "Ward 7" }).click();
+  await expect(page).toHaveURL(/\/en-001\/wards\?ward=77777777-7777-7777-7777-777777777777$/);
+  await expect(page.getByText("1 of 2 beds occupied")).toBeVisible();
+});

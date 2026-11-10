@@ -323,6 +323,8 @@
   "ward.col.since": "बिस्तर पर कब से",
   "ward.col.days": "अस्पताल में दिन",
   "ward.empty": "ख़ाली",
+  "ward.choose": "वार्ड चुनें",
+  "ward.none": "अभी कोई वार्ड नहीं बनाया गया है।",
   "bed.available": "उपलब्ध",
   "bed.occupied": "भरा हुआ",
   "bed.reserved": "आरक्षित",
