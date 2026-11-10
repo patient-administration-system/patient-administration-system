@@ -18062,6 +18062,14 @@
         ],
         "type": "object"
       },
+      "TriageOutcome": {
+        "description": "Triage outcomes (NEW-11). Both end the referral at this service, and each is stored as the referral's\nstatus (QUAL-28): [`TriageOutcome::status`].",
+        "enum": [
+          "returned_with_advice",
+          "redirected"
+        ],
+        "type": "string"
+      },
       "TypeRow": {
         "properties": {
           "free": {
@@ -18879,8 +18887,8 @@
       "handlers_referrals.TriageBody": {
         "properties": {
           "outcome": {
-            "description": "`returned_with_advice` or `redirected`.",
-            "type": "string"
+            "$ref": "#/components/schemas/TriageOutcome",
+            "description": "`returned_with_advice` or `redirected`."
           },
           "redirect_to_service": {
             "description": "For a redirect: the service the patient goes to.",

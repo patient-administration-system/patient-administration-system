@@ -12050,6 +12050,12 @@ export interface components {
       system_version: string | null;
       triage_system: string;
     };
+    /**
+     * @description Triage outcomes (NEW-11). Both end the referral at this service, and each is stored as the referral's
+     *     status (QUAL-28): [`TriageOutcome::status`].
+     * @enum {string}
+     */
+    TriageOutcome: "returned_with_advice" | "redirected";
     TypeRow: {
       /** Format: int64 */
       free: number;
@@ -12298,7 +12304,7 @@ export interface components {
     };
     "handlers_referrals.TriageBody": {
       /** @description `returned_with_advice` or `redirected`. */
-      outcome: string;
+      outcome: components["schemas"]["TriageOutcome"];
       /** @description For a redirect: the service the patient goes to. */
       redirect_to_service?: string | null;
       /** @description The named person (a consultant or their delegate) who triaged it. */

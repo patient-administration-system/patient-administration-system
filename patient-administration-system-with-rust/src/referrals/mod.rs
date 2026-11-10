@@ -48,8 +48,24 @@ crate::string_enum! {
         Redirected = "redirected",
     }
 }
-/// Triage outcomes (NEW-11). Both end the referral at this service.
-pub const TRIAGE_OUTCOMES: [&str; 2] = ["returned_with_advice", "redirected"];
+crate::string_enum! {
+    /// Triage outcomes (NEW-11). Both end the referral at this service, and each is stored as the referral's
+    /// status (QUAL-28): [`TriageOutcome::status`].
+    pub enum TriageOutcome {
+        ReturnedWithAdvice = "returned_with_advice",
+        Redirected = "redirected",
+    }
+}
+
+impl TriageOutcome {
+    /// The status a referral takes when it is triaged so.
+    pub fn status(self) -> ReferralStatus {
+        match self {
+            Self::ReturnedWithAdvice => ReferralStatus::ReturnedWithAdvice,
+            Self::Redirected => ReferralStatus::Redirected,
+        }
+    }
+}
 
 /// A referral in one of these states cannot be booked, waitlisted, closed or triaged again.
 fn is_ended(status: ReferralStatus) -> bool {
@@ -531,19 +547,19 @@ impl ReferralService {
         expected: Option<DateTime<Utc>>,
         ctx: &UserContext,
     ) -> Result<Referral> {
-        if !TRIAGE_OUTCOMES.contains(&outcome) {
-            return Err(Error::validation(
-                "outcome must be returned_with_advice or redirected",
-            ));
-        }
+        let outcome: TriageOutcome = outcome
+            .parse()
+            .map_err(|_| Error::validation("outcome must be returned_with_advice or redirected"))?;
         let by = crate::validation::named_person(
             triaged_by,
             "a referral is triaged by a named person (triaged_by)",
         )?
         .to_string();
         let to = match (outcome, redirect_to_service.map(str::trim)) {
-            ("redirected", Some(s)) if !s.is_empty() && s.len() <= 200 => Some(s.to_string()),
-            ("redirected", _) => {
+            (TriageOutcome::Redirected, Some(s)) if !s.is_empty() && s.len() <= 200 => {
+                Some(s.to_string())
+            }
+            (TriageOutcome::Redirected, _) => {
                 return Err(Error::validation(
                     "a redirect names the service it goes to (redirect_to_service, 1 to 200 characters)",
                 ));
@@ -555,7 +571,7 @@ impl ReferralService {
             }
             _ => None,
         };
-        let (outcome, ctx) = (outcome.to_string(), ctx.clone());
+        let (outcome, ctx) = (outcome.status().as_str(), ctx.clone());
         let new_id = Uuid::new_v4();
         self.db
             .in_txn::<_, ()>(|txn| {
@@ -598,7 +614,7 @@ impl ReferralService {
                          WHERE id = $1",
                         [
                             id.into(),
-                            outcome.clone().into(),
+                            outcome.into(),
                             by.clone().into(),
                             to.clone().into(),
                             to.as_ref().map(|_| new_id).into(),
@@ -617,7 +633,7 @@ impl ReferralService {
                             "redirected_to_service": to,
                             "redirected_referral_id": to.as_ref().map(|_| new_id),
                         })),
-                        Some(&outcome),
+                        Some(outcome),
                         None,
                         &ctx,
                     )
@@ -632,7 +648,18 @@ impl ReferralService {
 
 #[cfg(test)]
 mod lifecycle_tests {
-    use super::{ReferralStatus, ReferralStatus::*, is_ended, is_legal_move};
+    use super::{ReferralStatus, ReferralStatus::*, TriageOutcome, is_ended, is_legal_move};
+
+    /// QUAL-28: a triage outcome is stored as the referral's status, so each must be a status, the same word,
+    /// and one that ends the referral.
+    #[test]
+    fn every_triage_outcome_is_an_ending_status_of_the_same_name() {
+        for outcome in TriageOutcome::ALL {
+            let status = outcome.status();
+            assert_eq!(status.as_str(), outcome.as_str());
+            assert!(is_ended(status), "{status}");
+        }
+    }
 
     #[test]
     fn the_table_has_eight_legal_moves_and_nothing_leaves_a_final_state() {

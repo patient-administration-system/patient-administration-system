@@ -245,6 +245,7 @@ pub async fn close(
 #[schema(as = handlers_referrals::TriageBody)]
 pub struct TriageBody {
     /// `returned_with_advice` or `redirected`.
+    #[schema(value_type = crate::referrals::TriageOutcome)]
     pub outcome: String,
     /// The named person (a consultant or their delegate) who triaged it.
     pub triaged_by: String,
