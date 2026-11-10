@@ -429,7 +429,7 @@ impl Transact for Pool {
 
 /// Did the database refuse this because of a unique constraint?
 pub fn is_unique_violation(error: &Error) -> bool {
-    matches!(error, Error::Database(e) if axa_sqlx::is_unique_violation(e))
+    matches!(error, Error::Database(e) if axa_postgres_sqlx::is_unique_violation(e))
 }
 
 /// Did the server reject the statement itself (a check constraint, say), rather than the connection fail?

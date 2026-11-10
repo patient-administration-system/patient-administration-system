@@ -8,7 +8,7 @@ pub fn routes() -> Routes {
 }
 
 pub async fn index(State(ctx): State<AppContext>) -> Result<Response> {
-    let db_ok = axa::sqlx::ping(&ctx.db).await.is_ok();
+    let db_ok = axa::postgres_sqlx::ping(&ctx.db).await.is_ok();
     let body: Value = serde_json::json!({
         "service": "patient-administration-system-frontend",
         "version": env!("CARGO_PKG_VERSION"),

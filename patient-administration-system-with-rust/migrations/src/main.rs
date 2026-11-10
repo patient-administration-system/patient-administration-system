@@ -8,7 +8,7 @@
 //! - `status` — print each migration and whether it has run
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 #![cfg_attr(not(test), forbid(unsafe_code))]
-use axa_sqlx::{PoolConfig, connect};
+use axa_postgres_sqlx::{PoolConfig, connect};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match cmd.as_str() {
         "up" => migration::up(&pool).await?,
         "down" => migration::down(&pool, u32::MAX).await?,
-        "fresh" => axa_sqlx::dangerously_recreate(&pool, &migration::MIGRATOR).await?,
+        "fresh" => axa_postgres_sqlx::dangerously_recreate(&pool, &migration::MIGRATOR).await?,
         "status" => {
             for m in migration::status(&pool).await? {
                 let state = if m.applied { "applied" } else { "pending" };

@@ -20,7 +20,7 @@ name = "pas-migrate"
 path = "src/main.rs"
 
 [dependencies]
-axa-sqlx = "0.1"
+axa-postgres-sqlx = "0.1"
 sqlx = { version = "0.9", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-ring-webpki", "migrate", "macros"] }
 tokio = { version = "1.54", features = ["full"] }
 dotenvy = "0.15"

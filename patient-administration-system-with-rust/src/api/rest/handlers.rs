@@ -158,7 +158,7 @@ pub fn audit_ctx(uc: &crate::upstream::UserContext) -> crate::db::repositories::
     )
 )]
 pub async fn health(State(state): State<AppState>) -> HandlerResult {
-    let db_ok = axa_sqlx::ping(&state.db)
+    let db_ok = axa_postgres_sqlx::ping(&state.db)
         .await
         .map(|_| true)
         .unwrap_or(false);

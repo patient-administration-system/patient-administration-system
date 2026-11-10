@@ -7,6 +7,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- axa 0.10 to 0.12, for the API server, its migrations and the operator front-end. 0.11 renamed `axa-problem-details-for-http-apis` back to `axa-problem` and moved the front-end's settings and probes (its own changelog lists them); 0.12 renamed the database crate and feature for their database: `axa-sqlx` is `axa-postgres-sqlx`, the feature `sqlx` is `postgres-sqlx`, and `axa::sqlx` is `axa::postgres_sqlx`. On Postgres nothing they do changes. The migrations no longer carry over SeaORM's record (SEAORM-1), and migration 61 drops `seaql_migrations`.
 - axa 0.7 to 0.10, for the API server and the operator front-end (whose tests now use `axa-test`). Two of its crates were renamed in 0.10 and are used under their new names: `axa-problem` is `axa-problem-details-for-http-apis` and `axa-ratelimit` is `axa-request-rate-limit`. The code is the same; nothing a client sees changes. The breaking changes of 0.8 to 0.10 are in parts of axa this server does not use (its outbox, job queue, idempotency keys and offset paging).
 
 ### Added

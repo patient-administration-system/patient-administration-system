@@ -29,7 +29,7 @@ serde_json = "1.0"
 csv = "1.4"
 
 # Database (PostgreSQL, through src/db/sql.rs)
-axa-sqlx = "0.1"
+axa-postgres-sqlx = "0.1"
 sqlx = { version = "0.9", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-ring-webpki", "migrate", "chrono", "uuid", "json"] }
 
 # Templating
@@ -65,7 +65,7 @@ base64 = "0.23"
 # Utilities
 axa-problem = "0.2"
 # Json, Path and Query that refuse a bad request with a problem quoting nothing sent (`axa::extract`).
-axa = { version = "0.11", default-features = false }
+axa = { version = "0.12", default-features = false }
 # Requests per client, and the lockout after repeated 401s (`api::rest::rate_limit`).
 axa-request-rate-limit = "0.3"
 # Which environment this is, so that `pas-seed` refuses outside development and test.

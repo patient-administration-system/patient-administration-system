@@ -14,7 +14,7 @@
 use sqlx::PgPool;
 use sqlx::migrate::{MigrateError, Migrator};
 
-pub use axa_sqlx::MigrationStatus;
+pub use axa_postgres_sqlx::MigrationStatus;
 
 /// Every migration, embedded at compile time.
 pub static MIGRATOR: Migrator = sqlx::migrate!("./sql");
@@ -25,7 +25,7 @@ pub static MIGRATOR: Migrator = sqlx::migrate!("./sql");
 ///
 /// Fails when a migration fails, or an applied one no longer matches its file.
 pub async fn up(pool: &PgPool) -> Result<(), MigrateError> {
-    axa_sqlx::migrate(pool, &MIGRATOR).await
+    axa_postgres_sqlx::migrate(pool, &MIGRATOR).await
 }
 
 /// Apply migrations up to and including `version`, and no further. For tests of the schema at a past point.
@@ -49,7 +49,7 @@ pub async fn up_to(pool: &PgPool, version: i64) -> Result<(), MigrateError> {
 ///
 /// Fails on a database error or a failed down migration.
 pub async fn down(pool: &PgPool, steps: u32) -> Result<(), MigrateError> {
-    axa_sqlx::revert(pool, &MIGRATOR, steps).await
+    axa_postgres_sqlx::revert(pool, &MIGRATOR, steps).await
 }
 
 /// Every migration, oldest first, with whether it has run.
@@ -58,7 +58,7 @@ pub async fn down(pool: &PgPool, steps: u32) -> Result<(), MigrateError> {
 ///
 /// Fails on a database error.
 pub async fn status(pool: &PgPool) -> Result<Vec<MigrationStatus>, MigrateError> {
-    Ok(axa_sqlx::status(pool, &MIGRATOR).await?)
+    Ok(axa_postgres_sqlx::status(pool, &MIGRATOR).await?)
 }
 
 #[cfg(test)]
