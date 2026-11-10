@@ -6,7 +6,7 @@ Research and reasoning behind [`tasks.md`](tasks.md). Tasks are the commitments;
 
 | Part | What it is | State (2026-10-21) |
 |---|---|---|
-| `patient-administration-system-with-rust` | Axum 0.8 + SeaORM 2.0 + Postgres 18 server: ADT, appointments, waitlist and RTT, wards and beds, letters, billing, consent, audit, outbox, FHIR R5, HL7 v2, the reminder ladder, replies, links, offers, virtual visits, transport requests, analytics, the no-show score. Identity and workforce are delegated over HTTP | Built; database tests run in CI and on a fresh database; chaos tests; 40 migrations; tolerances (TOL-1). The no-show score is off until named people approve it |
+| `patient-administration-system-with-rust` | Axum 0.8 + sqlx + Postgres 18 server: ADT, appointments, waitlist and RTT, wards and beds, letters, billing, consent, audit, outbox, FHIR R5, HL7 v2, the reminder ladder, replies, links, offers, virtual visits, transport requests, analytics, the no-show score. Identity and workforce are delegated over HTTP | Built; database tests run in CI and on a fresh database; chaos tests; 40 migrations; tolerances (TOL-1). The no-show score is off until named people approve it |
 | `patient-administration-system-frontend` | Loco 1.2 server-rendered operator pages (Tera + HTMX) | Starts and passes its smoke tests on an empty database; the ward and RTT pages read a table that no longer exists (BUG-8) |
 | `patient-administration-system-ui-with-svelte` | SvelteKit 3 backend-for-frontend: Keycloak sign-in with one-time codes for staff, patient and staff pages, template editor, history and long-wait views | Built; 10 locales; axe, keyboard, reflow, text-spacing and chaos browser tests |
 | `podman/` | PostgreSQL 18, Keycloak 26.8 and Redis 8 for development | Working; ports overridable |
@@ -39,7 +39,7 @@ Surveyed from `~/git/project-porfolio-management/project-porfolio-management` (t
 
 For a Welsh health board, `cy-001` is not optional (see CAS-1). Machine translation is a draft; a first-language reviewer signs off, and the review is recorded.
 
-**Stack parity.** Rust 2024 edition on a pinned toolchain with Loco, Axum 0.8, SeaORM; SvelteKit 3, Svelte 5 runes, TypeScript 6 strict with `noUncheckedIndexedAccess`, Vite 8, pnpm, Node pinned, Vitest 5, Playwright. The new UI follows this already. The Rust side is a version behind (Loco 0.14, SeaORM 1.1): see DEP-2.
+**Stack parity.** Rust 2024 edition on a pinned toolchain with axa, Axum 0.8, sqlx; SvelteKit 3, Svelte 5 runes, TypeScript 6 strict with `noUncheckedIndexedAccess`, Vite 8, pnpm, Node pinned, Vitest 5, Playwright. The new UI follows this already. The Rust side is a version behind (Loco 0.14, SeaORM 1.1): see DEP-2.
 
 **Metadata worth having.** `CODEOWNERS`, `CITATION.cff`, `llms.txt` and `llms.json`, `AI_STATEMENT.md`, `SECURITY.md`, `GOVERNANCE.md`. → REF-10.
 

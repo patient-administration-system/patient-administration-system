@@ -2,7 +2,7 @@
 
 Every route this crate serves. The full table also lives in [`README.md`](../README.md#routes); this doc adds template paths and (for writes) the PAS Axum endpoint each one proxies to.
 
-> **v0.2 target (Option C).** The route table itself is unchanged. What changes is the *data source* behind some routes: `/patients`, `/patients/{id}`, anything showing a patient name or practitioner name on `/wards/{id}` / `/rtt` / dashboard, and the patient/practitioner pickers on the three write forms move from sea-orm reads to `services/main_person_api` + `services/main_worker_api` reqwest reads against the upstream services. The CSRF write surface and the PAS Axum endpoints the writes proxy to are unchanged in shape (the PAS Axum back end internally re-proxies identity fields to the upstream services).
+> **v0.2 target (Option C).** The route table itself is unchanged. What changes is the *data source* behind some routes: `/patients`, `/patients/{id}`, anything showing a patient name or practitioner name on `/wards/{id}` / `/rtt` / dashboard, and the patient/practitioner pickers on the three write forms move from database reads to `services/main_person_api` + `services/main_worker_api` reqwest reads against the upstream services. The CSRF write surface and the PAS Axum endpoints the writes proxy to are unchanged in shape (the PAS Axum back end internally re-proxies identity fields to the upstream services).
 
 ## Read routes (GET)
 

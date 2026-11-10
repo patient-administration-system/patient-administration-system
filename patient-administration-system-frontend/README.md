@@ -122,7 +122,7 @@ Lily is *headless* — zero CSS — so all the styling lives in `assets/static/c
 
 ## Status — v0.1.0
 
-**Workspace gates all green**: `cargo build --workspace --all-targets`, `cargo test --workspace --lib`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check --all`. Written when this crate used Loco 0.14.1 with sea-orm 1.1; it now uses axa (FR-205).
+**Workspace gates all green**: `cargo build --workspace --all-targets`, `cargo test --workspace --lib`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check --all`. Written when this crate used Loco 0.14.1 with sea-orm 1.1; it now uses axa (FR-205) with sqlx (SQLX-1).
 
 - 20 unit tests + 16 integration smoke tests in `tests/dashboard_smoke.rs` (gated on `DATABASE_URL` so `cargo test` works offline).
 - Dep audit clean — no unused direct or dev dependencies.

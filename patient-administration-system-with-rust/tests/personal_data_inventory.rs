@@ -116,8 +116,9 @@ async fn every_database_column_is_classified_and_no_stale_row_remains() {
         .await
         .expect("connect");
     let rows = db
-        .all(Stmt::text("SELECT table_name, column_name FROM information_schema.columns \
-             WHERE table_schema = 'public' AND table_name NOT LIKE 'seaql%' AND table_name <> '_sqlx_migrations'"
+        .all(Stmt::text(
+            "SELECT table_name, column_name FROM information_schema.columns \
+             WHERE table_schema = 'public' AND table_name <> '_sqlx_migrations'"
                 .to_string(),
         ))
         .await

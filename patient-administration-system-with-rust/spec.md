@@ -19,8 +19,8 @@ The shipped system is a Rust Cargo workspace with three members, plus two **runt
 
 | Crate / Service                                 | Role                                                                | Port  | Stack                                |
 |-------------------------------------------------|---------------------------------------------------------------------|-------|--------------------------------------|
-| `patient-administration-system`                 | Workflow service. REST + FHIR R5 + HL7 v2 ADT lifecycle (HTTP + MLLP). | 8080 | Axum 0.7, sea-orm 1.1, utoipa 5.4 |
-| `patient-administration-system-migrations`      | sea-orm migration crate shared by both PAS apps. CLI binary `pas-migrate`. | n/a | sea-orm-migration 1.1                |
+| `patient-administration-system`                 | Workflow service. REST + FHIR R5 + HL7 v2 ADT lifecycle (HTTP + MLLP). | 8080 | Axum 0.8, sqlx, utoipa 6 |
+| `patient-administration-system-migrations`      | sqlx migrations (`migrations/sql`) shared by both PAS apps. CLI binary `pas-migrate`. | n/a | sqlx                |
 | `patient-administration-system-frontend`        | Axum and axa read-mostly UI. Server-side Tera + HTMX + Lily Design System. | 5150 | Axum, axa, Tera, axum-extra cookies, reqwest |
 | `person-service` *(HTTP dep, external)*    | Person identity, demographics, search, match, merge, FHIR R5 Person. | 5180 | (own crate; see its `spec.md`) |
 | `worker-service` *(HTTP dep, external)*    | Worker (= practitioner) identity, demographics, search, match, merge, FHIR R5 Worker. | 5181 | (own crate; see its `spec.md`) |
@@ -253,7 +253,7 @@ HMAC-SHA256 signed via `X-Upstream-Signature` keyed by `PERSON_SERVICE_WEBHOOK_S
 - Collection Bundle: `GET /fhir/Patient?_count=N`.
 - **Bundle writes**: `POST /fhir` accepts `type: batch` or `type: transaction`. Entries may carry `resourceType` ∈ {`Patient`, `Encounter`, `Appointment`, `Coverage`, `Practitioner`, `Schedule`, `Slot`} (last three v0.23); any other type returns `400 Bad Request: unsupported resourceType …` in the per-entry response (batch) or rolls the whole transaction back (transaction).
   - `batch`: entries dispatched independently against the DB pool; per-entry `response.status`.
-  - `transaction`: **genuinely all-or-nothing**. Every entry runs inside one `sea_orm::DatabaseTransaction`. Any failure → roll back the whole bundle and return `400 + OperationOutcome` whose `diagnostics` names the offending entry index. Search-index updates are deferred until after commit so rolled-back rows are never Tantivy-visible.
+  - `transaction`: **genuinely all-or-nothing**. Every entry runs inside one database transaction (`db::sql::Txn`). Any failure → roll back the whole bundle and return `400 + OperationOutcome` whose `diagnostics` names the offending entry index. Search-index updates are deferred until after commit so rolled-back rows are never Tantivy-visible.
 - Errors return FHIR `OperationOutcome` JSON with the same status mapping as REST.
 
 #### 4.8.3 HL7 v2 ADT (v0.3 + v0.4)
@@ -333,7 +333,7 @@ These are **non-negotiable**. Every reviewer (human or agent) checks them.
 | 1 | **Identity and workforce are HTTP-delegated** to `person-service` and `worker-service`. The PAS schema holds no `patients` / `practitioners` / `practitioner_roles` / `departments` tables; PAS-owned rows reference identity via `person_id: Uuid` and `worker_id: Uuid` columns (no DB-level FK — the row lives in another service's database). | Single source of truth per concern; avoids dual identity stores. |
 | 2 | **Hard runtime dependency** on both upstream services. PAS handlers that write a `person_id` or `worker_id` resolve the id against the upstream before persisting; unreachable upstream → `503 + UPSTREAM_UNAVAILABLE` envelope. No local read-through cache in v0.44.0 (see §4.0.1 decision callout). | Honest about coupling. Cache can be added in Phase 7 if latency or availability demand it. |
 | 3 | Money is `rust_decimal::Decimal` + `Iso4217`. **Never** `f64`. | Financial precision; multi-currency safety. |
-| 4 | Time at the domain layer is `chrono::DateTime<Utc>`. Naive local times never enter the domain. SeaORM `DateTimeWithTimeZone` at the DB; convert at the repository. | Audit determinism; timezone-safe arithmetic. |
+| 4 | Time at the domain layer is `chrono::DateTime<Utc>`. Naive local times never enter the domain. `timestamptz` at the DB, read and bound as `DateTime<Utc>` by sqlx. | Audit determinism; timezone-safe arithmetic. |
 | 5 | Soft-delete (`deleted_at TIMESTAMPTZ`) **only on** `encounters` and `appointments`. Other tables are append-only or operational. Patient/practitioner soft-delete is upstream's concern. | Audit retention vs. operational simplicity. |
 | 6 | State changes touching multiple rows run in one `DatabaseTransaction` and write `audit_log` + `outbox_events` rows in the same transaction. Never split. **Cross-service writes (PAS + upstream) are *not* transactional** — see §4.8.2 for FHIR transaction Bundle implications. | Outbox invariant for PAS-owned writes; cross-service atomicity is given up by Option C. |
 | 7 | `SELECT … FOR UPDATE` on contention points (bed allocation, slot booking). The partial unique index `bed_assignments (bed_id) WHERE released_at IS NULL` enforces "at most one active assignment per bed" at the database level. | Concurrent-booking safety. |
@@ -362,7 +362,7 @@ These are **non-negotiable**. Every reviewer (human or agent) checks them.
 │   ├── tests/                                 19 integration test files
 │   ├── benches/                               3 Criterion suites
 │   ├── examples/                              cargo example + sample payloads
-│   ├── migrations/                            sea-orm migrations crate
+│   ├── migrations/                            sqlx migrations crate (`sql/`, `pas-migrate`)
 │   ├── templates/                             Tera dashboard templates (baked via include_str!)
 │   ├── AGENTS.md + AGENTS/                    architecture / models / restful / matching / testing / interchange docs
 │   ├── README.md + CHANGELOG.md
@@ -383,8 +383,8 @@ Strict five-layer service: `api → service → (repository → db) | (upstream 
 
 - **api** (`src/api/`) — Axum routers for REST and FHIR, `#[utoipa::path]` annotations, dashboard handler. Handlers extract user context from `X-User-Id` / `X-User-Ip` / `X-User-Agent`, decode + validate the JSON body, call a service, serialize the response into `ApiResponse<T>`. **No business logic in handlers.**
 - **service** (`src/{adt, scheduling, waitlist, resources, billing, communication}/`) — one module per aggregate cluster. Owns business rules, state-machine transitions, transactional boundaries. Services receive both `&DatabaseConnection` and `&dyn PersonClient` / `&dyn WorkerClient` by injection; resolving a `person_id` is just an upstream call.
-- **repository** (`src/db/repositories/`) — one repo per **PAS-owned** aggregate (encounter, admission, appointment, bed, schedule, slot, waitlist, rtt, letter, billing, consent, audit, outbox). Talks to sea-orm. The `db::with_txn(db, |txn| async { … })` helper composes multiple repos inside one transaction. `AuditLogRepository::log` and `OutboxRepository::publish` accept any `&C: ConnectionTrait`, composing with primary writes in the same transaction. **No `PatientRepository` or `PractitionerRepository`** — those identities live upstream.
-- **db** (`src/db/`) — `connect(url)` (pool 2–10, 8 s connect timeout, 60 s idle timeout, `sqlx_logging` off), `with_txn`, ~28 SeaORM entities (`src/db/entities/*.rs`, one file per table). Down from 32 at v0.43.0 because `patient`, `practitioner`, `practitioner_role`, `department` are gone.
+- **repository** (`src/db/repositories/`) — one repo per **PAS-owned** aggregate (encounter, admission, appointment, bed, schedule, slot, waitlist, rtt, letter, billing, consent, audit, outbox). Literal SQL through `db::sql::Conn` over sqlx. `db::sql::Transact` composes multiple repos inside one transaction. `AuditLogRepository::log` and `OutboxRepository::publish` accept any `&C: Conn`, composing with primary writes in the same transaction. **No `PatientRepository` or `PractitionerRepository`** — those identities live upstream.
+- **db** (`src/db/`) — `connect(url)` (an sqlx `PgPool` of 2–10, 5 s acquire timeout, 60 s idle timeout, statement logging off), `sql` (`Stmt`, `Param`, `Row`, `Conn`, `Txn`, `Transact`), and 29 row types (`src/db/entities/*.rs`, one file per table, each a `Model` with `FromRow` and `Table`). `patient`, `practitioner`, `practitioner_role` and `department` are gone: those identities live upstream.
 - **upstream** (`src/upstream/`) — `PersonClient` and `WorkerClient` traits plus reqwest-backed `HttpPersonClient` / `HttpWorkerClient` impls. Each client exposes the full upstream surface (`create`, `get`, `update`, `delete`, `search`, `match`, `check_duplicates`, `merge`, `masked`, `export`, `audit`). Stub implementations (`StubPersonClient`, `StubWorkerClient`) live alongside for integration tests, mirroring the v0.14 `webhook_test.rs` `TcpListener` pattern.
 
 ### 6.3 Transactional outbox
@@ -489,7 +489,7 @@ src/
 ├── models/                    Pure-Rust domain types for PAS-owned aggregates (no Patient/Practitioner here)
 ├── db/
 │   ├── mod.rs                 connect(), with_txn()
-│   ├── entities/              ~28 SeaORM entities (no patient/practitioner/practitioner_role/department)
+│   ├── entities/              29 row types, one per table (no patient/practitioner/practitioner_role/department)
 │   └── repositories/          One per PAS-owned aggregate + audit.rs + outbox.rs
 ├── upstream/                  HTTP clients for person-service + worker-service
 │   ├── mod.rs                 PersonClient, WorkerClient traits
@@ -665,7 +665,7 @@ The migration is **forward-only** (no `down` implementation). See §13 Layer 11 
 ### 9.3 Time handling
 
 - Domain layer: `chrono::DateTime<Utc>` throughout.
-- DB layer: SeaORM `DateTimeWithTimeZone` (a `chrono::DateTime<FixedOffset>`) for columns; conversion to/from `Utc` happens at the repository boundary.
+- DB layer: `timestamptz` columns, read and bound by sqlx as `chrono::DateTime<Utc>`.
 - Effective time vs system time: every entity has `created_at` / `updated_at` for system bookkeeping. Entities with their own event time additionally carry domain-time columns (`Encounter.period_start/end`, `Admission.admitted_at`, `Transfer.transferred_at`, `Discharge.discharged_at`, `Slot.start_datetime/end_datetime`, `Appointment.start_datetime/end_datetime`, `RTTClockEvent.event_at`). A corrective backdated entry can move `event_at` without altering `created_at`.
 
 ---
@@ -680,8 +680,8 @@ Mirrors `Cargo.toml`. The v0.3.1 audit removed 15 unused direct deps; v0.3.4 rem
 | Web                  | `axum` 0.7 (`macros`)                                                  |
 | HTTP middleware      | `tower` (`util`), `tower-http` (`cors`, `trace`, `compression-full`)   |
 | Templates            | `tera` 1.20                                                            |
-| ORM                  | `sea-orm` 1.1 (`sqlx-postgres`, `runtime-tokio-rustls`, `with-chrono`, `with-uuid`, `with-json`) |
-| Migrations           | `sea-orm-migration` 1.1                                                |
+| Database access      | `sqlx` (PostgreSQL, Tokio, rustls, chrono, uuid, json), literal SQL in the repositories; no ORM |
+| Migrations           | `sqlx::migrate`, SQL files in `migrations/sql`                         |
 | Upstream HTTP client | `reqwest` 0.12 (`json`, `rustls-tls`) — promoted from transitive to direct in v0.44.0 for the two `PersonClient` / `WorkerClient` impls; was already a direct dep at v0.14 for `WebhookEventPublisher`. |
 | OpenAPI              | `utoipa` 5.4 + `utoipa-swagger-ui` 8.1                                 |
 | Serialization        | `serde`, `serde_json`, `quick-xml` 0.36 (`serialize`), `csv` 1.3       |
@@ -836,7 +836,7 @@ Pure-Rust types in `src/models/<name>.rs` with `serde` derives, factory methods,
 ### Layer 2 — Persistence (after Layer 1)
 
 - **T2.1 Initial migration plus follow-ons.** `migrations/src/m20260520_000001_init.rs` creates the original 29 tables with the indexes from §9.2. Inline `JSONB` for repeated child collections on `patients` / `practitioners`. Four follow-on migrations bring the schema to the 32 tables in §9.1: `m20260525_000002_outbox_dlq` (`outbox_dead_letters`, v0.5), `m20260526_000003_appointment_series` (`appointment_series`, v0.9), `m20260527_000004_coverage` (`coverages`, v0.10), `m20260528_000005_patient_replaced_by` (nullable `patients.replaced_by`, v0.11).
-- **T2.2 SeaORM entities.** `src/db/entities/*.rs` — one file per table (32 + `mod.rs`).
+- **T2.2 Row types.** `src/db/entities/*.rs` — one file per table (SeaORM entities until SQLX-1; now plain row types).
 - **T2.3 Repositories.** One file per aggregate cluster. CRUD honors soft-delete (default filter `deleted_at IS NULL`; explicit `include_deleted` to surface tombstones).
 - **T2.4 Audit + outbox repositories.** Accept any `&C: ConnectionTrait` so callers compose with primary writes in the same transaction.
 - **T2.5 DB module.** `connect(url)` (pool 2–10, 8 s connect timeout, 60 s idle, `sqlx_logging` off), `with_txn<F, R>(db, f) -> Result<R>`.
@@ -897,11 +897,11 @@ Pure-Rust types in `src/models/<name>.rs` with `serde` derives, factory methods,
 
 ### Layer 9 — `patient-administration-system-frontend` (Loco-rs sibling crate)
 
-A separate workspace member at `../patient-administration-system-frontend/`. **Reads via sea-orm; writes only by proxying to the PAS Axum API.** Boots with `cargo run -- start` on port 5150.
+A separate workspace member at `../patient-administration-system-frontend/`. **Reads via sqlx; writes only by proxying to the PAS Axum API.** Boots with `cargo run -- start` on port 5150.
 
-- **T9.1 Loco-rs scaffold.** `patient-administration-system-frontend/Cargo.toml` with `loco-rs = "0.14.1"`, `sea-orm`, `tera`, `axum-extra = { version = "0.10", features = ["cookie"] }`, `reqwest`, `serial_test` (dev-dep). Crate-level `#![allow(clippy::result_large_err)]` (Loco's error enum is wide). `migration` dep by path.
+- **T9.1 Loco-rs scaffold.** `patient-administration-system-frontend/Cargo.toml` with `loco-rs = "0.14.1"`, `sea-orm`, `tera`, `axum-extra = { version = "0.10", features = ["cookie"] }`, `reqwest`, `serial_test` (dev-dep). Crate-level `#![allow(clippy::result_large_err)]` (Loco's error enum is wide). `migration` dep by path. Since replaced: axa in place of Loco (FR-205) and sqlx in place of `sea-orm` (SQLX-1).
 - **T9.2 `Hooks` trait — `src/app.rs`.** Implement every method: `boot`, `routes`, `register_tasks`, `connect_workers`, `truncate`, `seed`. Truncate + seed are **no-ops** — patient-administration-system-frontend never mutates the shared schema.
-- **T9.3 Read-side models — `src/models/`.** sea-orm projections: `patient`, `ward`, `bed`, `audit`, `outbox`, `rtt`, `schedule`, `letter_template`, `occupancy`. Read-only.
+- **T9.3 Read-side models — `src/models/`.** Literal SQL over sqlx (SeaORM projections until SQLX-1): `patient`, `ward`, `bed`, `audit`, `outbox`, `rtt`, `schedule`, `letter_template`, `occupancy`. Read-only.
 - **T9.4 Controllers + Tera views.** `controllers/{dashboard, patients, wards, rtt, admissions, appointments, letters, health}.rs`. Templates under `assets/views/`. Every template uses Lily markup.
 - **T9.5 PAS API client — `src/services/pas_api.rs`.** Thin `reqwest` client (10 s timeout). Helpers: `admit`, `book_slot`, `generate_letter`. Shared `post_envelope` unwraps the PAS `ApiResponse` envelope and surfaces non-2xx with the parsed `error.message`. Base URL via `PAS_API_URL`.
 - **T9.6 CSRF middleware — `src/csrf.rs`.** Double-submit-cookie pattern. `ensure_token(jar) -> (String, CookieJar)` reads or mints a `pas_csrf` cookie (`SameSite=Strict; HttpOnly; Path=/`, value = `Uuid::new_v4().simple()`). `verify_token(&jar, &form.csrf_token)` does a length-checked byte XOR (constant-time apart from length; token length is constant). Mismatch / missing cookie / empty field → `loco_rs::Error::BadRequest` → HTTP 400. `PAS_COOKIE_SECURE=1` adds the `Secure` flag.

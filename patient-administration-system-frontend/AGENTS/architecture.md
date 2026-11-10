@@ -6,7 +6,7 @@
 
 > **v0.2 target (Option C).** Patient + practitioner *reads* additionally go through two HTTP services: `person-service` (`:5180`) and `worker-service` (`:5181`). Those services own the identity + workforce data. The shared database loses its `patients` / `practitioners` / `practitioner_roles` / `departments` tables in PAS Axum v0.44.0.
 
-The invariant: **this crate never writes directly to the shared database** and (v0.2+) **never reads patient or practitioner data from sea-orm**. Every write flow proxies through the PAS Axum REST API; identity reads proxy through the upstream services.
+The invariant: **this crate never writes directly to the shared database** and (v0.2+) **never reads patient or practitioner data from the database**. Every write flow proxies through the PAS Axum REST API; identity reads proxy through the upstream services.
 
 ## Layered design
 

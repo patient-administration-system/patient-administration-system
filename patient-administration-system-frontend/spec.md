@@ -3,7 +3,7 @@
 Comprehensive specification-driven-development document for the **Axum and axa front-end** of the Patient Administration System (PAS). This file is the **single source of truth** for what the front-end is, how it must behave, how it is architected, and the sequence in which it is built from a clean checkout to the current shipped baseline (`patient-administration-system-frontend` v0.1.0, paired with PAS Axum v0.43.0).
 
 > **Target: v0.2.0 (paired with PAS Axum v0.44.0) — Option C identity delegation.**
-> The PAS Axum back end ditches its local `patients` + `practitioners` tables and proxies identity to `person-service` + `worker-service`. This front-end therefore **loses its direct sea-orm read path** to patient + practitioner data — those reads move to two new reqwest clients (`src/services/main_person_api.rs` + `src/services/main_worker_api.rs`) that hit the upstream services directly with the user's auth context.
+> The PAS Axum back end ditches its local `patients` + `practitioners` tables and proxies identity to `person-service` + `worker-service`. This front-end therefore **loses its direct database read path** to patient + practitioner data — those reads move to two new reqwest clients (`src/services/main_person_api.rs` + `src/services/main_worker_api.rs`) that hit the upstream services directly with the user's auth context.
 > The CSRF write surface is unchanged in shape (`/admissions/new`, `/appointments/new`, `/letters/new`) — those forms still proxy the user's POST through the PAS Axum API at `:8080`, which in turn proxies identity-bearing fields to the upstream services. The PAS Axum API remains the single write-fan-in. See PAS Axum `spec.md` §13 Layer 11 for the back-end migration and the workspace `CHANGELOG.md` Phase 0 entry.
 
 Past release detail lives in [`CHANGELOG.md`](CHANGELOG.md) (this crate) and [`../CHANGELOG.md`](../CHANGELOG.md) (workspace). System-of-record contracts that this crate consumes live in [`../patient-administration-system-with-rust/spec.md`](../patient-administration-system-with-rust/spec.md).
@@ -356,7 +356,7 @@ Ordered, layered build sequence to recreate the **v0.1.0** baseline from a clean
 
 ### Layer F0 — Crate scaffolding (single agent, blocking)
 
-- **F0.1 Cargo manifest.** `Cargo.toml` with `loco-rs = "0.14"`, `sea-orm`, `axum-extra = { version = "0.10", features = ["cookie"] }`, `reqwest`, `serial_test` (dev-dep). Crate-level `#![allow(clippy::result_large_err)]` in `src/lib.rs` and `src/main.rs`. Migration dep by path (`../patient-administration-system-with-rust/migrations`).
+- **F0.1 Cargo manifest.** `Cargo.toml` with `loco-rs = "0.14"`, `sea-orm` (both since replaced, by axa and sqlx), `axum-extra = { version = "0.10", features = ["cookie"] }`, `reqwest`, `serial_test` (dev-dep). Crate-level `#![allow(clippy::result_large_err)]` in `src/lib.rs` and `src/main.rs`. Migration dep by path (`../patient-administration-system-with-rust/migrations`).
 - **F0.2 Workspace registration.** Add `patient-administration-system-frontend` as a member in the workspace `../Cargo.toml`.
 - **F0.3 Loco config files.** `config/{development,production,test}.yaml` — bind 5150, dev Postgres URL, production env-driven.
 

@@ -4,7 +4,7 @@ Orientation for AI agents (and humans) working on `patient-administration-system
 
 **Current shipped version: v0.2.0** (see `Cargo.toml` and `CHANGELOG.md`). Workspace sibling `patient-administration-system` (the PAS Axum API server, workflow service) is at v0.44.0.
 
-> **v0.2.0 has shipped — Option C identity delegation.** Patient reads moved from sea-orm projections to `src/services/person_api.rs` (reqwest against `person-service` `:5180`). Write paths still go through the PAS Axum API at `:8080`. Practitioner reads are unused by this crate so no `worker_api.rs` client was needed. See [spec.md](spec.md) §5 + §8 and the PAS Axum `spec.md` §13.
+> **v0.2.0 has shipped — Option C identity delegation.** Patient reads moved from database projections to `src/services/person_api.rs` (reqwest against `person-service` `:5180`). Write paths still go through the PAS Axum API at `:8080`. Practitioner reads are unused by this crate so no `worker_api.rs` client was needed. See [spec.md](spec.md) §5 + §8 and the PAS Axum `spec.md` §13.
 
 ## Start here for AI agents
 
