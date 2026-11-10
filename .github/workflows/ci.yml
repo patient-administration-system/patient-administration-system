@@ -222,10 +222,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Two commits, so a pull request's merge commit has its base (SAFE-6).
+          fetch-depth: 2
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with:
           tool: just
       - run: just docs-scripts script-tests
+      # SAFE-6: list the hazards whose code or tests the pull request touches, for the
+      # CSO. Report only: it never fails the job.
+      - name: Hazards this change touches
+        if: github.event_name == 'pull_request'
+        run: |
+          git diff --name-only HEAD^1 HEAD > "$RUNNER_TEMP/changed.txt"
+          { echo '```'; xargs python3 scripts/check-hazard-tests.py --changed < "$RUNNER_TEMP/changed.txt"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           args: --offline --config lychee.toml .

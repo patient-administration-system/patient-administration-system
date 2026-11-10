@@ -30,6 +30,34 @@ Scope: an administrative system whose events (admissions, bed status, appointmen
 | H-20 | A patient with a suspected condition (cancer above all) waits longer than anyone can see, or drops off every list | The wait is counted from the referral, paused, or ends with the referral or an appointment; a suspicion is recorded on the wrong referral, or not at all (WPAS-1) | The clock starts at the point of suspicion and never pauses (FR-208); an open suspicion stays on the open list whatever happens to its referral or appointments (FR-212); it stops once, for a named reason, by a named person (FR-209); tested | Recording depends on staff entering the suspicion: no feed from e-RS or a clinical system; targets for conditions other than cancer are not set (spec 20); the rules need sign-off (WPAS-1a) | `tests/wpas1_suspicions_test.rs::the_wait_never_pauses_and_counts_real_days`<br>`tests/wpas1_suspicions_test.rs::a_clock_stops_once_and_never_before_it_started`<br>`tests/wpas1_suspicions_test.rs::the_open_list_orders_by_wait_and_marks_the_target` | | |
 | H-21 | A patient on a suspected-cancer pathway cancels by text and nobody follows up | A cancel reply applied automatically | A cancel by reply on an appointment from a referral with an open cancer suspicion is held and a call task created (FR-214); tested | Cancels by phone or in person are staff actions and are not held | `tests/wpas1_suspicions_test.rs::a_patients_cancel_is_held_when_the_condition_says_so` | | |
 
+## Code each hazard rests on (SAFE-6)
+
+A change under one of these paths (relative to `patient-administration-system-with-rust/`), or to a test the log names, lists the hazard for the CSO to look at again: `python3 scripts/check-hazard-tests.py --changed <files>` prints them, and CI prints them on a pull request. It is a heuristic and decides nothing: a hazard can rest on code not listed here.
+
+| ID | Code |
+|---|---|
+| H-01 | `src/communication/templates.rs`, `src/communication/reminders.rs`, `src/scheduling/` |
+| H-02 | `src/communication/reminders.rs`, `src/communication/ladder.rs` |
+| H-03 | `src/communication/reminders.rs`, `src/communication/sender.rs`, `src/receipts/` |
+| H-04 | `src/contact/`, `src/communication/sender.rs` |
+| H-05 | `src/follow_up/` |
+| H-06 | `src/follow_up/`, `src/waitlist/`, `src/waits/` |
+| H-07 | `src/adt/`, `src/api/rest/concurrency.rs` |
+| H-08 | `src/writeback/`, `src/inbound/`, `src/reply_links/` |
+| H-09 | `src/api/rest/upstream_proxy/webhooks.rs`, `src/upstream/` |
+| H-10 | `src/noshow/`, `src/standby/`, `src/rebooking/` |
+| H-13 | `src/noshow/` |
+| H-11 | `src/streaming/`, `src/db/repositories/outbox.rs` |
+| H-12 | `src/identity/`, `src/proxy/`, `src/writeback/`, `src/virtual_visits/` |
+| H-14 | `src/list_validation/`, `src/waitlist/` |
+| H-15 | `src/api/rest/concurrency.rs`, `src/error.rs` |
+| H-16 | `src/adt/reservations.rs` |
+| H-17 | `src/triage/` |
+| H-18 | `src/triage/` |
+| H-19 | `src/triage/targets.rs`, `src/triage/waits.rs` |
+| H-20 | `src/suspicions/`, `src/referrals/` |
+| H-21 | `src/suspicions/`, `src/writeback/`, `src/follow_up/` |
+
 How this log lines up with the ISO 14971 process, and what that process would still need: [`risk-management-iso-14971.md`](risk-management-iso-14971.md).
 
 Who may close a hazard, and on what evidence: [`spec/hazard/index.md`](../spec/hazard/index.md). Until a CSO is named, none can be closed.
