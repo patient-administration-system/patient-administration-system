@@ -56,6 +56,18 @@ pub struct Offer {
     pub expires_at: DateTime<Utc>,
 }
 
+crate::string_enum! {
+    /// What `slot_offers.status` stores (QUAL-28). An `open` offer past `expires_at` is read as expired before the
+    /// sweep marks it; `missed` means the slot was taken by someone else while the offer was being accepted.
+    pub enum SlotOfferStatus {
+        Open = "open",
+        Accepted = "accepted",
+        Declined = "declined",
+        Expired = "expired",
+        Missed = "missed",
+    }
+}
+
 /// Whether an offer link can still be used.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -146,7 +158,7 @@ struct Row {
     release_id: Uuid,
     slot_id: Uuid,
     standby_entry_id: Uuid,
-    status: String,
+    status: SlotOfferStatus,
     expires_at: DateTime<Utc>,
 }
 
@@ -212,7 +224,7 @@ impl BackfillService {
             release_id: r.col("release_id")?,
             slot_id: r.col("slot_id")?,
             standby_entry_id: r.col("standby_entry_id")?,
-            status: r.col("status")?,
+            status: r.col::<String>("status")?.parse()?,
             expires_at: r.col("expires_at")?,
         })
     }
@@ -249,11 +261,11 @@ impl BackfillService {
             ))
             .await?
             .ok_or_else(|| Error::not_found(format!("slot release {release_id}")))?;
-        let status: String = rel.col("status")?;
+        let status: crate::standby::ReleaseStatus = rel.col::<String>("status")?.parse()?;
         let start: DateTime<Utc> = rel.col("start_datetime")?;
         let slot_id: Uuid = rel.col("slot_id")?;
         let now = self.now();
-        if status != "open" || start <= now {
+        if status != crate::standby::ReleaseStatus::Open || start <= now {
             return Ok(None);
         }
         // Never offered this release before, in time-on-standby order and nothing else.
@@ -465,12 +477,12 @@ impl BackfillService {
         let row = self.row_by_hash(&hash(token)).await?;
         let start = self.slot_start(row.slot_id).await?;
         let tz = messages::timezone().name().to_string();
-        let state = match row.status.as_str() {
-            "open" if row.expires_at <= self.now() => OfferState::Expired,
-            "open" => OfferState::Open,
-            "missed" => OfferState::Gone,
-            "expired" => OfferState::Expired,
-            _ => OfferState::Used,
+        let state = match row.status {
+            SlotOfferStatus::Open if row.expires_at <= self.now() => OfferState::Expired,
+            SlotOfferStatus::Open => OfferState::Open,
+            SlotOfferStatus::Missed => OfferState::Gone,
+            SlotOfferStatus::Expired => OfferState::Expired,
+            SlotOfferStatus::Accepted | SlotOfferStatus::Declined => OfferState::Used,
         };
         Ok(OfferInfo {
             state,
@@ -495,7 +507,7 @@ impl BackfillService {
         let h = hash(token);
         let row = self.row_by_hash(&h).await?;
         let tz = messages::timezone().name().to_string();
-        if row.status != "open" {
+        if row.status != SlotOfferStatus::Open {
             return Err(Error::conflict("this offer has already been answered"));
         }
         if row.expires_at <= self.now() {
@@ -603,7 +615,7 @@ impl BackfillService {
             .map(|r| {
                 Ok(serde_json::json!({
                     "id": r.col::<Uuid>("id")?,
-                    "status": r.col::<String>("status")?,
+                    "status": r.col::<String>("status")?.parse::<SlotOfferStatus>()?,
                     "offered_at": r.col::<DateTime<Utc>>("offered_at")?,
                     "expires_at": r.col::<DateTime<Utc>>("expires_at")?,
                     "message_sent": r.col::<bool>("message_sent")?,

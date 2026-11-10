@@ -65,33 +65,21 @@ pub fn classify(value: f64, limits: Limits, direction: Direction) -> Rag {
     }
 }
 
-/// What a tolerance applies to. `All` is the whole service; the others narrow it to one service or ward.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, utoipa::ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum ScopeKind {
-    All,
-    /// One service, by its service type (the schedule's `service_type`, the pathway's target service).
-    Service,
-    /// One ward, by its code.
-    Ward,
+crate::string_enum! {
+    /// What a tolerance applies to. `All` is the whole service; the others narrow it to one service or ward.
+    /// Stored in `tolerances.scope_kind` and `tolerance_alerts.scope_kind` (QUAL-28).
+    pub enum ScopeKind {
+        All = "all",
+        /// One service, by its service type (the schedule's `service_type`, the pathway's target service).
+        Service = "service",
+        /// One ward, by its code.
+        Ward = "ward",
+    }
 }
 
 impl ScopeKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ScopeKind::All => "all",
-            ScopeKind::Service => "service",
-            ScopeKind::Ward => "ward",
-        }
-    }
-
     pub(super) fn parse(s: &str) -> Option<Self> {
-        match s {
-            "all" => Some(ScopeKind::All),
-            "service" => Some(ScopeKind::Service),
-            "ward" => Some(ScopeKind::Ward),
-            _ => None,
-        }
+        s.parse().ok()
     }
 }
 

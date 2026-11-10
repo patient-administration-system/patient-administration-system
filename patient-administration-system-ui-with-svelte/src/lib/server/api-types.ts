@@ -11616,6 +11616,7 @@ export interface components {
     };
     /**
      * @description What a tolerance applies to. `All` is the whole service; the others narrow it to one service or ward.
+     *     Stored in `tolerances.scope_kind` and `tolerance_alerts.scope_kind` (QUAL-28).
      * @enum {string}
      */
     ScopeKind: "all" | "service" | "ward";
