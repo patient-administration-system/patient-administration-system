@@ -13,7 +13,7 @@ use std::collections::BTreeSet;
 
 use patient_administration_system::{
     backfill, clinic_templates, clinical_priority, communication, contact, follow_up, identity,
-    inbound, interpreter, list_validation, pifu, proxy, receipts, referrals, standby,
+    inbound, interpreter, list_validation, noshow, pifu, proxy, receipts, referrals, standby,
     subscriptions, support, suspicions, tolerance, transport, triage, waits,
 };
 
@@ -92,6 +92,8 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ),
         ("slot_releases_status_check", standby::ReleaseStatus::STORED),
         ("slot_offers_status_check", backfill::SlotOfferStatus::NAMES),
+        ("noshow_reviews_kind_check", noshow::ReviewKind::NAMES),
+        ("noshow_reviews_outcome_check", noshow::ReviewOutcome::NAMES),
         (
             "appointments_status_chk",
             patient_administration_system::models::appointment::AppointmentStatus::NAMES,

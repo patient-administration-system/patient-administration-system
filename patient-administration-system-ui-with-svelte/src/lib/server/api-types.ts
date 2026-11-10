@@ -11548,6 +11548,16 @@ export interface components {
       admission_id: string;
       reverted: boolean;
     };
+    /**
+     * @description What a no-show model review looks at, as `noshow_reviews.kind` stores it (QUAL-28).
+     * @enum {string}
+     */
+    ReviewKind: "fairness" | "clinical_safety";
+    /**
+     * @description What a reviewer decided, as `noshow_reviews.outcome` stores it. A rejection switches the score off at once.
+     * @enum {string}
+     */
+    ReviewOutcome: "approved" | "rejected";
     /** @description An episode that has been reviewed. */
     Reviewed: {
       /** @description `discharge` or `extend`. */
@@ -12246,10 +12256,10 @@ export interface components {
     };
     "handlers_noshow.ReviewBody": {
       /** @description `fairness` or `clinical_safety`. */
-      kind: string;
+      kind: components["schemas"]["ReviewKind"];
       notes: string;
       /** @description `approved` or `rejected`. A rejection switches the score off at once. */
-      outcome: string;
+      outcome: components["schemas"]["ReviewOutcome"];
       reviewer: string;
     };
     "handlers_pifu.ReviewBody": {

@@ -4,34 +4,50 @@ use super::*;
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt};
 
+crate::string_enum! {
+    /// What a no-show model review looks at, as `noshow_reviews.kind` stores it (QUAL-28).
+    pub enum ReviewKind {
+        Fairness = "fairness",
+        ClinicalSafety = "clinical_safety",
+    }
+}
+
+crate::string_enum! {
+    /// What a reviewer decided, as `noshow_reviews.outcome` stores it. A rejection switches the score off at once.
+    pub enum ReviewOutcome {
+        Approved = "approved",
+        Rejected = "rejected",
+    }
+}
+
 impl NoShowService {
     pub(super) async fn latest_review(
         &self,
-        kind: &str,
+        kind: ReviewKind,
         valid_days: i64,
     ) -> Result<Option<String>> {
         Ok(self
             .db
             .one(Stmt::new("SELECT outcome, reviewed_at > now() - make_interval(days => $3::int) AS fresh FROM noshow_reviews \
                  WHERE kind = $1 AND model_version = $2 ORDER BY reviewed_at DESC LIMIT 1",
-                [kind.into(), MODEL_VERSION.into(), (valid_days as i32).into()],
+                [kind.as_str().into(), MODEL_VERSION.into(), (valid_days as i32).into()],
             ))
 .await?
             .and_then(|r| {
                 let outcome: String = r.col("outcome").ok()?;
                 let fresh: bool = r.col("fresh").ok()?;
-                (outcome == "approved" && fresh).then_some(outcome)
+                (outcome == ReviewOutcome::Approved.as_str() && fresh).then_some(outcome)
             }))
     }
 
     pub async fn status(&self) -> Result<Status> {
         let switched_on = Self::switched_on();
         let fairness = self
-            .latest_review("fairness", FAIRNESS_VALID_DAYS)
+            .latest_review(ReviewKind::Fairness, FAIRNESS_VALID_DAYS)
             .await?
             .is_some();
         let safety = self
-            .latest_review("clinical_safety", SAFETY_VALID_DAYS)
+            .latest_review(ReviewKind::ClinicalSafety, SAFETY_VALID_DAYS)
             .await?
             .is_some();
         let active = switched_on && fairness && safety;
@@ -88,26 +104,25 @@ impl NoShowService {
         notes: &str,
         ctx: &UserContext,
     ) -> Result<()> {
-        if !["fairness", "clinical_safety"].contains(&kind) {
-            return Err(Error::validation(
-                "kind must be fairness or clinical_safety",
-            ));
-        }
-        if !["approved", "rejected"].contains(&outcome) {
-            return Err(Error::validation("outcome must be approved or rejected"));
-        }
+        let kind: ReviewKind = kind
+            .parse()
+            .map_err(|_| Error::validation("kind must be fairness or clinical_safety"))?;
+        let outcome: ReviewOutcome = outcome
+            .parse()
+            .map_err(|_| Error::validation("outcome must be approved or rejected"))?;
+        let approved = outcome == ReviewOutcome::Approved;
         let notes = notes.trim();
         let reviewer = crate::validation::named_person(
             reviewer,
             "a review is made by a named person (reviewer)",
         )?;
-        if outcome == "approved" && notes.chars().count() < 40 {
+        if approved && notes.chars().count() < 40 {
             return Err(Error::validation(
                 "an approval needs notes (at least 40 characters) saying what was looked at and why it is acceptable",
             ));
         }
-        if outcome == "approved"
-            && kind == "fairness"
+        if approved
+            && kind == ReviewKind::Fairness
             && Weights::from_env().age.values().any(|v| *v != 0.0)
             && !notes
                 .to_lowercase()
@@ -124,7 +139,7 @@ impl NoShowService {
         let id = Uuid::new_v4();
         self.db
             .run(Stmt::new("INSERT INTO noshow_reviews (id, kind, reviewer, outcome, notes, model_version) VALUES ($1,$2,$3,$4,$5,$6)",
-                [id.into(), kind.into(), reviewer.into(), outcome.into(), notes.into(), MODEL_VERSION.into()],
+                [id.into(), kind.as_str().into(), reviewer.into(), outcome.as_str().into(), notes.into(), MODEL_VERSION.into()],
             ))
 .await?;
         AuditLogRepository::log_with(
@@ -134,7 +149,7 @@ impl NoShowService {
             &format!("review_{outcome}"),
             None,
             Some(serde_json::json!({ "kind": kind, "reviewer": reviewer })),
-            Some(kind),
+            Some(kind.as_str()),
             None,
             ctx,
         )

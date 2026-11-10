@@ -16618,6 +16618,22 @@
         ],
         "type": "object"
       },
+      "ReviewKind": {
+        "description": "What a no-show model review looks at, as `noshow_reviews.kind` stores it (QUAL-28).",
+        "enum": [
+          "fairness",
+          "clinical_safety"
+        ],
+        "type": "string"
+      },
+      "ReviewOutcome": {
+        "description": "What a reviewer decided, as `noshow_reviews.outcome` stores it. A rejection switches the score off at once.",
+        "enum": [
+          "approved",
+          "rejected"
+        ],
+        "type": "string"
+      },
       "Reviewed": {
         "description": "An episode that has been reviewed.",
         "properties": {
@@ -18738,15 +18754,15 @@
       "handlers_noshow.ReviewBody": {
         "properties": {
           "kind": {
-            "description": "`fairness` or `clinical_safety`.",
-            "type": "string"
+            "$ref": "#/components/schemas/ReviewKind",
+            "description": "`fairness` or `clinical_safety`."
           },
           "notes": {
             "type": "string"
           },
           "outcome": {
-            "description": "`approved` or `rejected`. A rejection switches the score off at once.",
-            "type": "string"
+            "$ref": "#/components/schemas/ReviewOutcome",
+            "description": "`approved` or `rejected`. A rejection switches the score off at once."
           },
           "reviewer": {
             "type": "string"

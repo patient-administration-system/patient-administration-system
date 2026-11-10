@@ -152,12 +152,22 @@ async fn it_is_off_until_it_is_switched_on_and_a_named_person_has_approved_fairn
             .is_err(),
         "notes say what was looked at"
     );
-    assert!(
-        s.noshow
-            .record_review("vibes", "Dr A", "approved", NOTES, &sys())
+    // A kind or outcome that is not one of the stored words is the caller's mistake, a 400 naming the field.
+    for (kind, outcome, field) in [
+        ("vibes", "approved", "kind"),
+        ("fairness", "maybe", "outcome"),
+    ] {
+        match s
+            .noshow
+            .record_review(kind, "Dr A", outcome, NOTES, &sys())
             .await
-            .is_err()
-    );
+        {
+            Err(patient_administration_system::Error::Validation(m)) => {
+                assert!(m.starts_with(field), "{m}")
+            }
+            other => panic!("{kind}/{outcome}: {other:?}"),
+        }
+    }
     s.noshow
         .record_review("fairness", "Dr A. Reviewer", "approved", NOTES, &sys())
         .await

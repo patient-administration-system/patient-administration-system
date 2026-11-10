@@ -43,6 +43,7 @@ mod rollout;
 pub use call_list::CallItem;
 pub use fairness::{FairnessAudit, FairnessCell, FairnessOverall, ModelBands, ModelCard};
 pub use model::*;
+pub use review::{ReviewKind, ReviewOutcome};
 pub use rollout::{CalibrationCell, ClinicEffect, Evaluation, RateWindow, RolloutRow};
 
 pub const MODEL_VERSION: &str = "weighted-sum-1";

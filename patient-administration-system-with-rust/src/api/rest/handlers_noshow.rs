@@ -47,9 +47,11 @@ pub async fn model_card() -> HandlerResult {
 #[schema(as = handlers_noshow::ReviewBody)]
 pub struct ReviewBody {
     /// `fairness` or `clinical_safety`.
+    #[schema(value_type = crate::noshow::ReviewKind)]
     pub kind: String,
     pub reviewer: String,
     /// `approved` or `rejected`. A rejection switches the score off at once.
+    #[schema(value_type = crate::noshow::ReviewOutcome)]
     pub outcome: String,
     pub notes: String,
 }
