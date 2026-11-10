@@ -9,8 +9,18 @@ vi.mock("$app/env/private", () => ({
   PAS_API_TOKEN_FILE: "",
 }));
 
-const { PasError, identityProofed, isCursor, nextCursor, pas, pasArray, pasPage, toleranceStatus, withCursor } =
-  await import("#lib/server/pas.js");
+const {
+  PasError,
+  facilitiesWithWards,
+  identityProofed,
+  isCursor,
+  nextCursor,
+  pas,
+  pasArray,
+  pasPage,
+  toleranceStatus,
+  withCursor,
+} = await import("#lib/server/pas.js");
 
 type Call = { url: string; init: RequestInit };
 
@@ -175,5 +185,26 @@ describe("identityProofed()", () => {
       await expect(identityProofed(fetch, "kc|sub/1", "p 1"), JSON.stringify(data)).resolves.toBe(want);
       expect(calls[0]!.url).toBe("http://pas.test/api/identity-proofings/kc%7Csub%2F1/check?person_id=p%201");
     }
+  });
+});
+
+describe("facilitiesWithWards()", () => {
+  it("asks for each facility's wards and keeps only the active ones", async () => {
+    const calls: string[] = [];
+    const f = vi.fn(async (url: RequestInfo | URL) => {
+      calls.push(String(url));
+      const data = String(url).endsWith("/api/facilities")
+        ? [{ id: "f/1", name: "General" }]
+        : [
+            { id: "w1", name: "Ward 1", active: true },
+            { id: "w2", name: "Shut", active: false },
+          ];
+      return new Response(JSON.stringify({ data }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const got = await facilitiesWithWards(f);
+    expect(calls).toEqual(["http://pas.test/api/facilities", "http://pas.test/api/facilities/f%2F1/wards"]);
+    expect(got).toHaveLength(1);
+    expect(got[0]!.facility.name).toBe("General");
+    expect(got[0]!.wards.map((w) => w.id)).toEqual(["w1"]);
   });
 });
