@@ -28,6 +28,16 @@ crate::string_enum! {
     }
 }
 
+crate::string_enum! {
+    /// Where an interpreter request is, as `interpreter_requests.status` stores it (QUAL-28). A booking
+    /// raises it `requested`; a named person confirms it; cancelling the appointment cancels it.
+    pub enum InterpreterStatus {
+        Requested = "requested",
+        Confirmed = "confirmed",
+        Cancelled = "cancelled",
+    }
+}
+
 /// Raise the interpreter request for a just-booked appointment, if the patient needs one. Called from the
 /// one place every booking passes through, inside its transaction.
 pub async fn on_booked(txn: &Txn, appt: &Appointment) -> Result<()> {
@@ -103,30 +113,34 @@ impl InterpreterService {
             "recorded_by: the person recording the need is required",
         )?;
         let language = language.map(str::trim).filter(|l| !l.is_empty());
+        let kind: Option<InterpreterKind> = kind
+            .map(|k| {
+                k.parse().map_err(|_| {
+                    Error::validation(format!(
+                        "interpreter kind must be one of {}, not {k:?}",
+                        InterpreterKind::NAMES.join(", ")
+                    ))
+                })
+            })
+            .transpose()?;
         match (kind, language) {
-            (None, None) => {}
-            (Some("spoken"), Some(_)) => {}
-            (Some("spoken"), None) => {
+            (None, None) | (Some(InterpreterKind::Spoken), Some(_)) => {}
+            (Some(InterpreterKind::Spoken), None) => {
                 return Err(Error::validation(
                     "a spoken-language interpreter needs a language",
                 ));
             }
-            (Some("bsl" | "deafblind"), None) => {}
-            (Some("bsl" | "deafblind"), Some(_)) => {
+            (Some(InterpreterKind::Bsl | InterpreterKind::Deafblind), None) => {}
+            (Some(InterpreterKind::Bsl | InterpreterKind::Deafblind), Some(_)) => {
                 return Err(Error::validation(
                     "BSL and deafblind interpreting take no language",
                 ));
-            }
-            (Some(other), _) => {
-                return Err(Error::validation(format!(
-                    "interpreter kind must be one of {}, not {other:?}",
-                    InterpreterKind::NAMES.join(", ")
-                )));
             }
             (None, Some(_)) => {
                 return Err(Error::validation("a language needs an interpreter kind"));
             }
         }
+        let kind = kind.map(InterpreterKind::as_str);
         let txn = self.db.begin_txn().await?;
         txn.run(Stmt::new("INSERT INTO patient_communication_profiles (person_id, interpreter_kind, interpreter_language, updated_by) \
              VALUES ($1, $2, $3, $4) \

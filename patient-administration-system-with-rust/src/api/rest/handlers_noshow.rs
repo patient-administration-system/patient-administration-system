@@ -255,6 +255,7 @@ pub async fn rollout(State(state): State<AppState>) -> HandlerResult {
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct StageBody {
     /// `shadow` or `live`.
+    #[schema(value_type = crate::noshow::RolloutStage)]
     pub stage: String,
     pub changed_by: String,
     pub note: String,

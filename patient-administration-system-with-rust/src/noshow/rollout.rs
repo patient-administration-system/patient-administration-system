@@ -4,12 +4,20 @@ use super::*;
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt};
 
+crate::string_enum! {
+    /// Where a clinic is in the no-show rollout, as `noshow_rollout.stage` stores it (QUAL-28): recording in
+    /// shadow (the default for a clinic with no row), or live.
+    pub enum RolloutStage {
+        Shadow = "shadow",
+        Live = "live",
+    }
+}
+
 /// One clinic's stage: recording in shadow, or live, and whether it has been in shadow long enough to go live.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct RolloutRow {
     pub service_type: String,
-    /// `shadow` or `live`.
-    pub stage: String,
+    pub stage: RolloutStage,
     #[schema(required = true)]
     pub changed_by: Option<String>,
     #[schema(required = true)]
@@ -39,7 +47,7 @@ impl NoShowService {
                 let days = (Utc::now() - first).num_days();
                 Ok(RolloutRow {
                     service_type: r.col::<String>("svc")?,
-                    stage: r.col::<String>("stage")?,
+                    stage: r.col::<String>("stage")?.parse()?,
                     changed_by: r.col::<Option<String>>("changed_by")?,
                     live_since: r.col::<Option<DateTime<Utc>>>("live_since")?,
                     assessments: r.col::<i64>("n")?,
@@ -62,16 +70,16 @@ impl NoShowService {
         note: &str,
         ctx: &UserContext,
     ) -> Result<()> {
-        if !["shadow", "live"].contains(&stage) {
-            return Err(Error::validation("stage must be shadow or live"));
-        }
+        let stage: RolloutStage = stage
+            .parse()
+            .map_err(|_| Error::validation("stage must be shadow or live"))?;
         let (svc, by, note) = (service_type.trim(), changed_by.trim(), note.trim());
         if svc.is_empty() || by.is_empty() {
             return Err(Error::validation(
                 "name the clinic (service type) and the person making the change",
             ));
         }
-        if stage == "live" {
+        if stage == RolloutStage::Live {
             if note.chars().count() < 20 {
                 return Err(Error::validation(
                     "going live needs a note (20 characters or more) saying why this clinic, now",
@@ -100,7 +108,7 @@ impl NoShowService {
                  VALUES ($1,$2,$3,$4, CASE WHEN $2 = 'live' THEN now() END) \
                  ON CONFLICT (service_type) DO UPDATE SET stage = $2, changed_by = $3, note = $4, changed_at = now(), \
                    live_since = CASE WHEN $2 = 'live' THEN COALESCE(noshow_rollout.live_since, now()) ELSE noshow_rollout.live_since END",
-                [svc.into(), stage.into(), by.into(), note.into()],
+                [svc.into(), stage.as_str().into(), by.into(), note.into()],
             ))
 .await?;
         AuditLogRepository::log_with(
@@ -110,7 +118,7 @@ impl NoShowService {
             &format!("rollout_{stage}"),
             None,
             Some(serde_json::json!({ "service_type": svc, "changed_by": by })),
-            Some(stage),
+            Some(stage.as_str()),
             None,
             ctx,
         )

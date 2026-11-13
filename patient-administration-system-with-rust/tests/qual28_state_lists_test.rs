@@ -76,6 +76,10 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
             "interpreter_requests_kind_check",
             interpreter::InterpreterKind::NAMES,
         ),
+        (
+            "interpreter_requests_status_check",
+            interpreter::InterpreterStatus::NAMES,
+        ),
         ("pifu_requests_channel_check", pifu::RequestChannel::NAMES),
         ("pifu_episodes_status_check", pifu::EpisodeStatus::NAMES),
         (
@@ -102,6 +106,7 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ),
         ("noshow_reviews_kind_check", noshow::ReviewKind::NAMES),
         ("noshow_reviews_outcome_check", noshow::ReviewOutcome::NAMES),
+        ("noshow_rollout_stage_check", noshow::RolloutStage::NAMES),
         (
             "appointments_status_chk",
             patient_administration_system::models::appointment::AppointmentStatus::NAMES,

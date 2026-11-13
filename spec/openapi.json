@@ -1691,7 +1691,7 @@
                 "type": "string"
               },
               "status": {
-                "type": "string"
+                "$ref": "#/components/schemas/InterpreterStatus"
               }
             },
             "required": [
@@ -3214,9 +3214,13 @@
             "description": "The interpreting need now on record; both fields are null when it was cleared.",
             "properties": {
               "kind": {
-                "type": [
-                  "string",
-                  "null"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/InterpreterKind"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "language": {
@@ -8174,8 +8178,7 @@
                   "type": "string"
                 },
                 "stage": {
-                  "description": "`shadow` or `live`.",
-                  "type": "string"
+                  "$ref": "#/components/schemas/RolloutStage"
                 }
               },
               "required": [
@@ -12116,7 +12119,7 @@
             "type": "string"
           },
           "status": {
-            "type": "string"
+            "$ref": "#/components/schemas/InterpreterStatus"
           }
         },
         "required": [
@@ -13750,6 +13753,15 @@
         ],
         "type": "string"
       },
+      "InterpreterStatus": {
+        "description": "Where an interpreter request is, as `interpreter_requests.status` stores it (QUAL-28). A booking\nraises it `requested`; a named person confirms it; cancelling the appointment cancels it.",
+        "enum": [
+          "requested",
+          "confirmed",
+          "cancelled"
+        ],
+        "type": "string"
+      },
       "Invoice": {
         "description": "A snapshot of charges presented to the patient for payment.\n\n`total` is the sum of the referenced charges; it is set by the billing\nservice when charges are attached and frozen at finalization.",
         "properties": {
@@ -14286,10 +14298,14 @@
       "NeedBody": {
         "properties": {
           "kind": {
-            "description": "`spoken`, `bsl`, `deafblind`, or null to clear.",
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InterpreterKind",
+                "description": "`spoken`, `bsl`, `deafblind`, or null to clear."
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "language": {
@@ -14312,9 +14328,13 @@
         "description": "The interpreting need now on record; both fields are null when it was cleared.",
         "properties": {
           "kind": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InterpreterKind"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "language": {
@@ -16754,8 +16774,7 @@
             "type": "string"
           },
           "stage": {
-            "description": "`shadow` or `live`.",
-            "type": "string"
+            "$ref": "#/components/schemas/RolloutStage"
           }
         },
         "required": [
@@ -16768,6 +16787,14 @@
           "may_go_live"
         ],
         "type": "object"
+      },
+      "RolloutStage": {
+        "description": "Where a clinic is in the no-show rollout, as `noshow_rollout.stage` stores it (QUAL-28): recording in\nshadow (the default for a clinic with no row), or live.",
+        "enum": [
+          "shadow",
+          "live"
+        ],
+        "type": "string"
       },
       "Room": {
         "description": "A room within a ward.",
@@ -17183,8 +17210,8 @@
             "type": "string"
           },
           "stage": {
-            "description": "`shadow` or `live`.",
-            "type": "string"
+            "$ref": "#/components/schemas/RolloutStage",
+            "description": "`shadow` or `live`."
           }
         },
         "required": [

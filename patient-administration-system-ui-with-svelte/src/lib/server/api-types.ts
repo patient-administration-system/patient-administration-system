@@ -6354,7 +6354,7 @@ export interface components {
       data?: {
         /** Format: uuid */
         id: string;
-        status: string;
+        status: components["schemas"]["InterpreterStatus"];
       };
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -6928,7 +6928,7 @@ export interface components {
     ApiResponse_NeedRecorded: {
       /** @description The interpreting need now on record; both fields are null when it was cleared. */
       data?: {
-        kind: string | null;
+        kind: components["schemas"]["InterpreterKind"] | null;
         language: string | null;
         /** Format: uuid */
         person_id: string;
@@ -8566,8 +8566,7 @@ export interface components {
         live_since: string | null;
         may_go_live: boolean;
         service_type: string;
-        /** @description `shadow` or `live`. */
-        stage: string;
+        stage: components["schemas"]["RolloutStage"];
       }[];
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -9900,7 +9899,7 @@ export interface components {
     Confirmed: {
       /** Format: uuid */
       id: string;
-      status: string;
+      status: components["schemas"]["InterpreterStatus"];
     };
     /** @description A consent record granted by a patient. */
     Consent: {
@@ -10531,6 +10530,12 @@ export interface components {
      */
     InterpreterKind: "spoken" | "bsl" | "deafblind";
     /**
+     * @description Where an interpreter request is, as `interpreter_requests.status` stores it (QUAL-28). A booking
+     *     raises it `requested`; a named person confirms it; cancelling the appointment cancels it.
+     * @enum {string}
+     */
+    InterpreterStatus: "requested" | "confirmed" | "cancelled";
+    /**
      * @description A snapshot of charges presented to the patient for payment.
      *
      *     `total` is the sum of the referenced charges; it is set by the billing
@@ -10747,15 +10752,14 @@ export interface components {
       amount_value: string;
     };
     NeedBody: {
-      /** @description `spoken`, `bsl`, `deafblind`, or null to clear. */
-      kind?: string | null;
+      kind?: components["schemas"]["InterpreterKind"] | null;
       /** @description For a spoken-language interpreter: the language (a BCP 47 tag such as `pl` or `ar`). */
       language?: string | null;
       recorded_by: string;
     };
     /** @description The interpreting need now on record; both fields are null when it was cleared. */
     NeedRecorded: {
-      kind: string | null;
+      kind: components["schemas"]["InterpreterKind"] | null;
       language: string | null;
       /** Format: uuid */
       person_id: string;
@@ -11601,9 +11605,14 @@ export interface components {
       live_since: string | null;
       may_go_live: boolean;
       service_type: string;
-      /** @description `shadow` or `live`. */
-      stage: string;
+      stage: components["schemas"]["RolloutStage"];
     };
+    /**
+     * @description Where a clinic is in the no-show rollout, as `noshow_rollout.stage` stores it (QUAL-28): recording in
+     *     shadow (the default for a clinic with no row), or live.
+     * @enum {string}
+     */
+    RolloutStage: "shadow" | "live";
     /** @description A room within a ward. */
     Room: {
       active: boolean;
@@ -11750,7 +11759,7 @@ export interface components {
       changed_by: string;
       note: string;
       /** @description `shadow` or `live`. */
-      stage: string;
+      stage: components["schemas"]["RolloutStage"];
     };
     StandbyEntry: {
       active: boolean;

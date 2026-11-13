@@ -13,7 +13,7 @@ use crate::interpreter::InterpreterService;
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct NeedRecorded {
     pub person_id: Uuid,
-    #[schema(required = true)]
+    #[schema(required = true, value_type = Option<crate::interpreter::InterpreterKind>)]
     pub kind: Option<String>,
     #[schema(required = true)]
     pub language: Option<String>,
@@ -23,12 +23,13 @@ pub struct NeedRecorded {
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Confirmed {
     pub id: Uuid,
-    pub status: String,
+    pub status: crate::interpreter::InterpreterStatus,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct NeedBody {
     /// `spoken`, `bsl`, `deafblind`, or null to clear.
+    #[schema(value_type = Option<crate::interpreter::InterpreterKind>)]
     pub kind: Option<String>,
     /// For a spoken-language interpreter: the language (a BCP 47 tag such as `pl` or `ar`).
     pub language: Option<String>,
@@ -112,7 +113,7 @@ pub async fn confirm(
     {
         Ok(()) => ok_json(Confirmed {
             id,
-            status: "confirmed".into(),
+            status: crate::interpreter::InterpreterStatus::Confirmed,
         }),
         Err(e) => error_to_response(e),
     }
