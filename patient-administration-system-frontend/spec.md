@@ -17,7 +17,7 @@ Past release detail lives in [`CHANGELOG.md`](CHANGELOG.md) (this crate) and [`.
 | Role | Crate | Port | Owns |
 |------|-------|------|------|
 | System of record (REST + FHIR + HL7 v2) | `patient-administration-system` (Axum) | `8080` | All writes, audit, outbox dispatcher |
-| Human-facing UI | `patient-administration-system-frontend` (Axum and axa) | `5150` | Dashboard, patient pages, three CSRF-protected write forms |
+| Human-facing UI | `patient-administration-system-frontend` (Axum and axa) | `1241` | Dashboard, patient pages, three CSRF-protected write forms |
 
 **Invariant**: the front-end never writes directly to the shared schema. Every state-changing flow (admit / book slot / generate letter) proxies through the PAS Axum REST API so the audit + outbox + Tantivy invariants of the system of record cannot be bypassed.
 
@@ -157,7 +157,7 @@ This crate is one of three workspace members rooted at `..`; v0.2 adds two upstr
 |---|---|---|
 | `patient-administration-system` | Workflow service (REST + FHIR R5 + HL7 v2 over HTTP + MLLP) | 8080 |
 | `patient-administration-system-migrations` | SQL migrations under sqlx; CLI is `pas-migrate` | n/a |
-| `patient-administration-system-frontend` (this crate) | Axum and axa read-mostly UI | 5150 |
+| `patient-administration-system-frontend` (this crate) | Axum and axa read-mostly UI | 1241 |
 | `person-service` *(HTTP dep, external; v0.2 target)* | Person reads for patient pages + dashboard projections | 5180 |
 | `worker-service` *(HTTP dep, external; v0.2 target)* | Worker reads for practitioner pickers + audit attributions | 5181 |
 
@@ -309,7 +309,7 @@ Read from the environment, with defaults in `src/app.rs` and in axa.
 | `PAS_API_URL` | No | `http://localhost:8080` | Base URL for the PAS Axum API — every write flow routes through it |
 | `PAS_COOKIE_SECURE` | No | unset (off) | Set to `1` / `true` / `TRUE` / `yes` / `YES` in production so the `pas_csrf` cookie carries `Secure` (HTTPS-only). Off in dev. |
 | `APP_ENV` | No | `development` | `production` or `staging` also turn on HSTS, the 60-second request timeout and JSON logs. `LOCO_ENV` is not read. |
-| `PORT` | No | `5150` | The port to listen on |
+| `PORT` | No | `1241` | The port to listen on |
 | `CORS_ALLOWED_ORIGINS` | No | none in production | The front-end needs none: its pages and forms are same-origin |
 
 ---
@@ -358,7 +358,7 @@ Ordered, layered build sequence to recreate the **v0.1.0** baseline from a clean
 
 - **F0.1 Cargo manifest.** `Cargo.toml` with `loco-rs = "0.14"`, `sea-orm` (both since replaced, by axa and sqlx), `axum-extra = { version = "0.10", features = ["cookie"] }`, `reqwest`, `serial_test` (dev-dep). Crate-level `#![allow(clippy::result_large_err)]` in `src/lib.rs` and `src/main.rs`. Migration dep by path (`../patient-administration-system-with-rust/migrations`).
 - **F0.2 Workspace registration.** Add `patient-administration-system-frontend` as a member in the workspace `../Cargo.toml`.
-- **F0.3 Loco config files.** `config/{development,production,test}.yaml` — bind 5150, dev Postgres URL, production env-driven.
+- **F0.3 Loco config files.** `config/{development,production,test}.yaml` — bind 1241, dev Postgres URL, production env-driven.
 
 ### Layer F1 — `Hooks` trait + boot (after F0)
 
@@ -428,7 +428,7 @@ A fresh checkout matches the **v0.1.0** baseline when **all** of these hold:
 - `cargo test --workspace` with a live `DATABASE_URL` → **506 lib + 62 PAS integration + 13 frontend integration** tests passing.
 - `cargo clippy --workspace --all-targets -- -D warnings` → clean.
 - `cargo fmt --check --all` → clean.
-- `cargo run --bin patient-administration-system-frontend -- start` boots on `:5150` against a migrated DB.
+- `cargo run --bin patient-administration-system-frontend -- start` boots on `:1241` against a migrated DB.
 - `GET /dashboard` returns 200 + `text/html` with every Lily panel header.
 - `GET /admissions/new` sets a `pas_csrf` cookie and embeds the same value as a hidden `csrf_token` form field.
 - `POST /admissions/new` without a valid `csrf_token` returns 400 *before* any PAS API call.

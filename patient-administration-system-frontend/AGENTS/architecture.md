@@ -2,7 +2,7 @@
 
 ## System placement
 
-`patient-administration-system-frontend` is one of three workspace members. It is an Axum web app built with [axa](https://github.com/publicprojects-io/axa) deployed on its own port (`5150`) alongside the PAS Axum API server (`8080`). The two share one PostgreSQL database and one migration crate.
+`patient-administration-system-frontend` is one of three workspace members. It is an Axum web app built with [axa](https://github.com/publicprojects-io/axa) deployed on its own port (`1241`) alongside the PAS Axum API server (`8080`). The two share one PostgreSQL database and one migration crate.
 
 > **v0.2 target (Option C).** Patient + practitioner *reads* additionally go through two HTTP services: `person-service` (`:5180`) and `worker-service` (`:5181`). Those services own the identity + workforce data. The shared database loses its `patients` / `practitioners` / `practitioner_roles` / `departments` tables in PAS Axum v0.44.0.
 

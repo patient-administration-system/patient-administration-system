@@ -21,7 +21,7 @@ The shipped system is a Rust Cargo workspace with three members, plus two **runt
 |-------------------------------------------------|---------------------------------------------------------------------|-------|--------------------------------------|
 | `patient-administration-system`                 | Workflow service. REST + FHIR R5 + HL7 v2 ADT lifecycle (HTTP + MLLP). | 8080 | Axum 0.8, sqlx, utoipa 6 |
 | `patient-administration-system-migrations`      | sqlx migrations (`migrations/sql`) shared by both PAS apps. CLI binary `pas-migrate`. | n/a | sqlx                |
-| `patient-administration-system-frontend`        | Axum and axa read-mostly UI. Server-side Tera + HTMX + Lily Design System. | 5150 | Axum, axa, Tera, axum-extra cookies, reqwest |
+| `patient-administration-system-frontend`        | Axum and axa read-mostly UI. Server-side Tera + HTMX + Lily Design System. | 1241 | Axum, axa, Tera, axum-extra cookies, reqwest |
 | `person-service` *(HTTP dep, external)*    | Person identity, demographics, search, match, merge, FHIR R5 Person. | 5180 | (own crate; see its `spec.md`) |
 | `worker-service` *(HTTP dep, external)*    | Worker (= practitioner) identity, demographics, search, match, merge, FHIR R5 Worker. | 5181 | (own crate; see its `spec.md`) |
 
@@ -897,7 +897,7 @@ Pure-Rust types in `src/models/<name>.rs` with `serde` derives, factory methods,
 
 ### Layer 9 — `patient-administration-system-frontend` (Loco-rs sibling crate)
 
-A separate workspace member at `../patient-administration-system-frontend/`. **Reads via sqlx; writes only by proxying to the PAS Axum API.** Boots with `cargo run -- start` on port 5150.
+A separate workspace member at `../patient-administration-system-frontend/`. **Reads via sqlx; writes only by proxying to the PAS Axum API.** Boots with `cargo run -- start` on port 1241.
 
 - **T9.1 Loco-rs scaffold.** `patient-administration-system-frontend/Cargo.toml` with `loco-rs = "0.14.1"`, `sea-orm`, `tera`, `axum-extra = { version = "0.10", features = ["cookie"] }`, `reqwest`, `serial_test` (dev-dep). Crate-level `#![allow(clippy::result_large_err)]` (Loco's error enum is wide). `migration` dep by path. Since replaced: axa in place of Loco (FR-205) and sqlx in place of `sea-orm` (SQLX-1).
 - **T9.2 `Hooks` trait — `src/app.rs`.** Implement every method: `boot`, `routes`, `register_tasks`, `connect_workers`, `truncate`, `seed`. Truncate + seed are **no-ops** — patient-administration-system-frontend never mutates the shared schema.

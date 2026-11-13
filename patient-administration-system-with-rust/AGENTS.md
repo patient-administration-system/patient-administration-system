@@ -73,7 +73,7 @@ This crate is one of three workspace members rooted at `..`:
 |------------------------------------------------|-------------------------------------------------------------------|-------|
 | `patient-administration-system` (this one)     | Workflow service. REST + FHIR R5 (the `fhir` crate) + HL7 v2 (the `er7` crate; HTTP + MLLP). Proxies identity + workforce to upstream services. | 8080 |
 | `patient-administration-system-migrations`     | sqlx migration crate, shared by both PAS apps; CLI is `pas-migrate`. | n/a |
-| `patient-administration-system-frontend`       | Axum and axa read-mostly UI. Tera + HTMX + Lily Design System.    | 5150  |
+| `patient-administration-system-frontend`       | Axum and axa read-mostly UI. Tera + HTMX + Lily Design System.    | 1241  |
 | `person-service` *(HTTP dep, external)*   | Person identity, demographics, search, match, merge, FHIR R5 Person. | 5180 |
 | `worker-service` *(HTTP dep, external)*   | Worker (= practitioner) identity, demographics, search, match, merge, FHIR R5 Worker. | 5181 |
 

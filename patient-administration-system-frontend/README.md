@@ -11,7 +11,7 @@ A separate web app — *not* a replacement for the existing PAS Axum API server.
 | Role | Crate | Port | Owns |
 |------|-------|------|------|
 | System of record (REST + FHIR + HL7 v2) | `patient-administration-system` (Axum) | `8080` | All writes, audit, outbox dispatcher |
-| Human-facing UI | `patient-administration-system-frontend` (Axum and axa) | `5150` | Dashboard, patient pages, server-side Tera, HTMX live-refresh |
+| Human-facing UI | `patient-administration-system-frontend` (Axum and axa) | `1241` | Dashboard, patient pages, server-side Tera, HTMX live-refresh |
 
 Both binaries share:
 - The same PostgreSQL database
@@ -50,7 +50,7 @@ cd ../patient-administration-system-frontend
 DB_URL=postgres://pas:pas_dev_password@localhost:5432/pas \
   cargo run -- start
 
-# Browse to http://localhost:5150/dashboard
+# Browse to http://localhost:1241/dashboard
 ```
 
 ## Routes
@@ -85,7 +85,7 @@ All write flows (POST endpoints) go through the PAS Axum API so audit + outbox e
 | `DB_URL` | the local PAS database; required in production | PostgreSQL connection string (same DB as PAS Axum). In production it must set `sslmode` to `require`, `verify-ca` or `verify-full`, unless it is a loopback address or `DB_ALLOW_INSECURE=true` |
 | `APP_ENV` | `development` in a debug build, `production` in a release build | `production` turns on HSTS and refuses to boot without `DB_URL` |
 | `HTTP_CONTENT_SECURITY_POLICY` | the policy in `src/app.rs` | Replaces the `content-security-policy` header. Every environment sends the same one, so a page that breaks under it breaks in development first |
-| `PORT` | `5150` | The port to listen on |
+| `PORT` | `1241` | The port to listen on |
 | `PAS_API_URL` | `http://localhost:8080` | Base URL for the PAS Axum API — every write flow routes through it |
 | `PAS_COOKIE_SECURE` | follows the environment | The `pas_csrf` cookie carries the `Secure` flag (HTTPS-only) everywhere production-like, and not in development or test, so plaintext-HTTP localhost works. `1` / `true` / `yes` turns it on and `0` / `false` / `no` turns it off, whatever the environment. |
 

@@ -18,7 +18,7 @@ flowchart LR
 | Component | Tech | Port (dev) |
 |---|---|---|
 | PAS API | Rust 2024, Axum 0.8, sqlx, utoipa | 8080 |
-| Operator pages | Axum, axa, Tera, HTMX | 5150 |
+| Operator pages | Axum, axa, Tera, HTMX | 1241 |
 | UI | SvelteKit 3, Svelte 5, Lily | 5173 |
 | Database | PostgreSQL 18 | 5432 |
 | Identity provider | Keycloak 26 | 8180 |

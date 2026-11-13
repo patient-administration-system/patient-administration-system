@@ -10,4 +10,4 @@
 - The optional MLLP TCP listener (`HL7V2_MLLP_BIND`) is also in-process. It dispatches via `axum::Router::oneshot` against the same router as the HTTP path, so handler logic and middleware are shared (auth excepted — see [restful.md](restful.md)).
 - Container image (`Containerfile`) is multi-stage and runs as a non-root user.
 - `compose.yml` brings up Postgres + the PAS server; `compose.test.yml` brings up Postgres only for the integration suite.
-- Sibling `patient-administration-system-frontend` (Axum and axa, port 5150) is stateless against the same DB; deploy independently with its own replica count.
+- Sibling `patient-administration-system-frontend` (Axum and axa, port 1241) is stateless against the same DB; deploy independently with its own replica count.

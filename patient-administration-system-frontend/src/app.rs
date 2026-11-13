@@ -31,7 +31,7 @@ pub struct App;
 fn defaults() -> Defaults {
     Defaults {
         database: "pas",
-        port: 5150,
+        port: 1241,
         production_port: None,
         body_limit: 2 * MB,
         max_connections: 10,
@@ -206,7 +206,7 @@ mod tests {
         assert_eq!(config.database.max_connections, 20);
         assert_eq!(config.database.connect_timeout, 10_000);
         assert_eq!(config.database.idle_timeout, 30_000);
-        assert_eq!(config.server.port, 5150);
+        assert_eq!(config.server.port, 1241);
         assert!(config.http.cors_origins.is_empty(), "no CORS in production");
     }
 
