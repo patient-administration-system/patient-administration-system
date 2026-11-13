@@ -1,0 +1,44 @@
+Show and tell: what have you built or tried with the Patient Administration System?
+
+This category is for sharing what you have made with the project: a deployment on test data, an integration, a script, a report, a translation, or something you learned along the way. Here's a template, and my own example to start.
+
+## Template
+
+Copy this into a new discussion:
+
+```
+## What it is
+[One sentence.]
+
+## Why I made it
+[Two or three sentences.]
+
+## Show it
+[A screenshot, a short code sample, or a link.]
+
+## How to try it
+[A few steps.]
+
+## What was hard or surprising
+[One thing.]
+
+## What I'd like
+[Feedback, contributors, or other people's examples.]
+```
+
+Please use made-up data only. Never share real patient details, even in a screenshot.
+
+## My example: a path to production, with a slider per item
+
+**What it is.** A list of everything the system still needs before it can be used with real patients, each item with an estimate from 0% to 100% of how far it has got.
+
+**Why I made it.** "Not production-ready" told readers nothing about what was missing or how far away it was. A list with an honest figure per item says both, and it shows that most of the remaining work needs people, not code: a Clinical Safety Officer, a data protection sign-off, an external penetration test, and usability testing.
+
+**Show it.** The list, with the reason for each figure:
+https://github.com/patient-administration-system/patient-administration-system/blob/main/governance/path-to-production.md
+
+**How to try it.** Open the link, pick an item you know something about, and check whether the figure is fair.
+
+**What was hard or surprising.** Writing it showed that the old checklist had fallen behind: five items that were already built were still unticked.
+
+**What I'd like.** Tell me which estimate you think is wrong, and why. Then share your own work in a new discussion below.

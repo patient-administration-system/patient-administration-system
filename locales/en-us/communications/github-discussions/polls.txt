@@ -1,0 +1,26 @@
+Which way of sending patient messages should we connect first?
+
+## Description
+
+**Background.** The Patient Administration System can write reminders and other messages to patients, but it does not yet send them through any real carrier. Every carrier would plug into the same interface, so the first one is a choice of order, not of design. National channels, such as NHS Notify and NHS Wales App messaging, might replace separate carrier contracts, but each needs onboarding with the organization that runs it. The current state is in the path to production:
+https://github.com/patient-administration-system/patient-administration-system/blob/main/governance/path-to-production.md
+
+**The decision.** Which channel to connect and test first.
+
+**How the result will be used.** The maintainers will read the votes and, above all, the comments, alongside what each option needs (a contract, onboarding, or a sandbox). The result is advisory, not binding.
+
+**Timing.** This poll closes on [date to fill in].
+
+Votes tell us what. Comments tell us why, so please say what you would use it for.
+
+## Poll question
+
+Which way of sending patient messages should we connect first?
+
+## Options
+
+1. Email
+2. SMS through a commercial carrier
+3. WhatsApp Business
+4. A national NHS channel (NHS Notify or NHS Wales App messaging)
+5. Something else (explain in comments)

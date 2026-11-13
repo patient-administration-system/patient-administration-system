@@ -1,0 +1,37 @@
+How to suggest an idea for the Patient Administration System
+
+This category is for proposing changes and features before anyone writes code. Ideas are easiest to judge when they start from the problem they solve, so please use the template below. Copy it into a new discussion, one idea per discussion.
+
+## How to suggest an idea
+
+Copy this, and replace each line in brackets:
+
+```
+## Problem
+[What goes wrong or is missing today, for whom, and when.]
+
+## Proposal
+[What you would like to happen, in plain words. A short list is fine.]
+
+## Alternatives
+[Other ways to solve it, workarounds you use now, and what happens if we do nothing.]
+
+## Costs and trade-offs
+[What it might make harder: complexity, compatibility, privacy, safety, or maintenance.]
+
+## Open questions
+[What you are unsure about, or want others to weigh in on.]
+```
+
+## Before you post
+
+- **Search first.** Someone may have suggested it already. Add your case to theirs.
+- **Check what is out of scope.** The system is administrative, not clinical: it records no diagnoses, prescriptions, or vital signs. Patient identity and staff records live in two other services, not here.
+- **Mind patient safety and privacy.** If an idea changes what a patient is offered, when they are contacted, or what data is kept, say so in "Costs and trade-offs".
+
+## What happens next
+
+The maintainers read ideas and reply with questions. An idea that the maintainers agree to take on is added to the task list, `tasks.md`, with a test that shows when it is done:
+https://github.com/patient-administration-system/patient-administration-system/blob/main/tasks.md
+
+Posting an idea is not a promise that it will be built, and some ideas will be declined, with the reason. When you reply to an idea, the most useful thing to say is whether it would solve your case, and why.

@@ -1,0 +1,31 @@
+Welcome to Patient Administration System Discussions
+
+Discussions are now open for the Patient Administration System: an open-source, administrative (not clinical) system for the NHS in Wales that handles appointments, reminders and replies, waiting lists, referrals, and transport and virtual-visit requests. This is the place to ask questions, suggest changes, and share what you build with it.
+
+## What this means for you
+
+- You can ask a question without opening an issue.
+- You can suggest an idea and get feedback before anyone writes code.
+- The maintainers will post news here, such as releases and changes of direction.
+
+## Where we are today
+
+The system is built and tested, but it is **not in use with real patients**. Most of what remains needs people or outside parties: a Clinical Safety Officer, sign-off of the data protection impact assessment, real message carriers, an external penetration test, usability testing with patients and staff, and review of the translations by first-language speakers. The path to production lists every item with an estimate of how far it has got:
+https://github.com/patient-administration-system/patient-administration-system/blob/main/governance/path-to-production.md
+
+## Where to go for what
+
+- **Questions** about running or using it: Q&A
+- **Suggestions** for features or changes: Ideas
+- **Choices** we want your vote on: Polls
+- **Something you built** or tried with it: Show and tell
+- **Anything else**, including introductions: General
+- **Bugs**: Issues, at https://github.com/patient-administration-system/patient-administration-system/issues
+- **Security problems**: not here. Follow the security policy at https://github.com/patient-administration-system/patient-administration-system/blob/main/SECURITY.md
+
+Before you contribute code, please read the contributing guide:
+https://github.com/patient-administration-system/patient-administration-system/blob/main/CONTRIBUTING.md
+
+## What to do next
+
+Head to General and introduce yourself: tell us who you are and what brought you to the project. Comments on this post are open too, so reply here if anything about how Discussions will work is unclear.

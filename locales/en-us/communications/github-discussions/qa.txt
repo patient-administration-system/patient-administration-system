@@ -1,0 +1,32 @@
+How to ask a question that gets a quick answer
+
+This category is for questions about installing, running, or using the Patient Administration System. Specific questions get answered faster, so please give us the details below. One question per discussion, please.
+
+## Before you ask
+
+- Search Q&A in case someone asked already.
+- Read the install guide: https://github.com/patient-administration-system/patient-administration-system/blob/main/INSTALL.md
+- For running it for real, read the deployment guide: https://github.com/patient-administration-system/patient-administration-system/blob/main/operations/deployment.md
+
+## Checklist for your question
+
+- **Title:** name the problem, such as "How do I set the reminder quiet hours?" rather than "Help".
+- **Goal:** what you are trying to do, in one sentence.
+- **What I tried:** the steps, in order.
+- **Expected:** what you thought would happen.
+- **Actual:** what happened, with any error message pasted exactly, in a code block.
+- **Environment:** the version or commit, your operating system, and how you run it (Podman, cargo, or the container images).
+- **Minimal example:** the smallest set of steps or commands that still shows the problem.
+
+## Keep it safe
+
+- **Never paste real patient data**, NHS numbers, or anything that identifies a person.
+- Remove tokens, passwords, and keys from logs and configuration before you paste them.
+
+## Where else to go
+
+- **Something is broken**, and you can show it: open an issue at https://github.com/patient-administration-system/patient-administration-system/issues
+- **A security problem**: do not post it here. Follow the security policy at https://github.com/patient-administration-system/patient-administration-system/blob/main/SECURITY.md
+- **A suggestion** rather than a question: Ideas
+
+When a reply solves your problem, please mark it as the answer, so the next person can find it.
