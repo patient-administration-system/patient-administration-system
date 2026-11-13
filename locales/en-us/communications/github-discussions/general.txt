@@ -1,6 +1,6 @@
 Say hello, and tell us what brought you to the Patient Administration System
 
-Welcome! This is the space for conversation that fits nowhere else: introductions, use cases, opinions, and general talk about the Patient Administration System, an open-source, administrative system for the NHS in Wales.
+Welcome! This is the space for conversation that fits nowhere else: introductions, use cases, opinions, and general talk about the Patient Administration System, an open-source, administrative system for hospitals and clinics.
 
 To start things off, here's me: I maintain the project, and I'm here to answer questions and hear how you would use it. Much of the work so far was written with an AI assistant at my direction, and the AI statement says how:
 https://github.com/patient-administration-system/patient-administration-system/blob/main/AI_STATEMENT.md

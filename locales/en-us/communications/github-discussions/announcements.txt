@@ -1,6 +1,6 @@
 Welcome to Patient Administration System Discussions
 
-Discussions are now open for the Patient Administration System: an open-source, administrative (not clinical) system for the NHS in Wales that handles appointments, reminders and replies, waiting lists, referrals, and transport and virtual-visit requests. This is the place to ask questions, suggest changes, and share what you build with it.
+Discussions are now open for the Patient Administration System: an open-source, administrative (not clinical) system for hospitals and clinics that handles appointments, reminders and replies, waiting lists, referrals, and transport and virtual-visit requests. This is the place to ask questions, suggest changes, and share what you build with it.
 
 ## What this means for you
 

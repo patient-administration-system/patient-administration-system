@@ -20,7 +20,7 @@ This category is for questions about installing, running, or using the Patient A
 
 ## Keep it safe
 
-- **Never paste real patient data**, NHS numbers, or anything that identifies a person.
+- **Never paste real patient data**, patient identifiers, or anything that identifies a person.
 - Remove tokens, passwords, and keys from logs and configuration before you paste them.
 
 ## Where else to go
