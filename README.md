@@ -6,7 +6,7 @@ Identity (`Patient`) and workforce (`Practitioner`) are **delegated over HTTP** 
 
 **Website:** <https://patient-administration-system.github.io>
 
-**Status.** Built and tested; not yet in production use. What remains is mostly people and contracts: a Clinical Safety Officer (DCB0129), DPIA sign-off, real carrier contracts, an external penetration test, usability testing with patients and staff, and fluent review of the translations. [`tasks.md`](tasks.md) lists every open item and [`spec/14-implementation-status.md`](spec/14-implementation-status.md) gives the current counts (generated from the repository). Read [`governance/production-readiness.md`](governance/production-readiness.md) before running it for real. Nothing has been published to a registry; releasing is a deliberate step (REL-1).
+**Status.** Built and tested; not yet in use with real patients. What remains is mostly people and contracts: a Clinical Safety Officer (DCB0129), DPIA sign-off, real carrier contracts, an external penetration test, usability testing with patients and staff, and fluent review of the translations. [`tasks.md`](tasks.md) lists every open item and [`spec/14-implementation-status.md`](spec/14-implementation-status.md) gives the current counts (generated from the repository). Before running it for real, read the [path to production](https://patient-administration-system.github.io/path-to-production/) (the same list, with a reason for each figure, is [`governance/path-to-production.md`](governance/path-to-production.md)). Nothing has been published to a registry; releasing is a deliberate step (REL-1).
 
 ## What it does
 

@@ -20,7 +20,7 @@ ISO 14971 is for medical devices. The DTAC answer to C1.1.1 is that this system 
 | New hazards introduced by a control | Not looked for | A review of each control for the hazards it creates (for example, a standby backfill that offers a ring-fenced slot) |
 | Overall residual risk and benefit-risk (clause 8) | None | A judgement by someone accountable |
 | Risk management review before release (clause 9) | None | A review and a report (the DCB0129 Clinical Safety Case Report covers most of this) |
-| Production and post-production information (clause 10) | Audit log, outbox dead letters, the metrics endpoint, the chaos tests, `production-readiness.md` | A route for incidents and complaints to reach the hazard log, and a defined review of the log when the code or the weights change. Alerting on dead letters is not built (H-11) |
+| Production and post-production information (clause 10) | Audit log, outbox dead letters, the metrics endpoint, the chaos tests, `path-to-production.md` | A route for incidents and complaints to reach the hazard log, and a defined review of the log when the code or the weights change. Alerting on dead letters is not built (H-11) |
 
 ## What would make this real
 

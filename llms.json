@@ -1,6 +1,6 @@
 {
   "name": "Patient Administration System",
-  "summary": "Hospital patient administration: admissions, appointments, waiting lists, referrals, reminders and patient notifications, with a patient portal and staff tools. Rust server (Axum, PostgreSQL), SvelteKit UI (Keycloak sign-in), Podman development stack. Pre-1.0, not production-ready and unaudited; it does not pass its own NHS DTAC self-assessment.",
+  "summary": "Hospital patient administration: admissions, appointments, waiting lists, referrals, reminders and patient notifications, with a patient portal and staff tools. Rust server (Axum, PostgreSQL), SvelteKit UI (Keycloak sign-in), Podman development stack. Pre-1.0, unaudited and not yet in use with real patients (governance/path-to-production.md); it does not pass its own NHS DTAC self-assessment.",
   "details": "Behaviour is defined by the specification in spec/, and a change is spec + code + test together. Each requirement names the test that verifies it, or says \"not yet tested\". The REST API describes itself: a running server serves OpenAPI at /api-docs/openapi.json and Swagger UI at /swagger-ui/. Everything under governance/ is an unreviewed draft.",
   "sections": [
     {
@@ -186,9 +186,9 @@
           "description": "Non-English catalogues are AI drafts awaiting first-language review"
         },
         {
-          "title": "Production readiness",
-          "path": "governance/production-readiness.md",
-          "description": "Checklist of what is and is not done"
+          "title": "Path to production",
+          "path": "governance/path-to-production.md",
+          "description": "What production means, and an estimate for each item still needed"
         },
         {
           "title": "Security policy",

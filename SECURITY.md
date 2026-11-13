@@ -23,10 +23,11 @@ Only the latest release and the `main` branch receive security fixes. The projec
 
 ## What it does not do yet
 
-Be aware before you deploy ([`governance/production-readiness.md`](governance/production-readiness.md)):
+Be aware before you deploy (the whole list, with an estimate for each item, is the [path to production](governance/path-to-production.md)):
 
-- The API authenticates callers with one shared token, or not at all if `API_TOKEN` is unset. It has no per-user authentication, and the audit log records the user id the caller supplies.
-- The shipped identity realm does not require multi-factor authentication.
-- Nothing proves a patient is the person their account says (the account-to-patient link is set by hand).
+- Per-user authentication at the API is opt-in (`PAS_REQUIRE_AUTH=true`). Without it the API takes one shared token, or none if `API_TOKEN` is unset, and the audit log records the user id the caller supplies.
+- The operator dashboard (`patient-administration-system-frontend`) has no sign-in (AXA-3).
+- The shipped identity realm requires a one-time code for staff; a deploying organisation's own identity provider must do the same.
+- A patient's account is linked only after a named staff member records proof of identity, through the API: there is no staff screen for it, and NHS login is not integrated.
 - No external penetration test has been done.
 - [`deny.toml`](deny.toml) accepts no advisories.

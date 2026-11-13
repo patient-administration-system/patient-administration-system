@@ -1,6 +1,6 @@
 # Patient Administration System
 
-> Hospital patient administration: admissions, appointments, waiting lists, referrals, reminders and patient notifications, with a patient portal and staff tools. Rust server (Axum, PostgreSQL), SvelteKit UI (Keycloak sign-in), Podman development stack. Pre-1.0, not production-ready and unaudited; it does not pass its own NHS DTAC self-assessment.
+> Hospital patient administration: admissions, appointments, waiting lists, referrals, reminders and patient notifications, with a patient portal and staff tools. Rust server (Axum, PostgreSQL), SvelteKit UI (Keycloak sign-in), Podman development stack. Pre-1.0, unaudited and not yet in use with real patients (governance/path-to-production.md); it does not pass its own NHS DTAC self-assessment.
 
 Behaviour is defined by the specification in spec/, and a change is spec + code + test together. Each requirement names the test that verifies it, or says "not yet tested". The REST API describes itself: a running server serves OpenAPI at /api-docs/openapi.json and Swagger UI at /swagger-ui/. Everything under governance/ is an unreviewed draft.
 
@@ -47,7 +47,7 @@ Behaviour is defined by the specification in spec/, and a change is spec + code 
 - [Personal-data inventory](governance/personal-data-inventory.csv): Every database column classified; a test fails if one is missing
 - [Retention schedule](governance/retention-schedule.md): Placeholders; no retention job exists yet
 - [Translation review](governance/translation-review.md): Non-English catalogues are AI drafts awaiting first-language review
-- [Production readiness](governance/production-readiness.md): Checklist of what is and is not done
+- [Path to production](governance/path-to-production.md): What production means, and an estimate for each item still needed
 - [Security policy](SECURITY.md): Reporting a vulnerability, and the known limits
 - [AI statement](AI_STATEMENT.md): How AI was used to build this
 

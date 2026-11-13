@@ -16,4 +16,4 @@ Working drafts that feed the [DTAC self-assessment](../docs/united-kingdom/natio
 | [`accessibility-statement.md`](accessibility-statement.md) | DTAC D1.4.3 | Draft, not published |
 | [`language-statement.md`](language-statement.md) | Welsh Language Standards | Draft |
 | [`translation-review.md`](translation-review.md) | NFR-5 | Open: no human review yet |
-| [`production-readiness.md`](production-readiness.md) | all | Checklist |
+| [`path-to-production.md`](path-to-production.md) | all | What production means, and an estimate for each item still needed |

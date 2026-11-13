@@ -87,9 +87,9 @@ Keycloak imports `podman/keycloak/pas-realm.json` only when the realm does not e
 
 Staff and administrators need a one-time code at sign-in (`governance/mfa-plan.md`).
 
-## Not ready for production
+## Before real patients
 
-See [`../governance/production-readiness.md`](../governance/production-readiness.md). Notably: API authentication, MFA, patient identity proofing, consent for messaging, and several documents.
+Read the [path to production](../governance/path-to-production.md): what production means here, and how far each item it needs has got. The largest gaps need people rather than code: a Clinical Safety Officer, DPIA sign-off, an external penetration test, real carriers, and review of the translations.
 
 ## Issuing API tokens (per-user authentication, DTAC-4)
 

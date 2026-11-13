@@ -1,6 +1,6 @@
 # Patient Administration System (PAS)
 
-A production-grade Rust crate implementing a hospital Patient Administration System — the foundational, non-clinical system of record for healthcare workflow.
+A Rust crate implementing a hospital Patient Administration System — the foundational, non-clinical system of record for healthcare workflow.
 
 [![Rust](https://img.shields.io/badge/rust-1.99.1-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-five%20options-blue.svg)](#license)
