@@ -56,7 +56,7 @@ Development users in the Keycloak realm `pas`: `patient` / `patient`, `admin` / 
 cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace                                         # unit tests
 cargo test --workspace -- --ignored --test-threads=1           # database tests (DATABASE_URL set)
-cd patient-administration-system-ui-with-svelte && npm run check && npm test && npx playwright test
+cd patient-administration-system-ui-with-svelte && pnpm run check && pnpm test && pnpm exec playwright test
 ```
 
 [`CONTRIBUTING.md`](CONTRIBUTING.md) explains how a change is made (spec, code and test together) and what CI checks.
