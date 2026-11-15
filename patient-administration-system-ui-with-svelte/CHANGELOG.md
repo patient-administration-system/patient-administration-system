@@ -19,6 +19,7 @@
 - Every server-side call to the PAS API carries the page request's `X-Request-Id`, so a failing page can be followed into the API's logs, and every response says it. An incoming id is kept when it is a safe shape (letters, digits, `.`, `_` and `-`, at most 128) and replaced with a new one otherwise.
 - A cut list on `/waits`, on `/tolerances` (the open alerts) and in a patient's contact log on `/history` links to its next page, and a later page links back to the first. The page passes the PAS's signed cursor through its own `?cursor=`; one that is not the shape the PAS writes is never sent, and one the PAS refuses (from before a restart, say) goes back to the first page. The two link texts are first drafts in every locale but English.
 - `/tolerances`, `/waits` and a patient's contact log on `/history` say when the list is not complete, and how many it shows (QUAL-49). The text is a first draft in every locale but English.
+- `@playwright/test` 1.65.0 to 1.65.1 (the browser suite only; no test changed).
 - `@lilydesignsystem/svelte-kanban-board` 0.8.0 to 0.8.1. A card cell is now named from its content (title, subtitle, badges) instead of an `aria-label` made from the title alone, which fixes WCAG 2.5.3. The waitlist cards keep their subtitle and priority badge again; the workaround that folded everything into the title is removed. `tests/e2e/waitlist.spec.ts` fails on 0.8.0.
 - The browser suite's mock API port is configurable (`MOCK_PORT`), because another project on the same machine can hold 4181; one retry in CI.
 
