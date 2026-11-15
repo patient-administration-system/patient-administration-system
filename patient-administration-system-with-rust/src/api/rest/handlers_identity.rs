@@ -13,8 +13,12 @@ use crate::api::rest::handlers::{ok, ok_json};
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ProofBody {
     pub person_id: Uuid,
-    /// `in_person`, `video_id_check`, `nhs_login` or `postal_code`.
+    /// `in_person`, `video_id_check`, `digital_identity` or `postal_code`.
     pub method: String,
+    /// For `digital_identity`, the identity scheme used, such as a national login or an eID; required then,
+    /// refused otherwise.
+    #[serde(default)]
+    pub provider: Option<String>,
     pub proofed_by: String,
 }
 
@@ -44,6 +48,7 @@ pub async fn record(
             &subject,
             b.person_id,
             &b.method,
+            b.provider.as_deref(),
             &b.proofed_by,
             &request_audit_ctx(&headers),
         )

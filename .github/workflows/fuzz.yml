@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [hl7_message, hl7_batch, text_reply, nhs_number]
+        target: [hl7_message, hl7_batch, text_reply, identifier_check]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

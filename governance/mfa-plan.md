@@ -32,5 +32,5 @@ The file is a **development** realm. A production realm must:
 
 ## Not covered
 
-- Patients are not asked for a second factor. Their portal shows the secure messages and appointments of one person and is gated by identity proofing (DTAC-9) instead; if a deploying organisation wants more, NHS login provides it.
+- Patients are not asked for a second factor. Their portal shows the secure messages and appointments of one person and is gated by identity proofing (DTAC-9) instead; if a deploying organisation wants more, a digital identity scheme that proves identity and asks for a second factor provides it.
 - A service account (the UI's server to the API) uses a signed token, not a password: see `operations/deployment.md`.

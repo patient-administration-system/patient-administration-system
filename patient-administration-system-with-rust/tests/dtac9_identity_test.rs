@@ -32,7 +32,7 @@ async fn an_account_is_proofed_only_as_the_patient_staff_recorded_and_only_until
     );
 
     s.identity
-        .record(&sub, person, "in_person", "Clerk A", &sys())
+        .record(&sub, person, "in_person", None, "Clerk A", &sys())
         .await
         .unwrap();
     assert!(s.identity.check(&sub, person).await.unwrap());
@@ -81,11 +81,29 @@ async fn an_account_is_proofed_only_as_the_patient_staff_recorded_and_only_until
 
     // Proofed again, as a different patient: the old link is superseded, not left live alongside.
     s.identity
-        .record(&sub, other, "video_id_check", "Clerk C", &sys())
+        .record(&sub, other, "video_id_check", None, "Clerk C", &sys())
         .await
         .unwrap();
     assert!(s.identity.check(&sub, other).await.unwrap());
     assert!(!s.identity.check(&sub, person).await.unwrap());
+
+    // A digital identity proofing keeps the scheme it used, with no one scheme built in.
+    s.identity
+        .record(
+            &sub,
+            other,
+            "digital_identity",
+            Some(" BankID "),
+            "Clerk D",
+            &sys(),
+        )
+        .await
+        .unwrap();
+    let p = s.identity.get(&sub).await.unwrap().unwrap();
+    assert_eq!(
+        (p.method.as_str(), p.provider.as_deref()),
+        ("digital_identity", Some("BankID"))
+    );
 }
 
 #[tokio::test]
@@ -95,25 +113,51 @@ async fn proofing_needs_a_known_method_a_named_person_and_a_sane_subject() {
     let (sub, p) = (format!("kc-{}", Uuid::new_v4()), Uuid::new_v4());
     assert!(
         s.identity
-            .record(&sub, p, "vibes", "A", &sys())
+            .record(&sub, p, "vibes", None, "A", &sys())
             .await
             .is_err()
     );
     assert!(
         s.identity
-            .record(&sub, p, "in_person", "  ", &sys())
+            .record(&sub, p, "in_person", None, "  ", &sys())
             .await
             .is_err()
     );
     assert!(
         s.identity
-            .record("", p, "in_person", "A", &sys())
+            .record("", p, "in_person", None, "A", &sys())
             .await
             .is_err()
     );
     assert!(
         s.identity
-            .record(&"x".repeat(201), p, "in_person", "A", &sys())
+            .record(&"x".repeat(201), p, "in_person", None, "A", &sys())
+            .await
+            .is_err()
+    );
+    // A digital identity proofing names its scheme, and only that method names one.
+    assert!(
+        s.identity
+            .record(&sub, p, "digital_identity", None, "A", &sys())
+            .await
+            .is_err()
+    );
+    assert!(
+        s.identity
+            .record(&sub, p, "in_person", Some("BankID"), "A", &sys())
+            .await
+            .is_err()
+    );
+    assert!(
+        s.identity
+            .record(
+                &sub,
+                p,
+                "digital_identity",
+                Some(&"x".repeat(101)),
+                "A",
+                &sys()
+            )
             .await
             .is_err()
     );

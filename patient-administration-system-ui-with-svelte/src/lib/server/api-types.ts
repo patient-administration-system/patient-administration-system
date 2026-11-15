@@ -1993,6 +1993,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/identifier-schemes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** `GET /api/identifier-schemes` (QUAL-40): the identifier schemes the PAS checks, each with its system URI. */
+    get: operations["get_api_identifier_schemes"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/identity-proofings/{subject}": {
     parameters: {
       query?: never;
@@ -4747,7 +4764,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/validate/nhs-number": {
+  "/api/validate/identifier": {
     parameters: {
       query?: never;
       header?: never;
@@ -4757,11 +4774,11 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * `POST /api/validate/nhs-number` (DTAC-8): check an NHS number's format and modulus-11 check digit. It says
-     *     whether the number is well formed, not whether it is issued or belongs to anyone (that needs a PDS trace,
-     *     see `governance/pds-decision.md`). Stores nothing.
+     * `POST /api/validate/identifier` (DTAC-8, QUAL-40): check a value against the scheme its system names. It
+     *     says whether the value is well formed, not whether it was issued or belongs to anyone. A system with no
+     *     scheme is a `400`. Stores nothing.
      */
-    post: operations["post_api_validate_nhs_number"];
+    post: operations["post_api_validate_identifier"];
     delete?: never;
     options?: never;
     head?: never;
@@ -6762,6 +6779,23 @@ export interface components {
      * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
      *     an RFC 9457 problem: see [`problem`].
      */
+    ApiResponse_IdentifierChecked: {
+      /** @description A value checked against its scheme. */
+      data?: {
+        /** @description The value written the usual way for its scheme. */
+        formatted: string;
+        system: string;
+        valid: boolean;
+        /** @description The value with separators removed. */
+        value: string;
+      };
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
     ApiResponse_InboundOutcome: {
       data?: {
         /** Format: uuid */
@@ -6932,20 +6966,6 @@ export interface components {
         language: string | null;
         /** Format: uuid */
         person_id: string;
-      };
-      meta?: components["schemas"]["PageMeta"] | null;
-      success: boolean;
-    };
-    /**
-     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
-     *     an RFC 9457 problem: see [`problem`].
-     */
-    ApiResponse_NhsNumberChecked: {
-      /** @description What `POST /api/validate/nhs-number` sends for a well-formed number. */
-      data?: {
-        digits: string;
-        formatted: string;
-        valid: boolean;
       };
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -7162,6 +7182,8 @@ export interface components {
         /** Format: date-time */
         proofed_at: string;
         proofed_by: string;
+        /** @description The digital identity scheme, for `digital_identity`; otherwise absent. */
+        provider: string | null;
       };
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -8392,6 +8414,19 @@ export interface components {
         /** @description `audit`, `message`, `reply`, `text` or `reminder_step`. */
         kind: string | null;
         reason_code: string | null;
+      }[];
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
+    ApiResponse_Vec_IdentifierScheme: {
+      data?: {
+        code: string;
+        name: string;
+        system: string;
       }[];
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -10483,6 +10518,26 @@ export interface components {
       kind: string | null;
       reason_code: string | null;
     };
+    IdentifierBody: {
+      /** @description The identifier system URI, as in FHIR `Identifier.system`. */
+      system: string;
+      value: string;
+    };
+    /** @description A value checked against its scheme. */
+    IdentifierChecked: {
+      /** @description The value written the usual way for its scheme. */
+      formatted: string;
+      system: string;
+      valid: boolean;
+      /** @description The value with separators removed. */
+      value: string;
+    };
+    /** @description What a client sees of a scheme. */
+    IdentifierScheme: {
+      code: string;
+      name: string;
+      system: string;
+    };
     /** @description Someone who has arrived and not been completed. */
     InFacility: {
       /** Format: uuid */
@@ -10780,15 +10835,6 @@ export interface components {
       /** Format: date */
       suspected_on: string;
       unique_pathway_identifier?: string | null;
-    };
-    NhsNumberBody: {
-      value: string;
-    };
-    /** @description What `POST /api/validate/nhs-number` sends for a well-formed number. */
-    NhsNumberChecked: {
-      digits: string;
-      formatted: string;
-      valid: boolean;
     };
     /**
      * @description The `data` of a success that has nothing to return: it serializes to `null`.
@@ -11105,11 +11151,16 @@ export interface components {
       updated_by?: string | null;
     };
     ProofBody: {
-      /** @description `in_person`, `video_id_check`, `nhs_login` or `postal_code`. */
+      /** @description `in_person`, `video_id_check`, `digital_identity` or `postal_code`. */
       method: string;
       /** Format: uuid */
       person_id: string;
       proofed_by: string;
+      /**
+       * @description For `digital_identity`, the identity scheme used, such as a national login or an eID; required then,
+       *     refused otherwise.
+       */
+      provider?: string | null;
     };
     /** @description The answer to the identity check. */
     Proofed: {
@@ -11122,6 +11173,8 @@ export interface components {
       /** Format: date-time */
       proofed_at: string;
       proofed_by: string;
+      /** @description The digital identity scheme, for `digital_identity`; otherwise absent. */
+      provider: string | null;
     };
     ProposeBody: {
       /** Format: date */
@@ -16773,6 +16826,33 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_identifier_schemes: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_IdentifierScheme"];
+        };
       };
       /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
       "5XX": {
@@ -23361,7 +23441,7 @@ export interface operations {
       };
     };
   };
-  post_api_validate_nhs_number: {
+  post_api_validate_identifier: {
     parameters: {
       query?: never;
       header?: never;
@@ -23370,7 +23450,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["NhsNumberBody"];
+        "application/json": components["schemas"]["IdentifierBody"];
       };
     };
     responses: {
@@ -23380,7 +23460,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ApiResponse_NhsNumberChecked"];
+          "application/json": components["schemas"]["ApiResponse_IdentifierChecked"];
         };
       };
       /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */

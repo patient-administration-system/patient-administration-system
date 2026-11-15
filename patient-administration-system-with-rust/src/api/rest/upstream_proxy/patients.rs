@@ -33,8 +33,8 @@ pub async fn create_patient(
             }
         },
     };
-    // An NHS number that fails its check digit never reaches person-service (DTAC-8).
-    if let Err(e) = crate::validation::check_person_identifiers(&create.fields) {
+    // An identifier that fails its scheme's check never reaches person-service (DTAC-8, QUAL-40).
+    if let Err(e) = crate::identifiers::check_person_identifiers(&create.fields) {
         return error_to_response(e);
     }
     match client.create(create, &ctx).await {
@@ -104,7 +104,7 @@ pub async fn update_patient(
             }
         },
     };
-    if let Err(e) = crate::validation::check_person_identifiers(&update.fields) {
+    if let Err(e) = crate::identifiers::check_person_identifiers(&update.fields) {
         return error_to_response(e);
     }
     match client.update(id, update, &ctx).await {

@@ -1,6 +1,6 @@
 //! QUAL-17: property tests for the code that reads outside input. No database needed.
 //!
-//! - NHS numbers: exactly the right check digit is accepted, and the two errors people make most (one
+//! - NHS numbers, one identifier scheme (`identifiers::gb_nhs_number`): exactly the right check digit is accepted, and the two errors people make most (one
 //!   digit wrong, two neighbours swapped) are always caught.
 //! - Text replies: no message panics the parser, and case, accents and surrounding space never change
 //!   what a reply means.
@@ -11,8 +11,10 @@ use patient_administration_system::hl7v2::batch::parse_batch;
 use patient_administration_system::hl7v2::{
     encode_message, escape_value, parse_message, unescape_value,
 };
+use patient_administration_system::identifiers::gb_nhs_number::{
+    check as validate_nhs_number, format as format_nhs_number,
+};
 use patient_administration_system::inbound::parser::{Intent, parse};
-use patient_administration_system::validation::{format_nhs_number, validate_nhs_number};
 use proptest::prelude::*;
 
 /// The check digit for nine digits, or `None` when the remainder makes the number impossible.

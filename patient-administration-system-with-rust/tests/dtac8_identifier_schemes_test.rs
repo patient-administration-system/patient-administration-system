@@ -1,4 +1,5 @@
-//! DTAC-8: NHS numbers are checked before a patient body reaches person-service.
+//! DTAC-8, QUAL-40: an identifier whose system has a scheme (here the NHS number, one scheme among any) is
+//! checked before a patient body reaches person-service; an identifier of any other system is not.
 //! Needs PostgreSQL: `cargo test -- --ignored`.
 
 mod common;
@@ -13,7 +14,8 @@ use tower::ServiceExt;
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
-async fn the_endpoint_validates_and_the_patient_proxy_refuses_a_bad_nhs_number() {
+async fn the_endpoint_validates_and_the_patient_proxy_refuses_an_identifier_that_fails_its_scheme()
+{
     let s = common::build_state(&common::database_url().unwrap())
         .await
         .with_person_client(Arc::new(StubPersonClient::new()));
@@ -44,16 +46,24 @@ async fn the_endpoint_validates_and_the_patient_proxy_refuses_a_bad_nhs_number()
     };
     let (st, v) = call(
         "POST",
-        "/api/validate/nhs-number",
-        serde_json::json!({ "value": "943 476 5919" }),
+        "/api/validate/identifier",
+        serde_json::json!({ "system": "https://fhir.nhs.uk/Id/nhs-number", "value": "943 476 5919" }),
     )
     .await;
     assert_eq!(st, StatusCode::OK, "{v}");
     assert_eq!(v["data"]["formatted"], "943 476 5919");
     let (st, _) = call(
         "POST",
-        "/api/validate/nhs-number",
-        serde_json::json!({ "value": "9434765918" }),
+        "/api/validate/identifier",
+        serde_json::json!({ "system": "https://fhir.nhs.uk/Id/nhs-number", "value": "9434765918" }),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    // A system with no scheme is refused, not called valid.
+    let (st, _) = call(
+        "POST",
+        "/api/validate/identifier",
+        serde_json::json!({ "system": "https://example.test/mrn", "value": "A-1" }),
     )
     .await;
     assert_eq!(st, StatusCode::BAD_REQUEST);
@@ -73,7 +83,7 @@ async fn the_endpoint_validates_and_the_patient_proxy_refuses_a_bad_nhs_number()
     let good = serde_json::json!({ "name": { "family": "Lovelace" }, "identifiers": [{ "system": "https://fhir.nhs.uk/Id/nhs-number", "value": "9434765919" }] });
     let (st, v) = call("POST", "/api/patients", good).await;
     assert_eq!(st, StatusCode::OK, "{v}");
-    // An identifier of another system is not held to the NHS rule.
+    // An identifier of a system with no scheme passes untouched.
     let other = serde_json::json!({ "name": { "family": "Lovelace" }, "identifiers": [{ "system": "https://example.test/mrn", "value": "A-1" }] });
     let (st, _) = call("POST", "/api/patients", other).await;
     assert_eq!(st, StatusCode::OK);

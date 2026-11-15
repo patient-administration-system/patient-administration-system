@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- The staff and patient themes no longer copy the NHS England design system (QUAL-40). They keep their layout, density and contrast, with a palette that belongs to no service: a teal primary in place of NHS Blue, and the primary colour as the focus ring in place of the yellow. Their names are `pas-staff` and `pas-patient`. A deployment that wants a national or organisational look replaces `static/assets/themes/staff.css` and `patient.css` with that Lily theme.
+
 ### Added
 - A home page for staff (WPAS-5, FR-219), where staff now land: a tile for each area their role may use, and how many suspected conditions are past their target.
 - `/suspicions`: open suspected conditions, longest wait first, filtered by condition, with the subtype (a tumour site, a type of diabetes or dementia) and the target (WPAS-1). The conditions come from the API's active profile (WPAS-8); a code the catalogues do not name is shown by the profile's own name.

@@ -28,6 +28,6 @@ Be aware before you deploy (the whole list, with an estimate for each item, is t
 - Per-user authentication at the API is opt-in (`PAS_REQUIRE_AUTH=true`). Without it the API takes one shared token, or none if `API_TOKEN` is unset, and the audit log records the user id the caller supplies.
 - The operator dashboard (`patient-administration-system-frontend`) has no sign-in (AXA-3).
 - The shipped identity realm requires a one-time code for staff; a deploying organisation's own identity provider must do the same.
-- A patient's account is linked only after a named staff member records proof of identity, through the API: there is no staff screen for it, and NHS login is not integrated.
+- A patient's account is linked only after a named staff member records proof of identity, through the API: there is no staff screen for it, and no digital identity scheme (a national login, a bank identity, an eID) is integrated.
 - No external penetration test has been done.
 - [`deny.toml`](deny.toml) accepts no advisories.

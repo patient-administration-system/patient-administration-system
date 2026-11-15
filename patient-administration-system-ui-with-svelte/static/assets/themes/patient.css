@@ -1,157 +1,59 @@
 /* ============================================================================
- * NHS England (United Kingdom) Design System
+ * Patient Administration System: patient theme
  * ----------------------------------------------------------------------------
- * Upstream tracked: NHS.UK frontend v9.x visual language (v10 is in
- * pre-release; re-check the palette when it goes stable). Independent
- * implementation against Lily class hooks; not affiliated with or
- * endorsed by the NHS.
+ * The reading theme for patients: 16px body text, 40-44px touch targets
+ * (WCAG 2.5.5), and 4px radii.
  *
- * Canonical references
- *   - NHS Service Manual: https://service-manual.nhs.uk/design-system
- *   - NHS Identity Guidelines (Colours):
- *       https://www.england.nhs.uk/nhsidentity/identity-guidelines/colours/
- *   - NHS frontend tokens (Sass source):
- *       https://github.com/nhsuk/nhsuk-frontend
- *   - Typography: Frutiger W01 (primary), Arial / system-ui fallback
- *   - Base font size: 16px, modular scale (14 / 16 / 19 / 22 / 26 / 32 / 48 / 64)
- *   - Spacing scale (px): 0, 4, 8, 12, 16, 24, 32, 40, 48, 64
- *   - WCAG 2.2 AAA target; focus outline is 4px solid #FFEB3B over #212B32
+ * The palette belongs to no health service or government: a deployment that
+ * wants its own national or organisational look replaces this file with that
+ * Lily theme (the same class hooks), and keeps the contrast checks.
  *
- * Brand palette (sRGB → OKLCH conversions used below)
- *   NHS Blue           #005EB8   primary brand colour
- *   NHS Dark Blue      #003087   hover / pressed states, secondary
- *   NHS Bright Blue    #0072CE   informational links / chips
- *   NHS Light Blue     #41B6E6   accent, illustrative
- *   NHS Aqua Blue      #00A9CE   emphasis / supplementary
- *   NHS Black          #212B32   primary text
- *   NHS Dark Grey      #425563   secondary text
- *   NHS Mid Grey       #768692   tertiary text / borders
- *   NHS Pale Grey      #E8EDEE   surface backgrounds
- *   NHS White          #FFFFFF   page background
- *   NHS Warm Yellow    #FFB81C   warning / focus indicator
- *   NHS Emergency Red  #DA291C   error / destructive action
- *   NHS Green          #009639   success / confirmation
- *   NHS Dark Green     #006747   success hover
- *
- * Geometry rules (NHS frontend defaults)
- *   - Border radius: 4px on cards / inputs / buttons (selectors are square: 0)
- *   - Borders: 1px solid, drawn in NHS Mid Grey #768692 by default
- *   - Surfaces are flat: no shadow, no gradient (depth = 0)
- *   - No textures / noise (noise = 0); the system favours legibility over flair
- *
- * Accessibility commitments encoded in this theme
- *   - All foreground/background pairs target WCAG AA at minimum (most reach AAA)
- *   - Warning content is dark (oklch ~28%) so #FFB81C yellow stays legible
- *   - Primary/secondary/info/success/error all use white content for contrast
+ * Accessibility: every foreground and background pair meets WCAG AA, most
+ * AAA; warning content is dark so the amber stays legible; the focus ring is
+ * the primary colour.
  * ========================================================================= */
 
-/* Theme tokens — the colour, radius, border, and depth variables consumed
- * by every Lily component rule below. The theme applies by default (`:root`)
- * and also when explicitly opted into via `<html data-theme="united-kingdom-national-health-service-england-for-patients">`,
- * so multiple themes can coexist in one document and be switched at runtime
- * by updating the `data-theme` attribute. */
+/* Theme tokens: the colour, radius, border and depth variables every Lily
+ * component rule below reads. The theme applies by default (`:root`) and
+ * when chosen with `<html data-theme="pas-patient">`. */
 
-:where(:root, :root[data-theme="united-kingdom-national-health-service-england-for-patients"]) {
+:where(:root, :root[data-theme="pas-patient"]) {
     color-scheme: light;
 
-    /* ---- Surfaces
-       -------------------------------------------------------- */
-       /* base-100: page background. NHS White #FFFFFF — the
-       default canvas */ /* used behind body copy and primary
-       content areas. */
+    /* Surfaces: white page, cool pale greys for panels, dividers and row hover. */
     --color-base-100: oklch(100% 0 0);
-    /* base-200: secondary surface. NHS Pale Grey #E8EDEE —
-       sectioned */ /* backgrounds, sidebars, and the "grey-panel"
-       pattern in the manual. */
-    --color-base-200: oklch(94% 0.005 220);
-    /* base-300: tertiary surface. Slightly darker pale grey used
-       for */ /* dividers, table zebra-striping and hover
-       backgrounds on list rows. */
-    --color-base-300: oklch(89% 0.007 220);
-    /* base-content: primary text. NHS Black #212B32 — the body-
-       copy */ /* colour. Note this is NOT pure black; it warms
-       text slightly to */ /* reduce on-screen glare per NHS
-       readability guidance. */
-    --color-base-content: oklch(28% 0.015 230);
-    /* ---- Primary (NHS Blue)
-       --------------------------------------------- */ /* Primary
-       action colour. NHS Blue #005EB8 — the signature brand */ /*
-       colour used on the NHS logo block, primary buttons, and
-       active nav. */
-    --color-primary: oklch(45% 0.17 251);
+    --color-base-200: oklch(94% 0.005 250);
+    --color-base-300: oklch(89% 0.007 250);
+    /* Body text: a near-black grey (12:1 on the panel grey). */
+    --color-base-content: oklch(28% 0.015 250);
+    /* Primary: deep teal for primary actions, active navigation and the focus ring (7:1 with white). */
+    --color-primary: oklch(45% 0.08 190);
     --color-primary-content: oklch(100% 0 0);
-    /* ---- Secondary (NHS Dark Blue)
-       -------------------------------------- */ /* Hover /
-       pressed state for primary, and secondary chrome. */ /* NHS
-       Dark Blue #003087 — also used for visited links by some
-       teams. */
-    --color-secondary: oklch(33% 0.18 264);
+    /* Secondary: darker teal for hover, pressed and secondary chrome (12:1 with white). */
+    --color-secondary: oklch(33% 0.06 200);
     --color-secondary-content: oklch(100% 0 0);
-    /* ---- Accent (NHS Light Blue)
-       ---------------------------------------- */ /* Illustrative
-       accent. NHS Light Blue #41B6E6 — used in charts, */ /*
-       diagrams, and supplementary UI cues. Not for primary CTAs.
-       Darkened from L=0.67 on 2026-08-27: white accent-content
-       needs >=4.5:1 for small text (axe color-contrast on ai-
-       label). */
-    --color-accent: oklch(52% 0.13 220);
+    /* Accent: green-teal for charts and supplementary cues, never a primary action (5.7:1 with white). */
+    --color-accent: oklch(50% 0.1 165);
     --color-accent-content: oklch(100% 0 0);
-    /* ---- Neutral
-       -------------------------------------------------------- */
-       /* Neutral chrome (footer, dark cards). Mirrors base-
-       content so that */ /* the page maintains a single neutral
-       identity across both polarities. */
-    --color-neutral: oklch(28% 0.015 230);
+    --color-neutral: oklch(28% 0.015 250);
     --color-neutral-content: oklch(100% 0 0);
-    /* ---- Info (NHS Bright Blue)
-       ----------------------------------------- */ /*
-       Informational banners, links, and "did you know?" callouts.
-       */ /* NHS Bright Blue #0072CE — distinct from primary so
-       banners read as */ /* messages rather than calls to action. */
-    --color-info: oklch(54% 0.17 247);
+    /* Status colours: blue information, green success, amber warning with dark text, red error. */
+    --color-info: oklch(54% 0.12 240);
     --color-info-content: oklch(100% 0 0);
-    /* ---- Success (NHS Green)
-       -------------------------------------------- */ /*
-       Confirmation, completed-step, "you have been booked"
-       panels. */ /* NHS Green #009639 — meets 4.5:1 against white
-       when paired below. */
     --color-success: oklch(56% 0.16 145);
     --color-success-content: oklch(100% 0 0);
-    /* ---- Warning (NHS Warm Yellow)
-       -------------------------------------- */ /* Caution
-       banners and the canonical focus indicator. */ /* NHS Warm
-       Yellow #FFB81C — because the swatch is light, content */ /*
-       must be dark (≈ NHS Black) to clear WCAG AA contrast. */
     --color-warning: oklch(82% 0.16 79);
-    --color-warning-content: oklch(28% 0.015 230);
-    /* ---- Error (NHS Emergency Services Red)
-       ----------------------------- */ /* Validation errors,
-       destructive actions, urgent banners. */ /* NHS Emergency
-       Services Red #DA291C — reserved for genuine errors; */ /*
-       do not use for decorative emphasis (it carries strong NHS
-       meaning). */
+    --color-warning-content: oklch(28% 0.015 250);
     --color-error: oklch(55% 0.22 28);
     --color-error-content: oklch(100% 0 0);
-    /* ---- Geometry tokens
-       ------------------------------------------------ */ /*
-       Selectors (checkbox / radio): square per NHS frontend
-       defaults. */
+
+    /* Geometry: square selectors, small radii, 1px borders, flat surfaces, no texture. */
     --radius-selector: 0rem;
-    /* Form fields: 4px corners — NHS frontend uses `$nhsuk-
-       border-radius`. */
     --radius-field: 0.25rem;
-    /* Card / panel / dialog: same 4px corner radius for visual
-       harmony. */
     --radius-box: 0.25rem;
-    /* Inner padding hints for selectors and fields (Lily sizing). */
     --size-selector: 0.25rem;
     --size-field: 0.25rem;
-    /* Border width: 1px hairline, matching `$nhsuk-border-width-
-       form`. */
     --border: 1px;
-    /* Depth & noise off — NHS guidance avoids shadows and
-       textures so */ /* the interface looks clinical, calm, and
-       easy to read. */
     --depth: 0;
     --noise: 0;
 }
@@ -1239,7 +1141,7 @@
         );
     }
     /* Care card urgency variants — coloured left rail (urgent/non-urgent/
-       primary). Pattern adapted from the NHS care-card guidance. */
+       primary). A care-card pattern. */
     :where(.care-card[data-urgency="urgent"]) {
         border-color: var(--color-error);
         border-left-width: 0.375rem;
@@ -3081,7 +2983,7 @@
         white-space: pre;
     }
     /* Inset text — left-railed callout for "Important" content
-       (GOV.UK / NHS pattern). */
+       (a common public-service pattern). */
     :where(.inset-text) {
         padding: 0.75rem 1rem;
         border-inline-start: 0.25rem solid var(--color-primary);
@@ -3374,7 +3276,7 @@
         grid-template-columns: 1fr 1fr;
         gap: 0.5rem;
     }
-    /* Addressograph box — paper-form ID label (NHS / hospital pattern). */
+    /* Addressograph box — paper-form ID label (a hospital pattern). */
     :where(.addressograph-box) {
         display: block;
         padding: 0.75rem 1rem;

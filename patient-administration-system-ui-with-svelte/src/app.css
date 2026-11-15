@@ -2,7 +2,7 @@
   --pas-bg: var(--color-base-100, #f0f4f5);
   --pas-fg: var(--color-base-content, #212b32);
   --pas-border: var(--color-base-300, #d8dde0);
-  --pas-primary: var(--color-primary, #005eb8);
+  --pas-primary: var(--color-primary, #00635f);
   --pas-primary-fg: var(--color-primary-content, #ffffff);
   --pas-danger: color-mix(in oklch, var(--color-error, #b91c1c) 55%, var(--color-base-content, #111827));
   font-family:
@@ -148,7 +148,7 @@ details.languages a {
   color: inherit;
 }
 /* WCAG 2.2 AA, target size (2.5.8): the Lily calendar's view buttons are smaller than 24 CSS px in
-   the NHS theme. Give every control in the widget a comfortable minimum. */
+   the staff theme. Give every control in the widget a comfortable minimum. */
 .calendar-view-switcher-button,
 .calendar-view-switcher button,
 [class*="calendar-"] button {

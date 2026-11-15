@@ -19,8 +19,8 @@
 //! rather than the visit lost. Whoever knows it failed (the provider's callback, the clinician or the front
 //! desk) calls the endpoint; it is idempotent.
 //!
-//! Not built here: the video-visit provider and its join link (an interface to NHS Attend Anywhere or the
-//! Wales equivalent). Until one is connected nothing reports a failure by itself; a person does.
+//! Not built here: the video-visit provider and its join link (an interface to whichever video-visit
+//! service a deployment uses). Until one is connected nothing reports a failure by itself; a person does.
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact};

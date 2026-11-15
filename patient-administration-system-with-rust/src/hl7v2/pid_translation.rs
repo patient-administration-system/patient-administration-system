@@ -7,7 +7,7 @@
 //!
 //! - **PID-3** (Patient Identifier List, repeating): split on `~`. The
 //!   first identifier becomes the upstream's MRN; additional identifiers
-//!   are not mapped (only the first repetition is read; the NHS number and
+//!   are not mapped (only the first repetition is read; a national number and
 //!   other system URIs are not distinguished).
 //! - **PID-5** (Patient Name): `family^given^middle^suffix^prefix`.
 //! - **PID-7** (Date of Birth): `YYYYMMDD` → `birth_date` (ISO 8601).

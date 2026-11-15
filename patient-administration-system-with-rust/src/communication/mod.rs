@@ -83,7 +83,7 @@ impl CommunicationService {
     }
 
     /// Public address of the patient portal (no trailing slash), e.g.
-    /// `https://pas.example.nhs.uk`. Exposed to templates as `portal_url`.
+    /// `https://pas.example.org`. Exposed to templates as `portal_url`.
     pub fn with_portal_base_url(mut self, url: impl Into<String>) -> Self {
         self.portal_base_url = Some(url.into().trim_end_matches('/').to_string());
         self

@@ -496,6 +496,7 @@ identity_proofings,id,none,"Not personal data (structure, status, timestamps, pl
 identity_proofings,subject,identifier,The identity provider's id for a sign-in account; it identifies a person to the provider,record
 identity_proofings,person_id,identifier,Link a record to a person held by person-service,record
 identity_proofings,method,none,"Not personal data (structure, status, timestamps, places, templates)",record
+identity_proofings,provider,none,"Not personal data: the name of a digital identity scheme, such as a national login, not the person's account on it",record
 identity_proofings,proofed_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 identity_proofings,proofed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 identity_proofings,revoked_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

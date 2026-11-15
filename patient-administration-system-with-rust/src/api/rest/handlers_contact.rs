@@ -159,14 +159,6 @@ pub struct OptOutState {
     pub opted_out: bool,
 }
 
-/// What `POST /api/validate/nhs-number` sends for a well-formed number.
-#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct NhsNumberChecked {
-    pub valid: bool,
-    pub digits: String,
-    pub formatted: String,
-}
-
 const OPTOUT_CHANNELS: [&str; 4] = ["sms", "whatsapp", "apple_messages", "email"];
 
 fn check_channel(c: &str) -> Result<(), Error> {
@@ -293,31 +285,45 @@ pub async fn remove_optout(
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub struct NhsNumberBody {
+pub struct IdentifierBody {
+    /// The identifier system URI, as in FHIR `Identifier.system`.
+    pub system: String,
     pub value: String,
 }
 
-/// `POST /api/validate/nhs-number` (DTAC-8): check an NHS number's format and modulus-11 check digit. It says
-/// whether the number is well formed, not whether it is issued or belongs to anyone (that needs a PDS trace,
-/// see `governance/pds-decision.md`). Stores nothing.
+/// `POST /api/validate/identifier` (DTAC-8, QUAL-40): check a value against the scheme its system names. It
+/// says whether the value is well formed, not whether it was issued or belongs to anyone. A system with no
+/// scheme is a `400`. Stores nothing.
 #[utoipa::path(
     post,
-    path = "/api/validate/nhs-number",
+    path = "/api/validate/identifier",
     tag = "Validate",
-    request_body = NhsNumberBody,
+    request_body = IdentifierBody,
     responses(
-        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<NhsNumberChecked>),
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::identifiers::IdentifierChecked>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
-pub async fn validate_nhs_number(Json(b): Json<NhsNumberBody>) -> HandlerResult {
-    match crate::validation::validate_nhs_number(&b.value) {
-        Ok(n) => ok_json(NhsNumberChecked {
-            valid: true,
-            formatted: crate::validation::format_nhs_number(&n),
-            digits: n,
-        }),
+pub async fn validate_identifier(Json(b): Json<IdentifierBody>) -> HandlerResult {
+    match crate::identifiers::check(&b.system, &b.value) {
+        Ok(c) => ok_json(c),
         Err(e) => error_to_response(e),
     }
+}
+
+/// `GET /api/identifier-schemes` (QUAL-40): the identifier schemes the PAS checks, each with its system URI.
+#[utoipa::path(
+    get,
+    path = "/api/identifier-schemes",
+    tag = "Validate",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::identifiers::IdentifierScheme>>),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn list_identifier_schemes() -> HandlerResult {
+    let schemes: Vec<crate::identifiers::IdentifierScheme> =
+        crate::identifiers::SCHEMES.iter().map(Into::into).collect();
+    ok_json(schemes)
 }

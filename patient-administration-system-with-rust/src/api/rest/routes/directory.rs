@@ -137,8 +137,12 @@ pub(super) fn people() -> Router<AppState> {
             put(handlers_transport::record_consent).delete(handlers_transport::withdraw_consent),
         )
         .route(
-            "/api/validate/nhs-number",
-            post(handlers_contact::validate_nhs_number),
+            "/api/validate/identifier",
+            post(handlers_contact::validate_identifier),
+        )
+        .route(
+            "/api/identifier-schemes",
+            get(handlers_contact::list_identifier_schemes),
         )
         .route(
             "/api/patients/{id}/whatsapp-optin",

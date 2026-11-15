@@ -2758,6 +2758,55 @@
         ],
         "type": "object"
       },
+      "ApiResponse_IdentifierChecked": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "description": "A value checked against its scheme.",
+            "properties": {
+              "formatted": {
+                "description": "The value written the usual way for its scheme.",
+                "type": "string"
+              },
+              "system": {
+                "type": "string"
+              },
+              "valid": {
+                "type": "boolean"
+              },
+              "value": {
+                "description": "The value with separators removed.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "system",
+              "valid",
+              "value",
+              "formatted"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_InboundOutcome": {
         "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
         "properties": {
@@ -3238,49 +3287,6 @@
               "person_id",
               "kind",
               "language"
-            ],
-            "type": "object"
-          },
-          "meta": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/PageMeta",
-                "description": "Present on list responses: the limit that applied and whether the list was cut short."
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "success": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "success"
-        ],
-        "type": "object"
-      },
-      "ApiResponse_NhsNumberChecked": {
-        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
-        "properties": {
-          "data": {
-            "description": "What `POST /api/validate/nhs-number` sends for a well-formed number.",
-            "properties": {
-              "digits": {
-                "type": "string"
-              },
-              "formatted": {
-                "type": "string"
-              },
-              "valid": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "valid",
-              "digits",
-              "formatted"
             ],
             "type": "object"
           },
@@ -3894,11 +3900,19 @@
               },
               "proofed_by": {
                 "type": "string"
+              },
+              "provider": {
+                "description": "The digital identity scheme, for `digital_identity`; otherwise absent.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "person_id",
               "method",
+              "provider",
               "proofed_by",
               "proofed_at"
             ],
@@ -7616,6 +7630,52 @@
                 "by",
                 "reason_code",
                 "context"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_IdentifierScheme": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "What a client sees of a scheme.",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "system": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "system",
+                "name"
               ],
               "type": "object"
             },
@@ -13610,6 +13670,68 @@
         ],
         "type": "object"
       },
+      "IdentifierBody": {
+        "properties": {
+          "system": {
+            "description": "The identifier system URI, as in FHIR `Identifier.system`.",
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "system",
+          "value"
+        ],
+        "type": "object"
+      },
+      "IdentifierChecked": {
+        "description": "A value checked against its scheme.",
+        "properties": {
+          "formatted": {
+            "description": "The value written the usual way for its scheme.",
+            "type": "string"
+          },
+          "system": {
+            "type": "string"
+          },
+          "valid": {
+            "type": "boolean"
+          },
+          "value": {
+            "description": "The value with separators removed.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "system",
+          "valid",
+          "value",
+          "formatted"
+        ],
+        "type": "object"
+      },
+      "IdentifierScheme": {
+        "description": "What a client sees of a scheme.",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "system": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "system",
+          "name"
+        ],
+        "type": "object"
+      },
       "InFacility": {
         "description": "Someone who has arrived and not been completed.",
         "properties": {
@@ -14398,37 +14520,6 @@
           "suspected_on",
           "suspected_by",
           "recorded_by"
-        ],
-        "type": "object"
-      },
-      "NhsNumberBody": {
-        "properties": {
-          "value": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "value"
-        ],
-        "type": "object"
-      },
-      "NhsNumberChecked": {
-        "description": "What `POST /api/validate/nhs-number` sends for a well-formed number.",
-        "properties": {
-          "digits": {
-            "type": "string"
-          },
-          "formatted": {
-            "type": "string"
-          },
-          "valid": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "valid",
-          "digits",
-          "formatted"
         ],
         "type": "object"
       },
@@ -15354,7 +15445,7 @@
       "ProofBody": {
         "properties": {
           "method": {
-            "description": "`in_person`, `video_id_check`, `nhs_login` or `postal_code`.",
+            "description": "`in_person`, `video_id_check`, `digital_identity` or `postal_code`.",
             "type": "string"
           },
           "person_id": {
@@ -15363,6 +15454,13 @@
           },
           "proofed_by": {
             "type": "string"
+          },
+          "provider": {
+            "description": "For `digital_identity`, the identity scheme used, such as a national login or an eID; required then,\nrefused otherwise.",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -15399,11 +15497,19 @@
           },
           "proofed_by": {
             "type": "string"
+          },
+          "provider": {
+            "description": "The digital identity scheme, for `digital_identity`; otherwise absent.",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "person_id",
           "method",
+          "provider",
           "proofed_by",
           "proofed_at"
         ],
@@ -24514,6 +24620,35 @@
         ]
       }
     },
+    "/api/identifier-schemes": {
+      "get": {
+        "operationId": "get_api_identifier_schemes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_IdentifierScheme"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/identifier-schemes` (QUAL-40): the identifier schemes the PAS checks, each with its system URI.",
+        "tags": [
+          "Validate"
+        ]
+      }
+    },
     "/api/identity-proofings/{subject}": {
       "delete": {
         "operationId": "delete_api_identity_proofings__subject",
@@ -32459,14 +32594,14 @@
         ]
       }
     },
-    "/api/validate/nhs-number": {
+    "/api/validate/identifier": {
       "post": {
-        "operationId": "post_api_validate_nhs_number",
+        "operationId": "post_api_validate_identifier",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NhsNumberBody"
+                "$ref": "#/components/schemas/IdentifierBody"
               }
             }
           },
@@ -32477,7 +32612,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_NhsNumberChecked"
+                  "$ref": "#/components/schemas/ApiResponse_IdentifierChecked"
                 }
               }
             },
@@ -32495,7 +32630,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/validate/nhs-number` (DTAC-8): check an NHS number's format and modulus-11 check digit. It says\nwhether the number is well formed, not whether it is issued or belongs to anyone (that needs a PDS trace,\nsee `governance/pds-decision.md`). Stores nothing.",
+        "summary": "`POST /api/validate/identifier` (DTAC-8, QUAL-40): check a value against the scheme its system names. It\nsays whether the value is well formed, not whether it was issued or belongs to anyone. A system with no\nscheme is a `400`. Stores nothing.",
         "tags": [
           "Validate"
         ]

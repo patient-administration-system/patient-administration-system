@@ -142,7 +142,7 @@ pub fn sample_sms(
             "start": at.to_rfc3339(), "end": at.to_rfc3339(), "reason": "Knee review", "id": "00000000-0000-0000-0000-000000000000"
         }),
     );
-    ctx.insert("portal_url", "https://portal.example.nhs.wales/my/messages");
+    ctx.insert("portal_url", "https://portal.example.org/my/messages");
     let rendered = tera::Tera::one_off(body_tera, &ctx, false).ok()?;
     Some(crate::communication::sms_length::analyze(&rendered))
 }

@@ -11,7 +11,7 @@
 //!   offered (NFR-11).
 //! - **A read-out that protects people.** Results are split by deprivation quintile and language, with the
 //!   analytics feed's rules: no identifier, small cells withheld, `k` never below the configured minimum.
-//! - **Mind the words.** Wording about "the cost to the NHS" of a missed appointment can read as blame. Review
+//! - **Mind the words.** Wording about "the cost to the health service" of a missed appointment can read as blame. Review
 //!   every variant with that in mind (`governance/messaging-rules.md`).
 
 use crate::db::row::RowExt;

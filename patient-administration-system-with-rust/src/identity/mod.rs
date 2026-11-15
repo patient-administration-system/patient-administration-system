@@ -15,12 +15,29 @@ use uuid::Uuid;
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
 use crate::{Error, Result};
 
-pub const METHODS: [&str; 4] = ["in_person", "video_id_check", "nhs_login", "postal_code"];
+/// How staff checked who an account belongs to. `digital_identity` is a national or regional digital identity
+/// scheme (a government login, a bank identity, an eID card), named by the proofing's `provider`; no one
+/// scheme is built in (QUAL-40, NFR-26).
+pub const METHODS: [&str; 4] = [
+    "in_person",
+    "video_id_check",
+    "digital_identity",
+    "postal_code",
+];
+
+/// The method whose proofing names its provider.
+pub const DIGITAL_IDENTITY: &str = "digital_identity";
+
+/// The longest provider name accepted.
+pub const MAX_PROVIDER: usize = 100;
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct Proofing {
     pub person_id: Uuid,
     pub method: String,
+    /// The digital identity scheme, for `digital_identity`; otherwise absent.
+    #[schema(required = true)]
+    pub provider: Option<String>,
     pub proofed_by: String,
     pub proofed_at: DateTime<Utc>,
 }
@@ -44,6 +61,28 @@ impl IdentityService {
         Ok(s.to_string())
     }
 
+    /// A `digital_identity` proofing names its scheme; any other method names none.
+    fn provider(method: &str, provider: Option<&str>) -> Result<Option<String>> {
+        let provider = provider.map(str::trim).filter(|p| !p.is_empty());
+        match (method == DIGITAL_IDENTITY, provider) {
+            (true, None) => Err(Error::validation(
+                "a digital_identity proofing names its provider (the identity scheme used)",
+            )),
+            (true, Some(p))
+                if p.chars().count() > MAX_PROVIDER || p.chars().any(char::is_control) =>
+            {
+                Err(Error::validation(format!(
+                    "provider must be at most {MAX_PROVIDER} characters with no control characters"
+                )))
+            }
+            (true, Some(p)) => Ok(Some(p.to_string())),
+            (false, Some(_)) => Err(Error::validation(
+                "only a digital_identity proofing names a provider",
+            )),
+            (false, None) => Ok(None),
+        }
+    }
+
     /// Record that staff checked the account `subject` is this patient. A live proofing of the same account
     /// is superseded (revoked, kept in history) and replaced.
     pub async fn record(
@@ -51,6 +90,7 @@ impl IdentityService {
         subject: &str,
         person_id: Uuid,
         method: &str,
+        provider: Option<&str>,
         proofed_by: &str,
         ctx: &UserContext,
     ) -> Result<()> {
@@ -61,6 +101,7 @@ impl IdentityService {
                 METHODS.join(", ")
             )));
         }
+        let provider = Self::provider(method, provider)?;
         let by = crate::validation::named_person(
             proofed_by,
             "proofing is recorded by a named person (proofed_by)",
@@ -75,12 +116,13 @@ impl IdentityService {
                         [subject.clone().into(), format!("superseded by {by}").into()],
                     ))
 .await?;
-                    txn.run(Stmt::new("INSERT INTO identity_proofings (id, subject, person_id, method, proofed_by) VALUES ($1,$2,$3,$4,$5)",
+                    txn.run(Stmt::new("INSERT INTO identity_proofings (id, subject, person_id, method, provider, proofed_by) VALUES ($1,$2,$3,$4,$5,$6)",
                         [
                             Uuid::new_v4().into(),
                             subject.into(),
                             person_id.into(),
                             method.clone().into(),
+                            provider.clone().into(),
                             by.clone().into(),
                         ],
                     ))
@@ -91,7 +133,7 @@ impl IdentityService {
                         person_id,
                         "identity_proofed",
                         None,
-                        Some(serde_json::json!({ "method": method, "proofed_by": by })),
+                        Some(serde_json::json!({ "method": method, "provider": provider, "proofed_by": by })),
                         Some(&method),
                         None,
                         &ctx,
@@ -149,7 +191,7 @@ impl IdentityService {
         let subject = Self::subject(subject)?;
         self.db
             .one(Stmt::new(
-                "SELECT person_id, method, proofed_by, proofed_at FROM identity_proofings \
+                "SELECT person_id, method, provider, proofed_by, proofed_at FROM identity_proofings \
                  WHERE subject = $1 AND revoked_at IS NULL",
                 [subject.into()],
             ))
@@ -158,6 +200,7 @@ impl IdentityService {
                 Ok(Proofing {
                     person_id: r.col("person_id")?,
                     method: r.col("method")?,
+                    provider: r.col("provider")?,
                     proofed_by: r.col("proofed_by")?,
                     proofed_at: r.col("proofed_at")?,
                 })

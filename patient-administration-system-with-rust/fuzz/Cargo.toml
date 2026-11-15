@@ -42,8 +42,8 @@ doc = false
 bench = false
 
 [[bin]]
-name = "nhs_number"
-path = "fuzz_targets/nhs_number.rs"
+name = "identifier_check"
+path = "fuzz_targets/identifier_check.rs"
 test = false
 doc = false
 bench = false

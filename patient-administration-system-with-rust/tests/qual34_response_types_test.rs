@@ -8,9 +8,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use patient_administration_system::api::rest::handlers_contact::{
-    NhsNumberChecked, OptOut, OptOutState,
-};
+use patient_administration_system::api::rest::handlers_contact::{OptOut, OptOutState};
 use patient_administration_system::api::rest::router;
 use patient_administration_system::api::{ApiResponse, Nothing};
 use patient_administration_system::contact::Profile;
@@ -974,15 +972,18 @@ async fn the_contact_profile_and_opt_out_routes_send_the_types_they_declare() {
     let removed: OptOutState = call(&app, "DELETE", &format!("{optouts}/sms"), None).await;
     assert!(!removed.opted_out);
 
-    let checked: NhsNumberChecked = call(
+    let checked: patient_administration_system::identifiers::IdentifierChecked = call(
         &app,
         "POST",
-        "/api/validate/nhs-number",
-        Some(json!({"value": "943 476 5919"})),
+        "/api/validate/identifier",
+        Some(json!({"system": "https://fhir.nhs.uk/Id/nhs-number", "value": "943 476 5919"})),
     )
     .await;
     assert!(checked.valid);
-    assert_eq!(checked.digits, "9434765919");
+    assert_eq!(checked.value, "9434765919");
+    let schemes: Vec<patient_administration_system::identifiers::IdentifierScheme> =
+        call(&app, "GET", "/api/identifier-schemes", None).await;
+    assert!(schemes.iter().any(|s| s.code == "gb-nhs-number"));
 }
 
 #[tokio::test]

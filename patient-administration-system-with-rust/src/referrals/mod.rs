@@ -9,7 +9,7 @@
 //!   and does not clash with another appointment the patient has, links the appointment to the referral
 //!   (`appointments.referral_id`) and marks the referral `booked`, in one transaction. With nothing free it
 //!   changes nothing and says so: the referral stays open.
-//! - Not here: the e-RS integration itself (it needs NHS API access); only the data it would carry.
+//! - Not here: an integration with a national electronic referral service (it needs that service's API access); only the data it would carry.
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};

@@ -5,8 +5,10 @@ needs to *find* a patient by NHS number rather than receive one.
 
 ## What the PAS does
 
-- `POST /api/validate/nhs-number` checks that a value is ten digits and that its last digit is the correct
-  modulus-11 check digit of the first nine. It stores nothing.
+- `POST /api/validate/identifier`, with the NHS number's system (`https://fhir.nhs.uk/Id/nhs-number`), checks
+  that a value is ten digits and that its last digit is the correct modulus-11 check digit of the first nine.
+  It stores nothing. The NHS number is one identifier scheme among any (`identifiers::SCHEMES`, QUAL-40); this
+  decision is about that scheme only.
 - Creating or updating a patient through `/api/patients` refuses a body whose `identifiers` include an NHS
   number (system `https://fhir.nhs.uk/Id/nhs-number`) that fails the check, before it reaches person-service.
 - Nothing else about an NHS number is checked: not that it was ever issued, not that it belongs to the

@@ -29,7 +29,7 @@ An item that needs a person or an outside party stays low however much code surr
 | Multi-factor sign-in for staff | 85% | The shipped identity realm requires a one-time code for staff and administrators ([`mfa-plan.md`](mfa-plan.md), DTAC-5) | The deploying organisation's own identity provider must enforce the same |
 | Per-user authentication at the API, with a trustworthy audit user | 70% | Signed per-user tokens, verified offline; the audit records the verified user (DTAC-4) | Opt-in (`PAS_REQUIRE_AUTH`), not the default; no production secret store for the signing key; no per-person tokens at the API |
 | Sign-in for the operator front-end | 0% | | The operator dashboard has no sign-in; needs a decision (AXA-3) |
-| Proof of a patient's identity before an account is linked | 60% | A named staff member records the proofing; patient pages refuse an unproofed account (DTAC-9) | No staff screen to record it (the API exists); NHS login is not integrated |
+| Proof of a patient's identity before an account is linked | 60% | A named staff member records the proofing; patient pages refuse an unproofed account (DTAC-9) | No staff screen to record it (the API exists); no digital identity scheme is integrated |
 
 ## Reliability
 
