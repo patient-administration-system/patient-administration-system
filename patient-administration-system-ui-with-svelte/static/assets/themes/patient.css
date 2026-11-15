@@ -58,6 +58,77 @@
     --noise: 0;
 }
 
+/* The dark theme (NFR-30): the same tokens, different colours; the geometry above is unchanged.
+ * It applies when the browser asks for dark and the person has not chosen light, and when the
+ * person has chosen dark (`<html data-color-scheme="dark">`, set by the server from the `theme`
+ * cookie). The two rules carry the same colours, because CSS cannot share one block between a
+ * media query and a selector. Every foreground and background pair is checked by the axe run in
+ * the dark colour scheme, as the light ones are. */
+
+@media (prefers-color-scheme: dark) {
+    :where(:root:not([data-color-scheme="light"])) {
+        color-scheme: dark;
+
+        /* Surfaces: a blue-grey near-black page, lighter steps for panels, dividers and row hover. */
+        --color-base-100: oklch(21% 0.012 250);
+        --color-base-200: oklch(26% 0.014 250);
+        --color-base-300: oklch(33% 0.016 250);
+        /* Body text: a pale grey (14:1 on the page, 10:1 on the darkest panel). */
+        --color-base-content: oklch(93% 0.006 250);
+        /* Primary: light teal for primary actions, active navigation and the focus ring, with dark text on it. */
+        --color-primary: oklch(76% 0.1 190);
+        --color-primary-content: oklch(20% 0.02 200);
+        /* Secondary: paler teal for hover, pressed and secondary chrome. */
+        --color-secondary: oklch(84% 0.07 195);
+        --color-secondary-content: oklch(20% 0.02 200);
+        /* Accent: green-teal for charts and supplementary cues, never a primary action. */
+        --color-accent: oklch(78% 0.12 165);
+        --color-accent-content: oklch(20% 0.02 200);
+        --color-neutral: oklch(93% 0.006 250);
+        --color-neutral-content: oklch(21% 0.012 250);
+        /* Status colours, lightened so each is a fill with dark text on it (every fill and its text 7:1 or more). */
+        --color-info: oklch(78% 0.1 240);
+        --color-info-content: oklch(20% 0.02 250);
+        --color-success: oklch(80% 0.14 145);
+        --color-success-content: oklch(20% 0.02 250);
+        --color-warning: oklch(84% 0.15 79);
+        --color-warning-content: oklch(20% 0.02 250);
+        --color-error: oklch(74% 0.16 28);
+        --color-error-content: oklch(20% 0.02 250);
+    }
+}
+
+:where(:root[data-color-scheme="dark"], :root[data-theme="pas-patient-dark"]) {
+    color-scheme: dark;
+
+    /* Surfaces: a blue-grey near-black page, lighter steps for panels, dividers and row hover. */
+    --color-base-100: oklch(21% 0.012 250);
+    --color-base-200: oklch(26% 0.014 250);
+    --color-base-300: oklch(33% 0.016 250);
+    /* Body text: a pale grey (14:1 on the page, 10:1 on the darkest panel). */
+    --color-base-content: oklch(93% 0.006 250);
+    /* Primary: light teal for primary actions, active navigation and the focus ring, with dark text on it. */
+    --color-primary: oklch(76% 0.1 190);
+    --color-primary-content: oklch(20% 0.02 200);
+    /* Secondary: paler teal for hover, pressed and secondary chrome. */
+    --color-secondary: oklch(84% 0.07 195);
+    --color-secondary-content: oklch(20% 0.02 200);
+    /* Accent: green-teal for charts and supplementary cues, never a primary action. */
+    --color-accent: oklch(78% 0.12 165);
+    --color-accent-content: oklch(20% 0.02 200);
+    --color-neutral: oklch(93% 0.006 250);
+    --color-neutral-content: oklch(21% 0.012 250);
+    /* Status colours, lightened so each is a fill with dark text on it (every fill and its text 7:1 or more). */
+    --color-info: oklch(78% 0.1 240);
+    --color-info-content: oklch(20% 0.02 250);
+    --color-success: oklch(80% 0.14 145);
+    --color-success-content: oklch(20% 0.02 250);
+    --color-warning: oklch(84% 0.15 79);
+    --color-warning-content: oklch(20% 0.02 250);
+    --color-error: oklch(74% 0.16 28);
+    --color-error-content: oklch(20% 0.02 250);
+}
+
 /* ----------------------------------------------------------------------------
  * Lily component styling — applied automatically once this theme stylesheet
  * is loaded. Every Lily class hook (492 components) consumes the theme tokens

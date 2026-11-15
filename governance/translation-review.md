@@ -26,5 +26,7 @@ All non-English catalogues in `patient-administration-system-ui-with-svelte/src/
 
 - **Suspected conditions and tumour sites (WPAS, 2026-11-09).** The condition names and the 15 Welsh primary cancer sites are medical terms drafted without a clinician. Check them against each language's usual clinical terms: in Welsh, "Cyflyrau a amheuir" and "Gastroberfeddol uchaf/isaf"; in Hindi, the transliterated "ऑब्स्ट्रक्टिव स्लीप एप्निया"; in Arabic, "انقطاع النفس الانسدادي النومي". "Diabetes" (Welsh, German, Spanish), "Sarcoma" (Welsh, Spanish) and "Cancer" (French) are the same word as in English and are allow-listed as such. Added with WPAS-8: the types of diabetes and dementia of the `generic` profile, and "Type or site"; "Dementia" (Welsh) and "Type 1"/"Type 2" (French) are allow-listed as the same word.
 
+- **Theme menu (UI-4, 2026-11-15).** `app.theme.*`: the menu name and Follow this device, Light, Dark. German uses "Farbschema" and "Wie dieses Gerät"; Arabic uses المظهر (appearance) for the menu; Hindi थीम is transliterated. First drafts.
+
 ## How to record a review
 Fill in the table above, commit, and keep the reviewer's name out of the repository if they prefer (initials and a date are enough).

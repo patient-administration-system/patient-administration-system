@@ -49,3 +49,16 @@ export function applySecurityHeaders(headers: Headers, https: boolean): Headers 
   }
   return headers;
 }
+
+/**
+ * `csp` with `origin` added to its `form-action` sources. Sign-out is a form that the server
+ * answers with a redirect to the identity provider's end-session page (`OIDC_END_SESSION=true`),
+ * and browsers check every hop of a form's redirects against `form-action`, so `'self'` alone
+ * blocked it: the session was ended but the person was left on the page, looking signed in.
+ * A policy with no `form-action`, or one that already allows `origin`, is returned unchanged.
+ */
+export function allowFormActionTo(csp: string, origin: string): string {
+  return csp.replace(/(^|;)(\s*form-action)([^;]*)/, (whole, lead: string, name: string, sources: string) =>
+    sources.split(/\s+/).includes(origin) ? whole : `${lead}${name}${sources.trimEnd()} ${origin}`,
+  );
+}

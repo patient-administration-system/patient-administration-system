@@ -5,6 +5,7 @@
   import type { LayoutData } from "./$types";
   import { LOCALES, LOCALE_LABELS, i18n, localeHref, t } from "#lib/i18n.svelte.js";
   import { localizePath, splitPath } from "#lib/locales.js";
+  import { THEMES } from "#lib/theme.js";
 
   let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -39,6 +40,21 @@
         </li>
       {/each}
     </ul>
+  </details>
+  <details class="themes">
+    <summary>{t("app.theme.menu")}</summary>
+    <form method="POST" action="/theme">
+      <input type="hidden" name="back" value={page.url.pathname + page.url.search} />
+      <ul>
+        {#each THEMES as theme (theme)}
+          <li>
+            <button type="submit" name="theme" value={theme} aria-pressed={theme === data.theme}
+              >{t(`app.theme.${theme}`)}</button
+            >
+          </li>
+        {/each}
+      </ul>
+    </form>
   </details>
   {#if data.userName}
     <span>{data.userName}</span>

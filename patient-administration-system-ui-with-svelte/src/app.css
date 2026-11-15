@@ -27,7 +27,7 @@ body {
 .skip-link:focus {
   left: 1rem;
   top: 1rem;
-  background: #fff;
+  background: var(--pas-bg);
   padding: 0.5rem;
   z-index: 10;
 }
@@ -125,13 +125,16 @@ ul.messages li {
   padding: 0.5rem 1rem;
   margin-bottom: 1rem;
 }
-details.languages {
+details.languages,
+details.themes {
   position: relative;
 }
-details.languages summary {
+details.languages summary,
+details.themes summary {
   cursor: pointer;
 }
-details.languages ul {
+details.languages ul,
+details.themes ul {
   position: absolute;
   z-index: 5;
   list-style: none;
@@ -146,6 +149,22 @@ details.languages ul {
 }
 details.languages a {
   color: inherit;
+}
+details.themes ul {
+  min-width: 13rem;
+}
+header.site details.themes button {
+  width: 100%;
+  text-align: start;
+  border-color: transparent;
+}
+/* The current choice is marked by more than colour: a tick and a border. */
+header.site details.themes button[aria-pressed="true"] {
+  border-color: currentColor;
+  font-weight: 600;
+}
+header.site details.themes button[aria-pressed="true"]::before {
+  content: "✓ ";
 }
 /* WCAG 2.2 AA, target size (2.5.8): the Lily calendar's view buttons are smaller than 24 CSS px in
    the staff theme. Give every control in the widget a comfortable minimum. */

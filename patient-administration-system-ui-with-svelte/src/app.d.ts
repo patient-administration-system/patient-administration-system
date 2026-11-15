@@ -13,6 +13,8 @@ declare global {
       locale: import("#lib/locales.js").Locale;
       // This request's id, carried to the PAS API as `X-Request-Id`. Always set by `hooks.server.ts`.
       requestId: string;
+      // The person's light or dark choice, from the `theme` cookie (`device` when none). Always set by `hooks.server.ts`.
+      theme: import("#lib/theme.js").Theme;
     }
     interface PageData {
       title?: string;

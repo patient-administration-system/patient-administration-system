@@ -45,6 +45,9 @@ test("a patient signs in and sees only their own appointments", async ({ page, r
 
   await page.goto("/my/appointments");
   await page.getByRole("button", { name: "Sign out" }).click();
+  // Signing out lands on the sign-in page, by way of the identity provider's end-session page. Until
+  // 2026-11-15 the CSP's form-action blocked that redirect and the person was left where they were.
+  await page.waitForURL(/\/en-001\/signin$/);
   await page.goto("/my/appointments");
   await expect(page).toHaveURL(/\/signin/);
 });

@@ -1,6 +1,12 @@
 // NFR-7: the security-header set, applied without clobbering a route's own headers.
 import { describe, expect, it } from "vitest";
-import { HSTS_VALUE, SECURITY_HEADERS, applySecurityHeaders, isHttps } from "#lib/security-headers.js";
+import {
+  HSTS_VALUE,
+  SECURITY_HEADERS,
+  allowFormActionTo,
+  applySecurityHeaders,
+  isHttps,
+} from "#lib/security-headers.js";
 
 describe("applySecurityHeaders (NFR-7)", () => {
   it("adds the whole set over HTTP, without HSTS", () => {
@@ -29,5 +35,25 @@ describe("isHttps", () => {
     expect(isHttps(new URL("http://x"), "https, http")).toBe(true);
     expect(isHttps(new URL("http://x"), "http")).toBe(false);
     expect(isHttps(new URL("http://x"), null)).toBe(false);
+  });
+});
+
+describe("allowFormActionTo (sign-out through the identity provider)", () => {
+  const kc = "https://id.example.org";
+  it("adds the provider's origin to form-action and touches nothing else", () => {
+    expect(allowFormActionTo("default-src 'self'; form-action 'self'; frame-ancestors 'none'", kc)).toBe(
+      `default-src 'self'; form-action 'self' ${kc}; frame-ancestors 'none'`,
+    );
+  });
+  it("works when form-action is first or last", () => {
+    expect(allowFormActionTo("form-action 'self'", kc)).toBe(`form-action 'self' ${kc}`);
+    expect(allowFormActionTo("base-uri 'self';form-action 'self'", kc)).toBe(
+      `base-uri 'self';form-action 'self' ${kc}`,
+    );
+  });
+  it("does not add it twice, and leaves a policy without form-action alone", () => {
+    const once = allowFormActionTo("form-action 'self'", kc);
+    expect(allowFormActionTo(once, kc)).toBe(once);
+    expect(allowFormActionTo("default-src 'self'", kc)).toBe("default-src 'self'");
   });
 });

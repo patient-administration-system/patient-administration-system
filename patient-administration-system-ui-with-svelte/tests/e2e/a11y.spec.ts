@@ -62,53 +62,61 @@ test("every route is audited (a new route fails this until it is added above)", 
   expect(routes().filter((r) => !known.has(r))).toEqual([]);
 });
 
-for (const locale of ["en-001", "cy-001", "ar-001", "zh-cn"]) {
-  test(`sign-in page, ${locale}`, async ({ page }) => {
-    await audit(page, "/signin", locale);
+// NFR-30: every route in the light and the dark theme. `light` and `dark` are the browser's setting
+// with no choice made, so this also checks the server leaves `prefers-color-scheme` in charge.
+for (const scheme of ["light", "dark"] as const) {
+  test.describe(scheme, () => {
+    test.use({ colorScheme: scheme });
+
+    for (const locale of ["en-001", "cy-001", "ar-001", "zh-cn"]) {
+      test(`sign-in page, ${locale}`, async ({ page }) => {
+        await audit(page, "/signin", locale);
+      });
+    }
+
+    const LINK_TOKEN = "a".repeat(64);
+    for (const locale of ["en-001", "cy-001", "ar-001"]) {
+      test(`reply-link page, ${locale}`, async ({ page }) => {
+        await audit(page, `/r/${LINK_TOKEN}`, locale);
+      });
+    }
+
+    for (const locale of ["en-001", "cy-001", "ar-001"]) {
+      test(`offer-link page, ${locale}`, async ({ page }) => {
+        await audit(page, `/o/${"a".repeat(64)}`, locale);
+      });
+    }
+
+    test("reply-link page, the are-you-sure step", async ({ page }) => {
+      await page.goto(`/en-001/r/${"b".repeat(64)}`);
+      await page.getByRole("button", { name: "Cancel my appointment" }).click();
+      await expect(page.getByRole("heading", { name: "Are you sure?" })).toBeVisible();
+      const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+      expect(
+        results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id),
+      ).toEqual([]);
+    });
+
+    for (const locale of ["en-001", "cy-001", "ar-001"]) {
+      test(`reply-link page, the choose-a-new-time step, ${locale}`, async ({ page }) => {
+        await page.goto(`/${locale}/r/${"a".repeat(64)}`);
+        await page.locator('form[action="?/reschedule"] button').click();
+        await expect(page.locator('form[action="?/rebook"] button').first()).toBeVisible();
+        const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+        expect(
+          results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id),
+        ).toEqual([]);
+      });
+    }
+
+    test("patient pages", async ({ page }) => {
+      await keycloakLogin(page, "patient");
+      for (const r of PATIENT) await audit(page, r);
+    });
+
+    test("staff and administrator pages", async ({ page }) => {
+      await keycloakLogin(page, "admin");
+      for (const r of STAFF_AND_ADMIN) await audit(page, r);
+    });
   });
 }
-
-const LINK_TOKEN = "a".repeat(64);
-for (const locale of ["en-001", "cy-001", "ar-001"]) {
-  test(`reply-link page, ${locale}`, async ({ page }) => {
-    await audit(page, `/r/${LINK_TOKEN}`, locale);
-  });
-}
-
-for (const locale of ["en-001", "cy-001", "ar-001"]) {
-  test(`offer-link page, ${locale}`, async ({ page }) => {
-    await audit(page, `/o/${"a".repeat(64)}`, locale);
-  });
-}
-
-test("reply-link page, the are-you-sure step", async ({ page }) => {
-  await page.goto(`/en-001/r/${"b".repeat(64)}`);
-  await page.getByRole("button", { name: "Cancel my appointment" }).click();
-  await expect(page.getByRole("heading", { name: "Are you sure?" })).toBeVisible();
-  const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-  expect(results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual(
-    [],
-  );
-});
-
-for (const locale of ["en-001", "cy-001", "ar-001"]) {
-  test(`reply-link page, the choose-a-new-time step, ${locale}`, async ({ page }) => {
-    await page.goto(`/${locale}/r/${"a".repeat(64)}`);
-    await page.locator('form[action="?/reschedule"] button').click();
-    await expect(page.locator('form[action="?/rebook"] button').first()).toBeVisible();
-    const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-    expect(
-      results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id),
-    ).toEqual([]);
-  });
-}
-
-test("patient pages", async ({ page }) => {
-  await keycloakLogin(page, "patient");
-  for (const r of PATIENT) await audit(page, r);
-});
-
-test("staff and administrator pages", async ({ page }) => {
-  await keycloakLogin(page, "admin");
-  for (const r of STAFF_AND_ADMIN) await audit(page, r);
-});

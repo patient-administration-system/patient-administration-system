@@ -16,7 +16,10 @@ export const POST: RequestHandler = async ({ cookies, locals, url, fetch }) => {
     try {
       const meta = await providerMetadata(fetch, cfg.issuer);
       if (meta.end_session_endpoint) {
-        const q = new URLSearchParams({ id_token_hint: idToken, post_logout_redirect_uri: `${url.origin}${signin}` });
+        // The bare `/signin`, the one address a deployment registers with its identity provider: it
+        // redirects to the person's language from the locale cookie. A localised address was refused by
+        // the provider (Keycloak: invalid_redirect_uri), found 2026-11-15.
+        const q = new URLSearchParams({ id_token_hint: idToken, post_logout_redirect_uri: `${url.origin}/signin` });
         redirect(303, `${meta.end_session_endpoint}?${q}`, { external: true });
       }
     } catch (e) {

@@ -4,9 +4,9 @@ import { redirect } from "@sveltejs/kit";
 
 import { OIDC_COOKIE, OIDC_COOKIE_OPTIONS } from "#lib/server/oidc-session.js";
 import { sessions } from "#lib/server/session-store-instance.js";
-import { PAS_API_URL, oidcOptions } from "#lib/server/config.js";
+import { PAS_API_URL, oidcConfig, oidcOptions } from "#lib/server/config.js";
 import { REQUEST_ID, requestIdFor, withRequestId } from "#lib/server/request-id.js";
-import { applySecurityHeaders, isHttps } from "#lib/security-headers.js";
+import { allowFormActionTo, applySecurityHeaders, isHttps } from "#lib/security-headers.js";
 import {
   DEFAULT_LOCALE,
   type Locale,
@@ -17,6 +17,7 @@ import {
   normalizeLocale,
   splitPath,
 } from "#lib/locales.js";
+import { THEME_COOKIE, themeFrom } from "#lib/theme.js";
 
 /** Remembers the reader's locale, to choose one for a bare, unprefixed URL. */
 export const LOCALE_COOKIE = "locale";
@@ -27,6 +28,17 @@ export function negotiateLocale(cookies: Pick<Cookies, "get">, acceptLanguage: s
 }
 
 sessions().setIdleSeconds(oidcOptions().idleSeconds);
+
+/** The identity provider's origin when sign-out also ends the provider's session, else null. */
+function providerSignoutOrigin(): string | null {
+  const issuer = oidcOptions().endProviderSession ? oidcConfig()?.issuer : undefined;
+  try {
+    return issuer ? new URL(issuer).origin : null;
+  } catch {
+    return null;
+  }
+}
+const SIGNOUT_ORIGIN = providerSignoutOrigin();
 
 // BFF entry point: resolve the httpOnly session cookie to a server-side OIDC session, and the URL
 // to a locale, on every request. The browser never holds a token.
@@ -66,17 +78,22 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
   const locale = event.locals.locale ?? negotiated;
   event.locals.locale = locale;
+  event.locals.theme = themeFrom(event.cookies.get(THEME_COOKIE));
 
   const response = await resolve(event, {
-    // The static shell carries the right `lang`/`dir` before any script runs.
+    // The static shell carries the right `lang`/`dir`, and the person's light or dark choice,
+    // before any script runs (NFR-30: no flash of the other theme).
     transformPageChunk: ({ html }) =>
       html
         .replace('lang="%lang%"', `lang="${locale}"`)
-        .replace('dir="%dir%"', `dir="${isRtl(locale) ? "rtl" : "ltr"}"`),
+        .replace('dir="%dir%"', `dir="${isRtl(locale) ? "rtl" : "ltr"}"`)
+        .replace('data-color-scheme="%colorscheme%"', `data-color-scheme="${event.locals.theme}"`),
   });
   try {
     applySecurityHeaders(response.headers, isHttps(event.url, event.request.headers.get("x-forwarded-proto")));
     response.headers.set(REQUEST_ID, event.locals.requestId);
+    const csp = response.headers.get("content-security-policy");
+    if (csp && SIGNOUT_ORIGIN) response.headers.set("content-security-policy", allowFormActionTo(csp, SIGNOUT_ORIGIN));
   } catch {
     // Immutable headers (e.g. a redirect response from `fetch`): leave as is.
   }
