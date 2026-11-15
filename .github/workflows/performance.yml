@@ -10,7 +10,8 @@ name: Performance
 
 on:
   schedule:
-    - cron: "41 3 * * 0"
+    # Two hours after the weekly fuzz run, which uses the same slot otherwise.
+    - cron: "17 5 * * 0"
   workflow_dispatch:
     inputs:
       profile:

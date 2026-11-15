@@ -1,6 +1,15 @@
 # Weekly fuzzing of the code that reads outside input (QUAL-17): HL7 v2 messages and batches, text replies,
-# NHS numbers. Each target runs for five minutes looking for a panic; a crash uploads its input. The
+# identifier checks. Each target runs for ten minutes looking for a panic; a crash uploads its input. The
 # targets live in patient-administration-system-with-rust/fuzz (nightly and a sanitizer, so not in CI).
+#
+# The targets are built unoptimised (`--dev`), with the address sanitizer, debug assertions and overflow
+# checks. An optimised build (`-O`, or even opt-level 1) of the server crate under the sanitizer peaks at about
+# 32 GB in one rustc process, measured 2026-11-15, whatever the job count or debug info; a hosted runner has
+# 16 GB, so from 2026-10-25 the runners were shut down part-way through that build on most scheduled runs and
+# nothing was fuzzed. Unoptimised it builds in minutes and peaks at about 15 GB, so the job adds swap as a
+# margin. It runs about 60 times fewer inputs a second than an optimised build would, so each target gets ten
+# minutes instead of five. One job builds the targets once and runs them in turn. Bringing `-O` back is
+# tasks.md QUAL-51.
 name: Fuzz
 
 on:
@@ -13,17 +22,25 @@ permissions:
 
 jobs:
   fuzz:
-    name: Fuzz (${{ matrix.target }})
+    name: Fuzz
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [hl7_message, hl7_batch, text_reply, identifier_check]
+    timeout-minutes: 90
+    env:
+      TARGETS: hl7_message hl7_batch text_reply identifier_check
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The runner has 16 GB of memory and a 4 GB swap file; the build's peak is close to 16 GB. Replace the
+      # swap with 16 GB as a margin.
+      - name: Add swap
+        run: |
+          sudo swapoff -a
+          sudo fallocate -l 16G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
       - run: rustup toolchain install nightly --profile minimal
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with:
@@ -32,14 +49,29 @@ jobs:
       # crate versions CI tests, rather than whatever is newest that week.
       - name: Start from the workspace lockfile
         run: cp Cargo.lock patient-administration-system-with-rust/fuzz/Cargo.lock
-      - name: Fuzz for five minutes
+      # cargo-fuzz is installed as a musl binary, which makes it target musl; the sanitizer needs the gnu target.
+      - name: Build every target once
         working-directory: patient-administration-system-with-rust/fuzz
-        env:
-          TARGET: ${{ matrix.target }}
-        # cargo-fuzz is installed as a musl binary, which makes it target musl; the sanitizer needs the gnu target.
-        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu "$TARGET" -O -- -max_total_time=300
+        run: cargo +nightly fuzz build --target x86_64-unknown-linux-gnu --dev
+      - name: Fuzz each target for ten minutes
+        working-directory: patient-administration-system-with-rust/fuzz
+        run: |
+          failed=""
+          for t in $TARGETS; do
+            echo "::group::$t"
+            if ! cargo +nightly fuzz run --target x86_64-unknown-linux-gnu "$t" --dev -- -max_total_time=600; then
+              failed="$failed $t"
+              echo "::error::fuzz target $t found a crash; its input is in the fuzz-crashes artefact"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then
+            echo "crashed:$failed"
+            exit 1
+          fi
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: fuzz-crash-${{ matrix.target }}
+          name: fuzz-crashes
           path: patient-administration-system-with-rust/fuzz/artifacts
+          if-no-files-found: ignore
