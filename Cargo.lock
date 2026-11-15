@@ -2689,6 +2689,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "patient-administration-system-load"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "patient-administration-system",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "patient-administration-system-migrations"
 version = "0.3.0"
 dependencies = [

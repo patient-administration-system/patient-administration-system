@@ -144,6 +144,26 @@ harness = false
 name = "waitlist_bench"
 harness = false
 
+[[bench]]
+name = "hl7v2_bench"
+harness = false
+
+[[bench]]
+name = "text_bench"
+harness = false
+
+[[bench]]
+name = "fhir_bench"
+harness = false
+
+[[bench]]
+name = "rules_bench"
+harness = false
+
+[[bench]]
+name = "db_bench"
+harness = false
+
 # [profile.release] and [profile.bench] hoisted to the workspace root.
 
 [lints]

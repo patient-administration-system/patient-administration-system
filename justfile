@@ -65,6 +65,19 @@ rust-db-coverage: migrate
 coverage-summary:
     @cargo llvm-cov report --summary-only
 
+# Criterion benchmarks that need no database; reports in target/criterion (PERF-1).
+bench:
+    cargo bench -p patient-administration-system --bench hl7v2_bench --bench text_bench --bench fhir_bench --bench rules_bench --bench adt_bench --bench scheduling_bench --bench waitlist_bench
+
+# The benchmarks against PostgreSQL: booking, the slot and calendar queries, the router in process (PERF-1).
+bench-db: migrate
+    cargo bench -p patient-administration-system --bench db_bench
+
+# Profiles: smoke, load, stress, spike, soak (`just load soak 2h`); see operations/load-testing.md.
+# A load test against a release server it starts and stops; report in target/load-report.json (PERF-1).
+load profile="smoke" duration="": migrate
+    scripts/load-test.sh --profile {{profile}} {{ if duration != "" { "--duration " + duration } else { "" } }}
+
 # The `fhir-validation` job: real R4 responses against the official validator. Needs java and the network.
 fhir: migrate
     java -version

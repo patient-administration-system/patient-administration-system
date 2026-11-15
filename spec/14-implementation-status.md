@@ -8,14 +8,14 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | Rust test functions (server, front-end, migrations) | 1175 |
 | of which `#[ignore]`d (need PostgreSQL) | 466 |
 | Server route registrations | 308 |
-| Migrations | 63 |
+| Migrations | 64 |
 | UI page routes | 17 |
 | UI unit test files | 23 |
 | UI browser spec files | 18 |
 | UI locale catalogues | 10 |
 | Functional requirements | 219 |
-| Non-functional requirements | 28 |
+| Non-functional requirements | 29 |
 | Requirements marked not yet tested or not yet built | 5 |
-| Tasks done | 185 |
-| Tasks open | 39 |
+| Tasks done | 186 |
+| Tasks open | 40 |
 <!-- status:end -->

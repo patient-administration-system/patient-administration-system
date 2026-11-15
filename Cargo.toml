@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "patient-administration-system-with-rust",
     "patient-administration-system-with-rust/migrations",
+    "patient-administration-system-with-rust/load",
     "patient-administration-system-frontend",
 ]
 # The fuzz targets are their own workspace (nightly, sanitizers): see patient-administration-system-with-rust/fuzz.

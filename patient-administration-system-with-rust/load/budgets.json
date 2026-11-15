@@ -1,0 +1,91 @@
+{
+  "_about": "Latency and error budgets for pas-load (NFR-29). PROVISIONAL: set on a developer laptop against the podman stack, before any production hardware or real traffic exists. They are a regression tripwire, not a service level: raise or lower one only with a line in operations/load-testing.md saying why. Latency is time to the last byte at the client, in milliseconds; the error rate excludes a 409 on a contended slot.",
+  "min_samples": 100,
+  "default": {
+    "p95_ms": 100,
+    "p99_ms": 250,
+    "max_error_rate": 0.001
+  },
+  "ops": {
+    "get_health": {
+      "p95_ms": 50,
+      "p99_ms": 150,
+      "max_error_rate": 0.001
+    },
+    "get_appointment": {
+      "p95_ms": 50,
+      "p99_ms": 150,
+      "max_error_rate": 0.001
+    },
+    "get_slot": {
+      "p95_ms": 50,
+      "p99_ms": 150,
+      "max_error_rate": 0.001
+    },
+    "list_appointments_day": {
+      "p95_ms": 100,
+      "p99_ms": 250,
+      "max_error_rate": 0.001
+    },
+    "fhir_r5_metadata": {
+      "p95_ms": 50,
+      "p99_ms": 150,
+      "max_error_rate": 0.001
+    },
+    "fhir_r4_metadata": {
+      "p95_ms": 50,
+      "p99_ms": 150,
+      "max_error_rate": 0.001
+    },
+    "hl7v2_parse": {
+      "p95_ms": 30,
+      "p99_ms": 100,
+      "max_error_rate": 0.001
+    },
+    "book_slot": {
+      "p95_ms": 200,
+      "p99_ms": 500,
+      "max_error_rate": 0.001
+    },
+    "get_appointment_etag": {
+      "p95_ms": 50,
+      "p99_ms": 150,
+      "max_error_rate": 0.001
+    },
+    "cancel_appointment": {
+      "p95_ms": 200,
+      "p99_ms": 500,
+      "max_error_rate": 0.001
+    },
+    "book_contended": {
+      "p95_ms": 250,
+      "p99_ms": 600,
+      "max_error_rate": 0.001
+    },
+    "ihe_find": {
+      "p95_ms": 200,
+      "p99_ms": 500,
+      "max_error_rate": 0.001
+    },
+    "ihe_hold": {
+      "p95_ms": 200,
+      "p99_ms": 500,
+      "max_error_rate": 0.001
+    },
+    "ihe_book": {
+      "p95_ms": 250,
+      "p99_ms": 600,
+      "max_error_rate": 0.001
+    },
+    "list_patient_appointments": {
+      "p95_ms": 100,
+      "p99_ms": 250,
+      "max_error_rate": 0.001
+    },
+    "ihe_find_empty": {
+      "p95_ms": 200,
+      "p99_ms": 500,
+      "max_error_rate": 0
+    }
+  }
+}

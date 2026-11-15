@@ -1,0 +1,111 @@
+# Weekly benchmarks and load tests (PERF-1, NFR-29), and on request.
+#
+# `benches` runs the Criterion benchmarks (pure ones, then the ones against PostgreSQL) and keeps their
+# reports. A shared runner's timings vary from week to week, so the benchmarks are evidence, not a gate.
+# `load` starts a release server with the rate limit off, runs `pas-load` (the smoke profile, then the load
+# profile's steady phase and a spike) and FAILS when a correctness check fails (a slot booked twice, a
+# booking with no audit row or outbox event, a 429) or a budget in load/budgets.json is broken. The reports
+# are kept as artefacts either way.
+name: Performance
+
+on:
+  schedule:
+    - cron: "41 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "pas-load profile for the second run (load, stress, spike or soak)"
+        default: "load"
+      duration:
+        description: "Duration of the main phase (for soak, the whole run), like 60s or 20m; empty for the default"
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: "1.99.1"
+  CARGO_TERM_COLOR: always
+  DATABASE_URL: postgres://pas:pas_dev_password@localhost:5432/pas
+
+jobs:
+  benches:
+    name: Benchmarks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: pas
+          POSTGRES_PASSWORD: pas_dev_password
+          POSTGRES_DB: pas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pas"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+        with:
+          tool: just
+      - run: just bench
+      - run: just bench-db
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: criterion
+          path: target/criterion
+          retention-days: 90
+
+  load:
+    name: Load test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: pas
+          POSTGRES_PASSWORD: pas_dev_password
+          POSTGRES_DB: pas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pas"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+        with:
+          tool: just
+      - run: just migrate
+      - name: Smoke
+        run: scripts/load-test.sh --profile smoke --report target/load-smoke.json
+      - name: Second profile
+        env:
+          PROFILE: ${{ inputs.profile || 'load' }}
+          DURATION: ${{ inputs.duration || '' }}
+        run: |
+          case "$PROFILE" in load|stress|spike|soak) ;; *) echo "unknown profile $PROFILE" >&2; exit 2 ;; esac
+          extra=()
+          if [ -n "$DURATION" ]; then extra=(--duration "$DURATION"); fi
+          scripts/load-test.sh --profile "$PROFILE" "${extra[@]}" --report "target/load-$PROFILE.json"
+      - name: Spike
+        if: ${{ github.event_name == 'schedule' }}
+        run: scripts/load-test.sh --profile spike --report target/load-spike.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: load-reports
+          path: |
+            target/load-*.json
+            target/load-server.log
+          retention-days: 90
