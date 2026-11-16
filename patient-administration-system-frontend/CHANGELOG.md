@@ -8,6 +8,7 @@ crate follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- axa 0.14 to 0.15, and `axa-test` 0.6 (AXA-12). No code change: what 0.15 adds (unique and cron jobs in the job queues, `axa::mail`, `axa::storage`) is not used here, and nothing here runs a job queue on `connect_existing`, the one case that needs a setup migration first.
 - axa 0.13 to 0.14, and `axa-test` 0.5 (AXA-11). No code change and nothing changes with none: this front-end builds no `config::Http` by hand and uses neither axa's outbox, its job queues nor its webhooks, the parts whose tables and types grew a `tenant`. `HTTP_LOG_TENANT` (off by default) would add a `tenant` field to each request's span; nothing here sets a tenant.
 - axa 0.12 to 0.13, and `axa-test` 0.4. No code change. With none: the standard stack refuses a browser's cross-site write (`403`, `cross_site_write_refused`, or `origin_mismatch` when an `origin` is not the request's host and there is no `sec-fetch-site`), so a proxy in front must pass the original `Host`; a compressed request body is decoded before the body limit counts it; `DB_URL` may come from `DB_URL_FILE`, and setting both refuses to boot; Postgres connections carry `application_name` (`DB_APPLICATION_NAME` overrides it).
 - axa 0.11 to 0.12: renaming only. The feature `sqlx` is `postgres-sqlx` and `axa::sqlx` is `axa::postgres_sqlx`; `axa-test` 0.3.
