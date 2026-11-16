@@ -377,3 +377,34 @@ Source: <https://dhcw.nhs.wales/staff-resources/business-change/links/welshpas-e
 - **Credibility in Wales** needs the Welsh translation reviewed by a first-language speaker (already tracked).
 - **Order.** WPAS-1a, then WPAS-1 and WPAS-2; WPAS-3; WPAS-4 and WPAS-5 when a clerk asks; WPAS-6 only on request.
 
+
+## 19. An HL7 v2 integration hub rewritten in Rust: research and advice 2026-11-16
+
+Source: a local checkout of `integration-hub-beta-riir`, a Rust rewrite (in progress, not deployed) of a cloud integration hub that receives HL7 v2 messages over MLLP and REST, validates and transforms them, and delivers them over a message bus to a patient index and other systems by MLLP, FHIR, SOAP and SQL. About 30 crates, a numbered spec, golden tests against the system it replaces, and a cutover runbook. Tasks: `HUB-1` to `HUB-10`.
+
+**What it is not.** A PAS. Its flows, queues, per-destination transformers and senders are a hub's job; we should not grow one. What transfers is how it keeps messages safe: never acknowledging what it has not kept, never retrying what cannot succeed, and never letting personal data reach a log. Those are the parts the PAS's own HL7 v2 listener and outbox are thin on.
+
+**Checked against our code, the gaps are real:**
+
+- **The ACK is built loosely** (`hl7v2/ack.rs`, `hl7v2/mod.rs::segment`). MSH-11 is always `P`, so a test message is acknowledged as production; MSH-4 and MSH-6 are the literal `FAC`, not the sender's facilities swapped; the control id and the diagnostic text are spliced in unescaped, so a `|`, `^` or line break in either changes the ACK's structure; MSA-3 has no length cap. The hub swaps the sender and receiver, copies MSH-11, escapes, strips line breaks and caps MSA-3. → HUB-1.
+- **A resent message is processed twice.** We echo MSH-10 in the ACK but keep no record of it. A sender that lost our ACK resends, and an A01 admits twice. The hub keys duplicate detection on the sender's own control id. Note its finding that one source system builds MSH-10 from a national identifier: keep a hash, not the id. → HUB-2.
+- **The MLLP listener has no TLS, no idle timeout and no connection cap** (`hl7v2/listener.rs`). The hub: TLS only when both certificate and key are set, and refusing to start with one; a 30-second idle timeout; a bad first byte closes; an oversize frame is answered and closed. → HUB-3.
+- **The outbox retries everything the same way** (`streaming/dispatcher.rs`, `streaming/webhook.rs`). A 400 from a subscriber is retried every tick, exactly like a 503, until the budget runs out; there is no backoff, no `Retry-After`, and a later event for the same patient can be delivered while an earlier one is still failing. The hub's vocabulary fixes this: *accepted* (done), *rejected* (will never succeed: dead-letter at once), *deferred* (try again later, with backoff that doubles to a cap and resets on success), and a stream stops at its first failure so nothing overtakes it. → HUB-4.
+- **Nothing proves that personal data stays out of logs and errors.** We redact paths (`observability::redact_path`), but HL7 handling logs and error text are untested for leaks. The hub feeds a known marker into every error path and fuzz target and asserts it never comes out, and its log redactor keeps only the MSH header fields and masks every other populated field, keeping the shape. Its first fuzz finding was a panic in the redactor itself, on five bytes. → HUB-5.
+- **Health can be green while nothing is processed.** The hub records this as a lesson: a lost bus session left the service healthy and idle forever. Our `GET /api/health` (NFR-28) reports the database and the upstreams, not whether the outbox dispatcher or the MLLP listener is alive, nor the age of the oldest undelivered event. → HUB-6.
+
+**Worth adopting, smaller:**
+
+- A **failure vocabulary in the spec** (accepted, rejected, deferred), each with one action for the listener (AA, AR, AE) and for the outbox, and two rules: never acknowledge what was not committed; never retry what can never succeed. → architecture rule, HUB-4.
+- **Golden tests for the HL7 mappings**: the expected domain result and ACK for each sample committed, and run as sent, with a segment removed and with an extra Z-segment; re-capturing a golden file to make a test pass is not allowed without a spec change. → HUB-7.
+- **A mock subscriber** that answers by keyword (`fail` → 503, `reject` → 400), so the outbox's classes are tested end to end; a paused clock rather than real sleeps. → HUB-7.
+- **An `Idempotency-Key` on POSTs** that create something (bookings, FHIR `Appointment`, referrals). The hub found that the FHIR service it delivers to has none, so its own retried POST can create twice; ours would be the same for any client. Text replies are already idempotent by the carrier's message id. → HUB-8.
+- **Silence alarms**: the time since the last HL7 message received, with thresholds per time band (day, evening, weekend), and "no data" reported as unknown, never healthy. → HUB-6.
+- **Spec clause citations, checked.** The hub cites clauses in rustdoc and test names by convention only. We already generate the implementation status; a check that lists each NFR with no test that names it would catch the gaps the hub only catches at review. → HUB-9.
+- **A deviation register**: each deliberate departure from a standard (HL7 v2, FHIR, IHE) with the old behaviour, the new one, a source, and a decision left for the owner. → HUB-10.
+
+**Already ours, so not new:** config problems reported together at start-up (`config::env::validate`), cargo-deny with reasons, a pinned toolchain and MSRV check, `cargo doc` in CI, rustls only, dead letters with replay, weekly fuzzing, idempotent carrier replies.
+
+**Not adopted:** the bus, sessions and lock renewal (we have one database and an outbox); per-destination transformers and the SOAP and SQL senders; a queue inspector that shows message bodies; the cutover runbook (nothing here is being replaced) except its rule to watch a counter that is actually emitted.
+
+**Order.** HUB-1 and HUB-2 first: they are correctness, and a duplicate admission is a patient-safety matter for the hazard log. Then HUB-4 and HUB-6 (an outbox that dead-letters on a typo and says when it has stalled), HUB-3 before any deployment that takes HL7 over a network, HUB-5 alongside, and the rest as they fit.

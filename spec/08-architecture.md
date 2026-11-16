@@ -28,5 +28,6 @@ flowchart LR
 - **Backend-for-frontend.** The browser holds only an opaque httpOnly `__Host-` session cookie. ID, access and refresh tokens, and the API bearer token, stay on the SvelteKit server.
 - **Server-side authorization.** Each page and form action checks the role itself. Navigation only hides links.
 - **Transactional outbox.** A change, its audit row and its event commit together.
+- **Three outcomes for anything that arrives or leaves.** *Accepted* (kept, or delivered), *rejected* (will never succeed: say so, or dead-letter at once) and *deferred* (may succeed later: retry with backoff). Two rules follow: never acknowledge what was not committed, and never retry what can never succeed. For HL7 v2 they are AA, AR and AE; for the outbox, NFR-32. (Adopted 2026-11-16, `plan.md` §19.)
 - **Fail closed.** An unverified token, a missing claim, an unknown channel or a template syntax error is refused, not defaulted.
 - **Channels are pluggable.** Each is a `MessageSender`; with none configured, nothing leaves the system.

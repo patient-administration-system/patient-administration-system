@@ -19,3 +19,4 @@
 17. What may the local gate's result mean: a record only, a `ci/local` commit status, or a required check? Who reads it besides its author? (QUAL-43)
 
 18. Who holds the Manchester Triage System licence, and is a PAS that only records a category assigned elsewhere (and shows it, and measures waits against it) within what that licence allows? The PAS carries no flowcharts or discriminators and does not compute a category; a licensed triage tool or a trained nurse does. Who is the Clinical Safety Officer for H-17 to H-19? Do the targets run from arrival or from triage? (NEW-25, `governance/clinical-safety.md`)
+19. How long must a duplicate HL7 v2 message be recognised after the first (HUB-2: 7 days by default), and do our senders reuse MSH-10 within that time for a different message? Should a dead letter hold its patient's later events (NFR-32), or should a named person be able to release them first? (`plan.md` §19)

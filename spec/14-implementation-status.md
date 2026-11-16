@@ -14,8 +14,8 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | UI browser spec files | 19 |
 | UI locale catalogues | 10 |
 | Functional requirements | 219 |
-| Non-functional requirements | 30 |
-| Requirements marked not yet tested or not yet built | 5 |
+| Non-functional requirements | 34 |
+| Requirements marked not yet tested or not yet built | 8 |
 | Tasks done | 188 |
-| Tasks open | 42 |
+| Tasks open | 52 |
 <!-- status:end -->
