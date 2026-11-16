@@ -9,6 +9,7 @@
 - Signing out with `OIDC_END_SESSION=true` left the person on the page looking signed in, though the session had ended: the CSP's `form-action 'self'` blocked the redirect to the identity provider, and the provider refused the localised return address. The provider's origin is now allowed in `form-action`, and the return address is the bare `/signin`, which a deployment registers once.
 
 ### Changed
+- `@lilydesignsystem/svelte-headless` 0.8.0 to 0.9.0. It adds record lists and healthcare display components, none used yet; nothing used here changed. The other Lily packages were already at their latest.
 - The staff and patient themes no longer copy the NHS England design system (QUAL-40). They keep their layout, density and contrast, with a palette that belongs to no service: a teal primary in place of NHS Blue, and the primary colour as the focus ring in place of the yellow. Their names are `pas-staff` and `pas-patient`. A deployment that wants a national or organisational look replaces `static/assets/themes/staff.css` and `patient.css` with that Lily theme.
 
 ### Added

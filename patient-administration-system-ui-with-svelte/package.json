@@ -26,7 +26,7 @@
     "@lilydesignsystem/svelte-calendar": "0.7.2",
     "@lilydesignsystem/svelte-data-grid": "0.11.2",
     "@lilydesignsystem/svelte-gantt-chart": "0.8.2",
-    "@lilydesignsystem/svelte-headless": "0.8.0",
+    "@lilydesignsystem/svelte-headless": "0.9.0",
     "@lilydesignsystem/svelte-kanban-board": "0.8.3",
     "@sveltia/i18n": "^1.5.0"
   },
