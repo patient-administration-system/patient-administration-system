@@ -9,7 +9,7 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | of which `#[ignore]`d (need PostgreSQL) | 466 |
 | Server route registrations | 308 |
 | Migrations | 64 |
-| UI page routes | 17 |
+| UI page routes | 18 |
 | UI unit test files | 24 |
 | UI browser spec files | 19 |
 | UI locale catalogues | 10 |

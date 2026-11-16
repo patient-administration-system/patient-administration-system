@@ -1,31 +1,38 @@
-// NFR-30, UI-4: the browser's light or dark setting picks the theme until the person chooses one in
-// the theme menu (Follow this device, Light, Dark); the choice is kept in a cookie the server reads.
-import { expect, test, type Page } from "@playwright/test";
+// NFR-30, UI-4: the browser's light or dark setting picks the theme until the person chooses one with the
+// Lily theme picker in the header (Follow this device, Light, Dark). The picker keeps the choice in the
+// `theme` cookie, which the server reads for the first paint, and in localStorage (`pas-theme`).
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { keycloakLogin } from "./support/login";
 
-/** The colour scheme the page is actually painted in, and the choice the server rendered. */
+/** The colour scheme the page is painted in, and the `data-theme` on <html>. */
 async function painted(page: Page) {
   return page.evaluate(() => ({
     scheme: getComputedStyle(document.documentElement).colorScheme,
-    choice: document.documentElement.dataset.colorScheme,
+    dataTheme: document.documentElement.dataset.theme ?? "",
     background: getComputedStyle(document.body).backgroundColor,
   }));
 }
 
-async function choose(page: Page, name: string) {
-  await page.locator("details.themes summary").click();
-  await page.locator("details.themes").getByRole("button", { name }).click();
-  await page.waitForLoadState("load");
+async function choose(page: Page, option: string, menu = "Theme") {
+  await page.getByRole("button", { name: menu }).click();
+  await page.getByRole("listbox", { name: menu }).getByRole("option", { name: option, exact: true }).click();
+}
+
+async function kept(page: Page, context: BrowserContext) {
+  const cookie = (await context.cookies()).find((c) => c.name === "theme")?.value;
+  const stored = await page.evaluate(() => localStorage.getItem("pas-theme"));
+  return { cookie, stored };
 }
 
 test.describe("with no choice made", () => {
-  test("a dark browser gets the dark theme on the first paint", async ({ browser }) => {
+  test("a dark browser gets the dark theme on the first paint, and nothing is kept", async ({ browser }) => {
     const context = await browser.newContext({ colorScheme: "dark" });
     const page = await context.newPage();
-    // The served HTML already says to follow the device: nothing waits for a script.
     const response = await page.goto("/en-001/signin");
-    expect(await response!.text()).toContain('data-color-scheme="device"');
+    // The served HTML leaves the device in charge: nothing waits for a script.
+    expect(await response!.text()).toContain('data-theme=""');
     expect((await painted(page)).scheme).toBe("dark");
+    expect(await kept(page, context)).toEqual({ cookie: undefined, stored: null });
     await context.close();
   });
 
@@ -43,27 +50,26 @@ test.describe("with no choice made", () => {
     const light = await painted(page);
     expect(light.scheme).toBe("light");
     await page.emulateMedia({ colorScheme: "dark" });
-    const dark = await painted(page);
-    expect(dark.scheme).toBe("dark");
-    expect(dark.background).not.toBe(light.background);
+    await expect.poll(async () => (await painted(page)).scheme).toBe("dark");
+    expect((await painted(page)).background).not.toBe(light.background);
   });
 });
 
 test.describe("a person's choice", () => {
-  test("Light holds against a dark browser, in a new tab and after the browser changes", async ({ browser }) => {
+  test("Light holds against a dark browser: kept in the cookie and local storage, served on the next page", async ({
+    browser,
+  }) => {
     const context = await browser.newContext({ colorScheme: "dark" });
     const page = await context.newPage();
-    await page.goto("/cy-001/signin?error=idle");
-    await choose(page, "Golau");
-    // Back on the same page, in the same language.
-    expect(new URL(page.url()).pathname + new URL(page.url()).search).toBe("/cy-001/signin?error=idle");
-    expect(await painted(page)).toMatchObject({ scheme: "light", choice: "light" });
-    // The menu marks the current choice (it is closed after the page reloads, so look by value).
-    await expect(page.locator('details.themes button[value="light"]')).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator('details.themes button[value="device"]')).toHaveAttribute("aria-pressed", "false");
+    await page.goto("/cy-001/signin");
+    await choose(page, "Golau", "Thema");
+    expect(await painted(page)).toMatchObject({ scheme: "light", dataTheme: "light" });
+    await expect.poll(() => kept(page, context)).toEqual({ cookie: "light", stored: "light" });
+    // A new tab: the server reads the cookie, so the first paint is already light.
     const tab = await context.newPage();
-    await tab.goto("/en-001/signin");
-    expect(await painted(tab)).toMatchObject({ scheme: "light", choice: "light" });
+    const response = await tab.goto("/en-001/signin");
+    expect(await response!.text()).toContain('data-theme="light"');
+    expect((await painted(tab)).scheme).toBe("light");
     await tab.emulateMedia({ colorScheme: "light" });
     await tab.emulateMedia({ colorScheme: "dark" });
     expect((await painted(tab)).scheme).toBe("light");
@@ -75,11 +81,34 @@ test.describe("a person's choice", () => {
     const page = await context.newPage();
     await page.goto("/en-001/signin");
     await choose(page, "Dark");
-    expect(await painted(page)).toMatchObject({ scheme: "dark", choice: "dark" });
+    expect(await painted(page)).toMatchObject({ scheme: "dark", dataTheme: "dark" });
     await choose(page, "Follow this device");
-    expect(await painted(page)).toMatchObject({ scheme: "light", choice: "device" });
-    expect((await context.cookies()).find((c) => c.name === "theme")).toBeUndefined();
+    await expect.poll(async () => (await painted(page)).scheme).toBe("light");
+    await expect.poll(() => kept(page, context)).toEqual({ cookie: "system", stored: "system" });
+    // The device leads again, on this page and on the next one.
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect.poll(async () => (await painted(page)).scheme).toBe("dark");
     await context.close();
+  });
+
+  test("the menu works from the keyboard and marks the current choice", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/en-001/signin");
+    const button = page.getByRole("button", { name: "Theme" });
+    await button.focus();
+    await page.keyboard.press("Enter");
+    const list = page.getByRole("listbox", { name: "Theme" });
+    await expect(list).toBeVisible();
+    await expect(list.getByRole("option", { name: "Follow this device" })).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await expect(list).toBeHidden();
+    await expect(button).toBeFocused();
+    expect((await painted(page)).dataTheme).toBe("dark");
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Escape");
+    await expect(list).toBeHidden();
+    expect((await painted(page)).dataTheme).toBe("dark");
   });
 
   test("the choice applies only to the browser that made it", async ({ browser }) => {
@@ -90,7 +119,7 @@ test.describe("a person's choice", () => {
     const theirs = await browser.newContext({ colorScheme: "light" });
     const other = await theirs.newPage();
     await other.goto("/en-001/signin");
-    expect(await painted(other)).toMatchObject({ scheme: "light", choice: "device" });
+    expect(await painted(other)).toMatchObject({ scheme: "light", dataTheme: "" });
     await mine.close();
     await theirs.close();
   });
@@ -100,26 +129,28 @@ test.describe("a person's choice", () => {
     await keycloakLogin(page, "patient");
     await page.goto("/en-001/my/appointments");
     await choose(page, "Dark");
-    expect(new URL(page.url()).pathname).toBe("/en-001/my/appointments");
     expect((await painted(page)).scheme).toBe("dark");
     await page.getByRole("button", { name: "Sign out" }).click();
     // Through the identity provider's end-session page and back to signing in.
     await page.waitForURL(/\/en-001\/signin$/);
-    expect(await painted(page)).toMatchObject({ scheme: "dark", choice: "dark" });
+    expect(await painted(page)).toMatchObject({ scheme: "dark", dataTheme: "dark" });
+  });
+
+  test("an unknown cookie value follows the device", async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ colorScheme: "dark" });
+    await context.addCookies([{ name: "theme", value: "purple", url: baseURL! }]);
+    const page = await context.newPage();
+    const response = await page.goto("/en-001/signin");
+    expect(await response!.text()).toContain('data-theme=""');
+    expect((await painted(page)).scheme).toBe("dark");
+    await context.close();
   });
 });
 
-test.describe("the theme endpoint", () => {
-  test("refuses an unknown theme and never sends anyone off the site", async ({ request, baseURL }) => {
-    const headers = { origin: baseURL! };
-    const unknown = await request.post("/theme", { form: { theme: "purple", back: "/" }, headers, maxRedirects: 0 });
-    expect(unknown.status()).toBe(400);
-    const away = await request.post("/theme", {
-      form: { theme: "dark", back: "//evil.example/" },
-      headers,
-      maxRedirects: 0,
-    });
-    expect(away.status()).toBe(303);
-    expect(away.headers()["location"]).toBe("/");
-  });
+test("the privacy page says what is kept, and every page links to it", async ({ page }) => {
+  await page.goto("/en-001/signin");
+  await page.getByRole("contentinfo").getByRole("link", { name: "Privacy" }).click();
+  await expect(page).toHaveURL(/\/en-001\/privacy$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Privacy" })).toBeVisible();
+  for (const name of ["theme", "locale"]) await expect(page.getByText(`a cookie named ${name}`)).toBeVisible();
 });

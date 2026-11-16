@@ -26,7 +26,7 @@ const STAFF_PAGES = [
 // on a page that is in none.
 const PATIENT_PAGES = ["/my/appointments", "/my/messages"];
 // Public: no sign-in. `[token]` is replaced by a fresh link token (the mock accepts any 64 hex digits).
-const PUBLIC_PAGES = ["/signin", "/r/[token]", "/o/[token]"];
+const PUBLIC_PAGES = ["/signin", "/privacy", "/r/[token]", "/o/[token]"];
 const MODES = ["500", "garbage", "html", "empty", "wrongshape", "null"];
 const LEAKS = [
   "hunter2",

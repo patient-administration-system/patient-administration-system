@@ -125,16 +125,14 @@ ul.messages li {
   padding: 0.5rem 1rem;
   margin-bottom: 1rem;
 }
-details.languages,
-details.themes {
+details.languages {
   position: relative;
 }
-details.languages summary,
-details.themes summary {
+details.languages summary {
   cursor: pointer;
 }
 details.languages ul,
-details.themes ul {
+.theme-picker-list {
   position: absolute;
   z-index: 5;
   list-style: none;
@@ -150,21 +148,51 @@ details.themes ul {
 details.languages a {
   color: inherit;
 }
-details.themes ul {
+/* The Lily theme picker (NFR-30) ships no CSS. Its button reads "Theme" like the language menu's
+   summary; its listbox drops down like that menu's list. */
+.theme-picker {
+  position: relative;
+}
+.theme-picker-list {
   min-width: 13rem;
 }
-header.site details.themes button {
-  width: 100%;
-  text-align: start;
-  border-color: transparent;
+.theme-picker-list[hidden] {
+  display: none;
 }
-/* The current choice is marked by more than colour: a tick and a border. */
-header.site details.themes button[aria-pressed="true"] {
+header.site .theme-picker-button {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.theme-picker-option {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+/* The option the keyboard is on (the listbox keeps focus and points at it). */
+.theme-picker-option[data-active] {
   border-color: currentColor;
+}
+/* The current choice is marked by more than colour: a tick and weight. */
+.theme-picker-option[aria-selected="true"] {
   font-weight: 600;
 }
-header.site details.themes button[aria-pressed="true"]::before {
+.theme-picker-option[aria-selected="true"]::before {
   content: "✓ ";
+}
+.theme-picker-option-system {
+  border-bottom-color: var(--pas-border);
+}
+/* The button shows its name as text, so the picker's hover tooltip (the same word) would only repeat it. */
+.theme-picker-tooltip {
+  display: none;
+}
+footer.site {
+  max-width: 80rem;
+  margin: 2rem auto 0;
+  padding: 1rem;
+  border-top: 1px solid var(--pas-border);
 }
 /* WCAG 2.2 AA, target size (2.5.8): the Lily calendar's view buttons are smaller than 24 CSS px in
    the staff theme. Give every control in the widget a comfortable minimum. */

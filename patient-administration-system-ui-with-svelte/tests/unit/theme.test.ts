@@ -1,34 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { THEMES, safeBack, themeFrom } from "#lib/theme.js";
+import { THEMES, dataThemeFor, themeFrom } from "#lib/theme.js";
 
 describe("themeFrom (NFR-30)", () => {
-  it("reads each known choice", () => {
+  it("reads each choice the picker writes", () => {
     for (const t of THEMES) expect(themeFrom(t)).toBe(t);
   });
   it("follows the device when there is no cookie or an unknown one", () => {
-    expect(themeFrom(undefined)).toBe("device");
-    expect(themeFrom(null)).toBe("device");
-    expect(themeFrom("")).toBe("device");
-    expect(themeFrom("purple")).toBe("device");
-    expect(themeFrom("Dark")).toBe("device");
+    for (const v of [undefined, null, "", "purple", "Dark", "device"]) expect(themeFrom(v)).toBe("system");
   });
 });
 
-describe("safeBack", () => {
-  it("keeps a path on this site, with its query", () => {
-    expect(safeBack("/cy-001/appointments?from=2026-01-01")).toBe("/cy-001/appointments?from=2026-01-01");
-  });
-  it("never leaves the site", () => {
-    for (const bad of [
-      "//evil.example/x",
-      "/\\evil.example",
-      "https://evil.example/",
-      "javascript:alert(1)",
-      "",
-      null,
-      undefined,
-    ]) {
-      expect(safeBack(bad)).toBe("/");
-    }
+describe("dataThemeFor", () => {
+  it("pins a chosen scheme and leaves the device in charge otherwise", () => {
+    expect(dataThemeFor("light")).toBe("light");
+    expect(dataThemeFor("dark")).toBe("dark");
+    expect(dataThemeFor("system")).toBe("");
   });
 });

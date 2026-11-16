@@ -17,7 +17,7 @@ import {
   normalizeLocale,
   splitPath,
 } from "#lib/locales.js";
-import { THEME_COOKIE, themeFrom } from "#lib/theme.js";
+import { THEME_COOKIE, dataThemeFor, themeFrom } from "#lib/theme.js";
 
 /** Remembers the reader's locale, to choose one for a bare, unprefixed URL. */
 export const LOCALE_COOKIE = "locale";
@@ -87,7 +87,7 @@ export const handle: Handle = async ({ event, resolve }) => {
       html
         .replace('lang="%lang%"', `lang="${locale}"`)
         .replace('dir="%dir%"', `dir="${isRtl(locale) ? "rtl" : "ltr"}"`)
-        .replace('data-color-scheme="%colorscheme%"', `data-color-scheme="${event.locals.theme}"`),
+        .replace('data-theme="%theme%"', `data-theme="${dataThemeFor(event.locals.theme)}"`),
   });
   try {
     applySecurityHeaders(response.headers, isHttps(event.url, event.request.headers.get("x-forwarded-proto")));

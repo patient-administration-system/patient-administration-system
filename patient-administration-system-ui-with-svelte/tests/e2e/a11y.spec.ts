@@ -20,7 +20,7 @@ function routes(dir = join(process.cwd(), "src/routes"), prefix = ""): string[] 
 
 // Every route is audited somewhere below. Add a new route to one of these lists, or the coverage
 // test fails. `/` only redirects, so it is audited through where it lands.
-const PUBLIC = ["/signin"];
+const PUBLIC = ["/signin", "/privacy"];
 // The reply-link page needs a token in its address, so it is audited by its own tests below.
 const LINKS = ["/r/[token]", "/o/[token]"];
 const PATIENT = ["/my/appointments", "/my/messages"];
@@ -73,6 +73,23 @@ for (const scheme of ["light", "dark"] as const) {
         await audit(page, "/signin", locale);
       });
     }
+
+    for (const locale of ["en-001", "cy-001", "ar-001", "zh-cn"]) {
+      test(`privacy page, ${locale}`, async ({ page }) => {
+        await audit(page, "/privacy", locale);
+      });
+    }
+
+    // The theme picker's listbox, open, as a keyboard user sees it.
+    test("the theme menu, open", async ({ page }) => {
+      await page.goto("/en-001/signin");
+      await page.getByRole("button", { name: "Theme" }).click();
+      await expect(page.getByRole("listbox", { name: "Theme" })).toBeVisible();
+      const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+      expect(
+        results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id),
+      ).toEqual([]);
+    });
 
     const LINK_TOKEN = "a".repeat(64);
     for (const locale of ["en-001", "cy-001", "ar-001"]) {

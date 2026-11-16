@@ -28,5 +28,7 @@ All non-English catalogues in `patient-administration-system-ui-with-svelte/src/
 
 - **Theme menu (UI-4, 2026-11-15).** `app.theme.*`: the menu name and Follow this device, Light, Dark. German uses "Farbschema" and "Wie dieses Gerät"; Arabic uses المظهر (appearance) for the menu; Hindi थीम is transliterated. First drafts.
 
+- **Privacy page (UI-4, 2026-11-16).** `privacy.*` and `app.privacy`, in the UI and as a page on the public website in five languages. It names the cookies (`theme`, `locale`) and storage keys as code, untranslated. A reviewer should check that each translation says no more and no less than the English about what is kept and for how long. First drafts.
+
 ## How to record a review
 Fill in the table above, commit, and keep the reviewer's name out of the repository if they prefer (initials and a date are enough).

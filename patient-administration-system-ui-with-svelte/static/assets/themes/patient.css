@@ -60,13 +60,13 @@
 
 /* The dark theme (NFR-30): the same tokens, different colours; the geometry above is unchanged.
  * It applies when the browser asks for dark and the person has not chosen light, and when the
- * person has chosen dark (`<html data-color-scheme="dark">`, set by the server from the `theme`
- * cookie). The two rules carry the same colours, because CSS cannot share one block between a
+ * person has chosen dark (`<html data-theme="dark">`, set by the Lily theme picker, and by the
+ * server from the picker's `theme` cookie on the first paint). The two rules carry the same colours, because CSS cannot share one block between a
  * media query and a selector. Every foreground and background pair is checked by the axe run in
  * the dark colour scheme, as the light ones are. */
 
 @media (prefers-color-scheme: dark) {
-    :where(:root:not([data-color-scheme="light"])) {
+    :where(:root:not([data-theme="light"])) {
         color-scheme: dark;
 
         /* Surfaces: a blue-grey near-black page, lighter steps for panels, dividers and row hover. */
@@ -98,7 +98,7 @@
     }
 }
 
-:where(:root[data-color-scheme="dark"], :root[data-theme="pas-patient-dark"]) {
+:where(:root[data-theme="dark"], :root[data-theme="pas-patient-dark"]) {
     color-scheme: dark;
 
     /* Surfaces: a blue-grey near-black page, lighter steps for panels, dividers and row hover. */

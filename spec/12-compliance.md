@@ -12,6 +12,7 @@ Honest status. The full assessment against the NHS Digital Technology Assessment
 | DTAC | Self-assessed; fails C1, C2, C3 on missing artefacts |
 | WCAG 2.2 AA | Automated checks only (NFR-6); no manual audit or published statement |
 | PECR / consent to message | Not built (NFR-15, tasks.md NOT-5) |
+| Storage on the person's device (PECR regulation 6, the ePrivacy rule) | The UI keeps only what the service needs or the person chose: the sign-in session and its 10-minute sign-in check, the language, and the theme once chosen. No analytics or advertising storage. `/privacy` lists each item, where, for how long and why (UI-4, 2026-11-16). Whether each counts as strictly necessary is for a deployment's data protection officer to confirm. |
 | Data location | Decided by the deployer; the software calls no non-UK service at run time unless configured |
 
 ## Personal data

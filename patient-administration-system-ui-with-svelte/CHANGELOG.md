@@ -3,12 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- `/privacy`, linked from every page's footer: what the pages keep in the browser (the theme, the language, the sign-in session and its sign-in check), where, for how long and why. The 13 strings are first drafts in every locale but English.
 - A dark theme for staff and patients (NFR-30, UI-4). With no choice made, the page follows the browser's light or dark setting, from the first paint and when it changes. A theme menu on every page offers Follow this device, Light and Dark; the choice is kept in a `theme` cookie for a year, outlives signing out, and works with no script. Every route passes the axe audit in both. The four strings are first drafts in every locale but English.
 
 ### Fixed
 - Signing out with `OIDC_END_SESSION=true` left the person on the page looking signed in, though the session had ended: the CSP's `form-action 'self'` blocked the redirect to the identity provider, and the provider refused the localised return address. The provider's origin is now allowed in `form-action`, and the return address is the bare `/signin`, which a deployment registers once.
 
 ### Changed
+- The theme menu is the Lily theme picker (`@lilydesignsystem/svelte-theme-picker` 0.4.0): Follow this device, Light and Dark, kept in the `theme` cookie and in localStorage once a person chooses, and read by the server for the first paint. The `POST /theme` form is gone, so choosing a theme needs JavaScript; following the device does not.
 - `@lilydesignsystem/svelte-headless` 0.8.0 to 0.9.0. It adds record lists and healthcare display components, none used yet; nothing used here changed. The other Lily packages were already at their latest.
 - The staff and patient themes no longer copy the NHS England design system (QUAL-40). They keep their layout, density and contrast, with a palette that belongs to no service: a teal primary in place of NHS Blue, and the primary colour as the focus ring in place of the yellow. Their names are `pas-staff` and `pas-patient`. A deployment that wants a national or organisational look replaces `static/assets/themes/staff.css` and `patient.css` with that Lily theme.
 

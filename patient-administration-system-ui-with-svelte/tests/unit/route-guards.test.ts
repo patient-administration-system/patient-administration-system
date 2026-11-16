@@ -15,6 +15,7 @@ const PUBLIC: Record<string, string> = {
   "signin/oidc": "the start of the OpenID Connect flow",
   "signin/oidc/callback": "the provider's redirect back",
   signout: "signing out",
+  privacy: "what the pages keep in the browser, readable before signing in",
   "r/[token]": "a reminder's reply link: the token is the credential (CAP-13)",
   "o/[token]": "an offer of a freed appointment: the token is the credential (PILOT-8)",
 };

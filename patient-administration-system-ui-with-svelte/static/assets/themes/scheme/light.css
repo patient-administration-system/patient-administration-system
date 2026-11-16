@@ -1,0 +1,3 @@
+/* The Lily theme picker links one stylesheet per theme it applies, and swaps it on a change. The
+ * colours for "light" are already in staff.css and patient.css, keyed on <html data-theme="light">, so this
+ * file is intentionally empty: it exists so the picker's link loads instead of failing. */

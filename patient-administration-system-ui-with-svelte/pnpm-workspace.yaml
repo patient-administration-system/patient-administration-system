@@ -4,3 +4,8 @@ allowBuilds:
 # mistaken release cannot reach us before it is noticed. To take a version sooner, list it under
 # minimumReleaseAgeExclude with the reason, and remove it once it is a day old.
 minimumReleaseAge: 1440
+# 2026-11-16: the Lily theme picker 0.4.0, taken the day it was published, with the maintainer's approval
+# (it is what gives the theme menu "Follow this device" and a cookie the server reads). Remove this once it
+# is a day old (from 2026-11-17T17:41Z).
+minimumReleaseAgeExclude:
+  - "@lilydesignsystem/svelte-theme-picker@0.4.0"
