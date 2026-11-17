@@ -25,7 +25,7 @@ permissions:
   contents: read
 
 env:
-  RUST_TOOLCHAIN: "1.99.1"
+  RUST_TOOLCHAIN: "1.100.0"
   CARGO_TERM_COLOR: always
   DATABASE_URL: postgres://pas:pas_dev_password@localhost:5432/pas
 

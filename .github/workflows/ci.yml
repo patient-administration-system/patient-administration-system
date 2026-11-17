@@ -17,7 +17,7 @@ permissions:
 
 env:
   # Must equal `channel` in rust-toolchain.toml; the `fresh-clone` job asserts it.
-  RUST_TOOLCHAIN: "1.99.1"
+  RUST_TOOLCHAIN: "1.100.0"
   CARGO_TERM_COLOR: always
 
 jobs:
