@@ -16,7 +16,7 @@ pub const LOCKOUT_VAR: &str = "LOCKOUT_CLIENT_ADDRESS_AFTER_COUNT";
 pub const OLD_LOCKOUT_VAR: &str = "PAS_AUTH_LOCKOUT_FAILURES";
 
 /// Runtime configuration values for the PAS.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Config {
     /// PostgreSQL connection URL (e.g. `postgres://user:pass@host:5432/dbname`).
     /// Required — `from_env` returns an error if it is unset.
@@ -114,6 +114,69 @@ pub struct Config {
     /// either upstream service. Default `10`. Read from
     /// `UPSTREAM_TIMEOUT_SECS`.
     pub upstream_timeout_secs: u64,
+}
+
+/// What `{:?}` shows of a secret: whether it is set, never its value (NFR-14).
+fn secret(v: &Option<String>) -> &'static str {
+    if v.is_some() { "<redacted>" } else { "<unset>" }
+}
+
+/// A URL with its password and query string taken out, where a credential may sit (NFR-14).
+pub fn redact_url(url: &str) -> String {
+    let base = url.split(['?', '#']).next().unwrap_or("");
+    let cut = if base.len() < url.len() {
+        "?<redacted>"
+    } else {
+        ""
+    };
+    let Some((scheme, rest)) = base.split_once("://") else {
+        return format!("{base}{cut}");
+    };
+    let (authority, path) = rest.split_once('/').map_or((rest, ""), |(a, p)| (a, p));
+    let authority = match authority.rsplit_once('@') {
+        Some((userinfo, host)) => {
+            let user = userinfo.split(':').next().unwrap_or("");
+            format!("{user}:<redacted>@{host}")
+        }
+        None => authority.to_string(),
+    };
+    let slash = if rest.contains('/') { "/" } else { "" };
+    format!("{scheme}://{authority}{slash}{path}{cut}")
+}
+
+impl std::fmt::Debug for Config {
+    /// Every setting but the secrets: the tokens and the webhook secret show only whether they are set, and URLs
+    /// lose their password and query string (NFR-14). A `{:?}` of the config in a log line is then safe.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let url = |u: &Option<String>| u.as_deref().map(redact_url);
+        f.debug_struct("Config")
+            .field("database_url", &redact_url(&self.database_url))
+            .field("server_host", &self.server_host)
+            .field("server_port", &self.server_port)
+            .field("rust_log", &self.rust_log)
+            .field("otlp_endpoint", &url(&self.otlp_endpoint))
+            .field("otel_service_name", &self.otel_service_name)
+            .field("api_token", &secret(&self.api_token))
+            .field("cors_origins", &self.cors_origins)
+            .field("hl7v2_mllp_bind", &self.hl7v2_mllp_bind)
+            .field("hl7v2_outbound_peer", &self.hl7v2_outbound_peer)
+            .field("pas_outbox_max_retries", &self.pas_outbox_max_retries)
+            .field("pas_sms_provider", &self.pas_sms_provider)
+            .field("pas_rate_limit_rpm", &self.pas_rate_limit_rpm)
+            .field(
+                "lockout_client_address_after_count",
+                &self.lockout_client_address_after_count,
+            )
+            .field("pas_webhook_url", &url(&self.pas_webhook_url))
+            .field("pas_webhook_secret", &secret(&self.pas_webhook_secret))
+            .field("pas_webhook_timeout_secs", &self.pas_webhook_timeout_secs)
+            .field("person_service_url", &url(&self.person_service_url))
+            .field("person_service_token", &secret(&self.person_service_token))
+            .field("worker_service_url", &url(&self.worker_service_url))
+            .field("worker_service_token", &secret(&self.worker_service_token))
+            .field("upstream_timeout_secs", &self.upstream_timeout_secs)
+            .finish()
+    }
 }
 
 impl Config {
@@ -245,6 +308,10 @@ mod tests {
     }
 
     const ENV_KEYS: &[&str] = &[
+        "API_TOKEN",
+        "PERSON_SERVICE_URL",
+        "PERSON_SERVICE_TOKEN",
+        "WORKER_SERVICE_TOKEN",
         "DATABASE_URL",
         "SERVER_HOST",
         "SERVER_PORT",
@@ -263,6 +330,57 @@ mod tests {
     fn set(k: &str, v: &str) {
         // SAFETY: tests holding ENV_LOCK guarantee single-threaded access.
         unsafe { std::env::set_var(k, v) }
+    }
+
+    /// NFR-14: a `{:?}` of the configuration, as a log line might print it, holds no secret.
+    #[test]
+    fn debug_of_the_config_shows_no_secret() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _g = EnvGuard::new(ENV_KEYS);
+        let needle = "NEEDLE7391secret";
+        set(
+            "DATABASE_URL",
+            &format!("postgres://pas:{needle}@db.internal:5432/pas?sslpassword={needle}"),
+        );
+        set("API_TOKEN", needle);
+        set(
+            "PAS_WEBHOOK_URL",
+            &format!("https://hooks.example/in?token={needle}"),
+        );
+        set("PAS_WEBHOOK_SECRET", needle);
+        set(
+            "PERSON_SERVICE_URL",
+            &format!("https://svc:{needle}@person.internal/api"),
+        );
+        set("PERSON_SERVICE_TOKEN", needle);
+        set("WORKER_SERVICE_TOKEN", needle);
+        let cfg = Config::from_env().unwrap();
+        let shown = format!("{cfg:?}");
+        assert!(!shown.contains("NEEDLE7391"), "{shown}");
+        assert!(
+            shown.contains("db.internal:5432/pas"),
+            "the rest is still there: {shown}"
+        );
+        assert!(shown.contains("<redacted>"));
+        assert!(format!("{cfg:#?}").contains("server_port"));
+    }
+
+    #[test]
+    fn redact_url_keeps_where_and_drops_credentials() {
+        assert_eq!(
+            redact_url("postgres://u:p@h:5432/pas"),
+            "postgres://u:<redacted>@h:5432/pas"
+        );
+        assert_eq!(
+            redact_url("https://h/path?token=x#frag"),
+            "https://h/path?<redacted>"
+        );
+        assert_eq!(redact_url("https://h"), "https://h");
+        assert_eq!(redact_url("not a url"), "not a url");
+        assert_eq!(
+            redact_url("redis://:pw@cache:6379"),
+            "redis://:<redacted>@cache:6379"
+        );
     }
 
     #[test]

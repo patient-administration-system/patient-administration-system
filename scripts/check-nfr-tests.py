@@ -30,7 +30,6 @@ SUFFIXES = {".rs", ".ts", ".js", ".mjs", ".py", ".sh"}
 ALLOWED = {
     "NFR-8": "the compiler: #![cfg_attr(not(test), forbid(unsafe_code))] in lib.rs",
     "NFR-9": "the CI job `deny` (cargo deny check)",
-    "NFR-14": "NOT YET TESTED, stated in its row: secrets from the environment and never logged (open gap)",
     "NFR-17": "NOT YET BUILT, stated in its row: there is one unversioned /api, so no header to test yet",
 }
 

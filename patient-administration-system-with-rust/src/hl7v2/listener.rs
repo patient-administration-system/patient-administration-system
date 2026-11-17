@@ -272,7 +272,10 @@ async fn handle_connection<S>(stream: S, router: Router, idle: Duration) -> Resu
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let (mut rd, mut wr) = tokio::io::split(stream);
+    let (rd, mut wr) = tokio::io::split(stream);
+    // Buffered: the frame reader takes one byte at a time, which unbuffered is one system call per byte, so a
+    // 1 MiB message took long enough on a busy server to run into the idle timeout.
+    let mut rd = tokio::io::BufReader::with_capacity(64 * 1024, rd);
     loop {
         let frame = match tokio::time::timeout(idle, mllp::read_frame_checked(&mut rd)).await {
             Err(_) => {

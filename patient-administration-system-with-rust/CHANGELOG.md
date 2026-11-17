@@ -18,6 +18,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 - A connection that sends something other than whitespace before an MLLP frame is closed (before, the bytes were skipped for ever); an oversize frame is answered with an AE.
 
 ### Fixed
+- The MLLP listener reads through a buffer: it took one system call per byte, so a large message on a busy server could run past the idle timeout and be cut off.
+- Secrets cannot reach a log through the configuration (NFR-14): `Config`'s `{:?}` shows each token and the webhook secret only as set or unset, and URLs without password or query string; a mistyped `PAS_CARRIER_SECRETS` entry is named by its position, not quoted.
 - Error answers no longer quote what the sender sent (NFR-33, HUB-5): an HL7 v2 parse error quoted the text where MSH should be, ACKs quoted bed codes, a merge's source MRN, appointment and staff ids, and charge amounts and codes, and a FHIR Bundle quoted the resource type it refused. Each now names the field and the reason.
 - An HL7 v2 message sent again with the same control id (MSH-10), as a sender does when it loses our ACK, is answered from its first ACK and not processed again, so an A01 no longer admits twice (HUB-2, NFR-31). Keys are the sender and a SHA-256 of MSH-10, kept `PAS_HL7_DEDUPE_DAYS` (default 7). Migration 65. A copy that started and did not finish is refused with an AE for a person to check, never processed again.
 - The HL7 v2 ACK answers the message it acknowledges: the sender and receiver are swapped, MSH-11 and MSH-12 are copied (a test message was acknowledged as production), the ACK has its own control id, and MSA-3 is one escaped line of at most 80 characters (HUB-1). The batch ACK's BHS fields are in their places (the control id was in BHS-9).

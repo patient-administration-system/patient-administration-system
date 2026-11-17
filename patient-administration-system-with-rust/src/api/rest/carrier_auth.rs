@@ -50,10 +50,18 @@ impl Carriers {
     /// Parse `id=secret[|secret2],id2=secret`. Refuses short secrets and duplicate ids.
     pub fn parse(spec: &str) -> Result<Self, String> {
         let mut map = HashMap::new();
-        for item in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        // An error names an entry by its position, never by its text: a mistyped entry is likely to hold the
+        // secret (NFR-14).
+        for (n, item) in spec
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .enumerate()
+        {
+            let n = n + 1;
             let (id, secrets) = item
                 .split_once('=')
-                .ok_or_else(|| format!("PAS_CARRIER_SECRETS entry {item:?} is not id=secret"))?;
+                .ok_or_else(|| format!("PAS_CARRIER_SECRETS entry {n} is not id=secret"))?;
             let id = id.trim();
             if id.is_empty()
                 || !id
@@ -61,7 +69,7 @@ impl Carriers {
                     .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
             {
                 return Err(format!(
-                    "carrier id {id:?} must be letters, digits, '-', '_' or '.'"
+                    "PAS_CARRIER_SECRETS entry {n}: the carrier id must be letters, digits, '-', '_' or '.'"
                 ));
             }
             let list: Vec<Vec<u8>> = secrets.split('|').map(|s| s.as_bytes().to_vec()).collect();
@@ -146,6 +154,19 @@ pub fn sign(secret: &[u8], timestamp: i64, body: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    /// NFR-14: a mistyped entry is reported by position, never quoted, because it may hold the secret.
+    #[test]
+    fn a_bad_entry_is_named_by_position_not_quoted() {
+        for spec in [
+            "sms=0123456789abcdef0123456789abcdef,NEEDLE7391secret0123456789abcdef",
+            "NEEDLE7391:secret0123456789abcdef=x",
+        ] {
+            let err = Carriers::parse(spec).unwrap_err();
+            assert!(!err.contains("NEEDLE7391"), "{err}");
+            assert!(err.contains("entry"), "{err}");
+        }
+    }
     use super::*;
 
     const S1: &str = "0123456789abcdef-one";
