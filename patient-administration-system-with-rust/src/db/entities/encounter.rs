@@ -13,14 +13,14 @@ pub struct Model {
     pub person_id: Uuid,
     pub class: String,
     pub status: String,
-    pub period_start: chrono::DateTime<chrono::FixedOffset>,
-    pub period_end: Option<chrono::DateTime<chrono::FixedOffset>>,
+    pub period_start: jiff::Timestamp,
+    pub period_end: Option<jiff::Timestamp>,
     pub worker_id: Option<Uuid>,
     pub department_id: Option<Uuid>,
     pub reason: Option<String>,
-    pub deleted_at: Option<chrono::DateTime<chrono::FixedOffset>>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub deleted_at: Option<jiff::Timestamp>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

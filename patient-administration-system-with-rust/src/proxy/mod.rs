@@ -8,7 +8,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
-use chrono::{DateTime, Duration, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -36,20 +36,20 @@ pub struct Authority {
     pub basis: String,
     pub scopes: Vec<String>,
     pub recorded_by: String,
-    pub recorded_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
+    pub recorded_at: Timestamp,
+    pub expires_at: Timestamp,
     #[schema(required = true)]
     pub revoked_by: Option<String>,
     #[schema(required = true)]
-    pub revoked_at: Option<DateTime<Utc>>,
+    pub revoked_at: Option<Timestamp>,
 }
 
 impl Authority {
     /// Live at `now`: not revoked and not past its expiry.
-    pub fn is_live(&self, now: DateTime<Utc>) -> bool {
+    pub fn is_live(&self, now: Timestamp) -> bool {
         self.revoked_at.is_none() && now < self.expires_at
     }
-    pub fn allows(&self, scope: &str, now: DateTime<Utc>) -> bool {
+    pub fn allows(&self, scope: &str, now: Timestamp) -> bool {
         self.is_live(now) && self.scopes.iter().any(|s| s == scope)
     }
 }
@@ -61,7 +61,7 @@ pub struct NewAuthority<'a> {
     pub relationship: &'a str,
     pub basis: &'a str,
     pub scopes: &'a [String],
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
     pub recorded_by: &'a str,
 }
 
@@ -110,7 +110,7 @@ impl ProxyService {
         &self,
         person_id: Uuid,
         new: &NewAuthority<'_>,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<Authority> {
         let by = named_person(
@@ -144,7 +144,7 @@ impl ProxyService {
                 SCOPES.join(", ")
             )));
         }
-        if new.expires_at <= now || new.expires_at > now + Duration::days(MAX_DAYS) {
+        if new.expires_at <= now || new.expires_at > now + crate::time::days(MAX_DAYS) {
             return Err(Error::validation(format!(
                 "expires_at must be in the future and within {MAX_DAYS} days"
             )));
@@ -192,7 +192,7 @@ impl ProxyService {
         &self,
         id: Uuid,
         revoked_by: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<()> {
         let by = named_person(
@@ -226,7 +226,7 @@ impl ProxyService {
         &self,
         person_id: Uuid,
         include_inactive: bool,
-        now: DateTime<Utc>,
+        now: Timestamp,
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<Authority>> {
         let rows = rows.into();
@@ -257,7 +257,7 @@ impl ProxyService {
         person_id: Uuid,
         proxy_person_id: Uuid,
         scope: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<Authority> {
         if !SCOPES.contains(&scope) {
             return Err(Error::internal(format!("unknown proxy scope {scope:?}")));
@@ -291,7 +291,7 @@ mod tests {
     use super::*;
 
     fn authority(scopes: &[&str], expires_in: i64, revoked: bool) -> Authority {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Authority {
             id: Uuid::new_v4(),
             person_id: Uuid::new_v4(),
@@ -301,7 +301,7 @@ mod tests {
             scopes: scopes.iter().map(|s| s.to_string()).collect(),
             recorded_by: "Receptionist".into(),
             recorded_at: now,
-            expires_at: now + Duration::days(expires_in),
+            expires_at: now + crate::time::days(expires_in),
             revoked_by: revoked.then(|| "Receptionist".to_string()),
             revoked_at: revoked.then_some(now),
         }
@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn a_scope_is_allowed_only_while_live_and_listed() {
-        let now = Utc::now();
+        let now = Timestamp::now();
         assert!(authority(&["receive", "cancel"], 10, false).allows("cancel", now));
         assert!(!authority(&["receive"], 10, false).allows("cancel", now));
         assert!(!authority(&["cancel"], -1, false).allows("cancel", now));

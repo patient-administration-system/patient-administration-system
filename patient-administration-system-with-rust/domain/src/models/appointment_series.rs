@@ -15,7 +15,7 @@
 //! back the whole transaction. Pair with `POST /api/appointment-
 //! series/preview` to dry-run the datetimes before commit.
 
-use chrono::{DateTime, Datelike, Days, Months, Utc, Weekday};
+use jiff::{Timestamp, civil::Weekday};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -48,7 +48,7 @@ pub enum RecurrenceEnd {
     Count { count: u32 },
     /// Stop after this datetime (inclusive — occurrences whose start
     /// is `<= until` are kept). Must be `>= series.start_datetime`.
-    Until { until: DateTime<Utc> },
+    Until { until: Timestamp },
 }
 
 /// One recurrence rule. Mirrors RFC 5545 fields but in struct form
@@ -63,7 +63,7 @@ pub struct RecurrenceRule {
     /// For `Frequency::Weekly` only: restrict to these weekdays. When
     /// empty / `None`, the series fires on the same weekday as
     /// `start_datetime`. Ignored for Daily / Monthly.
-    #[serde(default)]
+    #[serde(default, with = "crate::time::weekdays_opt_serde")]
     #[schema(value_type = Option<Vec<String>>, example = json!(["Mon", "Wed"]))]
     pub by_weekday: Option<Vec<Weekday>>,
     pub end: RecurrenceEnd,
@@ -114,7 +114,7 @@ pub struct AppointmentSeries {
     pub service_type: String,
     /// First occurrence's start time. Subsequent occurrences are
     /// computed as offsets from this.
-    pub start_datetime: DateTime<Utc>,
+    pub start_datetime: Timestamp,
     /// Per-occurrence duration. Each generated appointment ends at
     /// `start + duration_minutes`.
     pub duration_minutes: u32,
@@ -122,19 +122,19 @@ pub struct AppointmentSeries {
     pub status: SeriesStatus,
     #[schema(required = true)]
     pub reason: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl AppointmentSeries {
     pub fn new(
         person_id: Uuid,
         service_type: impl Into<String>,
-        start_datetime: DateTime<Utc>,
+        start_datetime: Timestamp,
         duration_minutes: u32,
         rule: RecurrenceRule,
     ) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             person_id,
@@ -158,16 +158,13 @@ impl AppointmentSeries {
 /// `Weekly`). For `Monthly`, the day-of-month is preserved where
 /// possible; when the target month is shorter (e.g. Jan 31 → Feb 28),
 /// the date is clamped to the last day of that month — same as
-/// chrono's `Months` arithmetic.
+/// calendar-month arithmetic (jiff, as chrono before it).
 ///
 /// Returns `Error::Validation` if the rule itself is malformed or if
 /// the expanded series would exceed [`MAX_OCCURRENCES`]. The `Until`
 /// variant terminates early once the next candidate would exceed
 /// `until`.
-pub fn compute_occurrences(
-    rule: &RecurrenceRule,
-    start: DateTime<Utc>,
-) -> Result<Vec<DateTime<Utc>>> {
+pub fn compute_occurrences(rule: &RecurrenceRule, start: Timestamp) -> Result<Vec<Timestamp>> {
     rule.validate()?;
 
     // Cap-check `Count` up front so a 5000-count rule doesn't burn 5000
@@ -187,7 +184,7 @@ pub fn compute_occurrences(
         ));
     }
 
-    let mut out: Vec<DateTime<Utc>> = Vec::new();
+    let mut out: Vec<Timestamp> = Vec::new();
     let mut cursor = start;
     let interval = rule.interval;
 
@@ -196,7 +193,7 @@ pub fn compute_occurrences(
     // weekday within each interval-grouped week.
     let weekly_days: Vec<Weekday> = match (&rule.frequency, &rule.by_weekday) {
         (Frequency::Weekly, Some(d)) if !d.is_empty() => d.clone(),
-        (Frequency::Weekly, _) => vec![start.weekday()],
+        (Frequency::Weekly, _) => vec![crate::time::utc_date(start).weekday()],
         _ => vec![],
     };
 
@@ -206,7 +203,7 @@ pub fn compute_occurrences(
             RecurrenceEnd::Until { .. } => true,
         }
     };
-    let within_until = |dt: DateTime<Utc>| -> bool {
+    let within_until = |dt: Timestamp| -> bool {
         match &rule.end {
             RecurrenceEnd::Until { until } => dt <= *until,
             RecurrenceEnd::Count { .. } => true,
@@ -222,7 +219,7 @@ pub fn compute_occurrences(
                         "expanded recurrence exceeds MAX_OCCURRENCES ({MAX_OCCURRENCES})"
                     )));
                 }
-                cursor = cursor + Days::new(u64::from(interval));
+                cursor += crate::time::days(i64::from(interval));
             }
         }
         Frequency::Weekly => {
@@ -231,15 +228,13 @@ pub fn compute_occurrences(
             // interval, emit. This is the simplest correct
             // implementation; perf is fine at MAX_OCCURRENCES bound.
             let mut day_cursor = start;
-            let start_week_offset: i64 =
-                i64::from(start.date_naive().iso_week().week()) + i64::from(start.year()) * 53; // monotonic week index proxy
+            let start_week_offset: i64 = week_index(start); // monotonic week index proxy
             while target(out.len()) && within_until(day_cursor) {
-                let this_week_offset: i64 = i64::from(day_cursor.date_naive().iso_week().week())
-                    + i64::from(day_cursor.year()) * 53;
+                let this_week_offset: i64 = week_index(day_cursor);
                 let weeks_since_start = this_week_offset - start_week_offset;
                 if weeks_since_start >= 0
                     && weeks_since_start % i64::from(interval) == 0
-                    && weekly_days.contains(&day_cursor.weekday())
+                    && weekly_days.contains(&crate::time::utc_date(day_cursor).weekday())
                     && day_cursor >= start
                 {
                     out.push(day_cursor);
@@ -249,11 +244,11 @@ pub fn compute_occurrences(
                         )));
                     }
                 }
-                day_cursor = day_cursor + Days::new(1);
+                day_cursor += crate::time::days(1);
                 // Safety brake — bounded by MAX_OCCURRENCES * 7 *
                 // interval at worst. For interval=1, daily-by-week, this
                 // is 1400 iterations; tiny.
-                if (day_cursor - start).num_days()
+                if crate::time::whole_days(day_cursor.duration_since(start))
                     > i64::from(MAX_OCCURRENCES) * 7 * i64::from(interval)
                 {
                     break;
@@ -268,10 +263,10 @@ pub fn compute_occurrences(
                         "expanded recurrence exceeds MAX_OCCURRENCES ({MAX_OCCURRENCES})"
                     )));
                 }
-                // chrono's `Months` arithmetic clamps to month-end when
+                // calendar-month arithmetic (jiff, as chrono before it) clamps to month-end when
                 // the target month is shorter (Jan 31 + 1 month → Feb
                 // 28/29) — exactly the semantics we want.
-                cursor = match cursor.checked_add_months(Months::new(interval)) {
+                cursor = match crate::time::add_months_utc(cursor, interval) {
                     Some(next) => next,
                     None => break,
                 };
@@ -282,13 +277,19 @@ pub fn compute_occurrences(
     Ok(out)
 }
 
+/// The ISO week number plus 53 times the calendar year, in UTC: increases week by week (the index the weekly
+/// rule has always used).
+fn week_index(at: Timestamp) -> i64 {
+    let d = crate::time::utc_date(at);
+    i64::from(d.iso_week_date().week()) + i64::from(d.year()) * 53
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
-    fn dt(y: i32, m: u32, d: u32, h: u32) -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(y, m, d, h, 0, 0).unwrap()
+    fn dt(y: i16, m: i8, d: i8, h: i8) -> Timestamp {
+        crate::time::utc(y, m, d, h, 0, 0)
     }
 
     #[test]
@@ -333,7 +334,7 @@ mod tests {
         let out = compute_occurrences(&rule, dt(2026, 6, 1, 9)).unwrap();
         assert_eq!(out.len(), 4);
         for d in &out {
-            assert_eq!(d.weekday(), Weekday::Mon);
+            assert_eq!(crate::time::utc_date(*d).weekday(), Weekday::Monday);
         }
         assert_eq!(out[3], dt(2026, 6, 22, 9));
     }
@@ -345,7 +346,7 @@ mod tests {
         let rule = RecurrenceRule {
             frequency: Frequency::Weekly,
             interval: 1,
-            by_weekday: Some(vec![Weekday::Mon, Weekday::Wed, Weekday::Fri]),
+            by_weekday: Some(vec![Weekday::Monday, Weekday::Wednesday, Weekday::Friday]),
             end: RecurrenceEnd::Count { count: 6 },
         };
         let out = compute_occurrences(&rule, dt(2026, 6, 1, 9)).unwrap();
@@ -381,7 +382,7 @@ mod tests {
     #[test]
     fn test_compute_occurrences_monthly_clamps_to_short_month() {
         // Jan 31, +1 month → Feb 28 (2026 is not a leap year),
-        // +1 month → Mar 28 (chrono preserves the clamped day).
+        // +1 month → Mar 28 (the clamped day is kept).
         let rule = RecurrenceRule {
             frequency: Frequency::Monthly,
             interval: 1,
@@ -391,7 +392,7 @@ mod tests {
         let out = compute_occurrences(&rule, dt(2026, 1, 31, 9)).unwrap();
         assert_eq!(out[0], dt(2026, 1, 31, 9));
         assert_eq!(out[1], dt(2026, 2, 28, 9));
-        // chrono's Months arithmetic preserves the *clamped* day,
+        // month arithmetic preserves the *clamped* day,
         // not the original 31 — Feb 28 + 1 month = Mar 28.
         assert_eq!(out[2], dt(2026, 3, 28, 9));
     }
@@ -461,7 +462,7 @@ mod tests {
         let rule = RecurrenceRule {
             frequency: Frequency::Daily,
             interval: 1,
-            by_weekday: Some(vec![Weekday::Mon]),
+            by_weekday: Some(vec![Weekday::Monday]),
             end: RecurrenceEnd::Count { count: 3 },
         };
         assert!(matches!(

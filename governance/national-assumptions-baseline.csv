@@ -1,6 +1,6 @@
 file,count
 domain/src/communication/sms_length.rs,2
-domain/src/config/env.rs,3
+domain/src/config/env.rs,2
 domain/src/identifiers/gb_nhs_number.rs,11
 domain/src/inbound/messages.rs,5
 domain/src/inbound/parser.rs,1

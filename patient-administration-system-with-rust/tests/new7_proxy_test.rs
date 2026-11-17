@@ -2,7 +2,7 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
+use jiff::Timestamp;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -21,7 +21,7 @@ fn new<'a>(proxy: Uuid, scopes: &'a [String], days: i64) -> NewAuthority<'a> {
         relationship: "daughter",
         basis: "patient_consent",
         scopes,
-        expires_at: Utc::now() + Duration::days(days),
+        expires_at: Timestamp::now() + patient_administration_system::time::days(days),
         recorded_by: "Receptionist",
     }
 }
@@ -34,7 +34,7 @@ async fn a_proxy_without_the_cancel_scope_cannot_cancel_and_one_with_it_is_audit
     let sys = UserContext::system();
     let schedule = common::new_schedule(&state.db).await.id;
     let (patient, reader, canceller) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
-    let now = Utc::now();
+    let now = Timestamp::now();
     svc.grant(patient, &new(reader, &scopes(&["receive"]), 30), now, &sys)
         .await
         .unwrap();
@@ -116,7 +116,7 @@ async fn an_expired_or_revoked_proxy_can_do_nothing_and_bad_grants_are_refused()
     let svc = ProxyService::new(state.db.clone());
     let sys = UserContext::system();
     let (patient, proxy) = (Uuid::new_v4(), Uuid::new_v4());
-    let now = Utc::now();
+    let now = Timestamp::now();
     let all = scopes(&["receive", "confirm", "cancel", "rebook"]);
     let a = svc
         .grant(patient, &new(proxy, &all, 10), now, &sys)

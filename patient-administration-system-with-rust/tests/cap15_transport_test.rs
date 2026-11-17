@@ -8,7 +8,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::Duration;
+use jiff::SignedDuration;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
@@ -53,8 +53,8 @@ impl TransportClient for Recording {
             .push(serde_json::to_value(req).unwrap());
         Ok(TransportConfirmation {
             provider_ref: format!("prov-{}", req.reference),
-            window_start: req.appointment_start - Duration::minutes(80),
-            window_end: req.appointment_start - Duration::minutes(50),
+            window_start: req.appointment_start - SignedDuration::from_mins(80),
+            window_end: req.appointment_start - SignedDuration::from_mins(50),
         })
     }
     async fn cancel(&self, provider_ref: &str) -> patient_administration_system::Result<()> {

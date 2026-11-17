@@ -5,7 +5,7 @@
 //! least 600 days ahead, so a run's rows never meet a person's real ones or another run's. Nothing is
 //! deleted afterwards: the rows are the evidence of what the run did.
 
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::connect;
 use patient_administration_system::db::repositories::audit::UserContext;
@@ -42,11 +42,11 @@ pub struct Fixtures {
     pub read_slots: Vec<Uuid>,
     pub read_appointments: Vec<Uuid>,
     /// The day the read appointments start on, for the calendar range query.
-    pub read_day: DateTime<Utc>,
+    pub read_day: Timestamp,
     pub cycle_slots: Vec<Uuid>,
     pub hot_slots: Vec<Uuid>,
     pub ihe_practitioner: Uuid,
-    pub ihe_window: (DateTime<Utc>, DateTime<Utc>),
+    pub ihe_window: (Timestamp, Timestamp),
 }
 
 pub struct Db {
@@ -70,16 +70,11 @@ impl Db {
     }
 
     /// `n` back-to-back 15-minute slots from `start`.
-    async fn slots(
-        &self,
-        schedule: Uuid,
-        start: DateTime<Utc>,
-        n: usize,
-    ) -> Result<Vec<Slot>, Fail> {
+    async fn slots(&self, schedule: Uuid, start: Timestamp, n: usize) -> Result<Vec<Slot>, Fail> {
         let mut out = Vec::with_capacity(n);
         for i in 0..n {
-            let at = start + Duration::minutes(15 * i64::try_from(i)?);
-            let slot = Slot::new(schedule, at, at + Duration::minutes(15));
+            let at = start + SignedDuration::from_mins(15 * i64::try_from(i)?);
+            let slot = Slot::new(schedule, at, at + SignedDuration::from_mins(15));
             out.push(SlotRepository::create(&self.state.db, &slot).await?);
         }
         Ok(out)
@@ -88,11 +83,13 @@ impl Db {
     pub async fn make(&self, run_id: &str, sizes: Sizes) -> Result<Fixtures, Fail> {
         // A start far ahead and different for each run, on a whole hour, so the read day is predictable.
         let offset = i64::from(u32::from_str_radix(&run_id[..4], 16).unwrap_or(0) % 2000);
-        let base = (Utc::now() + Duration::days(600 + offset))
-            .date_naive()
-            .and_hms_opt(8, 0, 0)
-            .map(|t| t.and_utc())
-            .ok_or("no 08:00 on the base day")?;
+        let base = (Timestamp::now() + patient_administration_system::time::days(600 + offset))
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .date()
+            .at(8, 0, 0, 0)
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .map(|z| z.timestamp())
+            .map_err(|_| "no 08:00 on the base day")?;
 
         let read = self.schedule(run_id, "read", Uuid::new_v4()).await?;
         let read_slots = self.slots(read.id, base, sizes.read).await?;
@@ -112,19 +109,30 @@ impl Db {
         let per = sizes.cycle.div_ceil(CYCLE_OWNERS);
         for _ in 0..CYCLE_OWNERS {
             let cycle = self.schedule(run_id, "cycle", Uuid::new_v4()).await?;
-            cycle_slots.extend(self.slots(cycle.id, base + Duration::days(30), per).await?);
+            cycle_slots.extend(
+                self.slots(
+                    cycle.id,
+                    base + patient_administration_system::time::days(30),
+                    per,
+                )
+                .await?,
+            );
         }
         let hot = self.schedule(run_id, "hot", Uuid::new_v4()).await?;
         let hot_slots = self
-            .slots(hot.id, base + Duration::days(60), sizes.hot)
+            .slots(
+                hot.id,
+                base + patient_administration_system::time::days(60),
+                sizes.hot,
+            )
             .await?;
         let practitioner = Uuid::new_v4();
         let ihe = self.schedule(run_id, "ihe", practitioner).await?;
-        let ihe_start = base + Duration::days(90);
+        let ihe_start = base + patient_administration_system::time::days(90);
         let ihe_slots = self.slots(ihe.id, ihe_start, sizes.ihe).await?;
         let ihe_end = ihe_slots
             .last()
-            .map_or(ihe_start, |s| s.end_datetime + Duration::minutes(1));
+            .map_or(ihe_start, |s| s.end_datetime + SignedDuration::from_mins(1));
 
         Ok(Fixtures {
             read_slots: read_slots.iter().map(|s| s.id).collect(),

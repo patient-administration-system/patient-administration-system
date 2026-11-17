@@ -3,7 +3,7 @@
 //! module, which re-exports this one.
 
 use crate::{Error, Result};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -96,7 +96,7 @@ pub struct Setting {
     pub customised: bool,
     pub set_by: Option<String>,
     pub note: Option<String>,
-    pub updated_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<Timestamp>,
 }
 
 /// A measure's value against its tiers.
@@ -126,8 +126,8 @@ pub struct Reading {
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[schema(as = ToleranceStatus)]
 pub struct Status {
-    pub from: DateTime<Utc>,
-    pub to: DateTime<Utc>,
+    pub from: Timestamp,
+    pub to: Timestamp,
     /// The worst tier among every reading that has data; `no_data` when none do.
     pub overall: Rag,
     /// Each measure for the whole service.
@@ -153,15 +153,15 @@ pub struct Alert {
     pub target: f64,
     pub tolerance: f64,
     pub escalate_beyond: f64,
-    pub raised_at: DateTime<Utc>,
-    pub last_seen_at: DateTime<Utc>,
+    pub raised_at: Timestamp,
+    pub last_seen_at: Timestamp,
     /// Set when the measure is no longer red.
     #[schema(required = true)]
-    pub cleared_at: Option<DateTime<Utc>>,
+    pub cleared_at: Option<Timestamp>,
     #[schema(required = true)]
     pub acknowledged_by: Option<String>,
     #[schema(required = true)]
-    pub acknowledged_at: Option<DateTime<Utc>>,
+    pub acknowledged_at: Option<Timestamp>,
     pub note: String,
 }
 

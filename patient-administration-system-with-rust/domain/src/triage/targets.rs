@@ -5,7 +5,7 @@
 //! whole minutes, and a category left out keeps its default. A target is a measure of the service, never an
 //! instruction about who is seen next (NFR-11).
 
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 
 use super::CATEGORIES;
 use crate::{Error, Result};
@@ -94,12 +94,12 @@ impl Standing {
 /// Judge an attendance. Exactly the target is within it; a second more is past. An attendance not yet seen
 /// is measured to `now`.
 pub fn standing(
-    arrival: DateTime<Utc>,
-    first_contact: Option<DateTime<Utc>>,
-    now: DateTime<Utc>,
+    arrival: Timestamp,
+    first_contact: Option<Timestamp>,
+    now: Timestamp,
     target_minutes: i64,
 ) -> Standing {
-    let limit = Duration::minutes(target_minutes);
+    let limit = SignedDuration::from_mins(target_minutes);
     match first_contact {
         Some(seen) if seen - arrival <= limit => Standing::SeenWithin,
         Some(_) => Standing::SeenPast,
@@ -111,21 +111,20 @@ pub fn standing(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
-    fn t0() -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(2026, 10, 23, 12, 0, 0).unwrap()
+    fn t0() -> Timestamp {
+        crate::time::utc(2026, 10, 23, 12, 0, 0)
     }
 
     #[test]
     fn nine_ten_and_eleven_minutes_against_a_ten_minute_target() {
-        let seen = |m: i64| standing(t0(), Some(t0() + Duration::minutes(m)), t0(), 10);
+        let seen = |m: i64| standing(t0(), Some(t0() + SignedDuration::from_mins(m)), t0(), 10);
         assert_eq!(seen(9), Standing::SeenWithin);
         assert_eq!(seen(10), Standing::SeenWithin);
         assert_eq!(seen(11), Standing::SeenPast);
         let one_second = standing(
             t0(),
-            Some(t0() + Duration::minutes(10) + Duration::seconds(1)),
+            Some(t0() + SignedDuration::from_mins(10) + SignedDuration::from_secs(1)),
             t0(),
             10,
         );
@@ -134,7 +133,7 @@ mod tests {
 
     #[test]
     fn someone_not_yet_seen_is_measured_to_now() {
-        let at = |m: i64| standing(t0(), None, t0() + Duration::minutes(m), 10);
+        let at = |m: i64| standing(t0(), None, t0() + SignedDuration::from_mins(m), 10);
         assert_eq!(at(9), Standing::WaitingWithin);
         assert_eq!(at(10), Standing::WaitingWithin);
         assert_eq!(at(11), Standing::WaitingPast);
@@ -145,7 +144,7 @@ mod tests {
     fn an_immediate_target_of_zero_allows_no_wait() {
         assert_eq!(standing(t0(), Some(t0()), t0(), 0), Standing::SeenWithin);
         assert_eq!(
-            standing(t0(), Some(t0() + Duration::seconds(1)), t0(), 0),
+            standing(t0(), Some(t0() + SignedDuration::from_secs(1)), t0(), 0),
             Standing::SeenPast
         );
     }

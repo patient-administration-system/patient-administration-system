@@ -12,7 +12,7 @@
 //! - [`BedAssignment`] tracks the current/historical bed occupation for an
 //!   encounter and is the row queried for "who is in which bed right now".
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -24,19 +24,19 @@ pub struct Admission {
     pub bed_id: Uuid,
     #[schema(required = true)]
     pub admitting_worker_id: Option<Uuid>,
-    pub admitted_at: DateTime<Utc>,
+    pub admitted_at: Timestamp,
     #[schema(required = true)]
     pub reason: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Admission {
     /// Build a new admission for the given encounter and bed. The
     /// `admitted_at` timestamp and bookkeeping fields are set to
-    /// `Utc::now()`. The admitting practitioner and reason are unset.
+    /// `Timestamp::now()`. The admitting practitioner and reason are unset.
     pub fn new(encounter_id: Uuid, bed_id: Uuid) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             encounter_id,
@@ -59,15 +59,15 @@ pub struct Transfer {
     pub to_bed_id: Uuid,
     #[schema(required = true)]
     pub reason: Option<String>,
-    pub transferred_at: DateTime<Utc>,
-    pub created_at: DateTime<Utc>,
+    pub transferred_at: Timestamp,
+    pub created_at: Timestamp,
 }
 
 impl Transfer {
     /// Build a new transfer record. `transferred_at` and `created_at` are
-    /// set to `Utc::now()`; reason is unset.
+    /// set to `Timestamp::now()`; reason is unset.
     pub fn new(admission_id: Uuid, from_bed_id: Uuid, to_bed_id: Uuid) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             admission_id,
@@ -87,19 +87,19 @@ pub struct Discharge {
     pub admission_id: Uuid,
     #[schema(required = true)]
     pub discharging_worker_id: Option<Uuid>,
-    pub discharged_at: DateTime<Utc>,
+    pub discharged_at: Timestamp,
     #[schema(required = true)]
     pub disposition: Option<String>,
     #[schema(required = true)]
     pub notes: Option<String>,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
 }
 
 impl Discharge {
     /// Build a new discharge record. `discharged_at` and `created_at` are
-    /// set to `Utc::now()`; practitioner, disposition, and notes are unset.
+    /// set to `Timestamp::now()`; practitioner, disposition, and notes are unset.
     pub fn new(admission_id: Uuid) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             admission_id,
@@ -121,18 +121,18 @@ pub struct BedAssignment {
     pub id: Uuid,
     pub encounter_id: Uuid,
     pub bed_id: Uuid,
-    pub assigned_at: DateTime<Utc>,
+    pub assigned_at: Timestamp,
     #[schema(required = true)]
-    pub released_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub released_at: Option<Timestamp>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl BedAssignment {
-    /// Build a new active bed assignment. `assigned_at` is `Utc::now()`
+    /// Build a new active bed assignment. `assigned_at` is `Timestamp::now()`
     /// and `released_at` is `None`.
     pub fn new(encounter_id: Uuid, bed_id: Uuid) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             encounter_id,
@@ -145,11 +145,11 @@ impl BedAssignment {
     }
 
     /// Mark the assignment as released. Sets `released_at` and
-    /// `updated_at` to `Utc::now()`. Idempotency is not enforced at the
+    /// `updated_at` to `Timestamp::now()`. Idempotency is not enforced at the
     /// model layer; callers (the ADT service) are responsible for not
     /// double-releasing.
     pub fn release(&mut self) {
-        let now = Utc::now();
+        let now = Timestamp::now();
         self.released_at = Some(now);
         self.updated_at = now;
     }

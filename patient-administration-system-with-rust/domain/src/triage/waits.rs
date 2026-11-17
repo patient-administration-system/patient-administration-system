@@ -2,7 +2,7 @@
 
 use super::targets::{Standing, Targets, standing};
 use super::{CATEGORIES, colour};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -23,9 +23,9 @@ pub struct CategoryWaits {
 pub struct PastTarget {
     pub encounter_id: Uuid,
     pub category: String,
-    pub arrived_at: DateTime<Utc>,
+    pub arrived_at: Timestamp,
     #[schema(required = true)]
-    pub first_contact_at: Option<DateTime<Utc>>,
+    pub first_contact_at: Option<Timestamp>,
     /// Minutes from arrival to first contact, or to now when not yet seen.
     pub minutes: i64,
     pub target_minutes: i64,
@@ -34,8 +34,8 @@ pub struct PastTarget {
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 #[schema(as = triage::WaitsReport)]
 pub struct WaitsReport {
-    pub from: DateTime<Utc>,
-    pub to: DateTime<Utc>,
+    pub from: Timestamp,
+    pub to: Timestamp,
     pub attendances: u32,
     /// Attendances with no triage category: left out of every figure below, not guessed.
     pub excluded_without_category: u32,
@@ -52,7 +52,7 @@ pub struct QueueEntry {
     pub category: Option<String>,
     #[schema(required = true)]
     pub colour: Option<&'static str>,
-    pub arrived_at: DateTime<Utc>,
+    pub arrived_at: Timestamp,
     pub waiting_minutes: i64,
     #[schema(required = true)]
     pub target_minutes: Option<i64>,
@@ -62,22 +62,22 @@ pub struct QueueEntry {
 /// One emergency attendance as read from the database.
 pub struct Attendance {
     pub encounter_id: Uuid,
-    pub arrived_at: DateTime<Utc>,
-    pub first_contact_at: Option<DateTime<Utc>>,
+    pub arrived_at: Timestamp,
+    pub first_contact_at: Option<Timestamp>,
     pub category: Option<String>,
 }
 
-pub fn minutes_between(a: DateTime<Utc>, b: DateTime<Utc>) -> i64 {
-    (b - a).num_minutes()
+pub fn minutes_between(a: Timestamp, b: Timestamp) -> i64 {
+    (b - a).as_mins()
 }
 
 /// Pure: build the report from attendances.
 pub fn build_report(
     attendances: &[Attendance],
     targets: &Targets,
-    from: DateTime<Utc>,
-    to: DateTime<Utc>,
-    now: DateTime<Utc>,
+    from: Timestamp,
+    to: Timestamp,
+    now: Timestamp,
 ) -> WaitsReport {
     let mut by_category: Vec<CategoryWaits> = CATEGORIES
         .iter()
@@ -139,7 +139,7 @@ pub fn build_report(
 pub fn build_queue(
     attendances: &[Attendance],
     targets: &Targets,
-    now: DateTime<Utc>,
+    now: Timestamp,
 ) -> Vec<QueueEntry> {
     let mut entries: Vec<(usize, QueueEntry)> = attendances
         .iter()
@@ -172,17 +172,17 @@ pub fn build_queue(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, TimeZone};
+    use jiff::SignedDuration;
 
-    fn t0() -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(2026, 10, 23, 12, 0, 0).unwrap()
+    fn t0() -> Timestamp {
+        crate::time::utc(2026, 10, 23, 12, 0, 0)
     }
 
     fn att(cat: Option<&str>, arrive_min: i64, seen_min: Option<i64>) -> Attendance {
         Attendance {
             encounter_id: Uuid::new_v4(),
-            arrived_at: t0() + Duration::minutes(arrive_min),
-            first_contact_at: seen_min.map(|m| t0() + Duration::minutes(m)),
+            arrived_at: t0() + SignedDuration::from_mins(arrive_min),
+            first_contact_at: seen_min.map(|m| t0() + SignedDuration::from_mins(m)),
             category: cat.map(str::to_string),
         }
     }
@@ -198,8 +198,8 @@ mod tests {
             &rows,
             &Targets::default(),
             t0(),
-            t0() + Duration::days(1),
-            t0() + Duration::hours(1),
+            t0() + crate::time::days(1),
+            t0() + SignedDuration::from_hours(1),
         );
         let vu = &r.by_category[1];
         assert_eq!((vu.seen_within, vu.seen_past), (2, 1));
@@ -214,8 +214,8 @@ mod tests {
             &rows,
             &Targets::default(),
             t0(),
-            t0() + Duration::days(1),
-            t0() + Duration::hours(10),
+            t0() + crate::time::days(1),
+            t0() + SignedDuration::from_hours(10),
         );
         assert_eq!((r.attendances, r.excluded_without_category), (2, 1));
         assert_eq!(r.by_category.iter().map(|c| c.attended).sum::<u32>(), 1);
@@ -230,8 +230,8 @@ mod tests {
                 &rows,
                 t,
                 t0(),
-                t0() + Duration::days(1),
-                t0() + Duration::hours(3),
+                t0() + crate::time::days(1),
+                t0() + SignedDuration::from_hours(3),
             )
         };
         assert_eq!(report(&Targets::default()).past_target.len(), 1);
@@ -248,7 +248,11 @@ mod tests {
             att(Some("very_urgent"), 2, None),
             att(Some("immediate"), 9, Some(10)),
         ];
-        let q = build_queue(&rows, &Targets::default(), t0() + Duration::minutes(30));
+        let q = build_queue(
+            &rows,
+            &Targets::default(),
+            t0() + SignedDuration::from_mins(30),
+        );
         let order: Vec<_> = q.iter().map(|e| e.category.as_deref()).collect();
         assert_eq!(
             order,

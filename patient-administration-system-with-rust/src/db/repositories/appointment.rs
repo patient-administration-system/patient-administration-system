@@ -1,7 +1,7 @@
 //! appointment repository
 
 use crate::db::sql::{Conn, Stmt, Table};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use uuid::Uuid;
 
 use crate::db::entities::appointment;
@@ -37,7 +37,7 @@ impl AppointmentRepository {
     pub async fn lock_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
     ) -> Result<Appointment> {
         let m = conn
             .one_as::<appointment::Model>(Stmt::new(
@@ -74,10 +74,10 @@ impl AppointmentRepository {
     /// earliest first; backs the staff calendar.
     pub async fn list_between<C: Conn>(
         conn: &C,
-        from: chrono::DateTime<chrono::Utc>,
-        to: chrono::DateTime<chrono::Utc>,
+        from: jiff::Timestamp,
+        to: jiff::Timestamp,
     ) -> Result<Vec<Appointment>> {
-        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE start_datetime >= $1 AND start_datetime < $2 AND deleted_at IS NULL ORDER BY start_datetime", [from.fixed_offset().into(), to.fixed_offset().into()])).await?;
+        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE start_datetime >= $1 AND start_datetime < $2 AND deleted_at IS NULL ORDER BY start_datetime", [from.into(), to.into()])).await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -85,10 +85,10 @@ impl AppointmentRepository {
     /// reminder scheduler's work list.
     pub async fn list_booked_starting_between<C: Conn>(
         conn: &C,
-        from: chrono::DateTime<chrono::Utc>,
-        to: chrono::DateTime<chrono::Utc>,
+        from: jiff::Timestamp,
+        to: jiff::Timestamp,
     ) -> Result<Vec<Appointment>> {
-        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE status = $1 AND start_datetime >= $2 AND start_datetime < $3 AND deleted_at IS NULL", [appointment_status_to_str(AppointmentStatus::Booked).into(), from.fixed_offset().into(), to.fixed_offset().into()])).await?;
+        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE status = $1 AND start_datetime >= $2 AND start_datetime < $3 AND deleted_at IS NULL", [appointment_status_to_str(AppointmentStatus::Booked).into(), from.into(), to.into()])).await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -96,10 +96,10 @@ impl AppointmentRepository {
     pub async fn list_by_practitioner<C: Conn>(
         conn: &C,
         worker_id: Uuid,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
+        start: Timestamp,
+        end: Timestamp,
     ) -> Result<Vec<Appointment>> {
-        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE worker_id = $1 AND deleted_at IS NULL AND start_datetime >= $2 AND start_datetime < $3", [worker_id.into(), start.fixed_offset().into(), end.fixed_offset().into()])).await?;
+        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE worker_id = $1 AND deleted_at IS NULL AND start_datetime >= $2 AND start_datetime < $3", [worker_id.into(), start.into(), end.into()])).await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -130,7 +130,7 @@ impl AppointmentRepository {
             Some(m) => m,
             None => return Ok(None),
         };
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set("status", appointment_status_to_str(new_status).to_string());
         if let Some(reason) = cancellation_reason {
@@ -149,8 +149,8 @@ impl AppointmentRepository {
     pub async fn find_overlapping_for_patient<C: Conn>(
         conn: &C,
         person_id: Uuid,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
+        start: Timestamp,
+        end: Timestamp,
     ) -> Result<Vec<Appointment>> {
         // Overlap: existing.start < new.end AND existing.end > new.start
         let rows = conn
@@ -172,8 +172,8 @@ impl AppointmentRepository {
     pub async fn find_overlapping_for_patient_excluding<C: Conn>(
         conn: &C,
         person_id: Uuid,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
+        start: Timestamp,
+        end: Timestamp,
         exclude_id: Uuid,
     ) -> Result<Vec<Appointment>> {
         let rows = conn
@@ -242,8 +242,8 @@ fn to_row(a: &Appointment) -> appointment::Model {
         person_id: a.person_id,
         slot_id: a.slot_id,
         worker_id: a.worker_id,
-        start_datetime: a.start_datetime.fixed_offset(),
-        end_datetime: a.end_datetime.fixed_offset(),
+        start_datetime: a.start_datetime,
+        end_datetime: a.end_datetime,
         status: appointment_status_to_str(a.status).to_string(),
         reason: a.reason.clone(),
         from_waitlist_entry_id: a.from_waitlist_entry_id,
@@ -251,21 +251,21 @@ fn to_row(a: &Appointment) -> appointment::Model {
             .cancellation_reason
             .map(|c| cancellation_reason_to_str(c).to_string()),
         series_id: a.series_id,
-        cancelled_at: a.cancelled_at.map(|t| t.fixed_offset()),
+        cancelled_at: a.cancelled_at,
         cancelled_by: a.cancelled_by.map(|c| enum_str(&c)),
         barrier_code: a.barrier_code.map(|b| enum_str(&b)),
         notice_days: a.notice_days,
-        confirmed_at: a.confirmed_at.map(|t| t.fixed_offset()),
+        confirmed_at: a.confirmed_at,
         modality: enum_str(&a.modality),
         conversion_state: a.conversion_state.map(|c| enum_str(&c)),
         conversion_barrier_code: a.conversion_barrier_code.map(|b| enum_str(&b)),
-        converted_at: a.converted_at.map(|t| t.fixed_offset()),
-        arrived_at: a.arrived_at.map(|t| t.fixed_offset()),
-        completed_at: a.completed_at.map(|t| t.fixed_offset()),
+        converted_at: a.converted_at,
+        arrived_at: a.arrived_at,
+        completed_at: a.completed_at,
         current_room: a.current_room.clone(),
         deleted_at: None,
-        created_at: a.created_at.fixed_offset(),
-        updated_at: a.updated_at.fixed_offset(),
+        created_at: a.created_at,
+        updated_at: a.updated_at,
     }
 }
 
@@ -275,8 +275,8 @@ fn from_model(m: appointment::Model) -> Result<Appointment> {
         person_id: m.person_id,
         slot_id: m.slot_id,
         worker_id: m.worker_id,
-        start_datetime: m.start_datetime.with_timezone(&chrono::Utc),
-        end_datetime: m.end_datetime.with_timezone(&chrono::Utc),
+        start_datetime: m.start_datetime,
+        end_datetime: m.end_datetime,
         status: appointment_status_from_str(&m.status)?,
         reason: m.reason,
         from_waitlist_entry_id: m.from_waitlist_entry_id,
@@ -286,11 +286,11 @@ fn from_model(m: appointment::Model) -> Result<Appointment> {
             .map(cancellation_reason_from_str)
             .transpose()?,
         series_id: m.series_id,
-        cancelled_at: m.cancelled_at.map(|t| t.with_timezone(&chrono::Utc)),
+        cancelled_at: m.cancelled_at,
         cancelled_by: m.cancelled_by.as_deref().map(from_enum_str).transpose()?,
         barrier_code: m.barrier_code.as_deref().map(from_enum_str).transpose()?,
         notice_days: m.notice_days,
-        confirmed_at: m.confirmed_at.map(|t| t.with_timezone(&chrono::Utc)),
+        confirmed_at: m.confirmed_at,
         modality: from_enum_str(&m.modality)?,
         conversion_state: m
             .conversion_state
@@ -302,26 +302,25 @@ fn from_model(m: appointment::Model) -> Result<Appointment> {
             .as_deref()
             .map(from_enum_str)
             .transpose()?,
-        converted_at: m.converted_at.map(|t| t.with_timezone(&chrono::Utc)),
-        arrived_at: m.arrived_at.map(|t| t.with_timezone(&chrono::Utc)),
-        completed_at: m.completed_at.map(|t| t.with_timezone(&chrono::Utc)),
+        converted_at: m.converted_at,
+        arrived_at: m.arrived_at,
+        completed_at: m.completed_at,
         current_room: m.current_room,
         // Derived on read, never stored, so it cannot disagree with status and notice.
         release_class: classify_release(appointment_status_from_str(&m.status)?, m.notice_days),
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
     #[test]
     fn test_appointment_roundtrip_via_row() {
-        let start = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
-        let end = Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap();
+        let start = crate::time::utc(2026, 5, 20, 9, 0, 0);
+        let end = crate::time::utc(2026, 5, 20, 10, 0, 0);
         let mut a = Appointment::new(Uuid::new_v4(), start, end);
         a.cancellation_reason = Some(CancellationReason::PatientRequest);
         let am = to_row(&a);
@@ -365,10 +364,14 @@ mod tests {
     #[test]
     fn test_outcome_fields_roundtrip_and_release_class_is_derived() {
         use crate::models::appointment::{BarrierCode, CancelledBy, ReleaseClass};
-        let start = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
-        let mut a = Appointment::new(Uuid::new_v4(), start, start + chrono::Duration::hours(1));
+        let start = crate::time::utc(2026, 5, 20, 9, 0, 0);
+        let mut a = Appointment::new(
+            Uuid::new_v4(),
+            start,
+            start + jiff::SignedDuration::from_hours(1),
+        );
         a.status = AppointmentStatus::Cancelled;
-        a.cancelled_at = Some(start - chrono::Duration::days(5));
+        a.cancelled_at = Some(start - crate::time::days(5));
         a.cancelled_by = Some(CancelledBy::Patient);
         a.barrier_code = Some(BarrierCode::CannotTravel);
         a.notice_days = Some(5);

@@ -10,7 +10,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -25,8 +25,8 @@ pub const ANSWERS: [&str; 4] = ["still_needed", "no_longer_needed", "unsure", "n
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct LeadTime {
     pub appointment_id: Uuid,
-    pub booked_at: DateTime<Utc>,
-    pub starts_at: DateTime<Utc>,
+    pub booked_at: Timestamp,
+    pub starts_at: Timestamp,
     /// Whole days from booking to the visit (negative never: an appointment starts after it is made).
     pub lead_days: i64,
 }
@@ -37,7 +37,7 @@ pub struct PathwayWait {
     pub target_service: String,
     pub weeks_waited: u32,
     #[schema(required = true)]
-    pub last_check_at: Option<DateTime<Utc>>,
+    pub last_check_at: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
@@ -56,12 +56,12 @@ impl WaitsService {
         Self { db }
     }
 
-    fn lead(appointment_id: Uuid, booked_at: DateTime<Utc>, starts_at: DateTime<Utc>) -> LeadTime {
+    fn lead(appointment_id: Uuid, booked_at: Timestamp, starts_at: Timestamp) -> LeadTime {
         LeadTime {
             appointment_id,
             booked_at,
             starts_at,
-            lead_days: (starts_at - booked_at).num_days().max(0),
+            lead_days: crate::time::whole_days(starts_at.duration_since(booked_at)).max(0),
         }
     }
 
@@ -82,7 +82,7 @@ impl WaitsService {
 
     async fn weeks(&self, pathway_id: Uuid) -> Result<u32> {
         let events = RttRepository::list_events_for_pathway(&self.db, pathway_id).await?;
-        Ok(compute_active_weeks(&events, Utc::now()))
+        Ok(compute_active_weeks(&events, Timestamp::now()))
     }
 
     /// A patient's appointments (lead time of each, not cancelled) and pathways (weeks waited).
@@ -156,7 +156,7 @@ impl WaitsService {
             .map(|r| r.col("id"))
             .collect::<Result<Vec<Uuid>>>()?;
         let events = RttRepository::events_for_pathways(&self.db, &ids).await?;
-        let now = Utc::now();
+        let now = Timestamp::now();
         let mut out = Vec::new();
         for (r, id) in rows.iter().zip(ids) {
             let w = compute_active_weeks(events.get(&id).map_or(&[][..], Vec::as_slice), now);

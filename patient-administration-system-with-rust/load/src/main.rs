@@ -342,7 +342,7 @@ async fn run(args: Args) -> Result<bool, Fail> {
         run_id,
         url: args.url.clone(),
         profile: args.profile.clone(),
-        started_at: chrono::Utc::now().to_rfc3339(),
+        started_at: jiff::Timestamp::now().to_string(),
         phases: Vec::new(),
         breaches: Vec::new(),
         knees: BTreeMap::new(),

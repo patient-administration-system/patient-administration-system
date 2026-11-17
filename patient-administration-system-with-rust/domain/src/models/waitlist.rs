@@ -1,6 +1,6 @@
 //! waitlist
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -37,13 +37,13 @@ pub struct Referral {
     pub referring_worker_id: Option<Uuid>,
     pub target_service: String,
     pub reason: Option<String>,
-    pub received_at: DateTime<Utc>,
-    pub created_at: DateTime<Utc>,
+    pub received_at: Timestamp,
+    pub created_at: Timestamp,
 }
 
 impl Referral {
     pub fn new(person_id: Uuid, target_service: impl Into<String>) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             person_id,
@@ -64,13 +64,13 @@ pub struct WaitlistEntry {
     pub target_service: String,
     pub priority: Priority,
     pub status: WaitlistStatus,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl WaitlistEntry {
     pub fn new(person_id: Uuid, target_service: impl Into<String>, priority: Priority) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             referral_id: None,
@@ -84,15 +84,15 @@ impl WaitlistEntry {
     }
 
     /// Days elapsed between `created_at` and `now` (floor, in whole days).
-    pub fn days_waiting(&self, now: DateTime<Utc>) -> i64 {
-        (now - self.created_at).num_days()
+    pub fn days_waiting(&self, now: Timestamp) -> i64 {
+        crate::time::whole_days(now.duration_since(self.created_at))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
+    use jiff::SignedDuration;
 
     #[test]
     fn test_referral_new_defaults() {
@@ -150,13 +150,13 @@ mod tests {
     fn test_days_waiting_computes_correctly() {
         let mut e = WaitlistEntry::new(Uuid::new_v4(), "ent", Priority::Routine);
         // Pin created_at so the result is deterministic.
-        let start = Utc::now();
+        let start = Timestamp::now();
         e.created_at = start;
-        let now = start + Duration::days(10);
+        let now = start + crate::time::days(10);
         assert_eq!(e.days_waiting(now), 10);
 
         // Less than a full day should round down to 0.
-        let now_partial = start + Duration::hours(23);
+        let now_partial = start + SignedDuration::from_hours(23);
         assert_eq!(e.days_waiting(now_partial), 0);
     }
 

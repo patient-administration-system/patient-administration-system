@@ -12,10 +12,10 @@
 //! 4. It MLLP-frames the payload and writes it to the peer.
 //!
 //! Each builder is pure and synchronous — no I/O, no clock reads except
-//! the explicit `now: DateTime<Utc>` parameter — so they're trivial to
+//! the explicit `now: Timestamp` parameter — so they're trivial to
 //! unit-test. Hydration + transport are the publisher's job.
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use uuid::Uuid;
 
 use super::{Segment, encode_message, message, segment};
@@ -29,8 +29,8 @@ const VERSION_ID: &str = "2.5";
 const DEFAULT_FAC: &str = "FAC";
 
 /// Format a timestamp as HL7 `YYYYMMDDHHMMSS` in UTC.
-pub fn fmt_ts(t: DateTime<Utc>) -> String {
-    t.format("%Y%m%d%H%M%S").to_string()
+pub fn fmt_ts(t: Timestamp) -> String {
+    t.strftime("%Y%m%d%H%M%S").to_string()
 }
 
 /// Build MSH for an outbound message. `msg_type` is the family
@@ -43,7 +43,7 @@ pub fn build_msh(
     msg_type: &str,
     trigger: &str,
     control_id: &str,
-    now: DateTime<Utc>,
+    now: Timestamp,
 ) -> Segment {
     segment(
         "MSH",
@@ -65,7 +65,7 @@ pub fn build_msh(
 }
 
 /// EVN segment. `recorded` is the event-recording timestamp.
-pub fn build_evn(trigger: &str, recorded: DateTime<Utc>) -> Segment {
+pub fn build_evn(trigger: &str, recorded: Timestamp) -> Segment {
     segment("EVN", vec![trigger.into(), fmt_ts(recorded)])
 }
 
@@ -319,7 +319,7 @@ pub struct EncodeContext<'a> {
     pub receiver: &'a str,
     pub trigger: &'a str,
     pub control_id: &'a str,
-    pub now: DateTime<Utc>,
+    pub now: Timestamp,
 }
 
 /// Encode an ADT message: MSH + EVN + PID + PV1.
@@ -487,11 +487,11 @@ fn appt_status_to_str(s: AppointmentStatus) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{TimeZone, Utc};
+    use jiff::Timestamp;
     use serde_json::json;
 
-    fn at(y: i32, mo: u32, d: u32, h: u32, mi: u32, s: u32) -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(y, mo, d, h, mi, s).unwrap()
+    fn at(y: i16, mo: i8, d: i8, h: i8, mi: i8, s: i8) -> Timestamp {
+        crate::time::utc(y, mo, d, h, mi, s)
     }
 
     fn sample_person() -> crate::upstream::Person {
@@ -597,7 +597,7 @@ mod tests {
         assert!(wire.starts_with("PV1|1|I|^^B-101|"));
     }
 
-    fn ctx<'a>(trigger: &'a str, control_id: &'a str, now: DateTime<Utc>) -> EncodeContext<'a> {
+    fn ctx<'a>(trigger: &'a str, control_id: &'a str, now: Timestamp) -> EncodeContext<'a> {
         EncodeContext {
             sender: "PAS",
             receiver: "EMR",

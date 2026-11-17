@@ -86,8 +86,8 @@ pub async fn dashboard_page(State(state): State<AppState>) -> Html<String> {
     ctx.insert("version", env!("CARGO_PKG_VERSION"));
     ctx.insert(
         "rendered_at",
-        &chrono::Utc::now()
-            .format("%Y-%m-%d %H:%M:%S UTC")
+        &jiff::Timestamp::now()
+            .strftime("%Y-%m-%d %H:%M:%S UTC")
             .to_string(),
     );
     ctx.insert("refresh_seconds", &REFRESH_SECONDS);
@@ -171,7 +171,7 @@ async fn collect_breaches(state: &AppState) -> Vec<BreachRow> {
             tracing::error!(error = %e, "dashboard: RTT pathways could not be read");
             Vec::new()
         });
-    let now = chrono::Utc::now();
+    let now = jiff::Timestamp::now();
     let mut out = Vec::new();
     for p in pathways {
         let events = match RttRepository::list_events_for_pathway(&state.db, p.id).await {
@@ -209,7 +209,7 @@ async fn collect_audit(state: &AppState) -> Vec<AuditRow> {
         })
         .into_iter()
         .map(|m| AuditRow {
-            at_short: m.at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            at_short: m.at.strftime("%Y-%m-%d %H:%M:%S").to_string(),
             entity_type: m.entity_type,
             action: m.action,
             user_id: m.user_id,

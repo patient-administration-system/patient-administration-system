@@ -11,7 +11,7 @@
 mod common;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::communication::consent::{self, QuietHours};
 use patient_administration_system::communication::ladder::LadderService;
@@ -120,9 +120,9 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
     // Ten patients, each reachable by text only, none of whom ever replies.
     let stub = Arc::new(StubPersonClient::new());
     let mut patients = Vec::new();
-    let base = Utc::now()
-        + Duration::days(900)
-        + Duration::minutes((Uuid::new_v4().as_u128() % 50_000) as i64);
+    let base = Timestamp::now()
+        + patient_administration_system::time::days(900)
+        + SignedDuration::from_mins((Uuid::new_v4().as_u128() % 50_000) as i64);
     let s = common::build_state(&common::database_url().unwrap()).await;
     for i in 0..10 {
         let person = Uuid::new_v4();
@@ -135,8 +135,8 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
             serde_json::json!([{ "system": "phone", "value": phone }]),
         );
         stub.insert(Person { id: person, data });
-        let start = base + Duration::minutes(i * 7);
-        let mut a = Appointment::new(person, start, start + Duration::minutes(30));
+        let start = base + SignedDuration::from_mins(i * 7);
+        let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(30));
         a.status = AppointmentStatus::Booked;
         patients.push(Patient {
             person,
@@ -159,15 +159,15 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
     let first = patients[0].appt.start_datetime;
     let last = patients.last().unwrap().appt.start_datetime;
     for before in [
-        Duration::days(7),
-        Duration::days(4),
-        Duration::days(3),
-        Duration::hours(24),
+        patient_administration_system::time::days(7),
+        patient_administration_system::time::days(4),
+        patient_administration_system::time::days(3),
+        SignedDuration::from_hours(24),
     ] {
         for round in 0..4 {
             // Faults flicker on and off like a real outage.
             faults.store(usize::from(chaos.chance(70)), Ordering::Relaxed);
-            let now: DateTime<Utc> = last - before + Duration::minutes(1 + round);
+            let now: Timestamp = last - before + SignedDuration::from_mins(1 + round);
             ladder.run_once(now).await.unwrap_or_else(|e| {
                 panic!("PAS_CHAOS_SEED={seed}: the ladder errored under faults: {e}")
             });
@@ -175,7 +175,10 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
         let _ = first;
     }
     faults.store(0, Ordering::Relaxed);
-    ladder.run_once(last - Duration::hours(1)).await.unwrap();
+    ladder
+        .run_once(last - SignedDuration::from_hours(1))
+        .await
+        .unwrap();
 
     let delivered = carrier.delivered.lock().unwrap().clone();
     let mut sent_rows_total = 0usize;

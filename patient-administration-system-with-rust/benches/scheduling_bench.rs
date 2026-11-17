@@ -5,17 +5,17 @@
 //! conflict detection.
 
 #![cfg_attr(not(test), forbid(unsafe_code))]
-use chrono::{Duration, Utc};
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::models::TimeRange;
 use std::hint::black_box;
 
 fn make_ranges(count: usize) -> Vec<TimeRange> {
     let mut ranges = Vec::with_capacity(count);
-    let base = Utc::now();
+    let base = Timestamp::now();
     for i in 0..count {
-        let start = base + Duration::minutes(i as i64 * 30);
-        let end = start + Duration::minutes(30);
+        let start = base + SignedDuration::from_mins(i as i64 * 30);
+        let end = start + SignedDuration::from_mins(30);
         ranges.push(TimeRange { start, end });
     }
     ranges
@@ -26,8 +26,8 @@ fn bench_overlap_scan(c: &mut Criterion) {
     for size in [16, 64, 256, 1024].iter() {
         let ranges = make_ranges(*size);
         let target = TimeRange {
-            start: Utc::now() + Duration::minutes(100),
-            end: Utc::now() + Duration::minutes(130),
+            start: Timestamp::now() + SignedDuration::from_mins(100),
+            end: Timestamp::now() + SignedDuration::from_mins(130),
         };
         group.bench_with_input(BenchmarkId::from_parameter(size), &ranges, |b, ranges| {
             b.iter(|| {

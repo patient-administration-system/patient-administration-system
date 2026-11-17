@@ -11,11 +11,11 @@ use crate::db::sql::{FromRow, Param, Row, Table};
 pub struct Model {
     pub id: Uuid,
     pub schedule_id: Uuid,
-    pub start_datetime: chrono::DateTime<chrono::FixedOffset>,
-    pub end_datetime: chrono::DateTime<chrono::FixedOffset>,
+    pub start_datetime: jiff::Timestamp,
+    pub end_datetime: jiff::Timestamp,
     pub status: String,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

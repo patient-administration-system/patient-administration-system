@@ -12,7 +12,7 @@
 //! [`EncounterStatus::try_transition_to`] to validate moves between states;
 //! invalid transitions return [`crate::Error::InvalidStateTransition`].
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -103,24 +103,24 @@ pub struct Encounter {
     pub person_id: Uuid,
     pub class: EncounterClass,
     pub status: EncounterStatus,
-    pub period_start: DateTime<Utc>,
+    pub period_start: Timestamp,
     #[schema(required = true)]
-    pub period_end: Option<DateTime<Utc>>,
+    pub period_end: Option<Timestamp>,
     #[schema(required = true)]
     pub worker_id: Option<Uuid>,
     #[schema(required = true)]
     pub department_id: Option<Uuid>,
     #[schema(required = true)]
     pub reason: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Encounter {
     /// Build a new encounter in the `Planned` state for the given patient
-    /// and class. `period_start` and the timestamps are set to `Utc::now()`.
+    /// and class. `period_start` and the timestamps are set to `Timestamp::now()`.
     pub fn new(person_id: Uuid, class: EncounterClass) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             person_id,

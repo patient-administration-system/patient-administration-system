@@ -3,7 +3,7 @@
 //! server's `noshow` module, which re-exports this one; read its documentation for what the score may and may
 //! not do (NFR-11).
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use uuid::Uuid;
@@ -58,7 +58,7 @@ pub struct Shown {
     pub factors: Vec<Factor>,
     pub sample_size: i64,
     pub model_version: String,
-    pub computed_at: DateTime<Utc>,
+    pub computed_at: Timestamp,
 }
 
 #[cfg(test)]

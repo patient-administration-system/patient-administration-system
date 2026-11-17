@@ -2,7 +2,7 @@
 
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::NaiveDate;
+use jiff::civil::Date;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -15,7 +15,7 @@ use crate::follow_up_delay::FollowUpDelayService;
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct TargetBody {
-    pub target_date: NaiveDate,
+    pub target_date: Date,
     /// The person setting the target.
     pub set_by: String,
 }
@@ -89,8 +89,8 @@ pub async fn delay_report(
     let today = state
         .clock
         .now()
-        .with_timezone(&crate::inbound::messages::timezone())
-        .date_naive();
+        .to_zoned_datetime(crate::inbound::messages::timezone())
+        .date();
     match FollowUpDelayService::new(state.db.clone())
         .report(today, k)
         .await

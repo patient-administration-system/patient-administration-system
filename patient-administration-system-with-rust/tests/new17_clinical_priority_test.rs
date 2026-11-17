@@ -3,7 +3,7 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
+use jiff::Timestamp;
 use patient_administration_system::clinical_priority::ClinicalPriorityService;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
@@ -34,7 +34,10 @@ async fn a_named_clinician_sets_it_and_nothing_is_reordered_by_it() {
     let service = format!("svc-{}", Uuid::new_v4());
     let first = entry(&state.db, &service, "routine", "waiting").await;
     let second = entry(&state.db, &service, "routine", "waiting").await;
-    let review = Utc::now().date_naive() + Duration::days(30);
+    let review = Timestamp::now()
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date()
+        + patient_administration_system::time::days(30);
 
     for (code, by) in [("P1a", " "), ("P9", "Mr Jones, consultant")] {
         assert!(
@@ -101,11 +104,13 @@ async fn an_entry_past_its_review_date_is_listed_until_it_is_reviewed() {
     let service = format!("svc-{}", Uuid::new_v4());
     let overdue = entry(&state.db, &service, "urgent", "waiting").await;
     let due_later = entry(&state.db, &service, "urgent", "waiting").await;
-    let today = Utc::now().date_naive();
+    let today = Timestamp::now()
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
     svc.set(
         overdue,
         "P2",
-        today - Duration::days(3),
+        today - patient_administration_system::time::days(3),
         "Ms Patel, consultant",
         &UserContext::system(),
     )
@@ -114,7 +119,7 @@ async fn an_entry_past_its_review_date_is_listed_until_it_is_reviewed() {
     svc.set(
         due_later,
         "P2",
-        today + Duration::days(3),
+        today + patient_administration_system::time::days(3),
         "Ms Patel, consultant",
         &UserContext::system(),
     )
@@ -131,7 +136,7 @@ async fn an_entry_past_its_review_date_is_listed_until_it_is_reviewed() {
     svc.set(
         overdue,
         "P2",
-        today + Duration::days(28),
+        today + patient_administration_system::time::days(28),
         "Ms Patel, consultant",
         &UserContext::system(),
     )

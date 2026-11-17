@@ -311,7 +311,7 @@ fn spawn_subscriptions(jobs: &mut Jobs, db: &patient_administration_system::db::
         move || {
             let svc = svc.clone();
             async move {
-                if let Err(e) = svc.tick(chrono::Utc::now()).await {
+                if let Err(e) = svc.tick(jiff::Timestamp::now()).await {
                     tracing::warn!("subscription pass failed: {e}");
                 }
             }

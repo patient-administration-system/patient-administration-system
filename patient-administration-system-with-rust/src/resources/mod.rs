@@ -41,9 +41,9 @@ pub struct BedLine {
     pub admission_id: Option<Uuid>,
     /// When the person was put in this bed.
     #[schema(required = true)]
-    pub in_bed_since: Option<chrono::DateTime<chrono::Utc>>,
+    pub in_bed_since: Option<jiff::Timestamp>,
     #[schema(required = true)]
-    pub admitted_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub admitted_at: Option<jiff::Timestamp>,
     /// Whole days since admission, counted in the service's time zone.
     #[schema(required = true)]
     pub days_in_hospital: Option<i64>,
@@ -72,7 +72,7 @@ impl ResourcesService {
         use crate::db::sql::{Conn, Stmt};
         let occupancy = self.ward_occupancy(ward_id).await?;
         let tz = crate::inbound::messages::timezone();
-        let today = chrono::Utc::now().with_timezone(&tz).date_naive();
+        let today = jiff::Timestamp::now().to_zoned_datetime(tz.clone()).date();
         let rows = self
             .db
             .all(Stmt::new(
@@ -89,7 +89,7 @@ impl ResourcesService {
         let beds = rows
             .iter()
             .map(|r| {
-                let admitted_at: Option<chrono::DateTime<chrono::Utc>> = r.col("admitted_at")?;
+                let admitted_at: Option<jiff::Timestamp> = r.col("admitted_at")?;
                 Ok(BedLine {
                     bed_id: r.col("bed_id")?,
                     bed: r.col("bed")?,
@@ -103,9 +103,7 @@ impl ResourcesService {
                     in_bed_since: r.col("assigned_at")?,
                     admitted_at,
                     days_in_hospital: admitted_at.map(|t| {
-                        (today - t.with_timezone(&tz).date_naive())
-                            .num_days()
-                            .max(0)
+                        crate::time::day_count(t.to_zoned_datetime(tz.clone()).date(), today).max(0)
                     }),
                 })
             })
@@ -138,7 +136,7 @@ impl ResourcesService {
         &self,
         bed_id: Uuid,
         new_status: BedStatus,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Bed> {
         let ctx_clone = ctx.clone();

@@ -4,7 +4,7 @@
 //! the shared [`crate::models::Money`] type. Invoices follow a small state
 //! machine: `Draft → Finalized → Paid | PartiallyPaid | Void`.
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -65,20 +65,20 @@ pub struct Account {
     /// ISO 4217 currency of all charges/invoices on this account.
     pub currency: crate::models::Iso4217,
     /// When the account was opened.
-    pub opened_at: DateTime<Utc>,
+    pub opened_at: Timestamp,
     /// When the account was closed, if applicable.
     #[schema(required = true)]
-    pub closed_at: Option<DateTime<Utc>>,
+    pub closed_at: Option<Timestamp>,
     /// Row creation timestamp.
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
     /// Last update timestamp.
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: Timestamp,
 }
 
 impl Account {
     /// Create a new open account for `person_id` in `currency`.
     pub fn new(person_id: Uuid, currency: crate::models::Iso4217) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             person_id,
@@ -115,9 +115,9 @@ pub struct Charge {
     /// Amount and currency of the charge.
     pub amount: crate::models::Money,
     /// When the charge was posted.
-    pub posted_at: DateTime<Utc>,
+    pub posted_at: Timestamp,
     /// Row creation timestamp.
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
 }
 
 impl Charge {
@@ -128,7 +128,7 @@ impl Charge {
         description: String,
         amount: crate::models::Money,
     ) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             account_id,
@@ -161,17 +161,17 @@ pub struct Invoice {
     pub charge_ids: Vec<Uuid>,
     /// When the invoice was finalized, if it has been.
     #[schema(required = true)]
-    pub finalized_at: Option<DateTime<Utc>>,
+    pub finalized_at: Option<Timestamp>,
     /// Row creation timestamp.
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
     /// Last update timestamp.
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: Timestamp,
 }
 
 impl Invoice {
     /// Create a new draft invoice for `account_id` with zero `total` in `currency`.
     pub fn new(account_id: Uuid, currency: crate::models::Iso4217) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             account_id,
@@ -193,7 +193,7 @@ impl Invoice {
                 "Invoice: must be Draft to finalize",
             ));
         }
-        let now = Utc::now();
+        let now = Timestamp::now();
         self.status = InvoiceStatus::Finalized;
         self.finalized_at = Some(now);
         self.updated_at = now;
@@ -216,15 +216,15 @@ pub struct Payment {
     #[schema(required = true)]
     pub reference: Option<String>,
     /// When the payment was posted.
-    pub posted_at: DateTime<Utc>,
+    pub posted_at: Timestamp,
     /// Row creation timestamp.
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
 }
 
 impl Payment {
     /// Create a new payment with `posted_at` set to now and no external `reference`.
     pub fn new(invoice_id: Uuid, amount: crate::models::Money, method: PaymentMethod) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             invoice_id,

@@ -12,8 +12,8 @@ impl AnalyticsService {
     pub async fn refill_rates(
         &self,
         group_by: &[RefillDim],
-        from: Option<DateTime<Utc>>,
-        to: Option<DateTime<Utc>>,
+        from: Option<Timestamp>,
+        to: Option<Timestamp>,
         k: Option<i64>,
     ) -> Result<RefillReport> {
         if group_by.is_empty() || group_by.len() > 4 {
@@ -29,8 +29,8 @@ impl AnalyticsService {
         let k = k.unwrap_or(0).max(Self::minimum_k());
         // Release times are stamped by the database's clock, which can be a little ahead of this server's, so
         // the default end is a few minutes ahead of now rather than exactly now.
-        let to = to.unwrap_or_else(|| Utc::now() + chrono::Duration::minutes(5));
-        let from = from.unwrap_or_else(|| to - chrono::Duration::days(90));
+        let to = to.unwrap_or_else(|| Timestamp::now() + jiff::SignedDuration::from_mins(5));
+        let from = from.unwrap_or_else(|| to - crate::time::days(90));
         let select: Vec<String> = group_by
             .iter()
             .enumerate()
@@ -110,8 +110,8 @@ impl AnalyticsService {
     pub async fn outcomes(
         &self,
         group_by: &[Dim],
-        from: Option<DateTime<Utc>>,
-        to: Option<DateTime<Utc>>,
+        from: Option<Timestamp>,
+        to: Option<Timestamp>,
         k: Option<i64>,
     ) -> Result<Report> {
         if group_by.is_empty() || group_by.len() > 4 {
@@ -125,9 +125,9 @@ impl AnalyticsService {
             seen.push(*d);
         }
         let k = k.unwrap_or(0).max(Self::minimum_k());
-        let to = to.unwrap_or_else(|| Utc::now() + chrono::Duration::minutes(5));
-        let from = from.unwrap_or_else(|| to - chrono::Duration::days(90));
-        let tz = crate::inbound::messages::timezone().name().to_string();
+        let to = to.unwrap_or_else(|| Timestamp::now() + jiff::SignedDuration::from_mins(5));
+        let from = from.unwrap_or_else(|| to - crate::time::days(90));
+        let tz = crate::time::zone_name(&crate::inbound::messages::timezone());
 
         let select: Vec<String> = group_by
             .iter()

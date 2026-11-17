@@ -2,7 +2,7 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::communication::LogMessageSender;
 use patient_administration_system::communication::reminders::ReminderService;
 use patient_administration_system::db::entities::generated_letter;
@@ -45,8 +45,8 @@ async fn book(
     person_id: Uuid,
     in_hours: i64,
 ) -> Appointment {
-    let start = Utc::now() + Duration::hours(in_hours);
-    let mut a = Appointment::new(person_id, start, start + Duration::minutes(30));
+    let start = Timestamp::now() + SignedDuration::from_hours(in_hours);
+    let mut a = Appointment::new(person_id, start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     a.reason = Some("Knee review".into());
     AppointmentRepository::create(db, &a).await.unwrap()
@@ -79,7 +79,7 @@ async fn reminders_send_once_skip_unreachable_and_ignore_far_future() {
     let far = book(&state.db, reachable.id, 24 * 10).await;
 
     let first = service
-        .run_once(Utc::now(), Duration::hours(24))
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
         .await
         .unwrap();
     assert!(first.sent >= 1);
@@ -112,7 +112,7 @@ async fn reminders_send_once_skip_unreachable_and_ignore_far_future() {
 
     // A second scan must not send again.
     service
-        .run_once(Utc::now(), Duration::hours(24))
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
         .await
         .unwrap();
     assert_eq!(letters_for(&state.db, soon.id).await, 1, "no double send");
@@ -146,7 +146,7 @@ async fn edited_template_wording_is_what_gets_sent() {
 
     let appt = book(&state.db, p.id, 4).await;
     service
-        .run_once(Utc::now(), Duration::hours(24))
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
         .await
         .unwrap();
 
@@ -263,8 +263,8 @@ async fn only_a_booked_appointment_is_reminded() {
         AppointmentStatus::Arrived,
         AppointmentStatus::Proposed,
     ] {
-        let start = Utc::now() + Duration::hours(3);
-        let mut a = Appointment::new(reachable.id, start, start + Duration::minutes(30));
+        let start = Timestamp::now() + SignedDuration::from_hours(3);
+        let mut a = Appointment::new(reachable.id, start, start + SignedDuration::from_mins(30));
         a.status = status;
         a.reason = Some("Knee review".into());
         others.push((
@@ -274,7 +274,7 @@ async fn only_a_booked_appointment_is_reminded() {
     }
 
     service
-        .run_once(Utc::now(), Duration::hours(24))
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
         .await
         .unwrap();
     assert_eq!(letters_for(&state.db, booked.id).await, 1);

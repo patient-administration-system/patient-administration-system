@@ -12,8 +12,8 @@
 #![cfg_attr(not(test), forbid(unsafe_code))]
 use axum::body::Body;
 use axum::http::Request;
-use chrono::{Duration, Utc};
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::{AppState, router};
 use patient_administration_system::db::connect;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
@@ -60,10 +60,12 @@ static NEXT_SLOT: AtomicI64 = AtomicI64::new(0);
 
 async fn slot(state: &AppState, schedule_id: Uuid) -> Slot {
     let n = NEXT_SLOT.fetch_add(1, Ordering::Relaxed);
-    let start = Utc::now() + Duration::days(400) + Duration::minutes(30 * n);
+    let start = Timestamp::now()
+        + patient_administration_system::time::days(400)
+        + SignedDuration::from_mins(30 * n);
     SlotRepository::create(
         &state.db,
-        &Slot::new(schedule_id, start, start + Duration::minutes(30)),
+        &Slot::new(schedule_id, start, start + SignedDuration::from_mins(30)),
     )
     .await
     .expect("create slot")
@@ -140,8 +142,8 @@ fn bench_queries(c: &mut Criterion) {
             }
             sched
         });
-        let from = Utc::now();
-        let to = from + Duration::days(4000);
+        let from = Timestamp::now();
+        let to = from + patient_administration_system::time::days(4000);
         group.bench_with_input(BenchmarkId::new("find_free_in_range", n), &n, |b, _| {
             b.to_async(&rt).iter(|| async {
                 SlotRepository::find_free_in_range(&st.db, sched.id, from, to)
@@ -150,12 +152,16 @@ fn bench_queries(c: &mut Criterion) {
             });
         });
     }
-    let from = Utc::now();
+    let from = Timestamp::now();
     group.bench_function("appointments_list_between_one_day", |b| {
         b.to_async(&rt).iter(|| async {
-            AppointmentRepository::list_between(&st.db, from, from + Duration::days(1))
-                .await
-                .expect("query")
+            AppointmentRepository::list_between(
+                &st.db,
+                from,
+                from + patient_administration_system::time::days(1),
+            )
+            .await
+            .expect("query")
         });
     });
     group.finish();
@@ -175,9 +181,9 @@ fn bench_router(c: &mut Criterion) {
             .expect("book")
     });
     let app = router(st.clone());
-    let from = Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
-    let to = (Utc::now() + Duration::days(1))
-        .format("%Y-%m-%dT%H:%M:%SZ")
+    let from = Timestamp::now().strftime("%Y-%m-%dT%H:%M:%SZ").to_string();
+    let to = (Timestamp::now() + patient_administration_system::time::days(1))
+        .strftime("%Y-%m-%dT%H:%M:%SZ")
         .to_string();
     let mut group = c.benchmark_group("router_in_process");
     for (name, uri) in [

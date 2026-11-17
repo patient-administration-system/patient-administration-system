@@ -86,7 +86,7 @@ impl GroupSessionService {
         slot_id: Uuid,
         capacity: i32,
         set_by: &str,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<()> {
         if !(1..=MAX_CAPACITY).contains(&capacity) {
@@ -106,7 +106,7 @@ impl GroupSessionService {
 .await?
             .ok_or_else(|| Error::not_found(format!("slot {slot_id}")))?;
         let old: i32 = slot.col("capacity")?;
-        let stored: chrono::DateTime<chrono::Utc> = slot.col("updated_at")?;
+        let stored: jiff::Timestamp = slot.col("updated_at")?;
         if !crate::api::rest::concurrency::is_current(stored, expected) {
             return Err(Error::precondition_failed(
                 "the slot has changed since it was read; read it again",

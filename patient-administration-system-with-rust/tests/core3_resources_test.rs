@@ -3,7 +3,7 @@
 
 mod common;
 
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::schedule::ScheduleRepository;
@@ -22,18 +22,19 @@ async fn schedule(s: &AppState, owner: ScheduleOwner, service: &str) -> Uuid {
         .id
 }
 
-async fn slot(s: &AppState, schedule: Uuid, start: DateTime<Utc>, mins: i64) -> Uuid {
+async fn slot(s: &AppState, schedule: Uuid, start: Timestamp, mins: i64) -> Uuid {
     SlotRepository::create(
         &s.db,
-        &Slot::new(schedule, start, start + Duration::minutes(mins)),
+        &Slot::new(schedule, start, start + SignedDuration::from_mins(mins)),
     )
     .await
     .unwrap()
     .id
 }
 
-fn when() -> DateTime<Utc> {
-    Utc::now() + Duration::days(30 + (Uuid::new_v4().as_u128() % 3000) as i64)
+fn when() -> Timestamp {
+    Timestamp::now()
+        + patient_administration_system::time::days(30 + (Uuid::new_v4().as_u128() % 3000) as i64)
 }
 
 async fn state() -> AppState {
@@ -52,7 +53,7 @@ async fn two_schedules_of_one_room_cannot_both_hold_a_busy_slot_at_the_same_time
     let t = when();
     let (sa, sb) = (
         slot(&s, a, t, 30).await,
-        slot(&s, b, t + Duration::minutes(15), 30).await,
+        slot(&s, b, t + SignedDuration::from_mins(15), 30).await,
     );
     s.scheduling
         .book_slot(sa, Uuid::new_v4(), &sys())
@@ -100,7 +101,7 @@ async fn different_owners_and_back_to_back_slots_are_fine_and_a_cancel_frees_the
     );
     let (sa, sb) = (
         slot(&s, a, t, 30).await,
-        slot(&s, b, t + Duration::minutes(30), 30).await,
+        slot(&s, b, t + SignedDuration::from_mins(30), 30).await,
     );
     let appt = s
         .scheduling
@@ -216,8 +217,8 @@ async fn moving_a_patient_into_a_taken_room_is_refused_and_leaves_them_where_the
     let t = when();
     let (own, taken, target) = (
         slot(&s, a, t, 30).await,
-        slot(&s, a, t + Duration::hours(3), 30).await,
-        slot(&s, b, t + Duration::hours(3), 30).await,
+        slot(&s, a, t + SignedDuration::from_hours(3), 30).await,
+        slot(&s, b, t + SignedDuration::from_hours(3), 30).await,
     );
     let person = Uuid::new_v4();
     let appt = s.scheduling.book_slot(own, person, &sys()).await.unwrap();

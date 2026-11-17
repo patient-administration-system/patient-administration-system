@@ -20,10 +20,10 @@ pub struct Model {
     pub policy_number: String,
     pub group_number: Option<String>,
     pub relationship: String,
-    pub start_date: chrono::NaiveDate,
-    pub end_date: Option<chrono::NaiveDate>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub start_date: jiff::civil::Date,
+    pub end_date: Option<jiff::civil::Date>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

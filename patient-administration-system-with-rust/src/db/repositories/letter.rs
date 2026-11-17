@@ -60,7 +60,7 @@ impl LetterRepository {
     pub async fn lock_template_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
     ) -> Result<LetterTemplate> {
         let m = conn
             .one_as::<letter_template::Model>(Stmt::new(
@@ -89,7 +89,7 @@ impl LetterRepository {
             .ok_or_else(|| Error::not_found(format!("letter template {}", t.id)))?;
         let mut row = template_to_row(t)?;
         row.created_at = existing.created_at;
-        row.updated_at = chrono::Utc::now().fixed_offset();
+        row.updated_at = jiff::Timestamp::now();
         let updated = row.update_row(conn).await?;
         template_from_model(updated)
     }
@@ -175,7 +175,7 @@ impl LetterRepository {
             ))
             .await?
             .ok_or_else(|| Error::not_found(format!("generated_letter {id}")))?;
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set(
             "status",
@@ -195,7 +195,7 @@ impl LetterRepository {
             ))
             .await?
             .ok_or_else(|| Error::not_found(format!("generated_letter {id}")))?;
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set(
             "status",
@@ -265,8 +265,8 @@ fn template_to_row(t: &LetterTemplate) -> Result<letter_template::Model> {
         channels,
         active: t.active,
         locale: t.locale.clone(),
-        created_at: t.created_at.fixed_offset(),
-        updated_at: t.updated_at.fixed_offset(),
+        created_at: t.created_at,
+        updated_at: t.updated_at,
     })
 }
 
@@ -282,8 +282,8 @@ fn template_from_model(m: letter_template::Model) -> Result<LetterTemplate> {
             .map_err(|e| Error::internal(format!("deserialize channels: {e}")))?,
         active: m.active,
         locale: m.locale,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 
@@ -297,12 +297,12 @@ fn letter_to_row(g: &GeneratedLetter) -> generated_letter::Model {
         rendered_body: g.rendered_body.clone(),
         channel: delivery_channel_to_str(g.channel).to_string(),
         status: letter_status_to_str(g.status).to_string(),
-        sent_at: g.sent_at.map(|t| t.fixed_offset()),
+        sent_at: g.sent_at,
         locale: g.locale.clone(),
         trigger: g.trigger.clone(),
         trigger_ref: g.trigger_ref.clone(),
-        created_at: g.created_at.fixed_offset(),
-        updated_at: g.updated_at.fixed_offset(),
+        created_at: g.created_at,
+        updated_at: g.updated_at,
     }
 }
 
@@ -316,12 +316,12 @@ fn letter_from_model(m: generated_letter::Model) -> Result<GeneratedLetter> {
         rendered_body: m.rendered_body,
         channel: delivery_channel_from_str(&m.channel)?,
         status: letter_status_from_str(&m.status)?,
-        sent_at: m.sent_at.map(|t| t.with_timezone(&chrono::Utc)),
+        sent_at: m.sent_at,
         locale: m.locale,
         trigger: m.trigger,
         trigger_ref: m.trigger_ref,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 

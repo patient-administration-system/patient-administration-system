@@ -1,6 +1,6 @@
 //! schedule
 
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -24,13 +24,13 @@ pub struct Schedule {
     pub owner: ScheduleOwner,
     pub service_type: String,
     pub active: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Schedule {
     pub fn new(owner: ScheduleOwner, service_type: String) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             owner,
@@ -77,16 +77,16 @@ impl SlotStatus {
 pub struct Slot {
     pub id: Uuid,
     pub schedule_id: Uuid,
-    pub start_datetime: DateTime<Utc>,
-    pub end_datetime: DateTime<Utc>,
+    pub start_datetime: Timestamp,
+    pub end_datetime: Timestamp,
     pub status: SlotStatus,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Slot {
-    pub fn new(schedule_id: Uuid, start: DateTime<Utc>, end: DateTime<Utc>) -> Self {
-        let now = Utc::now();
+    pub fn new(schedule_id: Uuid, start: Timestamp, end: Timestamp) -> Self {
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             schedule_id,
@@ -98,7 +98,7 @@ impl Slot {
         }
     }
 
-    pub fn duration(&self) -> Duration {
+    pub fn duration(&self) -> SignedDuration {
         self.end_datetime - self.start_datetime
     }
 }
@@ -106,7 +106,6 @@ impl Slot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
     #[test]
     fn test_schedule_new_defaults() {
@@ -121,8 +120,8 @@ mod tests {
     #[test]
     fn test_slot_new_status_free() {
         let schedule_id = Uuid::new_v4();
-        let start = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
-        let end = Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap();
+        let start = crate::time::utc(2026, 5, 20, 9, 0, 0);
+        let end = crate::time::utc(2026, 5, 20, 10, 0, 0);
         let slot = Slot::new(schedule_id, start, end);
         assert_eq!(slot.schedule_id, schedule_id);
         assert_eq!(slot.start_datetime, start);
@@ -134,10 +133,10 @@ mod tests {
     #[test]
     fn test_slot_duration() {
         let schedule_id = Uuid::new_v4();
-        let start = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
-        let end = Utc.with_ymd_and_hms(2026, 5, 20, 10, 30, 0).unwrap();
+        let start = crate::time::utc(2026, 5, 20, 9, 0, 0);
+        let end = crate::time::utc(2026, 5, 20, 10, 30, 0);
         let slot = Slot::new(schedule_id, start, end);
-        assert_eq!(slot.duration(), Duration::minutes(90));
+        assert_eq!(slot.duration(), SignedDuration::from_mins(90));
     }
 
     #[test]

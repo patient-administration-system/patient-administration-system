@@ -11,7 +11,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -34,8 +34,8 @@ crate::string_enum! {
     }
 }
 
-fn due_after() -> Duration {
-    Duration::hours(env::int("PAS_FOLLOW_UP_HOURS"))
+fn due_after() -> SignedDuration {
+    SignedDuration::from_hours(env::int("PAS_FOLLOW_UP_HOURS"))
 }
 
 /// Is the appointment's service one a clinician has listed for human follow-up?
@@ -75,7 +75,7 @@ pub(crate) async fn on_no_show<C: Conn>(
     };
     let service: String = row.col("service_type")?;
     let id = Uuid::new_v4();
-    let due = Utc::now() + due_after();
+    let due = Timestamp::now() + due_after();
     let made = conn
         .run(Stmt::new(
             "INSERT INTO follow_up_tasks (id, appointment_id, person_id, service_type, due_at) \
@@ -115,7 +115,7 @@ pub(crate) async fn on_no_show<C: Conn>(
 pub struct Policy {
     pub service_type: String,
     pub approved_by: String,
-    pub approved_at: DateTime<Utc>,
+    pub approved_at: Timestamp,
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
@@ -124,9 +124,9 @@ pub struct Task {
     pub appointment_id: Uuid,
     pub person_id: Uuid,
     pub service_type: String,
-    pub due_at: DateTime<Utc>,
+    pub due_at: Timestamp,
     pub overdue: bool,
-    pub appointment_start: DateTime<Utc>,
+    pub appointment_start: Timestamp,
 }
 
 pub struct FollowUpService {
@@ -208,10 +208,10 @@ impl FollowUpService {
                 [rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
-        let now = Utc::now();
+        let now = Timestamp::now();
         rows.iter()
             .map(|r| {
-                let due_at: DateTime<Utc> = r.col("due_at")?;
+                let due_at: Timestamp = r.col("due_at")?;
                 Ok(Task {
                     id: r.col("id")?,
                     appointment_id: r.col("appointment_id")?,

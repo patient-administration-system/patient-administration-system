@@ -63,7 +63,7 @@ Ground truth for any claim about behavior:
 
 - The PAS is administrative, not clinical. ADT, scheduling, waitlists, resources, communications, billing. No diagnoses, prescriptions, vitals. **Identity and workforce are also out of scope** as of the v0.44.0 target — they live in `person-service` and `worker-service` respectively, reached via HTTP.
 - Money is `rust_decimal::Decimal` + `Iso4217`. Never `f64`.
-- Time at the domain layer is `chrono::DateTime<Utc>`. Naive local times are never accepted.
+- Time is jiff (JIFF-1): instants are `jiff::Timestamp` (UTC), calendar dates `jiff::civil::Date`; `domain::time` (`crate::time`) has the shared conversions (`days`, `utc_date`, `day_count`, `utc` for tests). Naive local times are never accepted.
 - State changes touching multiple rows run inside one `DatabaseTransaction` and write `audit_log` + `outbox_events` rows in the same transaction. **Cross-service writes (PAS + upstream) are not transactional** — Option C accepts this.
 - Soft-delete (`deleted_at`) only on `encounters` and `appointments` (v0.44.0 target — was also on `patients` at v0.43.0). Other PAS-owned tables are append-only or operational. Patient/practitioner soft-delete is the upstream's concern.
 - **Never depend on `person-service` or `worker-service` as Cargo deps.** Integration is HTTP-only via `src/upstream/`. Adding the upstream crates as path / git deps would pull their full transitive trees in for no benefit.

@@ -19,7 +19,7 @@ pub struct CreateSeriesBody {
     #[serde(default)]
     pub worker_id: Option<Uuid>,
     pub service_type: String,
-    pub start_datetime: chrono::DateTime<chrono::Utc>,
+    pub start_datetime: jiff::Timestamp,
     pub duration_minutes: u32,
     pub rule: RecurrenceRule,
     #[serde(default)]

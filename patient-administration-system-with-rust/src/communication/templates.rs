@@ -127,9 +127,7 @@ pub fn sample_sms(
 ) -> Option<crate::communication::sms_length::SmsLength> {
     use crate::inbound::messages::{Lang, when};
     let lang = Lang::from_preference(Some(locale));
-    let at = chrono::DateTime::parse_from_rfc3339("2026-11-03T09:30:00Z")
-        .ok()?
-        .with_timezone(&chrono::Utc);
+    let at = "2026-11-03T09:30:00Z".parse::<jiff::Timestamp>().ok()?;
     let mut ctx = tera::Context::new();
     ctx.insert(
         "patient",
@@ -138,8 +136,8 @@ pub fn sample_sms(
     ctx.insert(
         "appointment",
         &serde_json::json!({
-            "when": when(at, lang, chrono_tz::Europe::London),
-            "start": at.to_rfc3339(), "end": at.to_rfc3339(), "reason": "Knee review", "id": "00000000-0000-0000-0000-000000000000"
+            "when": when(at, lang, crate::inbound::messages::timezone()),
+            "start": at.to_string(), "end": at.to_string(), "reason": "Knee review", "id": "00000000-0000-0000-0000-000000000000"
         }),
     );
     ctx.insert("portal_url", "https://portal.example.org/my/messages");

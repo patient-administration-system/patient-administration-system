@@ -13,7 +13,7 @@ pub mod waits;
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use uuid::Uuid;
 
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
@@ -43,8 +43,8 @@ impl TriageService {
         category: &str,
         flowchart: Option<&str>,
         assessed_by: &str,
-        assessed_at: DateTime<Utc>,
-        now: DateTime<Utc>,
+        assessed_at: Timestamp,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<TriageAssessment> {
         if !SYSTEMS.contains(&triage_system) {

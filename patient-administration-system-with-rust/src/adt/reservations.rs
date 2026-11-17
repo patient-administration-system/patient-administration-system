@@ -9,7 +9,7 @@
 //! expiry, never by the admission it was for.
 
 use crate::db::sql::{Conn, Stmt, Transact, Txn};
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 
 use super::*;
 use crate::db::row::RowExt;
@@ -31,12 +31,12 @@ pub struct OccupancyEvent {
     /// The member of staff, or `system` for the sweep.
     #[schema(required = true)]
     pub actor: Option<String>,
-    pub at: DateTime<Utc>,
+    pub at: Timestamp,
 }
 
 impl AdtService {
     /// How long a hold lasts: the caller's `hold_minutes`, else `PAS_BED_HOLD_MINUTES`, else no expiry.
-    pub(super) fn hold_for(hold_minutes: Option<i64>) -> Result<Option<Duration>> {
+    pub(super) fn hold_for(hold_minutes: Option<i64>) -> Result<Option<SignedDuration>> {
         let minutes = match hold_minutes {
             Some(m) if !(1..=10_080).contains(&m) => {
                 return Err(Error::validation(
@@ -46,7 +46,7 @@ impl AdtService {
             Some(m) => m,
             None => crate::config::env::int("PAS_BED_HOLD_MINUTES"),
         };
-        Ok((minutes > 0).then(|| Duration::minutes(minutes)))
+        Ok((minutes > 0).then(|| SignedDuration::from_mins(minutes)))
     }
 
     /// Append one row to `bed_occupancy_events`. Always called in the same transaction as the change it
@@ -80,11 +80,11 @@ impl AdtService {
         bed_id: Uuid,
         person_id: Uuid,
         encounter_id: Uuid,
-        expires_in: Option<Duration>,
+        expires_in: Option<SignedDuration>,
         actor: Option<&str>,
     ) -> Result<()> {
         let id = Uuid::new_v4();
-        let expires_at = expires_in.map(|d| Utc::now() + d);
+        let expires_at = expires_in.map(|d| Timestamp::now() + d);
         txn.run(Stmt::new("INSERT INTO bed_reservations (id, bed_id, person_id, encounter_id, held_by, expires_at) \
              VALUES ($1, $2, $3, $4, $5, $6)",
             [
@@ -127,7 +127,7 @@ impl AdtService {
     /// event and an outbox event are written, each hold in its own transaction. At most `SWEEP_BATCH` (100) a
     /// pass. Returns how many were released. A hold whose bed is no longer `Reserved` is closed without
     /// touching the bed.
-    pub async fn release_expired_holds(&self, now: DateTime<Utc>) -> Result<u64> {
+    pub async fn release_expired_holds(&self, now: Timestamp) -> Result<u64> {
         let due = self
             .db
             .all(Stmt::new(
@@ -157,7 +157,7 @@ impl AdtService {
     ///
     /// A bed that is no longer `Reserved` is left alone and only the reservation is closed, so the sweep never
     /// frees a bed that something else has since taken.
-    async fn release_one(&self, id: Uuid, bed_id: Uuid, now: DateTime<Utc>) -> Result<bool> {
+    async fn release_one(&self, id: Uuid, bed_id: Uuid, now: Timestamp) -> Result<bool> {
         let ctx = UserContext::system();
         // `Some((person, encounter))` when a hold was released; `None` when a cancel got there first.
         let done = self

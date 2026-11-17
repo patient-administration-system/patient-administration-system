@@ -13,7 +13,7 @@ impl NoShowService {
     pub(super) async fn inputs_for(
         &self,
         appointment_id: Uuid,
-    ) -> Result<Option<(Uuid, Inputs, DateTime<Utc>)>> {
+    ) -> Result<Option<(Uuid, Inputs, Timestamp)>> {
         let tz = crate::inbound::messages::timezone();
         let Some(r) = self
             .db
@@ -30,19 +30,19 @@ impl NoShowService {
         else {
             return Ok(None);
         };
-        let start: DateTime<Utc> = r.col("start_datetime")?;
-        let created: DateTime<Utc> = r.col("created_at")?;
-        let updated: DateTime<Utc> = r.col("updated_at")?;
-        let local = start.with_timezone(&tz);
+        let start: Timestamp = r.col("start_datetime")?;
+        let created: Timestamp = r.col("created_at")?;
+        let updated: Timestamp = r.col("updated_at")?;
+        let local = start.to_zoned_datetime(tz.clone());
         Ok(Some((
             r.col("person_id")?,
             Inputs {
                 past_missed: r.col("missed")?,
                 past_attended: r.col("attended")?,
-                lead_days: ((start - created).num_seconds() as f64 / 86_400.0).max(0.0),
+                lead_days: ((start - created).as_secs() as f64 / 86_400.0).max(0.0),
                 age_band: r.col("age_band")?,
-                weekday: local.weekday().num_days_from_monday() as usize,
-                hour: local.hour(),
+                weekday: local.weekday().to_monday_zero_offset() as usize,
+                hour: u32::try_from(local.hour()).unwrap_or(0),
             },
             updated,
         )))
@@ -52,13 +52,13 @@ impl NoShowService {
     /// changed), and put it on the staff priority list if it is above the high threshold.
     pub async fn assess(&self, appointment_id: Uuid) -> Result<Shown> {
         self.require_active().await?;
-        let now = Utc::now();
+        let now = Timestamp::now();
         if let Some(existing) = self.stored(appointment_id).await? {
             let row = self
                 .db
                 .one(Stmt::new("SELECT (n.computed_on = $2 AND a.updated_at <= n.computed_at) AS current \
                      FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id WHERE n.appointment_id = $1",
-                    [appointment_id.into(), now.date_naive().into()],
+                    [appointment_id.into(), now.to_zoned_datetime(jiff::tz::TimeZone::UTC).date().into()],
                 ))
 .await?;
             if row.and_then(|r| r.col::<bool>("current").ok()) == Some(true) {
@@ -81,7 +81,7 @@ impl NoShowService {
                     (a.sample_size as i32).into(),
                     MODEL_VERSION.into(),
                     now.into(),
-                    now.date_naive().into(),
+                    now.to_zoned_datetime(jiff::tz::TimeZone::UTC).date().into(),
                 ],
             ))
 .await?;

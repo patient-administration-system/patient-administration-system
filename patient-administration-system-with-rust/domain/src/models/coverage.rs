@@ -14,7 +14,7 @@
 //! invariant §5.3 keeps soft-delete to patients/encounters/appointments
 //! only; coverage retirement is via `status = Cancelled`.
 
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::{Timestamp, civil::Date};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -113,12 +113,12 @@ pub struct Coverage {
     /// `"self"`, `"spouse"`, `"child"`, `"parent"`, `"other"`. Free-form
     /// so callers can use whichever code system they prefer.
     pub relationship: String,
-    pub start_date: NaiveDate,
+    pub start_date: Date,
     #[serde(default)]
     #[schema(required = true)]
-    pub end_date: Option<NaiveDate>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub end_date: Option<Date>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Coverage {
@@ -131,7 +131,7 @@ impl Coverage {
         payor_name: impl Into<String>,
         policy_number: impl Into<String>,
     ) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             person_id,
@@ -144,7 +144,7 @@ impl Coverage {
             policy_number: policy_number.into(),
             group_number: None,
             relationship: "self".into(),
-            start_date: now.date_naive(),
+            start_date: now.to_zoned_datetime(jiff::tz::TimeZone::UTC).date(),
             end_date: None,
             created_at: now,
             updated_at: now,
@@ -220,7 +220,7 @@ mod tests {
         c.payor_identifier = Some("0033-AB".into());
         c.group_number = Some("GRP-7".into());
         c.relationship = "spouse".into();
-        c.end_date = Some(c.start_date + chrono::Duration::days(365));
+        c.end_date = Some(c.start_date + crate::time::days(365));
 
         let json = serde_json::to_string(&c).expect("serialize");
         let back: Coverage = serde_json::from_str(&json).expect("deserialize");

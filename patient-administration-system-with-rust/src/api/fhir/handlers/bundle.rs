@@ -595,7 +595,7 @@ mod tests {
         c.group_number = Some("G-7".into());
         c.subscriber_id = Some(Uuid::new_v4());
         c.relationship = "spouse".into();
-        c.end_date = c.start_date.checked_add_days(chrono::Days::new(30));
+        c.end_date = c.start_date.checked_add(jiff::Span::new().days(30)).ok();
         let again = coverage_from(&crate::api::fhir::r5::coverage(&c)).unwrap();
         assert_eq!(again.person_id, c.person_id);
         assert_eq!(again.payor_name, c.payor_name);

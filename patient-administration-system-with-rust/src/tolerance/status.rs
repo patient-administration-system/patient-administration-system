@@ -41,8 +41,8 @@ impl ToleranceService {
     /// each service and ward, and put each in its tier.
     pub async fn status(&self, days: i64) -> Result<Status> {
         let days = days.clamp(1, 365);
-        let to = Utc::now();
-        let from = to - Duration::days(days);
+        let to = Timestamp::now();
+        let from = to - SignedDuration::from_hours(24 * (days));
         let report = self
             .reports
             .clinic_activity(Some(from), Some(to), GroupBy::Day)
@@ -160,8 +160,8 @@ impl ToleranceService {
     /// The four service-level measures for each service that has appointments, slots or open pathways.
     pub(super) async fn service_measures(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: Timestamp,
+        to: Timestamp,
         report: &crate::reports::Report,
     ) -> Result<Vec<Measure>> {
         let q = |sql: &str| Stmt::new(sql.to_string(), [from.into(), to.into()]);
@@ -285,11 +285,7 @@ impl ToleranceService {
 
     /// Money invoiced and collected on invoices finalised in the window. Amounts are summed as written, so
     /// this assumes one currency; a second currency in the window would be added into the same total.
-    pub(super) async fn money(
-        &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
-    ) -> Result<(f64, f64, i64)> {
+    pub(super) async fn money(&self, from: Timestamp, to: Timestamp) -> Result<(f64, f64, i64)> {
         let row = self
             .db
             .one(Stmt::new("SELECT COALESCE(sum(i.total_value::numeric), 0)::float8 AS invoiced, \

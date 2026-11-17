@@ -17,7 +17,7 @@
 use crate::db::sql::{Pool, Transact};
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use uuid::Uuid;
 
 use crate::db::repositories::{
@@ -48,7 +48,7 @@ pub struct CreateSeriesInput {
     pub person_id: Uuid,
     pub worker_id: Option<Uuid>,
     pub service_type: String,
-    pub start_datetime: DateTime<Utc>,
+    pub start_datetime: Timestamp,
     pub duration_minutes: u32,
     pub rule: RecurrenceRule,
     pub reason: Option<String>,
@@ -60,7 +60,7 @@ pub struct CreateSeriesInput {
 /// 26 weekly appointments hit the database.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PreviewResult {
-    pub occurrences: Vec<DateTime<Utc>>,
+    pub occurrences: Vec<Timestamp>,
     pub total: usize,
 }
 
@@ -131,8 +131,8 @@ impl SeriesService {
             rule: input.rule.clone(),
             status: SeriesStatus::Active,
             reason: input.reason.clone(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
+            created_at: jiff::Timestamp::now(),
+            updated_at: jiff::Timestamp::now(),
         };
 
         let series_clone = series.clone();
@@ -145,7 +145,8 @@ impl SeriesService {
                     AppointmentSeriesRepository::create(txn, &series_clone).await?;
                     let mut appointments = Vec::with_capacity(occurrences_at.len());
                     for start in occurrences_at {
-                        let end = start + chrono::Duration::minutes(i64::from(duration_minutes));
+                        let end =
+                            start + jiff::SignedDuration::from_mins(i64::from(duration_minutes));
                         // Atomic overlap reject: any conflict on any
                         // occurrence aborts the series. The diagnostic
                         // names the conflicting appointment + datetime
@@ -348,7 +349,7 @@ mod tests {
             person_id: Uuid::new_v4(),
             worker_id: None,
             service_type: "cardiology".into(),
-            start_datetime: chrono::Utc::now(),
+            start_datetime: jiff::Timestamp::now(),
             duration_minutes: 30,
             rule: RecurrenceRule {
                 frequency: Frequency::Weekly,

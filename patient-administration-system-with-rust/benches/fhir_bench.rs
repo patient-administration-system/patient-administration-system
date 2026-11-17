@@ -5,8 +5,8 @@
 //! largest page NFR-23 allows).
 
 #![cfg_attr(not(test), forbid(unsafe_code))]
-use chrono::{Duration, Utc};
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::fhir::r5;
 use patient_administration_system::models::appointment::Appointment;
 use patient_administration_system::models::schedule::{Schedule, ScheduleOwner, Slot};
@@ -14,11 +14,12 @@ use std::hint::black_box;
 use uuid::Uuid;
 
 fn appointments(n: usize) -> Vec<Appointment> {
-    let base = Utc::now();
+    let base = Timestamp::now();
     (0..n)
         .map(|i| {
-            let start = base + Duration::minutes(i as i64 * 15);
-            let mut a = Appointment::new(Uuid::new_v4(), start, start + Duration::minutes(15));
+            let start = base + SignedDuration::from_mins(i as i64 * 15);
+            let mut a =
+                Appointment::new(Uuid::new_v4(), start, start + SignedDuration::from_mins(15));
             a.slot_id = Some(Uuid::new_v4());
             a.reason = Some("follow-up".into());
             a
@@ -32,8 +33,8 @@ fn bench_one_resource(c: &mut Criterion) {
         ScheduleOwner::Practitioner(Uuid::new_v4()),
         "outpatients".into(),
     );
-    let start = Utc::now();
-    let slot = Slot::new(schedule.id, start, start + Duration::minutes(30));
+    let start = Timestamp::now();
+    let slot = Slot::new(schedule.id, start, start + SignedDuration::from_mins(30));
     c.bench_function("fhir_r5_appointment", |b| {
         b.iter(|| r5::appointment(black_box(&a)))
     });

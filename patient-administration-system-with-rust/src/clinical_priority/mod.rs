@@ -10,7 +10,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact};
-use chrono::NaiveDate;
+use jiff::civil::Date;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -27,7 +27,7 @@ pub struct OverdueReview {
     pub person_id: Uuid,
     pub target_service: String,
     pub clinical_priority: String,
-    pub review_by: NaiveDate,
+    pub review_by: Date,
 }
 
 pub struct ClinicalPriorityService {
@@ -44,7 +44,7 @@ impl ClinicalPriorityService {
         &self,
         entry_id: Uuid,
         code: &str,
-        review_by: NaiveDate,
+        review_by: Date,
         clinician: &str,
         ctx: &UserContext,
     ) -> Result<()> {
@@ -59,11 +59,11 @@ impl ClinicalPriorityService {
         &self,
         entry_id: Uuid,
         code: &str,
-        review_by: NaiveDate,
+        review_by: Date,
         clinician: &str,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
-    ) -> Result<chrono::DateTime<chrono::Utc>> {
+    ) -> Result<jiff::Timestamp> {
         if !CODES.contains(&code) {
             return Err(Error::validation(format!(
                 "clinical priority must be one of {}",
@@ -84,14 +84,14 @@ impl ClinicalPriorityService {
             .ok_or_else(|| {
                 Error::not_found(format!("waiting or booked waiting-list entry {entry_id}"))
             })?;
-        let seen: chrono::DateTime<chrono::Utc> = before.col("updated_at")?;
+        let seen: jiff::Timestamp = before.col("updated_at")?;
         if !crate::api::rest::concurrency::is_current(seen, expected) {
             return Err(Error::precondition_failed(
                 "the waiting-list entry has changed since it was read; read it again",
             ));
         }
         let old_code: Option<String> = before.col("clinical_priority")?;
-        let old_review: Option<NaiveDate> = before.col("clinical_priority_review_by")?;
+        let old_review: Option<Date> = before.col("clinical_priority_review_by")?;
         let updated = txn
             .one(Stmt::new("UPDATE waitlist_entries SET clinical_priority = $2, clinical_priority_set_by = $3, \
                clinical_priority_review_by = $4, updated_at = now() WHERE id = $1 RETURNING updated_at",
@@ -104,7 +104,7 @@ impl ClinicalPriorityService {
         ))
 .await?
         .ok_or_else(|| Error::not_found(format!("waitlist entry {entry_id}")))?;
-        let new_version: chrono::DateTime<chrono::Utc> = updated.col("updated_at")?;
+        let new_version: jiff::Timestamp = updated.col("updated_at")?;
         AuditLogRepository::log(
             &txn,
             "waitlist_entry",
@@ -123,7 +123,7 @@ impl ClinicalPriorityService {
     /// At most `fetch` rows (see `crate::paging`).
     pub async fn overdue(
         &self,
-        today: NaiveDate,
+        today: Date,
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<OverdueReview>> {
         let rows = rows.into();

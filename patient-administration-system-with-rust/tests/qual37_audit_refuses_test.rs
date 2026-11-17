@@ -10,7 +10,6 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::NaiveDate;
 use patient_administration_system::api::rest::router;
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::db::repositories::audit::UserContext;
@@ -87,7 +86,7 @@ async fn a_write_whose_audit_row_cannot_be_written_is_refused_and_leaves_no_chan
         db.batch(sql).await.unwrap();
     }
     let app = router(state.clone());
-    let date = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+    let date = jiff::civil::date(2026, 1, 1);
 
     // The control: the same kind of request by an ordinary user succeeds and is audited.
     let ok_facility = Facility::new(

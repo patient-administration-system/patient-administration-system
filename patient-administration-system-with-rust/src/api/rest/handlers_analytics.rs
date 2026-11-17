@@ -6,7 +6,7 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
@@ -22,8 +22,8 @@ use crate::db::repositories::audit::UserContext as RepoUserContext;
 pub struct OutcomesQuery {
     /// Comma-separated: specialty, language, age_band, deprivation_quintile, time_of_day, outcome, notice.
     pub group_by: String,
-    pub from: Option<DateTime<Utc>>,
-    pub to: Option<DateTime<Utc>>,
+    pub from: Option<Timestamp>,
+    pub to: Option<Timestamp>,
     /// A larger `k` than the configured minimum; a smaller one is ignored.
     pub k: Option<i64>,
     /// `csv` for CSV; JSON otherwise.
@@ -99,8 +99,8 @@ pub struct DemographicsBody {
 pub struct RefillQuery {
     /// Comma-separated: notice_band, release_class, specialty, language, age_band, deprivation_quintile.
     pub group_by: String,
-    pub from: Option<DateTime<Utc>>,
-    pub to: Option<DateTime<Utc>>,
+    pub from: Option<Timestamp>,
+    pub to: Option<Timestamp>,
     pub k: Option<i64>,
     pub format: Option<String>,
 }

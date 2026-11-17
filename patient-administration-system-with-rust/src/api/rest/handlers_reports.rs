@@ -6,7 +6,7 @@ use axum::{
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Deserialize;
 
 use crate::Error;
@@ -16,8 +16,8 @@ use crate::reports::GroupBy;
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ActivityQuery {
-    pub from: Option<DateTime<Utc>>,
-    pub to: Option<DateTime<Utc>>,
+    pub from: Option<Timestamp>,
+    pub to: Option<Timestamp>,
     /// `day` (default) or `schedule`.
     pub group_by: Option<String>,
     /// `csv` for CSV; JSON otherwise.

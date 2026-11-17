@@ -9,7 +9,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::analytics::Dim;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
@@ -25,7 +25,7 @@ fn sys() -> UserContext {
 
 struct W {
     s: AppState,
-    centre: DateTime<Utc>,
+    centre: Timestamp,
 }
 
 async fn world() -> W {
@@ -36,15 +36,17 @@ async fn world() -> W {
     for _ in 0..200 {
         let d = 2000 + (Uuid::new_v4().as_u128() % 40_000) as i64;
         // Noon, so that the window (12 hours either side) is exactly one calendar day whatever the time now.
-        let centre = (Utc::now() + Duration::days(d))
-            .date_naive()
-            .and_hms_opt(12, 0, 0)
+        let centre = (Timestamp::now() + patient_administration_system::time::days(d))
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .date()
+            .at(12, 0, 0, 0)
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
             .unwrap()
-            .and_utc();
+            .timestamp();
         let used: i64 = s
             .db
             .one(Stmt::new("SELECT count(*) AS n FROM appointments WHERE start_datetime >= $1 AND start_datetime < $2",
-                [(centre - Duration::hours(13)).into(), (centre + Duration::hours(13)).into()],
+                [(centre - SignedDuration::from_hours(13)).into(), (centre + SignedDuration::from_hours(13)).into()],
             ))
             .await
             .unwrap()
@@ -59,10 +61,10 @@ async fn world() -> W {
 }
 
 impl W {
-    fn window(&self) -> (DateTime<Utc>, DateTime<Utc>) {
+    fn window(&self) -> (Timestamp, Timestamp) {
         (
-            self.centre - Duration::hours(12),
-            self.centre + Duration::hours(12),
+            self.centre - SignedDuration::from_hours(12),
+            self.centre + SignedDuration::from_hours(12),
         )
     }
     /// `n` booked appointments on a specialty of its own, at `hour` o'clock UTC on the window's day.
@@ -70,17 +72,20 @@ impl W {
         let schedule = common::new_schedule_for(&self.s.db, specialty).await.id;
         let day = self
             .centre
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .date()
+            .at(0, 0, 0, 0)
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
             .unwrap()
-            .and_utc();
+            .timestamp();
         let mut out = Vec::new();
         for i in 0..n {
-            let start = day + Duration::hours(hour) + Duration::minutes(i as i64);
+            let start =
+                day + SignedDuration::from_hours(hour) + SignedDuration::from_mins(i as i64);
             let slot =
                 patient_administration_system::db::repositories::slot::SlotRepository::create(
                     &self.s.db,
-                    &Slot::new(schedule, start, start + Duration::minutes(15)),
+                    &Slot::new(schedule, start, start + SignedDuration::from_mins(15)),
                 )
                 .await
                 .unwrap();
@@ -386,8 +391,8 @@ async fn the_http_endpoint_gives_json_and_csv_and_refuses_bad_input() {
     };
     let q = format!(
         "from={}&to={}",
-        from.to_rfc3339().replace('+', "%2B"),
-        to.to_rfc3339().replace('+', "%2B")
+        from.to_string().replace('+', "%2B"),
+        to.to_string().replace('+', "%2B")
     );
     let (st, _, body) = get(format!(
         "/api/analytics/appointment-outcomes?group_by=specialty&{q}"

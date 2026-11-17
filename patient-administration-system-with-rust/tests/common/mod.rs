@@ -62,8 +62,12 @@ pub async fn free_slot(
 ) -> patient_administration_system::models::schedule::Slot {
     use patient_administration_system::db::repositories::slot::SlotRepository;
     use patient_administration_system::models::schedule::Slot;
-    let start = chrono::Utc::now() + chrono::Duration::days(in_days);
-    let slot = Slot::new(schedule_id, start, start + chrono::Duration::minutes(30));
+    let start = jiff::Timestamp::now() + patient_administration_system::time::days(in_days);
+    let slot = Slot::new(
+        schedule_id,
+        start,
+        start + jiff::SignedDuration::from_mins(30),
+    );
     SlotRepository::create(db, &slot)
         .await
         .expect("create slot")
@@ -142,8 +146,12 @@ pub async fn free_slot_in_hours(
 ) -> patient_administration_system::models::schedule::Slot {
     use patient_administration_system::db::repositories::slot::SlotRepository;
     use patient_administration_system::models::schedule::Slot;
-    let start = chrono::Utc::now() + chrono::Duration::hours(hours);
-    let slot = Slot::new(schedule_id, start, start + chrono::Duration::minutes(30));
+    let start = jiff::Timestamp::now() + jiff::SignedDuration::from_hours(hours);
+    let slot = Slot::new(
+        schedule_id,
+        start,
+        start + jiff::SignedDuration::from_mins(30),
+    );
     SlotRepository::create(db, &slot)
         .await
         .expect("create slot")

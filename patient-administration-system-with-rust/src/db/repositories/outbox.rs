@@ -25,7 +25,7 @@ impl OutboxRepository {
             event_type: event_type.to_string(),
             payload: payload.clone(),
             published: false,
-            at: chrono::Utc::now().fixed_offset(),
+            at: jiff::Timestamp::now(),
             retry_count: 0,
             last_attempted_at: None,
             last_error: None,
@@ -86,7 +86,7 @@ impl OutboxRepository {
         if let Some(m) = m {
             let mut am = m.patch();
             am.set("published", true);
-            am.set("last_attempted_at", Some(chrono::Utc::now().fixed_offset()));
+            am.set("last_attempted_at", Some(jiff::Timestamp::now()));
             am.set("last_error", None::<String>);
             am.update(conn).await?;
         }
@@ -103,7 +103,7 @@ impl OutboxRepository {
         conn: &C,
         id: Uuid,
         error: &str,
-        next_attempt_at: chrono::DateTime<chrono::Utc>,
+        next_attempt_at: jiff::Timestamp,
     ) -> Result<i32> {
         let m = match conn
             .one_as::<outbox_event::Model>(Stmt::new(
@@ -118,7 +118,7 @@ impl OutboxRepository {
         let new_count = m.retry_count.saturating_add(1);
         let mut am = m.patch();
         am.set("retry_count", new_count);
-        am.set("last_attempted_at", Some(chrono::Utc::now().fixed_offset()));
+        am.set("last_attempted_at", Some(jiff::Timestamp::now()));
         am.set("last_error", Some(error.to_string()));
         am.update(conn).await?;
         conn.run(Stmt::new(
@@ -147,7 +147,7 @@ impl OutboxRepository {
             Some(m) => m,
             None => return Ok(()),
         };
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let dl = outbox_dead_letter::Model {
             id: Uuid::new_v4(),
             original_id: m.id,

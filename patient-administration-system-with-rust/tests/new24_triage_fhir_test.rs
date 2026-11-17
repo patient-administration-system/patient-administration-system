@@ -6,7 +6,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::fhir::fhir_router;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -41,7 +41,7 @@ async fn assessments_come_back_as_observations_oldest_first_and_round_trip() {
         ))
         .await
         .unwrap();
-    let now = Utc::now();
+    let now = Timestamp::now();
     for (cat, ago) in [("urgent", 30), ("very_urgent", 5)] {
         svc.record(
             enc,
@@ -50,7 +50,7 @@ async fn assessments_come_back_as_observations_oldest_first_and_round_trip() {
             cat,
             None,
             "Nurse Okafor",
-            now - Duration::minutes(ago),
+            now - SignedDuration::from_mins(ago),
             now,
             &UserContext::system(),
         )

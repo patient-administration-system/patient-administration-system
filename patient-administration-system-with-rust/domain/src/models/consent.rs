@@ -4,7 +4,7 @@
 //! [`ConsentType`]. Consents move through a small lifecycle ([`ConsentStatus`])
 //! and may carry optional `expiry_date` and `revoked_date` markers.
 
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::{Timestamp, civil::Date};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -48,13 +48,13 @@ pub struct Consent {
     /// Current lifecycle state.
     pub status: ConsentStatus,
     /// Date the consent was granted.
-    pub granted_date: NaiveDate,
+    pub granted_date: Date,
     /// Date the consent expires, if applicable.
     #[schema(required = true)]
-    pub expiry_date: Option<NaiveDate>,
+    pub expiry_date: Option<Date>,
     /// Date the consent was revoked, if applicable.
     #[schema(required = true)]
-    pub revoked_date: Option<NaiveDate>,
+    pub revoked_date: Option<Date>,
     /// Free-text description of the purpose for which consent applies.
     #[schema(required = true)]
     pub purpose: Option<String>,
@@ -62,15 +62,15 @@ pub struct Consent {
     #[schema(required = true)]
     pub method: Option<String>,
     /// Row creation timestamp.
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
     /// Last update timestamp.
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: Timestamp,
 }
 
 impl Consent {
     /// Create a new active consent record granted on `granted_date`.
-    pub fn new(person_id: Uuid, consent_type: ConsentType, granted_date: NaiveDate) -> Self {
-        let now = Utc::now();
+    pub fn new(person_id: Uuid, consent_type: ConsentType, granted_date: Date) -> Self {
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             person_id,
@@ -92,7 +92,7 @@ impl Consent {
     /// - the status is not [`ConsentStatus::Active`];
     /// - the `granted_date` is in the future relative to `today`;
     /// - an `expiry_date` is set and is strictly before `today`.
-    pub fn is_active(&self, today: NaiveDate) -> bool {
+    pub fn is_active(&self, today: Date) -> bool {
         if self.status != ConsentStatus::Active {
             return false;
         }
@@ -109,10 +109,10 @@ impl Consent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::NaiveDate;
+    use jiff::civil::Date;
 
-    fn date(y: i32, m: u32, d: u32) -> NaiveDate {
-        NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    fn date(y: i16, m: i8, d: i8) -> Date {
+        jiff::civil::date(y, m, d)
     }
 
     #[test]

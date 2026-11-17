@@ -132,7 +132,7 @@ impl Hl7v2MllpPublisher {
             user_agent: Some("pas-mllp-publisher/0.44".into()),
         };
         let control_id = event.id.to_string();
-        let now = chrono::Utc::now();
+        let now = jiff::Timestamp::now();
 
         match event.event_type.as_str() {
             "EncounterRegistered" => self.adt(event, "A04", &control_id, now, &ctx).await,
@@ -167,7 +167,7 @@ impl Hl7v2MllpPublisher {
         event: &DomainEvent,
         trigger: &str,
         control_id: &str,
-        now: chrono::DateTime<chrono::Utc>,
+        now: jiff::Timestamp,
         ctx: &UserContext,
     ) -> Result<Option<String>> {
         let pc = self
@@ -200,7 +200,7 @@ impl Hl7v2MllpPublisher {
         event: &DomainEvent,
         trigger: &str,
         control_id: &str,
-        now: chrono::DateTime<chrono::Utc>,
+        now: jiff::Timestamp,
         ctx: &UserContext,
     ) -> Result<Option<String>> {
         let pc = self

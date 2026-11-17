@@ -7,7 +7,6 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::Duration;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -50,7 +49,7 @@ async fn one_enquiry_shows_the_patient_and_writes_one_audit_row() {
                 subtype: None,
                 subtype_scheme: None,
                 unique_pathway_identifier: None,
-                suspected_on: today() - Duration::days(6),
+                suspected_on: today() - patient_administration_system::time::days(6),
                 suspected_by: "Dr Rhian Evans".into(),
                 recorded_by: "Gareth Jones".into(),
             },

@@ -151,8 +151,9 @@ let m   = Money::new(Decimal::new(12345, 2), usd); // $123.45
 ### Time helpers
 
 ```rust
-use chrono::{TimeZone, Utc};
-let t = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
+use patient_administration_system::time::{days, utc};
+let t = utc(2026, 5, 20, 9, 0, 0);
+let a_week_later = t + days(7);
 ```
 
 ### Integration-test boilerplate

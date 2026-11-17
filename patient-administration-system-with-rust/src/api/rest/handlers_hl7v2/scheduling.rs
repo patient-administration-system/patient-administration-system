@@ -31,7 +31,7 @@ pub async fn schedule_book(
         return ae(&r.inbound, "SCH-11 (start datetime) is required");
     };
     let duration = sch.duration_minutes.unwrap_or(30);
-    let end = start + chrono::Duration::minutes(i64::from(duration));
+    let end = start + jiff::SignedDuration::from_mins(i64::from(duration));
 
     let person_id = r.person_id;
     let audit_clone = r.audit.clone();
@@ -116,7 +116,7 @@ pub async fn schedule_reschedule(
         return ae(&r.inbound, "SCH-11 (start datetime) is required");
     };
     let duration = sch.duration_minutes.unwrap_or(30);
-    let end = start + chrono::Duration::minutes(i64::from(duration));
+    let end = start + jiff::SignedDuration::from_mins(i64::from(duration));
     use crate::db::repositories::appointment::AppointmentRepository;
     let existing = match AppointmentRepository::find_by_id(&state.db, filler).await {
         Ok(Some(a)) => a,
@@ -155,7 +155,7 @@ pub async fn schedule_reschedule(
     let mut updated = existing.clone();
     updated.start_datetime = start;
     updated.end_datetime = end;
-    updated.updated_at = chrono::Utc::now();
+    updated.updated_at = jiff::Timestamp::now();
     // The change, its audit row and its event commit together, or none of them is kept (NFR-25).
     if let Err(e) = async {
         let txn = state.db.begin_txn().await?;
@@ -232,7 +232,7 @@ pub async fn schedule_modify(
     }
     let mut updated = existing.clone();
     updated.reason = sch.reason.clone();
-    updated.updated_at = chrono::Utc::now();
+    updated.updated_at = jiff::Timestamp::now();
     // The change, its audit row and its event commit together, or none of them is kept (NFR-25).
     if let Err(e) = async {
         let txn = state.db.begin_txn().await?;

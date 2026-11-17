@@ -12,7 +12,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, NaiveDate, Utc};
+use jiff::Timestamp;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
@@ -65,7 +65,7 @@ fn new(condition: &str, subtype: Option<&str>, days_ago: i64) -> NewSuspicion {
         subtype: subtype.map(String::from),
         subtype_scheme: None,
         unique_pathway_identifier: None,
-        suspected_on: today() - Duration::days(days_ago),
+        suspected_on: today() - patient_administration_system::time::days(days_ago),
         suspected_by: "Dr Rhian Evans".into(),
         recorded_by: "Gareth Jones".into(),
     }
@@ -324,13 +324,13 @@ async fn a_clock_stops_once_and_never_before_it_started() {
     for (reason, on, by, why) in [
         (
             "treatment_started",
-            start - Duration::days(1),
+            start - patient_administration_system::time::days(1),
             "Dr A Bevan",
             "before the point of suspicion",
         ),
         (
             "treatment_started",
-            today() + Duration::days(1),
+            today() + patient_administration_system::time::days(1),
             "Dr A Bevan",
             "in the future",
         ),
@@ -350,7 +350,7 @@ async fn a_clock_stops_once_and_never_before_it_started() {
         .stop_if_unchanged(
             x.id,
             "treatment_started",
-            start + Duration::days(20),
+            start + patient_administration_system::time::days(20),
             "Dr A Bevan",
             None,
             &sys(),
@@ -370,7 +370,7 @@ async fn a_clock_stops_once_and_never_before_it_started() {
             .stop_if_unchanged(
                 x.id,
                 "died",
-                start + Duration::days(25),
+                start + patient_administration_system::time::days(25),
                 "Dr A Bevan",
                 None,
                 &sys()
@@ -470,9 +470,11 @@ async fn the_report_counts_each_stopped_suspicion_once() {
     let s = state().await;
     let wales = service(&s, "wales");
     // A day well in the past that no other test stops a clock on.
-    let base = NaiveDate::from_ymd_opt(2001, 1, 1).unwrap()
-        + Duration::days(i64::from(Uuid::new_v4().as_u128() as u16 % 3000));
-    let stop = |days: i64| base + Duration::days(days);
+    let base = jiff::civil::date(2001, 1, 1)
+        + patient_administration_system::time::days(i64::from(
+            Uuid::new_v4().as_u128() as u16 % 3000,
+        ));
+    let stop = |days: i64| base + patient_administration_system::time::days(days);
     let cell = |r: &patient_administration_system::suspicions::SuspicionReport| {
         r.rows
             .iter()
@@ -494,7 +496,7 @@ async fn the_report_counts_each_stopped_suspicion_once() {
     ] {
         let r = referral(&s, "wpas1-report").await;
         let mut n = new("cancer", Some("05"), 0);
-        n.suspected_on = base + Duration::days(80 - waited);
+        n.suspected_on = base + patient_administration_system::time::days(80 - waited);
         let x = wales.record(r, n, &sys()).await.unwrap();
         s.db.run(Stmt::new(
             "UPDATE suspected_conditions SET stop_reason = $2, stopped_on = $3, stopped_by = 'Dr A Bevan', stopped_at = now() WHERE id = $1",
@@ -720,7 +722,7 @@ async fn stopping_needs_the_version_read() {
         None,
         serde_json::json!({
             "condition": "cancer", "subtype": "08",
-            "suspected_on": (Utc::now() - Duration::days(9)).date_naive(),
+            "suspected_on": (Timestamp::now() - patient_administration_system::time::days(9)).to_zoned_datetime(jiff::tz::TimeZone::UTC).date(),
             "suspected_by": "Dr Rhian Evans", "recorded_by": "Gareth Jones"
         }),
     )
@@ -785,7 +787,7 @@ async fn stopping_needs_the_version_read() {
         "GET",
         &format!(
             "/api/suspicions/report?from={}&to={}",
-            today() - Duration::days(30),
+            today() - patient_administration_system::time::days(30),
             today()
         ),
         None,
@@ -886,9 +888,11 @@ async fn a_subtype_from_another_list_is_refused_not_relabelled() {
 async fn a_withdrawn_suspicion_is_counted_apart_from_the_share() {
     let s = state().await;
     let wales = service(&s, "wales");
-    let base = NaiveDate::from_ymd_opt(1990, 1, 1).unwrap()
-        + Duration::days(i64::from(Uuid::new_v4().as_u128() as u16 % 3000));
-    let stop = base + Duration::days(100);
+    let base = jiff::civil::date(1990, 1, 1)
+        + patient_administration_system::time::days(i64::from(
+            Uuid::new_v4().as_u128() as u16 % 3000,
+        ));
+    let stop = base + patient_administration_system::time::days(100);
     for (waited, reason) in [
         (30, "treatment_started"),
         (90, "withdrawn"),
@@ -896,7 +900,7 @@ async fn a_withdrawn_suspicion_is_counted_apart_from_the_share() {
     ] {
         let r = referral(&s, "wpas9-withdrawn").await;
         let mut n = new("cancer", Some("12"), 0);
-        n.suspected_on = stop - Duration::days(waited);
+        n.suspected_on = stop - patient_administration_system::time::days(waited);
         let x = wales.record(r, n, &sys()).await.unwrap();
         s.db.run(Stmt::new(
             "UPDATE suspected_conditions SET stop_reason = $2, stopped_on = $3, stopped_by = 'Dr A Bevan', stopped_at = now() WHERE id = $1",
@@ -955,7 +959,7 @@ async fn an_open_suspicion_is_amended_with_a_reason_and_the_version_read() {
     let amend = |a: serde_json::Value| a;
     let uri = format!("/api/suspicions/{}/amend", x.id);
     let body = amend(serde_json::json!({
-        "suspected_on": today() - Duration::days(12), "subtype": "03",
+        "suspected_on": today() - patient_administration_system::time::days(12), "subtype": "03",
         "reason": "the GP's letter gives an earlier date and a lower GI site", "amended_by": "Gareth Jones"
     }));
     let (st, _, _) = call(&app, "POST", &uri, None, body.clone()).await;
@@ -1019,7 +1023,7 @@ async fn an_open_suspicion_is_amended_with_a_reason_and_the_version_read() {
         "no change"
     );
     let future = Amendment {
-        suspected_on: Some(today() + Duration::days(1)),
+        suspected_on: Some(today() + patient_administration_system::time::days(1)),
         ..a("typo")
     };
     assert!(

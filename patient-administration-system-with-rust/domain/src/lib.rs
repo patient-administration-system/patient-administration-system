@@ -23,6 +23,7 @@ pub mod models;
 pub mod noshow;
 pub mod privacy;
 pub mod suspicions;
+pub mod time;
 pub mod tolerance;
 pub mod triage;
 pub mod validation;

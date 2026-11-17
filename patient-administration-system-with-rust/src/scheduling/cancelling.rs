@@ -17,7 +17,7 @@ impl SchedulingService {
         appt.status = appt
             .status
             .try_transition_to(AppointmentStatus::Cancelled)?;
-        let now = chrono::Utc::now();
+        let now = jiff::Timestamp::now();
         appt.cancellation_reason = Some(
             details
                 .legacy_reason
@@ -171,7 +171,7 @@ impl SchedulingService {
         }
         let from = entry.status;
         entry.status = to;
-        entry.updated_at = chrono::Utc::now();
+        entry.updated_at = jiff::Timestamp::now();
         let entry = WaitlistRepository::update_entry(txn, &entry).await?;
         AuditLogRepository::log(
             txn,
@@ -247,7 +247,7 @@ impl SchedulingService {
         &self,
         appointment_id: Uuid,
         details: CancelDetails,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         let ctx = ctx.clone();

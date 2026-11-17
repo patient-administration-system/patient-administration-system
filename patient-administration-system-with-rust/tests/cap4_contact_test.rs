@@ -7,7 +7,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::communication::reminders::ReminderService;
 use patient_administration_system::contact::ProfileInput;
@@ -297,8 +297,8 @@ async fn reminder_world(
             DeliveryChannel::Email,
             Arc::new(Capture("email", log.clone())),
         );
-    let start = Utc::now() + Duration::hours(2);
-    let mut a = Appointment::new(person, start, start + Duration::minutes(30));
+    let start = Timestamp::now() + SignedDuration::from_hours(2);
+    let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     let a = AppointmentRepository::create(&s.db, &a).await.unwrap();
     (s, person, log, a)
@@ -334,7 +334,7 @@ async fn a_reminder_uses_the_preferred_channel_first_and_the_verified_profile_nu
         .await
         .unwrap();
     ReminderService::new(s.db.clone(), s.communication.clone())
-        .run_once(Utc::now(), Duration::hours(24))
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
         .await
         .unwrap();
     // SMS goes first (the patient's choice) and succeeds, so nothing else is tried for this patient.
@@ -368,7 +368,7 @@ async fn an_unverified_profile_number_is_not_used_and_the_upstream_one_is() {
         .unwrap();
     // Never verified: must not receive the message.
     ReminderService::new(s.db.clone(), s.communication.clone())
-        .run_once(Utc::now(), Duration::hours(24))
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
         .await
         .unwrap();
     assert!(

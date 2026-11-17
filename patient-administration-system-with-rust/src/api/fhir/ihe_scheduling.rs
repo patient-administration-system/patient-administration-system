@@ -18,7 +18,7 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -136,15 +136,15 @@ impl Params {
         Ok(all.first().copied())
     }
 
-    fn time(&self, name: &str) -> Result<Option<DateTime<Utc>>> {
+    fn time(&self, name: &str) -> Result<Option<Timestamp>> {
         let Some(v) = self.one(name)? else {
             return Ok(None);
         };
         v["valueDateTime"]
             .as_str()
             .or_else(|| v["valueInstant"].as_str())
-            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-            .map(|t| Some(t.with_timezone(&Utc)))
+            .and_then(|s| s.parse::<jiff::Timestamp>().ok())
+            .map(Some)
             .ok_or_else(|| Error::validation(format!("{name} must be a dateTime with a time zone")))
     }
 
@@ -269,7 +269,7 @@ pub async fn find(
         ])?;
         let now = state.clock.now();
         let start = p.time("start")?.unwrap_or(now);
-        let end = p.time("end")?.unwrap_or(start + Duration::days(14));
+        let end = p.time("end")?.unwrap_or(start + crate::time::days(14));
         let patient = p
             .reference("patient-reference", "Patient")?
             .ok_or_else(|| Error::validation("patient-reference is required: Patient/<id>"))?;
@@ -326,7 +326,7 @@ pub async fn hold(
         let p = Params::parse(&body)?;
         p.only(&["appointment-reference"])?;
         let id = proposal_id(&p)?;
-        let ttl = Duration::minutes(env::int("PAS_HOLD_MINUTES"));
+        let ttl = SignedDuration::from_mins(env::int("PAS_HOLD_MINUTES"));
         state
             .scheduling
             .hold_proposal(id, state.clock.now(), ttl, &request_audit_ctx(&headers))
@@ -437,10 +437,10 @@ mod tests {
             id: Uuid::new_v4(),
             slot_id: Uuid::new_v4(),
             person_id: Uuid::new_v4(),
-            start: Utc::now(),
-            end: Utc::now() + Duration::minutes(15),
+            start: Timestamp::now(),
+            end: Timestamp::now() + SignedDuration::from_mins(15),
             status: status.into(),
-            expires_at: Utc::now(),
+            expires_at: Timestamp::now(),
             appointment_id: appointment,
             owner_kind: "practitioner".into(),
             owner_id: Uuid::new_v4(),

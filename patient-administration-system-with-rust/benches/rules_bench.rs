@@ -5,8 +5,8 @@
 //! and the verdict over a day's worth of rows, so a regression in the per-row cost shows as a total.
 
 #![cfg_attr(not(test), forbid(unsafe_code))]
-use chrono::{Duration, Utc};
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::noshow::{Inputs, Weights, compute};
 use patient_administration_system::paging::cut;
 use patient_administration_system::triage::targets::standing;
@@ -43,13 +43,14 @@ fn bench_noshow(c: &mut Criterion) {
 }
 
 fn bench_triage(c: &mut Criterion) {
-    let now = Utc::now();
+    let now = Timestamp::now();
     let mut group = c.benchmark_group("triage_standing_report");
     for n in [100, 10_000] {
         let rows: Vec<_> = (0..n)
             .map(|i| {
-                let arrival = now - Duration::minutes((i % 300) as i64);
-                let seen = (i % 3 != 0).then(|| arrival + Duration::minutes((i % 90) as i64));
+                let arrival = now - SignedDuration::from_mins((i % 300) as i64);
+                let seen =
+                    (i % 3 != 0).then(|| arrival + SignedDuration::from_mins((i % 90) as i64));
                 (arrival, seen, [0, 10, 60, 120, 240][i % 5])
             })
             .collect();

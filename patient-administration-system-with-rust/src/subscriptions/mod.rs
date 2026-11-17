@@ -24,7 +24,7 @@
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -134,9 +134,9 @@ pub struct Subscription {
     pub secret_env: Option<String>,
     pub status: SubscriptionState,
     pub created_by: String,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
     #[schema(required = true)]
-    pub ended_at: Option<DateTime<Utc>>,
+    pub ended_at: Option<Timestamp>,
     pub pending: i64,
     pub delivered: i64,
     pub failed: i64,
@@ -149,7 +149,7 @@ pub fn notification(
     topic: &str,
     event_type: &str,
     payload: &Value,
-    event_at: DateTime<Utc>,
+    event_at: Timestamp,
     number: i64,
 ) -> Value {
     let focus = payload["appointment_id"]
@@ -267,7 +267,7 @@ impl SubscriptionService {
                 endpoint.into(),
                 secret_env.into(),
                 by.into(),
-                Utc::now().into(),
+                Timestamp::now().into(),
             ],
         ))
         .await?;
@@ -332,12 +332,12 @@ impl SubscriptionService {
 
     /// One pass: queue new events for each active subscriber, then post the deliveries that are due.
     /// Returns how many were delivered.
-    pub async fn tick(&self, now: DateTime<Utc>) -> Result<usize> {
+    pub async fn tick(&self, now: Timestamp) -> Result<usize> {
         self.fan_out(now).await?;
         self.deliver_due(now).await
     }
 
-    async fn fan_out(&self, now: DateTime<Utc>) -> Result<()> {
+    async fn fan_out(&self, now: Timestamp) -> Result<()> {
         for topic in TOPICS.map(|(t, _)| t) {
             self.db
                 .run(Stmt::new("INSERT INTO subscription_deliveries \
@@ -353,7 +353,7 @@ impl SubscriptionService {
         Ok(())
     }
 
-    async fn deliver_due(&self, now: DateTime<Utc>) -> Result<usize> {
+    async fn deliver_due(&self, now: Timestamp) -> Result<usize> {
         let due = self
             .db
             .all(Stmt::new("SELECT * FROM ( \
@@ -411,7 +411,7 @@ impl SubscriptionService {
                                 n.into(),
                                 why.chars().take(300).collect::<String>().into(),
                                 (if give_up { "failed" } else { "pending" }).into(),
-                                (now + chrono::Duration::seconds(backoff_seconds(n))).into(),
+                                (now + jiff::SignedDuration::from_secs(backoff_seconds(n))).into(),
                             ],
                         ))
 .await?;
@@ -465,7 +465,6 @@ impl SubscriptionService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
     #[test]
     fn events_belong_to_a_topic_or_none() {
@@ -521,7 +520,7 @@ mod tests {
     fn a_notification_carries_the_status_and_only_the_appointments_reference() {
         let sub = Uuid::new_v4();
         let appt = Uuid::new_v4();
-        let at = Utc.with_ymd_and_hms(2026, 10, 23, 12, 0, 0).unwrap();
+        let at = crate::time::utc(2026, 10, 23, 12, 0, 0);
         let n = notification(
             sub,
             "appointment",

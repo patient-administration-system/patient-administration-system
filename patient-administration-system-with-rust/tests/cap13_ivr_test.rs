@@ -6,7 +6,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::Duration;
+use jiff::SignedDuration;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::contact::ProfileInput;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
@@ -329,5 +329,5 @@ async fn the_http_endpoints_work_and_a_bad_token_or_key_is_refused() {
         (st, v["data"]["done"].as_bool()),
         (StatusCode::OK, Some(true))
     );
-    let _ = Duration::zero();
+    let _ = SignedDuration::ZERO;
 }

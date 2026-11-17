@@ -102,7 +102,7 @@ async fn a_no_show_on_a_listed_service_creates_one_urgent_task() {
     assert_eq!(t.person_id, a.person_id);
     assert_eq!(t.service_type, w.service);
     // Due within 48 hours of the miss.
-    let hours = (t.due_at - chrono::Utc::now()).num_hours();
+    let hours = (t.due_at - jiff::Timestamp::now()).as_hours();
     assert!((46..=48).contains(&hours), "due in {hours} hours");
     assert_eq!(
         common::audit_count(&w.s.db, a.id, "follow_up_task_created").await,

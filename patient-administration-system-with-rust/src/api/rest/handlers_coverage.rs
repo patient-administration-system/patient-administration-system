@@ -39,7 +39,7 @@ pub async fn create_coverage(
     if body.id == Uuid::nil() {
         body.id = Uuid::new_v4();
     }
-    body.created_at = chrono::Utc::now();
+    body.created_at = jiff::Timestamp::now();
     body.updated_at = body.created_at;
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
@@ -115,7 +115,7 @@ pub async fn update_coverage(
         Err(e) => return error_to_response(e),
     };
     body.id = id;
-    body.updated_at = chrono::Utc::now();
+    body.updated_at = jiff::Timestamp::now();
     let ctx = audit_ctx(&user_context_from_headers(&headers));
     let run = async {
         let txn = state.db.begin_txn().await?;

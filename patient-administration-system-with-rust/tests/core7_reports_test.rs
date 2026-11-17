@@ -8,7 +8,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::slot::SlotRepository;
@@ -25,7 +25,7 @@ fn sys() -> UserContext {
 
 struct W {
     s: AppState,
-    day: DateTime<Utc>,
+    day: Timestamp,
     a: Uuid,
     b: Uuid,
     appts: Vec<Appointment>,
@@ -38,15 +38,17 @@ async fn world() -> W {
     // long-lived database two runs landing on the same day (likely after a few hundred) would see each other.
     let day = loop {
         let d = 4000 + (Uuid::new_v4().as_u128() % 20_000) as i64;
-        let day = (Utc::now() + Duration::days(d))
-            .date_naive()
-            .and_hms_opt(8, 0, 0)
+        let day = (Timestamp::now() + patient_administration_system::time::days(d))
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .date()
+            .at(8, 0, 0, 0)
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
             .unwrap()
-            .and_utc();
+            .timestamp();
         let used = s
             .db
             .one(Stmt::new("SELECT 1 AS used FROM slots WHERE start_datetime >= $1 AND start_datetime < $2 LIMIT 1",
-                [day.into(), (day + Duration::days(1)).into()],
+                [day.into(), (day + patient_administration_system::time::days(1)).into()],
             ))
             .await
             .unwrap();
@@ -68,17 +70,17 @@ async fn world() -> W {
     .id;
     let mut slots_a = Vec::new();
     for i in 0..10 {
-        let st = day + Duration::minutes(i * 20);
+        let st = day + SignedDuration::from_mins(i * 20);
         slots_a.push(
-            SlotRepository::create(&s.db, &Slot::new(a, st, st + Duration::minutes(20)))
+            SlotRepository::create(&s.db, &Slot::new(a, st, st + SignedDuration::from_mins(20)))
                 .await
                 .unwrap()
                 .id,
         );
     }
     for i in 0..4 {
-        let st = day + Duration::minutes(i * 20);
-        SlotRepository::create(&s.db, &Slot::new(b, st, st + Duration::minutes(20)))
+        let st = day + SignedDuration::from_mins(i * 20);
+        SlotRepository::create(&s.db, &Slot::new(b, st, st + SignedDuration::from_mins(20)))
             .await
             .unwrap();
     }
@@ -129,10 +131,10 @@ async fn world() -> W {
 }
 
 impl W {
-    fn window(&self) -> (DateTime<Utc>, DateTime<Utc>) {
+    fn window(&self) -> (Timestamp, Timestamp) {
         (
-            self.day - Duration::hours(8),
-            self.day + Duration::hours(15),
+            self.day - SignedDuration::from_hours(8),
+            self.day + SignedDuration::from_hours(15),
         )
     }
 }
@@ -200,7 +202,7 @@ async fn grouping_by_day_gives_the_same_counts_in_one_row() {
             .unwrap();
     assert_eq!(r.rows.len(), 1);
     let d = &r.rows[0];
-    assert_eq!(d.key, w.day.format("%Y-%m-%d").to_string());
+    assert_eq!(d.key, w.day.strftime("%Y-%m-%d").to_string());
     assert_eq!((d.total, d.slots, d.busy_slots), (7, 14, 4));
     assert_eq!(d.utilization, 0.286);
     assert_eq!(r.utilization, 0.286);
@@ -231,16 +233,16 @@ async fn an_empty_range_gives_zeros_not_an_error() {
     let w = world().await;
     // A day nothing is ever booked on. (It used to be `w.day + 100 days`, but every run leaves slots on a
     // random day in the same years, so on a long-lived database that day eventually had some.)
-    let empty_from = chrono::NaiveDate::from_ymd_opt(1990, 1, 1)
+    let empty_from = jiff::civil::date(1990, 1, 1)
+        .at(8, 0, 0, 0)
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
         .unwrap()
-        .and_hms_opt(8, 0, 0)
-        .unwrap()
-        .and_utc();
+        .timestamp();
     let r =
         w.s.reports
             .clinic_activity(
                 Some(empty_from),
-                Some(empty_from + Duration::days(1)),
+                Some(empty_from + patient_administration_system::time::days(1)),
                 GroupBy::Schedule,
             )
             .await
@@ -331,7 +333,7 @@ async fn the_http_endpoint_gives_json_and_csv_without_identifiers_and_refuses_ba
             )
         }
     };
-    let enc = |t: DateTime<Utc>| t.to_rfc3339().replace('+', "%2B");
+    let enc = |t: Timestamp| t.to_string().replace('+', "%2B");
     let q = format!("from={}&to={}", enc(from), enc(to));
     let (st, _, body) = get(format!(
         "/api/reports/clinic-activity?group_by=schedule&{q}"
@@ -366,7 +368,7 @@ async fn the_http_endpoint_gives_json_and_csv_without_identifiers_and_refuses_ba
     assert_eq!(st, StatusCode::BAD_REQUEST, "to before from");
     let (st, _, _) = get(format!(
         "/api/reports/clinic-activity?from={}&to={}",
-        enc(from - Duration::days(400)),
+        enc(from - patient_administration_system::time::days(400)),
         enc(to)
     ))
     .await;

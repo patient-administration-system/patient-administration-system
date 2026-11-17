@@ -6,7 +6,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::Timestamp;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::consent::ConsentRepository;
 use patient_administration_system::db::repositories::letter::LetterRepository;
@@ -53,7 +53,14 @@ async fn grant(
     person: Uuid,
     kind: ConsentType,
 ) -> Consent {
-    let c = Consent::new(person, kind, Utc::now().date_naive() - Duration::days(1));
+    let c = Consent::new(
+        person,
+        kind,
+        Timestamp::now()
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .date()
+            - patient_administration_system::time::days(1),
+    );
     ConsentRepository::create(&s.db, &c).await.unwrap()
 }
 
@@ -73,9 +80,17 @@ async fn consent_is_required_active_unexpired_unrevoked_and_of_the_right_kind() 
     let mut old = Consent::new(
         p,
         ConsentType::Marketing,
-        Utc::now().date_naive() - Duration::days(30),
+        Timestamp::now()
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .date()
+            - patient_administration_system::time::days(30),
     );
-    old.expiry_date = Some(Utc::now().date_naive() - Duration::days(1));
+    old.expiry_date = Some(
+        Timestamp::now()
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .date()
+            - patient_administration_system::time::days(1),
+    );
     ConsentRepository::create(&s.db, &old).await.unwrap();
     assert!(!has_consent(&s.db, p, ConsentType::Marketing).await.unwrap());
     // Active.

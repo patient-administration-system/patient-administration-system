@@ -11,7 +11,7 @@
 
 use std::collections::BTreeSet;
 
-use chrono::{Datelike, Days, NaiveDate, Weekday};
+use jiff::civil::{Date, Weekday};
 
 use crate::config::env;
 use crate::{Error, Result};
@@ -29,14 +29,14 @@ const MAX_STEPS: u32 = 366 * 5;
 pub struct WorkingCalendar {
     /// Indexed by `Weekday::num_days_from_monday`.
     days_off: [bool; 7],
-    holidays: BTreeSet<NaiveDate>,
+    holidays: BTreeSet<Date>,
 }
 
 impl Default for WorkingCalendar {
     /// Saturday and Sunday off, and no holidays.
     fn default() -> Self {
         Self {
-            days_off: off([Weekday::Sat, Weekday::Sun]),
+            days_off: off([Weekday::Saturday, Weekday::Sunday]),
             holidays: BTreeSet::new(),
         }
     }
@@ -47,7 +47,7 @@ impl WorkingCalendar {
     /// a working day.
     pub fn new(
         days_off: impl IntoIterator<Item = Weekday>,
-        holidays: impl IntoIterator<Item = NaiveDate>,
+        holidays: impl IntoIterator<Item = Date>,
     ) -> Result<Self> {
         let days_off = off(days_off);
         if days_off.iter().all(|d| *d) {
@@ -86,7 +86,7 @@ impl WorkingCalendar {
             Some(s) => s
                 .split(',')
                 .map(|d| {
-                    NaiveDate::parse_from_str(d.trim(), "%Y-%m-%d").map_err(|_| {
+                    d.trim().parse::<Date>().map_err(|_| {
                         Error::config(format!(
                             "{HOLIDAYS}: {:?} is not a date such as 2026-12-25",
                             d.trim()
@@ -107,31 +107,30 @@ impl WorkingCalendar {
     }
 
     /// Whether `date` is a working day.
-    pub fn is_working_day(&self, date: NaiveDate) -> bool {
-        !self.days_off[date.weekday().num_days_from_monday() as usize]
-            && !self.holidays.contains(&date)
+    pub fn is_working_day(&self, date: Date) -> bool {
+        !self.days_off[crate::time::monday_index(date.weekday())] && !self.holidays.contains(&date)
     }
 
     /// The working day `n` working days after `date`. With `n = 0`, `date` itself if it is a working day,
     /// otherwise the next one: "due today" on a Saturday is due on Monday.
-    pub fn add_working_days(&self, date: NaiveDate, n: u32) -> Result<NaiveDate> {
+    pub fn add_working_days(&self, date: Date, n: u32) -> Result<Date> {
         self.walk(date, n, true)
     }
 
     /// The working day `n` working days before `date`. With `n = 0`, `date` itself if it is a working day,
     /// otherwise the working day before it: "send by" a Sunday is sent on the Friday.
-    pub fn sub_working_days(&self, date: NaiveDate, n: u32) -> Result<NaiveDate> {
+    pub fn sub_working_days(&self, date: Date, n: u32) -> Result<Date> {
         self.walk(date, n, false)
     }
 
     /// How many working days lie after `from` up to and including `to` (zero when `to` is not after `from`).
-    pub fn working_days_between(&self, from: NaiveDate, to: NaiveDate) -> u32 {
+    pub fn working_days_between(&self, from: Date, to: Date) -> u32 {
         let mut count = 0;
         let mut day = from;
         while day < to {
-            match day.checked_add_days(Days::new(1)) {
-                Some(next) => day = next,
-                None => break,
+            match day.tomorrow() {
+                Ok(next) => day = next,
+                Err(_) => break,
             }
             if self.is_working_day(day) {
                 count += 1;
@@ -140,12 +139,12 @@ impl WorkingCalendar {
         count
     }
 
-    fn walk(&self, date: NaiveDate, n: u32, forward: bool) -> Result<NaiveDate> {
-        let step = |d: NaiveDate| {
+    fn walk(&self, date: Date, n: u32, forward: bool) -> Result<Date> {
+        let step = |d: Date| {
             if forward {
-                d.checked_add_days(Days::new(1))
+                d.tomorrow().ok()
             } else {
-                d.checked_sub_days(Days::new(1))
+                d.yesterday().ok()
             }
         };
         let out_of_range = || Error::validation("the date is out of range");
@@ -177,7 +176,7 @@ impl WorkingCalendar {
 fn off(days: impl IntoIterator<Item = Weekday>) -> [bool; 7] {
     let mut mask = [false; 7];
     for d in days {
-        mask[d.num_days_from_monday() as usize] = true;
+        mask[crate::time::monday_index(d)] = true;
     }
     mask
 }
@@ -185,13 +184,13 @@ fn off(days: impl IntoIterator<Item = Weekday>) -> [bool; 7] {
 fn parse_weekday(s: &str) -> Result<Weekday> {
     let lower = s.to_ascii_lowercase();
     let day = match lower.get(..3) {
-        Some("mon") => Weekday::Mon,
-        Some("tue") => Weekday::Tue,
-        Some("wed") => Weekday::Wed,
-        Some("thu") => Weekday::Thu,
-        Some("fri") => Weekday::Fri,
-        Some("sat") => Weekday::Sat,
-        Some("sun") => Weekday::Sun,
+        Some("mon") => Weekday::Monday,
+        Some("tue") => Weekday::Tuesday,
+        Some("wed") => Weekday::Wednesday,
+        Some("thu") => Weekday::Thursday,
+        Some("fri") => Weekday::Friday,
+        Some("sat") => Weekday::Saturday,
+        Some("sun") => Weekday::Sunday,
         _ => {
             return Err(Error::config(format!(
                 "{NON_WORKING_DAYS}: {s:?} is not a day such as sat or sun"
@@ -205,8 +204,8 @@ fn parse_weekday(s: &str) -> Result<Weekday> {
 mod tests {
     use super::*;
 
-    fn d(y: i32, m: u32, day: u32) -> NaiveDate {
-        NaiveDate::from_ymd_opt(y, m, day).unwrap()
+    fn d(y: i16, m: i8, day: i8) -> Date {
+        jiff::civil::date(y, m, day)
     }
 
     /// 2026-12-24 is a Thursday; 25th Friday, 26th Saturday, 27th Sunday, 28th Monday.
@@ -310,15 +309,16 @@ mod tests {
     #[test]
     fn a_calendar_that_never_works_cannot_be_built_so_the_walk_ends() {
         // Six days off and the seventh a holiday every week for a long run would still end: the walk is bounded.
-        let holidays = (0..2000).filter_map(|i| d(2026, 1, 5).checked_add_days(Days::new(i * 7)));
+        let holidays =
+            (0..2000).filter_map(|i| d(2026, 1, 5).checked_add(jiff::Span::new().weeks(i)).ok());
         let c = WorkingCalendar::new(
             [
-                Weekday::Tue,
-                Weekday::Wed,
-                Weekday::Thu,
-                Weekday::Fri,
-                Weekday::Sat,
-                Weekday::Sun,
+                Weekday::Tuesday,
+                Weekday::Wednesday,
+                Weekday::Thursday,
+                Weekday::Friday,
+                Weekday::Saturday,
+                Weekday::Sunday,
             ],
             holidays,
         )

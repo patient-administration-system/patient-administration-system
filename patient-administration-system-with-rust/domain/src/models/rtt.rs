@@ -1,6 +1,6 @@
 //! rtt — Referral-to-Treatment pathway and clock arithmetic.
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -28,10 +28,10 @@ pub struct RTTPathway {
     pub target_service: String,
     pub breach_weeks: u32,
     pub status: RTTStatus,
-    pub started_at: DateTime<Utc>,
-    pub stopped_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub started_at: Timestamp,
+    pub stopped_at: Option<Timestamp>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl RTTPathway {
@@ -39,7 +39,7 @@ impl RTTPathway {
     pub const DEFAULT_BREACH_WEEKS: u32 = 18;
 
     pub fn new(person_id: Uuid, target_service: impl Into<String>) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             person_id,
@@ -54,7 +54,7 @@ impl RTTPathway {
     }
 
     /// True iff the active weeks waiting strictly exceeds `breach_weeks`.
-    pub fn is_breaching(&self, events: &[RTTClockEvent], now: DateTime<Utc>) -> bool {
+    pub fn is_breaching(&self, events: &[RTTClockEvent], now: Timestamp) -> bool {
         compute_active_weeks(events, now) > self.breach_weeks
     }
 }
@@ -65,13 +65,13 @@ pub struct RTTClockEvent {
     pub pathway_id: Uuid,
     pub kind: RTTEventKind,
     pub reason: Option<String>,
-    pub event_at: DateTime<Utc>,
-    pub created_at: DateTime<Utc>,
+    pub event_at: Timestamp,
+    pub created_at: Timestamp,
 }
 
 impl RTTClockEvent {
     pub fn started(pathway_id: Uuid) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             pathway_id,
@@ -83,7 +83,7 @@ impl RTTClockEvent {
     }
 
     pub fn paused(pathway_id: Uuid, reason: impl Into<String>) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             pathway_id,
@@ -95,7 +95,7 @@ impl RTTClockEvent {
     }
 
     pub fn resumed(pathway_id: Uuid) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             pathway_id,
@@ -107,7 +107,7 @@ impl RTTClockEvent {
     }
 
     pub fn stopped(pathway_id: Uuid, reason: impl Into<String>) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             pathway_id,
@@ -126,13 +126,13 @@ impl RTTClockEvent {
 /// empty. The clock accrues time during intervals opened by `Started` or
 /// `Resumed` and closed by `Paused` or `Stopped` (or, if the clock is still
 /// open at the end of the list, by `now`).
-pub fn compute_active_weeks(events: &[RTTClockEvent], now: DateTime<Utc>) -> u32 {
+pub fn compute_active_weeks(events: &[RTTClockEvent], now: Timestamp) -> u32 {
     if events.is_empty() {
         return 0;
     }
 
     let mut total_active_seconds: i64 = 0;
-    let mut active_since: Option<DateTime<Utc>> = None;
+    let mut active_since: Option<Timestamp> = None;
 
     for event in events {
         match event.kind {
@@ -141,14 +141,14 @@ pub fn compute_active_weeks(events: &[RTTClockEvent], now: DateTime<Utc>) -> u32
             }
             RTTEventKind::Paused | RTTEventKind::Stopped => {
                 if let Some(start) = active_since.take() {
-                    total_active_seconds += (event.event_at - start).num_seconds();
+                    total_active_seconds += (event.event_at - start).as_secs();
                 }
             }
         }
     }
 
     if let Some(start) = active_since {
-        total_active_seconds += (now - start).num_seconds();
+        total_active_seconds += (now - start).as_secs();
     }
 
     const SECONDS_PER_WEEK: i64 = 7 * 24 * 3600;
@@ -161,13 +161,12 @@ pub fn compute_active_weeks(events: &[RTTClockEvent], now: DateTime<Utc>) -> u32
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
 
-    fn at(now: DateTime<Utc>, weeks_ago: i64) -> DateTime<Utc> {
-        now - Duration::weeks(weeks_ago)
+    fn at(now: Timestamp, weeks_ago: i64) -> Timestamp {
+        now - crate::time::days(7 * weeks_ago)
     }
 
-    fn event(pathway_id: Uuid, kind: RTTEventKind, event_at: DateTime<Utc>) -> RTTClockEvent {
+    fn event(pathway_id: Uuid, kind: RTTEventKind, event_at: Timestamp) -> RTTClockEvent {
         RTTClockEvent {
             id: Uuid::new_v4(),
             pathway_id,
@@ -180,14 +179,14 @@ mod tests {
 
     #[test]
     fn test_compute_active_weeks_empty_returns_zero() {
-        let now = Utc::now();
+        let now = Timestamp::now();
         assert_eq!(compute_active_weeks(&[], now), 0);
     }
 
     #[test]
     fn test_compute_active_weeks_started_no_stop() {
         let pathway_id = Uuid::new_v4();
-        let now = Utc::now();
+        let now = Timestamp::now();
         let events = vec![event(pathway_id, RTTEventKind::Started, at(now, 20))];
         assert_eq!(compute_active_weeks(&events, now), 20);
     }
@@ -195,9 +194,9 @@ mod tests {
     #[test]
     fn test_compute_active_weeks_started_then_paused_after_5_weeks() {
         let pathway_id = Uuid::new_v4();
-        let now = Utc::now();
+        let now = Timestamp::now();
         let started_at = at(now, 10);
-        let paused_at = started_at + Duration::weeks(5);
+        let paused_at = started_at + crate::time::days(7 * 5);
         let events = vec![
             event(pathway_id, RTTEventKind::Started, started_at),
             event(pathway_id, RTTEventKind::Paused, paused_at),
@@ -210,11 +209,11 @@ mod tests {
         // Started, run 2 weeks, Paused, 1 week gap, Resumed, run 5 weeks.
         // Total active = 7 weeks.
         let pathway_id = Uuid::new_v4();
-        let now = Utc::now();
+        let now = Timestamp::now();
         let started_at = at(now, 20);
-        let paused_at = started_at + Duration::weeks(2);
-        let resumed_at = paused_at + Duration::weeks(1);
-        let final_now = resumed_at + Duration::weeks(5);
+        let paused_at = started_at + crate::time::days(7 * 2);
+        let resumed_at = paused_at + crate::time::days(7);
+        let final_now = resumed_at + crate::time::days(7 * 5);
         let events = vec![
             event(pathway_id, RTTEventKind::Started, started_at),
             event(pathway_id, RTTEventKind::Paused, paused_at),
@@ -227,10 +226,10 @@ mod tests {
     fn test_compute_active_weeks_started_paused_resumed_stopped() {
         // 3 weeks active, paused, resumed, 4 weeks active, stopped. Total 7.
         let pathway_id = Uuid::new_v4();
-        let started_at = Utc::now() - Duration::weeks(30);
-        let paused_at = started_at + Duration::weeks(3);
-        let resumed_at = paused_at + Duration::weeks(2);
-        let stopped_at = resumed_at + Duration::weeks(4);
+        let started_at = Timestamp::now() - crate::time::days(7 * 30);
+        let paused_at = started_at + crate::time::days(7 * 3);
+        let resumed_at = paused_at + crate::time::days(7 * 2);
+        let stopped_at = resumed_at + crate::time::days(7 * 4);
         let events = vec![
             event(pathway_id, RTTEventKind::Started, started_at),
             event(pathway_id, RTTEventKind::Paused, paused_at),
@@ -238,13 +237,13 @@ mod tests {
             event(pathway_id, RTTEventKind::Stopped, stopped_at),
         ];
         // `now` after the stop should not affect the total.
-        let now = stopped_at + Duration::weeks(100);
+        let now = stopped_at + crate::time::days(7 * 100);
         assert_eq!(compute_active_weeks(&events, now), 7);
     }
 
     #[test]
     fn test_is_breaching_true_at_20_weeks_with_threshold_18() {
-        let now = Utc::now();
+        let now = Timestamp::now();
         let mut pathway = RTTPathway::new(Uuid::new_v4(), "cardiology");
         pathway.breach_weeks = 18;
         let events = vec![event(pathway.id, RTTEventKind::Started, at(now, 20))];
@@ -253,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_is_breaching_false_at_5_weeks_with_threshold_18() {
-        let now = Utc::now();
+        let now = Timestamp::now();
         let pathway = RTTPathway::new(Uuid::new_v4(), "cardiology");
         let events = vec![event(pathway.id, RTTEventKind::Started, at(now, 5))];
         assert!(!pathway.is_breaching(&events, now));
@@ -262,7 +261,7 @@ mod tests {
     #[test]
     fn test_is_breaching_strictly_greater_than_threshold() {
         // At exactly 18 weeks, is_breaching must be false (uses `>`).
-        let now = Utc::now();
+        let now = Timestamp::now();
         let pathway = RTTPathway::new(Uuid::new_v4(), "cardiology");
         let events = vec![event(pathway.id, RTTEventKind::Started, at(now, 18))];
         assert!(!pathway.is_breaching(&events, now));

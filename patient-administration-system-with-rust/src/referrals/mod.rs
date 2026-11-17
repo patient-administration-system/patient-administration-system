@@ -13,7 +13,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -122,7 +122,7 @@ pub struct Referral {
     #[schema(required = true)]
     pub referring_worker_id: Option<Uuid>,
     pub status: ReferralStatus,
-    pub received_at: DateTime<Utc>,
+    pub received_at: Timestamp,
     /// The appointment booked from this referral, if any.
     #[schema(required = true)]
     pub appointment_id: Option<Uuid>,
@@ -130,14 +130,14 @@ pub struct Referral {
     #[schema(required = true)]
     pub triaged_by: Option<String>,
     #[schema(required = true)]
-    pub triaged_at: Option<DateTime<Utc>>,
+    pub triaged_at: Option<Timestamp>,
     /// For a redirect: the service it went to and the new referral that carries the patient there.
     #[schema(required = true)]
     pub redirected_to_service: Option<String>,
     #[schema(required = true)]
     pub redirected_referral_id: Option<Uuid>,
     /// The record's version (OFH-11): sent back as `If-Match` to close or triage it. Also returned as `ETag`.
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: Timestamp,
 }
 
 pub struct NewReferral {
@@ -147,7 +147,7 @@ pub struct NewReferral {
     pub target_service: String,
     pub reason: Option<String>,
     pub referring_worker_id: Option<Uuid>,
-    pub received_at: Option<DateTime<Utc>>,
+    pub received_at: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
@@ -287,7 +287,7 @@ impl ReferralService {
             return Err(Error::validation("reason must be at most 1000 characters"));
         }
         let id = Uuid::new_v4();
-        let received = n.received_at.unwrap_or_else(Utc::now);
+        let received = n.received_at.unwrap_or_else(jiff::Timestamp::now);
         let made = self
             .db
             .run(Stmt::new("INSERT INTO referrals (id, person_id, referring_worker_id, target_service, reason, received_at, created_at, \
@@ -466,7 +466,7 @@ impl ReferralService {
         &self,
         id: Uuid,
         reason: Option<&str>,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Referral> {
         let (reason, ctx) = (reason.map(str::to_string), ctx.clone());
@@ -480,7 +480,7 @@ impl ReferralService {
                         ))
                         .await?
                         .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
-                    let stored: DateTime<Utc> = r.col("updated_at")?;
+                    let stored: Timestamp = r.col("updated_at")?;
                     if !crate::api::rest::concurrency::is_current(stored, expected) {
                         return Err(Error::precondition_failed(
                             "that referral has changed since you read it; read it again",
@@ -544,7 +544,7 @@ impl ReferralService {
         outcome: &str,
         triaged_by: &str,
         redirect_to_service: Option<&str>,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Referral> {
         let outcome: TriageOutcome = outcome
@@ -582,7 +582,7 @@ impl ReferralService {
                         ))
 .await?
                         .ok_or_else(|| Error::not_found(format!("referral {id}")))?;
-                    let stored: DateTime<Utc> = r.col("updated_at")?;
+                    let stored: Timestamp = r.col("updated_at")?;
                     if !crate::api::rest::concurrency::is_current(stored, expected) {
                         return Err(Error::precondition_failed(
                             "that referral has changed since you read it; read it again",

@@ -2,7 +2,7 @@
 //!
 //! Plus the `BedStatus` state machine governing valid bed transitions.
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -68,13 +68,13 @@ pub struct Facility {
     pub code: String,
     pub address: Address,
     pub active: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Facility {
     pub fn new(name: String, code: String, address: Address) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             name,
@@ -96,13 +96,13 @@ pub struct Ward {
     pub code: String,
     pub capacity: u32,
     pub active: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Ward {
     pub fn new(facility_id: Uuid, name: String, code: String, capacity: u32) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             facility_id,
@@ -124,13 +124,13 @@ pub struct Room {
     pub name: String,
     pub code: String,
     pub active: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Room {
     pub fn new(ward_id: Uuid, name: String, code: String) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             ward_id,
@@ -151,13 +151,13 @@ pub struct Bed {
     pub name: String,
     pub code: String,
     pub status: BedStatus,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Bed {
     pub fn new(room_id: Uuid, name: String, code: String) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             room_id,

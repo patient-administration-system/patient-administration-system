@@ -109,11 +109,7 @@ impl ListValidationService {
 
     /// Validation removals, apart from treatment: per service, how many were removed, reinstated and kept in
     /// the period (by the date of the decision). No identifiers.
-    pub async fn report(
-        &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
-    ) -> Result<Vec<RemovalsByService>> {
+    pub async fn report(&self, from: Timestamp, to: Timestamp) -> Result<Vec<RemovalsByService>> {
         let rows = self
             .db
             .all(Stmt::new(

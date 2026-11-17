@@ -193,13 +193,13 @@ fn reference_id(body: &Value, pointer: &str, kind: &str, what: &str) -> Result<U
     Uuid::parse_str(id).map_err(|e| Error::validation(format!("{what} {id:?}: {e}")))
 }
 
-fn fhir_date(body: &Value, pointer: &str, what: &str) -> Result<Option<chrono::NaiveDate>, Error> {
+fn fhir_date(body: &Value, pointer: &str, what: &str) -> Result<Option<jiff::civil::Date>, Error> {
     let Some(raw) = body.pointer(pointer).and_then(Value::as_str) else {
         return Ok(None);
     };
     // A FHIR dateTime may carry a time; a coverage period is in whole days.
     let day = raw.get(..10).unwrap_or(raw);
-    chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+    day.parse::<jiff::civil::Date>()
         .map(Some)
         .map_err(|e| Error::validation(format!("{what} {raw:?}: {e}")))
 }
@@ -389,7 +389,7 @@ pub async fn update_schedule(
         if let Some(active) = body.get("active").and_then(serde_json::Value::as_bool) {
             existing.active = active;
         }
-        existing.updated_at = chrono::Utc::now();
+        existing.updated_at = jiff::Timestamp::now();
         let saved = ScheduleRepository::update(&txn, &existing).await?;
         let after = audit_value(&saved)?;
         let ctx = request_audit_ctx(&headers);
@@ -463,14 +463,13 @@ pub(super) fn parse_slot_status(body: &Value) -> Result<Option<SlotStatus>, Erro
     Ok(Some(mapped))
 }
 
-pub(super) fn parse_dt(body: &Value, key: &str) -> Result<chrono::DateTime<chrono::Utc>, Error> {
+pub(super) fn parse_dt(body: &Value, key: &str) -> Result<jiff::Timestamp, Error> {
     let raw = body
         .get(key)
         .and_then(|v| v.as_str())
         .ok_or_else(|| Error::validation(format!("Slot.{key} is required")))?;
     // FHIR `instant`: RFC 3339 with a mandatory offset.
-    chrono::DateTime::parse_from_rfc3339(raw)
-        .map(|d| d.with_timezone(&chrono::Utc))
+    raw.parse::<jiff::Timestamp>()
         .map_err(|e| Error::validation(format!("Slot.{key} {raw:?}: {e}")))
 }
 
@@ -564,7 +563,7 @@ pub async fn update_slot(
         if let Some(status) = parse_slot_status(&body)? {
             existing.status = status;
         }
-        existing.updated_at = chrono::Utc::now();
+        existing.updated_at = jiff::Timestamp::now();
         let saved = SlotRepository::update(&txn, &existing).await?;
         let after = audit_value(&saved)?;
         let ctx = request_audit_ctx(&headers);

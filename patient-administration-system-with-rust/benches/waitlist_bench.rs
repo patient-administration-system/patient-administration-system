@@ -4,8 +4,8 @@
 //! regressions in the linear scan over `RTTClockEvent`s.
 
 #![cfg_attr(not(test), forbid(unsafe_code))]
-use chrono::{Duration, Utc};
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use jiff::Timestamp;
 use patient_administration_system::models::rtt::{RTTClockEvent, compute_active_weeks};
 use std::hint::black_box;
 use uuid::Uuid;
@@ -13,7 +13,7 @@ use uuid::Uuid;
 fn make_events(count: usize) -> Vec<RTTClockEvent> {
     let pathway_id = Uuid::new_v4();
     let mut events = Vec::with_capacity(count);
-    let mut t = Utc::now() - Duration::weeks(52);
+    let mut t = Timestamp::now() - patient_administration_system::time::days(7 * 52);
     // alternating started/paused/resumed pattern
     let mut started = false;
     for i in 0..count {
@@ -25,7 +25,7 @@ fn make_events(count: usize) -> Vec<RTTClockEvent> {
             RTTClockEvent::resumed(pathway_id)
         };
         e.event_at = t;
-        t += Duration::days(3);
+        t += patient_administration_system::time::days(3);
         events.push(e);
         started = !started;
     }
@@ -37,7 +37,7 @@ fn bench_compute_weeks(c: &mut Criterion) {
     for size in [4, 16, 64, 256].iter() {
         let events = make_events(*size);
         group.bench_with_input(BenchmarkId::from_parameter(size), &events, |b, events| {
-            b.iter(|| compute_active_weeks(black_box(events), black_box(Utc::now())));
+            b.iter(|| compute_active_weeks(black_box(events), black_box(Timestamp::now())));
         });
     }
     group.finish();

@@ -1,6 +1,6 @@
 //! communication
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -57,8 +57,8 @@ pub struct LetterTemplate {
     #[serde(default = "default_locale")]
     #[schema(required = true)]
     pub locale: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 fn default_locale() -> String {
@@ -67,7 +67,7 @@ fn default_locale() -> String {
 
 impl LetterTemplate {
     pub fn new(name: String, subject: String, body_tera: String) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             name,
@@ -93,7 +93,7 @@ pub struct GeneratedLetter {
     pub rendered_body: String,
     pub channel: DeliveryChannel,
     pub status: LetterStatus,
-    pub sent_at: Option<DateTime<Utc>>,
+    pub sent_at: Option<Timestamp>,
     /// Which language variant was used, so a patient's message can be shown in what they were sent.
     #[serde(default)]
     pub locale: Option<String>,
@@ -104,8 +104,8 @@ pub struct GeneratedLetter {
     /// The record the trigger refers to, for example the appointment a reminder was for.
     #[serde(default)]
     pub trigger_ref: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 fn manual() -> String {
@@ -120,7 +120,7 @@ impl GeneratedLetter {
         rendered_subject: String,
         rendered_body: String,
     ) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             template_id,
@@ -140,7 +140,7 @@ impl GeneratedLetter {
     }
 
     pub fn mark_sent(&mut self) {
-        let now = Utc::now();
+        let now = Timestamp::now();
         self.status = LetterStatus::Sent;
         self.sent_at = Some(now);
         self.updated_at = now;
@@ -148,7 +148,7 @@ impl GeneratedLetter {
 
     pub fn mark_failed(&mut self) {
         self.status = LetterStatus::Failed;
-        self.updated_at = Utc::now();
+        self.updated_at = Timestamp::now();
     }
 }
 

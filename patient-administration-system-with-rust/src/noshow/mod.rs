@@ -24,7 +24,7 @@
 //! as a factor, and weather or travel forecasts.
 
 use crate::db::sql::Pool;
-use chrono::{DateTime, Datelike, Timelike, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use uuid::Uuid;

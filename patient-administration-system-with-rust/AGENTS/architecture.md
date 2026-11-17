@@ -109,8 +109,8 @@ The RTT clock has a related lifecycle (`Active` → `Paused` → `Active` → `S
 
 ## Time Handling
 
-- **Domain layer**: `chrono::DateTime<Utc>` throughout. Naive local times are never accepted.
-- **DB layer**: `chrono::DateTime<FixedOffset>` for columns; conversion to/from `Utc` happens at the repository boundary.
+- **Domain layer**: `jiff::Timestamp` (an instant in UTC) throughout, `jiff::civil::Date` for calendar dates, `jiff::civil::Time` for a clock time; a day as a duration is 24 hours (`time::days`). Naive local times are never accepted.
+- **DB layer**: `timestamptz`, `date` and `time` columns are bound and read through jiff-sqlx's wrappers, in one place: `db::sql::Param` and `db::row::Column` (JIFF-1).
 - **Effective time vs system time**: every entity has `created_at` / `updated_at` for system bookkeeping. Entities with their own event time additionally carry domain-time columns: `Encounter.period_start` / `period_end`, `Admission.admitted_at`, `Transfer.transferred_at`, `Discharge.discharged_at`, `Slot.start_datetime` / `end_datetime`, `Appointment.start_datetime` / `end_datetime`, `RTTClockEvent.event_at`. The distinction matters: a corrective backdated entry can move `event_at` without altering `created_at`.
 
 ## Soft Delete

@@ -409,7 +409,7 @@ Enum: `Free`, `Busy`, `BlockedOut`.
 | created_at      | DateTime\<Utc\>     |
 | updated_at      | DateTime\<Utc\>     |
 
-**Method:** `Slot::duration() -> chrono::Duration`.
+**Method:** `Slot::duration() -> jiff::SignedDuration`.
 
 ## Appointment (`models/appointment.rs`)
 

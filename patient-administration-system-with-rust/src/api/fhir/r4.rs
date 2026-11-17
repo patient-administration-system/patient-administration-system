@@ -257,11 +257,11 @@ async fn referral(state: &AppState, id: Uuid) -> crate::Result<Option<Referral>>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
+    use jiff::Timestamp;
 
     #[test]
     fn an_appointment_maps_status_participants_and_slot() {
-        let mut a = Appointment::new(Uuid::new_v4(), Utc::now(), Utc::now());
+        let mut a = Appointment::new(Uuid::new_v4(), Timestamp::now(), Timestamp::now());
         a.status = AppointmentStatus::NoShow;
         a.slot_id = Some(Uuid::new_v4());
         a.worker_id = Some(Uuid::new_v4());

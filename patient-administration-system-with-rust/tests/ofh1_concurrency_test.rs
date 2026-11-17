@@ -9,7 +9,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
@@ -57,8 +57,8 @@ async fn call(
 }
 
 async fn booked(state: &patient_administration_system::api::rest::AppState) -> Appointment {
-    let start = Utc::now() + Duration::days(9);
-    let mut a = Appointment::new(Uuid::new_v4(), start, start + Duration::minutes(30));
+    let start = Timestamp::now() + patient_administration_system::time::days(9);
+    let mut a = Appointment::new(Uuid::new_v4(), start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     AppointmentRepository::create(&state.db, &a).await.unwrap()
 }

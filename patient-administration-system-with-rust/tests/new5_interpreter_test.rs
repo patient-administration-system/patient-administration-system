@@ -2,7 +2,7 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -106,7 +106,7 @@ async fn the_day_before_list_shows_an_unconfirmed_interpreter_until_someone_conf
     let listed = |rows: &[patient_administration_system::interpreter::UnconfirmedRequest],
                   id: Uuid| { rows.iter().any(|r| r.appointment_id == id) };
     let soon = svc
-        .unconfirmed(Utc::now(), Duration::hours(36), 501)
+        .unconfirmed(Timestamp::now(), SignedDuration::from_hours(36), 501)
         .await
         .unwrap();
     assert!(
@@ -124,7 +124,7 @@ async fn the_day_before_list_shows_an_unconfirmed_interpreter_until_someone_conf
         .unwrap()
         .request_id;
     assert!(
-        svc.confirm(request, " ", None, Utc::now(), &sys())
+        svc.confirm(request, " ", None, Timestamp::now(), &sys())
             .await
             .is_err(),
         "a named person"
@@ -133,21 +133,27 @@ async fn the_day_before_list_shows_an_unconfirmed_interpreter_until_someone_conf
         request,
         "Clinic coordinator",
         Some("WITS-12345"),
-        Utc::now(),
+        Timestamp::now(),
         &sys(),
     )
     .await
     .unwrap();
     assert!(!listed(
-        &svc.unconfirmed(Utc::now(), Duration::hours(36), 501)
+        &svc.unconfirmed(Timestamp::now(), SignedDuration::from_hours(36), 501)
             .await
             .unwrap(),
         tomorrow.id
     ));
     assert!(
-        svc.confirm(request, "Clinic coordinator", None, Utc::now(), &sys())
-            .await
-            .is_err(),
+        svc.confirm(
+            request,
+            "Clinic coordinator",
+            None,
+            Timestamp::now(),
+            &sys()
+        )
+        .await
+        .is_err(),
         "confirmed once"
     );
 }

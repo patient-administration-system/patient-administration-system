@@ -60,7 +60,7 @@ impl AppointmentSeriesRepository {
             ))
             .await?
             .ok_or_else(|| Error::not_found(format!("appointment_series {id}")))?;
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set(
             "status",
@@ -105,14 +105,14 @@ fn to_row(s: &AppointmentSeries) -> Result<appointment_series::Model> {
         person_id: s.person_id,
         worker_id: s.worker_id,
         service_type: s.service_type.clone(),
-        start_datetime: s.start_datetime.fixed_offset(),
+        start_datetime: s.start_datetime,
         duration_minutes: s.duration_minutes as i32,
         rule: serde_json::to_value(&s.rule)
             .map_err(|e| Error::internal(format!("serialize rule: {e}")))?,
         status: series_status_to_str(s.status).to_string(),
         reason: s.reason.clone(),
-        created_at: s.created_at.fixed_offset(),
-        updated_at: s.updated_at.fixed_offset(),
+        created_at: s.created_at,
+        updated_at: s.updated_at,
     })
 }
 
@@ -122,14 +122,14 @@ fn from_model(m: appointment_series::Model) -> Result<AppointmentSeries> {
         person_id: m.person_id,
         worker_id: m.worker_id,
         service_type: m.service_type,
-        start_datetime: m.start_datetime.with_timezone(&chrono::Utc),
+        start_datetime: m.start_datetime,
         duration_minutes: Ord::max(m.duration_minutes, 0) as u32,
         rule: serde_json::from_value(m.rule)
             .map_err(|e| Error::internal(format!("deserialize rule: {e}")))?,
         status: series_status_from_str(&m.status)?,
         reason: m.reason,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 
@@ -150,7 +150,7 @@ mod tests {
         let s = AppointmentSeries::new(
             Uuid::new_v4(),
             "cardiology",
-            chrono::Utc::now(),
+            jiff::Timestamp::now(),
             30,
             RecurrenceRule {
                 frequency: Frequency::Weekly,

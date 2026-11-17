@@ -17,7 +17,7 @@
 //! view for managers, and no score or rank of a person takes part (NFR-11).
 
 use crate::db::sql::Pool;
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use uuid::Uuid;
 
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
@@ -44,7 +44,7 @@ struct Row {
     limits: Limits,
     set_by: Option<String>,
     note: Option<String>,
-    updated_at: Option<DateTime<Utc>>,
+    updated_at: Option<Timestamp>,
 }
 
 impl ToleranceService {

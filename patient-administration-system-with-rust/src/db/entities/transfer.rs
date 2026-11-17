@@ -14,8 +14,8 @@ pub struct Model {
     pub from_bed_id: Uuid,
     pub to_bed_id: Uuid,
     pub reason: Option<String>,
-    pub transferred_at: chrono::DateTime<chrono::FixedOffset>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
+    pub transferred_at: jiff::Timestamp,
+    pub created_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

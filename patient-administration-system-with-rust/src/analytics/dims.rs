@@ -74,8 +74,8 @@ pub struct Cell {
 pub struct Report {
     pub group_by: Vec<String>,
     pub k: i64,
-    pub from: DateTime<Utc>,
-    pub to: DateTime<Utc>,
+    pub from: Timestamp,
+    pub to: Timestamp,
     /// Every appointment in the range, counted or not: what the cells reconcile to.
     pub total: i64,
     pub suppressed_cells: usize,
@@ -215,8 +215,8 @@ pub struct RefillCell {
 pub struct RefillReport {
     pub group_by: Vec<String>,
     pub k: i64,
-    pub from: DateTime<Utc>,
-    pub to: DateTime<Utc>,
+    pub from: Timestamp,
+    pub to: Timestamp,
     pub total_resolved: i64,
     #[schema(required = true)]
     pub overall_refill_rate: Option<f64>,

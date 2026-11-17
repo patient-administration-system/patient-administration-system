@@ -3,7 +3,7 @@
 use crate::api::rest::extract::OptionalJson;
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -29,7 +29,7 @@ pub struct CreateBody {
     #[serde(default)]
     pub referring_worker_id: Option<Uuid>,
     #[serde(default)]
-    pub received_at: Option<DateTime<Utc>>,
+    pub received_at: Option<Timestamp>,
 }
 
 /// `POST /api/referrals`: receive a referral. The same `(source, external_ref)` twice is one referral

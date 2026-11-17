@@ -8,7 +8,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::backfill::BackfillService;
 use patient_administration_system::communication::MessageSender;
@@ -189,7 +189,7 @@ async fn offers_go_in_standby_order_one_at_a_time_and_move_on_when_declined_or_e
 
     // p2's offer runs out: the scan expires it and offers p3.
     w.expire_live_offer(release).await;
-    let rep = w.svc.tick(Utc::now()).await.unwrap();
+    let rep = w.svc.tick(Timestamp::now()).await.unwrap();
     assert!(rep.expired >= 1 && rep.offered >= 1, "{rep:?}");
     assert_eq!(w.statuses(release).await, ["declined", "expired", "open"]);
 
@@ -278,7 +278,10 @@ async fn an_expired_offer_cannot_be_accepted_and_is_time_limited() {
     w.join_standby().await;
     let (release, _slot, _) = w.release().await;
     let (o, token) = w.svc.offer_next(release).await.unwrap().unwrap();
-    assert!(o.expires_at > Utc::now() && o.expires_at <= Utc::now() + Duration::minutes(31));
+    assert!(
+        o.expires_at > Timestamp::now()
+            && o.expires_at <= Timestamp::now() + SignedDuration::from_mins(31)
+    );
     assert_eq!(w.svc.info(&token).await.unwrap().state, "open");
     w.expire_live_offer(release).await;
     assert_eq!(w.svc.info(&token).await.unwrap().state, "expired");
@@ -363,7 +366,7 @@ async fn the_offer_is_messaged_with_a_link_and_an_opted_out_patient_is_not() {
     assert_eq!(sent_before, 0);
     // Their offer runs out unanswered and the next patient, who can be texted, gets it.
     w.expire_live_offer(release).await;
-    w.svc.tick(Utc::now()).await.unwrap();
+    w.svc.tick(Timestamp::now()).await.unwrap();
     let sent = w.sent.lock().unwrap().clone();
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0].0, w.people[1].1);
@@ -461,21 +464,20 @@ async fn the_http_endpoints_read_without_acting_and_act_on_post() {
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn quiet_hours_hold_an_offer_text_by_the_clinic_clock_whatever_the_time_of_the_run() {
-    use chrono::TimeZone;
     use patient_administration_system::clock::{Clock, FixedClock};
     let w = world(2).await;
     // SAFETY: tests that set environment variables run one at a time (`--test-threads=1`).
     unsafe { std::env::set_var("PAS_QUIET_HOURS", "21:00-08:00") };
     w.join_standby().await;
     let (release, _slot, _) = w.release().await;
-    let london = chrono_tz::Europe::London;
-    let today = Utc::now().with_timezone(&london).date_naive();
-    let at = |h: u32| {
-        london
-            .from_local_datetime(&today.and_hms_opt(h, 0, 0).unwrap())
-            .earliest()
+    let london = patient_administration_system::time::zone("Europe/London").unwrap();
+    let today = Timestamp::now().to_zoned_datetime(london.clone()).date();
+    let at = |h: i8| {
+        today
+            .at(h, 0, 0, 0)
+            .to_zoned_datetime(london.clone())
             .unwrap()
-            .with_timezone(&Utc)
+            .timestamp()
     };
     let clock = FixedClock::at(at(22));
     w.svc.set_clock(clock.clone());
@@ -496,7 +498,10 @@ async fn quiet_hours_hold_an_offer_text_by_the_clinic_clock_whatever_the_time_of
     w.s.db
         .run(Stmt::new(
             "UPDATE slot_offers SET expires_at = $2 WHERE release_id = $1 AND status = 'open'",
-            [release.into(), (clock.now() - Duration::minutes(1)).into()],
+            [
+                release.into(),
+                (clock.now() - SignedDuration::from_mins(1)).into(),
+            ],
         ))
         .await
         .unwrap();

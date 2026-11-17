@@ -1,6 +1,6 @@
 //! models
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
@@ -163,8 +163,8 @@ impl Add for Money {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeRange {
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
+    pub start: Timestamp,
+    pub end: Timestamp,
 }
 
 impl TimeRange {
@@ -180,7 +180,7 @@ impl TimeRange {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
+
     use rust_decimal::Decimal;
 
     #[test]
@@ -231,12 +231,12 @@ mod tests {
     #[test]
     fn test_time_range_overlaps_true() {
         let a = TimeRange {
-            start: Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap(),
-            end: Utc.with_ymd_and_hms(2026, 5, 20, 11, 0, 0).unwrap(),
+            start: crate::time::utc(2026, 5, 20, 9, 0, 0),
+            end: crate::time::utc(2026, 5, 20, 11, 0, 0),
         };
         let b = TimeRange {
-            start: Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap(),
-            end: Utc.with_ymd_and_hms(2026, 5, 20, 12, 0, 0).unwrap(),
+            start: crate::time::utc(2026, 5, 20, 10, 0, 0),
+            end: crate::time::utc(2026, 5, 20, 12, 0, 0),
         };
         assert!(a.overlaps(&b));
         assert!(b.overlaps(&a));
@@ -245,12 +245,12 @@ mod tests {
     #[test]
     fn test_time_range_overlaps_adjacent_is_false() {
         let a = TimeRange {
-            start: Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap(),
-            end: Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap(),
+            start: crate::time::utc(2026, 5, 20, 9, 0, 0),
+            end: crate::time::utc(2026, 5, 20, 10, 0, 0),
         };
         let b = TimeRange {
-            start: Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap(),
-            end: Utc.with_ymd_and_hms(2026, 5, 20, 11, 0, 0).unwrap(),
+            start: crate::time::utc(2026, 5, 20, 10, 0, 0),
+            end: crate::time::utc(2026, 5, 20, 11, 0, 0),
         };
         assert!(!a.overlaps(&b));
         assert!(!b.overlaps(&a));
@@ -259,12 +259,12 @@ mod tests {
     #[test]
     fn test_time_range_overlaps_disjoint() {
         let a = TimeRange {
-            start: Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap(),
-            end: Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap(),
+            start: crate::time::utc(2026, 5, 20, 9, 0, 0),
+            end: crate::time::utc(2026, 5, 20, 10, 0, 0),
         };
         let b = TimeRange {
-            start: Utc.with_ymd_and_hms(2026, 5, 20, 11, 0, 0).unwrap(),
-            end: Utc.with_ymd_and_hms(2026, 5, 20, 12, 0, 0).unwrap(),
+            start: crate::time::utc(2026, 5, 20, 11, 0, 0),
+            end: crate::time::utc(2026, 5, 20, 12, 0, 0),
         };
         assert!(!a.overlaps(&b));
         assert!(!b.overlaps(&a));
@@ -273,13 +273,13 @@ mod tests {
     #[test]
     fn test_time_range_is_valid() {
         let good = TimeRange {
-            start: Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap(),
-            end: Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap(),
+            start: crate::time::utc(2026, 5, 20, 9, 0, 0),
+            end: crate::time::utc(2026, 5, 20, 10, 0, 0),
         };
         assert!(good.is_valid());
         let bad = TimeRange {
-            start: Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap(),
-            end: Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap(),
+            start: crate::time::utc(2026, 5, 20, 10, 0, 0),
+            end: crate::time::utc(2026, 5, 20, 9, 0, 0),
         };
         assert!(!bad.is_valid());
     }

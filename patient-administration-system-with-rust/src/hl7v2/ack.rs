@@ -13,7 +13,7 @@
 //! Values copied from the inbound header are its wire text (`raw`), so they are already valid in the same
 //! position and are not escaped again.
 
-use chrono::Utc;
+use jiff::Timestamp;
 
 use super::{Message, SegmentRead, encode_message, escape::escape_value, message, segment};
 
@@ -120,7 +120,7 @@ fn or<'a>(value: &'a str, fallback: &'a str) -> &'a str {
 
 /// The ACK for `inbound`, with `code` and an optional reason in MSA-3.
 pub fn ack_to(inbound: &Inbound, code: AckCode, text: Option<&str>) -> String {
-    let now = Utc::now().format("%Y%m%d%H%M%S").to_string();
+    let now = Timestamp::now().strftime("%Y%m%d%H%M%S").to_string();
     let message_type = if inbound.event.is_empty() {
         "ACK".to_string()
     } else {

@@ -6,7 +6,7 @@ pub mod interchange;
 pub mod targets;
 pub mod waits;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -51,7 +51,7 @@ pub struct TriageAssessment {
     #[schema(required = true)]
     pub flowchart: Option<String>,
     pub assessed_by: String,
-    pub assessed_at: DateTime<Utc>,
+    pub assessed_at: Timestamp,
 }
 
 /// Optional free text: trimmed, blank becomes none, bounded, no control characters.

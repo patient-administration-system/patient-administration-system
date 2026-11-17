@@ -19,7 +19,7 @@ pub use patient_administration_system_domain::suspicions::profile;
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::{Timestamp, civil::Date};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -63,22 +63,20 @@ crate::string_enum! {
 pub const NEAR_TARGET_DAYS: i64 = 7;
 
 /// Today in the service's time zone, so "days waited" turns over at local midnight.
-pub fn today() -> NaiveDate {
-    Utc::now()
-        .with_timezone(&crate::inbound::messages::timezone())
-        .date_naive()
+pub fn today() -> Date {
+    Timestamp::now()
+        .to_zoned_datetime(crate::inbound::messages::timezone())
+        .date()
 }
 
 /// Whole days waited and where they stand against a target (FR-208, FR-211, FR-212).
 pub fn wait(
     target: Option<i64>,
-    suspected_on: NaiveDate,
-    stopped_on: Option<NaiveDate>,
-    today: NaiveDate,
+    suspected_on: Date,
+    stopped_on: Option<Date>,
+    today: Date,
 ) -> (i64, TargetStatus) {
-    let days = (stopped_on.unwrap_or(today) - suspected_on)
-        .num_days()
-        .max(0);
+    let days = crate::time::day_count(suspected_on, stopped_on.unwrap_or(today)).max(0);
     let status = match target {
         None => TargetStatus::NoTarget,
         Some(t) if days > t => TargetStatus::Past,
@@ -110,15 +108,15 @@ pub struct Suspicion {
     #[schema(required = true)]
     pub unique_pathway_identifier: Option<String>,
     /// The point of suspicion: the clock's start.
-    pub suspected_on: NaiveDate,
+    pub suspected_on: Date,
     /// The clinician who suspected it.
     pub suspected_by: String,
     pub recorded_by: String,
-    pub recorded_at: DateTime<Utc>,
+    pub recorded_at: Timestamp,
     #[schema(required = true)]
     pub stop_reason: Option<StopReason>,
     #[schema(required = true)]
-    pub stopped_on: Option<NaiveDate>,
+    pub stopped_on: Option<Date>,
     #[schema(required = true)]
     pub stopped_by: Option<String>,
     /// Whole days from the point of suspicion to the stop date, or to today while open. Never paused.
@@ -132,20 +130,20 @@ pub struct Suspicion {
     /// The waiting-list priority it raises its referral to (FR-220).
     #[schema(required = true)]
     pub booking_priority: Option<Priority>,
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: Timestamp,
 }
 
 const COLUMNS: &str = "id, referral_id, person_id, profile, condition, subtype, subtype_scheme, \
      unique_pathway_identifier, suspected_on, suspected_by, recorded_by, recorded_at, stop_reason, stopped_on, \
      stopped_by, target_days, hold_patient_cancel, booking_priority, updated_at";
 
-fn from_row(r: &Row, active: &Profile, today: NaiveDate) -> Result<Suspicion> {
+fn from_row(r: &Row, active: &Profile, today: Date) -> Result<Suspicion> {
     let profile: String = r.col("profile")?;
     let condition: String = r.col("condition")?;
     let subtype: Option<String> = r.col("subtype")?;
     let subtype_scheme: Option<String> = r.col("subtype_scheme")?;
-    let suspected_on: NaiveDate = r.col("suspected_on")?;
-    let stopped_on: Option<NaiveDate> = r.col("stopped_on")?;
+    let suspected_on: Date = r.col("suspected_on")?;
+    let stopped_on: Option<Date> = r.col("stopped_on")?;
     let target_days: Option<i32> = r.col("target_days")?;
     let target_days = target_days.map(i64::from);
     let (days_waited, target_status) = wait(target_days, suspected_on, stopped_on, today);
@@ -209,7 +207,7 @@ pub struct NewSuspicion {
     pub subtype_scheme: Option<String>,
     #[serde(default)]
     pub unique_pathway_identifier: Option<String>,
-    pub suspected_on: NaiveDate,
+    pub suspected_on: Date,
     pub suspected_by: String,
     pub recorded_by: String,
 }
@@ -219,7 +217,7 @@ pub struct NewSuspicion {
 pub struct Amendment {
     #[serde(default)]
     #[schema(required = false)]
-    pub suspected_on: Option<NaiveDate>,
+    pub suspected_on: Option<Date>,
     #[serde(default)]
     #[schema(required = false)]
     pub suspected_by: Option<String>,
@@ -266,8 +264,8 @@ pub struct ReportRow {
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SuspicionReport {
-    pub from: NaiveDate,
-    pub to: NaiveDate,
+    pub from: Date,
+    pub to: Date,
     pub rows: Vec<ReportRow>,
 }
 
@@ -580,9 +578,9 @@ impl SuspicionService {
         &self,
         id: Uuid,
         reason: &str,
-        stopped_on: NaiveDate,
+        stopped_on: Date,
         stopped_by: &str,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Suspicion> {
         let reason: StopReason = reason.parse().map_err(|_| {
@@ -611,7 +609,7 @@ impl SuspicionService {
                         ))
                         .await?
                         .ok_or_else(|| Error::not_found(format!("suspected condition {id}")))?;
-                    let stored: DateTime<Utc> = r.col("updated_at")?;
+                    let stored: Timestamp = r.col("updated_at")?;
                     if !crate::api::rest::concurrency::is_current(stored, expected) {
                         return Err(Error::precondition_failed(
                             "that suspicion has changed since you read it; read it again",
@@ -622,7 +620,7 @@ impl SuspicionService {
                             "that suspicion's clock has already stopped",
                         ));
                     }
-                    let suspected_on: NaiveDate = r.col("suspected_on")?;
+                    let suspected_on: Date = r.col("suspected_on")?;
                     if stopped_on < suspected_on {
                         return Err(Error::validation(
                             "stopped_on cannot be before the point of suspicion",
@@ -673,7 +671,7 @@ impl SuspicionService {
         &self,
         id: Uuid,
         a: Amendment,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Suspicion> {
         let reason = a.reason.trim().to_string();
@@ -757,7 +755,7 @@ impl SuspicionService {
                         ))
                         .await?
                         .ok_or_else(|| Error::not_found(format!("suspected condition {id}")))?;
-                    let stored: DateTime<Utc> = r.col("updated_at")?;
+                    let stored: Timestamp = r.col("updated_at")?;
                     if !crate::api::rest::concurrency::is_current(stored, expected) {
                         return Err(Error::precondition_failed(
                             "that suspicion has changed since you read it; read it again",
@@ -767,7 +765,7 @@ impl SuspicionService {
                         return Err(Error::conflict("that suspicion's clock has stopped"));
                     }
                     let old = serde_json::json!({
-                        "suspected_on": r.col::<NaiveDate>("suspected_on")?,
+                        "suspected_on": r.col::<Date>("suspected_on")?,
                         "suspected_by": r.col::<String>("suspected_by")?,
                         "subtype": r.col::<Option<String>>("subtype")?,
                         "subtype_scheme": r.col::<Option<String>>("subtype_scheme")?,
@@ -816,7 +814,7 @@ impl SuspicionService {
     /// The report (FR-213): suspicions whose clock stopped from `from` to `to` inclusive, each once, per
     /// profile, condition, subtype and recorded target. `entered_in_error` is left out; `withdrawn` is counted
     /// apart.
-    pub async fn report(&self, from: NaiveDate, to: NaiveDate) -> Result<SuspicionReport> {
+    pub async fn report(&self, from: Date, to: Date) -> Result<SuspicionReport> {
         if to < from {
             return Err(Error::validation("`from` must not be after `to`"));
         }
@@ -835,8 +833,8 @@ impl SuspicionService {
         let mut groups: std::collections::BTreeMap<Key, (Vec<i64>, i64)> =
             std::collections::BTreeMap::new();
         for r in &rows {
-            let start: NaiveDate = r.col("suspected_on")?;
-            let stop: NaiveDate = r.col("stopped_on")?;
+            let start: Date = r.col("suspected_on")?;
+            let stop: Date = r.col("stopped_on")?;
             let withdrawn = r.col::<String>("stop_reason")? == StopReason::Withdrawn.as_str();
             let group = groups
                 .entry((
@@ -850,7 +848,7 @@ impl SuspicionService {
             if withdrawn {
                 group.1 += 1;
             } else {
-                group.0.push((stop - start).num_days());
+                group.0.push(crate::time::day_count(start, stop));
             }
         }
         let mut out = Vec::new();
@@ -941,7 +939,7 @@ fn median(sorted: &[i64]) -> Option<f64> {
 mod tests {
     use super::*;
 
-    fn d(s: &str) -> NaiveDate {
+    fn d(s: &str) -> Date {
         s.parse().unwrap()
     }
 

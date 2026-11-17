@@ -35,7 +35,7 @@ impl AdtService {
     pub async fn cancel_discharge_if_unchanged(
         &self,
         admission_id: Uuid,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Admission> {
         let ctx_clone = ctx.clone();
@@ -158,7 +158,7 @@ impl AdtService {
     pub async fn discharge_if_unchanged(
         &self,
         admission_id: Uuid,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Discharge> {
         let ctx_clone = ctx.clone();

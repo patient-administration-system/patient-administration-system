@@ -17,7 +17,7 @@
 //! records it. The letter is posted by a person and recorded.
 
 use crate::db::sql::Pool;
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::{Timestamp, civil::Date};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -68,10 +68,10 @@ pub struct Campaign {
     pub service_type: Option<String>,
     pub min_weeks: i32,
     pub started_by: String,
-    pub reply_by: NaiveDate,
+    pub reply_by: Date,
     pub final_wait_days: i32,
     pub status: CampaignStatus,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
     /// Items by state (`selected`, `asked`, ...), for the campaign page.
     #[schema(value_type = HashMap<String, i64>)]
     pub counts: serde_json::Value,
@@ -89,15 +89,15 @@ pub struct Item {
     #[schema(required = true)]
     pub answer: Option<String>,
     #[schema(required = true)]
-    pub asked_at: Option<DateTime<Utc>>,
+    pub asked_at: Option<Timestamp>,
     #[schema(required = true)]
-    pub letter_sent_at: Option<DateTime<Utc>>,
+    pub letter_sent_at: Option<Timestamp>,
     #[schema(required = true)]
-    pub final_by: Option<NaiveDate>,
+    pub final_by: Option<Date>,
     #[schema(required = true)]
     pub decided_by: Option<String>,
     #[schema(required = true)]
-    pub removed_at: Option<DateTime<Utc>>,
+    pub removed_at: Option<Timestamp>,
     /// Why a person may act now, if they may: `letter_due`, `decision_due`.
     #[schema(required = true)]
     pub next: Option<String>,
@@ -115,8 +115,8 @@ pub struct RemovalsByService {
 /// The validation removals report: the period and a row per service.
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct RemovalsReport {
-    pub from: DateTime<Utc>,
-    pub to: DateTime<Utc>,
+    pub from: Timestamp,
+    pub to: Timestamp,
     pub by_service: Vec<RemovalsByService>,
 }
 

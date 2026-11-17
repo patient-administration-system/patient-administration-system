@@ -154,8 +154,15 @@ impl AnalyticsService {
                 .get("birth_date")
                 .or_else(|| person.data.get("birthDate"))
                 .and_then(|v| v.as_str())
-                .and_then(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())
-                .map(|d| age_band(d, Utc::now().date_naive()));
+                .and_then(|d| d.parse::<jiff::civil::Date>().ok())
+                .map(|d| {
+                    age_band(
+                        d,
+                        Timestamp::now()
+                            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+                            .date(),
+                    )
+                });
             let postcode = person
                 .data
                 .get("addresses")

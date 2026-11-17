@@ -7,7 +7,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::communication::consent::{self, QuietHours};
@@ -78,8 +78,8 @@ async fn world(phone: &str, email: &str) -> (AppState, Uuid, Log) {
             DeliveryChannel::Email,
             Arc::new(Capture("email", log.clone())),
         );
-    let start = Utc::now() + Duration::hours(2);
-    let mut a = Appointment::new(person, start, start + Duration::minutes(30));
+    let start = Timestamp::now() + SignedDuration::from_hours(2);
+    let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     AppointmentRepository::create(&s.db, &a).await.unwrap();
     (s, person, log)
@@ -100,7 +100,7 @@ async fn scan(
 ) -> patient_administration_system::communication::reminders::ReminderReport {
     ReminderService::new(s.db.clone(), s.communication.clone())
         .with_quiet_hours(quiet)
-        .run_once(Utc::now(), Duration::hours(24))
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
         .await
         .unwrap()
 }
@@ -287,16 +287,17 @@ async fn quiet_hours_defer_the_reminder_without_losing_it() {
     let phone = e164(&number());
     let (s, _person, log) = world(&phone, &format!("{}@example.test", Uuid::new_v4())).await;
     // A window around the clinic's current time, so the test passes at any hour.
-    let now = Utc::now();
-    let local = now.with_timezone(&patient_administration_system::inbound::messages::timezone());
+    let now = Timestamp::now();
+    let local =
+        now.to_zoned_datetime(patient_administration_system::inbound::messages::timezone().clone());
     let around = format!(
         "{}-{}",
-        (local - Duration::hours(1)).format("%H:%M"),
-        (local + Duration::hours(1)).format("%H:%M")
+        (&local - SignedDuration::from_hours(1)).strftime("%H:%M"),
+        (&local + SignedDuration::from_hours(1)).strftime("%H:%M")
     );
     let r = ReminderService::new(s.db.clone(), s.communication.clone())
         .with_quiet_hours(QuietHours::parse(&around).ok())
-        .run_once(now, Duration::hours(24))
+        .run_once(now, SignedDuration::from_hours(24))
         .await
         .unwrap();
     assert!(r.deferred_quiet_hours >= 1, "{r:?}");

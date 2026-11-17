@@ -121,7 +121,7 @@ impl ListValidationService {
                         )));
                     }
                     let pathway: Uuid = r.col("pathway_id")?;
-                    let stopped: DateTime<Utc> = r.col("rtt_stop_event_at")?;
+                    let stopped: Timestamp = r.col("rtt_stop_event_at")?;
                     let entries: Vec<Uuid> = r.col("removed_waitlist_ids")?;
                     txn.run(Stmt::new("UPDATE waitlist_entries SET status = 'waiting', updated_at = now() \
                          WHERE id = ANY($1) AND status = 'removed'",
@@ -227,7 +227,7 @@ async fn remove_patient(
     note: Option<&str>,
     ctx: &UserContext,
 ) -> Result<()> {
-    let stopped_at = Utc::now();
+    let stopped_at = Timestamp::now();
     let removed = txn
                             .all(Stmt::new("UPDATE waitlist_entries SET status = 'removed', updated_at = now() \
                                  WHERE person_id = $1 AND target_service = $2 AND status = 'waiting' RETURNING id",

@@ -14,7 +14,7 @@
 //! coarse bands only. Time of day is in the clinic's time zone.
 
 use crate::db::sql::Pool;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 
 use crate::config::env;
@@ -81,8 +81,8 @@ mod tests {
         let r = Report {
             group_by: vec!["specialty".into()],
             k: 10,
-            from: Utc::now(),
-            to: Utc::now(),
+            from: Timestamp::now(),
+            to: Timestamp::now(),
             total: 0,
             suppressed_cells: 1,
             cells: vec![
@@ -121,9 +121,9 @@ fn is_postcode(p: &str) -> bool {
 }
 
 /// The coarse band for a date of birth on a given day (`0-15` ... `75+`).
-pub fn age_band(born: chrono::NaiveDate, today: chrono::NaiveDate) -> &'static str {
+pub fn age_band(born: jiff::civil::Date, today: jiff::civil::Date) -> &'static str {
     // `years_since` is `None` for a birth after `today`, which counts as 0.
-    match today.years_since(born).unwrap_or(0) {
+    match crate::time::years_between(born, today).unwrap_or(0) {
         0..=15 => "0-15",
         16..=24 => "16-24",
         25..=34 => "25-34",
@@ -138,11 +138,10 @@ pub fn age_band(born: chrono::NaiveDate, today: chrono::NaiveDate) -> &'static s
 #[cfg(test)]
 mod feed_tests {
     use super::*;
-    use chrono::NaiveDate;
 
     #[test]
     fn test_age_bands_follow_the_birthday_not_the_year() {
-        let d = |y, m, dd| NaiveDate::from_ymd_opt(y, m, dd).unwrap();
+        let d = |y, m, dd| jiff::civil::date(y, m, dd);
         let today = d(2026, 10, 19);
         assert_eq!(age_band(d(2010, 10, 19), today), "16-24", "16 today");
         assert_eq!(
@@ -162,10 +161,10 @@ mod feed_tests {
     /// Every band at both of its edges (QUAL-18: deleting any arm, or moving an edge, fails this).
     #[test]
     fn test_each_band_starts_and_ends_on_its_birthdays() {
-        let d = |y, m, dd| NaiveDate::from_ymd_opt(y, m, dd).unwrap();
+        let d = |y, m, dd| jiff::civil::date(y, m, dd);
         let today = d(2026, 10, 19);
-        let aged = |years: i32| d(2026 - years, 10, 19);
-        let just_under = |years: i32| d(2026 - years, 10, 20);
+        let aged = |years: i16| d(2026 - years, 10, 19);
+        let just_under = |years: i16| d(2026 - years, 10, 20);
         assert_eq!(age_band(today, today), "0-15", "born today");
         for (lowest, band) in [
             (16, "16-24"),

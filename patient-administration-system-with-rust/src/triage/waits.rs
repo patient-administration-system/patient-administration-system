@@ -8,7 +8,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt, Transact};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use uuid::Uuid;
 
 use super::TriageService;
@@ -28,8 +28,8 @@ impl TriageService {
         &self,
         encounter_id: Uuid,
         seen_by: &str,
-        seen_at: DateTime<Utc>,
-        now: DateTime<Utc>,
+        seen_at: Timestamp,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<()> {
         let by = named_person(
@@ -56,8 +56,8 @@ impl TriageService {
             .ok_or_else(|| Error::not_found(format!("encounter {encounter_id}")))?;
         let class: String = enc.col("class")?;
         let status: String = enc.col("status")?;
-        let arrived: DateTime<Utc> = enc.col("period_start")?;
-        let already: Option<DateTime<Utc>> = enc.col("first_contact_at")?;
+        let arrived: Timestamp = enc.col("period_start")?;
+        let already: Option<Timestamp> = enc.col("first_contact_at")?;
         if class != "emergency" {
             return Err(Error::validation(
                 "first clinician contact is only recorded on an emergency encounter",
@@ -118,15 +118,15 @@ impl TriageService {
     /// that ends before it starts is refused.
     pub async fn waits_report(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: Timestamp,
+        to: Timestamp,
         targets: &Targets,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<WaitsReport> {
         if to <= from {
             return Err(Error::validation("to must be after from"));
         }
-        if to - from > chrono::Duration::days(31) {
+        if to - from > crate::time::days(31) {
             return Err(Error::validation("the window can be at most 31 days"));
         }
         let sql = format!(
@@ -140,7 +140,7 @@ impl TriageService {
     }
 
     /// Everyone who has arrived and not yet been seen, in display order. The order of care is a clinician's.
-    pub async fn queue(&self, targets: &Targets, now: DateTime<Utc>) -> Result<Vec<QueueEntry>> {
+    pub async fn queue(&self, targets: &Targets, now: Timestamp) -> Result<Vec<QueueEntry>> {
         let sql = format!(
             "SELECT e.id, e.period_start, e.first_contact_at, {LATEST_CATEGORY} AS category \
              FROM encounters e WHERE e.class = 'emergency' AND e.status IN ('arrived', 'in_progress') \

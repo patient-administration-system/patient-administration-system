@@ -38,8 +38,8 @@ pub struct BarrierBody {
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct RangeQuery {
-    pub from: chrono::DateTime<chrono::Utc>,
-    pub to: chrono::DateTime<chrono::Utc>,
+    pub from: jiff::Timestamp,
+    pub to: jiff::Timestamp,
 }
 
 /// `GET /api/appointments?from=<rfc3339>&to=<rfc3339>` — appointments
@@ -59,7 +59,7 @@ pub async fn list_appointments(
     State(state): State<AppState>,
     Query(q): Query<RangeQuery>,
 ) -> HandlerResult {
-    if q.to <= q.from || q.to - q.from > chrono::Duration::days(366) {
+    if q.to <= q.from || q.to - q.from > crate::time::days(366) {
         return error_to_response(crate::Error::validation(
             "`from` must precede `to` by at most 366 days",
         ));

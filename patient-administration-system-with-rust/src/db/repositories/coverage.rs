@@ -38,7 +38,7 @@ impl CoverageRepository {
     pub async fn lock_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
     ) -> Result<Coverage> {
         let m = conn
             .one_as::<coverage::Model>(Stmt::new(
@@ -61,7 +61,7 @@ impl CoverageRepository {
     /// (to the microsecond) is the version the next write must send.
     pub async fn update<C: Conn>(conn: &C, c: &Coverage) -> Result<Coverage> {
         let mut row = to_row(c);
-        row.updated_at = chrono::Utc::now().fixed_offset();
+        row.updated_at = jiff::Timestamp::now();
         let stored = row.update_row(conn).await?;
         from_model(stored)
     }
@@ -80,7 +80,7 @@ impl CoverageRepository {
             ))
             .await?
             .ok_or_else(|| Error::not_found(format!("coverage {id}")))?;
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set("status", new_status.as_str().to_string());
         am.set("updated_at", now);
@@ -102,7 +102,7 @@ impl CoverageRepository {
             ))
             .await?
             .ok_or_else(|| Error::not_found(format!("coverage {id}")))?;
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set("account_id", account_id);
         am.set("updated_at", now);
@@ -170,8 +170,8 @@ fn to_row(c: &Coverage) -> coverage::Model {
         relationship: c.relationship.clone(),
         start_date: c.start_date,
         end_date: c.end_date,
-        created_at: c.created_at.fixed_offset(),
-        updated_at: c.updated_at.fixed_offset(),
+        created_at: c.created_at,
+        updated_at: c.updated_at,
     }
 }
 
@@ -190,8 +190,8 @@ fn from_model(m: coverage::Model) -> Result<Coverage> {
         relationship: m.relationship,
         start_date: m.start_date,
         end_date: m.end_date,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 

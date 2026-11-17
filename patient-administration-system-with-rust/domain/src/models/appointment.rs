@@ -1,6 +1,6 @@
 //! appointment
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -185,8 +185,8 @@ pub const EARLY_RELEASE_DAYS: i32 = 3;
 
 /// Whole days between `cancelled_at` and the start, never negative (cancelling after the start
 /// gives no notice).
-pub fn notice_days(cancelled_at: DateTime<Utc>, start: DateTime<Utc>) -> i32 {
-    let days = (start - cancelled_at).num_days();
+pub fn notice_days(cancelled_at: Timestamp, start: Timestamp) -> i32 {
+    let days = crate::time::whole_days(start.duration_since(cancelled_at));
     days.clamp(0, i64::from(i32::MAX)) as i32
 }
 
@@ -212,8 +212,8 @@ pub struct Appointment {
     pub person_id: Uuid,
     pub slot_id: Option<Uuid>,
     pub worker_id: Option<Uuid>,
-    pub start_datetime: DateTime<Utc>,
-    pub end_datetime: DateTime<Utc>,
+    pub start_datetime: Timestamp,
+    pub end_datetime: Timestamp,
     pub status: AppointmentStatus,
     pub reason: Option<String>,
     pub from_waitlist_entry_id: Option<Uuid>,
@@ -225,7 +225,7 @@ pub struct Appointment {
     pub series_id: Option<Uuid>,
     /// When it was cancelled (CAP-1).
     #[serde(default)]
-    pub cancelled_at: Option<DateTime<Utc>>,
+    pub cancelled_at: Option<Timestamp>,
     /// Who cancelled it (CAP-1).
     #[serde(default)]
     pub cancelled_by: Option<CancelledBy>,
@@ -237,7 +237,7 @@ pub struct Appointment {
     pub notice_days: Option<i32>,
     /// When the patient confirmed they are coming (CAP-2).
     #[serde(default)]
-    pub confirmed_at: Option<DateTime<Utc>>,
+    pub confirmed_at: Option<Timestamp>,
     /// How it is held (CAP-14). `in_person` unless converted.
     #[serde(default)]
     pub modality: Modality,
@@ -248,30 +248,26 @@ pub struct Appointment {
     #[serde(default)]
     pub conversion_barrier_code: Option<BarrierCode>,
     #[serde(default)]
-    pub converted_at: Option<DateTime<Utc>>,
+    pub converted_at: Option<Timestamp>,
     /// When the patient arrived (CORE-4). Stamped by check-in.
     #[serde(default)]
-    pub arrived_at: Option<DateTime<Utc>>,
+    pub arrived_at: Option<Timestamp>,
     /// When the visit was completed (CORE-4). Stamped by complete.
     #[serde(default)]
-    pub completed_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<Timestamp>,
     /// A short label for where the patient is now (CORE-4), set when a person moves them.
     #[serde(default)]
     pub current_room: Option<String>,
     /// Derived from status and notice; never stored, so it cannot disagree with them.
     #[serde(default)]
     pub release_class: Option<ReleaseClass>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Appointment {
-    pub fn new(
-        person_id: Uuid,
-        start_datetime: DateTime<Utc>,
-        end_datetime: DateTime<Utc>,
-    ) -> Self {
-        let now = Utc::now();
+    pub fn new(person_id: Uuid, start_datetime: Timestamp, end_datetime: Timestamp) -> Self {
+        let now = Timestamp::now();
         Self {
             id: Uuid::new_v4(),
             person_id,
@@ -306,13 +302,12 @@ impl Appointment {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
     #[test]
     fn test_appointment_new_defaults() {
         let person_id = Uuid::new_v4();
-        let start = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
-        let end = Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap();
+        let start = crate::time::utc(2026, 5, 20, 9, 0, 0);
+        let end = crate::time::utc(2026, 5, 20, 10, 0, 0);
         let appt = Appointment::new(person_id, start, end);
         assert_eq!(appt.person_id, person_id);
         assert!(appt.slot_id.is_none());
@@ -441,8 +436,8 @@ mod tests {
     #[test]
     fn test_appointment_serde_roundtrip() {
         let person_id = Uuid::new_v4();
-        let start = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
-        let end = Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap();
+        let start = crate::time::utc(2026, 5, 20, 9, 0, 0);
+        let end = crate::time::utc(2026, 5, 20, 10, 0, 0);
         let mut appt = Appointment::new(person_id, start, end);
         appt.reason = Some("Routine checkup".to_string());
         appt.cancellation_reason = Some(CancellationReason::PatientRequest);
@@ -491,16 +486,19 @@ mod tests {
 
     #[test]
     fn test_notice_days_counts_whole_days_and_never_goes_negative() {
-        let start = Utc::now() + chrono::Duration::days(10);
-        assert_eq!(notice_days(start - chrono::Duration::days(5), start), 5);
+        let start = Timestamp::now() + crate::time::days(10);
+        assert_eq!(notice_days(start - crate::time::days(5), start), 5);
         assert_eq!(
-            notice_days(start - chrono::Duration::hours(47), start),
+            notice_days(start - jiff::SignedDuration::from_hours(47), start),
             1,
             "47h is one whole day"
         );
-        assert_eq!(notice_days(start - chrono::Duration::hours(2), start), 0);
         assert_eq!(
-            notice_days(start + chrono::Duration::hours(1), start),
+            notice_days(start - jiff::SignedDuration::from_hours(2), start),
+            0
+        );
+        assert_eq!(
+            notice_days(start + jiff::SignedDuration::from_hours(1), start),
             0,
             "after the start: no notice"
         );

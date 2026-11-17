@@ -3,7 +3,7 @@
 
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::{DateTime, Duration, Utc};
+use jiff::Timestamp;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -382,8 +382,8 @@ pub async fn reinstate(
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ReportQuery {
-    pub from: Option<DateTime<Utc>>,
-    pub to: Option<DateTime<Utc>>,
+    pub from: Option<Timestamp>,
+    pub to: Option<Timestamp>,
 }
 
 /// `GET /api/reports/validation-removals?from=&to=`: validation removals, reinstatements and keeps by service,
@@ -403,9 +403,10 @@ pub async fn removals_report(
     State(state): State<AppState>,
     Query(q): Query<ReportQuery>,
 ) -> HandlerResult {
-    let to = q.to.unwrap_or_else(|| Utc::now() + Duration::days(1));
-    let from = q.from.unwrap_or_else(|| to - Duration::days(90));
-    if from >= to || to - from > Duration::days(366) {
+    let to =
+        q.to.unwrap_or_else(|| Timestamp::now() + crate::time::days(1));
+    let from = q.from.unwrap_or_else(|| to - crate::time::days(90));
+    if from >= to || to - from > crate::time::days(366) {
         return error_to_response(crate::Error::validation(
             "from must be before to, and the range at most a year",
         ));

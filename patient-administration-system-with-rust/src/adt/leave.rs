@@ -31,7 +31,7 @@ impl AdtService {
         &self,
         admission_id: Uuid,
         source: Option<&str>,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Encounter> {
         self.transition_loa(
@@ -65,7 +65,7 @@ impl AdtService {
         &self,
         admission_id: Uuid,
         source: Option<&str>,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Encounter> {
         self.transition_loa(
@@ -86,7 +86,7 @@ impl AdtService {
         &self,
         admission_id: Uuid,
         source: Option<&str>,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
         movement: LeaveMove,
     ) -> Result<Encounter> {

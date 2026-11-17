@@ -10,7 +10,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::communication::consent::{self, QuietHours};
@@ -82,10 +82,10 @@ async fn world() -> World {
             DeliveryChannel::Email,
             Arc::new(Capture("email", log.clone())),
         );
-    let start = Utc::now()
-        + Duration::days(365)
-        + Duration::minutes((Uuid::new_v4().as_u128() % 100_000) as i64);
-    let mut a = Appointment::new(person, start, start + Duration::minutes(30));
+    let start = Timestamp::now()
+        + patient_administration_system::time::days(365)
+        + SignedDuration::from_mins((Uuid::new_v4().as_u128() % 100_000) as i64);
+    let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     let appt = AppointmentRepository::create(&s.db, &a).await.unwrap();
     World {
@@ -103,8 +103,8 @@ impl World {
         LadderService::new(self.s.db.clone(), self.s.communication.clone())
             .with_link_base(Some("https://pas.test".into()))
     }
-    fn at(&self, before: Duration) -> DateTime<Utc> {
-        self.appt.start_datetime - before + Duration::minutes(1)
+    fn at(&self, before: SignedDuration) -> Timestamp {
+        self.appt.start_datetime - before + SignedDuration::from_mins(1)
     }
     fn channels(&self) -> Vec<String> {
         self.log
@@ -152,10 +152,10 @@ impl World {
     }
 }
 
-const D7: fn() -> Duration = || Duration::days(7);
-const D4: fn() -> Duration = || Duration::days(4);
-const D3: fn() -> Duration = || Duration::days(3);
-const H24: fn() -> Duration = || Duration::hours(24);
+const D7: fn() -> SignedDuration = || patient_administration_system::time::days(7);
+const D4: fn() -> SignedDuration = || patient_administration_system::time::days(4);
+const D3: fn() -> SignedDuration = || patient_administration_system::time::days(3);
+const H24: fn() -> SignedDuration = || SignedDuration::from_hours(24);
 
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
@@ -163,7 +163,7 @@ async fn the_main_prompt_goes_once_at_seven_days_with_a_link_and_is_logged() {
     let w = world().await;
     let l = w.ladder();
     // Before T-7 nothing happens.
-    l.run_once(w.appt.start_datetime - Duration::days(8))
+    l.run_once(w.appt.start_datetime - patient_administration_system::time::days(8))
         .await
         .unwrap();
     assert!(w.channels().is_empty() && w.steps().await.is_empty());
@@ -196,7 +196,9 @@ async fn the_main_prompt_goes_once_at_seven_days_with_a_link_and_is_logged() {
 
     // A second scan does not send it again.
     let before = w.channels().len();
-    l.run_once(w.at(D7() - Duration::hours(1))).await.unwrap();
+    l.run_once(w.at(D7() - SignedDuration::from_hours(1)))
+        .await
+        .unwrap();
     assert_eq!(w.channels().len(), before);
 }
 
@@ -227,7 +229,9 @@ async fn a_silent_patient_climbs_the_whole_ladder_whatever_a_score_might_say() {
     assert_eq!(calls.len(), 1, "on the call list: {calls:?}");
     assert_eq!(calls[0].1, "silent");
     // Scanning again does not add a second task.
-    l.run_once(w.at(D3() - Duration::hours(2))).await.unwrap();
+    l.run_once(w.at(D3() - SignedDuration::from_hours(2)))
+        .await
+        .unwrap();
     assert_eq!(w.open_calls().await.len(), 1);
 
     // T-24h: the final nudge goes to everyone still booked.
@@ -321,7 +325,7 @@ async fn a_late_booked_appointment_gets_only_the_latest_due_step() {
     let w = world().await;
     let l = w.ladder();
     // Booked so late that every step is already due: one message, not four.
-    l.run_once(w.appt.start_datetime - Duration::hours(2))
+    l.run_once(w.appt.start_datetime - SignedDuration::from_hours(2))
         .await
         .unwrap();
     assert_eq!(w.channels().len(), 1);
@@ -384,12 +388,12 @@ async fn opt_outs_stop_every_step_and_quiet_hours_only_hold_one() {
     // Wall-clock arithmetic, because the window is wall-clock: the random start can land in the hour the clocks go
     // back, where an hour of elapsed time later reads the same as now, and the window would leave now out.
     let local = now
-        .with_timezone(&patient_administration_system::inbound::messages::timezone())
+        .to_zoned_datetime(patient_administration_system::inbound::messages::timezone())
         .time();
     let around = QuietHours::parse(&format!(
         "{}-{}",
-        (local - Duration::hours(1)).format("%H:%M"),
-        (local + Duration::hours(1)).format("%H:%M")
+        (local - SignedDuration::from_hours(1)).strftime("%H:%M"),
+        (local + SignedDuration::from_hours(1)).strftime("%H:%M")
     ))
     .ok();
     let held = q
@@ -572,7 +576,7 @@ async fn bad_expired_and_double_tapped_links_are_refused() {
         &w.s.db,
         w.appt.id,
         w.person,
-        Utc::now() - Duration::minutes(1),
+        Timestamp::now() - SignedDuration::from_mins(1),
     )
     .await
     .unwrap();

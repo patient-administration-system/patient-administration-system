@@ -16,7 +16,7 @@ use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -29,7 +29,7 @@ pub const MAX_BATCH: i64 = 500;
 #[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct QueuedLetter {
     pub letter_id: Uuid,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
     pub subject: String,
 }
 

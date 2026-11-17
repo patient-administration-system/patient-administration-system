@@ -7,7 +7,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact};
-use chrono::{DateTime, Months, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -23,7 +23,7 @@ pub struct DueReview {
     pub person_id: Uuid,
     pub accessibility_needs: Vec<String>,
     /// `None` when the needs were never reviewed.
-    pub needs_reviewed_at: Option<DateTime<Utc>>,
+    pub needs_reviewed_at: Option<Timestamp>,
 }
 
 pub struct NeedsReviewService {
@@ -40,7 +40,7 @@ impl NeedsReviewService {
         &self,
         person_id: Uuid,
         reviewed_by: &str,
-        at: DateTime<Utc>,
+        at: Timestamp,
         ctx: &UserContext,
     ) -> Result<()> {
         let by = named_person(
@@ -54,7 +54,7 @@ impl NeedsReviewService {
             ))
 .await?
             .ok_or_else(|| Error::not_found(format!("communication profile for {person_id}")))?;
-        let old: Option<DateTime<Utc>> = before.col("needs_reviewed_at")?;
+        let old: Option<Timestamp> = before.col("needs_reviewed_at")?;
         txn.run(Stmt::new("UPDATE patient_communication_profiles SET needs_reviewed_at = $2, needs_reviewed_by = $3 WHERE person_id = $1",
             [person_id.into(), at.into(), by.into()],
         ))
@@ -76,7 +76,7 @@ impl NeedsReviewService {
     /// never-reviewed first, then the oldest review. At most `fetch` rows (see `crate::paging`).
     pub async fn due(
         &self,
-        now: DateTime<Utc>,
+        now: Timestamp,
         months: u32,
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<DueReview>> {
@@ -84,8 +84,7 @@ impl NeedsReviewService {
         if !(1..=120).contains(&months) {
             return Err(Error::validation("months must be between 1 and 120"));
         }
-        let cutoff = now
-            .checked_sub_months(Months::new(months))
+        let cutoff = crate::time::sub_months_utc(now, months)
             .ok_or_else(|| Error::validation("months is too large"))?;
         let rows = self
             .db

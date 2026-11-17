@@ -29,7 +29,7 @@ pub struct Model {
     #[schema(required = true)]
     pub context: Option<serde_json::Value>,
     #[schema(value_type = String, format = DateTime)]
-    pub at: chrono::DateTime<chrono::FixedOffset>,
+    pub at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

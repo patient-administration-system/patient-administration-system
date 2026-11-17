@@ -15,7 +15,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact, Txn};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -39,8 +39,8 @@ pub struct StandbyEntry {
     pub needs_transport: bool,
     pub phone_only: bool,
     pub active: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl crate::db::sql::FromRow for StandbyEntry {
@@ -126,13 +126,13 @@ pub struct SlotRelease {
     pub slot_id: Uuid,
     pub appointment_id: Uuid,
     pub service_type: Option<String>,
-    pub start_datetime: DateTime<Utc>,
-    pub released_at: DateTime<Utc>,
+    pub start_datetime: Timestamp,
+    pub released_at: Timestamp,
     pub notice_days: Option<i32>,
     pub release_class: crate::models::appointment::ReleaseClass,
     pub status: ReleaseStatus,
     pub refilled_by_appointment_id: Option<Uuid>,
-    pub refilled_at: Option<DateTime<Utc>>,
+    pub refilled_at: Option<Timestamp>,
     pub seconds_to_refill: Option<i64>,
 }
 
@@ -200,7 +200,7 @@ pub(crate) async fn record_release(
     let Some(slot_id) = appt.slot_id else {
         return Ok(None);
     };
-    if appt.start_datetime <= Utc::now() {
+    if appt.start_datetime <= Timestamp::now() {
         return Ok(None);
     }
     // A place in a group session is not offered to the standby list: nobody is put into a group
@@ -335,7 +335,7 @@ impl StandbyService {
     pub async fn deactivate_if_unchanged(
         &self,
         id: Uuid,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<()> {
         let ctx = ctx.clone();
@@ -348,7 +348,7 @@ impl StandbyService {
                         ))
 .await?
                         .ok_or_else(|| Error::not_found(format!("standby entry {id}")))?;
-                    let stored: DateTime<Utc> = locked.col("updated_at")?;
+                    let stored: Timestamp = locked.col("updated_at")?;
                     if !crate::api::rest::concurrency::is_current(stored, expected) {
                         return Err(Error::precondition_failed(
                             "that standby entry has changed since you read it; read it again",
@@ -388,7 +388,7 @@ impl StandbyService {
         &self,
         id: Uuid,
         slot_id: Uuid,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         let ctx = ctx.clone();
@@ -434,8 +434,8 @@ impl StandbyService {
 
     pub async fn releases(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: Timestamp,
+        to: Timestamp,
         status: Option<ReleaseStatus>,
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<(ReleaseSummary, Vec<SlotRelease>)> {
@@ -486,8 +486,8 @@ impl StandbyService {
         let Some(service) = service else {
             return Ok(Vec::new());
         };
-        let start: DateTime<Utc> = rel.col("start_datetime")?;
-        let end: DateTime<Utc> = rel.col("end_datetime")?;
+        let start: Timestamp = rel.col("start_datetime")?;
+        let end: Timestamp = rel.col("end_datetime")?;
         let gave_up: Option<Uuid> = rel.col("person_id")?;
         self.db.all_as::<StandbyEntry>(Stmt::new("SELECT se.id, se.person_id, se.service_type, se.short_notice_ok, se.language, se.needs_transport, se.phone_only, se.active, se.created_at, se.updated_at \
              FROM standby_entries se \

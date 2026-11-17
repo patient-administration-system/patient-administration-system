@@ -105,7 +105,7 @@ pub fn category_of_observation(o: &Value) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
+    use jiff::Timestamp;
     use uuid::Uuid;
 
     fn assessment(category: &str) -> TriageAssessment {
@@ -118,7 +118,7 @@ mod tests {
             colour: super::super::colour(category),
             flowchart: Some("Chest pain".into()),
             assessed_by: "Nurse Okafor".into(),
-            assessed_at: Utc::now(),
+            assessed_at: Timestamp::now(),
         }
     }
 

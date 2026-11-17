@@ -21,7 +21,7 @@ use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -131,7 +131,7 @@ pub struct LinkInfo {
     pub when: String,
     /// The start instant and the clinic's time zone, so a page can format it in whatever language it is
     /// shown in (the registered language is only English or Welsh).
-    pub starts_at: Option<DateTime<Utc>>,
+    pub starts_at: Option<Timestamp>,
     pub time_zone: String,
     pub actions: Vec<&'static str>,
 }
@@ -140,7 +140,7 @@ pub struct LinkInfo {
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct LinkOption {
     pub slot_id: Uuid,
-    pub starts_at: DateTime<Utc>,
+    pub starts_at: Timestamp,
     /// The time in the patient's registered language, for a plain-text surface.
     pub when: String,
 }
@@ -160,7 +160,7 @@ pub struct LinkOutcome {
     /// For `rebooked`: when the appointment now starts, so a page can show it in its own language.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(nullable = false)]
-    pub starts_at: Option<DateTime<Utc>>,
+    pub starts_at: Option<Timestamp>,
     pub time_zone: String,
 }
 
@@ -182,7 +182,7 @@ pub async fn mint<C: Conn>(
     conn: &C,
     appointment_id: Uuid,
     person_id: Uuid,
-    expires_at: DateTime<Utc>,
+    expires_at: Timestamp,
 ) -> Result<String> {
     let token = new_token();
     conn.run(Stmt::new("INSERT INTO reply_tokens (token_hash, appointment_id, person_id, expires_at) VALUES ($1,$2,$3,$4)",
@@ -195,7 +195,7 @@ pub async fn mint<C: Conn>(
 /// How an outcome is shown to this patient.
 struct View {
     lang: Lang,
-    tz: chrono_tz::Tz,
+    tz: jiff::tz::TimeZone,
 }
 
 impl View {
@@ -207,7 +207,7 @@ impl View {
             options: vec![],
             signpost: None,
             starts_at: None,
-            time_zone: self.tz.name().to_string(),
+            time_zone: crate::time::zone_name(&self.tz),
         }
     }
 }
@@ -215,7 +215,7 @@ impl View {
 struct Row {
     appointment_id: Uuid,
     person_id: Uuid,
-    expires_at: DateTime<Utc>,
+    expires_at: Timestamp,
     consumed: bool,
 }
 
@@ -269,7 +269,7 @@ impl ReplyLinks {
             .unwrap_or_default();
         let state = if row.consumed {
             LinkState::Used
-        } else if row.expires_at <= Utc::now() {
+        } else if row.expires_at <= Timestamp::now() {
             LinkState::Expired
         } else {
             LinkState::Open
@@ -284,7 +284,7 @@ impl ReplyLinks {
             language: lang.code(),
             when,
             starts_at,
-            time_zone: messages::timezone().name().to_string(),
+            time_zone: crate::time::zone_name(&messages::timezone()),
             actions,
         })
     }
@@ -320,7 +320,7 @@ impl ReplyLinks {
         if row.consumed {
             return Err(Error::conflict("this link has already been used"));
         }
-        if row.expires_at <= Utc::now() {
+        if row.expires_at <= Timestamp::now() {
             return Err(Error::validation("this link has expired"));
         }
         match action {
@@ -356,7 +356,7 @@ impl ReplyLinks {
 
         let appt = AppointmentRepository::find_by_id(&self.db, row.appointment_id).await?;
         let when = appt
-            .map(|a| messages::when(a.start_datetime, view.lang, view.tz))
+            .map(|a| messages::when(a.start_datetime, view.lang, view.tz.clone()))
             .unwrap_or_default();
         let result = if action == LinkAction::Reschedule {
             self.request_reschedule(&row, &view, &when).await
@@ -383,7 +383,7 @@ impl ReplyLinks {
             .map(|s| LinkOption {
                 slot_id: s.slot_id,
                 starts_at: s.starts_at,
-                when: messages::when(s.starts_at, view.lang, view.tz),
+                when: messages::when(s.starts_at, view.lang, view.tz.clone()),
             })
             .collect();
         Some(o)
@@ -503,7 +503,7 @@ impl ReplyLinks {
         if row.consumed {
             return Err(Error::conflict("this link has already been used"));
         }
-        if row.expires_at <= Utc::now() {
+        if row.expires_at <= Timestamp::now() {
             return Err(Error::validation("this link has expired"));
         }
         let offer_id = self
@@ -537,13 +537,13 @@ impl ReplyLinks {
                 message: messages::text(
                     lang,
                     Kind::Rebooked,
-                    &messages::when(new.start_datetime, lang, tz),
+                    &messages::when(new.start_datetime, lang, tz.clone()),
                     None,
                 ),
                 options: vec![],
                 signpost: None,
                 starts_at: Some(new.start_datetime),
-                time_zone: tz.name().to_string(),
+                time_zone: crate::time::zone_name(&tz),
             }),
             Err(e) => {
                 self

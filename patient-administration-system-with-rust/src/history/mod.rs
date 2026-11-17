@@ -26,7 +26,7 @@ pub struct HistoryService {
 /// happened, who did it, why, and a little context. Never the text of a message.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct HistoryRow {
-    pub at: chrono::DateTime<chrono::Utc>,
+    pub at: jiff::Timestamp,
     /// `audit`, `message`, `reply`, `text` or `reminder_step`.
     #[schema(required = true)]
     pub kind: Option<String>,

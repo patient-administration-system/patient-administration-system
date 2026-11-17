@@ -55,17 +55,17 @@ impl NoShowService {
         // Pass 1: the model's probability for each past appointment, as it would have been.
         let mut scored: Vec<(f64, bool, (String, String))> = Vec::new();
         for r in &rows {
-            let start: DateTime<Utc> = r.col("start_datetime")?;
-            let created: DateTime<Utc> = r.col("created_at")?;
-            let local = start.with_timezone(&tz);
+            let start: Timestamp = r.col("start_datetime")?;
+            let created: Timestamp = r.col("created_at")?;
+            let local = start.to_zoned_datetime(tz.clone());
             let p = compute(
                 &Inputs {
                     past_missed: r.col("missed")?,
                     past_attended: r.col("attended")?,
-                    lead_days: ((start - created).num_seconds() as f64 / 86_400.0).max(0.0),
+                    lead_days: ((start - created).as_secs() as f64 / 86_400.0).max(0.0),
                     age_band: r.col("age_band")?,
-                    weekday: local.weekday().num_days_from_monday() as usize,
-                    hour: local.hour(),
+                    weekday: local.weekday().to_monday_zero_offset() as usize,
+                    hour: u32::try_from(local.hour()).unwrap_or(0),
                 },
                 &w,
             )

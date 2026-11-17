@@ -60,7 +60,7 @@ impl BedRepository {
         am.set("room_id", b.room_id);
         am.set("name", b.name.clone());
         am.set("code", b.code.clone());
-        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        am.set("updated_at", jiff::Timestamp::now());
         am.update(conn).await?;
         Ok(b.clone())
     }
@@ -78,7 +78,7 @@ impl BedRepository {
         conn: &C,
         id: Uuid,
         new_status: BedStatus,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         lock: bool,
     ) -> Result<Bed> {
         let sql = if lock {
@@ -90,17 +90,14 @@ impl BedRepository {
             .one_as::<bed::Model>(Stmt::new(sql, [id.into()]))
             .await?
             .ok_or_else(|| Error::not_found(format!("bed {id}")))?;
-        if !crate::api::rest::concurrency::is_current(
-            m.updated_at.with_timezone(&chrono::Utc),
-            expected,
-        ) {
+        if !crate::api::rest::concurrency::is_current(m.updated_at, expected) {
             return Err(Error::precondition_failed(
                 "the bed has changed since it was read; read it again",
             ));
         }
         let current = bed_status_from_str(&m.status)?;
         current.try_transition_to(new_status)?;
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set("status", bed_status_to_str(new_status).to_string());
         am.set("updated_at", now);
@@ -161,7 +158,7 @@ impl BedRepository {
             ))
             .await?
             .ok_or_else(|| Error::not_found(format!("bed {id}")))?;
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set("status", bed_status_to_str(new_status).to_string());
         am.set("updated_at", now);
@@ -200,8 +197,8 @@ fn to_row(b: &Bed) -> bed::Model {
         name: b.name.clone(),
         code: b.code.clone(),
         status: bed_status_to_str(b.status).to_string(),
-        created_at: b.created_at.fixed_offset(),
-        updated_at: b.updated_at.fixed_offset(),
+        created_at: b.created_at,
+        updated_at: b.updated_at,
     }
 }
 
@@ -212,8 +209,8 @@ fn from_model(m: bed::Model) -> Result<Bed> {
         name: m.name,
         code: m.code,
         status: bed_status_from_str(&m.status)?,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 

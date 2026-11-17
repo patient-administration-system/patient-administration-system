@@ -107,7 +107,7 @@ A summary. `Cargo.toml` is the source of truth.
 | **Serialization**    | Serde 1.0, serde\_json 1.0, csv 1.4         | JSON / CSV                               |
 | **Logging / Tracing**| `tracing` 0.1, `tracing-subscriber` 0.3 (`env-filter`, `json`) | Structured logging (reads `RUST_LOG`) |
 | **Observability**    | OpenTelemetry 0.33 + OTLP HTTP/protobuf via reqwest | Wires when `OTLP_ENDPOINT` is set |
-| **Utilities**        | uuid 1 (`v4`, `v5`, `serde`), chrono 0.4 (`serde`), dotenvy 0.15, async-trait 0.1 | UUIDs, timestamps, env, async traits |
+| **Utilities**        | uuid 1 (`v4`, `v5`, `serde`), jiff 1 (`serde`, bundled time zones; jiff-sqlx for the database), dotenvy 0.15, async-trait 0.1 | UUIDs, timestamps, env, async traits |
 | **Error Handling**   | thiserror 2.0                               | Typed errors                             |
 | **Money / Decimal**  | rust\_decimal 1.43 (`serde-with-str`)       | Exact monetary arithmetic                |
 | **Testing**          | `assertables` 10, `tempfile` 3.27           | Rich asserts + temp directories          |

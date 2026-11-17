@@ -21,7 +21,7 @@ impl WaitlistRepository {
     pub async fn lock_entry_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
     ) -> Result<WaitlistEntry> {
         let m = conn
             .one_as::<waitlist_entry::Model>(Stmt::new(
@@ -97,7 +97,7 @@ impl WaitlistRepository {
     /// implementation joins waitlist_entries → rtt_pathways → events.
     pub async fn list_breaches<C: Conn>(
         _conn: &C,
-        _now: chrono::DateTime<chrono::Utc>,
+        _now: jiff::Timestamp,
         _threshold_weeks: u32,
     ) -> Result<Vec<WaitlistEntry>> {
         // Joining across waitlist_entries → rtt_pathways → rtt_clock_events
@@ -156,8 +156,8 @@ fn to_row(e: &WaitlistEntry) -> waitlist_entry::Model {
         target_service: e.target_service.clone(),
         priority: priority_to_str(e.priority).to_string(),
         status: waitlist_status_to_str(e.status).to_string(),
-        created_at: e.created_at.fixed_offset(),
-        updated_at: e.updated_at.fixed_offset(),
+        created_at: e.created_at,
+        updated_at: e.updated_at,
     }
 }
 
@@ -169,8 +169,8 @@ fn from_model(m: waitlist_entry::Model) -> Result<WaitlistEntry> {
         target_service: m.target_service,
         priority: priority_from_str(&m.priority)?,
         status: waitlist_status_from_str(&m.status)?,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 

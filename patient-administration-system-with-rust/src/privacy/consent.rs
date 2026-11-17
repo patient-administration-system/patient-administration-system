@@ -8,7 +8,7 @@
 //! anything about an identifiable patient; `governance/messaging-rules.md` says the same.
 
 use crate::db::sql::Conn;
-use chrono::Utc;
+use jiff::Timestamp;
 use uuid::Uuid;
 
 use crate::db::repositories::consent::ConsentRepository;
@@ -17,7 +17,9 @@ use crate::{Error, Result};
 
 /// Is there an active, unexpired, unrevoked consent of this type for the patient?
 pub async fn has_consent<C: Conn>(conn: &C, person_id: Uuid, kind: ConsentType) -> Result<bool> {
-    let today = Utc::now().date_naive();
+    let today = Timestamp::now()
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
     Ok(ConsentRepository::list_for_patient(conn, person_id)
         .await?
         .iter()

@@ -175,7 +175,7 @@ pub async fn health(State(state): State<AppState>) -> HandlerResult {
         .await;
     let outbox = outbox_health(&state, db_ok).await;
     let mllp = crate::hl7v2::listener::listener_state();
-    let (hl7_quiet, outbox_quiet) = crate::metrics::silence_at(chrono::Utc::now().timestamp());
+    let (hl7_quiet, outbox_quiet) = crate::metrics::silence_at(jiff::Timestamp::now().as_second());
     let status = if db_ok && !upstream.is_degraded() && !outbox.degraded && mllp != "stopped" {
         "ok"
     } else {

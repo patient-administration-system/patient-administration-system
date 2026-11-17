@@ -18,8 +18,8 @@
 pub mod report;
 
 use crate::db::sql::{Conn, Pool, Stmt, Transact};
-use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveTime, TimeZone, Utc};
-use chrono_tz::Europe::London;
+use jiff::civil::{Date, DateTime, Time};
+use jiff::{SignedDuration, Timestamp};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -50,10 +50,10 @@ pub struct VersionInput {
     /// ISO weekday: 1 Monday to 7 Sunday.
     pub weekday: i16,
     /// Start of the first slot, London local time.
-    pub start_time: NaiveTime,
+    pub start_time: Time,
     pub slot_minutes: i32,
     /// The first day the version applies to.
-    pub effective_from: NaiveDate,
+    pub effective_from: Date,
     pub lines: Vec<Line>,
     pub proposed_by: String,
 }
@@ -61,8 +61,8 @@ pub struct VersionInput {
 /// One slot a session will make.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Planned {
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
+    pub start: Timestamp,
+    pub end: Timestamp,
     pub slot_type: String,
     pub ring_fenced: bool,
 }
@@ -96,20 +96,24 @@ pub fn validate_lines(lines: &[Line]) -> Result<()> {
 /// The slots one session makes on `date`, or `None` when that local time does not exist that day (the clocks
 /// go forward). An ambiguous time (the clocks go back) takes the earlier. Slots run back to back.
 pub fn plan_session(
-    date: NaiveDate,
-    start_time: NaiveTime,
+    date: Date,
+    start_time: Time,
     slot_minutes: i32,
     lines: &[Line],
 ) -> Option<Vec<Planned>> {
-    let first = London
-        .from_local_datetime(&date.and_time(start_time))
-        .earliest()?
-        .with_timezone(&Utc);
+    // In the service's time zone (`PAS_TIMEZONE`). A local time the clocks skip is no session; one they repeat
+    // is the earlier of the two.
+    let tz = crate::inbound::messages::timezone();
+    let local = tz.to_ambiguous_timestamp(DateTime::from_parts(date, start_time));
+    if matches!(local.offset(), jiff::tz::AmbiguousOffset::Gap { .. }) {
+        return None;
+    }
+    let first = local.earlier().ok()?;
     let mut out = Vec::new();
     let mut at = first;
     for l in lines {
         for _ in 0..l.slots {
-            let end = at + Duration::minutes(i64::from(slot_minutes));
+            let end = at + SignedDuration::from_mins(i64::from(slot_minutes));
             out.push(Planned {
                 start: at,
                 end,
@@ -126,9 +130,10 @@ pub fn plan_session(
 pub struct VersionView {
     pub version: i32,
     pub weekday: i16,
-    pub start_time: NaiveTime,
+    #[schema(value_type = String)]
+    pub start_time: Time,
     pub slot_minutes: i32,
-    pub effective_from: NaiveDate,
+    pub effective_from: Date,
     pub lines: Vec<Line>,
     pub proposed_by: String,
     #[schema(required = true)]
@@ -212,7 +217,7 @@ impl TemplateService {
         &self,
         template_id: Uuid,
         v: &VersionInput,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<i32> {
         if !(1..=7).contains(&v.weekday) {
@@ -228,7 +233,11 @@ impl TemplateService {
             &v.proposed_by,
             "proposed_by: the person proposing is required",
         )?;
-        if v.effective_from < now.with_timezone(&London).date_naive() {
+        if v.effective_from
+            < now
+                .to_zoned_datetime(crate::inbound::messages::timezone())
+                .date()
+        {
             return Err(Error::validation("effective_from cannot be in the past"));
         }
         let txn = self.db.begin_txn().await?;
@@ -287,7 +296,7 @@ impl TemplateService {
         template_id: Uuid,
         version: i32,
         approved_by: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<()> {
         let by = named_person(approved_by, "approved_by: the approving person is required")?;
@@ -390,10 +399,10 @@ impl TemplateService {
     pub async fn generate(
         &self,
         template_id: Uuid,
-        from: NaiveDate,
-        to: NaiveDate,
+        from: Date,
+        to: Date,
         generated_by: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<Generated> {
         let by = named_person(
@@ -403,12 +412,16 @@ impl TemplateService {
         if to < from {
             return Err(Error::validation("to cannot be before from"));
         }
-        if (to - from).num_days() + 1 > MAX_GENERATE_DAYS {
+        if crate::time::day_count(from, to) + 1 > MAX_GENERATE_DAYS {
             return Err(Error::validation(format!(
                 "generate at most {MAX_GENERATE_DAYS} days at a time"
             )));
         }
-        if from < now.with_timezone(&London).date_naive() {
+        if from
+            < now
+                .to_zoned_datetime(crate::inbound::messages::timezone())
+                .date()
+        {
             return Err(Error::validation(
                 "slots cannot be generated for a day in the past",
             ));
@@ -434,9 +447,9 @@ impl TemplateService {
         struct V {
             version: i32,
             weekday: i16,
-            start_time: NaiveTime,
+            start_time: Time,
             slot_minutes: i32,
-            effective_from: NaiveDate,
+            effective_from: Date,
             lines: Vec<Line>,
         }
         let versions = versions
@@ -460,10 +473,7 @@ impl TemplateService {
             // The latest-effective approved version on or before the day.
             match versions.iter().rfind(|v| v.effective_from <= day) {
                 None => out.days_without_approved_version += 1,
-                Some(v)
-                    if i16::try_from(day.weekday().number_from_monday()).ok()
-                        == Some(v.weekday) =>
-                {
+                Some(v) if i16::from(day.weekday().to_monday_one_offset()) == v.weekday => {
                     match plan_session(day, v.start_time, v.slot_minutes, &v.lines) {
                         None => out.days_skipped_clock_change += 1,
                         Some(plan) => {
@@ -499,7 +509,7 @@ impl TemplateService {
                 }
                 Some(_) => {}
             }
-            day += Duration::days(1);
+            day += crate::time::days(1);
         }
         AuditLogRepository::log(
             &txn,
@@ -537,7 +547,7 @@ impl TemplateService {
         slot_id: Uuid,
         ring_fenced: bool,
         set_by: &str,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<()> {
         let by = named_person(
@@ -553,7 +563,7 @@ impl TemplateService {
 .await?
             .ok_or_else(|| Error::not_found(format!("slot {slot_id}")))?;
         let old: bool = row.col("ring_fenced")?;
-        let stored: chrono::DateTime<chrono::Utc> = row.col("updated_at")?;
+        let stored: jiff::Timestamp = row.col("updated_at")?;
         if !crate::api::rest::concurrency::is_current(stored, expected) {
             return Err(Error::precondition_failed(
                 "the slot has changed since it was read; read it again",
@@ -606,46 +616,32 @@ mod tests {
 
     #[test]
     fn a_session_runs_back_to_back_in_the_stated_order() {
-        let day = NaiveDate::from_ymd_opt(2027, 1, 12).unwrap(); // a winter Tuesday: London is UTC
-        let p = plan_session(day, NaiveTime::from_hms_opt(9, 0, 0).unwrap(), 20, &lines()).unwrap();
+        let day = jiff::civil::date(2027, 1, 12); // a winter Tuesday: London is UTC
+        let p = plan_session(day, jiff::civil::time(9, 0, 0, 0), 20, &lines()).unwrap();
         let starts: Vec<_> = p
             .iter()
-            .map(|s| s.start.format("%H:%M").to_string())
+            .map(|s| s.start.strftime("%H:%M").to_string())
             .collect();
         assert_eq!(starts, ["09:00", "09:20", "09:40"]);
-        assert_eq!(p[2].end.format("%H:%M").to_string(), "10:00");
+        assert_eq!(p[2].end.strftime("%H:%M").to_string(), "10:00");
         assert_eq!(p[2].slot_type, "urgent");
         assert!(p[2].ring_fenced && !p[0].ring_fenced);
     }
 
     #[test]
     fn summer_time_is_an_hour_ahead_of_utc_and_the_missing_hour_is_skipped() {
-        let summer = NaiveDate::from_ymd_opt(2027, 7, 13).unwrap();
-        let p = plan_session(
-            summer,
-            NaiveTime::from_hms_opt(9, 0, 0).unwrap(),
-            30,
-            &lines(),
-        )
-        .unwrap();
-        assert_eq!(p[0].start.format("%H:%M").to_string(), "08:00");
+        let summer = jiff::civil::date(2027, 7, 13);
+        let p = plan_session(summer, jiff::civil::time(9, 0, 0, 0), 30, &lines()).unwrap();
+        assert_eq!(p[0].start.strftime("%H:%M").to_string(), "08:00");
         // 2027-03-28 01:30 London does not exist (the clocks go forward at 01:00).
-        let gap = NaiveDate::from_ymd_opt(2027, 3, 28).unwrap();
-        assert!(
-            plan_session(
-                gap,
-                NaiveTime::from_hms_opt(1, 30, 0).unwrap(),
-                30,
-                &lines()
-            )
-            .is_none()
-        );
+        let gap = jiff::civil::date(2027, 3, 28);
+        assert!(plan_session(gap, jiff::civil::time(1, 30, 0, 0), 30, &lines()).is_none());
     }
 
     #[test]
     fn the_same_inputs_always_plan_the_same_session() {
-        let day = NaiveDate::from_ymd_opt(2027, 1, 12).unwrap();
-        let t = NaiveTime::from_hms_opt(9, 0, 0).unwrap();
+        let day = jiff::civil::date(2027, 1, 12);
+        let t = jiff::civil::time(9, 0, 0, 0);
         assert_eq!(
             plan_session(day, t, 15, &lines()),
             plan_session(day, t, 15, &lines())

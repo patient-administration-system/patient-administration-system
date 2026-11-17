@@ -38,7 +38,7 @@ impl AdmissionRepository {
     pub async fn lock_and_bump_if_current<C: Conn>(
         conn: &C,
         id: Uuid,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
     ) -> Result<Admission> {
         let m = conn
             .one_as::<admission::Model>(Stmt::new(
@@ -169,7 +169,7 @@ impl AdmissionRepository {
             ))
             .await?
             .ok_or_else(|| Error::not_found(format!("bed_assignment {id}")))?;
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set("released_at", Some(now));
         am.set("updated_at", now);
@@ -281,10 +281,10 @@ fn discharge_from_model(m: discharge::Model) -> Result<Discharge> {
         id: m.id,
         admission_id: m.admission_id,
         discharging_worker_id: m.discharging_worker_id,
-        discharged_at: m.discharged_at.with_timezone(&chrono::Utc),
+        discharged_at: m.discharged_at,
         disposition: m.disposition,
         notes: m.notes,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
     })
 }
 
@@ -296,10 +296,10 @@ fn admission_to_row(a: &Admission) -> admission::Model {
         encounter_id: a.encounter_id,
         bed_id: a.bed_id,
         admitting_worker_id: a.admitting_worker_id,
-        admitted_at: a.admitted_at.fixed_offset(),
+        admitted_at: a.admitted_at,
         reason: a.reason.clone(),
-        created_at: a.created_at.fixed_offset(),
-        updated_at: a.updated_at.fixed_offset(),
+        created_at: a.created_at,
+        updated_at: a.updated_at,
     }
 }
 
@@ -309,10 +309,10 @@ fn admission_from_model(m: admission::Model) -> Result<Admission> {
         encounter_id: m.encounter_id,
         bed_id: m.bed_id,
         admitting_worker_id: m.admitting_worker_id,
-        admitted_at: m.admitted_at.with_timezone(&chrono::Utc),
+        admitted_at: m.admitted_at,
         reason: m.reason,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 
@@ -323,8 +323,8 @@ fn transfer_from_model(m: transfer::Model) -> Result<Transfer> {
         from_bed_id: m.from_bed_id,
         to_bed_id: m.to_bed_id,
         reason: m.reason,
-        transferred_at: m.transferred_at.with_timezone(&chrono::Utc),
-        created_at: m.created_at.with_timezone(&chrono::Utc),
+        transferred_at: m.transferred_at,
+        created_at: m.created_at,
     })
 }
 
@@ -335,8 +335,8 @@ fn transfer_to_row(t: &Transfer) -> transfer::Model {
         from_bed_id: t.from_bed_id,
         to_bed_id: t.to_bed_id,
         reason: t.reason.clone(),
-        transferred_at: t.transferred_at.fixed_offset(),
-        created_at: t.created_at.fixed_offset(),
+        transferred_at: t.transferred_at,
+        created_at: t.created_at,
     }
 }
 
@@ -345,10 +345,10 @@ fn discharge_to_row(d: &Discharge) -> discharge::Model {
         id: d.id,
         admission_id: d.admission_id,
         discharging_worker_id: d.discharging_worker_id,
-        discharged_at: d.discharged_at.fixed_offset(),
+        discharged_at: d.discharged_at,
         disposition: d.disposition.clone(),
         notes: d.notes.clone(),
-        created_at: d.created_at.fixed_offset(),
+        created_at: d.created_at,
     }
 }
 
@@ -357,10 +357,10 @@ fn bed_assignment_to_row(ba: &BedAssignment) -> bed_assignment::Model {
         id: ba.id,
         encounter_id: ba.encounter_id,
         bed_id: ba.bed_id,
-        assigned_at: ba.assigned_at.fixed_offset(),
-        released_at: ba.released_at.map(|t| t.fixed_offset()),
-        created_at: ba.created_at.fixed_offset(),
-        updated_at: ba.updated_at.fixed_offset(),
+        assigned_at: ba.assigned_at,
+        released_at: ba.released_at,
+        created_at: ba.created_at,
+        updated_at: ba.updated_at,
     }
 }
 
@@ -369,10 +369,10 @@ fn bed_assignment_from_model(m: bed_assignment::Model) -> Result<BedAssignment> 
         id: m.id,
         encounter_id: m.encounter_id,
         bed_id: m.bed_id,
-        assigned_at: m.assigned_at.with_timezone(&chrono::Utc),
-        released_at: m.released_at.map(|t| t.with_timezone(&chrono::Utc)),
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        assigned_at: m.assigned_at,
+        released_at: m.released_at,
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 

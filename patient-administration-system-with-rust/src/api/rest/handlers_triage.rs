@@ -2,7 +2,7 @@
 
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -38,7 +38,7 @@ pub struct TriageBody {
     /// The person who assigned the category.
     pub assessed_by: String,
     /// When it was assigned; defaults to now, never in the future.
-    pub assessed_at: Option<DateTime<Utc>>,
+    pub assessed_at: Option<Timestamp>,
 }
 
 /// `POST /api/encounters/{id}/triage`: record a triage category assigned elsewhere. The PAS records it and
@@ -106,7 +106,7 @@ pub struct FirstContactBody {
     /// The clinician who first saw the patient.
     pub seen_by: String,
     /// When; defaults to now, not before arrival and never in the future.
-    pub seen_at: Option<DateTime<Utc>>,
+    pub seen_at: Option<Timestamp>,
 }
 
 /// `POST /api/encounters/{id}/first-contact`: record, once, when a clinician first saw the patient. Audited.
@@ -146,9 +146,9 @@ pub async fn first_contact(
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct WindowQuery {
     /// Start of the window (inclusive); defaults to 24 hours before `to`.
-    pub from: Option<DateTime<Utc>>,
+    pub from: Option<Timestamp>,
     /// End of the window (exclusive); defaults to now.
-    pub to: Option<DateTime<Utc>>,
+    pub to: Option<Timestamp>,
 }
 
 /// `GET /api/triage/waits`: attendances in the window against each category's target (`PAS_TRIAGE_TARGETS`),
@@ -167,7 +167,7 @@ pub struct WindowQuery {
 pub async fn waits(State(state): State<AppState>, Query(q): Query<WindowQuery>) -> HandlerResult {
     let now = state.clock.now();
     let to = q.to.unwrap_or(now);
-    let from = q.from.unwrap_or(to - chrono::Duration::hours(24));
+    let from = q.from.unwrap_or(to - jiff::SignedDuration::from_hours(24));
     json(
         TriageService::new(state.db.clone())
             .waits_report(from, to, &Targets::from_env(), now)

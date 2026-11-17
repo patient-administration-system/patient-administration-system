@@ -242,7 +242,7 @@ impl BillingService {
                     } else {
                         InvoiceStatus::PartiallyPaid
                     };
-                    next.updated_at = chrono::Utc::now();
+                    next.updated_at = jiff::Timestamp::now();
                     BillingRepository::update_invoice(txn, &next).await?;
                     AuditLogRepository::log(
                         txn,

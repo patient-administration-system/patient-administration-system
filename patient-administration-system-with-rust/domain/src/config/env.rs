@@ -13,6 +13,9 @@
 //! `tests/qual6_settings_test.rs` fails if any other file under `src/` (outside tests and `src/bin`) reads
 //! the environment.
 
+/// The service time zone when `PAS_TIMEZONE` is unset: the one place it is named (QUAL-40 counts it once).
+pub const DEFAULT_TIME_ZONE: &str = "Europe/London";
+
 /// What a variable holds and what is acceptable.
 #[derive(Debug, Clone, Copy)]
 pub enum Kind {
@@ -223,10 +226,9 @@ pub fn problem(v: &Var, raw: &str) -> Option<String> {
         Kind::Json => serde_json::from_str::<serde_json::Value>(raw)
             .is_err()
             .then(|| "must be valid JSON".to_string()),
-        Kind::TimeZone => raw
-            .parse::<chrono_tz::Tz>()
-            .is_err()
-            .then(|| "must be a time zone name such as Europe/London".to_string()),
+        Kind::TimeZone => crate::time::zone(raw)
+            .is_none()
+            .then(|| format!("must be a time zone name such as {DEFAULT_TIME_ZONE}")),
         Kind::Text => None,
     }
 }
@@ -286,7 +288,7 @@ mod tests {
         assert!(problem(weights, "{\"lead_time\": 0.1}").is_none());
         assert!(problem(weights, "{lead_time").is_some());
         let zone = var("PAS_TIMEZONE").expect("registered");
-        assert!(problem(zone, "Europe/London").is_none());
+        assert!(problem(zone, DEFAULT_TIME_ZONE).is_none());
         assert!(problem(zone, "London").is_some());
         let switch = var("PAS_REQUIRE_AUTH").expect("registered");
         assert!(problem(switch, "yes").is_none());

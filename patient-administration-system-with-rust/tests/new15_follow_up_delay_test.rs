@@ -11,7 +11,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::Timestamp;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -56,7 +56,7 @@ async fn overdue_and_on_time_follow_ups_are_counted_apart_booked_and_not() {
     let state = common::build_state(&common::database_url().unwrap()).await;
     let svc = FollowUpDelayService::new(state.db.clone());
     let tz = patient_administration_system::inbound::messages::timezone();
-    let today = Utc::now().with_timezone(&tz).date_naive();
+    let today = Timestamp::now().to_zoned_datetime(tz.clone()).date();
     let before = svc.report(today, 10).await.unwrap();
 
     // Ten waited eight weeks against a four-week target: 100% delayed, not booked.
@@ -64,7 +64,7 @@ async fn overdue_and_on_time_follow_ups_are_counted_apart_booked_and_not() {
         let id = entry(&state.db, 56, false).await;
         svc.set_target(
             id,
-            today - Duration::days(28),
+            today - patient_administration_system::time::days(28),
             "Clinic coordinator",
             &UserContext::system(),
         )
@@ -76,7 +76,7 @@ async fn overdue_and_on_time_follow_ups_are_counted_apart_booked_and_not() {
         let id = entry(&state.db, 0, true).await;
         svc.set_target(
             id,
-            today + Duration::days(28),
+            today + patient_administration_system::time::days(28),
             "Clinic coordinator",
             &UserContext::system(),
         )
@@ -123,7 +123,9 @@ async fn setting_a_target_needs_a_named_person_and_is_audited() {
             .body(Body::from(body.to_string()))
             .unwrap()
     };
-    let target = (Utc::now() + Duration::days(30)).date_naive();
+    let target = (Timestamp::now() + patient_administration_system::time::days(30))
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
 
     let refused = app
         .clone()
@@ -189,7 +191,9 @@ async fn setting_a_target_needs_the_entrys_version() {
     let state = common::build_state(&common::database_url().unwrap()).await;
     let id = entry(&state.db, 3, false).await;
     let app = patient_administration_system::api::rest::router(state.clone());
-    let target = (Utc::now() + Duration::days(30)).date_naive();
+    let target = (Timestamp::now() + patient_administration_system::time::days(30))
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
     let body =
         serde_json::json!({ "target_date": target, "set_by": "Clinic coordinator" }).to_string();
     let put = |if_match: Option<&str>| {

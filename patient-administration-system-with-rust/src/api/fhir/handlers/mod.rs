@@ -245,7 +245,7 @@ mod tests {
     fn parse_dt_round_trips_rfc3339() {
         let v = json!({ "start": "2026-06-01T09:00:00Z" });
         let got = parse_dt(&v, "start").unwrap();
-        assert_eq!(got.format("%Y%m%d%H%M%S").to_string(), "20260601090000");
+        assert_eq!(got.strftime("%Y%m%d%H%M%S").to_string(), "20260601090000");
     }
 
     #[test]

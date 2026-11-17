@@ -4,8 +4,8 @@
 //! message is short enough for one SMS segment where it can be. Times are shown in the clinic's time
 //! zone (`PAS_TIMEZONE`, default Europe/London), because a patient reads "09:30" as local time.
 
-use chrono::{DateTime, Datelike, Timelike, Utc};
-use chrono_tz::Tz;
+use jiff::Timestamp;
+use jiff::tz::TimeZone;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lang {
@@ -29,10 +29,11 @@ impl Lang {
     }
 }
 
-pub fn timezone() -> Tz {
+pub fn timezone() -> TimeZone {
     crate::config::env::text("PAS_TIMEZONE")
-        .and_then(|z| z.parse().ok())
-        .unwrap_or(chrono_tz::Europe::London)
+        .and_then(|z| crate::time::zone(&z))
+        .or_else(|| crate::time::zone(crate::config::env::DEFAULT_TIME_ZONE))
+        .unwrap_or(TimeZone::UTC)
 }
 
 const EN_DAY: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -45,17 +46,17 @@ const CY_MONTH: [&str; 12] = [
 ];
 
 /// `Tue 3 Nov 09:30` / `Maw 3 Tach 09:30`, in the given zone.
-pub fn when(at: DateTime<Utc>, lang: Lang, tz: Tz) -> String {
-    let l = at.with_timezone(&tz);
+pub fn when(at: Timestamp, lang: Lang, tz: TimeZone) -> String {
+    let l = at.to_zoned_datetime(tz);
     let (days, months) = match lang {
         Lang::En => (&EN_DAY, &EN_MONTH),
         Lang::Cy => (&CY_DAY, &CY_MONTH),
     };
     format!(
         "{} {} {} {:02}:{:02}",
-        days[l.weekday().num_days_from_monday() as usize],
+        days[crate::time::monday_index(l.weekday())],
         l.day(),
-        months[l.month0() as usize],
+        months[usize::try_from(l.month() - 1).unwrap_or(0)],
         l.hour(),
         l.minute()
     )
@@ -274,16 +275,15 @@ pub fn bilingual(kind: Kind) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
     #[test]
     fn test_times_are_shown_in_the_clinic_zone_and_the_patients_language() {
         // 09:30 UTC in November is 09:30 in London (GMT); in July it is 10:30 (BST).
-        let nov = Utc.with_ymd_and_hms(2026, 11, 3, 9, 30, 0).unwrap();
-        let jul = Utc.with_ymd_and_hms(2026, 7, 7, 9, 30, 0).unwrap();
-        let tz = chrono_tz::Europe::London;
-        assert_eq!(when(nov, Lang::En, tz), "Tue 3 Nov 09:30");
-        assert_eq!(when(nov, Lang::Cy, tz), "Maw 3 Tach 09:30");
+        let nov = crate::time::utc(2026, 11, 3, 9, 30, 0);
+        let jul = crate::time::utc(2026, 7, 7, 9, 30, 0);
+        let tz = crate::time::zone(crate::config::env::DEFAULT_TIME_ZONE).unwrap();
+        assert_eq!(when(nov, Lang::En, tz.clone()), "Tue 3 Nov 09:30");
+        assert_eq!(when(nov, Lang::Cy, tz.clone()), "Maw 3 Tach 09:30");
         assert_eq!(when(jul, Lang::En, tz), "Tue 7 Jul 10:30");
     }
 

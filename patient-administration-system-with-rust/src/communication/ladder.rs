@@ -27,7 +27,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -109,7 +109,7 @@ crate::string_enum! {
 pub struct StepSpec {
     pub step: Step,
     /// How long before the appointment this step is due.
-    pub before: Duration,
+    pub before: SignedDuration,
 }
 
 /// The built-in ladder, `DEFAULT_STEPS`. The unit tests parse it, so it cannot fail at run time.
@@ -135,11 +135,11 @@ pub fn parse_steps(spec: &str) -> Result<Vec<StepSpec>> {
             .parse()
             .map_err(|_| bad(format!("{dur:?} is not like 7d or 24h")))?;
         let before = match unit {
-            "d" => Duration::days(n),
-            "h" => Duration::hours(n),
+            "d" => crate::time::days(n),
+            "h" => SignedDuration::from_hours(n),
             _ => return Err(bad(format!("{dur:?} must end in d or h"))),
         };
-        if before <= Duration::zero() || before > Duration::days(60) {
+        if before <= SignedDuration::ZERO || before > crate::time::days(60) {
             return Err(bad(format!("{dur:?} must be between 1 hour and 60 days")));
         }
         if out.iter().any(|s| s.step == step) {
@@ -161,12 +161,8 @@ pub fn parse_steps(spec: &str) -> Result<Vec<StepSpec>> {
 }
 
 /// Steps whose time has come for an appointment starting at `start`, in time order.
-pub fn due_steps(
-    steps: &[StepSpec],
-    start: DateTime<Utc>,
-    now: DateTime<Utc>,
-) -> Vec<(Step, DateTime<Utc>)> {
-    let mut v: Vec<(Step, DateTime<Utc>)> = steps
+pub fn due_steps(steps: &[StepSpec], start: Timestamp, now: Timestamp) -> Vec<(Step, Timestamp)> {
+    let mut v: Vec<(Step, Timestamp)> = steps
         .iter()
         .map(|s| (s.step, start - s.before))
         .filter(|(_, at)| *at <= now)
@@ -320,7 +316,7 @@ impl LadderService {
         &self,
         appointment_id: Uuid,
         step: Step,
-        planned_for: DateTime<Utc>,
+        planned_for: Timestamp,
         channel: Option<DeliveryChannel>,
         locale: Option<&str>,
         outcome: StepOutcome,
@@ -350,7 +346,7 @@ impl LadderService {
         name: &str,
         step: Step,
         first_channel: Option<DeliveryChannel>,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<Delivery> {
         // A running wording experiment may swap in another variant's template group for this appointment
         // (CAS-7): deterministic, recorded, wording only. Without one this is `name` itself.
@@ -379,8 +375,8 @@ impl LadderService {
         let mut extra = serde_json::json!({
             "appointment": {
                 "id": a.id,
-                "start": a.start_datetime.to_rfc3339(),
-                "end": a.end_datetime.to_rfc3339(),
+                "start": a.start_datetime.to_string(),
+                "end": a.end_datetime.to_string(),
                 "when": crate::inbound::messages::when(a.start_datetime, lang, crate::inbound::messages::timezone()),
                 "reason": a.reason,
             }
@@ -462,13 +458,13 @@ impl LadderService {
 
     /// One pass: run the next due step of every appointment that has one.
     #[tracing::instrument(skip_all, fields(job = "ladder"))]
-    pub async fn run_once(&self, now: DateTime<Utc>) -> Result<LadderReport> {
+    pub async fn run_once(&self, now: Timestamp) -> Result<LadderReport> {
         let reach = self
             .steps
             .iter()
             .map(|s| s.before)
             .max()
-            .unwrap_or_else(|| Duration::days(7));
+            .unwrap_or_else(|| crate::time::days(7));
         let appointments =
             AppointmentRepository::list_booked_starting_between(&self.db, now, now + reach).await?;
         let mut report = LadderReport {
@@ -478,7 +474,7 @@ impl LadderService {
         for a in appointments {
             let logged = self.logged(a.id).await?;
             let done = |s: Step| logged.iter().any(|(st, _, _)| st == s.as_str());
-            let due: Vec<(Step, DateTime<Utc>)> = due_steps(&self.steps, a.start_datetime, now)
+            let due: Vec<(Step, Timestamp)> = due_steps(&self.steps, a.start_datetime, now)
                 .into_iter()
                 .filter(|(s, _)| !done(*s))
                 .collect();
@@ -617,8 +613,8 @@ impl LadderService {
                     "appointment_id": r.col::<Uuid>("appointment_id")?,
                     "person_id": r.col::<Uuid>("person_id")?,
                     "reason": r.col::<String>("reason")?,
-                    "due_at": r.col::<DateTime<Utc>>("due_at")?,
-                    "appointment_start": r.col::<DateTime<Utc>>("start_datetime")?,
+                    "due_at": r.col::<Timestamp>("due_at")?,
+                    "appointment_start": r.col::<Timestamp>("start_datetime")?,
                 }))
             })
             .collect()
@@ -643,10 +639,9 @@ impl LadderService {
 mod tests {
     use super::*;
     use DeliveryChannel::*;
-    use chrono::TimeZone;
 
-    fn start() -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(2026, 11, 20, 10, 0, 0).unwrap()
+    fn start() -> Timestamp {
+        crate::time::utc(2026, 11, 20, 10, 0, 0)
     }
 
     #[test]
@@ -655,10 +650,10 @@ mod tests {
         assert_eq!(
             s.iter().map(|x| (x.step, x.before)).collect::<Vec<_>>(),
             vec![
-                (Step::Main, Duration::days(7)),
-                (Step::Second, Duration::days(4)),
-                (Step::Call, Duration::days(3)),
-                (Step::Final, Duration::hours(24))
+                (Step::Main, crate::time::days(7)),
+                (Step::Second, crate::time::days(4)),
+                (Step::Call, crate::time::days(3)),
+                (Step::Final, SignedDuration::from_hours(24))
             ]
         );
     }
@@ -687,7 +682,7 @@ mod tests {
     #[test]
     fn test_steps_become_due_at_their_time_and_not_before() {
         let s = parse_steps(DEFAULT_STEPS).unwrap();
-        let at = |d: i64, h: i64| start() - Duration::days(d) - Duration::hours(h);
+        let at = |d: i64, h: i64| start() - crate::time::days(d) - SignedDuration::from_hours(h);
         assert!(due_steps(&s, start(), at(8, 0)).is_empty());
         assert_eq!(
             due_steps(&s, start(), at(7, 0))

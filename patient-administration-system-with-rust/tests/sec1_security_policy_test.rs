@@ -1,5 +1,5 @@
 //! SEC-1: `SECURITY.md` is a formal policy, and it cannot quietly go out of date. No database.
-use chrono::NaiveDate;
+use jiff::civil::Date;
 use std::path::PathBuf;
 
 fn policy() -> String {
@@ -8,13 +8,13 @@ fn policy() -> String {
 }
 
 /// The date in the table row `| <label> | <text with a YYYY-MM-DD> |`; the last one when there are two.
-fn date_in_row(policy: &str, label: &str) -> NaiveDate {
+fn date_in_row(policy: &str, label: &str) -> Date {
     let row = policy
         .lines()
         .find(|l| l.starts_with(&format!("| {label} |")))
         .unwrap_or_else(|| panic!("SECURITY.md has a '{label}' row"));
     row.split(|c: char| !(c.is_ascii_digit() || c == '-'))
-        .filter_map(|w| NaiveDate::parse_from_str(w, "%Y-%m-%d").ok())
+        .filter_map(|w| w.parse::<jiff::civil::Date>().ok())
         .next_back()
         .unwrap_or_else(|| panic!("the '{label}' row has a date: {row}"))
 }
@@ -44,13 +44,15 @@ fn the_policy_is_not_past_its_review_date() {
     let p = policy();
     let reviewed = date_in_row(&p, "Last reviewed");
     let next = date_in_row(&p, "Next review");
-    let today = chrono::Utc::now().date_naive();
+    let today = jiff::Timestamp::now()
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
     assert!(
         reviewed <= today,
         "the last review ({reviewed}) is in the future"
     );
     assert!(
-        next > reviewed && (next - reviewed).num_days() <= 366,
+        next > reviewed && patient_administration_system::time::day_count(reviewed, next) <= 366,
         "a review is due within a year of the last ({reviewed} to {next})"
     );
     assert!(

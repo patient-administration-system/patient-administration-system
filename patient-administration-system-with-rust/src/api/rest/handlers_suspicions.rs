@@ -2,7 +2,7 @@
 
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::NaiveDate;
+use jiff::civil::Date;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -25,7 +25,7 @@ use crate::suspicions::NewSuspicion;
 )]
 pub async fn profile(State(state): State<AppState>) -> HandlerResult {
     ok_json(ActiveProfile {
-        time_zone: crate::inbound::messages::timezone().name().to_string(),
+        time_zone: crate::time::zone_name(&crate::inbound::messages::timezone()),
         profile: state.suspicions.profile().clone(),
     })
 }
@@ -148,7 +148,7 @@ pub struct StopBody {
     #[schema(value_type = crate::suspicions::StopReason)]
     pub reason: String,
     /// The date the clock stopped: the treatment start, the downgrade, or the death.
-    pub stopped_on: NaiveDate,
+    pub stopped_on: Date,
     pub stopped_by: String,
 }
 
@@ -245,9 +245,9 @@ pub async fn open(
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ReportQuery {
     /// First stop date counted (inclusive).
-    pub from: NaiveDate,
+    pub from: Date,
     /// Last stop date counted (inclusive).
-    pub to: NaiveDate,
+    pub to: Date,
 }
 
 /// `GET /api/suspicions/report?from&to`: suspicions whose clock stopped in the period, per condition and tumour

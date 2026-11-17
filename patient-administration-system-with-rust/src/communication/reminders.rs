@@ -12,7 +12,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use std::sync::Arc;
 
 use super::CommunicationService;
@@ -124,7 +124,7 @@ impl ReminderService {
     }
 
     #[tracing::instrument(skip_all, fields(job = "reminders"))]
-    pub async fn run_once(&self, now: DateTime<Utc>, lead: Duration) -> Result<ReminderReport> {
+    pub async fn run_once(&self, now: Timestamp, lead: SignedDuration) -> Result<ReminderReport> {
         let templates = self.ensure_default_templates().await?;
         let required = super::templates::required_locales();
         let ids: Vec<uuid::Uuid> = templates.iter().map(|t| t.id).collect();
@@ -182,7 +182,7 @@ impl ReminderService {
         &self,
         a: &Appointment,
         template_ids: &[uuid::Uuid],
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<Option<Skip>> {
         // Any language variant counts: the patient was reminded either way.
         let mut already = false;
@@ -200,7 +200,7 @@ impl ReminderService {
         }
         // A reminder that failed is tried again after a growing delay, not on every scan (NOT-4).
         if self.backoff && failed > 0 {
-            let last: Option<DateTime<Utc>> = self
+            let last: Option<Timestamp> = self
                 .db
                 .one(Stmt::new(
                     "SELECT max(updated_at) AS t FROM generated_letters \
@@ -224,15 +224,15 @@ impl ReminderService {
         a: &Appointment,
         template: &LetterTemplate,
         channels: &[DeliveryChannel],
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<Tried> {
         let lang = crate::inbound::messages::Lang::from_preference(Some(&template.locale));
         let extra = serde_json::json!({
             "appointment": {
                 "id": a.id,
-                "start": a.start_datetime.to_rfc3339(),
-                "end": a.end_datetime.to_rfc3339(),
+                "start": a.start_datetime.to_string(),
+                "end": a.end_datetime.to_string(),
                 "when": crate::inbound::messages::when(a.start_datetime, lang, crate::inbound::messages::timezone()),
                 "reason": a.reason,
             }
@@ -385,7 +385,7 @@ pub fn prefer_first(
 }
 
 /// Parse `PAS_REMINDER_LEAD_HOURS` (default 24).
-pub fn lead_from_hours(hours: Option<&str>) -> Result<Duration> {
+pub fn lead_from_hours(hours: Option<&str>) -> Result<SignedDuration> {
     let h: i64 = match hours {
         None | Some("") => 24,
         Some(v) => v.parse().map_err(|_| {
@@ -395,7 +395,7 @@ pub fn lead_from_hours(hours: Option<&str>) -> Result<Duration> {
     if !(1..=24 * 30).contains(&h) {
         return Err(Error::validation("PAS_REMINDER_LEAD_HOURS must be 1..=720"));
     }
-    Ok(Duration::hours(h))
+    Ok(SignedDuration::from_hours(h))
 }
 
 #[cfg(test)]
@@ -461,13 +461,22 @@ mod tests {
 
     #[test]
     fn test_lead_defaults_to_24_hours() {
-        assert_eq!(lead_from_hours(None).unwrap(), Duration::hours(24));
-        assert_eq!(lead_from_hours(Some("")).unwrap(), Duration::hours(24));
+        assert_eq!(
+            lead_from_hours(None).unwrap(),
+            SignedDuration::from_hours(24)
+        );
+        assert_eq!(
+            lead_from_hours(Some("")).unwrap(),
+            SignedDuration::from_hours(24)
+        );
     }
 
     #[test]
     fn test_lead_parses_and_bounds() {
-        assert_eq!(lead_from_hours(Some("48")).unwrap(), Duration::hours(48));
+        assert_eq!(
+            lead_from_hours(Some("48")).unwrap(),
+            SignedDuration::from_hours(48)
+        );
         assert!(lead_from_hours(Some("0")).is_err());
         assert!(lead_from_hours(Some("721")).is_err());
         assert!(lead_from_hours(Some("abc")).is_err());

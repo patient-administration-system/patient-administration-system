@@ -330,7 +330,7 @@ async fn apply_location_item(
             if let Some(name) = &item.bed_name {
                 bed.name = name.clone();
             }
-            bed.updated_at = chrono::Utc::now();
+            bed.updated_at = jiff::Timestamp::now();
             let updated = BedRepository::update(txn, &bed).await?;
             AuditLogRepository::log(
                 txn,

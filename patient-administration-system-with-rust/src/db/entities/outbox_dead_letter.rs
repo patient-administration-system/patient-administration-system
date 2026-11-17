@@ -26,10 +26,10 @@ pub struct Model {
     /// Original `outbox_events.at` — the moment the producing transaction
     /// committed the event.
     #[schema(value_type = String, format = DateTime)]
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
+    pub created_at: jiff::Timestamp,
     /// Moment the row was moved into the DLQ. Index-ordered.
     #[schema(value_type = String, format = DateTime)]
-    pub dead_lettered_at: chrono::DateTime<chrono::FixedOffset>,
+    pub dead_lettered_at: jiff::Timestamp,
     /// Final retry_count when the move happened — equal to the configured
     /// `PAS_OUTBOX_MAX_RETRIES` at that time.
     pub retry_count: i32,

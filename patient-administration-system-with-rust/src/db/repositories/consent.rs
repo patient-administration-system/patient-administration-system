@@ -52,14 +52,16 @@ impl ConsentRepository {
         if m.status == consent_status_to_str(ConsentStatus::Revoked) {
             return from_model(m);
         }
-        let today = chrono::Utc::now().date_naive();
+        let today = jiff::Timestamp::now()
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .date();
         let mut am = m.patch();
         am.set(
             "status",
             consent_status_to_str(ConsentStatus::Revoked).to_string(),
         );
         am.set("revoked_date", Some(today));
-        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        am.set("updated_at", jiff::Timestamp::now());
         let updated = am.update(conn).await?;
         from_model(updated)
     }
@@ -116,8 +118,8 @@ fn to_row(c: &Consent) -> consent::Model {
         revoked_date: c.revoked_date,
         purpose: c.purpose.clone(),
         method: c.method.clone(),
-        created_at: c.created_at.fixed_offset(),
-        updated_at: c.updated_at.fixed_offset(),
+        created_at: c.created_at,
+        updated_at: c.updated_at,
     }
 }
 
@@ -132,19 +134,18 @@ fn from_model(m: consent::Model) -> Result<Consent> {
         revoked_date: m.revoked_date,
         purpose: m.purpose,
         method: m.method,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::NaiveDate;
 
     #[test]
     fn test_consent_roundtrip_via_row() {
-        let granted = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+        let granted = jiff::civil::date(2026, 1, 1);
         let c = Consent::new(Uuid::new_v4(), ConsentType::DataProcessing, granted);
         let am = to_row(&c);
         let m = consent::Model {

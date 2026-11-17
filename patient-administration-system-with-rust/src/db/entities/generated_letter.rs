@@ -17,12 +17,12 @@ pub struct Model {
     pub rendered_body: String,
     pub channel: String,
     pub status: String,
-    pub sent_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+    pub sent_at: Option<jiff::Timestamp>,
     pub locale: Option<String>,
     pub trigger: String,
     pub trigger_ref: Option<String>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

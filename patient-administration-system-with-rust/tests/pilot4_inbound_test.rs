@@ -7,7 +7,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::ApiResponse;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::api::rest::handlers_writeback::TextHandled;
@@ -49,8 +49,8 @@ async fn patient(s: &AppState, mobile: &str, language: Option<&str>) -> Uuid {
 
 /// A booked appointment `days` ahead; `reminded` also records a sent text reminder for it.
 async fn appointment(s: &AppState, person: Uuid, days: i64, reminded: bool) -> Appointment {
-    let start = Utc::now() + Duration::days(days);
-    let mut a = Appointment::new(person, start, start + Duration::minutes(30));
+    let start = Timestamp::now() + patient_administration_system::time::days(days);
+    let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     let a = AppointmentRepository::create(&s.db, &a).await.unwrap();
     if reminded {
@@ -232,7 +232,7 @@ async fn a_stale_question_is_not_answered_by_a_late_number() {
     appointment(&s, p, 3, true).await;
     appointment(&s, p, 6, true).await;
     let mut ask = text(&num, "confirm");
-    ask.received_at = Some(Utc::now() - Duration::minutes(45));
+    ask.received_at = Some(Timestamp::now() - SignedDuration::from_mins(45));
     assert_eq!(
         s.inbound
             .handle(ask, &UserContext::system())

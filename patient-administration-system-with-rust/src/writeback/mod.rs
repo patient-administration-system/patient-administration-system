@@ -17,7 +17,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact, Txn};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -80,7 +80,7 @@ pub struct ReplyRequest {
     #[serde(default)]
     pub modality: Option<Modality>,
     #[serde(default)]
-    pub received_at: Option<DateTime<Utc>>,
+    pub received_at: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize, utoipa::ToSchema)]
@@ -368,7 +368,7 @@ impl WriteBackService {
                 (if decision.status == ReplyStatus::Applied { "applied" } else { "rejected" }).into(),
                 decision.reject_reason.clone().into(),
                 new_id.into(),
-                req.received_at.unwrap_or_else(Utc::now).into(),
+                req.received_at.unwrap_or_else(jiff::Timestamp::now).into(),
                 req.modality.map(|m| m.as_str().to_string()).into(),
             ],
         ))
@@ -426,7 +426,7 @@ impl WriteBackService {
             });
         }
         let mut a = appt;
-        let now = Utc::now();
+        let now = Timestamp::now();
         a.confirmed_at = Some(now);
         a.updated_at = now;
         let a = AppointmentRepository::update(txn, &a).await?;
@@ -516,7 +516,7 @@ impl WriteBackService {
                 Some(appt),
             ));
         }
-        if appt.start_datetime <= Utc::now() {
+        if appt.start_datetime <= Timestamp::now() {
             return Ok(Decision::rejected("already_started", Some(appt)));
         }
         if appt.modality != Modality::InPerson
@@ -538,7 +538,7 @@ impl WriteBackService {
             return Ok(Decision::rejected("not_virtual_ok", Some(appt)));
         }
         let mut a = appt;
-        let now = Utc::now();
+        let now = Timestamp::now();
         a.modality = modality;
         a.conversion_state = Some(ConversionState::PendingReview);
         a.conversion_barrier_code = req.barrier_code;
