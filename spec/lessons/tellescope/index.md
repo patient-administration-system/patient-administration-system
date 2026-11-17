@@ -34,7 +34,7 @@ The marketing pages are short and general: features are one-line claims, and the
 | Self-booking | Open booking pages with restrictions | Offers only: two or three real slots for an existing appointment, minimum notice, horizon, single use, expiry (`rebooking/mod.rs`, CAP-5); PIFU for patient-initiated follow-up |
 | Waiting for an earlier slot | Not described | Standby lists and slot releases (`standby/`) |
 | Messaging channels | SMS, email, phone, video, chat, portal | SMS, email, letter, WhatsApp, IVR; virtual visit links (`virtual_visits/`) |
-| Webhooks | Per model, create/update/delete | Transactional outbox, signed webhooks, accepted, rejected and deferred classes, dead letters with replay (HUB-4) |
+| Webhooks | Per model, create/update/delete | Transactional outbox, HMAC-signed webhooks (no timestamp in the signature: TSC-13), accepted, rejected and deferred classes, dead letters with replay (HUB-4) |
 | Incremental sync | `fromUpdated` | **None** on the REST lists, and FHIR search has no `_lastUpdated` |
 | Credentials for integrations | Scoped API keys | Per-user PASETO tokens with ABAC; a service token (`svc=true`) **may do anything** |
 | Saved reports | Analytics frames with role visibility | Fixed reports (`reports/`, `analytics/`); nothing saved per user or team |
@@ -71,4 +71,4 @@ A patient contact log; quiet hours; late steps skipped; offer-based rebooking wi
 
 ## Limits of this research
 
-The marketing pages are vague, sometimes inconsistent (headings that do not match their text; "bi-directional" sync whose items are one-way pushes), and their figures are unsourced. About 79,000 characters of the API reference were not read, including endusers, journeys, tickets, calendar events, forms and webhooks themselves; what is said about tickets and cancel conditions comes from the automated-action fields that create them. The Trust Center was not readable. "None" and "not found" statements about this repository are text searches of `src/`, `domain/src/` and the migrations.
+The marketing pages are vague, sometimes inconsistent (headings that do not match their text; "bi-directional" sync whose items are one-way pushes), and their figures are unsourced. This page was written from about two thirds of the API reference; the whole reference was read afterwards, in [`../tellescope-api-documentation/index.md`](../tellescope-api-documentation/index.md). The Trust Center was not readable. "None" and "not found" statements about this repository are text searches of `src/`, `domain/src/` and the migrations.
