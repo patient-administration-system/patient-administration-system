@@ -1,6 +1,6 @@
 # PAS examples
 
-Sample payloads and a runnable round-trip example for the v0.2 interchange and FHIR R5 surfaces.
+Sample payloads for the v0.2 interchange and FHIR R5 surfaces.
 
 ## Files
 
@@ -25,25 +25,8 @@ Sample payloads and a runnable round-trip example for the v0.2 interchange and F
 | `hl7-siu-s12.txt`    | HL7 v2 text  | SIU^S12 (new appointment): SCH placer id, reason, 30 minutes, start.  |
 | `hl7-dft-p03.txt`    | HL7 v2 text  | DFT^P03 (post a charge): one FT1 of 25.00.                            |
 | `hl7-batch-adt.txt`  | HL7 v2 text  | FHS/BHS-wrapped batch envelope (v0.6) containing multiple MSH messages. |
-| `interchange.rs`     | Rust         | Cargo example: round-trips three patients through JSON → XML → TSV.   |
 
 The HL7 v2 surface has expanded well beyond the sample files listed here. The full trigger set as of PAS Axum v0.43.0 is ADT (A01 / A02 / A03 / A04 / A05 / A06 / A07 / A08 / A11 / A12 / A13 / A21 / A22 / A23 / A28 / A38 / A40) plus SIU (S12 / S13 / S14 / S15), DFT (P03), and MFN (M02 / M05). See [`../spec.md`](../spec.md#483-hl7-v2-adt-v03--v04) §4.8.3 and the route table in [`../README.md`](../README.md) for the full surface; the sample files above are a deliberately small starter set.
-
-## Run the round-trip example
-
-```bash
-cargo run --example interchange
-```
-
-Expected output:
-
-```
-patients: 3
-  json bytes:   ~500
-  xml bytes:    ~900
-  tsv bytes:    ~300
-roundtrip ok: every format reparses to the same 3 PatientRows
-```
 
 ## Try the REST interchange endpoints
 

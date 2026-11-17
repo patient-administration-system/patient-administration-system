@@ -30,7 +30,7 @@ The PAS owns the administrative *who, when, where, what visit type, what bed, wh
 
 ### Prerequisites
 
-- Rust 1.100.0, the version pinned in `rust-toolchain.toml`. The crates declare `rust-version = "1.98"` (one release behind, the oldest Axa 0.17 builds with) and build with it
+- Rust 1.100.0, the version pinned in `rust-toolchain.toml`. The crates declare `rust-version = "1.98"` (two releases behind, the oldest Axa 0.17 builds with) and build with it
 - PostgreSQL 18+
 - Podman (optional, recommended for local Postgres)
 
