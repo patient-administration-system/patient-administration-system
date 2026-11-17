@@ -9,6 +9,7 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
+- **New, security policy (SEC-1):** `SECURITY.md` is a formal policy: scope, reporting, response targets, severity, coordinated disclosure, good-faith research and supported versions.
 - **Changed, database (SQLX-1):** the server, front-end and migrations run on sqlx, and `sea-orm` is gone. Migrations are SQL files, and `pas-migrate up` adopts an existing `seaql_migrations` record once.
 - **Breaking (FR-206):** REST errors are RFC 9457 problems. See the server crate's changelog.
 
