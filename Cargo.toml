@@ -25,6 +25,8 @@ inherits = "release"
 [profile.mutants]
 inherits = "test"
 debug = "none"
+# Each mutant is built once in a throwaway copy of the tree, so incremental state is never reused.
+incremental = false
 
 # Lints for every crate and target (QUAL-12). `unwrap()` and `expect()` are denied in production code by each
 # crate root (`#![cfg_attr(not(test), deny(...))]`), not here, because tests use them freely.

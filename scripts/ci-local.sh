@@ -77,6 +77,8 @@ trap cleanup EXIT
 git -C "$root" worktree add --quiet --detach "$worktree" "$sha"
 psql -d postgres -qc "CREATE DATABASE \"$database\""
 export CARGO_TARGET_DIR="$out/build"
+# A fresh target for every run: incremental state would only cost disk and cache hits.
+export CARGO_INCREMENTAL=0
 export DATABASE_URL="postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$database"
 
 results="$(mktemp -t pas-ci-local-results.XXXXXX)"
