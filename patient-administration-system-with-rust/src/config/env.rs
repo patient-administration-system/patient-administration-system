@@ -30,6 +30,9 @@ pub fn validate() -> Result<()> {
     {
         problems.push(e.to_string());
     }
+    if let Err(e) = crate::calendar::WorkingCalendar::from_env() {
+        problems.push(e.to_string());
+    }
     if let Some(steps) = text("PAS_REMINDER_STEPS")
         && let Err(e) = crate::communication::ladder::parse_steps(&steps)
     {

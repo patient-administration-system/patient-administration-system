@@ -12,6 +12,7 @@
 // Production code handles every failure; tests may unwrap (QUAL-12).
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod calendar;
 pub mod clock;
 pub mod communication;
 pub mod config;

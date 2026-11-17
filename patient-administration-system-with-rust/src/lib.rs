@@ -92,7 +92,7 @@ pub use error::{Error, Result};
 // their own crate so that an edit to a route or a query does not rebuild them, and they cannot reach the web or
 // the database. Re-exported at their old paths, so `crate::models::...` still works.
 pub use patient_administration_system_domain::{
-    clock, identifiers, models, string_enum, validation,
+    calendar, clock, identifiers, models, string_enum, validation,
 };
 
 #[cfg(test)]
