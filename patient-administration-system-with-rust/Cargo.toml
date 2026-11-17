@@ -55,7 +55,7 @@ tracing-opentelemetry = "0.34"
 
 # Offline PASETO v4.public verification of per-user bearer tokens from the authentication-service
 # (DTAC-4). `fetch` adds Verifier::from_paseto_keys_url for the boot-time key fetch.
-authentication-verifier = { version = "0.9.1", default-features = false, features = ["paseto", "fetch"] }
+authentication-verifier = { version = "0.9.3", default-features = false, features = ["paseto", "fetch"] }
 
 # Sign PASETO v4.public tokens: the issuing half (`token_issuer`, `pas-token-issuer`).
 ed25519-dalek = "3.0.0"
