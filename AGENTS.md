@@ -39,7 +39,7 @@ A behavioural change is one change: **spec edit + code edit + test edit** ([`age
 
 ```sh
 # Rust (from the repo root). The toolchain is pinned in rust-toolchain.toml; CI uses the same.
-# The crates' rust-version (MSRV) is one release behind it, 1.98, the oldest Axa 0.17 builds with: `cargo +1.98 check --workspace --all-targets`.
+# The crates' rust-version (MSRV) is two releases behind it, 1.98, the oldest Axa 0.17 builds with: `cargo +1.98 check --workspace --all-targets`.
 cargo fmt --all -- --check                      # from the ROOT: the migrations crate is formatted too
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace                          # unit tests; the DB tests are #[ignore]d
