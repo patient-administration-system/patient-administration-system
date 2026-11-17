@@ -2,7 +2,7 @@
 name = "patient-administration-system"
 version = "0.49.0"
 edition = "2024"
-# MSRV: two releases behind the pinned toolchain (rust-toolchain.toml); `cargo +1.97 check` proves it.
+# MSRV: two releases behind the pinned toolchain (rust-toolchain.toml); `cargo +1.98 check` proves it.
 rust-version = "1.98"
 default-run = "patient-administration-system"
 authors = ["joel@joelparkerhenderson.com"]

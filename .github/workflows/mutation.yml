@@ -19,14 +19,21 @@ env:
 
 jobs:
   mutants:
-    name: Mutants (${{ matrix.module }})
+    name: Mutants (${{ matrix.module }}${{ matrix.shard && format(' {0}', matrix.shard) || '' }})
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
         include:
+          # Consent has the most mutants and ran past the three-hour limit on 2026-11-14, so it is split in two.
           - module: consent
+            shard: "0/2"
+            file: "**/communication/consent.rs"
+            tests: "pilot7_consent_test qual18_quiet_hours_test cas10_letter_only_test"
+            must_be_clean: true
+          - module: consent
+            shard: "1/2"
             file: "**/communication/consent.rs"
             tests: "pilot7_consent_test qual18_quiet_hours_test cas10_letter_only_test"
             must_be_clean: true
@@ -61,7 +68,7 @@ jobs:
           persist-credentials: false
       - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-mutants
       - run: cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
@@ -69,8 +76,10 @@ jobs:
         env:
           FILE: ${{ matrix.file }}
           TESTS: ${{ matrix.tests }}
+          SHARD: ${{ matrix.shard }}
         run: |
           args=(--cargo-test-arg=--lib)
+          if [ -n "$SHARD" ]; then args+=(--shard "$SHARD"); fi
           for t in $TESTS; do args+=("--cargo-test-arg=--test=$t"); done
           # cargo-mutants exits non-zero when a mutant survives; the next step decides what that means.
           # After `--`, arguments go to `cargo test`; after a second `--`, to the test binaries.
@@ -80,12 +89,21 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
           MUST_BE_CLEAN: ${{ matrix.must_be_clean }}
+          SHARD: ${{ matrix.shard }}
         run: |
           out=mutants.out
-          caught=$(wc -l < "$out/caught.txt"); missed=$(wc -l < "$out/missed.txt")
+          count() { if [ -f "$out/$1.txt" ]; then wc -l < "$out/$1.txt" | tr -d ' '; else echo 0; fi; }
+          caught=$(count caught); missed=$(count missed); timeout=$(count timeout); unviable=$(count unviable)
+          if [ ! -f "$out/outcomes.json" ]; then
+            echo "cargo-mutants did not finish in $MODULE (no outcomes.json): the baseline build or tests failed" >&2
+            exit 1
+          fi
           {
-            echo "### Mutants in $MODULE: $caught caught, $missed survived"
-            if [ "$missed" -gt 0 ]; then echo '```'; cat "$out/missed.txt"; echo '```'; fi
+            echo "### Mutants in $MODULE ${SHARD}: $caught caught, $missed survived, $timeout timed out, $unviable unviable"
+            if [ "$missed" -gt 0 ]; then echo 'Survived (no test noticed the change):'; echo '```'; cat "$out/missed.txt"; echo '```'; fi
+            # A timeout is counted as caught (the change made a test hang), but it is listed: a test that hangs
+            # rather than fails is worth knowing about.
+            if [ "$timeout" -gt 0 ]; then echo 'Timed out:'; echo '```'; cat "$out/timeout.txt"; echo '```'; fi
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$MUST_BE_CLEAN" = true ] && [ "$missed" -gt 0 ]; then
             echo "$missed mutant(s) survived in $MODULE" >&2
@@ -94,5 +112,5 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mutants-${{ matrix.module }}
+          name: mutants-${{ matrix.module }}${{ matrix.shard && format('-{0}', strategy.job-index) || '' }}
           path: mutants.out
