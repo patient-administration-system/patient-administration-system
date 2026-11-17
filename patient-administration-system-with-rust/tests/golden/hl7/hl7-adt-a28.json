@@ -1,0 +1,49 @@
+{
+  "ack": "MSH|^~\\&|PAS|FAC|EXTERNAL_EMR|FAC|<time>||ACK^A28^ACK|<ack id>|P|2.5\rMSA|AA|MSG-EMR-001|golden\r",
+  "as_sent": {
+    "bed_code": null,
+    "control_id": "MSG-EMR-001",
+    "mrn": "MRN-EMR-001",
+    "person": {
+      "addresses": [
+        {
+          "city": "Springfield",
+          "country": "US",
+          "line1": "123 Elm Street",
+          "postal_code": "62701",
+          "state": "IL"
+        }
+      ],
+      "birth_date": "1990-01-15",
+      "gender": "female",
+      "identifiers": [
+        {
+          "type": "MRN",
+          "use": "official",
+          "value": "MRN-EMR-001"
+        }
+      ],
+      "name": {
+        "family": "Doe",
+        "given": [
+          "Jane",
+          "Marie"
+        ]
+      },
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "(555)555-0100"
+        }
+      ]
+    },
+    "type": "ADT^A28"
+  },
+  "without_pid": {
+    "bed_code": null,
+    "control_id": "MSG-EMR-001",
+    "mrn": null,
+    "person": null,
+    "type": "ADT^A28"
+  }
+}

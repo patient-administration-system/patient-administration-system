@@ -18,9 +18,9 @@ use crate::db::sql::{Pool, Transact};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::Result;
 use crate::db::repositories::outbox::OutboxRepository;
 use crate::streaming::{DomainEvent, EventPublisher};
+use crate::{Error, Result};
 
 /// Number of outbox rows fetched per poll cycle.
 const BATCH_SIZE: u64 = 64;
@@ -55,20 +55,53 @@ pub async fn run(
     }
 }
 
-/// One poll cycle: fetch a batch, publish each, mark each. Returns the count
-/// of rows successfully published (for tests).
+/// The first delay after a deferred delivery; it doubles with each failure.
+pub const BACKOFF_START: Duration = Duration::from_secs(5);
+/// The longest delay, and the most a receiver's `Retry-After` may ask for.
+pub const BACKOFF_CAP: Duration = Duration::from_secs(15 * 60);
+
+/// How long to wait before the next try of an event that has failed `failures` times (1 for the first
+/// failure): 5 s, 10 s, 20 s, … at most 15 minutes, or the receiver's `Retry-After` within that cap.
+pub fn backoff(failures: i32, retry_after_secs: Option<u64>) -> Duration {
+    if let Some(secs) = retry_after_secs {
+        return Duration::from_secs(secs).min(BACKOFF_CAP);
+    }
+    let doublings = u32::try_from(failures.saturating_sub(1).max(0))
+        .unwrap_or(0)
+        .min(16);
+    BACKOFF_START
+        .saturating_mul(2u32.saturating_pow(doublings))
+        .min(BACKOFF_CAP)
+}
+
+/// One poll cycle: fetch the events that are due, publish each, and settle each by its outcome (NFR-32).
+/// Returns how many were delivered (for tests).
 ///
-/// On a publish error: increment `retry_count`. If the new count is `>=
-/// max_retries` (and `max_retries > 0`), move the row to the dead-letter
-/// queue in one transaction. Otherwise leave it in `outbox_events` for the
-/// next tick.
+/// - **Accepted** (`Ok`): marked published.
+/// - **Rejected** ([`Error::DeliveryRejected`]: a 400, a 422, an HL7 `AR`): dead-lettered at once; a retry
+///   cannot change the answer.
+/// - **Deferred** (anything else): `retry_count` goes up and the event waits [`backoff`] before it is due
+///   again; at `max_retries` (when above 0) it is dead-lettered.
+///
+/// An event is due only when nothing earlier for its record is undelivered or held in the dead-letter queue
+/// ([`OutboxRepository::fetch_due`]), so its record's events arrive in order.
 #[tracing::instrument(skip_all, fields(job = "outbox"))]
 pub async fn tick(
     db: &Pool,
     publisher: &Arc<dyn EventPublisher>,
     max_retries: u32,
 ) -> Result<usize> {
-    let rows = OutboxRepository::fetch_unpublished(db, BATCH_SIZE).await?;
+    tick_with_limit(db, publisher, max_retries, BATCH_SIZE).await
+}
+
+/// [`tick`] over at most `limit` due events (the tests use it to settle only their own).
+pub async fn tick_with_limit(
+    db: &Pool,
+    publisher: &Arc<dyn EventPublisher>,
+    max_retries: u32,
+    limit: u64,
+) -> Result<usize> {
+    let rows = OutboxRepository::fetch_due(db, limit).await?;
     let mut delivered = 0usize;
     for row in rows {
         let ev = DomainEvent {
@@ -82,9 +115,28 @@ pub async fn tick(
                 OutboxRepository::mark_published(db, row.id).await?;
                 delivered += 1;
             }
+            Err(Error::DeliveryRejected(why)) => {
+                tracing::warn!(
+                    "outbox row id={} type={} rejected by the receiver; dead-lettered at once: {why}",
+                    row.id,
+                    row.event_type,
+                );
+                let why = format!("rejected: {why}");
+                dead_letter(db, row.id, why).await?;
+            }
             Err(e) => {
+                let retry_after = match &e {
+                    Error::DeliveryDeferred {
+                        retry_after_secs, ..
+                    } => *retry_after_secs,
+                    _ => None,
+                };
                 let err_str = e.to_string();
-                let new_count = OutboxRepository::record_failure(db, row.id, &err_str).await?;
+                let wait = backoff(row.retry_count.saturating_add(1), retry_after);
+                let next = chrono::Utc::now()
+                    + chrono::Duration::from_std(wait).unwrap_or(chrono::Duration::minutes(15));
+                let new_count =
+                    OutboxRepository::record_failure(db, row.id, &err_str, next).await?;
                 if max_retries > 0 && new_count >= max_retries as i32 {
                     tracing::warn!(
                         "outbox row id={} hit retry budget {} after {} attempts; \
@@ -93,24 +145,27 @@ pub async fn tick(
                         max_retries,
                         new_count,
                     );
-                    db.in_txn::<_, ()>(|txn| {
-                        Box::pin(async move {
-                            OutboxRepository::move_to_dead_letter(txn, row.id, &err_str).await
-                        })
-                    })
-                    .await?;
+                    dead_letter(db, row.id, err_str).await?;
                 } else {
                     tracing::warn!(
-                        "outbox publish failed for id={} (retry {}/{}): {err_str}",
+                        "outbox publish failed for id={} (retry {}/{}), next try in {:?}: {err_str}",
                         row.id,
                         new_count,
                         max_retries,
+                        wait,
                     );
                 }
             }
         }
     }
     Ok(delivered)
+}
+
+async fn dead_letter(db: &Pool, id: uuid::Uuid, why: String) -> Result<()> {
+    db.in_txn::<_, ()>(|txn| {
+        Box::pin(async move { OutboxRepository::move_to_dead_letter(txn, id, &why).await })
+    })
+    .await
 }
 
 #[cfg(test)]
@@ -127,6 +182,21 @@ mod tests {
         let publisher: Arc<dyn EventPublisher> = Arc::new(InMemoryEventPublisher::new());
         // Skipped: requires a database connection — out of scope here.
         let _ = (publisher, BATCH_SIZE);
+    }
+
+    #[test]
+    fn test_backoff_doubles_from_five_seconds_to_fifteen_minutes() {
+        let secs: Vec<u64> = (1..=10).map(|n| backoff(n, None).as_secs()).collect();
+        assert_eq!(secs, [5, 10, 20, 40, 80, 160, 320, 640, 900, 900]);
+        assert_eq!(backoff(0, None).as_secs(), 5);
+        assert_eq!(backoff(i32::MAX, None), BACKOFF_CAP);
+    }
+
+    #[test]
+    fn test_retry_after_is_honoured_within_the_cap() {
+        assert_eq!(backoff(1, Some(120)).as_secs(), 120);
+        assert_eq!(backoff(1, Some(0)).as_secs(), 0);
+        assert_eq!(backoff(3, Some(86_400)), BACKOFF_CAP);
     }
 
     #[test]

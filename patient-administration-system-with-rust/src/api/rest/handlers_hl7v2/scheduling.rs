@@ -25,14 +25,10 @@ pub async fn schedule_book(
     };
     let sch = match r.message.segment("SCH") {
         Some(s) => parse_sch(s),
-        None => return ae(&r.sender, &r.control_id, "SCH segment missing"),
+        None => return ae(&r.inbound, "SCH segment missing"),
     };
     let Some(start) = sch.start else {
-        return ae(
-            &r.sender,
-            &r.control_id,
-            "SCH-11 (start datetime) is required",
-        );
+        return ae(&r.inbound, "SCH-11 (start datetime) is required");
     };
     let duration = sch.duration_minutes.unwrap_or(30);
     let end = start + chrono::Duration::minutes(i64::from(duration));
@@ -82,11 +78,10 @@ pub async fn schedule_book(
         .await;
     match result {
         Ok(a) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!("filler={} person={person_id}", a.id)),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.client_message()),
+        Err(e) => ae(&r.inbound, &e.client_message()),
     }
 }
 
@@ -112,21 +107,13 @@ pub async fn schedule_reschedule(
     };
     let sch = match r.message.segment("SCH") {
         Some(s) => parse_sch(s),
-        None => return ae(&r.sender, &r.control_id, "SCH segment missing"),
+        None => return ae(&r.inbound, "SCH segment missing"),
     };
     let Some(filler) = sch.filler_id else {
-        return ae(
-            &r.sender,
-            &r.control_id,
-            "SCH-2 (filler appointment id) is required",
-        );
+        return ae(&r.inbound, "SCH-2 (filler appointment id) is required");
     };
     let Some(start) = sch.start else {
-        return ae(
-            &r.sender,
-            &r.control_id,
-            "SCH-11 (start datetime) is required",
-        );
+        return ae(&r.inbound, "SCH-11 (start datetime) is required");
     };
     let duration = sch.duration_minutes.unwrap_or(30);
     let end = start + chrono::Duration::minutes(i64::from(duration));
@@ -134,21 +121,16 @@ pub async fn schedule_reschedule(
     let existing = match AppointmentRepository::find_by_id(&state.db, filler).await {
         Ok(Some(a)) => a,
         Ok(None) => {
-            return ae(
-                &r.sender,
-                &r.control_id,
-                &format!("filler {filler} not found"),
-            );
+            return ae(&r.inbound, "appointment in SCH-2 not found");
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     if matches!(
         existing.status,
         AppointmentStatus::Cancelled | AppointmentStatus::NoShow | AppointmentStatus::Fulfilled
     ) {
         return ae(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             &format!("appointment {filler} is terminal ({:?})", existing.status),
         );
     }
@@ -162,12 +144,11 @@ pub async fn schedule_reschedule(
     .await
     {
         Ok(c) => c,
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     if !conflicts.is_empty() {
         return ae(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             &format!("overlap with appointment {}", conflicts[0].id),
         );
     }
@@ -200,13 +181,9 @@ pub async fn schedule_reschedule(
     }
     .await
     {
-        return ae(&r.sender, &r.control_id, &client_text(&e));
+        return ae(&r.inbound, &client_text(&e));
     }
-    aa(
-        &r.sender,
-        &r.control_id,
-        Some(&format!("rescheduled filler={filler}")),
-    )
+    aa(&r.inbound, Some(&format!("rescheduled filler={filler}")))
 }
 
 #[utoipa::path(
@@ -231,34 +208,25 @@ pub async fn schedule_modify(
     };
     let sch = match r.message.segment("SCH") {
         Some(s) => parse_sch(s),
-        None => return ae(&r.sender, &r.control_id, "SCH segment missing"),
+        None => return ae(&r.inbound, "SCH segment missing"),
     };
     let Some(filler) = sch.filler_id else {
-        return ae(
-            &r.sender,
-            &r.control_id,
-            "SCH-2 (filler appointment id) is required",
-        );
+        return ae(&r.inbound, "SCH-2 (filler appointment id) is required");
     };
     use crate::db::repositories::appointment::AppointmentRepository;
     let existing = match AppointmentRepository::find_by_id(&state.db, filler).await {
         Ok(Some(a)) => a,
         Ok(None) => {
-            return ae(
-                &r.sender,
-                &r.control_id,
-                &format!("filler {filler} not found"),
-            );
+            return ae(&r.inbound, "appointment in SCH-2 not found");
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     if matches!(
         existing.status,
         AppointmentStatus::Cancelled | AppointmentStatus::NoShow | AppointmentStatus::Fulfilled
     ) {
         return ae(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             &format!("appointment {filler} is terminal ({:?})", existing.status),
         );
     }
@@ -290,13 +258,9 @@ pub async fn schedule_modify(
     }
     .await
     {
-        return ae(&r.sender, &r.control_id, &client_text(&e));
+        return ae(&r.inbound, &client_text(&e));
     }
-    aa(
-        &r.sender,
-        &r.control_id,
-        Some(&format!("modified filler={filler}")),
-    )
+    aa(&r.inbound, Some(&format!("modified filler={filler}")))
 }
 
 #[utoipa::path(
@@ -321,25 +285,17 @@ pub async fn schedule_cancel(
     };
     let sch = match r.message.segment("SCH") {
         Some(s) => parse_sch(s),
-        None => return ae(&r.sender, &r.control_id, "SCH segment missing"),
+        None => return ae(&r.inbound, "SCH segment missing"),
     };
     let Some(filler) = sch.filler_id else {
-        return ae(
-            &r.sender,
-            &r.control_id,
-            "SCH-2 (filler appointment id) is required",
-        );
+        return ae(&r.inbound, "SCH-2 (filler appointment id) is required");
     };
     match state
         .scheduling
         .cancel(filler, CancellationReason::PatientRequest, &r.audit)
         .await
     {
-        Ok(_) => aa(
-            &r.sender,
-            &r.control_id,
-            Some(&format!("cancelled filler={filler}")),
-        ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Ok(_) => aa(&r.inbound, Some(&format!("cancelled filler={filler}"))),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }

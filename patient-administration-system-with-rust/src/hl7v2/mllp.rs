@@ -27,6 +27,64 @@ pub const CR: u8 = 0x0D;
 /// memory. 1 MiB is far above any realistic ADT message.
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
 
+/// What [`read_frame_checked`] read.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Frame {
+    /// One message's bytes, between `SB` and `EB CR`.
+    Message(Vec<u8>),
+    /// The peer closed the connection between frames.
+    Closed,
+    /// The frame grew past the 1 MiB limit: answer with an AE and close (NFR-31).
+    TooLarge,
+    /// Something other than whitespace came before `SB`: not an MLLP client (an HTTP probe, a port scan).
+    /// Close without an answer.
+    NotMllp,
+}
+
+/// Read one MLLP frame, telling apart what the listener must answer (NFR-31, HUB-3). Carriage returns, line
+/// feeds and spaces before `SB` are skipped, as many senders send them between frames; any other byte means the
+/// peer does not speak MLLP.
+pub async fn read_frame_checked<R: AsyncReadExt + Unpin>(r: &mut R) -> Result<Frame> {
+    let mut buf = [0u8; 1];
+    loop {
+        match r.read(&mut buf).await {
+            Ok(0) => return Ok(Frame::Closed),
+            Ok(_) if buf[0] == SB => break,
+            Ok(_) if matches!(buf[0], b'\r' | b'\n' | b' ' | b'\t') => {}
+            Ok(_) => return Ok(Frame::NotMllp),
+            Err(e) => return Err(Error::Streaming(format!("MLLP read SB: {e}"))),
+        }
+    }
+    let mut payload = Vec::with_capacity(512);
+    loop {
+        if payload.len() >= MAX_FRAME_BYTES {
+            return Ok(Frame::TooLarge);
+        }
+        let mut byte = [0u8; 1];
+        match r.read(&mut byte).await {
+            Ok(0) => return Err(Error::Streaming("MLLP read: EOF before EB".to_string())),
+            Ok(_) => {}
+            Err(e) => return Err(Error::Streaming(format!("MLLP read body: {e}"))),
+        }
+        if byte[0] == EB {
+            let mut cr = [0u8; 1];
+            match r.read(&mut cr).await {
+                Ok(0) => return Err(Error::Streaming("MLLP read: EOF before CR".to_string())),
+                Ok(_) => {}
+                Err(e) => return Err(Error::Streaming(format!("MLLP read CR: {e}"))),
+            }
+            if cr[0] != CR {
+                return Err(Error::Streaming(format!(
+                    "MLLP frame ended with EB {:#04x} (expected CR 0x0D)",
+                    cr[0]
+                )));
+            }
+            return Ok(Frame::Message(payload));
+        }
+        payload.push(byte[0]);
+    }
+}
+
 /// Read one MLLP frame from `r`. Returns `Ok(None)` on a clean EOF (peer
 /// closed the connection without starting a frame). Returns the payload
 /// bytes (i.e. the content *between* `SB` and `EB CR`) on success.
@@ -109,6 +167,28 @@ pub async fn write_frame<W: AsyncWriteExt + Unpin>(w: &mut W, payload: &[u8]) ->
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    #[tokio::test]
+    async fn test_checked_read_tells_apart_message_close_oversize_and_not_mllp() {
+        let mut ok = Cursor::new(b"\r\n \x0bMSH|x\x1c\r".to_vec());
+        assert_eq!(
+            read_frame_checked(&mut ok).await.unwrap(),
+            Frame::Message(b"MSH|x".to_vec())
+        );
+        let mut closed = Cursor::new(b"\r\n".to_vec());
+        assert_eq!(
+            read_frame_checked(&mut closed).await.unwrap(),
+            Frame::Closed
+        );
+        let mut http = Cursor::new(b"GET / HTTP/1.1\r\n\r\n".to_vec());
+        assert_eq!(read_frame_checked(&mut http).await.unwrap(), Frame::NotMllp);
+        let mut big = vec![SB];
+        big.extend(std::iter::repeat_n(b'x', MAX_FRAME_BYTES + 10));
+        assert_eq!(
+            read_frame_checked(&mut Cursor::new(big)).await.unwrap(),
+            Frame::TooLarge
+        );
+    }
 
     #[tokio::test]
     async fn test_read_frame_happy_path() {

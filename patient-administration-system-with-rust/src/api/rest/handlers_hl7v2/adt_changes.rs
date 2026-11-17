@@ -24,18 +24,14 @@ pub async fn pre_admit(
     };
     let bed_code = match r.message.segment("PV1").and_then(extract_bed_code_from_pv1) {
         Some(c) => c,
-        None => return ae(&r.sender, &r.control_id, "PV1-3.3 (bed) is required"),
+        None => return ae(&r.inbound, "PV1-3.3 (bed) is required"),
     };
     let bed = match BedRepository::find_by_code(&state.db, &bed_code).await {
         Ok(Some(b)) => b,
         Ok(None) => {
-            return ae(
-                &r.sender,
-                &r.control_id,
-                &format!("bed code {bed_code:?} not found"),
-            );
+            return ae(&r.inbound, "bed in PV1-3.3 not found");
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     match state
         .adt
@@ -43,14 +39,13 @@ pub async fn pre_admit(
         .await
     {
         Ok(e) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!(
                 "pre-admitted person={} encounter={} bed={}",
                 r.person_id, e.id, bed.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -76,18 +71,14 @@ pub async fn cancel_pre_admit(
     };
     let bed_code = match r.message.segment("PV1").and_then(extract_bed_code_from_pv1) {
         Some(c) => c,
-        None => return ae(&r.sender, &r.control_id, "PV1-3.3 (bed) is required"),
+        None => return ae(&r.inbound, "PV1-3.3 (bed) is required"),
     };
     let bed = match BedRepository::find_by_code(&state.db, &bed_code).await {
         Ok(Some(b)) => b,
         Ok(None) => {
-            return ae(
-                &r.sender,
-                &r.control_id,
-                &format!("bed code {bed_code:?} not found"),
-            );
+            return ae(&r.inbound, "bed in PV1-3.3 not found");
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     match state
         .adt
@@ -95,14 +86,13 @@ pub async fn cancel_pre_admit(
         .await
     {
         Ok(e) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!(
                 "cancelled pre-admit person={} encounter={} bed={}",
                 r.person_id, e.id, bed.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -128,18 +118,14 @@ pub async fn change_to_inpatient(
     };
     let bed_code = match r.message.segment("PV1").and_then(extract_bed_code_from_pv1) {
         Some(c) => c,
-        None => return ae(&r.sender, &r.control_id, "PV1-3.3 (bed) is required"),
+        None => return ae(&r.inbound, "PV1-3.3 (bed) is required"),
     };
     let bed = match BedRepository::find_by_code(&state.db, &bed_code).await {
         Ok(Some(b)) => b,
         Ok(None) => {
-            return ae(
-                &r.sender,
-                &r.control_id,
-                &format!("bed code {bed_code:?} not found"),
-            );
+            return ae(&r.inbound, "bed in PV1-3.3 not found");
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     match state
         .adt
@@ -147,14 +133,13 @@ pub async fn change_to_inpatient(
         .await
     {
         Ok(result) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!(
                 "promoted person={} encounter={} bed={}",
                 r.person_id, result.encounter.id, bed.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -182,12 +167,11 @@ pub async fn change_to_outpatient(
         Ok(Some(a)) => a,
         Ok(None) => {
             return ae(
-                &r.sender,
-                &r.control_id,
+                &r.inbound,
                 &format!("no open admission for person {}", r.person_id),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     match state
         .adt
@@ -195,14 +179,13 @@ pub async fn change_to_outpatient(
         .await
     {
         Ok(e) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!(
                 "demoted person={} encounter={}",
                 r.person_id, e.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -230,19 +213,14 @@ pub async fn update(
     // `PersonClient::update` against the resolved person id.
     let Some(client) = need_person_client(&state) else {
         return ae(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             "PERSON_SERVICE_URL unset; PAS cannot push update",
         );
     };
     let create = pid_to_person_create(&r.pid);
     match client.update(r.person_id, create, &r.upstream).await {
-        Ok(_) => aa(
-            &r.sender,
-            &r.control_id,
-            Some(&format!("updated person={}", r.person_id)),
-        ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Ok(_) => aa(&r.inbound, Some(&format!("updated person={}", r.person_id))),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -270,12 +248,11 @@ pub async fn cancel_admit(
         Ok(Some(a)) => a,
         Ok(None) => {
             return ae(
-                &r.sender,
-                &r.control_id,
+                &r.inbound,
                 &format!("no open admission for person {}", r.person_id),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     match state
         .adt
@@ -283,14 +260,13 @@ pub async fn cancel_admit(
         .await
     {
         Ok(_) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!(
                 "cancelled admission={} person={}",
                 admission.id, r.person_id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -318,12 +294,11 @@ pub async fn cancel_transfer(
         Ok(Some(a)) => a,
         Ok(None) => {
             return ae(
-                &r.sender,
-                &r.control_id,
+                &r.inbound,
                 &format!("no open admission for person {}", r.person_id),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     match state
         .adt
@@ -331,11 +306,10 @@ pub async fn cancel_transfer(
         .await
     {
         Ok(_) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!("reverted transfer on admission={}", admission.id)),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -366,24 +340,22 @@ pub async fn cancel_discharge(
             Ok(Some(pair)) => pair,
             Ok(None) => {
                 return ae(
-                    &r.sender,
-                    &r.control_id,
+                    &r.inbound,
                     &format!("no discharged admission found for person {}", r.person_id),
                 );
             }
-            Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+            Err(e) => return ae(&r.inbound, &client_text(&e)),
         };
     let admission_id = admission.id;
     match state.adt.cancel_discharge(admission_id, &r.audit).await {
         Ok(_) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!(
                 "reinstated discharge on admission={admission_id} person={}",
                 r.person_id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -411,12 +383,11 @@ pub async fn leave_start(
         Ok(Some(a)) => a,
         Ok(None) => {
             return ae(
-                &r.sender,
-                &r.control_id,
+                &r.inbound,
                 &format!("no open admission for person {}", r.person_id),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     match state
         .adt
@@ -424,14 +395,13 @@ pub async fn leave_start(
         .await
     {
         Ok(e) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!(
                 "leave-start admission={} encounter={}",
                 admission.id, e.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -459,12 +429,11 @@ pub async fn leave_end(
         Ok(Some(a)) => a,
         Ok(None) => {
             return ae(
-                &r.sender,
-                &r.control_id,
+                &r.inbound,
                 &format!("no open admission for person {}", r.person_id),
             );
         }
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     match state
         .adt
@@ -472,14 +441,13 @@ pub async fn leave_end(
         .await
     {
         Ok(e) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!(
                 "leave-end admission={} encounter={}",
                 admission.id, e.id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -505,18 +473,13 @@ pub async fn delete_patient(
     };
     let Some(client) = need_person_client(&state) else {
         return ae(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             "PERSON_SERVICE_URL unset; cannot delete upstream person",
         );
     };
     match client.delete(r.person_id, &r.upstream).await {
-        Ok(()) => aa(
-            &r.sender,
-            &r.control_id,
-            Some(&format!("deleted person={}", r.person_id)),
-        ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Ok(()) => aa(&r.inbound, Some(&format!("deleted person={}", r.person_id))),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }
 
@@ -545,16 +508,15 @@ pub async fn merge(
     };
     let mrg = match r.message.segment("MRG") {
         Some(s) => s,
-        None => return ae(&r.sender, &r.control_id, "MRG segment missing"),
+        None => return ae(&r.inbound, "MRG segment missing"),
     };
     let source_mrn = match extract_mrn_from_mrg(mrg) {
         Some(s) => s,
-        None => return ae(&r.sender, &r.control_id, "MRG-1.1 (source MRN) is required"),
+        None => return ae(&r.inbound, "MRG-1.1 (source MRN) is required"),
     };
     let Some(client) = need_person_client(&state) else {
         return ae(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             "PERSON_SERVICE_URL unset; cannot resolve MRG source",
         );
     };
@@ -563,7 +525,7 @@ pub async fn merge(
     // from).
     let hits = match client.search(&source_mrn, 20, &r.upstream).await {
         Ok(h) => h,
-        Err(e) => return ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
     let source_id = match hits
         .iter()
@@ -585,29 +547,23 @@ pub async fn merge(
     {
         Some(id) => id,
         None => {
-            return ae(
-                &r.sender,
-                &r.control_id,
-                &format!("source MRN {source_mrn:?} not found upstream"),
-            );
+            return ae(&r.inbound, "patient in MRG-1 not found");
         }
     };
     if source_id == r.person_id {
         return ae(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             "MRG-1 resolved to the same person as PID (self-merge)",
         );
     }
     match client.merge(source_id, r.person_id, &r.upstream).await {
         Ok(_) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!(
                 "merged source={source_id} into target={}",
                 r.person_id
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &client_text(&e)),
+        Err(e) => ae(&r.inbound, &client_text(&e)),
     }
 }

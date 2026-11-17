@@ -30,6 +30,7 @@
 
 pub mod ack;
 pub mod batch;
+pub mod dedupe;
 pub mod encode;
 pub mod encoder;
 pub mod escape;
@@ -37,9 +38,12 @@ pub mod listener;
 pub mod mllp;
 pub mod parser;
 pub mod pid_translation;
+pub mod redact;
 
 pub use ack::{AckCode, ack};
-pub use batch::{Batch, MAX_BATCH_MESSAGES, encode_batch_ack, looks_like_batch, parse_batch};
+pub use batch::{
+    Batch, BatchInbound, MAX_BATCH_MESSAGES, encode_batch_ack, looks_like_batch, parse_batch,
+};
 pub use encode::{
     EncodeContext, ReferralRef, encode_adt, encode_siu, encode_siu_for_referral, fmt_ts,
 };

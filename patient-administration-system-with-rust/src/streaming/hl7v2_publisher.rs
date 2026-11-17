@@ -111,12 +111,16 @@ impl Hl7v2MllpPublisher {
             .segment("MSA")
             .ok_or_else(|| Error::Streaming("ACK missing MSA segment".to_string()))?;
         let code = msa.raw(1);
+        // NFR-32: AR means the receiver will never take this message, so it is dead-lettered at once; AE, an
+        // unknown code or an unreadable ACK may pass on a retry. The receiver's MSA-3 is not kept: it may quote
+        // a value from the message (NFR-33).
         match code.as_str() {
             "AA" => Ok(()),
-            "AE" | "AR" => Err(Error::Streaming(format!(
-                "peer rejected with {code}: {}",
-                msa.raw(3)
-            ))),
+            "AR" => Err(Error::DeliveryRejected("peer answered AR".into())),
+            "AE" => Err(Error::DeliveryDeferred {
+                message: "peer answered AE".into(),
+                retry_after_secs: None,
+            }),
             other => Err(Error::Streaming(format!("unknown ACK code {other:?}"))),
         }
     }
@@ -268,11 +272,11 @@ mod tests {
             "MSH|^~\\&|PAS|FAC|EMR|FAC|20260531120000||ACK|MSG2|P|2.5\rMSA|AE|MSG2|PID-5 missing\r";
         let err = Hl7v2MllpPublisher::cls_check_ack(ack).expect_err("AE must fail");
         match err {
-            Error::Streaming(msg) => {
-                assert!(msg.contains("AE"));
-                assert!(msg.contains("PID-5 missing"));
+            Error::DeliveryDeferred { message, .. } => {
+                assert!(message.contains("AE"));
+                assert!(!message.contains("PID-5"), "the peer's text is not kept");
             }
-            other => panic!("expected Streaming, got {other:?}"),
+            other => panic!("expected DeliveryDeferred, got {other:?}"),
         }
     }
 
@@ -281,7 +285,7 @@ mod tests {
         let ack =
             "MSH|^~\\&|PAS|FAC|EMR|FAC|20260531120000||ACK|MSG3|P|2.5\rMSA|AR|MSG3|bad header\r";
         let err = Hl7v2MllpPublisher::cls_check_ack(ack).expect_err("AR must fail");
-        assert!(matches!(err, Error::Streaming(ref s) if s.contains("AR")));
+        assert!(matches!(err, Error::DeliveryRejected(ref s) if s.contains("AR")));
     }
 
     #[test]

@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
-      TARGETS: hl7_message hl7_batch text_reply identifier_check
+      TARGETS: hl7_message hl7_batch text_reply identifier_check hl7_redact
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

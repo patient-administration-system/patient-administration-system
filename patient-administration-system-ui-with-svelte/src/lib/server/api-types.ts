@@ -114,6 +114,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/outbox/dead-letters/{id}/skip": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * `POST /api/admin/outbox/dead-letters/{id}/skip`: give up on a dead letter without delivering it, so the
+     *     later events of its record, which wait behind it, are delivered (NFR-32). Recorded in the audit log with
+     *     who did it. Use replay when the event should still be sent.
+     */
+    post: operations["post_api_admin_outbox_dead_letters__id__skip"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/outbox/unpublished": {
     parameters: {
       query?: never;
@@ -1535,9 +1556,13 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * `GET /api/health` — the database and the upstream services.
+     * `GET /api/health` — the database, the upstream services, and the workers that move messages (NFR-28, NFR-34).
      * @description `status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,
-     *     so a probe does not pull a replica out of rotation for a fault every replica shares.
+     *     so a probe does not pull a replica out of rotation for a fault every replica shares. It is also `degraded`
+     *     when the outbox dispatcher has stalled (no finished tick for three intervals), when the oldest undelivered
+     *     event is older than `PAS_OUTBOX_STALE_SECONDS`, or when an MLLP listener this process started has stopped:
+     *     a health check that stays green while nothing is delivered is the failure this guards against. A worker
+     *     with no data yet says `unknown`, never `ok`.
      */
     get: operations["get_api_health"];
     put?: never;
@@ -7570,6 +7595,22 @@ export interface components {
      * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
      *     an RFC 9457 problem: see [`problem`].
      */
+    ApiResponse_Skipped: {
+      /** @description What skipping a dead letter released. */
+      data?: {
+        /** Format: uuid */
+        dead_letter_id: string;
+        event_type: string;
+        /** Format: uuid */
+        original_id: string;
+      };
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
     ApiResponse_SmsLength: {
       data?: {
         encoding: components["schemas"]["Encoding"];
@@ -11762,6 +11803,14 @@ export interface components {
       active: boolean;
       items: components["schemas"]["Shown"][];
     };
+    /** @description What skipping a dead letter released. */
+    Skipped: {
+      /** Format: uuid */
+      dead_letter_id: string;
+      event_type: string;
+      /** Format: uuid */
+      original_id: string;
+    };
     SlotRelease: {
       /** Format: uuid */
       appointment_id: string;
@@ -12851,6 +12900,43 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponse_Replayed"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_admin_outbox_dead_letters__id__skip: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Skipped"];
         };
       };
       /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */

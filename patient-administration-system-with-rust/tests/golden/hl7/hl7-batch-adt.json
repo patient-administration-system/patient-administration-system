@@ -1,0 +1,119 @@
+{
+  "bhs_control_id": "2.5",
+  "messages": [
+    {
+      "bed_code": null,
+      "control_id": "MSG-DEMO-001",
+      "mrn": "MRN-DEMO-001",
+      "person": {
+        "addresses": [
+          {
+            "city": "Boston",
+            "country": "US",
+            "line1": "1 Main St",
+            "postal_code": "02108",
+            "state": "MA"
+          }
+        ],
+        "birth_date": "1990-01-01",
+        "gender": "female",
+        "identifiers": [
+          {
+            "type": "MRN",
+            "use": "official",
+            "value": "MRN-DEMO-001"
+          }
+        ],
+        "name": {
+          "family": "Demo",
+          "given": [
+            "Alice"
+          ]
+        },
+        "telecom": [
+          {
+            "system": "phone",
+            "value": "(555)555-0101"
+          }
+        ]
+      },
+      "type": "ADT^A28"
+    },
+    {
+      "bed_code": null,
+      "control_id": "MSG-DEMO-002",
+      "mrn": "MRN-DEMO-002",
+      "person": {
+        "addresses": [
+          {
+            "city": "Boston",
+            "country": "US",
+            "line1": "2 Main St",
+            "postal_code": "02108",
+            "state": "MA"
+          }
+        ],
+        "birth_date": "1985-05-15",
+        "gender": "male",
+        "identifiers": [
+          {
+            "type": "MRN",
+            "use": "official",
+            "value": "MRN-DEMO-002"
+          }
+        ],
+        "name": {
+          "family": "Demo",
+          "given": [
+            "Bob"
+          ]
+        },
+        "telecom": [
+          {
+            "system": "phone",
+            "value": "(555)555-0102"
+          }
+        ]
+      },
+      "type": "ADT^A28"
+    },
+    {
+      "bed_code": null,
+      "control_id": "MSG-DEMO-003",
+      "mrn": "MRN-DEMO-003",
+      "person": {
+        "addresses": [
+          {
+            "city": "Boston",
+            "country": "US",
+            "line1": "3 Main St",
+            "postal_code": "02108",
+            "state": "MA"
+          }
+        ],
+        "birth_date": "1975-12-20",
+        "gender": "female",
+        "identifiers": [
+          {
+            "type": "MRN",
+            "use": "official",
+            "value": "MRN-DEMO-003"
+          }
+        ],
+        "name": {
+          "family": "Demo",
+          "given": [
+            "Carol"
+          ]
+        },
+        "telecom": [
+          {
+            "system": "phone",
+            "value": "(555)555-0103"
+          }
+        ]
+      },
+      "type": "ADT^A28"
+    }
+  ]
+}

@@ -47,6 +47,34 @@ impl OutboxRepository {
         .await
     }
 
+    /// The events the dispatcher may try now, oldest first (NFR-32): unpublished, past their
+    /// `next_attempt_at`, and first in line for their record: no earlier undelivered event with the same
+    /// `aggregate_key`, and no dead letter with it still held. An event with no key waits for nothing.
+    pub async fn fetch_due<C: Conn>(conn: &C, limit: u64) -> Result<Vec<outbox_event::Model>> {
+        conn.all_as::<outbox_event::Model>(Stmt::new(
+            "SELECT o.* FROM outbox_events o \
+             WHERE o.published = false \
+               AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= now()) \
+               AND (o.aggregate_key IS NULL OR ( \
+                    NOT EXISTS (SELECT 1 FROM outbox_events p \
+                                WHERE p.published = false AND p.aggregate_key = o.aggregate_key \
+                                  AND (p.at, p.id) < (o.at, o.id)) \
+                AND NOT EXISTS (SELECT 1 FROM outbox_dead_letters d WHERE d.aggregate_key = o.aggregate_key))) \
+             ORDER BY o.at, o.id LIMIT $1",
+            [i64::try_from(limit).unwrap_or(i64::MAX).into()],
+        ))
+        .await
+    }
+
+    /// How many undelivered events wait behind a held dead letter or an earlier event of their record.
+    pub async fn count_held<C: Conn>(conn: &C) -> Result<u64> {
+        conn.count(Stmt::text(
+            "SELECT count(*) AS n FROM outbox_events o WHERE o.published = false AND o.aggregate_key IS NOT NULL \
+             AND EXISTS (SELECT 1 FROM outbox_dead_letters d WHERE d.aggregate_key = o.aggregate_key)",
+        ))
+        .await
+    }
+
     /// Mark a single outbox row as published. Idempotent.
     pub async fn mark_published<C: Conn>(conn: &C, id: Uuid) -> Result<()> {
         let m = conn
@@ -71,7 +99,12 @@ impl OutboxRepository {
     ///
     /// Returns `Ok(0)` and a no-op if the row is gone (idempotent against
     /// concurrent dead-lettering / replay).
-    pub async fn record_failure<C: Conn>(conn: &C, id: Uuid, error: &str) -> Result<i32> {
+    pub async fn record_failure<C: Conn>(
+        conn: &C,
+        id: Uuid,
+        error: &str,
+        next_attempt_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<i32> {
         let m = match conn
             .one_as::<outbox_event::Model>(Stmt::new(
                 "SELECT * FROM outbox_events WHERE id = $1 LIMIT 1",
@@ -88,6 +121,11 @@ impl OutboxRepository {
         am.set("last_attempted_at", Some(chrono::Utc::now().fixed_offset()));
         am.set("last_error", Some(error.to_string()));
         am.update(conn).await?;
+        conn.run(Stmt::new(
+            "UPDATE outbox_events SET next_attempt_at = $2 WHERE id = $1",
+            [id.into(), next_attempt_at.into()],
+        ))
+        .await?;
         Ok(new_count)
     }
 
@@ -163,6 +201,20 @@ impl DeadLetterRepository {
     pub async fn count<C: Conn>(conn: &C) -> Result<u64> {
         conn.count(Stmt::text("SELECT count(*) AS n FROM outbox_dead_letters"))
             .await
+    }
+
+    /// Skip a dead letter: remove it without delivering it, so the events of its record that wait behind it
+    /// (NFR-32) are delivered. Returns its event type and original id, for the audit row. Taken with
+    /// `DELETE … RETURNING`, as `replay` is, so a skip and a replay cannot both act on it.
+    pub async fn skip<C: Conn>(conn: &C, id: Uuid) -> Result<(String, Uuid)> {
+        let dl = conn
+            .one_as::<outbox_dead_letter::Model>(Stmt::new(
+                "DELETE FROM outbox_dead_letters WHERE id = $1 RETURNING *",
+                [id.into()],
+            ))
+            .await?
+            .ok_or_else(|| Error::not_found(format!("outbox_dead_letter {id}")))?;
+        Ok((dl.event_type, dl.original_id))
     }
 
     /// Replay a DLQ row back into `outbox_events`: insert a fresh outbox

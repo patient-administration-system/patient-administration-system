@@ -22,7 +22,7 @@
 //! are *not* supported — every `BHS` after the first returns
 //! `Error::Validation`.
 
-use super::{Message, Segment, Separators};
+use super::{Message, Segment, SegmentRead, Separators};
 use crate::{Error, Result};
 
 /// Hard cap on how many `MSH` messages one batch may contain. Anything
@@ -54,7 +54,9 @@ pub struct Batch {
 /// - more than one `BHS` (multi-batch files) → `Error::Validation`.
 /// - more than `MAX_BATCH_MESSAGES` messages → `Error::Validation`.
 pub fn parse_batch(raw: &str) -> Result<Batch> {
-    let parsed = er7::parse(raw).map_err(|e| Error::validation(format!("HL7v2 batch: {e}")))?;
+    let parsed = er7::parse(raw).map_err(|e| {
+        Error::validation(format!("HL7v2 batch: {}", super::parser::parse_reason(&e)))
+    })?;
     if parsed.separators != Separators::default() {
         return Err(Error::validation(format!(
             "HL7v2 batch: encoding characters must be \"^~\\&\", got {:?}",
@@ -119,9 +121,10 @@ pub fn parse_batch(raw: &str) -> Result<Batch> {
             name => match current.as_mut() {
                 Some(segs) => segs.push(seg),
                 None => {
-                    return Err(Error::validation(format!(
-                        "HL7v2 batch: segment {name:?} appears before any MSH"
-                    )));
+                    let _ = name;
+                    return Err(Error::validation(
+                        "HL7v2 batch: a segment appears before any MSH",
+                    ));
                 }
             },
         }
@@ -146,30 +149,57 @@ pub fn parse_batch(raw: &str) -> Result<Batch> {
     })
 }
 
-/// Build a batch ACK envelope. Wraps the per-message ACK bodies inside
-/// one `BHS` / `BTS` pair so the sender can read each MSA on the same
-/// connection.
-///
-/// The shape matches what most HL7 v2 receivers emit:
+/// The parts of an inbound `BHS` that its ACK needs, as wire text (NFR-31).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct BatchInbound {
+    /// BHS-3 and BHS-4.
+    pub sending_app: String,
+    pub sending_facility: String,
+    /// BHS-5 and BHS-6.
+    pub receiving_app: String,
+    pub receiving_facility: String,
+    /// BHS-11, the batch control id.
+    pub control_id: String,
+}
+
+impl BatchInbound {
+    /// The header of `bhs`; every field empty when there is none.
+    pub fn of(bhs: Option<&Segment>) -> Self {
+        let Some(b) = bhs else {
+            return Self::default();
+        };
+        Self {
+            sending_app: b.raw(3),
+            sending_facility: b.raw(4),
+            receiving_app: b.raw(5),
+            receiving_facility: b.raw(6),
+            control_id: b.raw(11),
+        }
+    }
+}
+
+/// Build a batch ACK envelope: the per-message ACKs inside one `BHS` / `BTS` pair, so the sender can read
+/// each MSA on the same connection.
 ///
 /// ```text
-/// BHS|^~\&|PAS|FAC|<sender>|FAC|<now>||<batch_ctl_id>|P|2.5
+/// BHS|^~\&|<their BHS-5>|<their BHS-6>|<their BHS-3>|<their BHS-4>|<now>||||<new id>|<their BHS-11>
 /// <ack-1>
 /// <ack-2>
-/// ...
 /// BTS|<n>
 /// ```
 ///
-/// Each per-message ACK is already a complete `MSH ... MSA` block produced
-/// by [`crate::hl7v2::ack::ack`], so the function just stitches them
-/// together with the envelope.
-pub fn encode_batch_ack(
-    sending_app: &str,
-    receiving_app: &str,
-    batch_control_id: &str,
-    per_message_acks: &[String],
-) -> String {
+/// As for a message ACK (`ack::ack_to`), the sender and receiver are swapped; BHS-11 is the ACK batch's own
+/// control id and BHS-12 the batch it answers. (BHS has no processing id or version field: before 2026-11-17
+/// this put the control id in BHS-9 and `P` and `2.5` in BHS-10 and BHS-11.) Each per-message ACK is already a
+/// complete `MSH ... MSA` block, so this only stitches them into the envelope.
+pub fn encode_batch_ack(inbound: &BatchInbound, per_message_acks: &[String]) -> String {
     let now = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
+    let own_id = uuid::Uuid::new_v4().simple().to_string()[..20].to_string();
+    let us = if inbound.receiving_app.is_empty() {
+        crate::hl7v2::ack::PAS_APP
+    } else {
+        &inbound.receiving_app
+    };
     let mut out = String::with_capacity(
         256 + per_message_acks
             .iter()
@@ -177,7 +207,11 @@ pub fn encode_batch_ack(
             .sum::<usize>(),
     );
     out.push_str(&format!(
-        "BHS|^~\\&|{sending_app}|FAC|{receiving_app}|FAC|{now}||{batch_control_id}|P|2.5\r"
+        "BHS|^~\\&|{us}|{}|{}|{}|{now}||||{own_id}|{}\r",
+        inbound.receiving_facility,
+        inbound.sending_app,
+        inbound.sending_facility,
+        inbound.control_id
     ));
     for ack in per_message_acks {
         // Each ack ends with `\r` already; preserve as-is so per-message MSH
@@ -305,9 +339,23 @@ BTS|0\r";
     fn test_encode_batch_ack_wraps_per_message_acks() {
         let a1 = ack("PAS", "EMR", "MSG-1", AckCode::Accept, None);
         let a2 = ack("PAS", "EMR", "MSG-2", AckCode::AppError, Some("bad PID"));
-        let out = encode_batch_ack("PAS", "EMR", "ACK-BATCH-1", &[a1.clone(), a2.clone()]);
-        assert!(out.starts_with("BHS|^~\\&|PAS|FAC|EMR|FAC|"));
-        assert!(out.contains("|ACK-BATCH-1|P|2.5\r"));
+        let bhs = parse_batch("BHS|^~\\&|EMR|WARDS|PASAPP|HOSP|20260523120000||||B-1\rBTS|0\r")
+            .unwrap()
+            .bhs;
+        let out = encode_batch_ack(&BatchInbound::of(bhs.as_ref()), &[a1.clone(), a2.clone()]);
+        let head = out.split('\r').next().unwrap();
+        let fields: Vec<&str> = head.split('|').collect();
+        // fields[0] is the segment name, so fields[n] is BHS-(n+1) from BHS-3 on.
+        assert_eq!(&fields[2..6], ["PASAPP", "HOSP", "EMR", "WARDS"]);
+        assert_eq!(
+            fields[10].len(),
+            20,
+            "the ACK batch has its own control id: {head}"
+        );
+        assert_eq!(
+            fields[11], "B-1",
+            "BHS-12 names the batch it answers: {head}"
+        );
         assert!(out.contains(&a1));
         assert!(out.contains(&a2));
         assert!(out.contains("MSA|AA|MSG-1"));

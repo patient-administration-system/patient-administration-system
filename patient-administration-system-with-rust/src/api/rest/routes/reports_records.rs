@@ -148,6 +148,10 @@ pub(super) fn reporting() -> Router<AppState> {
             "/api/admin/outbox/dead-letters/{id}/replay",
             post(handlers_admin::replay_dead_letter),
         )
+        .route(
+            "/api/admin/outbox/dead-letters/{id}/skip",
+            post(handlers_admin::skip_dead_letter),
+        )
 }
 
 /// Facilities, wards, beds, billing, coverage and consent.

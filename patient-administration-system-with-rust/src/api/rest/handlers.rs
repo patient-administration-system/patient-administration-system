@@ -33,7 +33,9 @@ pub fn error_to_response(err: Error) -> HandlerResult {
         Error::Forbidden(_) => (StatusCode::FORBIDDEN, "forbidden"),
         Error::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "database"),
         Error::Search(_) => (StatusCode::INTERNAL_SERVER_ERROR, "search"),
-        Error::Streaming(_) => (StatusCode::INTERNAL_SERVER_ERROR, "streaming"),
+        Error::Streaming(_) | Error::DeliveryRejected(_) | Error::DeliveryDeferred { .. } => {
+            (StatusCode::INTERNAL_SERVER_ERROR, "streaming")
+        }
         Error::Fhir(_) => (StatusCode::BAD_REQUEST, "FHIR"),
         Error::Render(_) => (StatusCode::INTERNAL_SERVER_ERROR, "render"),
         Error::Config(_) => (StatusCode::INTERNAL_SERVER_ERROR, "config"),
@@ -143,10 +145,14 @@ pub fn audit_ctx(uc: &crate::upstream::UserContext) -> crate::db::repositories::
     }
 }
 
-/// `GET /api/health` — the database and the upstream services.
+/// `GET /api/health` — the database, the upstream services, and the workers that move messages (NFR-28, NFR-34).
 ///
 /// `status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,
-/// so a probe does not pull a replica out of rotation for a fault every replica shares.
+/// so a probe does not pull a replica out of rotation for a fault every replica shares. It is also `degraded`
+/// when the outbox dispatcher has stalled (no finished tick for three intervals), when the oldest undelivered
+/// event is older than `PAS_OUTBOX_STALE_SECONDS`, or when an MLLP listener this process started has stopped:
+/// a health check that stays green while nothing is delivered is the failure this guards against. A worker
+/// with no data yet says `unknown`, never `ok`.
 #[utoipa::path(
     get,
     path = "/api/health",
@@ -166,7 +172,9 @@ pub async fn health(State(state): State<AppState>) -> HandlerResult {
         .upstream_probe
         .check(state.person_client.as_ref(), state.worker_client.as_ref())
         .await;
-    let status = if db_ok && !upstream.is_degraded() {
+    let outbox = outbox_health(&state, db_ok).await;
+    let mllp = crate::hl7v2::listener::listener_state();
+    let status = if db_ok && !upstream.is_degraded() && !outbox.degraded && mllp != "stopped" {
         "ok"
     } else {
         "degraded"
@@ -177,7 +185,61 @@ pub async fn health(State(state): State<AppState>) -> HandlerResult {
         "database": database,
         "person_service": upstream.person_service.as_str(),
         "worker_service": upstream.worker_service.as_str(),
+        "outbox": {
+            "dispatcher": outbox.dispatcher,
+            "oldest_undelivered_seconds": outbox.oldest_seconds,
+            "held_behind_dead_letters": outbox.held,
+            "dead_letters": outbox.dead_letters,
+        },
+        "mllp_listener": mllp,
     }))
+}
+
+struct OutboxHealth {
+    dispatcher: &'static str,
+    /// `None` when nothing waits, or the database could not say.
+    oldest_seconds: Option<i64>,
+    held: Option<u64>,
+    dead_letters: Option<u64>,
+    degraded: bool,
+}
+
+async fn outbox_health(state: &AppState, db_ok: bool) -> OutboxHealth {
+    use crate::db::repositories::outbox::{DeadLetterRepository, OutboxRepository};
+    use crate::db::row::RowExt;
+    use crate::db::sql::{Conn, Stmt};
+    let dispatcher = crate::metrics::job_health("outbox");
+    let stale = crate::config::env::int("PAS_OUTBOX_STALE_SECONDS");
+    let (oldest_seconds, held, dead_letters) = if db_ok {
+        let oldest = state
+            .db
+            .one(Stmt::text(
+                "SELECT extract(epoch FROM now() - min(at))::bigint AS s FROM outbox_events WHERE published = false",
+            ))
+            .await
+            .ok()
+            .flatten()
+            .and_then(|r| r.col::<Option<i64>>("s").ok().flatten());
+        (
+            oldest,
+            OutboxRepository::count_held(&state.db).await.ok(),
+            DeadLetterRepository::count(&state.db).await.ok(),
+        )
+    } else {
+        (None, None, None)
+    };
+    // The age of the backlog counts against this process only when it runs the dispatcher (a test or a tool
+    // that does not deliver is not to blame for events it never meant to send); it is reported either way.
+    let delivers_here = dispatcher != crate::metrics::JobHealth::Off;
+    let degraded = dispatcher == crate::metrics::JobHealth::Stalled
+        || (delivers_here && oldest_seconds.is_some_and(|s| s > stale));
+    OutboxHealth {
+        dispatcher: dispatcher.as_str(),
+        oldest_seconds,
+        held,
+        dead_letters,
+        degraded,
+    }
 }
 
 #[cfg(test)]

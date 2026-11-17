@@ -91,6 +91,7 @@ impl Jobs {
     {
         let db = self.db.clone();
         let mut stop = self.stop.subscribe();
+        crate::metrics::job_registered(name, every);
         let handle = tokio::spawn(async move {
             let mut tick = tokio::time::interval(every);
             loop {

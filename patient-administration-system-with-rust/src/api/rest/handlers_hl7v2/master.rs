@@ -25,7 +25,7 @@ pub async fn mfn_staff(
 ) -> impl IntoResponse {
     let msg = match parse_message(&body) {
         Ok(m) => m,
-        Err(e) => return ar("unknown", "unknown", &e.to_string()),
+        Err(e) => return ar(&Inbound::unknown(), &e.to_string()),
     };
     let h = msh_header(&msg);
     if let Err(ack) = check_master_file(&msg, &h, "PRA") {
@@ -33,8 +33,7 @@ pub async fn mfn_staff(
     }
     let Some(client) = need_worker_client(&state) else {
         return ae(
-            &h.sender,
-            &h.control_id,
+            &h.inbound,
             "WORKER_SERVICE_URL unset; cannot apply staff master file",
         );
     };
@@ -46,13 +45,12 @@ pub async fn mfn_staff(
     let mut applied = 0usize;
     for item in &items {
         if let Err(why) = apply_staff_item(client, item, &up).await {
-            return ae(&h.sender, &h.control_id, &why);
+            return ae(&h.inbound, &why);
         }
         applied += 1;
     }
     aa(
-        &h.sender,
-        &h.control_id,
+        &h.inbound,
         Some(&format!("staff_records_applied={applied}")),
     )
 }
@@ -64,13 +62,12 @@ fn check_master_file(
     expected: &str,
 ) -> std::result::Result<(), Hl7Response> {
     let Some(mfi) = msg.segment("MFI") else {
-        return Err(ae(&h.sender, &h.control_id, "MFI segment missing"));
+        return Err(ae(&h.inbound, "MFI segment missing"));
     };
     let file_id = mfi.raw(1).trim().to_ascii_uppercase();
     if file_id != expected {
         return Err(ae(
-            &h.sender,
-            &h.control_id,
+            &h.inbound,
             &format!("MFI-1 file id {file_id:?} not supported ({expected} only)"),
         ));
     }
@@ -89,18 +86,18 @@ fn parse_staff_items(
             "MFE" => current_mfe = Some(seg),
             "STF" => {
                 let Some(mfe) = current_mfe.take() else {
-                    return Err(ae(&h.sender, &h.control_id, "STF without preceding MFE"));
+                    return Err(ae(&h.inbound, "STF without preceding MFE"));
                 };
                 match parse_mfe_stf(mfe, seg) {
                     Ok(it) => items.push(it),
-                    Err(e) => return Err(ae(&h.sender, &h.control_id, &client_text(&e))),
+                    Err(e) => return Err(ae(&h.inbound, &client_text(&e))),
                 }
             }
             _ => {}
         }
     }
     if items.is_empty() {
-        return Err(ae(&h.sender, &h.control_id, "no MFE+STF pairs in message"));
+        return Err(ae(&h.inbound, "no MFE+STF pairs in message"));
     }
     Ok(items)
 }
@@ -123,7 +120,7 @@ async fn apply_staff_item(
     match item.event_code.as_str() {
         "MAD" => {
             if existing.is_some() {
-                return Err(format!("MAD: staff id {:?} already exists", item.staff_id));
+                return Err("MAD: the staff member in STF-1 already exists".to_string());
             }
             client
                 .create(body, up)
@@ -132,7 +129,7 @@ async fn apply_staff_item(
         }
         "MUP" => {
             let Some(w) = existing else {
-                return Err(format!("MUP: staff id {:?} not found", item.staff_id));
+                return Err("MUP: the staff member in STF-1 not found".to_string());
             };
             client
                 .update(w.id, body, up)
@@ -141,7 +138,7 @@ async fn apply_staff_item(
         }
         "MDL" => {
             let Some(w) = existing else {
-                return Err(format!("MDL: staff id {:?} not found", item.staff_id));
+                return Err("MDL: the staff member in STF-1 not found".to_string());
             };
             client
                 .delete(w.id, up)
@@ -224,7 +221,7 @@ pub async fn mfn_location(
 ) -> impl IntoResponse {
     let msg = match parse_message(&body) {
         Ok(m) => m,
-        Err(e) => return ar("unknown", "unknown", &e.to_string()),
+        Err(e) => return ar(&Inbound::unknown(), &e.to_string()),
     };
     let h = msh_header(&msg);
     if let Err(ack) = check_master_file(&msg, &h, "LOC") {
@@ -247,12 +244,8 @@ pub async fn mfn_location(
         })
         .await;
     match result {
-        Ok(n) => aa(
-            &h.sender,
-            &h.control_id,
-            Some(&format!("location_records_applied={n}")),
-        ),
-        Err(e) => ae(&h.sender, &h.control_id, &e.client_message()),
+        Ok(n) => aa(&h.inbound, Some(&format!("location_records_applied={n}"))),
+        Err(e) => ae(&h.inbound, &e.client_message()),
     }
 }
 
@@ -268,18 +261,18 @@ fn parse_location_items(
             "MFE" => current_mfe = Some(seg),
             "LOC" => {
                 let Some(mfe) = current_mfe.take() else {
-                    return Err(ae(&h.sender, &h.control_id, "LOC without preceding MFE"));
+                    return Err(ae(&h.inbound, "LOC without preceding MFE"));
                 };
                 match parse_mfe_loc(mfe, seg) {
                     Ok(it) => items.push(it),
-                    Err(e) => return Err(ae(&h.sender, &h.control_id, &client_text(&e))),
+                    Err(e) => return Err(ae(&h.inbound, &client_text(&e))),
                 }
             }
             _ => {}
         }
     }
     if items.is_empty() {
-        return Err(ae(&h.sender, &h.control_id, "no MFE+LOC pairs in message"));
+        return Err(ae(&h.inbound, "no MFE+LOC pairs in message"));
     }
     Ok(items)
 }
@@ -297,10 +290,9 @@ async fn apply_location_item(
     match item.event_code.as_str() {
         "MAD" => {
             if existing.is_some() {
-                return Err(crate::Error::conflict(format!(
-                    "MAD: bed code {:?} already exists",
-                    item.bed_code
-                )));
+                return Err(crate::Error::conflict(
+                    "MAD: the bed in LOC-1.3 already exists",
+                ));
             }
             let room_code = item.room_code.as_deref().ok_or_else(|| {
                 crate::Error::validation(
@@ -333,10 +325,7 @@ async fn apply_location_item(
         }
         "MUP" => {
             let Some(mut bed) = existing else {
-                return Err(crate::Error::not_found(format!(
-                    "MUP: bed code {:?} not found",
-                    item.bed_code
-                )));
+                return Err(crate::Error::not_found("MUP: the bed in LOC-1.3 not found"));
             };
             if let Some(name) = &item.bed_name {
                 bed.name = name.clone();
@@ -356,10 +345,7 @@ async fn apply_location_item(
         }
         "MDL" => {
             let Some(bed) = existing else {
-                return Err(crate::Error::not_found(format!(
-                    "MDL: bed code {:?} not found",
-                    item.bed_code
-                )));
+                return Err(crate::Error::not_found("MDL: the bed in LOC-1.3 not found"));
             };
             BedRepository::set_status_unchecked(txn, bed.id, BedStatus::OutOfService).await?;
             AuditLogRepository::log(

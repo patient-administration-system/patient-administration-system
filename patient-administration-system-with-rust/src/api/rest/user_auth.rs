@@ -575,6 +575,10 @@ mod tests {
             derive_action(&Method::POST, "/api/admin/outbox/dead-letters/1/replay"),
             Action::Destructive
         );
+        assert_eq!(
+            derive_action(&Method::POST, "/api/admin/outbox/dead-letters/1/skip"),
+            Action::Destructive
+        );
     }
 
     #[test]

@@ -21,17 +21,16 @@ pub async fn add_person(
 ) -> impl IntoResponse {
     let msg = match parse_message(&body) {
         Ok(m) => m,
-        Err(e) => return ar("unknown", "unknown", &e.to_string()),
+        Err(e) => return ar(&Inbound::unknown(), &e.to_string()),
     };
     let h = msh_header(&msg);
     let pid = match msg.segment("PID") {
         Some(s) => s,
-        None => return ae(&h.sender, &h.control_id, "PID segment missing"),
+        None => return ae(&h.inbound, "PID segment missing"),
     };
     let Some(client) = need_person_client(&state) else {
         return ae(
-            &h.sender,
-            &h.control_id,
+            &h.inbound,
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
         );
     };
@@ -43,9 +42,9 @@ pub async fn add_person(
             } else {
                 format!("matched existing person {id}")
             };
-            aa(&h.sender, &h.control_id, Some(&diag))
+            aa(&h.inbound, Some(&diag))
         }
-        Err(e) => ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => ae(&h.inbound, &client_text(&e)),
     }
 }
 
@@ -67,25 +66,24 @@ pub async fn admit(
 ) -> impl IntoResponse {
     let msg = match parse_message(&body) {
         Ok(m) => m,
-        Err(e) => return ar("unknown", "unknown", &e.to_string()),
+        Err(e) => return ar(&Inbound::unknown(), &e.to_string()),
     };
     let h = msh_header(&msg);
     let pid = match msg.segment("PID") {
         Some(s) => s,
-        None => return ae(&h.sender, &h.control_id, "PID segment missing"),
+        None => return ae(&h.inbound, "PID segment missing"),
     };
     let pv1 = match msg.segment("PV1") {
         Some(s) => s,
-        None => return ae(&h.sender, &h.control_id, "PV1 segment missing"),
+        None => return ae(&h.inbound, "PV1 segment missing"),
     };
     let bed_code = match extract_bed_code_from_pv1(pv1) {
         Some(c) => c,
-        None => return ae(&h.sender, &h.control_id, "PV1-3.3 (bed code) is required"),
+        None => return ae(&h.inbound, "PV1-3.3 (bed code) is required"),
     };
     let Some(client) = need_person_client(&state) else {
         return ae(
-            &h.sender,
-            &h.control_id,
+            &h.inbound,
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
         );
     };
@@ -93,29 +91,24 @@ pub async fn admit(
     let ctx = upstream_ctx(&audit);
     let (person_id, _) = match dedup_or_create_person(client, pid, &ctx).await {
         Ok(r) => r,
-        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => return ae(&h.inbound, &client_text(&e)),
     };
     let bed = match BedRepository::find_by_code(&state.db, &bed_code).await {
         Ok(Some(b)) => b,
         Ok(None) => {
-            return ae(
-                &h.sender,
-                &h.control_id,
-                &format!("bed code {bed_code:?} not found"),
-            );
+            return ae(&h.inbound, "bed in PV1-3.3 not found");
         }
-        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => return ae(&h.inbound, &client_text(&e)),
     };
     match state.adt.admit(person_id, bed.id, &audit).await {
         Ok(result) => aa(
-            &h.sender,
-            &h.control_id,
+            &h.inbound,
             Some(&format!(
                 "admitted person={person_id} bed={} admission={}",
                 bed.id, result.admission.id
             )),
         ),
-        Err(e) => ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => ae(&h.inbound, &client_text(&e)),
     }
 }
 
@@ -137,31 +130,26 @@ pub async fn transfer(
 ) -> impl IntoResponse {
     let msg = match parse_message(&body) {
         Ok(m) => m,
-        Err(e) => return ar("unknown", "unknown", &e.to_string()),
+        Err(e) => return ar(&Inbound::unknown(), &e.to_string()),
     };
     let h = msh_header(&msg);
     let pid = match msg.segment("PID") {
         Some(s) => s,
-        None => return ae(&h.sender, &h.control_id, "PID segment missing"),
+        None => return ae(&h.inbound, "PID segment missing"),
     };
     let pv1 = match msg.segment("PV1") {
         Some(s) => s,
-        None => return ae(&h.sender, &h.control_id, "PV1 segment missing"),
+        None => return ae(&h.inbound, "PV1 segment missing"),
     };
     let bed_code = match extract_bed_code_from_pv1(pv1) {
         Some(c) => c,
         None => {
-            return ae(
-                &h.sender,
-                &h.control_id,
-                "PV1-3.3 (destination bed) is required",
-            );
+            return ae(&h.inbound, "PV1-3.3 (destination bed) is required");
         }
     };
     let Some(client) = need_person_client(&state) else {
         return ae(
-            &h.sender,
-            &h.control_id,
+            &h.inbound,
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
         );
     };
@@ -169,40 +157,34 @@ pub async fn transfer(
     let ctx = upstream_ctx(&audit);
     let (person_id, _) = match dedup_or_create_person(client, pid, &ctx).await {
         Ok(r) => r,
-        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => return ae(&h.inbound, &client_text(&e)),
     };
     let admission = match AdmissionRepository::find_open_for_patient(&state.db, person_id).await {
         Ok(Some(a)) => a,
         Ok(None) => {
             return ae(
-                &h.sender,
-                &h.control_id,
+                &h.inbound,
                 &format!("no open admission for person {person_id}"),
             );
         }
-        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => return ae(&h.inbound, &client_text(&e)),
     };
     let bed = match BedRepository::find_by_code(&state.db, &bed_code).await {
         Ok(Some(b)) => b,
         Ok(None) => {
-            return ae(
-                &h.sender,
-                &h.control_id,
-                &format!("bed code {bed_code:?} not found"),
-            );
+            return ae(&h.inbound, "bed in PV1-3.3 not found");
         }
-        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => return ae(&h.inbound, &client_text(&e)),
     };
     match state.adt.transfer(admission.id, bed.id, &audit).await {
         Ok(_) => aa(
-            &h.sender,
-            &h.control_id,
+            &h.inbound,
             Some(&format!(
                 "transferred person={person_id} admission={} to bed={}",
                 admission.id, bed.id
             )),
         ),
-        Err(e) => ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => ae(&h.inbound, &client_text(&e)),
     }
 }
 
@@ -224,17 +206,16 @@ pub async fn discharge(
 ) -> impl IntoResponse {
     let msg = match parse_message(&body) {
         Ok(m) => m,
-        Err(e) => return ar("unknown", "unknown", &e.to_string()),
+        Err(e) => return ar(&Inbound::unknown(), &e.to_string()),
     };
     let h = msh_header(&msg);
     let pid = match msg.segment("PID") {
         Some(s) => s,
-        None => return ae(&h.sender, &h.control_id, "PID segment missing"),
+        None => return ae(&h.inbound, "PID segment missing"),
     };
     let Some(client) = need_person_client(&state) else {
         return ae(
-            &h.sender,
-            &h.control_id,
+            &h.inbound,
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
         );
     };
@@ -242,29 +223,27 @@ pub async fn discharge(
     let ctx = upstream_ctx(&audit);
     let (person_id, _) = match dedup_or_create_person(client, pid, &ctx).await {
         Ok(r) => r,
-        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => return ae(&h.inbound, &client_text(&e)),
     };
     let admission = match AdmissionRepository::find_open_for_patient(&state.db, person_id).await {
         Ok(Some(a)) => a,
         Ok(None) => {
             return ae(
-                &h.sender,
-                &h.control_id,
+                &h.inbound,
                 &format!("no open admission for person {person_id}"),
             );
         }
-        Err(e) => return ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => return ae(&h.inbound, &client_text(&e)),
     };
     match state.adt.discharge(admission.id, &audit).await {
         Ok(_) => aa(
-            &h.sender,
-            &h.control_id,
+            &h.inbound,
             Some(&format!(
                 "discharged person={person_id} admission={}",
                 admission.id
             )),
         ),
-        Err(e) => ae(&h.sender, &h.control_id, &client_text(&e)),
+        Err(e) => ae(&h.inbound, &client_text(&e)),
     }
 }
 
@@ -335,13 +314,12 @@ pub async fn register(
         .await;
     match res {
         Ok(e) => aa(
-            &r.sender,
-            &r.control_id,
+            &r.inbound,
             Some(&format!(
                 "registered encounter={} person={} class={}",
                 e.id, r.person_id, class_str
             )),
         ),
-        Err(e) => ae(&r.sender, &r.control_id, &e.client_message()),
+        Err(e) => ae(&r.inbound, &e.client_message()),
     }
 }

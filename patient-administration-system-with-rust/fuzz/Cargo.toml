@@ -47,3 +47,10 @@ path = "fuzz_targets/identifier_check.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "hl7_redact"
+path = "fuzz_targets/hl7_redact.rs"
+test = false
+doc = false
+bench = false

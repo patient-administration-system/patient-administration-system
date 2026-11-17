@@ -10,13 +10,13 @@ use crate::{Error, Result};
 /// standard `|^~\&`. Anything else is an [`Error::Validation`]. Each field keeps its wire text (still escaped),
 /// and for `MSH`, field 1 is the separator and field 2 the encoding characters, as HL7 numbers them.
 pub fn parse_message(raw: &str) -> Result<Message> {
-    let parsed = er7::parse(raw).map_err(|e| Error::validation(format!("HL7v2: {e}")))?;
+    let parsed =
+        er7::parse(raw).map_err(|e| Error::validation(format!("HL7v2: {}", parse_reason(&e))))?;
     let first = parsed.segments.first().map(|s| s.name.as_str());
     if first != Some("MSH") {
-        return Err(Error::validation(format!(
-            "HL7v2: first segment must be MSH, got {:?}",
-            first.unwrap_or_default()
-        )));
+        // What came first is not quoted: it may be anything the sender put there (NFR-33).
+        let _ = first;
+        return Err(Error::validation("HL7v2: first segment must be MSH"));
     }
     if parsed.separators != er7::Separators::default() {
         return Err(Error::validation(format!(
@@ -25,6 +25,17 @@ pub fn parse_message(raw: &str) -> Result<Message> {
         )));
     }
     Ok(parsed)
+}
+
+/// Why er7 refused a message, without quoting it: er7's own text carries what it found (the segment name
+/// that stood where MSH should, made of whatever the sender put there), which may be personal data (NFR-33).
+pub(crate) fn parse_reason(e: &er7::Error) -> &'static str {
+    match e {
+        er7::Error::Empty => "no segments",
+        er7::Error::MissingHeader(_) => "the first segment is not MSH, FHS or BHS",
+        er7::Error::BadHeader(_) => "the header's delimiters cannot be used",
+        er7::Error::BadPath(_) => "a field path could not be read",
+    }
 }
 
 #[cfg(test)]

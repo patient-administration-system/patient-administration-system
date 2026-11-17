@@ -20,16 +20,21 @@ pub(super) async fn dispatch_inner_to_ack_body(
         }
         None => (String::new(), String::new()),
     };
+    // Each message in a batch is recognised on its own, as it would be sent alone (NFR-31, HUB-2).
+    let inbound = Inbound::of(msg);
     macro_rules! call {
         ($handler:ident) => {{
-            let resp = $handler(State(state.clone()), headers.clone(), body.clone())
-                .await
-                .into_response();
-            let (_, body_box) = resp.into_parts();
-            let bytes = axum::body::to_bytes(body_box, 1024 * 1024)
-                .await
-                .unwrap_or_default();
-            String::from_utf8(bytes.to_vec()).unwrap_or_default()
+            crate::hl7v2::dedupe::guarded(&state.db, &inbound, async {
+                let resp = $handler(State(state.clone()), headers.clone(), body.clone())
+                    .await
+                    .into_response();
+                let (_, body_box) = resp.into_parts();
+                let bytes = axum::body::to_bytes(body_box, 1024 * 1024)
+                    .await
+                    .unwrap_or_default();
+                String::from_utf8(bytes.to_vec()).unwrap_or_default()
+            })
+            .await
         }};
     }
     match (code.as_str(), event.as_str()) {
@@ -57,7 +62,8 @@ pub(super) async fn dispatch_inner_to_ack_body(
         ("SIU", "S15") => call!(schedule_cancel),
         ("MFN", "M02") => call!(mfn_staff),
         ("MFN", "M05") => call!(mfn_location),
-        _ => call!(add_person),
+        // A type the PAS does not handle is refused, never treated as an add-person (until 2026-11-17 it was).
+        _ => ack_to(&inbound, AckCode::Reject, Some("unsupported message type")),
     }
 }
 
@@ -79,22 +85,13 @@ pub async fn batch(
 ) -> impl IntoResponse {
     let parsed = match parse_batch(&body) {
         Ok(b) => b,
-        Err(e) => return ar("unknown", "unknown", &e.to_string()),
+        Err(e) => return ar(&Inbound::unknown(), &e.to_string()),
     };
-    let batch_id = parsed
-        .bhs
-        .as_ref()
-        .map(|s| s.raw(11).to_string())
-        .unwrap_or_default();
-    let sender = parsed
-        .bhs
-        .as_ref()
-        .map(|s| s.raw(3).to_string())
-        .unwrap_or_default();
+    let inbound = crate::hl7v2::BatchInbound::of(parsed.bhs.as_ref());
     let mut per_message: Vec<String> = Vec::with_capacity(parsed.messages.len());
     for inner in &parsed.messages {
         per_message.push(dispatch_inner_to_ack_body(&state, &headers, inner).await);
     }
-    let envelope = encode_batch_ack(PAS_APP, &sender, &batch_id, &per_message);
+    let envelope = encode_batch_ack(&inbound, &per_message);
     (StatusCode::OK, TEXT_PLAIN, envelope)
 }

@@ -162,11 +162,13 @@ docs-scripts:
     python3 scripts/generate-llms.py --check
     python3 scripts/generate-schema-map.py --check
     python3 scripts/check-hazard-log.py
+    python3 scripts/check-nfr-tests.py
 
 # Tests of the local gate and the hook; no database or build needed.
 script-tests:
     scripts/ci-local-test.sh
     python3 scripts/check-hazard-log.py --self-test
+    python3 scripts/check-nfr-tests.py --self-test
 
 # The hazard log against a base commit: no hazard row deleted, closures only appended (SAFE-2);
 # then the hazards whose code or tests the change since the base touches, for the CSO (SAFE-6).

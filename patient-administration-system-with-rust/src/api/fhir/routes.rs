@@ -117,6 +117,11 @@ pub fn router(state: AppState) -> Router {
             state.clone(),
             crate::api::rest::read_audit::read_audit_middleware,
         ))
+        // HUB-8: `$book`, `$hold` and a transaction Bundle with an `Idempotency-Key` are done once.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::api::rest::idempotency::idempotency_middleware,
+        ))
         .layer(axum::middleware::from_fn(fhir_media_type))
         .with_state(state)
 }

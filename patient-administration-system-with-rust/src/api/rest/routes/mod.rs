@@ -90,13 +90,21 @@ pub fn router(state: AppState) -> Router {
         .merge(support())
         .merge(reporting())
         .merge(records())
-        .merge(hl7v2())
+        .merge(hl7v2().route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            super::hl7_dedupe::hl7_dedupe_middleware,
+        )))
         // Dashboard (/dashboard + 4 fragment routes) is mounted from
         // `main.rs` as a sibling router that merges in at boot time —
         // it isn't part of this REST table.
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             super::read_audit::read_audit_middleware,
+        ))
+        // HUB-8: a POST with an `Idempotency-Key` is done at most once per caller and key.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            super::idempotency::idempotency_middleware,
         ))
         .layer(axum::middleware::from_fn(
             super::concurrency::etag_middleware,

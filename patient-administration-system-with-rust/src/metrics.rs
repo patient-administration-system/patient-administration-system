@@ -26,10 +26,42 @@ struct JobStats {
     panicked: u64,
     /// Unix seconds of the last run that finished without a panic.
     last_success: Option<i64>,
+    /// Unix seconds of the last tick that finished at all, including one skipped because another replica held
+    /// the job's lock (that replica ran it).
+    last_seen: Option<i64>,
+    /// How often the job is meant to tick, once it is running in this process.
+    every_secs: Option<u64>,
+}
+
+/// What `GET /api/health` says about a background job (NFR-34). There is no "ok" without data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JobHealth {
+    /// The job does not run in this process (a test, a tool).
+    Off,
+    /// It runs here but has not finished a tick yet.
+    Unknown,
+    /// It finished a tick within three of its intervals.
+    Ok,
+    /// It runs here and has not finished a tick for three intervals (and at least 30 seconds): stopped or
+    /// stuck in one tick.
+    Stalled,
+}
+
+impl JobHealth {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            JobHealth::Off => "off",
+            JobHealth::Unknown => "unknown",
+            JobHealth::Ok => "ok",
+            JobHealth::Stalled => "stalled",
+        }
+    }
 }
 
 struct Registry {
     jobs: Mutex<BTreeMap<String, JobStats>>,
+    /// When each job registered (Unix seconds), so one that never finishes a tick is seen as stalled.
+    starts: Mutex<BTreeMap<String, i64>>,
     /// Requests by status class: 1xx, 2xx, 3xx, 4xx, 5xx.
     http: [AtomicU64; 5],
     http_micros: AtomicU64,
@@ -39,9 +71,66 @@ fn registry() -> &'static Registry {
     static R: OnceLock<Registry> = OnceLock::new();
     R.get_or_init(|| Registry {
         jobs: Mutex::new(BTreeMap::new()),
+        starts: Mutex::new(BTreeMap::new()),
         http: Default::default(),
         http_micros: AtomicU64::new(0),
     })
+}
+
+/// A background job started in this process, to tick `every`. Until it does, its health is `Off`.
+pub fn job_registered(name: &str, every: std::time::Duration) {
+    let mut jobs = registry()
+        .jobs
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let s = jobs.entry(name.to_string()).or_default();
+    s.every_secs = Some(every.as_secs().max(1));
+    s.last_seen = None;
+    drop(jobs);
+    registry()
+        .starts
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(name.to_string(), Utc::now().timestamp());
+}
+
+/// The health of job `name` at `now` (Unix seconds).
+pub fn job_health_at(name: &str, now: i64) -> JobHealth {
+    let jobs = registry()
+        .jobs
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let Some(s) = jobs.get(name).copied() else {
+        return JobHealth::Off;
+    };
+    let Some(every) = s.every_secs else {
+        return JobHealth::Off;
+    };
+    let window = i64::try_from(every.saturating_mul(3))
+        .unwrap_or(i64::MAX)
+        .max(30);
+    drop(jobs);
+    match s.last_seen {
+        Some(t) if now - t <= window => JobHealth::Ok,
+        Some(_) => JobHealth::Stalled,
+        None => {
+            let started = registry()
+                .starts
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .get(name)
+                .copied();
+            match started {
+                Some(t) if now - t > window => JobHealth::Stalled,
+                _ => JobHealth::Unknown,
+            }
+        }
+    }
+}
+
+/// The health of job `name` now.
+pub fn job_health(name: &str) -> JobHealth {
+    job_health_at(name, Utc::now().timestamp())
 }
 
 /// A background job's tick ended.
@@ -56,8 +145,12 @@ pub fn job_finished(name: &str, outcome: Outcome) {
         Outcome::Ran => {
             s.ran += 1;
             s.last_success = Some(Utc::now().timestamp());
+            s.last_seen = s.last_success;
         }
-        Outcome::Skipped => s.skipped += 1,
+        Outcome::Skipped => {
+            s.skipped += 1;
+            s.last_seen = Some(Utc::now().timestamp());
+        }
         Outcome::Panicked => s.panicked += 1,
     }
 }
@@ -186,6 +279,29 @@ pub async fn render(db: &Pool) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn job_health_is_off_unknown_ok_or_stalled_and_never_ok_without_data() {
+        let now = Utc::now().timestamp();
+        assert_eq!(job_health_at("hub6-never-registered", now), JobHealth::Off);
+        job_registered("hub6-job", std::time::Duration::from_secs(2));
+        assert_eq!(job_health_at("hub6-job", now), JobHealth::Unknown);
+        // Registered and never finished a tick for longer than the window (30 s at least): stalled.
+        assert_eq!(job_health_at("hub6-job", now + 31), JobHealth::Stalled);
+        job_finished("hub6-job", Outcome::Ran);
+        assert_eq!(job_health_at("hub6-job", now + 1), JobHealth::Ok);
+        assert_eq!(job_health_at("hub6-job", now + 31), JobHealth::Stalled);
+        // A tick another replica ran counts: the job is alive somewhere.
+        job_finished("hub6-job", Outcome::Skipped);
+        assert_eq!(job_health_at("hub6-job", now + 2), JobHealth::Ok);
+        // A slow job's window is three of its intervals.
+        job_registered("hub6-hourly", std::time::Duration::from_secs(3600));
+        job_finished("hub6-hourly", Outcome::Ran);
+        assert_eq!(
+            job_health_at("hub6-hourly", now + 3 * 3600 - 5),
+            JobHealth::Ok
+        );
+    }
 
     #[test]
     fn job_runs_are_counted_by_outcome_and_the_last_success_is_stamped() {

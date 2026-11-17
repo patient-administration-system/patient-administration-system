@@ -98,6 +98,10 @@ pub const VARS: &[Var] = &[
     int_var("PAS_REBOOK_OFFER_MINUTES", 120, 1, 10_080),
     int_var("PAS_HOLD_MINUTES", 10, 1, 1_440),
     int_var("PAS_DB_MAX_CONNECTIONS", 10, 1, 1_000),
+    int_var("PAS_HL7_DEDUPE_DAYS", 7, 1, 3_650),
+    int_var("PAS_OUTBOX_STALE_SECONDS", 1_800, 60, 604_800),
+    int_var("PAS_HL7_IDLE_SECONDS", 30, 1, 86_400),
+    int_var("PAS_HL7_MAX_CONNECTIONS", 64, 1, 10_000),
     int_var("PAS_CHECK_WEEKS", 26, 1, 520),
     int_var("PAS_CHECK_REPEAT_DAYS", 90, 1, 3_650),
     // The no-show score.

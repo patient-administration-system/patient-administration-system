@@ -46,6 +46,19 @@ pub enum Error {
     #[error("Streaming error: {0}")]
     Streaming(String),
 
+    /// A receiver refused an event in a way a retry cannot change (a 400 or a 422; an HL7 `AR`). The outbox
+    /// dead-letters it at once (NFR-32).
+    #[error("Delivery rejected: {0}")]
+    DeliveryRejected(String),
+
+    /// A receiver could not take an event now (a 503, a 429, a timeout; an HL7 `AE`), and said when to try
+    /// again if it did (`Retry-After`). The outbox tries again after a backoff (NFR-32).
+    #[error("Delivery deferred: {message}")]
+    DeliveryDeferred {
+        message: String,
+        retry_after_secs: Option<u64>,
+    },
+
     #[error("FHIR error: {0}")]
     Fhir(String),
 
@@ -146,7 +159,9 @@ impl Error {
             | Error::Fhir(_) => return self.to_string(),
             Error::Database(_) => "Database error",
             Error::Search(_) => "Search error",
-            Error::Streaming(_) => "Streaming error",
+            Error::Streaming(_) | Error::DeliveryRejected(_) | Error::DeliveryDeferred { .. } => {
+                "Streaming error"
+            }
             Error::Render(_) => "Render error",
             Error::Config(_) => "Configuration error",
             Error::Upstream(_) => "Upstream service error",

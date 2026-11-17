@@ -153,14 +153,15 @@ fn check_entry(entry: &Value, auth: Option<&RequestAuth>) -> Result<Write, Refus
             ));
         }
         "Schedule" | "Slot" | "Coverage" | "Appointment" | "Encounter" => {}
-        other => {
+        _ => {
+            // The type the client sent is not quoted back: an error names a place and a reason, never a value
+            // (NFR-33).
             return Err(Refusal::new(
                 StatusCode::NOT_IMPLEMENTED,
                 "not-supported",
-                format!(
-                    "a Bundle can write Schedule, Slot, Coverage, Appointment and Encounter; \
-                     {other} is not supported"
-                ),
+                "a Bundle can write Schedule, Slot, Coverage, Appointment and Encounter; \
+                 this resource type is not supported"
+                    .to_string(),
             ));
         }
     }

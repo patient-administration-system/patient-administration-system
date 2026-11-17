@@ -5,6 +5,24 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- The MLLP listener can use TLS (`PAS_HL7_TLS_CERT_FILE` and `PAS_HL7_TLS_KEY_FILE`, both or neither, or the server refuses to start) and ask for client certificates (`PAS_HL7_TLS_CLIENT_CA_FILE`); it closes an idle connection (`PAS_HL7_IDLE_SECONDS`, 30) and caps open ones (`PAS_HL7_MAX_CONNECTIONS`, 64) (HUB-3, NFR-31).
+- `GET /api/health` reports the outbox dispatcher (`off`, `unknown`, `ok`, `stalled`), the age of the oldest undelivered event, the events held behind dead letters, the dead letters, and the MLLP listener, and says `degraded` when the dispatcher has stalled, the backlog is older than `PAS_OUTBOX_STALE_SECONDS` (1800) or the listener stopped (HUB-6, NFR-34).
+- `POST /api/admin/outbox/dead-letters/{id}/skip`: give up on a dead letter without delivering it, audited, so its record's later events go out.
+- `Idempotency-Key` on any POST to the REST and FHIR APIs (HUB-8): a retry with the same key and request gets the first answer (`Idempotent-Replayed: true`) and creates nothing; the same key for another request is `422`, one still running `409`. Kept 24 hours. Migration 67.
+- `hl7v2::redact` and a fuzz target for it: HL7 v2 for logs, the header kept and every other field masked (HUB-5). The MLLP listener logs each frame through it, at debug.
+- `scripts/check-nfr-tests.py`: every NFR has a test that names it, or a stated reason (HUB-9). Golden tests for the HL7 v2 example messages (HUB-7). `spec/deviations.md`, the deviation register (HUB-10).
+
+### Changed
+- **Outbox delivery by failure class (HUB-4, NFR-32).** A receiver's refusal that a retry cannot change (a 400, 404, 409, 410, 413, 415 or 422; an HL7 `AR`) is dead-lettered at once instead of tried ten times; anything else waits 5 s, doubling to 15 minutes, or the receiver's `Retry-After`, instead of every 2 s. An event waits while an earlier one for the same record (appointment, else person, encounter, admission, account) is undelivered or dead-lettered. Migration 66 adds a stored generated column to `outbox_events`, which rewrites the table: on a large outbox, run it when delivery can wait. The receiver's response body and MSA-3 text are no longer kept in `last_error`.
+- A connection that sends something other than whitespace before an MLLP frame is closed (before, the bytes were skipped for ever); an oversize frame is answered with an AE.
+
+### Fixed
+- Error answers no longer quote what the sender sent (NFR-33, HUB-5): an HL7 v2 parse error quoted the text where MSH should be, ACKs quoted bed codes, a merge's source MRN, appointment and staff ids, and charge amounts and codes, and a FHIR Bundle quoted the resource type it refused. Each now names the field and the reason.
+- An HL7 v2 message sent again with the same control id (MSH-10), as a sender does when it loses our ACK, is answered from its first ACK and not processed again, so an A01 no longer admits twice (HUB-2, NFR-31). Keys are the sender and a SHA-256 of MSH-10, kept `PAS_HL7_DEDUPE_DAYS` (default 7). Migration 65. A copy that started and did not finish is refused with an AE for a person to check, never processed again.
+- The HL7 v2 ACK answers the message it acknowledges: the sender and receiver are swapped, MSH-11 and MSH-12 are copied (a test message was acknowledged as production), the ACK has its own control id, and MSA-3 is one escaped line of at most 80 characters (HUB-1). The batch ACK's BHS fields are in their places (the control id was in BHS-9).
+- A message of a type the PAS does not handle is answered AR. Before, the MLLP listener and the batch endpoint sent it to the add-person handler, so any message with a PID made a person.
+
 ### Changed
 
 - Booking is about 30 times faster on a database of realistic size (PERF-1): migration 64 indexes `appointments.slot_id`, the schedule owner and all of a schedule's slots. Every booking's clash check (CORE-3) had been hashing every live appointment, about 95 ms on 78,000; it is now under 0.1 ms. Found by the first load test.

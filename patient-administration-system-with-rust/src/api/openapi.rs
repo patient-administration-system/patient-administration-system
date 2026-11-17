@@ -409,6 +409,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_admin::list_unpublished_outbox,
         crate::api::rest::handlers_admin::list_dead_letters,
         crate::api::rest::handlers_admin::replay_dead_letter,
+        crate::api::rest::handlers_admin::skip_dead_letter,
         crate::api::rest::handlers_resources::create_facility,
         crate::api::rest::handlers_resources::list_facilities,
         crate::api::rest::handlers_resources::get_facility,

@@ -744,3 +744,22 @@ suspected_conditions,profile,none,"Not personal data (structure, status, timesta
 suspected_conditions,target_days,none,"Not personal data (structure, status, timestamps, places, templates)",record
 suspected_conditions,hold_patient_cancel,none,"Not personal data (structure, status, timestamps, places, templates)",record
 suspected_conditions,booking_priority,health,"Administrative care information (why, where, what service, outcome)",record
+hl7_inbound_messages,sending_app,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+hl7_inbound_messages,sending_facility,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+hl7_inbound_messages,control_id_sha256,none,"A SHA-256 of the sender's message control id, which some senders build from a patient identifier; kept only to recognise a resent message",short-lived
+hl7_inbound_messages,state,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+hl7_inbound_messages,ack_code,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+hl7_inbound_messages,ack_text,none,"The reason sent back in the ACK: a field name and a reason, or a record id",short-lived
+hl7_inbound_messages,received_at,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+hl7_inbound_messages,finished_at,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+outbox_events,next_attempt_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+outbox_events,aggregate_key,identifier,"The record an event is about (an appointment, person, encounter, admission or account id), so its events are delivered in order",record
+outbox_dead_letters,aggregate_key,identifier,"The record a dead letter is about, so it holds that record's later events until a person replays or skips it",record
+idempotency_keys,caller,identifier,"The verified identity of the caller that sent the request, so callers cannot see each other's answers",short-lived
+idempotency_keys,key_sha256,none,"A SHA-256 of the client's Idempotency-Key",short-lived
+idempotency_keys,request_sha256,none,"A SHA-256 of the request, to refuse a key reused for another request",short-lived
+idempotency_keys,state,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+idempotency_keys,status,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+idempotency_keys,content_type,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+idempotency_keys,body,free-text,"The answer as it was sent, which may contain personal data from the record it describes; kept 24 hours to answer a retry",short-lived
+idempotency_keys,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived

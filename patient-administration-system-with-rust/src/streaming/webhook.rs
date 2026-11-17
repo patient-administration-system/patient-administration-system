@@ -135,18 +135,33 @@ impl EventPublisher for WebhookEventPublisher {
             .body(body)
             .send()
             .await
-            .map_err(|e| Error::Streaming(format!("webhook POST to {}: {e}", self.url)))?;
-        let status = resp.status();
-        if !status.is_success() {
-            let body = resp.text().await.unwrap_or_default();
-            return Err(Error::Streaming(format!(
-                "webhook POST to {} returned {} (body: {})",
-                self.url,
-                status,
-                body.chars().take(200).collect::<String>()
-            )));
-        }
-        Ok(())
+            .map_err(|e| Error::DeliveryDeferred {
+                message: format!("webhook POST to {}: {e}", self.url),
+                retry_after_secs: None,
+            })?;
+        let retry_after = resp
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        classify(&self.url, resp.status().as_u16(), retry_after.as_deref())
+    }
+}
+
+/// What a webhook's answer means for the outbox (NFR-32). A 2xx is delivered. A status a retry cannot change
+/// (400, 404, 409, 410, 413, 415, 422) is rejected and dead-lettered at once. Anything else (408, 429, 5xx, a
+/// 401 or 403 while credentials are fixed, an odd status) is deferred, with `Retry-After` in seconds when the
+/// receiver gave one. The receiver's body is not kept: it may echo the event (NFR-33).
+pub fn classify(url: &str, status: u16, retry_after: Option<&str>) -> Result<()> {
+    match status {
+        200..=299 => Ok(()),
+        400 | 404 | 409 | 410 | 413 | 415 | 422 => Err(Error::DeliveryRejected(format!(
+            "webhook POST to {url} returned {status}"
+        ))),
+        _ => Err(Error::DeliveryDeferred {
+            message: format!("webhook POST to {url} returned {status}"),
+            retry_after_secs: retry_after.and_then(|v| v.trim().parse::<u64>().ok()),
+        }),
     }
 }
 
@@ -320,8 +335,46 @@ mod tests {
             .await
             .expect_err("500 must surface as Err");
         match err {
-            Error::Streaming(msg) => assert!(msg.contains("500"), "msg: {msg}"),
-            other => panic!("expected Streaming, got {other:?}"),
+            Error::DeliveryDeferred { message, .. } => {
+                assert!(message.contains("500"), "msg: {message}")
+            }
+            other => panic!("expected DeliveryDeferred, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_classify_by_status() {
+        assert!(classify("u", 204, None).is_ok());
+        for permanent in [400, 404, 409, 410, 413, 415, 422] {
+            assert!(
+                matches!(
+                    classify("u", permanent, None),
+                    Err(Error::DeliveryRejected(_))
+                ),
+                "{permanent}"
+            );
+        }
+        for later in [408, 429, 500, 502, 503, 504, 401, 403, 302] {
+            assert!(
+                matches!(
+                    classify("u", later, None),
+                    Err(Error::DeliveryDeferred { .. })
+                ),
+                "{later}"
+            );
+        }
+        match classify("u", 503, Some(" 120 ")) {
+            Err(Error::DeliveryDeferred {
+                retry_after_secs, ..
+            }) => assert_eq!(retry_after_secs, Some(120)),
+            other => panic!("{other:?}"),
+        }
+        // An HTTP-date Retry-After is not read; the outbox's own backoff applies.
+        match classify("u", 429, Some("Wed, 21 Oct 2026 07:28:00 GMT")) {
+            Err(Error::DeliveryDeferred {
+                retry_after_secs, ..
+            }) => assert_eq!(retry_after_secs, None),
+            other => panic!("{other:?}"),
         }
     }
 
@@ -335,6 +388,6 @@ mod tests {
             .publish(DomainEvent::new("PatientCreated", json!({})))
             .await
             .expect_err("transport failure must surface as Err");
-        assert!(matches!(err, Error::Streaming(_)));
+        assert!(matches!(err, Error::DeliveryDeferred { .. }));
     }
 }

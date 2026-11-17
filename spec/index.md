@@ -26,6 +26,7 @@
 | 18 | [Change control](18-change-control.md) |
 | 19 | [Schema map](19-schema-map.md) (generated) |
 | 20 | [Suspected conditions](20-suspected-conditions.md): tracking suspicion during referrals |
+| — | [Deviations from the standards](deviations.md): where the PAS knowingly differs from HL7 v2, FHIR or IHE, with a decision for the owner (HUB-10) |
 
 Cross-cutting chapters: [Locales](locales.md). Safety: [Hazards, who may remove one and on what evidence](hazard/index.md).
 

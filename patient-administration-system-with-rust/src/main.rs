@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     spawn_jobs(&mut jobs, &cfg, &db, &publisher, &state)?;
 
     let app = build_app(&cfg, state).await?;
-    start_mllp(&cfg, &app);
+    start_mllp(&cfg, &app)?;
     serve(&cfg, app).await?;
     // Let a job that is mid-run finish (a half-sent reminder step is the worst case) before the process exits.
     jobs.stop(std::time::Duration::from_secs(30)).await;
@@ -269,6 +269,7 @@ fn spawn_jobs(
     spawn_noshow(jobs, state);
     spawn_backfill(jobs, state);
     spawn_bed_holds(jobs, state);
+    spawn_hl7_dedupe_purge(jobs, db);
     spawn_reminders(jobs, db, state)
 }
 
@@ -387,6 +388,27 @@ fn spawn_bed_holds(jobs: &mut Jobs, state: &AppState) {
                 }
                 Ok(_) => {}
                 Err(e) => tracing::warn!(target: "pas::adt", "bed hold sweep failed: {e}"),
+            }
+        }
+    });
+}
+
+fn spawn_hl7_dedupe_purge(jobs: &mut Jobs, db: &patient_administration_system::db::sql::Pool) {
+    // HL7 v2 duplicate keys (NFR-31, HUB-2) older than PAS_HL7_DEDUPE_DAYS, and Idempotency-Key answers (HUB-8)
+    // older than 24 hours: every hour.
+    let db = db.clone();
+    jobs.spawn("hl7-dedupe-purge", std::time::Duration::from_secs(3600), move || {
+        let db = db.clone();
+        async move {
+            match patient_administration_system::hl7v2::dedupe::purge(&db).await {
+                Ok(n) if n > 0 => tracing::info!(target: "pas::hl7v2::dedupe", removed = n, "old duplicate keys removed"),
+                Ok(_) => {}
+                Err(e) => tracing::warn!(target: "pas::hl7v2::dedupe", "duplicate key purge failed: {e}"),
+            }
+            match patient_administration_system::api::rest::idempotency::purge(&db).await {
+                Ok(n) if n > 0 => tracing::info!(target: "pas::idempotency", removed = n, "old idempotency keys removed"),
+                Ok(_) => {}
+                Err(e) => tracing::warn!(target: "pas::idempotency", "idempotency key purge failed: {e}"),
             }
         }
     });
@@ -595,11 +617,14 @@ async fn build_app(cfg: &Config, state: AppState) -> Result<axum::Router> {
 }
 
 /// The optional MLLP TCP listener for HL7 v2 messages; it posts each frame to `app`.
-fn start_mllp(cfg: &Config, app: &axum::Router) {
-    // Optional MLLP TCP listener for HL7 v2 ADT messages.
+fn start_mllp(cfg: &Config, app: &axum::Router) -> Result<()> {
+    // Optional MLLP TCP listener for HL7 v2 ADT messages. Its TLS settings are read first, so a certificate
+    // without a key (or a file that does not load) stops the server here instead of listening in plain text.
+    let options = patient_administration_system::hl7v2::listener::MllpOptions::from_env()?;
     if let Some(bind) = cfg.hl7v2_mllp_bind.clone() {
         tracing::info!("HL7 v2 MLLP listener requested on {bind}");
-        let server = patient_administration_system::hl7v2::MllpServer::new(app.clone());
+        let server = patient_administration_system::hl7v2::MllpServer::new(app.clone())
+            .with_options(options);
         let bind_for_task = bind.clone();
         tokio::spawn(async move {
             if let Err(e) = server.serve(&bind_for_task).await {
@@ -607,6 +632,7 @@ fn start_mllp(cfg: &Config, app: &axum::Router) {
             }
         });
     }
+    Ok(())
 }
 
 /// The key that signs list cursors, from `PAS_CURSOR_KEY`. Without it each process signs with its own, so a

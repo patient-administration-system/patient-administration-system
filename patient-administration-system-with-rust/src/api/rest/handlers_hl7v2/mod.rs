@@ -41,7 +41,7 @@ use crate::db::repositories::encounter::EncounterRepository;
 use crate::db::repositories::outbox::OutboxRepository;
 use crate::error::client_text;
 use crate::hl7v2::SegmentRead;
-use crate::hl7v2::ack::{AckCode, ack};
+use crate::hl7v2::ack::{AckCode, Inbound, ack_to};
 use crate::hl7v2::batch::{encode_batch_ack, parse_batch};
 use crate::hl7v2::encoder::encode_message;
 use crate::hl7v2::parser::parse_message;
@@ -72,7 +72,6 @@ pub use master::*;
 pub use scheduling::*;
 
 const TEXT_PLAIN: [(axum::http::HeaderName, &str); 1] = [(CONTENT_TYPE, "text/plain")];
-const PAS_APP: &str = "PAS";
 
 /// Response shape every handler returns. The string is the v2 ACK
 /// frame; the HTTP status code is 200 unless the wire-level parser
@@ -84,48 +83,38 @@ type Hl7Response = (
     String,
 );
 
-fn ar(sender: &str, control_id: &str, message: &str) -> Hl7Response {
+fn ar(inbound: &Inbound, message: &str) -> Hl7Response {
     (
         StatusCode::OK,
         TEXT_PLAIN,
-        ack(PAS_APP, sender, control_id, AckCode::Reject, Some(message)),
+        ack_to(inbound, AckCode::Reject, Some(message)),
     )
 }
 
-fn ae(sender: &str, control_id: &str, message: &str) -> Hl7Response {
+fn ae(inbound: &Inbound, message: &str) -> Hl7Response {
     (
         StatusCode::OK,
         TEXT_PLAIN,
-        ack(
-            PAS_APP,
-            sender,
-            control_id,
-            AckCode::AppError,
-            Some(message),
-        ),
+        ack_to(inbound, AckCode::AppError, Some(message)),
     )
 }
 
-fn aa(sender: &str, control_id: &str, diag: Option<&str>) -> Hl7Response {
+fn aa(inbound: &Inbound, diag: Option<&str>) -> Hl7Response {
     (
         StatusCode::OK,
         TEXT_PLAIN,
-        ack(PAS_APP, sender, control_id, AckCode::Accept, diag),
+        ack_to(inbound, AckCode::Accept, diag),
     )
 }
 
-/// Parse the message and pull the sending app + message control id from
-/// MSH-3 / MSH-10. Used so every ACK reflects the inbound identity.
+/// The inbound MSH, so every ACK answers the message it acknowledges (NFR-31).
 struct MshHeader {
-    sender: String,
-    control_id: String,
+    inbound: Inbound,
 }
 
 fn msh_header(msg: &crate::hl7v2::Message) -> MshHeader {
-    let msh = msg.segment("MSH");
     MshHeader {
-        sender: msh.map(|s| s.raw(3).to_string()).unwrap_or_default(),
-        control_id: msh.map(|s| s.raw(10).to_string()).unwrap_or_default(),
+        inbound: Inbound::of(msg),
     }
 }
 
@@ -198,9 +187,9 @@ pub async fn parse(body: String) -> impl IntoResponse {
     match parse_message(&body) {
         Ok(msg) => {
             let h = msh_header(&msg);
-            aa(&h.sender, &h.control_id, Some("parsed"))
+            aa(&h.inbound, Some("parsed"))
         }
-        Err(e) => ar("unknown", "unknown", &e.to_string()),
+        Err(e) => ar(&Inbound::unknown(), &e.to_string()),
     }
 }
 
@@ -222,16 +211,15 @@ async fn resolve_person_or_ack(
     headers: &HeaderMap,
     body: &str,
 ) -> Result<ResolvedHeader, Hl7Response> {
-    let msg = parse_message(body).map_err(|e| ar("unknown", "unknown", &e.to_string()))?;
+    let msg = parse_message(body).map_err(|e| ar(&Inbound::unknown(), &e.to_string()))?;
     let h = msh_header(&msg);
     let pid = msg
         .segment("PID")
-        .ok_or_else(|| ae(&h.sender, &h.control_id, "PID segment missing"))?
+        .ok_or_else(|| ae(&h.inbound, "PID segment missing"))?
         .clone();
     let client = need_person_client(state).ok_or_else(|| {
         ae(
-            &h.sender,
-            &h.control_id,
+            &h.inbound,
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
         )
     })?;
@@ -239,11 +227,10 @@ async fn resolve_person_or_ack(
     let up = upstream_ctx(&audit);
     let (person_id, _created) = dedup_or_create_person(client, &pid, &up)
         .await
-        .map_err(|e| ae(&h.sender, &h.control_id, &client_text(&e)))?;
+        .map_err(|e| ae(&h.inbound, &client_text(&e)))?;
     Ok(ResolvedHeader {
         message: msg,
-        sender: h.sender,
-        control_id: h.control_id,
+        inbound: h.inbound,
         pid,
         person_id,
         audit,
@@ -253,8 +240,7 @@ async fn resolve_person_or_ack(
 
 struct ResolvedHeader {
     message: crate::hl7v2::Message,
-    sender: String,
-    control_id: String,
+    inbound: Inbound,
     pid: crate::hl7v2::Segment,
     person_id: uuid::Uuid,
     audit: RepoUserContext,

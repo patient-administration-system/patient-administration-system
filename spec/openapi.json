@@ -5067,6 +5067,51 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Skipped": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "description": "What skipping a dead letter released.",
+            "properties": {
+              "dead_letter_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "event_type": {
+                "type": "string"
+              },
+              "original_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "dead_letter_id",
+              "event_type",
+              "original_id"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_SmsLength": {
         "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
         "properties": {
@@ -17156,6 +17201,28 @@
         ],
         "type": "object"
       },
+      "Skipped": {
+        "description": "What skipping a dead letter released.",
+        "properties": {
+          "dead_letter_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "original_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dead_letter_id",
+          "event_type",
+          "original_id"
+        ],
+        "type": "object"
+      },
       "SlotRelease": {
         "properties": {
           "appointment_id": {
@@ -20046,6 +20113,49 @@
           }
         ],
         "summary": "`POST /api/admin/outbox/dead-letters/:id/replay` — re-inserts the\ndead-letter row into `outbox_events` (retry_count=0) and deletes the\nDLQ row, atomically. Returns the new outbox row id.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/outbox/dead-letters/{id}/skip": {
+      "post": {
+        "operationId": "post_api_admin_outbox_dead_letters__id__skip",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Skipped"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/admin/outbox/dead-letters/{id}/skip`: give up on a dead letter without delivering it, so the\nlater events of its record, which wait behind it, are delivered (NFR-32). Recorded in the audit log with\nwho did it. Use replay when the event should still be sent.",
         "tags": [
           "Admin"
         ]
@@ -23950,7 +24060,7 @@
     },
     "/api/health": {
       "get": {
-        "description": "`status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,\nso a probe does not pull a replica out of rotation for a fault every replica shares.",
+        "description": "`status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,\nso a probe does not pull a replica out of rotation for a fault every replica shares. It is also `degraded`\nwhen the outbox dispatcher has stalled (no finished tick for three intervals), when the oldest undelivered\nevent is older than `PAS_OUTBOX_STALE_SECONDS`, or when an MLLP listener this process started has stopped:\na health check that stays green while nothing is delivered is the failure this guards against. A worker\nwith no data yet says `unknown`, never `ok`.",
         "operationId": "get_api_health",
         "responses": {
           "200": {
@@ -23964,7 +24074,7 @@
           }
         },
         "security": [],
-        "summary": "`GET /api/health` — the database and the upstream services.",
+        "summary": "`GET /api/health` — the database, the upstream services, and the workers that move messages (NFR-28, NFR-34).",
         "tags": [
           "Health"
         ]

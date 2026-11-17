@@ -129,6 +129,66 @@ pub async fn replay_dead_letter(
     }
 }
 
+/// What skipping a dead letter released.
+#[derive(Debug, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct Skipped {
+    pub dead_letter_id: Uuid,
+    pub event_type: String,
+    pub original_id: Uuid,
+}
+
+/// `POST /api/admin/outbox/dead-letters/{id}/skip`: give up on a dead letter without delivering it, so the
+/// later events of its record, which wait behind it, are delivered (NFR-32). Recorded in the audit log with
+/// who did it. Use replay when the event should still be sent.
+#[utoipa::path(
+    post,
+    path = "/api/admin/outbox/dead-letters/{id}/skip",
+    tag = "Admin",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Skipped>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn skip_dead_letter(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> HandlerResult {
+    let ctx = audit_ctx(&user_context_from_headers(&headers));
+    let result = state
+        .db
+        .in_txn::<_, (String, Uuid)>(|txn| {
+            let ctx = ctx.clone();
+            Box::pin(async move {
+                let (event_type, original_id) = DeadLetterRepository::skip(txn, id).await?;
+                AuditLogRepository::log(
+                    txn,
+                    "outbox_dead_letter",
+                    id,
+                    "skip",
+                    None,
+                    Some(
+                        serde_json::json!({ "event_type": event_type, "original_id": original_id }),
+                    ),
+                    &ctx,
+                )
+                .await?;
+                Ok((event_type, original_id))
+            })
+        })
+        .await;
+    match result {
+        Ok((event_type, original_id)) => ok_json(Skipped {
+            dead_letter_id: id,
+            event_type,
+            original_id,
+        }),
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `GET /api/admin/metrics`: counters and gauges in the Prometheus text format (QUAL-16): requests by status
 /// class, background job runs and when each last finished, outbox events waiting and dead-lettered, and open
 /// staff call tasks. No identifiers. Administrators only.

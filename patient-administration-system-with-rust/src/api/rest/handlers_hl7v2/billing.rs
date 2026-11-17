@@ -56,8 +56,11 @@ pub async fn dft(
                         }
                     };
                 for ft1 in &parsed_clone {
-                    let amount = ft1.amount.parse::<rust_decimal::Decimal>().map_err(|e| {
-                        crate::Error::validation(format!("FT1[{}]-11.1 amount: {e}", ft1.set_id))
+                    let amount = ft1.amount.parse::<rust_decimal::Decimal>().map_err(|_| {
+                        crate::Error::validation(format!(
+                            "FT1[{}]-11.1 amount is not a number",
+                            ft1.set_id
+                        ))
                     })?;
                     let money = Money::new(amount, currency.clone());
                     let mut charge =
@@ -99,9 +102,9 @@ pub async fn dft(
             } else {
                 format!("charges_posted={n} account={account_id}")
             };
-            aa(&r.sender, &r.control_id, Some(&diag))
+            aa(&r.inbound, Some(&diag))
         }
-        Err(e) => ae(&r.sender, &r.control_id, &e.client_message()),
+        Err(e) => ae(&r.inbound, &e.client_message()),
     }
 }
 
@@ -111,35 +114,33 @@ fn parse_charges(
 ) -> std::result::Result<(Vec<crate::hl7v2::pid_translation::Ft1>, Iso4217), Hl7Response> {
     let ft1_segs: Vec<_> = r.message.segments_named("FT1").collect();
     if ft1_segs.is_empty() {
-        return Err(ae(&r.sender, &r.control_id, "no FT1 segments"));
+        return Err(ae(&r.inbound, "no FT1 segments"));
     }
     let mut parsed: Vec<crate::hl7v2::pid_translation::Ft1> = Vec::with_capacity(ft1_segs.len());
     let mut shared_currency: Option<String> = None;
     for seg in &ft1_segs {
         let ft1 = match parse_ft1(seg) {
             Ok(f) => f,
-            Err(e) => return Err(ae(&r.sender, &r.control_id, &client_text(&e))),
+            Err(e) => return Err(ae(&r.inbound, &client_text(&e))),
         };
         if !matches!(ft1.transaction_type.as_str(), "CG" | "") {
             return Err(ae(
-                &r.sender,
-                &r.control_id,
+                &r.inbound,
                 &format!(
-                    "FT1[{}]-6 transaction type {:?} not supported (CG only)",
-                    ft1.set_id, ft1.transaction_type
+                    "FT1[{}]-6 transaction type not supported (CG only)",
+                    ft1.set_id
                 ),
             ));
         }
         match &shared_currency {
             None => shared_currency = Some(ft1.currency.clone()),
             Some(c) if c == &ft1.currency => {}
-            Some(c) => {
+            Some(_) => {
                 return Err(ae(
-                    &r.sender,
-                    &r.control_id,
+                    &r.inbound,
                     &format!(
-                        "FT1[{}] currency {:?} differs from prior {:?}",
-                        ft1.set_id, ft1.currency, c
+                        "FT1[{}]-11.2 currency differs from an earlier FT1",
+                        ft1.set_id
                     ),
                 ));
             }
@@ -147,11 +148,11 @@ fn parse_charges(
         parsed.push(ft1);
     }
     let Some(currency_code) = shared_currency else {
-        return Err(ae(&r.sender, &r.control_id, "no FT1 segments"));
+        return Err(ae(&r.inbound, "no FT1 segments"));
     };
     let currency = match Iso4217::new(&currency_code) {
         Ok(c) => c,
-        Err(e) => return Err(ae(&r.sender, &r.control_id, &client_text(&e))),
+        Err(e) => return Err(ae(&r.inbound, &client_text(&e))),
     };
 
     Ok((parsed, currency))
