@@ -12,6 +12,13 @@ exclude = ["patient-administration-system-with-rust/fuzz"]
 # Hoisted to the workspace root because per-member [profile.*] blocks are
 # silently ignored by Cargo. One shared `target/`, one shared `Cargo.lock`.
 
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+debug = false
+
 [profile.release]
 lto = true
 codegen-units = 1
