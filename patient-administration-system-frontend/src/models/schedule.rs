@@ -1,6 +1,7 @@
 //! `schedules` + `slots` tables — read-only for the appointment booker.
 
-use chrono::{DateTime, Duration, FixedOffset, Utc};
+use jiff::{SignedDuration, Timestamp};
+use jiff_sqlx::ToSqlx;
 use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -23,8 +24,8 @@ pub async fn list_active_schedules(db: &PgPool) -> Result<Vec<ScheduleRow>, sqlx
 struct SlotRecord {
     id: Uuid,
     schedule_id: Uuid,
-    start_datetime: DateTime<FixedOffset>,
-    end_datetime: DateTime<FixedOffset>,
+    start_datetime: jiff_sqlx::Timestamp,
+    end_datetime: jiff_sqlx::Timestamp,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -44,8 +45,8 @@ pub async fn list_free_slots(
     schedule_id: Uuid,
     days: i64,
 ) -> Result<Vec<FreeSlotRow>, sqlx::Error> {
-    let now: DateTime<FixedOffset> = Utc::now().fixed_offset();
-    let horizon = now + Duration::days(days);
+    let now = Timestamp::now();
+    let horizon = now + SignedDuration::from_hours(days * 24);
     let rows: Vec<SlotRecord> = sqlx::query_as(
         "SELECT id, schedule_id, start_datetime, end_datetime FROM slots \
          WHERE schedule_id = $1 AND status = 'free' \
@@ -53,8 +54,8 @@ pub async fn list_free_slots(
          ORDER BY start_datetime",
     )
     .bind(schedule_id)
-    .bind(now)
-    .bind(horizon)
+    .bind(now.to_sqlx())
+    .bind(horizon.to_sqlx())
     .fetch_all(db)
     .await?;
     Ok(rows
@@ -64,12 +65,12 @@ pub async fn list_free_slots(
             schedule_id: m.schedule_id,
             label: format!(
                 "{} {} → {}",
-                m.start_datetime.format("%a %Y-%m-%d"),
-                m.start_datetime.format("%H:%M"),
-                m.end_datetime.format("%H:%M"),
+                m.start_datetime.to_jiff().strftime("%a %Y-%m-%d"),
+                m.start_datetime.to_jiff().strftime("%H:%M"),
+                m.end_datetime.to_jiff().strftime("%H:%M"),
             ),
-            start_iso: m.start_datetime.format("%Y-%m-%dT%H:%M:%S%:z").to_string(),
-            end_iso: m.end_datetime.format("%Y-%m-%dT%H:%M:%S%:z").to_string(),
+            start_iso: m.start_datetime.to_jiff().strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
+            end_iso: m.end_datetime.to_jiff().strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
         })
         .collect())
 }

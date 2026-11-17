@@ -25,7 +25,7 @@ axum-extra = { version = "0.12", features = ["cookie"] }
 tokio = { version = "1.54", features = ["full"] }
 
 # Database reads. Queries are checked at run time, so a build needs no database.
-sqlx = { version = "0.9", default-features = false, features = ["postgres", "derive", "chrono", "uuid", "json"] }
+sqlx = { version = "0.9", default-features = false, features = ["postgres", "derive", "uuid", "json"] }
 
 # Reuse the PAS migrations crate so `patient-administration-system-frontend` and the PAS Axum
 # binary apply identical schemas via `pas-migrate up`.
@@ -42,7 +42,8 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls", "j
 
 # Utilities.
 uuid = { version = "1.29", features = ["v4", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
+jiff = { version = "1", features = ["serde"] }
+jiff-sqlx = { version = "1", features = ["postgres", "serde"] }
 thiserror = "2.0"
 # A warning when a dashboard panel cannot read the database.
 tracing = "0.1"
