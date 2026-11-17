@@ -3,7 +3,9 @@
   "messages": [
     {
       "bed_code": null,
+      "charges": [],
       "control_id": "MSG-DEMO-001",
+      "merged_from_mrn": null,
       "mrn": "MRN-DEMO-001",
       "person": {
         "addresses": [
@@ -37,11 +39,14 @@
           }
         ]
       },
+      "schedule": null,
       "type": "ADT^A28"
     },
     {
       "bed_code": null,
+      "charges": [],
       "control_id": "MSG-DEMO-002",
+      "merged_from_mrn": null,
       "mrn": "MRN-DEMO-002",
       "person": {
         "addresses": [
@@ -75,11 +80,14 @@
           }
         ]
       },
+      "schedule": null,
       "type": "ADT^A28"
     },
     {
       "bed_code": null,
+      "charges": [],
       "control_id": "MSG-DEMO-003",
+      "merged_from_mrn": null,
       "mrn": "MRN-DEMO-003",
       "person": {
         "addresses": [
@@ -113,6 +121,7 @@
           }
         ]
       },
+      "schedule": null,
       "type": "ADT^A28"
     }
   ]

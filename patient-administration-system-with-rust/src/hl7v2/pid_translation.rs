@@ -366,7 +366,15 @@ pub fn parse_sch(sch: &Segment) -> Sch {
             _ => v, // default minutes
         })
     };
-    let start = parse_hl7_datetime(sch.raw(11).trim());
+    // SCH-11 is a TQ (timing/quantity) in v2.5, whose fourth component is the start: `^^^20261201093000`.
+    // Until 2026-11-17 only a bare date-time in the whole field was read, so a standard SCH-11 gave no start
+    // (found by the golden tests, HUB-7). A bare date-time is still read.
+    let timing = sch.raw(11);
+    let start = if timing.contains('^') {
+        parse_hl7_datetime(sch.component_text(11, 4).trim())
+    } else {
+        parse_hl7_datetime(timing.trim())
+    };
     Sch {
         placer_id: placer,
         filler_id: filler,
@@ -566,6 +574,18 @@ pub fn extract_bed_code_from_pv1(pv1: &Segment) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn sch_start_is_read_from_the_tq_start_component_or_a_bare_date_time() {
+        for field in ["^^^20261201093000", "20261201093000"] {
+            let m = crate::hl7v2::parse_message(&format!(
+                "MSH|^~\\&|S|F|R|F|20261117||SIU^S12|X|P|2.5\rSCH|P1||||||why||30|min|{field}\r"
+            ))
+            .unwrap();
+            let start = parse_sch(m.segment("SCH").unwrap()).start.expect(field);
+            assert_eq!(start.to_rfc3339(), "2026-12-01T09:30:00+00:00", "{field}");
+        }
+    }
+
     use super::*;
 
     fn seg(name: &str, fields: &[&str]) -> Segment {

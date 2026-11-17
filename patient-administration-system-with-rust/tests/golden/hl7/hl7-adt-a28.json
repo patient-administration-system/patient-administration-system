@@ -2,7 +2,9 @@
   "ack": "MSH|^~\\&|PAS|FAC|EXTERNAL_EMR|FAC|<time>||ACK^A28^ACK|<ack id>|P|2.5\rMSA|AA|MSG-EMR-001|golden\r",
   "as_sent": {
     "bed_code": null,
+    "charges": [],
     "control_id": "MSG-EMR-001",
+    "merged_from_mrn": null,
     "mrn": "MRN-EMR-001",
     "person": {
       "addresses": [
@@ -37,13 +39,17 @@
         }
       ]
     },
+    "schedule": null,
     "type": "ADT^A28"
   },
   "without_pid": {
     "bed_code": null,
+    "charges": [],
     "control_id": "MSG-EMR-001",
+    "merged_from_mrn": null,
     "mrn": null,
     "person": null,
+    "schedule": null,
     "type": "ADT^A28"
   }
 }

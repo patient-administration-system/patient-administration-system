@@ -1,0 +1,40 @@
+{
+  "ack": "MSH|^~\\&|PAS|FAC|EXTERNAL_EMR|FAC|<time>||ACK^A40^ACK|<ack id>|P|2.5\rMSA|AA|MSG-EMR-A40-001|golden\r",
+  "as_sent": {
+    "bed_code": null,
+    "charges": [],
+    "control_id": "MSG-EMR-A40-001",
+    "merged_from_mrn": "MRN-A01-OLD",
+    "mrn": "MRN-A01-001",
+    "person": {
+      "birth_date": "1990-01-15",
+      "gender": "female",
+      "identifiers": [
+        {
+          "type": "MRN",
+          "use": "official",
+          "value": "MRN-A01-001"
+        }
+      ],
+      "name": {
+        "family": "Doe",
+        "given": [
+          "Jane",
+          "Marie"
+        ]
+      }
+    },
+    "schedule": null,
+    "type": "ADT^A40"
+  },
+  "without_pid": {
+    "bed_code": null,
+    "charges": [],
+    "control_id": "MSG-EMR-A40-001",
+    "merged_from_mrn": "MRN-A01-OLD",
+    "mrn": null,
+    "person": null,
+    "schedule": null,
+    "type": "ADT^A40"
+  }
+}

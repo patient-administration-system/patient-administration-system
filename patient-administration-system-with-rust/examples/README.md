@@ -19,6 +19,11 @@ Sample payloads and a runnable round-trip example for the v0.2 interchange and F
 | `hl7-adt-a01.txt`    | HL7 v2 text  | Pipe-delimited ADT^A01 (admit). PV1-3.3 is the bed code.              |
 | `hl7-adt-a02.txt`    | HL7 v2 text  | ADT^A02 (transfer). Looked up by MRN; PV1-3.3 = destination bed code. |
 | `hl7-adt-a03.txt`    | HL7 v2 text  | ADT^A03 (discharge). Looked up by MRN; PV1 is allowed but ignored.    |
+| `hl7-adt-a04.txt`    | HL7 v2 text  | ADT^A04 (register an outpatient).                                     |
+| `hl7-adt-a08.txt`    | HL7 v2 text  | ADT^A08 (update patient information): a new address and phone.        |
+| `hl7-adt-a40.txt`    | HL7 v2 text  | ADT^A40 (merge): MRG-1 is the MRN merged away.                        |
+| `hl7-siu-s12.txt`    | HL7 v2 text  | SIU^S12 (new appointment): SCH placer id, reason, 30 minutes, start.  |
+| `hl7-dft-p03.txt`    | HL7 v2 text  | DFT^P03 (post a charge): one FT1 of 25.00.                            |
 | `hl7-batch-adt.txt`  | HL7 v2 text  | FHS/BHS-wrapped batch envelope (v0.6) containing multiple MSH messages. |
 | `interchange.rs`     | Rust         | Cargo example: round-trips three patients through JSON → XML → TSV.   |
 

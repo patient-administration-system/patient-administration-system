@@ -2,7 +2,9 @@
   "ack": "MSH|^~\\&|PAS|FAC|EXTERNAL_EMR|FAC|<time>||ACK^A03^ACK|<ack id>|P|2.5\rMSA|AA|MSG-EMR-A03-001|golden\r",
   "as_sent": {
     "bed_code": "BED-B2",
+    "charges": [],
     "control_id": "MSG-EMR-A03-001",
+    "merged_from_mrn": null,
     "mrn": "MRN-A01-001",
     "person": {
       "birth_date": "1990-01-15",
@@ -22,13 +24,17 @@
         ]
       }
     },
+    "schedule": null,
     "type": "ADT^A03"
   },
   "without_pid": {
     "bed_code": "BED-B2",
+    "charges": [],
     "control_id": "MSG-EMR-A03-001",
+    "merged_from_mrn": null,
     "mrn": null,
     "person": null,
+    "schedule": null,
     "type": "ADT^A03"
   }
 }

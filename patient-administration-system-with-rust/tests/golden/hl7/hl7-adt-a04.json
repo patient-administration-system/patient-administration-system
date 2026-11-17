@@ -1,0 +1,54 @@
+{
+  "ack": "MSH|^~\\&|PAS|FAC|EXTERNAL_EMR|FAC|<time>||ACK^A04^ACK|<ack id>|P|2.5\rMSA|AA|MSG-EMR-A04-001|golden\r",
+  "as_sent": {
+    "bed_code": null,
+    "charges": [],
+    "control_id": "MSG-EMR-A04-001",
+    "merged_from_mrn": null,
+    "mrn": "MRN-A04-001",
+    "person": {
+      "addresses": [
+        {
+          "city": "Springfield",
+          "country": "US",
+          "line1": "7 Oak Road",
+          "postal_code": "62702",
+          "state": "IL"
+        }
+      ],
+      "birth_date": "1980-02-02",
+      "gender": "male",
+      "identifiers": [
+        {
+          "type": "MRN",
+          "use": "official",
+          "value": "MRN-A04-001"
+        }
+      ],
+      "name": {
+        "family": "Roe",
+        "given": [
+          "Sam"
+        ]
+      },
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "(555)555-0104"
+        }
+      ]
+    },
+    "schedule": null,
+    "type": "ADT^A04"
+  },
+  "without_pid": {
+    "bed_code": null,
+    "charges": [],
+    "control_id": "MSG-EMR-A04-001",
+    "merged_from_mrn": null,
+    "mrn": null,
+    "person": null,
+    "schedule": null,
+    "type": "ADT^A04"
+  }
+}

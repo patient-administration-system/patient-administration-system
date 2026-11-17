@@ -1,0 +1,60 @@
+{
+  "ack": "MSH|^~\\&|PAS|FAC|BILLING_APP|FAC|<time>||ACK^P03^ACK|<ack id>|P|2.5\rMSA|AA|MSG-DFT-P03-001|golden\r",
+  "as_sent": {
+    "bed_code": null,
+    "charges": [
+      {
+        "amount": "25.00",
+        "code": "CONSULT",
+        "currency": "USD",
+        "description": "Outpatient consultation",
+        "posted_at": "2026-06-01T13:00:00Z",
+        "set_id": 1,
+        "type": "CG"
+      }
+    ],
+    "control_id": "MSG-DFT-P03-001",
+    "merged_from_mrn": null,
+    "mrn": "MRN-A01-001",
+    "person": {
+      "birth_date": "1990-01-15",
+      "gender": "female",
+      "identifiers": [
+        {
+          "type": "MRN",
+          "use": "official",
+          "value": "MRN-A01-001"
+        }
+      ],
+      "name": {
+        "family": "Doe",
+        "given": [
+          "Jane",
+          "Marie"
+        ]
+      }
+    },
+    "schedule": null,
+    "type": "DFT^P03"
+  },
+  "without_pid": {
+    "bed_code": null,
+    "charges": [
+      {
+        "amount": "25.00",
+        "code": "CONSULT",
+        "currency": "USD",
+        "description": "Outpatient consultation",
+        "posted_at": "2026-06-01T13:00:00Z",
+        "set_id": 1,
+        "type": "CG"
+      }
+    ],
+    "control_id": "MSG-DFT-P03-001",
+    "merged_from_mrn": null,
+    "mrn": null,
+    "person": null,
+    "schedule": null,
+    "type": "DFT^P03"
+  }
+}

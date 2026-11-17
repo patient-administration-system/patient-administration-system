@@ -1,0 +1,52 @@
+{
+  "ack": "MSH|^~\\&|PAS|FAC|SCHED_APP|FAC|<time>||ACK^S12^ACK|<ack id>|P|2.5\rMSA|AA|MSG-SCH-S12-001|golden\r",
+  "as_sent": {
+    "bed_code": null,
+    "charges": [],
+    "control_id": "MSG-SCH-S12-001",
+    "merged_from_mrn": null,
+    "mrn": "MRN-A01-001",
+    "person": {
+      "birth_date": "1990-01-15",
+      "gender": "female",
+      "identifiers": [
+        {
+          "type": "MRN",
+          "use": "official",
+          "value": "MRN-A01-001"
+        }
+      ],
+      "name": {
+        "family": "Doe",
+        "given": [
+          "Jane",
+          "Marie"
+        ]
+      }
+    },
+    "schedule": {
+      "duration_minutes": 30,
+      "filler_id": null,
+      "placer_id": "PLACER-001",
+      "reason": "Knee review",
+      "start": "2026-12-01T09:30:00Z"
+    },
+    "type": "SIU^S12"
+  },
+  "without_pid": {
+    "bed_code": null,
+    "charges": [],
+    "control_id": "MSG-SCH-S12-001",
+    "merged_from_mrn": null,
+    "mrn": null,
+    "person": null,
+    "schedule": {
+      "duration_minutes": 30,
+      "filler_id": null,
+      "placer_id": "PLACER-001",
+      "reason": "Knee review",
+      "start": "2026-12-01T09:30:00Z"
+    },
+    "type": "SIU^S12"
+  }
+}

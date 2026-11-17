@@ -19,6 +19,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - A connection that sends something other than whitespace before an MLLP frame is closed (before, the bytes were skipped for ever); an oversize frame is answered with an AE.
 
 ### Fixed
+- An SIU message's start time is read from SCH-11's fourth component, as HL7 v2.5 places it (`^^^20261201093000`); only a bare date-time filling the whole field was read before, so a standard S12 booked nothing at a time. Example messages for A04, A08, A40, S12 and P03, with golden files.
 - With more than one outbox publisher (webhook and MLLP), a retry after one failed no longer sends the event again to those that already took it, within the same process.
 - The MLLP listener reads through a buffer: it took one system call per byte, so a large message on a busy server could run past the idle timeout and be cut off.
 - Secrets cannot reach a log through the configuration (NFR-14): `Config`'s `{:?}` shows each token and the webhook secret only as set or unset, and URLs without password or query string; a mistyped `PAS_CARRIER_SECRETS` entry is named by its position, not quoted.

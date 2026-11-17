@@ -1,7 +1,7 @@
 //! HUB-7: golden tests for the HL7 v2 mappings. No database.
 //!
 //! Each example message in `examples/` is read three ways: as sent, with its PID removed, and with an extra
-//! Z-segment at the end. What the PAS takes from it (the person it would create, the MRN, the bed) and the ACK it answers with are compared with `tests/golden/hl7/<example>.json`. The Z-segment must
+//! Z-segment at the end. What the PAS takes from it (the person it would create, the MRN, the bed, a merge's old MRN, a schedule, charges) and the ACK it answers with are compared with `tests/golden/hl7/<example>.json`. The Z-segment must
 //! change nothing.
 //!
 //! **A golden file is the record of what the PAS does.** If a mapping change makes this fail, the change is
@@ -10,13 +10,24 @@
 //! hub7_hl7_golden_test`. Never re-capture to make the test pass.
 use patient_administration_system::hl7v2::ack::{AckCode, Inbound, ack_to};
 use patient_administration_system::hl7v2::pid_translation::{
-    extract_bed_code_from_pv1, extract_mrn_from_pid, pid_to_person_create,
+    extract_bed_code_from_pv1, extract_mrn_from_mrg, extract_mrn_from_pid, parse_ft1, parse_sch,
+    pid_to_person_create,
 };
 use patient_administration_system::hl7v2::{Message, SegmentRead, parse_batch, parse_message};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
-const EXAMPLES: [&str; 4] = ["hl7-adt-a01", "hl7-adt-a02", "hl7-adt-a03", "hl7-adt-a28"];
+const EXAMPLES: [&str; 9] = [
+    "hl7-adt-a01",
+    "hl7-adt-a02",
+    "hl7-adt-a03",
+    "hl7-adt-a04",
+    "hl7-adt-a08",
+    "hl7-adt-a28",
+    "hl7-adt-a40",
+    "hl7-siu-s12",
+    "hl7-dft-p03",
+];
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -36,6 +47,34 @@ fn reading(msg: &Message) -> Value {
         "mrn": pid.and_then(extract_mrn_from_pid),
         "person": pid.map(|p| serde_json::to_value(pid_to_person_create(p)).unwrap()),
         "bed_code": pv1.and_then(extract_bed_code_from_pv1),
+        "merged_from_mrn": msg.segment("MRG").and_then(extract_mrn_from_mrg),
+        "schedule": msg.segment("SCH").map(|s| {
+            let sch = parse_sch(s);
+            json!({
+                "placer_id": sch.placer_id,
+                "filler_id": sch.filler_id,
+                "reason": sch.reason,
+                "duration_minutes": sch.duration_minutes,
+                "start": sch.start,
+            })
+        }),
+        "charges": msg
+            .segments
+            .iter()
+            .filter(|s| s.name == "FT1")
+            .map(|s| match parse_ft1(s) {
+                Ok(f) => json!({
+                    "set_id": f.set_id,
+                    "posted_at": f.posted_at,
+                    "type": f.transaction_type,
+                    "code": f.code,
+                    "description": f.description,
+                    "amount": f.amount,
+                    "currency": f.currency,
+                }),
+                Err(e) => json!({ "error": e.to_string() }),
+            })
+            .collect::<Vec<_>>(),
     })
 }
 
