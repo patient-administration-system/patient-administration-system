@@ -22,6 +22,8 @@ pub async fn hl7_dedupe_middleware(
     req: Request,
     next: Next,
 ) -> Response {
+    // Anything posted here arrived, whether or not it parses (the silence signal, NFR-34).
+    crate::metrics::hl7_received();
     let path = req.uri().path();
     if path.ends_with("/parse") || path.ends_with("/batch") {
         return next.run(req).await;

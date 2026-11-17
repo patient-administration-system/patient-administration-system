@@ -32,6 +32,15 @@ async fn health_reports_the_dispatcher_and_degrades_on_an_old_backlog() {
     let h = health(&state).await;
     assert_eq!(h["outbox"]["dispatcher"], "off");
     assert_eq!(h["mllp_listener"], "off");
+    // The silence signal is information, never a fault, and unknown until something happened.
+    assert!(h.get("hl7_last_received_seconds_ago").is_some(), "{h}");
+    assert!(h.get("outbox_last_delivered_seconds_ago").is_some(), "{h}");
+    patient_administration_system::metrics::hl7_received();
+    let h = health(&state).await;
+    assert!(
+        h["hl7_last_received_seconds_ago"].as_i64().unwrap() <= 2,
+        "{h}"
+    );
 
     // Started, no tick finished yet: unknown, never ok.
     job_registered("outbox", Duration::from_secs(2));

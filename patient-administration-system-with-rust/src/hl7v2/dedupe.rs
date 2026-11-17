@@ -169,6 +169,7 @@ pub async fn guarded<F>(db: &Pool, inbound: &Inbound, process: F) -> String
 where
     F: std::future::Future<Output = String>,
 {
+    crate::metrics::hl7_received();
     let Some(key) = Key::of(inbound) else {
         return process.await;
     };

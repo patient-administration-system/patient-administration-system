@@ -114,6 +114,7 @@ pub async fn tick_with_limit(
             Ok(()) => {
                 OutboxRepository::mark_published(db, row.id).await?;
                 delivered += 1;
+                crate::metrics::outbox_delivered();
             }
             Err(Error::DeliveryRejected(why)) => {
                 tracing::warn!(

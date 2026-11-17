@@ -6,6 +6,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Silence signals (NFR-34): `pas_hl7_last_received_timestamp_seconds` and `pas_outbox_last_delivered_timestamp_seconds` in `/api/admin/metrics`, and `hl7_last_received_seconds_ago` and `outbox_last_delivered_seconds_ago` in `GET /api/health`, so an alert can fire when a feed goes quiet. The thresholds are the deployment's.
 - The MLLP listener can use TLS (`PAS_HL7_TLS_CERT_FILE` and `PAS_HL7_TLS_KEY_FILE`, both or neither, or the server refuses to start) and ask for client certificates (`PAS_HL7_TLS_CLIENT_CA_FILE`); it closes an idle connection (`PAS_HL7_IDLE_SECONDS`, 30) and caps open ones (`PAS_HL7_MAX_CONNECTIONS`, 64) (HUB-3, NFR-31).
 - `GET /api/health` reports the outbox dispatcher (`off`, `unknown`, `ok`, `stalled`), the age of the oldest undelivered event, the events held behind dead letters, the dead letters, and the MLLP listener, and says `degraded` when the dispatcher has stalled, the backlog is older than `PAS_OUTBOX_STALE_SECONDS` (1800) or the listener stopped (HUB-6, NFR-34).
 - `POST /api/admin/outbox/dead-letters/{id}/skip`: give up on a dead letter without delivering it, audited, so its record's later events go out.

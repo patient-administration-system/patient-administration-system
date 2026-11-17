@@ -174,6 +174,7 @@ pub async fn health(State(state): State<AppState>) -> HandlerResult {
         .await;
     let outbox = outbox_health(&state, db_ok).await;
     let mllp = crate::hl7v2::listener::listener_state();
+    let (hl7_quiet, outbox_quiet) = crate::metrics::silence_at(chrono::Utc::now().timestamp());
     let status = if db_ok && !upstream.is_degraded() && !outbox.degraded && mllp != "stopped" {
         "ok"
     } else {
@@ -192,6 +193,9 @@ pub async fn health(State(state): State<AppState>) -> HandlerResult {
             "dead_letters": outbox.dead_letters,
         },
         "mllp_listener": mllp,
+        // Information for silence alarms, never a fault here: how quiet is normal depends on the hour.
+        "hl7_last_received_seconds_ago": hl7_quiet,
+        "outbox_last_delivered_seconds_ago": outbox_quiet,
     }))
 }
 

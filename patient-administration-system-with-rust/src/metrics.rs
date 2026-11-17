@@ -77,6 +77,32 @@ fn registry() -> &'static Registry {
     })
 }
 
+/// When an HL7 v2 message last arrived, and when the outbox last delivered an event (Unix seconds; 0 is
+/// never), for silence alarms (NFR-34, HUB-6). A deployment sets the thresholds, which differ by time of day
+/// and week: a feed quiet at 3am may be normal, at 11am not.
+static HL7_LAST_RECEIVED: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+static OUTBOX_LAST_DELIVERED: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+
+/// An HL7 v2 message arrived (processed, refused or answered as a resend).
+pub fn hl7_received() {
+    HL7_LAST_RECEIVED.store(Utc::now().timestamp(), Ordering::Relaxed);
+}
+
+/// The outbox delivered an event.
+pub fn outbox_delivered() {
+    OUTBOX_LAST_DELIVERED.store(Utc::now().timestamp(), Ordering::Relaxed);
+}
+
+/// Seconds since an HL7 v2 message last arrived, and since the outbox last delivered, at `now`; `None` when it
+/// has not happened since this process started.
+pub fn silence_at(now: i64) -> (Option<i64>, Option<i64>) {
+    let ago = |t: i64| (t > 0).then(|| (now - t).max(0));
+    (
+        ago(HL7_LAST_RECEIVED.load(Ordering::Relaxed)),
+        ago(OUTBOX_LAST_DELIVERED.load(Ordering::Relaxed)),
+    )
+}
+
 /// A background job started in this process, to tick `every`. Until it does, its health is `Off`.
 pub fn job_registered(name: &str, every: std::time::Duration) {
     let mut jobs = registry()
@@ -221,6 +247,25 @@ fn render_process() -> String {
             );
         }
     }
+    for (name, help, cell) in [
+        (
+            "pas_hl7_last_received_timestamp_seconds",
+            "When an HL7 v2 message last arrived (Unix seconds); absent until one has.",
+            &HL7_LAST_RECEIVED,
+        ),
+        (
+            "pas_outbox_last_delivered_timestamp_seconds",
+            "When the outbox last delivered an event (Unix seconds); absent until it has.",
+            &OUTBOX_LAST_DELIVERED,
+        ),
+    ] {
+        let _ = writeln!(out, "# HELP {name} {help}");
+        let _ = writeln!(out, "# TYPE {name} gauge");
+        let t = cell.load(Ordering::Relaxed);
+        if t > 0 {
+            let _ = writeln!(out, "{name} {t}");
+        }
+    }
     out
 }
 
@@ -279,6 +324,25 @@ pub async fn render(db: &Pool) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn silence_is_unknown_until_it_happens_then_counted_from_it() {
+        hl7_received();
+        outbox_delivered();
+        let now = Utc::now().timestamp();
+        let (hl7, outbox) = silence_at(now + 90);
+        assert!((89..=91).contains(&hl7.unwrap()), "{hl7:?}");
+        assert!((89..=91).contains(&outbox.unwrap()), "{outbox:?}");
+        let text = render_process();
+        assert!(
+            text.contains("pas_hl7_last_received_timestamp_seconds "),
+            "{text}"
+        );
+        assert!(
+            text.contains("pas_outbox_last_delivered_timestamp_seconds "),
+            "{text}"
+        );
+    }
 
     #[test]
     fn job_health_is_off_unknown_ok_or_stalled_and_never_ok_without_data() {
