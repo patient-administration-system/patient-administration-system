@@ -7,7 +7,7 @@ pub struct AuditSummary {
     pub entity_type: String,
     pub action: String,
     pub user_id: Option<String>,
-    pub at: chrono::DateTime<chrono::FixedOffset>,
+    pub at: jiff_sqlx::Timestamp,
 }
 
 pub async fn list_recent_audit(db: &PgPool, limit: i64) -> Result<Vec<AuditSummary>, sqlx::Error> {

@@ -61,7 +61,7 @@ pub async fn index(
         "dashboard/index.html",
         json!({
             "version": env!("CARGO_PKG_VERSION"),
-            "rendered_at": chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+            "rendered_at": jiff::Timestamp::now().strftime("%Y-%m-%d %H:%M:%S UTC").to_string(),
             "refresh_seconds": REFRESH_SECONDS,
             "wards_unreachable": wards.is_none(),
             "wards": wards.unwrap_or_default(),
@@ -168,7 +168,7 @@ async fn load_audit(ctx: &AppContext) -> Option<Vec<AuditRow>> {
     let rows = rows
         .into_iter()
         .map(|m| AuditRow {
-            at_short: m.at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            at_short: m.at.to_jiff().strftime("%Y-%m-%d %H:%M:%S").to_string(),
             entity_type: m.entity_type,
             action: m.action,
             user_id: m.user_id,

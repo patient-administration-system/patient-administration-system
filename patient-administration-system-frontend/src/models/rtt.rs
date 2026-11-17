@@ -8,7 +8,7 @@
 //! to either the next `paused`/`stopped` event or `now`.
 
 use crate::models::patient::names_for;
-use chrono::{DateTime, FixedOffset, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -25,7 +25,7 @@ struct PathwayRecord {
 #[derive(sqlx::FromRow)]
 struct EventRecord {
     kind: String,
-    event_at: DateTime<FixedOffset>,
+    event_at: jiff_sqlx::Timestamp,
 }
 
 /// One row in the `/rtt` cockpit.
@@ -60,7 +60,7 @@ pub async fn list_active_pathways(db: &PgPool) -> Result<Vec<PathwayRow>, sqlx::
     let person_ids: Vec<Uuid> = pathways.iter().map(|p| p.person_id).collect();
     let names = names_for(&person_ids).await;
 
-    let now = Utc::now();
+    let now = Timestamp::now();
     let mut rows = Vec::with_capacity(pathways.len());
     for p in pathways {
         // Pull events for this pathway in chronological order.
@@ -105,26 +105,25 @@ pub async fn list_active_pathways(db: &PgPool) -> Result<Vec<PathwayRow>, sqlx::
 /// Sum unpaused intervals from `started`/`resumed` events to either the
 /// next `paused`/`stopped` event or `now`, then floor-divide by a week.
 /// Mirrors `compute_active_weeks` from the PAS Axum lib.
-fn compute_active_weeks_from_models(events: &[EventRecord], now: DateTime<Utc>) -> u32 {
+fn compute_active_weeks_from_models(events: &[EventRecord], now: Timestamp) -> u32 {
     if events.is_empty() {
         return 0;
     }
     let mut total_seconds: i64 = 0;
-    let mut active_since: Option<DateTime<FixedOffset>> = None;
+    let mut active_since: Option<Timestamp> = None;
     for e in events {
         match e.kind.as_str() {
-            "started" | "resumed" => active_since = Some(e.event_at),
+            "started" | "resumed" => active_since = Some(e.event_at.to_jiff()),
             "paused" | "stopped" => {
                 if let Some(start) = active_since.take() {
-                    total_seconds += (e.event_at - start).num_seconds();
+                    total_seconds += e.event_at.to_jiff().duration_since(start).as_secs();
                 }
             }
             _ => {} // unknown kind — ignore
         }
     }
     if let Some(start) = active_since {
-        let now_fixed: DateTime<FixedOffset> = now.fixed_offset();
-        total_seconds += (now_fixed - start).num_seconds();
+        total_seconds += now.duration_since(start).as_secs();
     }
     const SECONDS_PER_WEEK: i64 = 7 * 24 * 3600;
     if total_seconds < 0 {
