@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import { CATALOGUES } from "#lib/messages/index.js";
 import { DEFAULT_LOCALE, LOCALES, isRtl, type Locale } from "#lib/locales.js";
 import { hasMessage, interpolate, labelFor, toMessageFormat, translate } from "#lib/i18n.svelte.js";
+import { ensureAllLocales } from "#lib/i18n.svelte.js";
+
+// Only English is loaded at the start (the browser loads a page's language on demand); these read them all.
+await ensureAllLocales();
 
 const en = CATALOGUES[DEFAULT_LOCALE]!;
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();

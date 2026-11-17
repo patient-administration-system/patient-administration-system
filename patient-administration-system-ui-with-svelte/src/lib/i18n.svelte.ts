@@ -14,7 +14,7 @@
 
 import { _ as format, addMessages, init as initSveltia, locale as sveltiaLocale } from "@sveltia/i18n";
 
-import { CATALOGUES } from "./messages/index.js";
+import { CATALOGUES, loadCatalogue } from "./messages/index.js";
 import {
   DEFAULT_LOCALE,
   LOCALES,
@@ -50,10 +50,26 @@ export function toMessageFormat(source: string): string {
 }
 
 initSveltia({ fallbackLocale: DEFAULT_LOCALE });
+
+function register(locale: Locale, catalogue: Record<string, string>): void {
+  addMessages(locale, Object.fromEntries(Object.entries(catalogue).map(([k, v]) => [k, toMessageFormat(v)])));
+}
+
 for (const locale of LOCALES) {
   const catalogue = CATALOGUES[locale];
-  if (!catalogue) continue;
-  addMessages(locale, Object.fromEntries(Object.entries(catalogue).map(([k, v]) => [k, toMessageFormat(v)])));
+  if (catalogue) register(locale, catalogue);
+}
+
+/** Load `locale`'s catalogue if it is not loaded yet (only English is, at the start). */
+export async function ensureLocale(next: string): Promise<void> {
+  const locale = normalizeLocale(next) ?? DEFAULT_LOCALE;
+  const loaded = await loadCatalogue(locale);
+  if (loaded) register(locale, loaded);
+}
+
+/** Load and register every catalogue (the tests). */
+export async function ensureAllLocales(): Promise<void> {
+  for (const locale of LOCALES) await ensureLocale(locale);
 }
 
 let current = $state<Locale>(DEFAULT_LOCALE);

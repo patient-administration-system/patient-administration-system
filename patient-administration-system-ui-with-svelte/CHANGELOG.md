@@ -7,6 +7,7 @@
 - A dark theme for staff and patients (NFR-30, UI-4). With no choice made, the page follows the browser's light or dark setting, from the first paint and when it changes. A theme menu on every page offers Follow this device, Light and Dark; the choice is kept in a `theme` cookie for a year, outlives signing out, and works with no script. Every route passes the axe audit in both. The four strings are first drafts in every locale but English.
 
 ### Fixed
+- A page loads only its own language: English, the fallback, is in the bundle, and the page's language is loaded before it renders (on the server by the request hook, in the browser by the root layout's load). All ten catalogues used to ship in one chunk, about 70 KB gzipped, and the privacy page's text pushed it past the 50 KB budget, failing CI's UI job since f344feb.
 - Signing out with `OIDC_END_SESSION=true` left the person on the page looking signed in, though the session had ended: the CSP's `form-action 'self'` blocked the redirect to the identity provider, and the provider refused the localised return address. The provider's origin is now allowed in `form-action`, and the return address is the bare `/signin`, which a deployment registers once.
 
 ### Changed

@@ -18,6 +18,7 @@ import {
   splitPath,
 } from "#lib/locales.js";
 import { THEME_COOKIE, dataThemeFor, themeFrom } from "#lib/theme.js";
+import { ensureLocale } from "#lib/i18n.svelte.js";
 
 /** Remembers the reader's locale, to choose one for a bare, unprefixed URL. */
 export const LOCALE_COOKIE = "locale";
@@ -78,6 +79,9 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
   const locale = event.locals.locale ?? negotiated;
   event.locals.locale = locale;
+  // Only English is loaded at the start; this request's language is loaded before any load function or page
+  // can read it (a server load runs before the layout's universal load).
+  await ensureLocale(locale);
   event.locals.theme = themeFrom(event.cookies.get(THEME_COOKIE));
 
   const response = await resolve(event, {

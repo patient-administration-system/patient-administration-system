@@ -11,6 +11,10 @@ import {
   waitlistColumns,
 } from "#lib/views.js";
 import { translate } from "#lib/i18n.svelte.js";
+import { ensureAllLocales } from "#lib/i18n.svelte.js";
+
+// Only English is loaded at the start (the browser loads a page's language on demand); these read them all.
+await ensureAllLocales();
 
 // English and Welsh stand-ins for the reactive `t`, so these stay pure.
 const en = (key: string, values?: Record<string, string | number>) => translate(key, "en-001", values);
