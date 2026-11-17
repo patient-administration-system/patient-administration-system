@@ -72,15 +72,7 @@ impl SupportService {
             created_by,
             "a support flag names who raised it (created_by)",
         )?;
-        if let Some(r) = reason_code
-            && (r.is_empty()
-                || r.len() > 60
-                || !r.chars().all(|c| c.is_ascii_lowercase() || c == '_'))
-        {
-            return Err(Error::validation(
-                "reason_code is a short snake_case code, not free text",
-            ));
-        }
+        check_reason_code(reason_code)?;
         let id = Uuid::new_v4();
         self.db
             .run(Stmt::new("INSERT INTO support_flags (id, person_id, appointment_id, kind, reason_code, created_by) \
@@ -177,5 +169,50 @@ impl SupportService {
             ctx,
         )
         .await
+    }
+}
+
+/// A reason is a short snake_case code (1 to 60 characters of `a`-`z` and `_`), never free text, so a flag
+/// cannot carry clinical detail (NFR-11).
+fn check_reason_code(reason_code: Option<&str>) -> Result<()> {
+    match reason_code {
+        Some(r)
+            if r.is_empty()
+                || r.len() > 60
+                || !r.chars().all(|c| c.is_ascii_lowercase() || c == '_') =>
+        {
+            Err(Error::validation(
+                "reason_code is a short snake_case code, not free text",
+            ))
+        }
+        _ => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod reason_code_tests {
+    use super::check_reason_code;
+
+    #[test]
+    fn test_a_reason_is_optional_and_a_short_snake_case_code() {
+        assert!(check_reason_code(None).is_ok());
+        assert!(check_reason_code(Some("anxiety")).is_ok());
+        assert!(check_reason_code(Some("needs_a_quiet_room")).is_ok());
+        assert!(
+            check_reason_code(Some(&"a".repeat(60))).is_ok(),
+            "60 is the longest"
+        );
+    }
+
+    /// Each refusal on its own (QUAL-18: the weekly mutants turned `||` into `&&` and moved the 60).
+    #[test]
+    fn test_an_empty_long_or_free_text_reason_is_refused() {
+        assert!(check_reason_code(Some("")).is_err(), "empty");
+        assert!(
+            check_reason_code(Some(&"a".repeat(61))).is_err(),
+            "61 characters"
+        );
+        assert!(check_reason_code(Some("Low mood")).is_err(), "free text");
+        assert!(check_reason_code(Some("anxiety2")).is_err(), "a digit");
     }
 }

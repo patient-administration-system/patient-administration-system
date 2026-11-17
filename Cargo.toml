@@ -20,6 +20,12 @@ strip = true
 [profile.bench]
 inherits = "release"
 
+# cargo-mutants rebuilds the server crate for every mutant (QUAL-18); without debug information each build is
+# much quicker and the tests are the same. `.cargo/mutants.toml` selects it.
+[profile.mutants]
+inherits = "test"
+debug = "none"
+
 # Lints for every crate and target (QUAL-12). `unwrap()` and `expect()` are denied in production code by each
 # crate root (`#![cfg_attr(not(test), deny(...))]`), not here, because tests use them freely.
 [workspace.lints.clippy]

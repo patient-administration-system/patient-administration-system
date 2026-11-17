@@ -4,6 +4,13 @@ Orientation for AI agents (and humans) working on the Patient Administration Sys
 
 **Current shipped version: v0.49.0** (see `Cargo.toml` and `CHANGELOG.md`). Workspace sibling `patient-administration-system-frontend` is at v0.2.0. v0.44 is the **Option C identity delegation** release: `Patient` rows are owned by `person-service` (`:5180`) and `Practitioner` rows by `worker-service` (`:5181`); PAS holds only opaque `person_id` / `worker_id` references on the rows it still owns (encounters, appointments, beds, billing, coverage, consents, letters, schedules, slots). Integration is HTTP-only (no Cargo dep on the upstream crates).
 
+## Specification Driven Development
+
+**The `spec/` directory is the source of truth.** 
+- Before doing anything read all files inside the `spec/` directory using your file-reading tools.
+- Treat all files inside `spec/` as strict requirements. Where any file disagrees with the spec, the spec wins: fix the file, or change the spec on purpose and bring the other files into line in the same commit. 
+- Do not improvise structure, style, or citation practice.
+
 ## Start here for AI agents
 
 Read in this order before touching code:

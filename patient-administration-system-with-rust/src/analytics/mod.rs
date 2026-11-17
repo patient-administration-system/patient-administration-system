@@ -122,11 +122,8 @@ fn is_postcode(p: &str) -> bool {
 
 /// The coarse band for a date of birth on a given day (`0-15` ... `75+`).
 pub fn age_band(born: chrono::NaiveDate, today: chrono::NaiveDate) -> &'static str {
-    let mut y = today.years_since(born).unwrap_or(0);
-    if born > today {
-        y = 0;
-    }
-    match y {
+    // `years_since` is `None` for a birth after `today`, which counts as 0.
+    match today.years_since(born).unwrap_or(0) {
         0..=15 => "0-15",
         16..=24 => "16-24",
         25..=34 => "25-34",
@@ -160,6 +157,49 @@ mod feed_tests {
             "0-15",
             "a future date is not a crash"
         );
+    }
+
+    /// Every band at both of its edges (QUAL-18: deleting any arm, or moving an edge, fails this).
+    #[test]
+    fn test_each_band_starts_and_ends_on_its_birthdays() {
+        let d = |y, m, dd| NaiveDate::from_ymd_opt(y, m, dd).unwrap();
+        let today = d(2026, 10, 19);
+        let aged = |years: i32| d(2026 - years, 10, 19);
+        let just_under = |years: i32| d(2026 - years, 10, 20);
+        assert_eq!(age_band(today, today), "0-15", "born today");
+        for (lowest, band) in [
+            (16, "16-24"),
+            (25, "25-34"),
+            (35, "35-44"),
+            (45, "45-54"),
+            (55, "55-64"),
+            (65, "65-74"),
+            (75, "75+"),
+        ] {
+            assert_eq!(age_band(aged(lowest), today), band, "{lowest} today");
+            assert_ne!(
+                age_band(just_under(lowest), today),
+                band,
+                "{lowest} tomorrow is the band below"
+            );
+        }
+        for (highest, band) in [
+            (15, "0-15"),
+            (24, "16-24"),
+            (34, "25-34"),
+            (44, "35-44"),
+            (54, "45-54"),
+            (64, "55-64"),
+            (74, "65-74"),
+        ] {
+            assert_eq!(
+                age_band(just_under(highest + 1), today),
+                band,
+                "{highest}, a day before {}",
+                highest + 1
+            );
+        }
+        assert_eq!(age_band(d(1900, 1, 1), today), "75+");
     }
 
     #[test]

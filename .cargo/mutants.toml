@@ -1,4 +1,7 @@
 # cargo-mutants settings (QUAL-18; .github/workflows/mutation.yml).
+
+# The workspace's `[profile.mutants]`: the test profile without debug information, so each mutant builds faster.
+profile = "mutants"
 #
 # Mutants that cannot change behaviour, each with the reason. Anything listed here is never tested, so each
 # pattern names the exact line and column: if the code moves, the pattern stops matching and the weekly job

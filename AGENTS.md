@@ -2,6 +2,13 @@
 
 Orientation for AI agents and people working in this repository. Read it before changing anything. It is a map and a set of rules; the detail lives in the files it points to. Keep it under 40 KB (`wc -c AGENTS.md`).
 
+## Specification Driven Development
+
+**The `spec/` directory is the source of truth.** 
+- Before doing anything read all files inside the `spec/` directory using your file-reading tools.
+- Treat all files inside `spec/` as strict requirements. Where any file disagrees with the spec, the spec wins: fix the file, or change the spec on purpose and bring the other files into line in the same commit. 
+- Do not improvise structure, style, or citation practice.
+
 ## What this is
 
 A Patient Administration System (PAS) for the NHS in Wales: appointments, reminders and replies, waiting lists, transport and virtual-visit requests, and the measurement that shows whether any of it is fair. It is **administrative, not clinical**: no diagnoses, prescriptions or vitals. Identity (`Patient`) and workforce (`Practitioner`) live in two other services (`person-service`, `worker-service`) reached over HTTP; the PAS holds opaque `person_id` / `worker_id` UUIDs.
