@@ -776,8 +776,8 @@ async fn every_read_returns_the_rows_seeded_for_it() {
                ('{free}','{room}','B2 {tag}','B2{tag}','available',now(),now());
              INSERT INTO encounters (id,person_id,class,status,period_start,created_at,updated_at) VALUES ('{encounter}','{person}','inpatient','in-progress',now(),now(),now());
              INSERT INTO bed_assignments (id,encounter_id,bed_id,assigned_at,created_at,updated_at) VALUES ('{assignment}','{encounter}','{occupied}',now(),now(),now());
-             INSERT INTO rtt_pathways (id,person_id,target_service,started_at,created_at,updated_at) VALUES ('{pathway}','{person}','Sqlx {tag}',now() - interval '21 days',now(),now());
-             INSERT INTO rtt_clock_events (id,pathway_id,kind,event_at,created_at) VALUES ('{event}','{pathway}','started',now() - interval '21 days',now());
+             INSERT INTO rtt_pathways (id,person_id,target_service,started_at,created_at,updated_at) VALUES ('{pathway}','{person}','Sqlx {tag}',now() - interval '21 days 1 hour',now(),now());
+             INSERT INTO rtt_clock_events (id,pathway_id,kind,event_at,created_at) VALUES ('{event}','{pathway}','started',now() - interval '21 days 1 hour',now());
              INSERT INTO schedules (id,owner_kind,owner_id,service_type,created_at,updated_at) VALUES ('{schedule_id}','worker','{person}','Sqlx {tag}',now(),now());
              INSERT INTO slots (id,schedule_id,start_datetime,end_datetime,created_at,updated_at) VALUES ('{slot}','{schedule_id}',now() + interval '1 day',now() + interval '1 day 30 minutes',now(),now());
              INSERT INTO letter_templates (id,name,subject,body_tera,channels,created_at,updated_at) VALUES ('{template}','Sqlx {tag}','Subject','Body','[\"post\",\"email\"]',now(),now());
@@ -855,6 +855,8 @@ async fn every_read_returns_the_rows_seeded_for_it() {
         assert_eq!(template_row.channels, ["post", "email"]);
         let pathways = pathways.expect("pathways");
         let row = pathways.iter().find(|p| p.pathway_id == pathway).expect("the pathway");
+        // Started 21 days and an hour ago: the hour keeps the count off a week boundary, where a database
+        // clock a moment ahead of this one would make it 2.
         assert_eq!(row.weeks_waiting, 3);
         assert_eq!(row.breach_weeks, 18);
         assert!(!row.is_breaching);

@@ -149,6 +149,10 @@ impl App {
             print!("{report}");
             return Ok(());
         }
+        // Asks the running server for its health, for an image with no `curl`; before the database too.
+        if let Command::Health { ready, port } = cli.command {
+            return cli::health(&environment, &defaults(), ready, port).await;
+        }
         let mut config = Self::config(&environment)?;
         if let Command::Start { binding, port, .. } = &cli.command {
             if let Some(binding) = binding {
@@ -166,7 +170,7 @@ impl App {
             // There are no tasks and no background jobs: the PAS binary owns the outbox dispatcher.
             Command::Task { name: None, .. } => Ok(()),
             Command::Task { name: Some(_), .. } => Err(Error::string("this service has no tasks")),
-            Command::Check => Ok(()),
+            Command::Check | Command::Health { .. } => Ok(()),
         }
     }
 }

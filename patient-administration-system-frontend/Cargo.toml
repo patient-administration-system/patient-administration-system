@@ -3,7 +3,7 @@ name = "patient-administration-system-frontend"
 version = "0.2.0"
 edition = "2024"
 # MSRV: two releases behind the pinned toolchain (rust-toolchain.toml); `cargo +1.97 check` proves it.
-rust-version = "1.97"
+rust-version = "1.98"
 authors = ["joel@joelparkerhenderson.com"]
 description = "Axum and axa front-end for the Patient Administration System (PAS). Tera templates + HTMX live-refresh + Lily Design System markup. Patient reads delegate to person-service (v0.2.0); PAS-owned reads share the PAS PostgreSQL database via sqlx; writes go through the PAS Axum API server."
 license = "MIT OR Apache-2.0"
@@ -11,7 +11,7 @@ publish = false
 
 [dependencies]
 # Shared service plumbing: routes, middleware, configuration, logging, shutdown, the command line.
-axa = { version = "0.15", features = ["postgres-sqlx", "tracing"] }
+axa = { version = "0.17", features = ["postgres-sqlx", "tracing"] }
 axum = { version = "0.8", default-features = false }
 
 # HTML templates (`views`), and the files under `/static`.
@@ -49,9 +49,9 @@ tracing = "0.1"
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive"] }
-axa = { version = "0.15", features = ["postgres-sqlx", "tracing"] }
+axa = { version = "0.17", features = ["postgres-sqlx", "tracing"] }
 # The request-level test helpers, their own crate since axa 0.10.
-axa-test = "0.6"
+axa-test = "0.8"
 serial_test = "4.0"
 
 [[bin]]
