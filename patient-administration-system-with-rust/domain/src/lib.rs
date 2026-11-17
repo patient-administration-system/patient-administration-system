@@ -27,5 +27,6 @@ pub mod time;
 pub mod tolerance;
 pub mod triage;
 pub mod validation;
+pub mod work_queue;
 
 pub use error::{Error, Result};

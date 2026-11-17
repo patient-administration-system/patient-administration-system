@@ -83,6 +83,7 @@ pub mod upstream;
 pub mod virtual_visits;
 pub mod waitlist;
 pub mod waits;
+pub mod work_queue;
 pub mod writeback;
 
 // Re-exports

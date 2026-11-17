@@ -268,6 +268,7 @@ fn spawn_jobs(
     spawn_tolerance(jobs, state);
     spawn_noshow(jobs, state);
     spawn_backfill(jobs, state);
+    spawn_work_queue(jobs, state);
     spawn_bed_holds(jobs, state);
     spawn_hl7_dedupe_purge(jobs, db);
     spawn_reminders(jobs, db, state)
@@ -412,6 +413,35 @@ fn spawn_hl7_dedupe_purge(jobs: &mut Jobs, db: &patient_administration_system::d
             }
         }
     });
+}
+
+/// The staff work queue (TSC-1): every minute, an item for each open call, follow-up, validation, needs review
+/// and tolerance alert, closed when its source closes.
+fn spawn_work_queue(jobs: &mut Jobs, state: &AppState) {
+    let db = state.db.clone();
+    let clock = state.clock.clone();
+    jobs.spawn(
+        "work-queue",
+        std::time::Duration::from_secs(60),
+        move || {
+            let db = db.clone();
+            let clock = clock.clone();
+            async move {
+                match patient_administration_system::work_queue::WorkQueueService::new(db)
+                    .sync(clock.now())
+                    .await
+                {
+                    Ok(r) if r.opened + r.reopened + r.closed > 0 => {
+                        tracing::info!(target: "pas::work_queue", ?r, "work queue synced");
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        tracing::warn!(target: "pas::work_queue", "work queue sync failed: {e}")
+                    }
+                }
+            }
+        },
+    );
 }
 
 fn spawn_backfill(jobs: &mut Jobs, state: &AppState) {

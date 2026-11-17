@@ -63,6 +63,7 @@ use super::handlers_virtual;
 use super::handlers_waitlist;
 use super::handlers_waits;
 use super::handlers_whatsapp;
+use super::handlers_work_queue;
 use super::handlers_writeback;
 use super::upstream_proxy;
 
