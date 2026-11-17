@@ -19,6 +19,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - A connection that sends something other than whitespace before an MLLP frame is closed (before, the bytes were skipped for ever); an oversize frame is answered with an AE.
 
 ### Fixed
+- With more than one outbox publisher (webhook and MLLP), a retry after one failed no longer sends the event again to those that already took it, within the same process.
 - The MLLP listener reads through a buffer: it took one system call per byte, so a large message on a busy server could run past the idle timeout and be cut off.
 - Secrets cannot reach a log through the configuration (NFR-14): `Config`'s `{:?}` shows each token and the webhook secret only as set or unset, and URLs without password or query string; a mistyped `PAS_CARRIER_SECRETS` entry is named by its position, not quoted.
 - Error answers no longer quote what the sender sent (NFR-33, HUB-5): an HL7 v2 parse error quoted the text where MSH should be, ACKs quoted bed codes, a merge's source MRN, appointment and staff ids, and charge amounts and codes, and a FHIR Bundle quoted the resource type it refused. Each now names the field and the reason.

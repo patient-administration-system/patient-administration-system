@@ -126,6 +126,43 @@ impl EventPublisher for InMemoryEventPublisher {
 /// silently lose one because a single sink went down.
 pub struct CompositePublisher {
     children: Vec<Arc<dyn EventPublisher>>,
+    /// Which children already took which event, so a retry after a later child failed does not send it to
+    /// them again. In memory and bounded (the oldest entries go first): it covers the retries of one process,
+    /// which is where the outbox's backoff retries happen; after a restart delivery is at least once, as the
+    /// receivers are told (they de-duplicate on `event.id`).
+    delivered: std::sync::Mutex<Delivered>,
+}
+
+/// The bounded record of (event, child) deliveries.
+#[derive(Default)]
+struct Delivered {
+    set: std::collections::HashSet<(uuid::Uuid, usize)>,
+    order: std::collections::VecDeque<(uuid::Uuid, usize)>,
+}
+
+/// How many (event, child) deliveries [`CompositePublisher`] remembers.
+const DELIVERED_CAP: usize = 50_000;
+
+impl Delivered {
+    fn has(&self, key: (uuid::Uuid, usize)) -> bool {
+        self.set.contains(&key)
+    }
+    fn add(&mut self, key: (uuid::Uuid, usize)) {
+        if self.set.insert(key) {
+            self.order.push_back(key);
+            while self.order.len() > DELIVERED_CAP {
+                if let Some(old) = self.order.pop_front() {
+                    self.set.remove(&old);
+                }
+            }
+        }
+    }
+    fn forget(&mut self, id: uuid::Uuid, children: usize) {
+        for i in 0..children {
+            self.set.remove(&(id, i));
+        }
+        self.order.retain(|(e, _)| *e != id);
+    }
 }
 
 impl CompositePublisher {
@@ -137,7 +174,10 @@ impl CompositePublisher {
             !children.is_empty(),
             "CompositePublisher must wrap at least one child"
         );
-        Self { children }
+        Self {
+            children,
+            delivered: std::sync::Mutex::default(),
+        }
     }
 
     /// Returns the number of downstream publishers. Exposed for logs
@@ -157,9 +197,28 @@ impl CompositePublisher {
 #[async_trait]
 impl EventPublisher for CompositePublisher {
     async fn publish(&self, event: DomainEvent) -> Result<()> {
-        for child in &self.children {
+        let id = event.id;
+        let done = |i: usize| {
+            self.delivered
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .has((id, i))
+        };
+        for (i, child) in self.children.iter().enumerate() {
+            if done(i) {
+                continue;
+            }
             child.publish(event.clone()).await?;
+            self.delivered
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .add((id, i));
         }
+        // Every child has it: nothing more to remember for this event.
+        self.delivered
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .forget(id, self.children.len());
         Ok(())
     }
 }
@@ -293,6 +352,61 @@ mod tests {
             healthy_events.is_empty(),
             "first-failure-wins must short-circuit"
         );
+    }
+
+    /// Fails until told to pass, counting its calls.
+    struct FlakyPublisher {
+        calls: std::sync::atomic::AtomicUsize,
+        pass: std::sync::atomic::AtomicBool,
+    }
+    #[async_trait]
+    impl EventPublisher for FlakyPublisher {
+        async fn publish(&self, _event: DomainEvent) -> Result<()> {
+            self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if self.pass.load(std::sync::atomic::Ordering::SeqCst) {
+                Ok(())
+            } else {
+                Err(crate::Error::Streaming("not yet".into()))
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_a_retry_does_not_send_again_to_a_child_that_took_it() {
+        let first = Arc::new(InMemoryEventPublisher::new());
+        let flaky = Arc::new(FlakyPublisher {
+            calls: Default::default(),
+            pass: Default::default(),
+        });
+        let composite = CompositePublisher::new(vec![
+            first.clone(),
+            flaky.clone() as Arc<dyn EventPublisher>,
+        ]);
+        let ev = DomainEvent::new("AppointmentBooked", json!({}));
+        assert!(composite.publish(ev.clone()).await.is_err());
+        assert!(composite.publish(ev.clone()).await.is_err());
+        flaky.pass.store(true, std::sync::atomic::Ordering::SeqCst);
+        composite.publish(ev.clone()).await.unwrap();
+        assert_eq!(
+            first.events().await.len(),
+            1,
+            "the first child got it once, not three times"
+        );
+        assert_eq!(flaky.calls.load(std::sync::atomic::Ordering::SeqCst), 3);
+        // Once every child has it, it is forgotten: a new publish of the same id (a replay) goes to all.
+        assert!(composite.delivered.lock().unwrap().set.is_empty());
+        composite.publish(ev).await.unwrap();
+        assert_eq!(first.events().await.len(), 2);
+    }
+
+    #[test]
+    fn test_the_record_of_deliveries_is_bounded() {
+        let mut d = Delivered::default();
+        for _ in 0..(DELIVERED_CAP + 10) {
+            d.add((uuid::Uuid::new_v4(), 0));
+        }
+        assert_eq!(d.set.len(), DELIVERED_CAP);
+        assert_eq!(d.order.len(), DELIVERED_CAP);
     }
 
     #[tokio::test]
