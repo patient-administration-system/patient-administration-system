@@ -312,13 +312,18 @@ async fn the_history_due_check_adjustment_and_noshow_routes_send_the_types_they_
         Some(json!({"person_id": person, "target_service": service})),
     )
     .await;
-    let due: Vec<DueCheck> = call(
-        &app,
-        "GET",
-        "/api/pathways/due-check?weeks=0&repeat_days=1",
-        None,
-    )
-    .await;
+    // The list is every open pathway, oldest first, so on a busy database the new one is on a later page: read
+    // them all, each page as the declared type.
+    let mut due: Vec<DueCheck> = Vec::new();
+    let mut uri = Some("/api/pathways/due-check?weeks=0&repeat_days=1&limit=500".to_string());
+    while let Some(u) = uri.take() {
+        let bytes = send(&app, "GET", &u, None).await;
+        let page: ApiResponse<Vec<DueCheck>> = serde_json::from_slice(&bytes)
+            .unwrap_or_else(|e| panic!("GET {u} is not the declared type: {e}"));
+        assert!(page.success, "GET {u}");
+        due.extend(page.data.unwrap_or_default());
+        uri = page.meta.and_then(|m| m.next);
+    }
     assert!(
         due.iter()
             .any(|d| d.pathway_id == pathway.id && d.person_id == person)

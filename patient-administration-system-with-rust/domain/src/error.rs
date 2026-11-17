@@ -24,6 +24,10 @@ pub enum Error {
 
     #[error("Conflict: {0}")]
     Conflict(String),
+
+    /// A setting a rule reads is unusable (refused at start-up by the server's `config::env::validate`).
+    #[error("Configuration error: {0}")]
+    Config(String),
 }
 
 impl Error {
@@ -45,6 +49,10 @@ impl Error {
 
     pub fn conflict(msg: impl Into<String>) -> Self {
         Error::Conflict(msg.into())
+    }
+
+    pub fn config(msg: impl Into<String>) -> Self {
+        Error::Config(msg.into())
     }
 }
 

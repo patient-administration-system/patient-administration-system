@@ -26,7 +26,7 @@ pub enum Rag {
 }
 
 impl Rag {
-    pub(super) fn rank(self) -> u8 {
+    pub fn rank(self) -> u8 {
         match self {
             Rag::NoData => 0,
             Rag::Green => 1,
@@ -78,7 +78,7 @@ crate::string_enum! {
 }
 
 impl ScopeKind {
-    pub(super) fn parse(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         s.parse().ok()
     }
 }
@@ -120,7 +120,7 @@ impl Scope {
         }
     }
 
-    pub(super) fn uuid(&self, metric: &str) -> Uuid {
+    pub fn uuid(&self, metric: &str) -> Uuid {
         let name = if self.kind == ScopeKind::All {
             metric.to_string()
         } else {

@@ -4,7 +4,7 @@ use super::*;
 
 /// Low up to the medium threshold, medium above it (`> 0.40` is medium, `0.40` is not). **High is not a
 /// probability cut-off:** it means "on today's call list", which is the top few matched to the people
-/// available to phone (see [`NoShowService::refresh_call_list`]). A fixed high cut-off with a low base rate
+/// available to phone (see the server's `NoShowService::refresh_call_list`). A fixed high cut-off with a low base rate
 /// can only be reached by patients who have missed before, which would make the list a "missed before" list.
 pub fn band(p: f64, medium: f64) -> Band {
     if p > medium { Band::Medium } else { Band::Low }
@@ -169,7 +169,7 @@ pub fn compute(i: &Inputs, w: &Weights) -> Assessment {
 }
 
 impl Weights {
-    pub(super) fn from_env_for_card() -> WeightsCard {
+    pub fn from_env_for_card() -> WeightsCard {
         let w = Weights::from_env();
         WeightsCard {
             base: w.base,

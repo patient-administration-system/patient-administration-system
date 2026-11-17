@@ -555,9 +555,11 @@ fn test_the_scoring_module_never_writes_to_slots_offers_standby_or_appointments(
     // A crude, blunt guard: the module's source never names the tables that decide what a patient is offered,
     // and never changes an appointment, so it cannot hold back, reorder or remove a slot.
     // Every file of the module (it is split into several): a guard that read only `mod.rs` would check a fraction.
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/noshow");
-    let mut files: Vec<_> = std::fs::read_dir(&dir)
-        .unwrap()
+    // The model itself is in the domain crate (QUAL-52), so both halves are read.
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut files: Vec<_> = ["src/noshow", "domain/src/noshow"]
+        .iter()
+        .flat_map(|d| std::fs::read_dir(root.join(d)).unwrap())
         .map(|e| e.unwrap().path())
         .filter(|p| p.extension().is_some_and(|x| x == "rs"))
         .collect();

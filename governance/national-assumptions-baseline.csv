@@ -7,6 +7,7 @@ domain/src/inbound/parser.rs,1
 domain/src/models/consent.rs,1
 domain/src/models/coverage.rs,3
 domain/src/models/rtt.rs,1
+domain/src/triage/interchange.rs,16
 src/adjustments/mod.rs,2
 src/analytics/demographics.rs,1
 src/api/fhir/handlers/mod.rs,1
@@ -35,4 +36,3 @@ src/noshow/mod.rs,2
 src/privacy/consent.rs,1
 src/reply_links/mod.rs,1
 src/token_issuer.rs,1
-src/triage/interchange.rs,16

@@ -18,24 +18,22 @@ fn keep_worst<T>(rows: Vec<T>, limit: usize, rank: impl Fn(&T) -> u8) -> Vec<T> 
     kept.into_iter().map(|(_, r)| r).collect()
 }
 
-impl Status {
-    /// Cut `by_service` and `by_ward` to at most `limit` readings each, keeping the worst, and say whether
-    /// either lost any (QUAL-47). The whole-service `readings` are one per measure, and `overall` was read from
-    /// everything before the cut.
-    pub fn page(mut self, limit: i64) -> (Self, PageMeta) {
-        let keep = usize::try_from(limit).unwrap_or(0);
-        let before = self.by_service.len() + self.by_ward.len();
-        self.by_service = keep_worst(self.by_service, keep, |r| r.rag.rank());
-        self.by_ward = keep_worst(self.by_ward, keep, |r| r.rag.rank());
-        let returned = self.by_service.len() + self.by_ward.len();
-        let meta = PageMeta {
-            limit,
-            returned,
-            truncated: returned < before,
-            next: None,
-        };
-        (self, meta)
-    }
+/// Cut `by_service` and `by_ward` to at most `limit` readings each, keeping the worst, and say whether either
+/// lost any (QUAL-47). The whole-service `readings` are one per measure, and `overall` was read from everything
+/// before the cut. (A free function: `Status` is a domain type and `PageMeta` a server one.)
+pub fn page(mut status: Status, limit: i64) -> (Status, PageMeta) {
+    let keep = usize::try_from(limit).unwrap_or(0);
+    let before = status.by_service.len() + status.by_ward.len();
+    status.by_service = keep_worst(status.by_service, keep, |r| r.rag.rank());
+    status.by_ward = keep_worst(status.by_ward, keep, |r| r.rag.rank());
+    let returned = status.by_service.len() + status.by_ward.len();
+    let meta = PageMeta {
+        limit,
+        returned,
+        truncated: returned < before,
+        next: None,
+    };
+    (status, meta)
 }
 
 impl ToleranceService {

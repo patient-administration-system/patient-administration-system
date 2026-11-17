@@ -92,6 +92,7 @@ impl From<patient_administration_system_domain::Error> for Error {
             D::Unprocessable(m) => Error::Unprocessable(m),
             D::InvalidStateTransition(m) => Error::InvalidStateTransition(m),
             D::Conflict(m) => Error::Conflict(m),
+            D::Config(m) => Error::Config(m),
         }
     }
 }
