@@ -19,8 +19,7 @@
 //!
 //! Every inbound text is kept in `inbound_texts`, which is also the idempotency key for the carrier's id.
 
-pub mod messages;
-pub mod parser;
+pub use patient_administration_system_domain::inbound::{messages, parser};
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};

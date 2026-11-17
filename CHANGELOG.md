@@ -9,6 +9,7 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
+- **Changed, structure (QUAL-52):** a new crate, `patient-administration-system-domain` (`patient-administration-system-with-rust/domain/`), holds the business rules with no web or database: the models and state lists, validation, identifiers, the clock, the settings registry, the suspicion profile, the inbound-reply parser and wording, the SMS length rule and the masking helpers. The server re-exports them at their old paths, so no import changed.
 - **New, security policy (SEC-1):** `SECURITY.md` is a formal policy: scope, reporting, response targets, severity, coordinated disclosure, good-faith research and supported versions.
 - **Changed, database (SQLX-1):** the server, front-end and migrations run on sqlx, and `sea-orm` is gone. Migrations are SQL files, and `pas-migrate up` adopts an existing `seaql_migrations` record once.
 - **Breaking (FR-206):** REST errors are RFC 9457 problems. See the server crate's changelog.

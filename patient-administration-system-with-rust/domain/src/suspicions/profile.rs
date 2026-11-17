@@ -24,11 +24,11 @@ pub const DEFAULT: &str = "generic";
 const BUILT_IN: [(&str, &str); 2] = [
     (
         "generic",
-        include_str!("../../profiles/suspected-conditions/generic.json"),
+        include_str!("../../../profiles/suspected-conditions/generic.json"),
     ),
     (
         "wales",
-        include_str!("../../profiles/suspected-conditions/wales.json"),
+        include_str!("../../../profiles/suspected-conditions/wales.json"),
     ),
 ];
 

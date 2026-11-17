@@ -11,12 +11,12 @@ use uuid::Uuid;
 ///   `POST /api/letters/{id}/sent` is the manual signal.
 /// - `Email` — render and store; same manual-flip semantics as `Print`.
 /// - `Sms` — render and store. As of v0.8, when an enabled
-///   [`crate::communication::SmsProvider`] is wired (`PAS_SMS_PROVIDER=log`
+///   the server's `communication::SmsProvider` is wired (`PAS_SMS_PROVIDER=log`
 ///   or a consumer-supplied provider), `CommunicationService::generate_letter`
 ///   also auto-dispatches the message to the patient's first
 ///   `ContactPoint { system: Phone }` and flips status to `Sent` on success
 ///   or `Failed` on error. When the configured provider is
-///   [`crate::communication::NoopSmsProvider`] (the default), the letter
+///   the server's `communication::NoopSmsProvider` (the default), the letter
 ///   stays `Pending` — the same behavior as `Print` and `Email`.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]

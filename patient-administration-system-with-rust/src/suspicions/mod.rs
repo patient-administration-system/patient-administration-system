@@ -15,7 +15,7 @@
 //! - **It stops once** (FR-209), for `treatment_started`, `downgraded`, `died` or `entered_in_error`.
 //! - **No invented targets** (FR-211): a condition has a target only when its profile names one and its source.
 
-pub mod profile;
+pub use patient_administration_system_domain::suspicions::profile;
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};

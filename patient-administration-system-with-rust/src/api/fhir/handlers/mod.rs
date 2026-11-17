@@ -49,7 +49,8 @@ fn fhir_of<T: serde::Serialize>(kind: &str, value: T) -> FhirResult {
     }
 }
 
-fn error_to_response(err: Error) -> (StatusCode, Json<OperationOutcome>) {
+fn error_to_response(err: impl Into<Error>) -> (StatusCode, Json<OperationOutcome>) {
+    let err: Error = err.into();
     let (status, code) = match &err {
         Error::NotFound(_) => (StatusCode::NOT_FOUND, "not-found"),
         Error::Validation(_) | Error::Fhir(_) => (StatusCode::BAD_REQUEST, "invalid"),

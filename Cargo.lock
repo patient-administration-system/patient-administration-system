@@ -2646,6 +2646,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
+ "patient-administration-system-domain",
  "patient-administration-system-migrations",
  "proptest",
  "reqwest",
@@ -2669,6 +2670,21 @@ dependencies = [
  "tracing-subscriber",
  "utoipa",
  "utoipa-swagger-ui",
+ "uuid",
+]
+
+[[package]]
+name = "patient-administration-system-domain"
+version = "0.49.0"
+dependencies = [
+ "chrono",
+ "chrono-tz 0.10.4",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tracing",
+ "utoipa",
  "uuid",
 ]
 

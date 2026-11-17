@@ -81,6 +81,21 @@ pub enum Error {
     Internal(String),
 }
 
+/// A business rule's refusal (the domain crate) becomes the server variant of the same name, so the HTTP
+/// status it maps to is the one it had before the split.
+impl From<patient_administration_system_domain::Error> for Error {
+    fn from(e: patient_administration_system_domain::Error) -> Self {
+        use patient_administration_system_domain::Error as D;
+        match e {
+            D::NotFound(m) => Error::NotFound(m),
+            D::Validation(m) => Error::Validation(m),
+            D::Unprocessable(m) => Error::Unprocessable(m),
+            D::InvalidStateTransition(m) => Error::InvalidStateTransition(m),
+            D::Conflict(m) => Error::Conflict(m),
+        }
+    }
+}
+
 impl Error {
     /// Build a `Forbidden` error.
     pub fn forbidden(msg: impl Into<String>) -> Self {

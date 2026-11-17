@@ -19,7 +19,7 @@ Current state is generated, not written: [`spec/14-implementation-status.md`](sp
 
 | Path | What |
 |---|---|
-| `patient-administration-system-with-rust/` | The API (Axum, sqlx through `src/db/sql.rs`, `src/`, `tests/`, `benches/`, `migrations/` crate). Has its own `AGENTS.md` and `AGENTS/` |
+| `patient-administration-system-with-rust/` | The API (Axum, sqlx through `src/db/sql.rs`, `src/`, `tests/`, `benches/`, the `domain/` crate of business rules with no web or database (QUAL-52), the `migrations/` crate). Has its own `AGENTS.md` and `AGENTS/` |
 | `patient-administration-system-ui-with-svelte/` | The UI: SvelteKit 3, Svelte 5, Lily Design System, Keycloak sign-in, 10 locales, Playwright + Vitest |
 | `patient-administration-system-frontend/` | An Axum and axa server-rendered ops dashboard that runs in parallel to the SvelteKit UI. Has its own `AGENTS.md` |
 | `spec/` | The specification (19 chapters). **Single source of truth** for behaviour. FRs are in `06`, NFRs in `07` |

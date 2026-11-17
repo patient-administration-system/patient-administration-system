@@ -34,7 +34,6 @@ pub mod backfill;
 pub mod billing;
 pub mod clinic_templates;
 pub mod clinical_priority;
-pub mod clock;
 pub mod communication;
 pub mod config;
 pub mod contact;
@@ -47,7 +46,6 @@ pub mod follow_up_delay;
 pub mod group_sessions;
 pub mod history;
 pub mod hl7v2;
-pub mod identifiers;
 pub mod identity;
 pub mod inbound;
 pub mod interpreter;
@@ -56,7 +54,6 @@ pub mod jobs;
 pub mod link_token;
 pub mod list_validation;
 pub mod metrics;
-pub mod models;
 pub mod needs_review;
 pub mod noshow;
 pub mod observability;
@@ -83,7 +80,6 @@ pub mod tolerance;
 pub mod transport;
 pub mod triage;
 pub mod upstream;
-pub mod validation;
 pub mod virtual_visits;
 pub mod waitlist;
 pub mod waits;
@@ -91,6 +87,13 @@ pub mod writeback;
 
 // Re-exports
 pub use error::{Error, Result};
+
+// Domain logic and business rules: the models, the state lists, validation, identifiers and the clock, in
+// their own crate so that an edit to a route or a query does not rebuild them, and they cannot reach the web or
+// the database. Re-exported at their old paths, so `crate::models::...` still works.
+pub use patient_administration_system_domain::{
+    clock, identifiers, models, string_enum, validation,
+};
 
 #[cfg(test)]
 mod tests {

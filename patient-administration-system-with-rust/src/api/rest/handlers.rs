@@ -19,7 +19,8 @@ pub type HandlerResult = Response;
 
 /// Map a service-layer [`Error`] onto an HTTP status code + machine-readable
 /// error code.
-pub fn error_to_response(err: Error) -> HandlerResult {
+pub fn error_to_response(err: impl Into<Error>) -> HandlerResult {
+    let err: Error = err.into();
     let (status, code) = match &err {
         Error::NotFound(_) => (StatusCode::NOT_FOUND, "not_found"),
         Error::Validation(_) => (StatusCode::BAD_REQUEST, "validation"),

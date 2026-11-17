@@ -13,6 +13,8 @@ keywords = ["healthcare", "pas", "fhir", "hl7", "admin"]
 categories = ["science", "database"]
 
 [dependencies]
+# Domain logic and business rules (models, validation, identifiers, the clock, the settings registry).
+patient-administration-system-domain = { path = "domain", version = "0.49.0" }
 er7 = "0.2.2"
 fhir = "4.2.4"
 # Async Runtime

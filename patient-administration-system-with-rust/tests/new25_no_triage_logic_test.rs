@@ -20,10 +20,12 @@ fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
 #[test]
 fn the_server_code_names_no_triage_discriminator() {
     let mut files = Vec::new();
-    rust_files(
-        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src"),
-        &mut files,
-    );
+    for src in ["src", "domain/src"] {
+        rust_files(
+            &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(src),
+            &mut files,
+        );
+    }
     assert!(files.len() > 50, "found only {} files", files.len());
     let mut found = Vec::new();
     for f in &files {

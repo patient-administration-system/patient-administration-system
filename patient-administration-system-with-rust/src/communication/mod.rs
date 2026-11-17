@@ -23,7 +23,7 @@ pub mod ladder;
 pub mod reminders;
 pub mod sender;
 pub mod sms;
-pub mod sms_length;
+pub use patient_administration_system_domain::communication::sms_length;
 pub mod templates;
 pub mod whatsapp;
 

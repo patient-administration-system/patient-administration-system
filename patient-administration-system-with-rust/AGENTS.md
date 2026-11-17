@@ -74,11 +74,12 @@ Ground truth for any claim about behavior:
 
 ## Workspace orientation
 
-This crate is one of three workspace members rooted at `..`:
+This crate is one of five workspace members rooted at `..` (with `load/`, the load generator):
 
 | Crate / Service                                | Role                                                              | Port  |
 |------------------------------------------------|-------------------------------------------------------------------|-------|
 | `patient-administration-system` (this one)     | Workflow service. REST + FHIR R5 (the `fhir` crate) + HL7 v2 (the `er7` crate; HTTP + MLLP). Proxies identity + workforce to upstream services. | 8080 |
+| `patient-administration-system-domain`         | Business rules with no web or database (`domain/`): models and state lists, validation, identifiers, the clock, the settings registry, and pure rules. Re-exported here at the old paths (`crate::models::...`). `tests/qual52_domain_boundary_test.rs` keeps web, HTTP, database and async crates out. | n/a |
 | `patient-administration-system-migrations`     | sqlx migration crate, shared by both PAS apps; CLI is `pas-migrate`. | n/a |
 | `patient-administration-system-frontend`       | Axum and axa read-mostly UI. Tera + HTMX + Lily Design System.    | 1241  |
 | `person-service` *(HTTP dep, external)*   | Person identity, demographics, search, match, merge, FHIR R5 Person. | 5180 |

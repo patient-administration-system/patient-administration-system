@@ -41,6 +41,7 @@ fn switches(text: &str) -> BTreeSet<String> {
 fn every_pas_switch_in_the_server_is_in_the_operations_documents() {
     let mut files = Vec::new();
     rust_files(&crate_dir().join("src"), &mut files);
+    rust_files(&crate_dir().join("domain/src"), &mut files);
     let mut used = BTreeSet::new();
     for f in &files {
         let text = std::fs::read_to_string(f).unwrap();
