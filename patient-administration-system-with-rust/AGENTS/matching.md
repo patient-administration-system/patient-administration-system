@@ -78,7 +78,7 @@ An `RTTPathway` is the regulated wait-time clock for a patient on a target servi
 - `Resumed`: resumes the clock. Pairs with the preceding `Paused`.
 - `Stopped(reason)`: terminates the pathway. No further events allowed.
 
-Ordering invariants enforced by `src/validation/`:
+Ordering invariants enforced by `domain/src/validation/`:
 
 - `event_at` is monotonically non-decreasing per pathway.
 - `Started` is the first event.
@@ -94,7 +94,7 @@ pub fn compute_active_weeks(
 ) -> u32;
 ```
 
-Defined in `src/models/rtt.rs`. Given a chronologically-ordered slice of events and a reference instant `now`, it returns the total active-but-not-paused time in whole weeks (floor).
+Defined in `domain/src/models/rtt.rs`. Given a chronologically-ordered slice of events and a reference instant `now`, it returns the total active-but-not-paused time in whole weeks (floor).
 
 Algorithm:
 
@@ -140,9 +140,9 @@ When an `Appointment` is booked off a `WaitlistEntry`, the resulting `Appointmen
 - `src/scheduling/` — slot booking, per-patient overlap detection, status transitions.
 - `src/adt/` — bed allocation, transfer, discharge.
 - `src/waitlist/` — waitlist queue, RTT clock arithmetic, breach predicate.
-- `src/validation/` — RTT clock-event ordering validator, appointment time validator.
-- `src/models/rtt.rs` — `compute_active_weeks` (free function), `RTTPathway::is_breaching`.
-- `src/models/mod.rs` — `TimeRange::overlaps` (in-memory half-open overlap).
+- `domain/src/validation/` — RTT clock-event ordering validator, appointment time validator.
+- `domain/src/models/rtt.rs` — `compute_active_weeks` (free function), `RTTPathway::is_breaching`.
+- `domain/src/models/mod.rs` — `TimeRange::overlaps` (in-memory half-open overlap).
 - `benches/scheduling_bench.rs` — `TimeRange::overlaps` perf at 16…1024 ranges.
 - `benches/waitlist_bench.rs` — `compute_active_weeks` perf at 4…256 events.
 - `tests/concurrency_test.rs` — concurrent admit + concurrent book races.

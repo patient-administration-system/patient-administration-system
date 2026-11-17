@@ -1,9 +1,9 @@
 # Domain Model Reference
 
-This document describes the domain model surface of the Patient Administration System (PAS). Models live under `src/models/` as pure Rust types with `serde` derives and no DB dependencies. The PAS is administrative: it owns ADT, scheduling, waitlists, resources, communications, and billing. Clinical content (diagnoses, orders, results) is intentionally out of scope.
+This document describes the domain model surface of the Patient Administration System (PAS). Models live under `domain/src/models/` as pure Rust types with `serde` derives and no DB dependencies. The PAS is administrative: it owns ADT, scheduling, waitlists, resources, communications, and billing. Clinical content (diagnoses, orders, results) is intentionally out of scope.
 
 > **v0.44.0 Option C — IDENTITY + WORKFORCE DELEGATED.**
-> The Patient (`src/models/patient.rs`), Identifier (`src/models/identifier.rs`), and Workforce (`src/models/practitioner.rs`) sections below document the **shipped v0.43.0** surface. **They are removed in v0.44.0** — Layer 11C deletes those three files (along with `src/validation/identifier.rs` and `src/search/`).
+> The Patient (`domain/src/models/patient.rs`), Identifier (`domain/src/models/identifier.rs`), and Workforce (`domain/src/models/practitioner.rs`) sections below document the **shipped v0.43.0** surface. **They are removed in v0.44.0** — Layer 11C deletes those three files (along with `domain/src/validation/identifier.rs` and `src/search/`).
 >
 > In v0.44.0 the PAS holds no Patient / Practitioner / Identifier types. Every former `Patient` field is reached via the `PersonClient` HTTP trait against `person-service`; every former `Practitioner` field is reached via `WorkerClient` against `worker-service`. The PAS-exposed wire shapes (`Patient` JSON, FHIR `Patient`, HL7 v2 PID) are built inside the proxy handlers by translating the upstream `Person` / `Worker` shape — see `src/upstream/translate.rs` and `spec.md` §4.0 / §4.0.1.
 >

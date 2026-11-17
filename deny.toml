@@ -8,7 +8,13 @@ all-features = true
 version = 2
 yanked = "deny"
 # Nothing is accepted. Add an advisory here only with a reason, and remove it when it no longer applies.
-ignore = []
+ignore = [
+    # chrono, chrono-tz and chrono-tz-build are unmaintained (advisories of 2026-11; none is a vulnerability).
+    # The migration to jiff is queued (tasks.md); remove these then. tera 1 keeps chrono until it is replaced.
+    { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained; jiff migration queued" },
+    { id = "RUSTSEC-2026-0555", reason = "chrono-tz unmaintained; jiff migration queued" },
+    { id = "RUSTSEC-2026-0559", reason = "chrono-tz-build unmaintained; jiff migration queued" },
+]
 
 [licenses]
 version = 2

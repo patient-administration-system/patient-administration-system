@@ -17,7 +17,7 @@ Read in this order before touching code:
 
 1. [README.md](README.md) — public surface: features, quick start, full endpoint table, configuration, status.
 2. [AGENTS/architecture.md](AGENTS/architecture.md) — layered design, aggregates, transactional outbox, state machines, time handling, soft-delete.
-3. [AGENTS/models.md](AGENTS/models.md) — every type under `src/models/` with field lists and method signatures.
+3. [AGENTS/models.md](AGENTS/models.md) — every type under `domain/src/models/` with field lists and method signatures.
 4. [AGENTS/restful.md](AGENTS/restful.md) — response envelope, error mapping, auth/CORS, headline request shapes.
 5. [AGENTS/interchange.md](AGENTS/interchange.md) — v0.2/v0.3 bulk JSON/XML/TSV/CSV import-export, FHIR R5 read/write Bundles, HL7 v2 ADT over HTTP + MLLP.
 6. [AGENTS/testing.md](AGENTS/testing.md) — unit-test layout, integration tests gated on `DATABASE_URL`, benchmark suites.
@@ -28,7 +28,7 @@ Ground truth for any claim about behavior:
 - `src/api/fhir/routes.rs` — the FHIR R5 route table.
 - `src/api/rest/handlers.rs` — handler shapes and validation.
 - `src/lib.rs` — the module tree.
-- `src/models/*.rs` — every domain type.
+- `domain/src/models/*.rs` — every domain type.
 - `migrations/sql/20260520000001_init.sql` — the database schema.
 - `spec.md` — comprehensive specification-driven-development document (scope, invariants, architecture, build sequence, acceptance criteria). Cross-check when in doubt about *what the system is* or *how it was assembled*.
 
@@ -38,7 +38,7 @@ Ground truth for any claim about behavior:
 |----------|-------------|
 | [AGENTS/index.md](AGENTS/index.md) | Index of every AGENTS file |
 | [AGENTS/architecture.md](AGENTS/architecture.md) | Layered architecture, transactional outbox, four state machines, time handling, soft-delete |
-| [AGENTS/models.md](AGENTS/models.md) | Domain model reference, one section per `src/models/*.rs` file |
+| [AGENTS/models.md](AGENTS/models.md) | Domain model reference, one section per `domain/src/models/*.rs` file |
 | [AGENTS/restful.md](AGENTS/restful.md) | REST envelope, error-to-status mapping, auth/CORS contract, headline request shapes |
 | [AGENTS/interchange.md](AGENTS/interchange.md) | v0.2/v0.3 interchange surface: bulk JSON/XML/TSV/CSV, FHIR Bundles, HL7 v2 ADT (HTTP + MLLP + outbound) |
 | [AGENTS/matching.md](AGENTS/matching.md) | Scheduling overlap detection, slot/bed booking concurrency, RTT clock arithmetic |

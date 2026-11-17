@@ -336,8 +336,8 @@ def self_test():
     assert officers(LOG.read_text()) == [], "the real log names no CSO yet (SAFE-1)"
     # The real log and closure file pass.
     assert check_closures(LOG.read_text(), CLOSURES.read_text()) == [], check_closures(LOG.read_text(), CLOSURES.read_text())
-    # The acceptance case against the real log: a change to src/noshow/ names H-10 and H-13.
-    hits = touched(LOG.read_text(), [CRATE_DIR + "/src/noshow/model.rs"])
+    # The acceptance case against the real log: a change to the no-show model names H-10 and H-13.
+    hits = touched(LOG.read_text(), [CRATE_DIR + "/domain/src/noshow/model.rs"])
     assert {"H-10", "H-13"} <= set(hits), hits
     print("check-hazard-log self-test: ok")
     return 0
