@@ -92,6 +92,23 @@ impl AppointmentRepository {
         rows.into_iter().map(from_model).collect()
     }
 
+    /// Whether appointment `id` is still booked to start at `start`: the check a scheduled message makes at the
+    /// moment it would go, so a cancellation or a move after the scan is not reminded (TSC-2).
+    pub async fn still_booked_at<C: Conn>(conn: &C, id: Uuid, start: Timestamp) -> Result<bool> {
+        Ok(conn
+            .one(Stmt::new(
+                "SELECT 1 AS ok FROM appointments WHERE id = $1 AND status = $2 AND start_datetime = $3 \
+                 AND deleted_at IS NULL",
+                [
+                    id.into(),
+                    appointment_status_to_str(AppointmentStatus::Booked).into(),
+                    start.into(),
+                ],
+            ))
+            .await?
+            .is_some())
+    }
+
     /// Appointments for a practitioner inside `[start, end)`.
     pub async fn list_by_practitioner<C: Conn>(
         conn: &C,

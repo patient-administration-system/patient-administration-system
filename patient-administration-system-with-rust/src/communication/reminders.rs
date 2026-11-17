@@ -45,6 +45,8 @@ pub struct ReminderReport {
     pub skipped_opted_out: usize,
     /// Failed before and not yet due for another try (NOT-4).
     pub backing_off: usize,
+    /// Cancelled, moved or attended after the scan and before its reminder went: not sent (TSC-2).
+    pub skipped_no_longer_booked: usize,
 }
 
 pub struct ReminderService {
@@ -126,14 +128,27 @@ impl ReminderService {
     #[tracing::instrument(skip_all, fields(job = "reminders"))]
     pub async fn run_once(&self, now: Timestamp, lead: SignedDuration) -> Result<ReminderReport> {
         let templates = self.ensure_default_templates().await?;
-        let required = super::templates::required_locales();
-        let ids: Vec<uuid::Uuid> = templates.iter().map(|t| t.id).collect();
         let channels = templates
             .first()
             .map(|t| t.channels.clone())
             .unwrap_or_default();
         let appointments =
             AppointmentRepository::list_booked_starting_between(&self.db, now, now + lead).await?;
+        self.remind(&templates, &channels, appointments, now).await
+    }
+
+    /// Remind each of `appointments`, as one scan found them. Each is checked again just before its
+    /// reminder goes, so one cancelled or moved since the scan is skipped, with the reason counted (TSC-2).
+    /// Public so a test can hand it a stale list.
+    pub async fn remind(
+        &self,
+        templates: &[LetterTemplate],
+        channels: &[DeliveryChannel],
+        appointments: Vec<Appointment>,
+        now: Timestamp,
+    ) -> Result<ReminderReport> {
+        let required = super::templates::required_locales();
+        let ids: Vec<uuid::Uuid> = templates.iter().map(|t| t.id).collect();
         let mut report = ReminderReport {
             considered: appointments.len(),
             ..Default::default()
@@ -159,15 +174,18 @@ impl ReminderService {
             // time zone, which is how they will read it (the RFC 3339 `start` stays for templates that want it).
             let language = crate::contact::preferred_language(&self.db, a.person_id).await?;
             let Some(template) =
-                super::templates::choose(&templates, language.as_deref(), &required)
+                super::templates::choose(templates, language.as_deref(), &required)
             else {
                 report.skipped_no_channel += 1;
                 continue;
             };
-            match self
-                .try_channels(&a, template, &channels, now, &ctx)
-                .await?
-            {
+            // The purpose is checked at the moment it would go, not only when the scan ran (TSC-2).
+            if !AppointmentRepository::still_booked_at(&self.db, a.id, a.start_datetime).await? {
+                tracing::info!(target: "pas::reminders", appointment_id = %a.id, "not sent: no longer booked at that time");
+                report.skipped_no_longer_booked += 1;
+                continue;
+            }
+            match self.try_channels(&a, template, channels, now, &ctx).await? {
                 Tried::Sent => report.sent += 1,
                 Tried::Deferred => report.deferred_quiet_hours += 1,
                 Tried::OptedOut => report.skipped_opted_out += 1,

@@ -92,6 +92,8 @@ crate::string_enum! {
         SkippedOptedOut = "skipped_opted_out",
         Capped = "capped",
         CallTask = "call_task",
+        /// Cancelled, moved or attended between the scan and the step (TSC-2).
+        SkippedNotBooked = "skipped_not_booked",
     }
 }
 
@@ -208,6 +210,8 @@ pub struct LadderReport {
     pub skipped_no_channel: usize,
     pub capped: usize,
     pub failed: usize,
+    /// No longer booked at that time when its step came to run: nothing sent, the reason logged (TSC-2).
+    pub skipped_not_booked: usize,
 }
 
 enum Delivery {
@@ -467,6 +471,17 @@ impl LadderService {
             .unwrap_or_else(|| crate::time::days(7));
         let appointments =
             AppointmentRepository::list_booked_starting_between(&self.db, now, now + reach).await?;
+        self.run_for(appointments, now).await
+    }
+
+    /// Run the next due step of each of `appointments`, as one scan found them. Each is checked again just
+    /// before its step acts, so one cancelled or moved since the scan gets no message and no call task, and the
+    /// step is logged as `skipped_not_booked` (TSC-2). Public so a test can hand it a stale list.
+    pub async fn run_for(
+        &self,
+        appointments: Vec<Appointment>,
+        now: Timestamp,
+    ) -> Result<LadderReport> {
         let mut report = LadderReport {
             considered: appointments.len(),
             ..Default::default()
@@ -488,6 +503,21 @@ impl LadderService {
                 report.skipped_late += 1;
             }
 
+            // The purpose is checked at the moment the step would act, not only when the scan ran (TSC-2).
+            if !AppointmentRepository::still_booked_at(&self.db, a.id, a.start_datetime).await? {
+                self.log(
+                    a.id,
+                    step,
+                    planned,
+                    None,
+                    None,
+                    StepOutcome::SkippedNotBooked,
+                    None,
+                )
+                .await?;
+                report.skipped_not_booked += 1;
+                continue;
+            }
             let acted = self.has_acted(a.id).await?;
             match step {
                 Step::Second | Step::Call if acted => {

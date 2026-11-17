@@ -511,3 +511,33 @@ async fn quiet_hours_hold_an_offer_text_by_the_clinic_clock_whatever_the_time_of
     assert_eq!(sent.len(), 1, "one text at noon: {sent:?}");
     assert_eq!(sent[0].0, w.people[1].1, "to the second patient on standby");
 }
+
+/// TSC-2: a release whose slot has started by the time its offer runs out is offered to no one else. The
+/// purpose (a future slot someone could take) is checked again when the next offer would go.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_release_whose_slot_has_started_is_offered_to_no_one_else() {
+    let w = world(2).await;
+    w.join_standby().await;
+    let (release, _slot, _) = w.release().await;
+    w.svc
+        .offer_next(release)
+        .await
+        .unwrap()
+        .expect("first offer");
+    // The slot's time passes while the first offer is open.
+    w.s.db
+        .run(Stmt::new(
+            "UPDATE slot_releases SET start_datetime = now() - interval '1 minute' WHERE id = $1",
+            [release.into()],
+        ))
+        .await
+        .unwrap();
+    w.expire_live_offer(release).await;
+    w.svc.tick(Timestamp::now()).await.unwrap();
+    assert_eq!(
+        w.statuses(release).await,
+        ["expired"],
+        "no second offer for a slot already started"
+    );
+}
