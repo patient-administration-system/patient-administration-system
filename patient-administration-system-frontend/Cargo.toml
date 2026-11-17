@@ -38,7 +38,9 @@ serde_json = "1.0"
 # Outbound HTTP — the front-end can also call the PAS REST API when it
 # wants behavior that lives in the PAS service layer rather than read
 # straight from the DB.
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "query", "form"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "json", "query", "form"] }
+# ring provider; reqwest's `rustls` feature would build aws-lc-rs.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 
 # Utilities.
 uuid = { version = "1.29", features = ["v4", "serde"] }

@@ -22,7 +22,8 @@ path = "src/main.rs"
 # because the API has no route that creates a schedule or a slot.
 patient-administration-system = { path = ".." }
 tokio = { version = "1.54", features = ["full"] }
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
