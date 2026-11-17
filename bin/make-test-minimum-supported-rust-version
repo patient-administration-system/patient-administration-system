@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Check and test on Rust N-2 (the MSRV) and N-1.
+#
+# The MSRV is read from `rust-version` in the Cargo.toml files (they must agree).
+# N-1 is the next minor version up, so both ends of the supported range are
+# proven. For each toolchain this runs `cargo check --all-targets` and
+# `cargo test` in every Cargo workspace/package root, using RUSTUP_TOOLCHAIN
+# (which overrides rust-toolchain.toml). Install a missing toolchain with:
+#   rustup toolchain install <version> --profile minimal
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${ROOT}"
+
+# Workspace/package roots: a Cargo.toml with no ancestor Cargo.toml declaring [workspace].
+roots=()
+while IFS= read -r manifest; do
+  dir="$(dirname "${manifest}")"
+  covered=0
+  parent="$(dirname "${dir}")"
+  while [[ "${parent}" != "." && "${parent}" != "/" ]]; do
+    if [[ -f "${parent}/Cargo.toml" ]] && grep -q '^\[workspace\]' "${parent}/Cargo.toml"; then covered=1; break; fi
+    parent="$(dirname "${parent}")"
+  done
+  if [[ "${dir}" != "." && -f "./Cargo.toml" ]] && grep -q '^\[workspace\]' ./Cargo.toml; then covered=1; fi
+  [[ "${covered}" == 0 ]] && roots+=("${dir}")
+done < <(find . \( -name target -o -name node_modules -o -name .git \) -prune -o -name Cargo.toml -print | sort)
+
+n2="$(grep -rh --include=Cargo.toml --exclude-dir=target --exclude-dir=node_modules '^rust-version *= *"' . | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+if [[ ! "${n2}" =~ ^1\.([0-9]+)$ ]]; then
+  echo "could not read a 1.<minor> rust-version from Cargo.toml, got '${n2}'" >&2
+  exit 2
+fi
+n1="1.$(( BASH_REMATCH[1] + 1 ))"
+
+failed=0
+for toolchain in "${n2}" "${n1}"; do
+  label="N-2"; [[ "${toolchain}" == "${n1}" ]] && label="N-1"
+  if ! rustup toolchain list | grep -q "^${toolchain}"; then
+    echo "Rust ${toolchain} (${label}) is not installed:" >&2
+    echo "  rustup toolchain install ${toolchain} --profile minimal" >&2
+    failed=1
+    continue
+  fi
+  for dir in "${roots[@]}"; do
+    echo "==> ${label}: Rust ${toolchain} in ${dir}"
+    (cd "${dir}" \
+      && RUSTUP_TOOLCHAIN="${toolchain}" cargo check --all-targets \
+      && RUSTUP_TOOLCHAIN="${toolchain}" cargo test) || failed=1
+  done
+done
+exit "${failed}"
