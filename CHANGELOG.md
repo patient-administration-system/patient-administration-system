@@ -9,6 +9,7 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
+- **Changed, dependencies (AXA-15):** axa 0.20 and axa-test 0.11, with no code change (Zstd is now opt-in in axa; not used here).
 - **Changed, time (JIFF-1):** the server, the domain crate, the front-end and the load generator use jiff in place of chrono and chrono-tz: instants are `jiff::Timestamp`, dates `jiff::civil::Date`, and the database binds and reads them through jiff-sqlx. The OpenAPI document is unchanged. Times written with an explicit `to_rfc3339` now end in `Z` rather than `+00:00`, like every other time the API already sent; the instant is the same. Clinic session templates use the service time zone (`PAS_TIMEZONE`, default Europe/London) instead of a fixed London. chrono remains only inside tera 1.
 - **Changed, dependencies (AXA-14):** axa 0.19 and axa-test 0.10, with no code change.
 - **Changed, structure (QUAL-52):** a new crate, `patient-administration-system-domain` (`patient-administration-system-with-rust/domain/`), holds the business rules with no web or database: the models and state lists, validation, identifiers, the clock, the settings registry, the suspicion profile, the inbound-reply parser and wording, the SMS length rule, the masking helpers, the no-show model, the tolerance tiers and the triage rules. The server re-exports them at their old paths, so no import changed.

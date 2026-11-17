@@ -226,9 +226,9 @@ dependencies = [
 
 [[package]]
 name = "axa"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a9ca3054501e57d018b879e5c32b450668e842143fea719af6585eb31491ab0"
+checksum = "503f2f37873a0ed6adcc552126c7e79c517280e6771279d4af2376181ba02c16"
 dependencies = [
  "async-trait",
  "axa-environment",
@@ -308,9 +308,9 @@ dependencies = [
 
 [[package]]
 name = "axa-test"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5a8c9d0a4a5c351886d9f8dbe28e4525469233ce275f5683760df869f03cb76"
+checksum = "ece85427d5bf4b7a97b7fd01caf1b931569802e5bd9e877babc3f1313e642d96"
 dependencies = [
  "axa",
  "axum-test",
