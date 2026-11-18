@@ -172,6 +172,10 @@ name = "rules_bench"
 harness = false
 
 [[bench]]
+name = "hub_bench"
+harness = false
+
+[[bench]]
 name = "db_bench"
 harness = false
 

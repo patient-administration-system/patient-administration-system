@@ -67,11 +67,18 @@ coverage-summary:
 
 # Criterion benchmarks that need no database; reports in target/criterion (PERF-1).
 bench:
-    cargo bench -p patient-administration-system --bench hl7v2_bench --bench text_bench --bench fhir_bench --bench rules_bench --bench adt_bench --bench scheduling_bench --bench waitlist_bench
+    cargo bench -p patient-administration-system --bench hl7v2_bench --bench text_bench --bench fhir_bench --bench rules_bench --bench adt_bench --bench scheduling_bench --bench waitlist_bench --bench hub_bench
 
-# The benchmarks against PostgreSQL: booking, the slot and calendar queries, the router in process (PERF-1).
+# The benchmarks against PostgreSQL: booking, slot and calendar queries, the router, outbox, HL7 dedupe, the work queue (PERF-1, PERF-3).
 bench-db: migrate
     cargo bench -p patient-administration-system --bench db_bench
+
+# Each mutant rebuilds the server crate, so expect a few minutes for each; survivors are in mutants.out/missed.txt.
+# Example: `just mutants '**/support/mod.rs' cap10_support_test`.
+# Mutation testing of one file against the unit tests and the named database tests, as the weekly job (QUAL-18).
+mutants file *tests: migrate
+    cargo mutants -p patient-administration-system --file '{{file}}' --cargo-test-arg=--lib \
+      {{ prepend("--cargo-test-arg=--test=", tests) }} -- -- --include-ignored --test-threads=1
 
 # Profiles: smoke, load, stress, spike, soak (`just load soak 2h`); see operations/load-testing.md.
 # A load test against a release server it starts and stops; report in target/load-report.json (PERF-1).
@@ -169,6 +176,7 @@ script-tests:
     scripts/ci-local-test.sh
     python3 scripts/check-hazard-log.py --self-test
     python3 scripts/check-nfr-tests.py --self-test
+    python3 scripts/criterion-summary.py --self-test
 
 # The hazard log against a base commit: no hazard row deleted, closures only appended (SAFE-2);
 # then the hazards whose code or tests the change since the base touches, for the CSO (SAFE-6).

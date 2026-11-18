@@ -16,6 +16,6 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | Functional requirements | 220 |
 | Non-functional requirements | 34 |
 | Requirements marked not yet tested or not yet built | 4 |
-| Tasks done | 206 |
+| Tasks done | 207 |
 | Tasks open | 53 |
 <!-- status:end -->

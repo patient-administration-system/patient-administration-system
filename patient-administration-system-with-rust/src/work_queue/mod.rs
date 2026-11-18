@@ -269,25 +269,39 @@ impl WorkQueueService {
 
     async fn apply(&self, kind: WorkKind, open: &[Open], now: Timestamp) -> Result<SyncReport> {
         let mut report = SyncReport::default();
-        let existing: Vec<(Uuid, String)> = self
+        // Read once and compare here, so a sync where nothing changed sends no write at all (PERF-3 found the
+        // first version sending one statement per open item, every minute).
+        // The items still open, and the closed ones whose source is open again; closed history is not read.
+        let open_ids: BTreeSet<Uuid> = open.iter().map(|o| o.source_id).collect();
+        let open_list: Vec<Uuid> = open_ids.iter().copied().collect();
+        let existing: Vec<(Uuid, (String, Timestamp, i16))> = self
             .db
             .all(Stmt::new(
-                "SELECT source_id, status FROM work_items WHERE kind = $1",
-                [kind.as_str().into()],
+                "SELECT source_id, status, due_at, priority FROM work_items WHERE kind = $1 \
+                 AND (status <> 'closed' OR source_id = ANY($2))",
+                [kind.as_str().into(), open_list.into()],
             ))
             .await?
             .iter()
-            .map(|r| Ok((r.col("source_id")?, r.col("status")?)))
+            .map(|r| {
+                Ok((
+                    r.col("source_id")?,
+                    (r.col("status")?, r.col("due_at")?, r.col("priority")?),
+                ))
+            })
             .collect::<Result<_>>()?;
-        let known: std::collections::BTreeMap<Uuid, String> = existing.into_iter().collect();
-        let open_ids: BTreeSet<Uuid> = open.iter().map(|o| o.source_id).collect();
+        let known: std::collections::BTreeMap<Uuid, (String, Timestamp, i16)> =
+            existing.into_iter().collect();
         let txn = self.db.begin_txn().await?;
         for o in open {
             let due = match o.due {
                 Some(d) => d,
                 None => due_after(o.since, kind.working_days(), &self.calendar, &self.tz)?,
             };
-            match known.get(&o.source_id).map(String::as_str) {
+            match known
+                .get(&o.source_id)
+                .map(|(s, d, p)| (s.as_str(), *d, *p))
+            {
                 None => {
                     txn.run(Stmt::new(
                         "INSERT INTO work_items (id, kind, source_id, person_id, subject_kind, subject_id, queue, \
@@ -309,7 +323,7 @@ impl WorkQueueService {
                     .await?;
                     report.opened += 1;
                 }
-                Some("closed") => {
+                Some(("closed", _, _)) => {
                     txn.run(Stmt::new(
                         "UPDATE work_items SET status = 'open', owner = NULL, claimed_at = NULL, closed_at = NULL, \
                          opened_at = $3, due_at = $4, priority = $5 WHERE kind = $1 AND source_id = $2",
@@ -324,11 +338,12 @@ impl WorkQueueService {
                     .await?;
                     report.reopened += 1;
                 }
-                Some(_) if o.due.is_some() => {
+                Some((_, was_due, was_priority))
+                    if o.due.is_some() && (was_due != due || was_priority != o.priority) =>
+                {
                     // A source due date can move (a call rescheduled); keep the item in step.
                     txn.run(Stmt::new(
-                        "UPDATE work_items SET due_at = $3, priority = $4 WHERE kind = $1 AND source_id = $2 \
-                         AND (due_at <> $3 OR priority <> $4)",
+                        "UPDATE work_items SET due_at = $3, priority = $4 WHERE kind = $1 AND source_id = $2",
                         [
                             kind.as_str().into(),
                             o.source_id.into(),
@@ -343,7 +358,7 @@ impl WorkQueueService {
         }
         let gone: Vec<Uuid> = known
             .iter()
-            .filter(|(id, status)| status.as_str() != "closed" && !open_ids.contains(*id))
+            .filter(|(id, (status, _, _))| status.as_str() != "closed" && !open_ids.contains(*id))
             .map(|(id, _)| *id)
             .collect();
         if !gone.is_empty() {

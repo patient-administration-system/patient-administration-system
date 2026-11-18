@@ -9,6 +9,7 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
+- **New, benchmarks (PERF-3):** the HL7 hub, the outbox backlog, HL7 de-duplication, the working-day calendar and the work queue are measured; the weekly job writes a table of medians to its run page. The work queue's sync, found slow by them, now writes only what changed (0.8 s to 25 ms at 1,000 open items).
 - **New, staff work queue (TSC-1):** one queue of the work the PAS already makes for people (calls, follow-ups, list validation, communication-needs reviews, tolerance alerts), each item with a team, a priority, a due date and an owner, at `/api/work-items` and `/api/work-queues/{queue}/next`; items close when their source closes. The UI page is not built yet.
 - **Fixed, messaging (TSC-2):** a reminder or a reminder-ladder step is checked again just before it goes, so an appointment cancelled or moved after the scan found it is no longer reminded and gets no call task; the ladder logs `skipped_not_booked`.
 - **Changed, dependencies (AXA-15):** axa 0.20 and axa-test 0.11, with no code change (Zstd is now opt-in in axa; not used here).

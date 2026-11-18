@@ -81,20 +81,28 @@ A local Postgres is most easily provided via `podman compose up -d postgres` (se
 
 ## Benchmarks
 
-Three Criterion suites under `benches/`.
+Nine Criterion 0.8 suites under `benches/` (PERF-1, PERF-3). Timings and the weekly job are in
+[`operations/load-testing.md`](../../operations/load-testing.md).
 
-| File                          | What's measured                                                |
-| ----------------------------- | -------------------------------------------------------------- |
-| `benches/adt_bench.rs`        | `BedStatus::try_transition_to` full cycle                      |
-| `benches/scheduling_bench.rs` | `TimeRange::overlaps` linear scans across 16…1024 ranges       |
-| `benches/waitlist_bench.rs`   | `compute_active_weeks` across 4…256 events                     |
+| File | What's measured |
+| --- | --- |
+| `benches/hl7v2_bench.rs` | HL7 v2 parse, encode and PID translation, up to 1,000 segments |
+| `benches/hub_bench.rs` | The integration hub besides parsing: ACK, batch ACK, de-duplication key, redaction, MLLP framing, the MLLP round trip plain and over TLS (kept open and new connection), webhook signing, failure classes, backoff |
+| `benches/text_bench.rs` | Inbound text replies and SMS length |
+| `benches/fhir_bench.rs` | FHIR R5 mapping and a searchset of 500 appointments |
+| `benches/rules_bench.rs` | The no-show model, the triage verdict, the page cut, the working-day calendar and the work queue's due dates |
+| `benches/adt_bench.rs` | `BedStatus::try_transition_to` full cycle |
+| `benches/scheduling_bench.rs` | `TimeRange::overlaps` linear scans across 16…1024 ranges |
+| `benches/waitlist_bench.rs` | `compute_active_weeks` across 4…256 events |
+| `benches/db_bench.rs` | Against PostgreSQL: booking and cancelling, slot and calendar queries, the router in process, the outbox's next batch over a backlog, HL7 de-duplication, and the work queue's sync and take-next |
 
 Run with:
 
 ```bash
-cargo bench                                       # all suites
-cargo bench -- adt                                # one suite
-cargo bench -- compute_active_weeks               # one benchmark inside a suite
+just bench                                        # every suite without a database
+just bench-db                                     # db_bench (needs DATABASE_URL)
+cargo bench --bench hub_bench -- hub_ack          # one group of one suite
+python3 scripts/criterion-summary.py              # the last run's medians as a Markdown table
 ```
 
 The `bench` profile inherits from `release` (LTO, single codegen unit, stripped).
