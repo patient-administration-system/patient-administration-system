@@ -51,7 +51,7 @@ A change under one of these paths (relative to `patient-administration-system-wi
 | H-07 | `src/adt/`, `src/api/rest/concurrency.rs` |
 | H-08 | `src/writeback/`, `src/inbound/` and `domain/src/inbound/`, `src/reply_links/` |
 | H-09 | `src/api/rest/upstream_proxy/webhooks.rs`, `src/upstream/` |
-| H-10 | `src/noshow/` and `domain/src/noshow/`, `src/standby/`, `src/rebooking/` |
+| H-10 | `src/noshow/` and `domain/src/noshow/`, `src/standby/` and `domain/src/standby.rs`, `src/rebooking/` |
 | H-13 | `src/noshow/` and `domain/src/noshow/` (the model) |
 | H-11 | `src/streaming/`, `src/db/repositories/outbox.rs` |
 | H-12 | `src/identity/`, `src/proxy/`, `src/writeback/`, `src/virtual_visits/` |
@@ -61,7 +61,7 @@ A change under one of these paths (relative to `patient-administration-system-wi
 | H-17 | `src/triage/` and `domain/src/triage/` |
 | H-18 | `src/triage/` and `domain/src/triage/` |
 | H-19 | `domain/src/triage/targets.rs`, `domain/src/triage/waits.rs` (the arithmetic) and `src/triage/waits.rs` (the reads) |
-| H-20 | `src/suspicions/` and `domain/src/suspicions/` (the profile), `src/referrals/` |
+| H-20 | `src/suspicions/` and `domain/src/suspicions/` (the profile), `src/referrals/` and `domain/src/referrals.rs` |
 | H-21 | `src/suspicions/` and `domain/src/suspicions/`, `src/writeback/`, `src/follow_up/` |
 | H-22 | `src/hl7v2/`, `src/api/rest/hl7_dedupe.rs`, `src/api/rest/handlers_hl7v2/` |
 
