@@ -3,7 +3,7 @@
 
 mod common;
 
-use chrono::{Datelike, Duration, NaiveDate, NaiveTime, Utc};
+use jiff::{SignedDuration, Timestamp, civil::Date};
 use patient_administration_system::clinic_templates::report::capacity_report;
 use patient_administration_system::clinic_templates::{
     Generated, Line, TemplateService, VersionInput,
@@ -34,10 +34,10 @@ fn lines() -> Vec<Line> {
     ]
 }
 
-fn input(day: NaiveDate, by: &str) -> VersionInput {
+fn input(day: Date, by: &str) -> VersionInput {
     VersionInput {
-        weekday: day.weekday().number_from_monday() as i16,
-        start_time: NaiveTime::from_hms_opt(9, 0, 0).unwrap(),
+        weekday: day.weekday().to_monday_one_offset() as i16,
+        start_time: jiff::civil::time(9, 0, 0, 0),
         slot_minutes: 20,
         effective_from: day,
         lines: lines(),
@@ -46,8 +46,10 @@ fn input(day: NaiveDate, by: &str) -> VersionInput {
 }
 
 /// A date about two weeks out, so it is neither past nor close to a clock change in a way that matters.
-fn day() -> NaiveDate {
-    (Utc::now() + Duration::days(14)).date_naive()
+fn day() -> Date {
+    (Timestamp::now() + patient_administration_system::time::days(14))
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date()
 }
 
 async fn slots_of(
@@ -78,7 +80,7 @@ async fn a_version_makes_slots_only_once_a_different_person_approves_it_and_gene
     let state = common::build_state(&common::database_url().unwrap()).await;
     let svc = TemplateService::new(state.db.clone());
     let ctx = UserContext::system();
-    let now = Utc::now();
+    let now = Timestamp::now();
     let schedule = common::new_schedule(&state.db).await.id;
     let t = svc
         .create(schedule, "Tuesday clinic", "Sister Hughes", &ctx)
@@ -123,7 +125,7 @@ async fn a_version_makes_slots_only_once_a_different_person_approves_it_and_gene
     );
 
     // A fortnight holds this weekday twice: two sessions of four slots.
-    let to = d + Duration::days(13);
+    let to = d + patient_administration_system::time::days(13);
     let g = svc.generate(t, d, to, "Dr Evans", now, &ctx).await.unwrap();
     assert_eq!(g.created, 8);
     assert_eq!(g.already_there, 0);
@@ -170,17 +172,33 @@ async fn a_version_makes_slots_only_once_a_different_person_approves_it_and_gene
     }];
     assert!(svc.propose(t, &bad, now, &ctx).await.is_err());
     let mut past = input(d, "Sister Hughes");
-    past.effective_from = (now - Duration::days(3)).date_naive();
+    past.effective_from = (now - patient_administration_system::time::days(3))
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
     assert!(svc.propose(t, &past, now, &ctx).await.is_err());
     assert!(
-        svc.generate(t, d, d + Duration::days(92), "Dr Evans", now, &ctx)
-            .await
-            .is_err()
+        svc.generate(
+            t,
+            d,
+            d + patient_administration_system::time::days(92),
+            "Dr Evans",
+            now,
+            &ctx
+        )
+        .await
+        .is_err()
     );
     assert!(
-        svc.generate(t, d, d - Duration::days(1), "Dr Evans", now, &ctx)
-            .await
-            .is_err()
+        svc.generate(
+            t,
+            d,
+            d - patient_administration_system::time::days(1),
+            "Dr Evans",
+            now,
+            &ctx
+        )
+        .await
+        .is_err()
     );
     assert!(svc.generate(t, d, d, " ", now, &ctx).await.is_err());
 }
@@ -191,7 +209,7 @@ async fn a_newer_version_applies_from_its_date_and_leaves_earlier_slots_alone() 
     let state = common::build_state(&common::database_url().unwrap()).await;
     let svc = TemplateService::new(state.db.clone());
     let ctx = UserContext::system();
-    let now = Utc::now();
+    let now = Timestamp::now();
     let schedule = common::new_schedule(&state.db).await.id;
     let t = svc
         .create(schedule, "Changing clinic", "Sister Hughes", &ctx)
@@ -204,7 +222,7 @@ async fn a_newer_version_applies_from_its_date_and_leaves_earlier_slots_alone() 
         .unwrap();
     svc.approve(t, v1, "Dr Evans", now, &ctx).await.unwrap();
     // From the second occurrence the session is longer slots and a single line.
-    let mut second = input(d + Duration::days(7), "Dr Evans");
+    let mut second = input(d + patient_administration_system::time::days(7), "Dr Evans");
     second.slot_minutes = 30;
     second.lines = vec![Line {
         slot_type: "new".into(),
@@ -221,7 +239,14 @@ async fn a_newer_version_applies_from_its_date_and_leaves_earlier_slots_alone() 
         .await
         .unwrap();
     let g = svc
-        .generate(t, d, d + Duration::days(14), "Dr Evans", now, &ctx)
+        .generate(
+            t,
+            d,
+            d + patient_administration_system::time::days(14),
+            "Dr Evans",
+            now,
+            &ctx,
+        )
         .await
         .unwrap();
     assert_eq!(g.already_there, 4, "the first day is already there");
@@ -309,8 +334,8 @@ async fn the_capacity_report_matches_a_worked_example() {
     let ctx = UserContext::system();
     let service = format!("svc-{}", Uuid::new_v4());
     let schedule = common::new_schedule_for(&state.db, &service).await.id;
-    let from = Utc::now();
-    let to = from + Duration::days(28); // four weeks forward
+    let from = Timestamp::now();
+    let to = from + patient_administration_system::time::days(28); // four weeks forward
 
     // Four weeks back: 8 referrals, so 2 a week.
     for i in 0..8 {
@@ -324,7 +349,7 @@ async fn the_capacity_report_matches_a_worked_example() {
                     target_service: service.clone(),
                     reason: None,
                     referring_worker_id: None,
-                    received_at: Some(from - Duration::days(2 + i * 3)),
+                    received_at: Some(from - patient_administration_system::time::days(2 + i * 3)),
                 },
                 &ctx,
             )
@@ -333,13 +358,13 @@ async fn the_capacity_report_matches_a_worked_example() {
     }
     // Of 10 past appointments, 9 attended and 1 missed: a rate of 0.1.
     for i in 0..10 {
-        let start = from - Duration::days(3 + i);
+        let start = from - patient_administration_system::time::days(3 + i);
         let slot = Uuid::new_v4();
         state
             .db
             .run(Stmt::new("INSERT INTO slots (id, schedule_id, start_datetime, end_datetime, status, created_at, updated_at) \
                  VALUES ($1, $2, $3, $4, 'busy', now(), now())",
-                [slot.into(), schedule.into(), start.into(), (start + Duration::minutes(20)).into()],
+                [slot.into(), schedule.into(), start.into(), (start + SignedDuration::from_mins(20)).into()],
             ))
             .await
             .unwrap();
@@ -352,7 +377,7 @@ async fn the_capacity_report_matches_a_worked_example() {
                     Uuid::new_v4().into(),
                     slot.into(),
                     start.into(),
-                    (start + Duration::minutes(20)).into(),
+                    (start + SignedDuration::from_mins(20)).into(),
                     (if i == 0 { "no_show" } else { "fulfilled" }).into(),
                 ],
             ))
@@ -361,7 +386,8 @@ async fn the_capacity_report_matches_a_worked_example() {
     }
     // Forward: 40 slots in four weeks (10 a week), 4 of them ring-fenced.
     for i in 0..40 {
-        let start = from + Duration::days(1) + Duration::hours(i);
+        let start =
+            from + patient_administration_system::time::days(1) + SignedDuration::from_hours(i);
         state
             .db
             .run(Stmt::new("INSERT INTO slots (id, schedule_id, start_datetime, end_datetime, status, slot_type, \
@@ -370,7 +396,7 @@ async fn the_capacity_report_matches_a_worked_example() {
                     Uuid::new_v4().into(),
                     schedule.into(),
                     start.into(),
-                    (start + Duration::minutes(30)).into(),
+                    (start + SignedDuration::from_mins(30)).into(),
                     (if i < 4 { "urgent" } else { "new" }).into(),
                     (i < 4).into(),
                 ],

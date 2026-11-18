@@ -7,7 +7,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Datelike, Utc};
+use jiff::Timestamp;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -112,7 +112,7 @@ async fn the_job_fills_age_band_and_quintile_keeps_only_the_bands_and_does_it_on
         .await
         .unwrap();
 
-    let year = Utc::now().year();
+    let year = patient_administration_system::time::utc_date(Timestamp::now()).year();
     let (both, age_only, none, unknown_pc) = (
         Uuid::new_v4(),
         Uuid::new_v4(),

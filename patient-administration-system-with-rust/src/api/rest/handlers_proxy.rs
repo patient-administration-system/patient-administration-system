@@ -2,7 +2,7 @@
 
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -28,7 +28,7 @@ pub struct GrantBody {
     pub basis: String,
     /// A non-empty subset of `receive`, `confirm`, `cancel`, `rebook`.
     pub scopes: Vec<String>,
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
     pub recorded_by: String,
 }
 

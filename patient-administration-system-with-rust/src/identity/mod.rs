@@ -8,7 +8,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -39,7 +39,7 @@ pub struct Proofing {
     #[schema(required = true)]
     pub provider: Option<String>,
     pub proofed_by: String,
-    pub proofed_at: DateTime<Utc>,
+    pub proofed_at: Timestamp,
 }
 
 pub struct IdentityService {

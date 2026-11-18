@@ -51,7 +51,7 @@ impl BillingRepository {
         if m.status == account_status_to_str(AccountStatus::Closed) {
             return Err(Error::conflict("that account is already closed"));
         }
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set(
             "status",
@@ -216,10 +216,10 @@ fn account_to_row(a: &Account) -> account::Model {
         person_id: a.person_id,
         status: account_status_to_str(a.status).to_string(),
         currency: a.currency.0.clone(),
-        opened_at: a.opened_at.fixed_offset(),
-        closed_at: a.closed_at.map(|t| t.fixed_offset()),
-        created_at: a.created_at.fixed_offset(),
-        updated_at: a.updated_at.fixed_offset(),
+        opened_at: a.opened_at,
+        closed_at: a.closed_at,
+        created_at: a.created_at,
+        updated_at: a.updated_at,
     }
 }
 
@@ -229,10 +229,10 @@ fn account_from_model(m: account::Model) -> Result<Account> {
         person_id: m.person_id,
         status: account_status_from_str(&m.status)?,
         currency: Iso4217::new(&m.currency)?,
-        opened_at: m.opened_at.with_timezone(&chrono::Utc),
-        closed_at: m.closed_at.map(|t| t.with_timezone(&chrono::Utc)),
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        opened_at: m.opened_at,
+        closed_at: m.closed_at,
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 
@@ -246,8 +246,8 @@ fn charge_to_row(c: &Charge) -> charge::Model {
         description: c.description.clone(),
         amount_value: c.amount.amount.to_string(),
         amount_currency: c.amount.currency.0.clone(),
-        posted_at: c.posted_at.fixed_offset(),
-        created_at: c.created_at.fixed_offset(),
+        posted_at: c.posted_at,
+        created_at: c.created_at,
     }
 }
 
@@ -263,8 +263,8 @@ fn charge_from_model(m: charge::Model) -> Result<Charge> {
         code: m.code,
         description: m.description,
         amount: Money::new(amount_decimal, currency),
-        posted_at: m.posted_at.with_timezone(&chrono::Utc),
-        created_at: m.created_at.with_timezone(&chrono::Utc),
+        posted_at: m.posted_at,
+        created_at: m.created_at,
     })
 }
 
@@ -278,9 +278,9 @@ fn invoice_to_row(i: &Invoice) -> Result<invoice::Model> {
         total_value: i.total.amount.to_string(),
         total_currency: i.total.currency.0.clone(),
         charge_ids,
-        finalized_at: i.finalized_at.map(|t| t.fixed_offset()),
-        created_at: i.created_at.fixed_offset(),
-        updated_at: i.updated_at.fixed_offset(),
+        finalized_at: i.finalized_at,
+        created_at: i.created_at,
+        updated_at: i.updated_at,
     })
 }
 
@@ -296,9 +296,9 @@ fn invoice_from_model(m: invoice::Model) -> Result<Invoice> {
         status: invoice_status_from_str(&m.status)?,
         total: Money::new(amount_decimal, currency),
         charge_ids,
-        finalized_at: m.finalized_at.map(|t| t.with_timezone(&chrono::Utc)),
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        finalized_at: m.finalized_at,
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 
@@ -310,8 +310,8 @@ fn payment_to_row(p: &Payment) -> payment::Model {
         amount_currency: p.amount.currency.0.clone(),
         method: payment_method_to_str(p.method).to_string(),
         reference: p.reference.clone(),
-        posted_at: p.posted_at.fixed_offset(),
-        created_at: p.created_at.fixed_offset(),
+        posted_at: p.posted_at,
+        created_at: p.created_at,
     }
 }
 
@@ -325,8 +325,8 @@ fn payment_from_model(m: payment::Model) -> Result<Payment> {
         amount: Money::new(amount_decimal, currency),
         method: payment_method_from_str(&m.method)?,
         reference: m.reference,
-        posted_at: m.posted_at.with_timezone(&chrono::Utc),
-        created_at: m.created_at.with_timezone(&chrono::Utc),
+        posted_at: m.posted_at,
+        created_at: m.created_at,
     })
 }
 

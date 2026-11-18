@@ -47,6 +47,8 @@ use tracing_subscriber::{EnvFilter, fmt};
 /// global subscriber is already installed and we swallow it intentionally
 /// so the function is safe to call from tests and from `main`.
 pub fn init(cfg: &Config) -> Result<()> {
+    // The OTLP exporter builds a reqwest client.
+    crate::tls::ensure_provider();
     let filter = EnvFilter::try_new(&cfg.rust_log).unwrap_or_else(|_| EnvFilter::new("info"));
     let fmt_layer = fmt::layer();
 

@@ -3,7 +3,7 @@
 
 use crate::fixtures::Fixtures;
 use crate::stats::{Recorder, Sample, Verdict};
-use chrono::{DateTime, Duration, SecondsFormat, Utc};
+use jiff::Timestamp;
 use reqwest::{Client, Method, StatusCode};
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -123,8 +123,8 @@ impl Rng {
     }
 }
 
-fn iso(t: DateTime<Utc>) -> String {
-    t.to_rfc3339_opts(SecondsFormat::Secs, true)
+fn iso(t: Timestamp) -> String {
+    t.strftime("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
 
 /// One call: send, read the whole body (the time to last byte is the latency), classify.
@@ -202,7 +202,7 @@ pub async fn read_once(ctx: &Ctx, rng: &mut Rng, rec: &mut Recorder) {
             let path = format!(
                 "/api/appointments?from={}&to={}",
                 iso(from),
-                iso(from + Duration::days(1))
+                iso(from + patient_administration_system::time::days(1))
             );
             ("list_appointments_day", ctx.request(Method::GET, &path))
         }

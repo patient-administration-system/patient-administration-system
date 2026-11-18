@@ -20,6 +20,11 @@ const {
   pasPage,
   toleranceStatus,
   withCursor,
+  workItems,
+  workReminders,
+  claimWork,
+  releaseWork,
+  takeNextWork,
 } = await import("#lib/server/pas.js");
 
 type Call = { url: string; init: RequestInit };
@@ -206,5 +211,50 @@ describe("facilitiesWithWards()", () => {
     expect(got).toHaveLength(1);
     expect(got[0]!.facility.name).toBe("General");
     expect(got[0]!.wards.map((w) => w.id)).toEqual(["w1"]);
+  });
+});
+
+describe("the work queue (TSC-1)", () => {
+  const item = { id: "w1", kind: "call", status: "open", owner: null };
+
+  it("asks for a list with only the filters given", async () => {
+    const { fetch, calls } = fake(
+      200,
+      JSON.stringify({ data: [item], meta: { limit: 200, returned: 1, truncated: false } }),
+    );
+    const page = await workItems(fetch, {});
+    expect(calls[0]!.url).toBe("http://pas.test/api/work-items");
+    expect(page.rows).toEqual([item]);
+    await workItems(fetch, { queue: "booking", owner: "me", overdue: true });
+    expect(calls[1]!.url).toBe("http://pas.test/api/work-items?queue=booking&owner=me&overdue=true");
+    await workItems(fetch, { owner: "none" }, "c1");
+    expect(calls[2]!.url).toContain("/api/work-items?owner=none");
+    expect(calls[2]!.url).toContain("cursor=c1");
+  });
+
+  it("reads the signed-in person's reminders", async () => {
+    const r = { overdue: [item], due_today: [], due_by: "2026-11-18T17:00:00Z" };
+    const { fetch, calls } = fake(200, JSON.stringify({ data: r }));
+    await expect(workReminders(fetch)).resolves.toEqual(r);
+    expect(calls[0]!.url).toBe("http://pas.test/api/work-items/reminders");
+  });
+
+  it("claims, releases and takes the next item with a POST, escaping the id and queue", async () => {
+    const { fetch, calls } = fake(200, JSON.stringify({ data: item }));
+    await claimWork(fetch, "a/b");
+    await releaseWork(fetch, "w1");
+    await takeNextWork(fetch, "operations");
+    expect(calls.map((c) => [c.init.method, c.url])).toEqual([
+      ["POST", "http://pas.test/api/work-items/a%2Fb/claim"],
+      ["POST", "http://pas.test/api/work-items/w1/release"],
+      ["POST", "http://pas.test/api/work-queues/operations/next"],
+    ]);
+  });
+
+  it("turns a refusal into a PasError with the PAS's status", async () => {
+    const { fetch } = fake(409, JSON.stringify({ code: "conflict", detail: "someone else has this item" }));
+    const e = await claimWork(fetch, "w1").catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(PasError);
+    expect((e as InstanceType<typeof PasError>).status).toBe(409);
   });
 });

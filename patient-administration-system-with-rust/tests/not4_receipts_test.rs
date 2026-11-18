@@ -8,7 +8,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::communication::reminders::ReminderService;
@@ -250,13 +250,13 @@ async fn a_bounce_marks_the_letter_failed_and_surfaces_the_contact_until_a_perso
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn a_failed_reminder_is_retried_after_a_growing_delay_and_then_given_up_on() {
     let (s, person, _template, attempts) = world(false).await;
-    let start = Utc::now() + Duration::hours(20);
-    let mut a = Appointment::new(person, start, start + Duration::minutes(30));
+    let start = Timestamp::now() + SignedDuration::from_hours(20);
+    let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     let a = AppointmentRepository::create(&s.db, &a).await.unwrap();
     let svc = ReminderService::new(s.db.clone(), s.communication.clone());
-    let lead = Duration::hours(24);
-    let t0 = Utc::now();
+    let lead = SignedDuration::from_hours(24);
+    let t0 = Timestamp::now();
     let tried = || *attempts.lock().unwrap();
 
     // Every failure happens at about t0 by the database's clock, so each scan is compared with t0 plus the
@@ -266,27 +266,36 @@ async fn a_failed_reminder_is_retried_after_a_growing_delay_and_then_given_up_on
     let r = svc.run_once(t0, lead).await.unwrap();
     assert_eq!(tried(), 1, "tried once: {r:?}");
     let r = svc
-        .run_once(t0 + Duration::seconds(30), lead)
+        .run_once(t0 + SignedDuration::from_secs(30), lead)
         .await
         .unwrap();
     assert!(r.backing_off >= 1, "straight away it backs off: {r:?}");
     assert_eq!(tried(), 1);
     for (offset, expect) in [
-        (Duration::minutes(10), 2),
-        (Duration::minutes(12), 2), // inside the fifteen
-        (Duration::minutes(20), 3),
-        (Duration::minutes(40), 3), // inside the hour
-        (Duration::minutes(65), 4),
-        (Duration::hours(2), 4), // inside the four hours
-        (Duration::hours(4) + Duration::minutes(5), 5),
-        (Duration::hours(8), 5), // inside the twelve
-        (Duration::hours(12) + Duration::minutes(5), 6),
-        (Duration::hours(13), 6), // the cap: no seventh
+        (SignedDuration::from_mins(10), 2),
+        (SignedDuration::from_mins(12), 2), // inside the fifteen
+        (SignedDuration::from_mins(20), 3),
+        (SignedDuration::from_mins(40), 3), // inside the hour
+        (SignedDuration::from_mins(65), 4),
+        (SignedDuration::from_hours(2), 4), // inside the four hours
+        (
+            SignedDuration::from_hours(4) + SignedDuration::from_mins(5),
+            5,
+        ),
+        (SignedDuration::from_hours(8), 5), // inside the twelve
+        (
+            SignedDuration::from_hours(12) + SignedDuration::from_mins(5),
+            6,
+        ),
+        (SignedDuration::from_hours(13), 6), // the cap: no seventh
     ] {
         svc.run_once(t0 + offset, lead).await.unwrap();
         assert_eq!(tried(), expect, "at +{offset}");
     }
-    let last = svc.run_once(t0 + Duration::hours(14), lead).await.unwrap();
+    let last = svc
+        .run_once(t0 + SignedDuration::from_hours(14), lead)
+        .await
+        .unwrap();
     assert!(last.gave_up >= 1, "{last:?}");
     let template = svc.ensure_default_template().await.unwrap();
     assert_eq!(

@@ -181,7 +181,7 @@ impl SchedulingService {
         &self,
         entry_id: Uuid,
         slot_id: Uuid,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         let ctx = ctx.clone();

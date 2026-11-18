@@ -4,6 +4,15 @@
 //! REST API (so audit + outbox stay in the system of record) rather than
 //! writing to the shared database directly.
 
+/// Install ring as the process's rustls provider, once. reqwest is built with `rustls-no-provider` (so only ring
+/// is compiled) and panics when a client is built with no provider installed.
+pub fn ensure_tls_provider() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    });
+}
+
 pub mod pas_api;
 pub mod person_api;
 

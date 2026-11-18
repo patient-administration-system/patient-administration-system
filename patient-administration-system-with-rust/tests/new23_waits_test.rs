@@ -3,7 +3,7 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -15,7 +15,7 @@ async fn encounter(
     db: &patient_administration_system::db::sql::Pool,
     class: &str,
     status: &str,
-    arrived: chrono::DateTime<Utc>,
+    arrived: jiff::Timestamp,
 ) -> Uuid {
     let id = Uuid::new_v4();
     db.run(Stmt::new("INSERT INTO encounters (id, person_id, class, status, period_start, created_at, updated_at) \
@@ -33,7 +33,7 @@ async fn encounter(
     id
 }
 
-async fn triage(svc: &TriageService, enc: Uuid, category: &str, now: chrono::DateTime<Utc>) {
+async fn triage(svc: &TriageService, enc: Uuid, category: &str, now: jiff::Timestamp) {
     svc.record(
         enc,
         "mts",
@@ -56,10 +56,10 @@ async fn first_contact_is_recorded_once_and_the_report_and_queue_describe_it() {
     let svc = TriageService::new(state.db.clone());
     let ctx = UserContext::system();
     // A window of its own, far from other tests' data: a year ago, noon.
-    let base = Utc::now() - Duration::days(400);
-    let now = base + Duration::hours(3);
-    let from = base - Duration::minutes(1);
-    let to = base + Duration::hours(2);
+    let base = Timestamp::now() - patient_administration_system::time::days(400);
+    let now = base + SignedDuration::from_hours(3);
+    let from = base - SignedDuration::from_mins(1);
+    let to = base + SignedDuration::from_hours(2);
 
     let within = encounter(&state.db, "emergency", "arrived", base).await;
     let past = encounter(&state.db, "emergency", "arrived", base).await;
@@ -67,7 +67,7 @@ async fn first_contact_is_recorded_once_and_the_report_and_queue_describe_it() {
         &state.db,
         "emergency",
         "arrived",
-        base + Duration::minutes(1),
+        base + SignedDuration::from_mins(1),
     )
     .await;
     let untriaged = encounter(&state.db, "emergency", "arrived", base).await;
@@ -76,16 +76,28 @@ async fn first_contact_is_recorded_once_and_the_report_and_queue_describe_it() {
         triage(&svc, e, "very_urgent", base).await;
     }
 
-    svc.record_first_contact(within, "Dr Evans", base + Duration::minutes(10), now, &ctx)
-        .await
-        .unwrap();
-    svc.record_first_contact(past, "Dr Evans", base + Duration::minutes(11), now, &ctx)
-        .await
-        .unwrap();
+    svc.record_first_contact(
+        within,
+        "Dr Evans",
+        base + SignedDuration::from_mins(10),
+        now,
+        &ctx,
+    )
+    .await
+    .unwrap();
+    svc.record_first_contact(
+        past,
+        "Dr Evans",
+        base + SignedDuration::from_mins(11),
+        now,
+        &ctx,
+    )
+    .await
+    .unwrap();
     svc.record_first_contact(
         untriaged,
         "Dr Evans",
-        base + Duration::minutes(500),
+        base + SignedDuration::from_mins(500),
         now,
         &ctx,
     )
@@ -94,14 +106,26 @@ async fn first_contact_is_recorded_once_and_the_report_and_queue_describe_it() {
 
     // Refused: a second record, a blank name, before arrival, in the future, a non-emergency encounter.
     assert!(
-        svc.record_first_contact(within, "Dr Other", base + Duration::minutes(12), now, &ctx)
-            .await
-            .is_err()
+        svc.record_first_contact(
+            within,
+            "Dr Other",
+            base + SignedDuration::from_mins(12),
+            now,
+            &ctx
+        )
+        .await
+        .is_err()
     );
     assert!(
-        svc.record_first_contact(waiting, "  ", base + Duration::minutes(12), now, &ctx)
-            .await
-            .is_err()
+        svc.record_first_contact(
+            waiting,
+            "  ",
+            base + SignedDuration::from_mins(12),
+            now,
+            &ctx
+        )
+        .await
+        .is_err()
     );
     assert!(
         svc.record_first_contact(waiting, "Dr Evans", base, now, &ctx)
@@ -112,7 +136,7 @@ async fn first_contact_is_recorded_once_and_the_report_and_queue_describe_it() {
         svc.record_first_contact(
             outpatient,
             "Dr Evans",
-            base + Duration::minutes(5),
+            base + SignedDuration::from_mins(5),
             now,
             &ctx
         )
@@ -172,9 +196,14 @@ async fn first_contact_is_recorded_once_and_the_report_and_queue_describe_it() {
             .is_err()
     );
     assert!(
-        svc.waits_report(from, from + Duration::days(40), &Targets::default(), now)
-            .await
-            .is_err()
+        svc.waits_report(
+            from,
+            from + patient_administration_system::time::days(40),
+            &Targets::default(),
+            now
+        )
+        .await
+        .is_err()
     );
 }
 
@@ -182,7 +211,7 @@ async fn first_contact_is_recorded_once_and_the_report_and_queue_describe_it() {
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn the_database_refuses_a_contact_time_without_a_name() {
     let state = common::build_state(&common::database_url().unwrap()).await;
-    let enc = encounter(&state.db, "emergency", "arrived", Utc::now()).await;
+    let enc = encounter(&state.db, "emergency", "arrived", Timestamp::now()).await;
     let r = state
         .db
         .run(Stmt::new(

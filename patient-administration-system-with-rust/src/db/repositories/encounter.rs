@@ -88,7 +88,7 @@ impl EncounterRepository {
         conn: &C,
         id: Uuid,
         new_status: EncounterStatus,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
     ) -> Result<Encounter> {
         let m = conn
             .one_as::<encounter::Model>(Stmt::new(
@@ -97,10 +97,7 @@ impl EncounterRepository {
             ))
             .await?
             .ok_or_else(|| Error::not_found(format!("encounter {id}")))?;
-        if !crate::api::rest::concurrency::is_current(
-            m.updated_at.with_timezone(&chrono::Utc),
-            expected,
-        ) {
+        if !crate::api::rest::concurrency::is_current(m.updated_at, expected) {
             return Err(Error::precondition_failed(
                 "the encounter has changed since it was read; read it again",
             ));
@@ -109,7 +106,7 @@ impl EncounterRepository {
         current.try_transition_to(new_status)?;
         let mut am = m.patch();
         am.set("status", encounter_status_to_str(new_status).to_string());
-        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        am.set("updated_at", jiff::Timestamp::now());
         let updated = am.update(conn).await?;
         from_model(updated)
     }
@@ -133,7 +130,7 @@ impl EncounterRepository {
             .ok_or_else(|| Error::not_found(format!("encounter {id}")))?;
         let mut am = m.patch();
         am.set("class", encounter_class_to_str(new_class).to_string());
-        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        am.set("updated_at", jiff::Timestamp::now());
         let updated = am.update(conn).await?;
         from_model(updated)
     }
@@ -157,7 +154,7 @@ impl EncounterRepository {
             .ok_or_else(|| Error::not_found(format!("encounter {id}")))?;
         let mut am = m.patch();
         am.set("status", encounter_status_to_str(new_status).to_string());
-        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        am.set("updated_at", jiff::Timestamp::now());
         let updated = am.update(conn).await?;
         from_model(updated)
     }
@@ -219,14 +216,14 @@ fn to_row(e: &Encounter) -> encounter::Model {
         person_id: e.person_id,
         class: encounter_class_to_str(e.class).to_string(),
         status: encounter_status_to_str(e.status).to_string(),
-        period_start: e.period_start.fixed_offset(),
-        period_end: e.period_end.map(|t| t.fixed_offset()),
+        period_start: e.period_start,
+        period_end: e.period_end,
         worker_id: e.worker_id,
         department_id: e.department_id,
         reason: e.reason.clone(),
         deleted_at: None,
-        created_at: e.created_at.fixed_offset(),
-        updated_at: e.updated_at.fixed_offset(),
+        created_at: e.created_at,
+        updated_at: e.updated_at,
     }
 }
 
@@ -236,13 +233,13 @@ fn from_model(m: encounter::Model) -> Result<Encounter> {
         person_id: m.person_id,
         class: encounter_class_from_str(&m.class)?,
         status: encounter_status_from_str(&m.status)?,
-        period_start: m.period_start.with_timezone(&chrono::Utc),
-        period_end: m.period_end.map(|t| t.with_timezone(&chrono::Utc)),
+        period_start: m.period_start,
+        period_end: m.period_end,
         worker_id: m.worker_id,
         department_id: m.department_id,
         reason: m.reason,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 

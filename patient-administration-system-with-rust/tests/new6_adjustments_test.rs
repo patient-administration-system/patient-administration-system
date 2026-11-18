@@ -6,7 +6,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::Utc;
+use jiff::Timestamp;
 use patient_administration_system::adjustments::{AdjustmentService, NewAdjustment};
 use patient_administration_system::api::fhir::fhir_router;
 use patient_administration_system::db::repositories::audit::UserContext;
@@ -30,7 +30,12 @@ async fn a_recorded_adjustment_round_trips_through_the_api_and_fhir() {
     let person = Uuid::new_v4();
     let ctx = UserContext::system();
     let a = svc
-        .record(person, &new("step_free", "Receptionist"), Utc::now(), &ctx)
+        .record(
+            person,
+            &new("step_free", "Receptionist"),
+            Timestamp::now(),
+            &ctx,
+        )
         .await
         .unwrap();
     assert_eq!(a.category, "physical_access");
@@ -63,7 +68,7 @@ async fn a_recorded_adjustment_round_trips_through_the_api_and_fhir() {
     assert_eq!(flag["code"]["text"], "prefers the front entrance");
 
     // Ending it makes the Flag inactive and takes it off the live list.
-    svc.end(a.id, "Receptionist", Utc::now(), &ctx)
+    svc.end(a.id, "Receptionist", Timestamp::now(), &ctx)
         .await
         .unwrap();
     assert!(
@@ -94,7 +99,7 @@ async fn bad_input_is_refused_and_a_live_duplicate_conflicts() {
     let svc = AdjustmentService::new(state.db.clone());
     let person = Uuid::new_v4();
     let ctx = UserContext::system();
-    let now = Utc::now();
+    let now = Timestamp::now();
 
     assert!(
         svc.record(person, &new("telepathy", "Receptionist"), now, &ctx)
@@ -113,7 +118,12 @@ async fn bad_input_is_refused_and_a_live_duplicate_conflicts() {
     too_long.note = Some(&long);
     assert!(svc.record(person, &too_long, now, &ctx).await.is_err());
     let mut past = new("braille", "Receptionist");
-    past.review_by = Some(now.date_naive() - chrono::Days::new(1));
+    past.review_by = Some(
+        now.to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .date()
+            .yesterday()
+            .unwrap(),
+    );
     assert!(svc.record(person, &past, now, &ctx).await.is_err());
 
     let first = svc
@@ -154,7 +164,7 @@ async fn a_pictorial_pain_scale_preference_is_recorded_listed_and_not_duplicated
         .record(
             person,
             &new("pictorial_pain_scale", "Receptionist"),
-            Utc::now(),
+            Timestamp::now(),
             &ctx,
         )
         .await
@@ -171,7 +181,7 @@ async fn a_pictorial_pain_scale_preference_is_recorded_listed_and_not_duplicated
         svc.record(
             person,
             &new("pictorial_pain_scale", "Receptionist"),
-            Utc::now(),
+            Timestamp::now(),
             &ctx
         )
         .await
@@ -187,7 +197,7 @@ async fn the_schedule_view_gets_live_adjustments_for_many_appointments_at_once()
     let schedule = common::new_schedule(&state.db).await.id;
     let (with, without) = (Uuid::new_v4(), Uuid::new_v4());
     let ctx = UserContext::system();
-    let now = Utc::now();
+    let now = Timestamp::now();
     svc.record(with, &new("hearing_loop", "Receptionist"), now, &ctx)
         .await
         .unwrap();

@@ -7,7 +7,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -41,7 +41,7 @@ pub struct SupportFlag {
     #[schema(required = true)]
     pub reason_code: Option<String>,
     pub created_by: String,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
 }
 
 pub struct SupportService {

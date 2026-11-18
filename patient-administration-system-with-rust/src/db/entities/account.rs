@@ -13,10 +13,10 @@ pub struct Model {
     pub person_id: Uuid,
     pub status: String,
     pub currency: String,
-    pub opened_at: chrono::DateTime<chrono::FixedOffset>,
-    pub closed_at: Option<chrono::DateTime<chrono::FixedOffset>>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub opened_at: jiff::Timestamp,
+    pub closed_at: Option<jiff::Timestamp>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

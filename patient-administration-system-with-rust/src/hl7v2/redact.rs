@@ -24,11 +24,13 @@ pub fn redact(message: &str) -> String {
         return format!("<not HL7 v2: {} bytes>", message.len());
     }
     let mut out = String::with_capacity(trimmed.len());
-    for (i, segment) in trimmed.split(['\r', '\n']).enumerate() {
+    for segment in trimmed.split(['\r', '\n']) {
         if segment.is_empty() {
             continue;
         }
-        if i > 0 && !out.is_empty() {
+        // Segments after the first are joined by a carriage return. (`out` is empty only before the first
+        // segment is written, so the index is not needed.)
+        if !out.is_empty() {
             out.push('\r');
         }
         out.push_str(&redact_segment(segment, sep));
@@ -61,6 +63,23 @@ fn redact_segment(segment: &str, sep: char) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_segment_name_that_is_not_three_letters_or_digits_is_masked() {
+        let out = redact("MSH|^~\\&|APP\rAB|x\rABC|y\rA!C|z");
+        let names: Vec<&str> = out
+            .split('\r')
+            .map(|s| s.split('|').next().unwrap())
+            .collect();
+        assert_eq!(names, ["MSH", "***", "ABC", "***"], "{out}");
+    }
+
+    #[test]
+    fn a_letter_or_digit_as_the_field_separator_is_not_hl7() {
+        assert!(redact("MSHA^~\\&").starts_with("<not HL7 v2"));
+        assert!(redact("MSH1^~\\&").starts_with("<not HL7 v2"));
+        assert!(redact("MSH\r").starts_with("<not HL7 v2"));
+    }
 
     const NEEDLE: &str = "NEEDLE7391";
 

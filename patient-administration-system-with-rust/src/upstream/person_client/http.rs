@@ -16,6 +16,7 @@ impl HttpPersonClient {
     /// without trailing slash. `timeout` applies to the whole request.
     /// `bearer` is attached as `Authorization: Bearer <token>` when `Some`.
     pub fn new(base_url: String, timeout: Duration, bearer: Option<String>) -> Result<Self> {
+        crate::tls::ensure_provider();
         let http = reqwest::Client::builder()
             .timeout(timeout)
             .build()

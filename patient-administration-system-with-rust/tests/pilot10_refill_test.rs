@@ -9,7 +9,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::analytics::{RefillCell, RefillDim, RefillReport};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
@@ -79,8 +79,8 @@ async fn report(s: &AppState, dims: &[RefillDim]) -> RefillReport {
     s.analytics
         .refill_rates(
             dims,
-            Some(Utc::now() - Duration::hours(1)),
-            Some(Utc::now() + Duration::hours(1)),
+            Some(Timestamp::now() - SignedDuration::from_hours(1)),
+            Some(Timestamp::now() + SignedDuration::from_hours(1)),
             None,
         )
         .await
@@ -343,8 +343,8 @@ async fn the_http_endpoint_works_and_refuses_unknown_dimensions() {
     assert_eq!(st, StatusCode::OK, "{body}");
     assert!(body.contains(&a));
     // An explicit end a little ahead, so a database clock a moment ahead of this one cannot hide the releases.
-    let to = (Utc::now() + Duration::hours(1))
-        .to_rfc3339()
+    let to = (Timestamp::now() + SignedDuration::from_hours(1))
+        .to_string()
         .replace('+', "%2B");
     let (st, csv) = get(format!(
         "/api/analytics/refill-rates?group_by=specialty&format=csv&to={to}"

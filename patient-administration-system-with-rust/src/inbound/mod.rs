@@ -19,14 +19,13 @@
 //!
 //! Every inbound text is kept in `inbound_texts`, which is also the idempotency key for the carrier's id.
 
-pub mod messages;
-pub mod parser;
+pub use patient_administration_system_domain::inbound::{messages, parser};
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
 use std::sync::Arc;
 
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -59,7 +58,7 @@ pub struct InboundText {
     #[serde(default)]
     pub channel: Option<String>,
     #[serde(default)]
-    pub received_at: Option<DateTime<Utc>>,
+    pub received_at: Option<Timestamp>,
 }
 
 crate::string_enum! {
@@ -108,7 +107,7 @@ pub struct InboundOutcome {
 #[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct StaffItem {
     pub id: Uuid,
-    pub received_at: DateTime<Utc>,
+    pub received_at: Timestamp,
     pub outcome: TextOutcome,
     pub intent: String,
     #[schema(required = true)]
@@ -144,7 +143,7 @@ struct Decision {
 struct Who {
     person: Uuid,
     lang: Lang,
-    tz: chrono_tz::Tz,
+    tz: jiff::tz::TimeZone,
 }
 
 /// A confirm or cancel text, resolved to one appointment, ready to apply.
@@ -154,7 +153,7 @@ struct Reply<'a> {
     intent: Intent,
     action: Intent,
     appointment_id: Uuid,
-    now: DateTime<Utc>,
+    now: Timestamp,
 }
 
 /// What `target_of` found: an answer to send now, or the action and appointment to apply.
@@ -251,7 +250,7 @@ impl InboundService {
         }
         let now = text
             .received_at
-            .map_or_else(Utc::now, |t| t.min(Utc::now()));
+            .map_or_else(jiff::Timestamp::now, |t| t.min(Timestamp::now()));
         let intent = parser::parse(&text.body);
         let channel = match text
             .channel
@@ -350,7 +349,7 @@ impl InboundService {
     }
 
     /// Appointments to come that a text-channel reminder was sent for recently, soonest first.
-    async fn open_reminded(&self, person: Uuid) -> Result<Vec<(Uuid, DateTime<Utc>)>> {
+    async fn open_reminded(&self, person: Uuid) -> Result<Vec<(Uuid, Timestamp)>> {
         let rows = self
             .db
             .all(Stmt::new("SELECT a.id, a.start_datetime FROM appointments a \
@@ -371,7 +370,7 @@ impl InboundService {
     async fn open_question(
         &self,
         from: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<Option<(Vec<Uuid>, String)>> {
         let row = self
             .db
@@ -382,8 +381,10 @@ impl InboundService {
 .await?;
         let Some(r) = row else { return Ok(None) };
         let outcome: TextOutcome = r.col::<String>("outcome")?.parse()?;
-        let at: DateTime<Utc> = r.col("received_at")?;
-        if outcome != TextOutcome::Asked || now - at > Duration::minutes(QUESTION_TTL_MINUTES) {
+        let at: Timestamp = r.col("received_at")?;
+        if outcome != TextOutcome::Asked
+            || now - at > SignedDuration::from_mins(QUESTION_TTL_MINUTES)
+        {
             return Ok(None);
         }
         let cands: Option<serde_json::Value> = r.col("candidates")?;
@@ -400,7 +401,7 @@ impl InboundService {
         from: &str,
         intent: Intent,
         _channel: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<Decision> {
         let persons = self.persons_with_number(from).await?;
@@ -512,7 +513,7 @@ impl InboundService {
         &self,
         intent: Intent,
         from: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
         who: &Who,
         ctx: &UserContext,
     ) -> Result<Target> {
@@ -521,7 +522,14 @@ impl InboundService {
             Intent::Choice(n) => match self.open_question(from, now).await? {
                 Some((ids, pending)) if pending == "rebook" => Target::Answer(
                     self.take_rebook_choice(
-                        who.person, &ids, n as usize, intent, who.lang, who.tz, help, ctx,
+                        who.person,
+                        &ids,
+                        n as usize,
+                        intent,
+                        who.lang,
+                        who.tz.clone(),
+                        help,
+                        ctx,
                     )
                     .await?,
                 ),
@@ -549,7 +557,7 @@ impl InboundService {
                     _ => {
                         let times: Vec<String> = open
                             .iter()
-                            .map(|(_, at)| messages::when(*at, who.lang, who.tz))
+                            .map(|(_, at)| messages::when(*at, who.lang, who.tz.clone()))
                             .collect();
                         let pending = match intent {
                             Intent::Confirm => "confirm",
@@ -589,7 +597,7 @@ impl InboundService {
             let whens: Vec<String> = offer
                 .options
                 .iter()
-                .map(|o| messages::when(o.starts_at, who.lang, who.tz))
+                .map(|o| messages::when(o.starts_at, who.lang, who.tz.clone()))
                 .collect();
             let mut ids = vec![appointment_id];
             ids.extend(offer.options.iter().map(|o| o.slot_id));
@@ -605,7 +613,7 @@ impl InboundService {
             });
         }
         let when = match AppointmentRepository::find_by_id(&self.db, appointment_id).await? {
-            Some(a) => messages::when(a.start_datetime, who.lang, who.tz),
+            Some(a) => messages::when(a.start_datetime, who.lang, who.tz.clone()),
             None => String::new(),
         };
         Ok(done(
@@ -651,7 +659,7 @@ impl InboundService {
         let when = result
             .appointment
             .as_ref()
-            .map(|a| messages::when(a.start_datetime, who.lang, who.tz))
+            .map(|a| messages::when(a.start_datetime, who.lang, who.tz.clone()))
             .unwrap_or_default();
         let (outcome, text) =
             if result.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) {
@@ -692,7 +700,7 @@ impl InboundService {
         n: usize,
         intent: Intent,
         lang: Lang,
-        tz: chrono_tz::Tz,
+        tz: jiff::tz::TimeZone,
         help: Option<&str>,
         ctx: &UserContext,
     ) -> Result<Decision> {

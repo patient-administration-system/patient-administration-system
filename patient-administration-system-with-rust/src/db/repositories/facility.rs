@@ -23,8 +23,8 @@ impl FacilityRepository {
             code: f.code.clone(),
             address: serde_json::to_value(&f.address).unwrap_or(serde_json::Value::Null),
             active: f.active,
-            created_at: f.created_at.fixed_offset(),
-            updated_at: f.updated_at.fixed_offset(),
+            created_at: f.created_at,
+            updated_at: f.updated_at,
         };
         am.insert(conn).await?;
         Ok(f.clone())
@@ -66,8 +66,8 @@ fn facility_from_model(m: facility::Model) -> Facility {
             country: None,
         }),
         active: m.active,
-        created_at: m.created_at.to_utc(),
-        updated_at: m.updated_at.to_utc(),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     }
 }
 
@@ -84,8 +84,8 @@ impl WardRepository {
             code: w.code.clone(),
             capacity: w.capacity as i32,
             active: w.active,
-            created_at: w.created_at.fixed_offset(),
-            updated_at: w.updated_at.fixed_offset(),
+            created_at: w.created_at,
+            updated_at: w.updated_at,
         };
         am.insert(conn).await?;
         Ok(w.clone())
@@ -120,8 +120,8 @@ fn ward_from_model(m: ward::Model) -> Ward {
         code: m.code,
         capacity: Ord::max(m.capacity, 0) as u32,
         active: m.active,
-        created_at: m.created_at.to_utc(),
-        updated_at: m.updated_at.to_utc(),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     }
 }
 
@@ -137,8 +137,8 @@ impl RoomRepository {
             name: r.name.clone(),
             code: r.code.clone(),
             active: r.active,
-            created_at: r.created_at.fixed_offset(),
-            updated_at: r.updated_at.fixed_offset(),
+            created_at: r.created_at,
+            updated_at: r.updated_at,
         };
         am.insert(conn).await?;
         Ok(r.clone())
@@ -187,7 +187,7 @@ fn room_from_model(m: room::Model) -> Room {
         name: m.name,
         code: m.code,
         active: m.active,
-        created_at: m.created_at.to_utc(),
-        updated_at: m.updated_at.to_utc(),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     }
 }

@@ -21,7 +21,7 @@ pub struct Model {
     pub payload: serde_json::Value,
     pub published: bool,
     #[schema(value_type = String, format = DateTime)]
-    pub at: chrono::DateTime<chrono::FixedOffset>,
+    pub at: jiff::Timestamp,
     /// Count of publish attempts that failed. Reset to 0 when the row is
     /// replayed from the dead-letter queue. Compared against
     /// `PAS_OUTBOX_MAX_RETRIES` by the dispatcher.
@@ -29,7 +29,7 @@ pub struct Model {
     /// Timestamp of the most recent publish attempt (success or failure).
     /// `None` until the dispatcher first touches the row.
     #[schema(value_type = String, format = DateTime, required = true, nullable = true)]
-    pub last_attempted_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+    pub last_attempted_at: Option<jiff::Timestamp>,
     /// Diagnostic from the most recent failed publish attempt. Cleared when
     /// the row is replayed; never set when the most recent attempt
     /// succeeded.

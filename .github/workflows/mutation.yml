@@ -1,8 +1,10 @@
 # Weekly mutation testing where a surviving mutant would hurt (QUAL-18): the consent and quiet-hours rules,
-# the no-show score, the privacy-safe analytics and the support flags that may only add help (NFR-11).
+# the no-show score, the privacy-safe analytics, the support flags that may only add help (NFR-11), the RTT clock,
+# and the HL7 v2 acknowledgement and log redactor (HUB-1, HUB-5).
 # cargo-mutants changes the code one small way at a time and runs the tests that should notice; a mutant
 # that survives is a change to the rule that no test catches. The survivors are listed on the run page and
-# the full output is kept as an artefact. A survivor in the consent or support module fails the job.
+# the full output is kept as an artefact. A survivor in consent, support, the RTT clock, the HL7 ACK or the log
+# redactor fails the job.
 name: Mutation
 
 on:
@@ -49,6 +51,20 @@ jobs:
             file: "**/analytics/mod.rs"
             tests: "cap11_analytics_test pilot10_refill_test"
             must_be_clean: false
+          # Clean on 2026-11-18; kept clean. The RTT clock is in the domain crate, so it rebuilds in seconds.
+          - module: rtt-clock
+            package: patient-administration-system-domain
+            file: "**/models/rtt.rs"
+            tests: ""
+            must_be_clean: true
+          - module: hl7-ack
+            file: "**/hl7v2/ack.rs"
+            tests: ""
+            must_be_clean: true
+          - module: hl7-redact
+            file: "**/hl7v2/redact.rs"
+            tests: ""
+            must_be_clean: true
     services:
       postgres:
         image: postgres:18
@@ -75,6 +91,7 @@ jobs:
       - name: Mutate and test
         env:
           FILE: ${{ matrix.file }}
+          PACKAGE: ${{ matrix.package || 'patient-administration-system' }}
           TESTS: ${{ matrix.tests }}
           SHARD: ${{ matrix.shard }}
         run: |
@@ -83,7 +100,7 @@ jobs:
           for t in $TESTS; do args+=("--cargo-test-arg=--test=$t"); done
           # cargo-mutants exits non-zero when a mutant survives; the next step decides what that means.
           # After `--`, arguments go to `cargo test`; after a second `--`, to the test binaries.
-          cargo mutants -p patient-administration-system --file "$FILE" --output . "${args[@]}" \
+          cargo mutants -p "$PACKAGE" --file "$FILE" --output . "${args[@]}" \
             -- -- --include-ignored --test-threads=1 || true
       - name: Report
         env:

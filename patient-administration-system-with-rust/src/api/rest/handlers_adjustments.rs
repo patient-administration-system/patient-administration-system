@@ -2,7 +2,7 @@
 
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::NaiveDate;
+use jiff::civil::Date;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -19,7 +19,7 @@ pub struct RecordBody {
     /// A short note (at most 200 characters); no more than staff need to make the adjustment.
     pub note: Option<String>,
     /// When a person should look at the adjustment again.
-    pub review_by: Option<NaiveDate>,
+    pub review_by: Option<Date>,
     pub recorded_by: String,
 }
 

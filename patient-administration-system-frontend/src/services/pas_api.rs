@@ -17,6 +17,7 @@ fn base_url() -> String {
 }
 
 fn client() -> Result<reqwest::Client, reqwest::Error> {
+    super::ensure_tls_provider();
     reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()

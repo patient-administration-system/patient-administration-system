@@ -62,7 +62,7 @@ submission, an attestation, or legal advice, and nobody has audited it.
 | C1.2.4 | Clinical Safety Case Report and Hazard Log | Not provided |
 | C1.2.5 | Clinical Safety Officer | Not provided. No CSO is named |
 
-**What exists that a hazard log would draw on:** a state machine that rejects invalid transitions ([`src/models/appointment.rs`](../../../../../patient-administration-system-with-rust/src/models/appointment.rs)), transactional audit and outbox writes, and a test suite of over 400 tests. None of this is a DCB0129 process.
+**What exists that a hazard log would draw on:** a state machine that rejects invalid transitions ([`src/models/appointment.rs`](../../../../../patient-administration-system-with-rust/domain/src/models/appointment.rs)), transactional audit and outbox writes, and a test suite of over 400 tests. None of this is a DCB0129 process.
 
 ## C2. Data protection (assessed)
 

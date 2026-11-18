@@ -19,7 +19,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
-use chrono::{DateTime, Duration, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -101,14 +101,14 @@ pub fn bcp47(locale: &str) -> String {
 /// True when the number is absent, never verified, or last verified more than `max_age_days` ago.
 pub fn is_stale(
     mobile: Option<&str>,
-    verified_at: Option<DateTime<Utc>>,
-    now: DateTime<Utc>,
+    verified_at: Option<Timestamp>,
+    now: Timestamp,
     max_age_days: i64,
 ) -> bool {
     match (mobile, verified_at) {
         (None, _) => true,
         (Some(_), None) => true,
-        (Some(_), Some(at)) => now - at > Duration::days(max_age_days),
+        (Some(_), Some(at)) => now - at > crate::time::days(max_age_days),
     }
 }
 
@@ -118,7 +118,7 @@ pub fn is_stale(
 pub struct ProfileRow {
     pub person_id: Uuid,
     pub mobile_e164: Option<String>,
-    pub mobile_verified_at: Option<DateTime<Utc>>,
+    pub mobile_verified_at: Option<Timestamp>,
     pub mobile_verification_method: Option<String>,
     pub alternate_name: Option<String>,
     pub alternate_relationship: Option<String>,
@@ -129,7 +129,7 @@ pub struct ProfileRow {
     pub preferred_channel: Option<String>,
     pub preferred_language: Option<String>,
     pub accessibility_needs: Vec<String>,
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: Timestamp,
     pub updated_by: Option<String>,
 }
 
@@ -196,7 +196,7 @@ pub struct Profile {
 }
 
 impl Profile {
-    fn from_row(row: ProfileRow, now: DateTime<Utc>) -> Self {
+    fn from_row(row: ProfileRow, now: Timestamp) -> Self {
         let mobile_stale = is_stale(
             row.mobile_e164.as_deref(),
             row.mobile_verified_at,
@@ -370,7 +370,7 @@ impl ContactService {
                 [person_id.into()],
             ))
             .await?;
-        Ok(row.map(|r| Profile::from_row(r, Utc::now())))
+        Ok(row.map(|r| Profile::from_row(r, Timestamp::now())))
     }
 
     /// Create or replace a patient's profile. Changing the mobile number clears its verification.
@@ -428,7 +428,7 @@ impl ContactService {
             ctx,
         )
         .await?;
-        Ok(Profile::from_row(row, Utc::now()))
+        Ok(Profile::from_row(row, Timestamp::now()))
     }
 
     /// Record that the mobile number has been checked (by staff, by the patient in the portal, or by
@@ -461,7 +461,7 @@ impl ContactService {
             ctx,
         )
         .await?;
-        Ok(Profile::from_row(row, Utc::now()))
+        Ok(Profile::from_row(row, Timestamp::now()))
     }
 
     /// Profiles whose mobile is missing, unverified or last verified more than `older_than_days`
@@ -482,7 +482,7 @@ impl ContactService {
             ),
             [older_than_days.to_string().into(), rows.fetch().into(), rows.offset().into()],
         )).await?;
-        let now = Utc::now();
+        let now = Timestamp::now();
         Ok(rows
             .into_iter()
             .map(|r| Profile::from_row(r, now))
@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn test_staleness_is_missing_unverified_or_old() {
-        let now = Utc::now();
+        let now = Timestamp::now();
         assert!(is_stale(None, Some(now), now, 365), "no number at all");
         assert!(
             is_stale(Some("+447700900123"), None, now, 365),
@@ -617,13 +617,13 @@ mod tests {
         );
         assert!(!is_stale(
             Some("+447700900123"),
-            Some(now - Duration::days(364)),
+            Some(now - crate::time::days(364)),
             now,
             365
         ));
         assert!(is_stale(
             Some("+447700900123"),
-            Some(now - Duration::days(366)),
+            Some(now - crate::time::days(366)),
             now,
             365
         ));
@@ -689,7 +689,7 @@ mod tests {
         let row = ProfileRow {
             person_id: Uuid::nil(),
             mobile_e164: Some("+447700900123".into()),
-            mobile_verified_at: Some(Utc::now()),
+            mobile_verified_at: Some(Timestamp::now()),
             mobile_verification_method: Some("staff".into()),
             alternate_name: Some("Sam Jones".into()),
             alternate_relationship: Some("daughter".into()),
@@ -700,7 +700,7 @@ mod tests {
             preferred_channel: Some("whatsapp".into()),
             preferred_language: Some("cy-001".into()),
             accessibility_needs: vec!["large_print".into()],
-            updated_at: Utc::now(),
+            updated_at: Timestamp::now(),
             updated_by: None,
         };
         let f = fhir_fragment(&row);

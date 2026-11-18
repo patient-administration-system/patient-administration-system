@@ -13,7 +13,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -24,14 +24,14 @@ pub const EVENTS: [&str; 3] = ["delivered", "bounced", "replied"];
 
 /// How long to wait after `failed_attempts` failed attempts before trying again: 5 minutes, then 15, an hour,
 /// four hours, twelve; longer than that is "give up" (see `reminders::MAX_FAILED_ATTEMPTS`).
-pub fn retry_delay(failed_attempts: i64) -> Duration {
+pub fn retry_delay(failed_attempts: i64) -> SignedDuration {
     match failed_attempts {
-        i64::MIN..=0 => Duration::zero(),
-        1 => Duration::minutes(5),
-        2 => Duration::minutes(15),
-        3 => Duration::hours(1),
-        4 => Duration::hours(4),
-        _ => Duration::hours(12),
+        i64::MIN..=0 => SignedDuration::ZERO,
+        1 => SignedDuration::from_mins(5),
+        2 => SignedDuration::from_mins(15),
+        3 => SignedDuration::from_hours(1),
+        4 => SignedDuration::from_hours(4),
+        _ => SignedDuration::from_hours(12),
     }
 }
 
@@ -47,7 +47,7 @@ pub struct Receipt {
 pub struct ContactProblem {
     pub person_id: Uuid,
     pub bounces: i64,
-    pub last_bounce_at: DateTime<Utc>,
+    pub last_bounce_at: Timestamp,
     pub last_channel: String,
     #[schema(required = true)]
     pub last_reason: Option<String>,
@@ -74,7 +74,7 @@ impl ReceiptService {
         letter_id: Uuid,
         event: &str,
         detail: Option<&str>,
-        occurred_at: Option<DateTime<Utc>>,
+        occurred_at: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Receipt> {
         if !EVENTS.contains(&event) {
@@ -113,7 +113,7 @@ impl ReceiptService {
                     carrier.into(),
                     receipt_id.into(),
                     detail.map(String::from).into(),
-                    occurred_at.unwrap_or_else(Utc::now).into(),
+                    occurred_at.unwrap_or_else(jiff::Timestamp::now).into(),
                 ],
             ))
 .await?;
@@ -206,7 +206,7 @@ impl ReceiptService {
                     by.into(),
                     note.map(String::from).into(),
                     // The server's clock, like `occurred_at`, so the two are compared on one clock.
-                    Utc::now().into(),
+                    Timestamp::now().into(),
                 ],
             ))
 .await?;
@@ -236,7 +236,7 @@ impl ReceiptService {
                     "event": r.col::<String>("event")?,
                     "carrier": r.col::<String>("carrier")?,
                     "detail": r.col::<Option<String>>("detail")?,
-                    "occurred_at": r.col::<DateTime<Utc>>("occurred_at")?,
+                    "occurred_at": r.col::<Timestamp>("occurred_at")?,
                 }))
             })
             .collect()
@@ -249,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_the_retry_delay_grows_and_levels_off() {
-        let secs: Vec<i64> = (0..=7).map(|n| retry_delay(n).num_seconds()).collect();
+        let secs: Vec<i64> = (0..=7).map(|n| retry_delay(n).as_secs()).collect();
         assert_eq!(secs, vec![0, 300, 900, 3600, 14400, 43200, 43200, 43200]);
         assert!(
             secs.windows(2).all(|w| w[0] <= w[1]),

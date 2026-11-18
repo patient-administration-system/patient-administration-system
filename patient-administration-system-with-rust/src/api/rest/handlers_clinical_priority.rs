@@ -2,7 +2,7 @@
 
 use axa::extract::{Json, Path};
 use axum::{extract::State, http::HeaderMap};
-use chrono::NaiveDate;
+use jiff::civil::Date;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -15,7 +15,7 @@ pub struct PriorityBody {
     /// P1a, P1b, P2, P3, P4, P5 or P6.
     pub clinical_priority: String,
     /// When a clinician looks at the priority again.
-    pub review_by: NaiveDate,
+    pub review_by: Date,
     /// The clinician setting it.
     pub set_by: String,
 }
@@ -90,8 +90,8 @@ pub async fn overdue(
     let today = state
         .clock
         .now()
-        .with_timezone(&crate::inbound::messages::timezone())
-        .date_naive();
+        .to_zoned_datetime(crate::inbound::messages::timezone())
+        .date();
     match ClinicalPriorityService::new(state.db.clone())
         .overdue(today, page.rows())
         .await

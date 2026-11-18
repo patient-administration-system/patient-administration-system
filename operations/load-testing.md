@@ -100,6 +100,30 @@ From one quick pass (`cargo bench -- --quick`) on the same laptop, 2026-11-15, t
 
 The calendar is the slow one, and it is not paged: see PERF-2 in `tasks.md`.
 
+### Added 2026-11-18 (PERF-3)
+
+Short runs (`--warm-up-time 1 --measurement-time 2`) on the same laptop, against the development database. The weekly Performance job writes the same table for its own run to the run page (`scripts/criterion-summary.py`).
+
+| Benchmark | Median |
+|---|---|
+| HL7 v2 ACK to an A01 | 3.1 µs |
+| HL7 v2 batch ACK, 1,000 messages | 4.5 µs |
+| HL7 v2 de-duplication key | 0.63 µs |
+| Redact a 1,000-segment message for a log | 124 µs (690 MB/s) |
+| Read one MLLP frame, 85 KB | 275 µs (310 MB/s) |
+| MLLP round trip, kept open, plain / TLS | 30 µs / 42 µs |
+| MLLP round trip, new connection each message, plain / TLS | 72 µs / 207 µs |
+| Webhook signature (HMAC-SHA256), 256 B / 64 KB | 0.74 µs / 29 µs |
+| Classify a webhook answer: accepted / rejected / deferred with `Retry-After` | 0.35 ns / 57 ns / 63 ns |
+| Outbox: the next 100 due, over a backlog of 1,000 / 10,000 / 100,000 | 0.76 ms / 0.76 ms / 0.78 ms |
+| HL7 v2 de-duplication in PostgreSQL, new / resent message | 1.3 ms / 1.3 ms |
+| Working days: add 1 / 10 / 250 across a year of holidays | 8 ns / 97 ns / 2.4 µs |
+| A work item's due date (10 working days) | 72 ns |
+| Work queue sync when nothing changed, 1,000 / 10,000 open calls on top of the database | 24.5 ms / 39.6 ms |
+| Work queue: take the next item and release it | 2.5 ms |
+
+**Found by these benchmarks.** The work queue's sync (TSC-1) first sent one statement per open item every minute, even when nothing had changed: 0.8 s with 1,000 open calls and 2.1 s with 10,000. It now compares in memory, writes only what changed, and reads no closed history: 24.5 ms and 39.6 ms. The outbox's next batch stays flat as the backlog grows a hundredfold, so its index holds.
+
 ## Results log
 
 Each line is one run, on the machine named. Numbers from a busy laptop are evidence of shape and regressions, not capacity.

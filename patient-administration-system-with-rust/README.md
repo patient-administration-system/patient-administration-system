@@ -30,7 +30,7 @@ The PAS owns the administrative *who, when, where, what visit type, what bed, wh
 
 ### Prerequisites
 
-- Rust 1.100.0, the version pinned in `rust-toolchain.toml`. The crates declare `rust-version = "1.98"` (two releases behind, the oldest Axa 0.17 builds with) and build with it
+- Rust 1.100.0, the version pinned in `rust-toolchain.toml`. The crates declare `rust-version = "1.98"` (two releases behind, the oldest Axa 0.20 builds with) and build with it
 - PostgreSQL 18+
 - Podman (optional, recommended for local Postgres)
 
@@ -107,7 +107,7 @@ A summary. `Cargo.toml` is the source of truth.
 | **Serialization**    | Serde 1.0, serde\_json 1.0, csv 1.4         | JSON / CSV                               |
 | **Logging / Tracing**| `tracing` 0.1, `tracing-subscriber` 0.3 (`env-filter`, `json`) | Structured logging (reads `RUST_LOG`) |
 | **Observability**    | OpenTelemetry 0.33 + OTLP HTTP/protobuf via reqwest | Wires when `OTLP_ENDPOINT` is set |
-| **Utilities**        | uuid 1 (`v4`, `v5`, `serde`), chrono 0.4 (`serde`), dotenvy 0.15, async-trait 0.1 | UUIDs, timestamps, env, async traits |
+| **Utilities**        | uuid 1 (`v4`, `v5`, `serde`), jiff 1 (`serde`, bundled time zones; jiff-sqlx for the database), dotenvy 0.15, async-trait 0.1 | UUIDs, timestamps, env, async traits |
 | **Error Handling**   | thiserror 2.0                               | Typed errors                             |
 | **Money / Decimal**  | rust\_decimal 1.43 (`serde-with-str`)       | Exact monetary arithmetic                |
 | **Testing**          | `assertables` 10, `tempfile` 3.27           | Rich asserts + temp directories          |

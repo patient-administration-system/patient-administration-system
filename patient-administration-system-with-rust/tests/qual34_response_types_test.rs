@@ -166,8 +166,9 @@ async fn the_appointment_routes_send_the_types_they_declare() {
         Some(json!({"person_id": person})),
     )
     .await;
-    let day = slot.start_datetime.format("%Y-%m-%dT00:00:00Z");
-    let next = (slot.start_datetime + chrono::Duration::days(1)).format("%Y-%m-%dT00:00:00Z");
+    let day = slot.start_datetime.strftime("%Y-%m-%dT00:00:00Z");
+    let next = (slot.start_datetime + patient_administration_system::time::days(1))
+        .strftime("%Y-%m-%dT00:00:00Z");
     let in_range: Vec<Appointment> = call(
         &app,
         "GET",
@@ -312,13 +313,18 @@ async fn the_history_due_check_adjustment_and_noshow_routes_send_the_types_they_
         Some(json!({"person_id": person, "target_service": service})),
     )
     .await;
-    let due: Vec<DueCheck> = call(
-        &app,
-        "GET",
-        "/api/pathways/due-check?weeks=0&repeat_days=1",
-        None,
-    )
-    .await;
+    // The list is every open pathway, oldest first, so on a busy database the new one is on a later page: read
+    // them all, each page as the declared type.
+    let mut due: Vec<DueCheck> = Vec::new();
+    let mut uri = Some("/api/pathways/due-check?weeks=0&repeat_days=1&limit=500".to_string());
+    while let Some(u) = uri.take() {
+        let bytes = send(&app, "GET", &u, None).await;
+        let page: ApiResponse<Vec<DueCheck>> = serde_json::from_slice(&bytes)
+            .unwrap_or_else(|e| panic!("GET {u} is not the declared type: {e}"));
+        assert!(page.success, "GET {u}");
+        due.extend(page.data.unwrap_or_default());
+        uri = page.meta.and_then(|m| m.next);
+    }
     assert!(
         due.iter()
             .any(|d| d.pathway_id == pathway.id && d.person_id == person)
@@ -445,7 +451,9 @@ async fn the_patient_record_routes_send_the_types_they_declare() {
     let state = common::build_state(&common::database_url().unwrap()).await;
     let app = router(state.clone());
     let person = Uuid::new_v4();
-    let today = chrono::Utc::now().date_naive();
+    let today = jiff::Timestamp::now()
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
 
     let consent = Consent::new(person, ConsentType::DataProcessing, today);
     let made: Consent = call(
@@ -499,7 +507,7 @@ async fn the_patient_record_routes_send_the_types_they_declare() {
         Some(
             json!({"proxy_person_id": Uuid::new_v4(), "relationship": "daughter",
                     "basis": "patient_consent", "scopes": ["receive", "confirm"],
-                    "expires_at": chrono::Utc::now() + chrono::Duration::days(30),
+                    "expires_at": jiff::Timestamp::now() + patient_administration_system::time::days(30),
                     "recorded_by": "Nurse A"}),
         ),
     )
@@ -893,7 +901,7 @@ async fn the_standby_and_slot_release_routes_send_the_types_they_declare() {
         .await
         .unwrap();
     // A window of the last minute keeps the body small however much the database holds.
-    let from = (chrono::Utc::now() - chrono::Duration::minutes(1)).to_rfc3339();
+    let from = (jiff::Timestamp::now() - jiff::SignedDuration::from_mins(1)).to_string();
     let releases: Releases = call(
         &app,
         "GET",
@@ -1087,7 +1095,8 @@ async fn the_series_and_consent_revoke_routes_send_the_types_they_declare() {
     let app = router(state);
     let person = Uuid::new_v4();
 
-    let start = (chrono::Utc::now() + chrono::Duration::days(30)).to_rfc3339();
+    let start =
+        (jiff::Timestamp::now() + patient_administration_system::time::days(30)).to_string();
     let created: CreateSeriesResult = call(
         &app,
         "POST",
@@ -1116,7 +1125,9 @@ async fn the_series_and_consent_revoke_routes_send_the_types_they_declare() {
     let cancelled: SeriesWithOccurrences = call(&app, "POST", &format!("{url}/cancel"), None).await;
     assert_eq!(cancelled.series.status, SeriesStatus::Cancelled);
 
-    let today = chrono::Utc::now().date_naive();
+    let today = jiff::Timestamp::now()
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
     let consent: Consent = call(
         &app,
         "POST",
@@ -1187,7 +1198,7 @@ async fn the_pifu_routes_send_the_types_they_declare() {
         Some(json!({
             "service_type": "qual34-pifu",
             "conditions": "Ring us if the pain returns or you cannot walk to the shops.",
-            "expires_at": chrono::Utc::now() + chrono::Duration::days(60),
+            "expires_at": jiff::Timestamp::now() + patient_administration_system::time::days(60),
             "opened_by": "Dr Evans",
         })),
     )
@@ -1247,7 +1258,9 @@ async fn the_session_template_routes_send_the_types_they_declare() {
     let db = state.db.clone();
     let schedule = common::new_schedule(&db).await;
     let app = router(state);
-    let day = (chrono::Utc::now() + chrono::Duration::days(14)).date_naive();
+    let day = (jiff::Timestamp::now() + patient_administration_system::time::days(14))
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
 
     let created: TemplateCreated = call(
         &app,
@@ -1261,7 +1274,7 @@ async fn the_session_template_routes_send_the_types_they_declare() {
         "POST",
         &format!("/api/session-templates/{}/versions", created.id),
         Some(json!({
-            "weekday": chrono::Datelike::weekday(&day).number_from_monday(),
+            "weekday": day.weekday().to_monday_one_offset(),
             "start_time": "09:00:00",
             "slot_minutes": 20,
             "effective_from": day,
@@ -1329,8 +1342,9 @@ async fn the_session_template_routes_send_the_types_they_declare() {
         &format!(
             "/api/capacity/report?service_type={}&from={}&to={}",
             schedule.service_type,
-            chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ"),
-            (chrono::Utc::now() + chrono::Duration::days(28)).format("%Y-%m-%dT%H:%M:%SZ"),
+            jiff::Timestamp::now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            (jiff::Timestamp::now() + patient_administration_system::time::days(28))
+                .strftime("%Y-%m-%dT%H:%M:%SZ"),
         ),
         None,
     )
@@ -1573,7 +1587,7 @@ async fn the_proxy_and_identity_proofing_routes_send_the_types_they_declare() {
         &format!("/api/patients/{person}/proxies"),
         Some(json!({"proxy_person_id": proxy, "relationship": "daughter",
                     "basis": "patient_consent", "scopes": ["receive"],
-                    "expires_at": chrono::Utc::now() + chrono::Duration::days(30),
+                    "expires_at": jiff::Timestamp::now() + patient_administration_system::time::days(30),
                     "recorded_by": "Nurse A"})),
     )
     .await;
@@ -1616,7 +1630,7 @@ async fn the_outbox_admin_routes_send_the_types_they_declare() {
 
     let state = common::build_state(&common::database_url().unwrap()).await;
     let app = router(state.clone());
-    let now = chrono::Utc::now().fixed_offset();
+    let now = jiff::Timestamp::now();
     let dead = outbox_dead_letter::Model {
         id: Uuid::new_v4(),
         original_id: Uuid::new_v4(),

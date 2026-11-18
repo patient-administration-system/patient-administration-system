@@ -14,8 +14,8 @@ pub struct Model {
     pub referring_worker_id: Option<Uuid>,
     pub target_service: String,
     pub reason: Option<String>,
-    pub received_at: chrono::DateTime<chrono::FixedOffset>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
+    pub received_at: jiff::Timestamp,
+    pub created_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

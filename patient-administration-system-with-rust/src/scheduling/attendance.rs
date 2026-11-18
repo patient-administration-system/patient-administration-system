@@ -11,8 +11,8 @@ pub struct InFacility {
     pub person_id: Uuid,
     #[schema(required = true)]
     pub room: Option<String>,
-    pub arrived_at: DateTime<Utc>,
-    pub appointment_start: DateTime<Utc>,
+    pub arrived_at: Timestamp,
+    pub appointment_start: Timestamp,
     pub waiting_minutes: i64,
 }
 
@@ -35,7 +35,7 @@ impl SchedulingService {
         &self,
         appointment_id: Uuid,
         barrier: BarrierCode,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         let ctx_clone = ctx.clone();
@@ -52,7 +52,7 @@ impl SchedulingService {
                     }
                     let before = appt.barrier_code;
                     appt.barrier_code = Some(barrier);
-                    appt.updated_at = chrono::Utc::now();
+                    appt.updated_at = jiff::Timestamp::now();
                     let appt = AppointmentRepository::update(txn, &appt).await?;
                     AuditLogRepository::log(
                         txn,
@@ -88,7 +88,7 @@ impl SchedulingService {
         &self,
         appointment_id: Uuid,
         room: Option<&str>,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         let room = match room.map(str::trim) {
@@ -115,7 +115,7 @@ impl SchedulingService {
                     }
                     let from = appt.current_room.clone();
                     appt.current_room = room.clone();
-                    appt.updated_at = chrono::Utc::now();
+                    appt.updated_at = jiff::Timestamp::now();
                     let appt = AppointmentRepository::update(txn, &appt).await?;
                     AuditLogRepository::log_with(
                         txn,
@@ -153,8 +153,8 @@ impl SchedulingService {
                     appointment_id: r.col::<Uuid>("id")?,
                     person_id: r.col::<Uuid>("person_id")?,
                     room: r.col::<Option<String>>("current_room")?,
-                    arrived_at: r.col::<DateTime<Utc>>("arrived_at")?,
-                    appointment_start: r.col::<DateTime<Utc>>("start_datetime")?,
+                    arrived_at: r.col::<Timestamp>("arrived_at")?,
+                    appointment_start: r.col::<Timestamp>("start_datetime")?,
                     waiting_minutes: r.col::<i64>("waiting_minutes")?.max(0),
                 })
             })
@@ -170,7 +170,7 @@ impl SchedulingService {
     pub async fn check_in_if_unchanged(
         &self,
         appointment_id: Uuid,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         self.transition(
@@ -199,7 +199,7 @@ impl SchedulingService {
     pub async fn mark_no_show_if_unchanged(
         &self,
         appointment_id: Uuid,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         let ctx_clone = ctx.clone();
@@ -211,7 +211,7 @@ impl SchedulingService {
                         AppointmentRepository::lock_if_current(txn, appointment_id, expected)
                             .await?;
                     appt.status = appt.status.try_transition_to(AppointmentStatus::NoShow)?;
-                    appt.updated_at = chrono::Utc::now();
+                    appt.updated_at = jiff::Timestamp::now();
                     let appt = AppointmentRepository::update(txn, &appt).await?;
                     if let Some(sid) = appt.slot_id {
                         SlotRepository::update_status(txn, sid, SlotStatus::Free).await?;
@@ -258,7 +258,7 @@ impl SchedulingService {
     pub async fn complete_if_unchanged(
         &self,
         appointment_id: Uuid,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         self.transition(
@@ -279,7 +279,7 @@ impl SchedulingService {
         appointment_id: Uuid,
         next: AppointmentStatus,
         action: &'static str,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         let ctx_clone = ctx.clone();
@@ -291,7 +291,7 @@ impl SchedulingService {
                         AppointmentRepository::lock_if_current(txn, appointment_id, expected)
                             .await?;
                     appt.status = appt.status.try_transition_to(next)?;
-                    appt.updated_at = chrono::Utc::now();
+                    appt.updated_at = jiff::Timestamp::now();
                     // Stamp the time (CORE-4). Arriving or finishing is the first time it is recorded.
                     match next {
                         AppointmentStatus::Arrived => appt.arrived_at = Some(appt.updated_at),

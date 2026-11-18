@@ -7,7 +7,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::fhir::fhir_router;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::slot::SlotRepository;
@@ -18,10 +18,11 @@ use serde_json::{Value, json};
 use tower::ServiceExt;
 use uuid::Uuid;
 
-fn at(days: i64, hour: u32) -> DateTime<Utc> {
-    let d = (Utc::now() + Duration::days(days)).date_naive();
-    Utc.with_ymd_and_hms(d.year(), d.month(), d.day(), hour, 0, 0)
-        .unwrap()
+fn at(days: i64, hour: i8) -> Timestamp {
+    let d = patient_administration_system::time::utc_date(
+        Timestamp::now() + patient_administration_system::time::days(days),
+    );
+    patient_administration_system::time::utc(d.year(), d.month(), d.day(), hour, 0, 0)
 }
 
 async fn post(app: &axum::Router, op: &str, body: Value) -> (StatusCode, Value) {
@@ -113,7 +114,11 @@ async fn find_hold_and_book_follow_the_booking_rules_and_a_hold_expires() {
         slots.push(
             SlotRepository::create(
                 &state.db,
-                &Slot::new(sched.id, at(30, hour), at(30, hour) + Duration::minutes(15)),
+                &Slot::new(
+                    sched.id,
+                    at(30, hour),
+                    at(30, hour) + SignedDuration::from_mins(15),
+                ),
             )
             .await
             .unwrap(),
@@ -175,8 +180,8 @@ async fn find_hold_and_book_follow_the_booking_rules_and_a_hold_expires() {
         .scheduling
         .hold_proposal(
             lapsed,
-            Utc::now() - Duration::minutes(20),
-            Duration::minutes(10),
+            Timestamp::now() - SignedDuration::from_mins(20),
+            SignedDuration::from_mins(10),
             &sys,
         )
         .await

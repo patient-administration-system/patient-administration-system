@@ -4,7 +4,7 @@
 
 mod common;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use patient_administration_system::db::connect;
 use patient_administration_system::db::entities::outbox_dead_letter;
 use patient_administration_system::db::row::RowExt;
@@ -119,7 +119,7 @@ async fn every_kind_of_value_goes_in_and_comes_back_as_it_was() {
     let pool = pool().await;
     let t = table(&pool).await;
     let id = Uuid::new_v4();
-    let at: DateTime<Utc> = "2026-11-06T10:00:00.123456Z".parse().unwrap();
+    let at: Timestamp = "2026-11-06T10:00:00.123456Z".parse().unwrap();
     let doc = serde_json::json!({ "a": [1, 2], "b": "text" });
     let words = vec!["one".to_string(), "two".to_string()];
     pool.run(Stmt::new(
@@ -158,7 +158,7 @@ async fn every_kind_of_value_goes_in_and_comes_back_as_it_was() {
     assert_eq!(row.col::<serde_json::Value>("doc").unwrap(), doc);
     assert_eq!(row.col::<Option<String>>("note").unwrap(), None);
     // `updated_at` to the microsecond is a record's version (NFR-27): no precision may be lost.
-    assert_eq!(row.col::<DateTime<Utc>>("at").unwrap(), at);
+    assert_eq!(row.col::<Timestamp>("at").unwrap(), at);
     drop_table(&pool, &t).await;
 }
 

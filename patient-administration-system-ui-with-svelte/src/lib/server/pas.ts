@@ -347,3 +347,43 @@ export async function facilitiesWithWards(f: FetchFn): Promise<{ facility: Facil
     })),
   );
 }
+
+/** An item of the staff work queue (TSC-1): one open call, follow-up, validation, needs review or alert. */
+export type WorkItem = Schemas["WorkItem"];
+
+/** The signed-in person's items past due, and those due by the end of the working day. */
+export type WorkReminders = Schemas["Reminders"];
+
+/** The queues, in the order the page lists them. */
+export const WORK_QUEUES = ["booking", "validation", "communication", "operations"] as const;
+export type WorkQueue = (typeof WORK_QUEUES)[number];
+
+/** What a work list asks for: one queue or all, mine, nobody's, overdue. */
+export interface WorkFilter {
+  queue?: WorkQueue | null;
+  owner?: "me" | "none" | null;
+  overdue?: boolean;
+}
+
+export function workItems(f: FetchFn, filter: WorkFilter, cursor?: string | null) {
+  const q = new URLSearchParams();
+  if (filter.queue) q.set("queue", filter.queue);
+  if (filter.owner) q.set("owner", filter.owner);
+  if (filter.overdue) q.set("overdue", "true");
+  const qs = q.toString();
+  return pasPage<WorkItem>(f, `/api/work-items${qs ? `?${qs}` : ""}`, cursor);
+}
+
+export const workReminders = (f: FetchFn) => pas<WorkReminders>(f, "/api/work-items/reminders");
+
+/** The signed-in person takes an item; the PAS refuses one someone else has. */
+export const claimWork = (f: FetchFn, id: string) =>
+  pas<WorkItem>(f, `/api/work-items/${encodeURIComponent(id)}/claim`, { method: "POST" });
+
+/** The signed-in person gives an item back to its queue. */
+export const releaseWork = (f: FetchFn, id: string) =>
+  pas<WorkItem>(f, `/api/work-items/${encodeURIComponent(id)}/release`, { method: "POST" });
+
+/** The signed-in person takes the next open item of a queue: most urgent, soonest due, oldest. */
+export const takeNextWork = (f: FetchFn, queue: WorkQueue) =>
+  pas<WorkItem>(f, `/api/work-queues/${encodeURIComponent(queue)}/next`, { method: "POST" });

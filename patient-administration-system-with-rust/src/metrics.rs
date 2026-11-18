@@ -13,7 +13,7 @@ use std::fmt::Write as _;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
-use chrono::Utc;
+use jiff::Timestamp;
 
 use crate::db::row::RowExt;
 use crate::jobs::Outcome;
@@ -85,12 +85,12 @@ static OUTBOX_LAST_DELIVERED: std::sync::atomic::AtomicI64 = std::sync::atomic::
 
 /// An HL7 v2 message arrived (processed, refused or answered as a resend).
 pub fn hl7_received() {
-    HL7_LAST_RECEIVED.store(Utc::now().timestamp(), Ordering::Relaxed);
+    HL7_LAST_RECEIVED.store(Timestamp::now().as_second(), Ordering::Relaxed);
 }
 
 /// The outbox delivered an event.
 pub fn outbox_delivered() {
-    OUTBOX_LAST_DELIVERED.store(Utc::now().timestamp(), Ordering::Relaxed);
+    OUTBOX_LAST_DELIVERED.store(Timestamp::now().as_second(), Ordering::Relaxed);
 }
 
 /// Seconds since an HL7 v2 message last arrived, and since the outbox last delivered, at `now`; `None` when it
@@ -117,7 +117,7 @@ pub fn job_registered(name: &str, every: std::time::Duration) {
         .starts
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .insert(name.to_string(), Utc::now().timestamp());
+        .insert(name.to_string(), Timestamp::now().as_second());
 }
 
 /// The health of job `name` at `now` (Unix seconds).
@@ -156,7 +156,7 @@ pub fn job_health_at(name: &str, now: i64) -> JobHealth {
 
 /// The health of job `name` now.
 pub fn job_health(name: &str) -> JobHealth {
-    job_health_at(name, Utc::now().timestamp())
+    job_health_at(name, Timestamp::now().as_second())
 }
 
 /// A background job's tick ended.
@@ -170,12 +170,12 @@ pub fn job_finished(name: &str, outcome: Outcome) {
     match outcome {
         Outcome::Ran => {
             s.ran += 1;
-            s.last_success = Some(Utc::now().timestamp());
+            s.last_success = Some(Timestamp::now().as_second());
             s.last_seen = s.last_success;
         }
         Outcome::Skipped => {
             s.skipped += 1;
-            s.last_seen = Some(Utc::now().timestamp());
+            s.last_seen = Some(Timestamp::now().as_second());
         }
         Outcome::Panicked => s.panicked += 1,
     }
@@ -329,7 +329,7 @@ mod tests {
     fn silence_is_unknown_until_it_happens_then_counted_from_it() {
         hl7_received();
         outbox_delivered();
-        let now = Utc::now().timestamp();
+        let now = Timestamp::now().as_second();
         let (hl7, outbox) = silence_at(now + 90);
         assert!((89..=91).contains(&hl7.unwrap()), "{hl7:?}");
         assert!((89..=91).contains(&outbox.unwrap()), "{outbox:?}");
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn job_health_is_off_unknown_ok_or_stalled_and_never_ok_without_data() {
-        let now = Utc::now().timestamp();
+        let now = Timestamp::now().as_second();
         assert_eq!(job_health_at("hub6-never-registered", now), JobHealth::Off);
         job_registered("hub6-job", std::time::Duration::from_secs(2));
         assert_eq!(job_health_at("hub6-job", now), JobHealth::Unknown);

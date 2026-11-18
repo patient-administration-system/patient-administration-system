@@ -12613,7 +12613,7 @@
         "type": "object"
       },
       "DeliveryChannel": {
-        "description": "How a letter should reach its recipient.\n\n- `Print` — render and store; an external process picks up the body and\n  produces the physical mail. The PAS never flips status on its own;\n  `POST /api/letters/{id}/sent` is the manual signal.\n- `Email` — render and store; same manual-flip semantics as `Print`.\n- `Sms` — render and store. As of v0.8, when an enabled\n  [`crate::communication::SmsProvider`] is wired (`PAS_SMS_PROVIDER=log`\n  or a consumer-supplied provider), `CommunicationService::generate_letter`\n  also auto-dispatches the message to the patient's first\n  `ContactPoint { system: Phone }` and flips status to `Sent` on success\n  or `Failed` on error. When the configured provider is\n  [`crate::communication::NoopSmsProvider`] (the default), the letter\n  stays `Pending` — the same behavior as `Print` and `Email`.",
+        "description": "How a letter should reach its recipient.\n\n- `Print` — render and store; an external process picks up the body and\n  produces the physical mail. The PAS never flips status on its own;\n  `POST /api/letters/{id}/sent` is the manual signal.\n- `Email` — render and store; same manual-flip semantics as `Print`.\n- `Sms` — render and store. As of v0.8, when an enabled\n  the server's `communication::SmsProvider` is wired (`PAS_SMS_PROVIDER=log`\n  or a consumer-supplied provider), `CommunicationService::generate_letter`\n  also auto-dispatches the message to the patient's first\n  `ContactPoint { system: Phone }` and flips status to `Sent` on success\n  or `Failed` on error. When the configured provider is\n  the server's `communication::NoopSmsProvider` (the default), the letter\n  stays `Pending` — the same behavior as `Print` and `Email`.",
         "enum": [
           "print",
           "email",
@@ -16470,6 +16470,34 @@
         ],
         "type": "object"
       },
+      "Reminders": {
+        "description": "A person's reminders: their items already past due, and those due by the end of the current working day.",
+        "properties": {
+          "due_by": {
+            "description": "The end of the working day the reminders are counted to.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "due_today": {
+            "items": {
+              "$ref": "#/components/schemas/WorkItem"
+            },
+            "type": "array"
+          },
+          "overdue": {
+            "items": {
+              "$ref": "#/components/schemas/WorkItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "overdue",
+          "due_today",
+          "due_by"
+        ],
+        "type": "object"
+      },
       "RemovalsByService": {
         "description": "Removals, reinstatements and keeps for one service in the period. No identifiers.",
         "properties": {
@@ -18709,6 +18737,109 @@
         ],
         "type": "object"
       },
+      "WorkItem": {
+        "description": "One work item, as the API sends it.",
+        "properties": {
+          "claimed_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closed_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "due_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "overdue": {
+            "description": "Due before now and not closed.",
+            "type": "boolean"
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "description": "1 is high, 3 is low.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "queue": {
+            "type": "string"
+          },
+          "source_id": {
+            "description": "The row of the source list this item stands for.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "subject_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject_kind": {
+            "description": "`appointment`, `pathway`, `profile` or `alert`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "source_id",
+          "person_id",
+          "subject_kind",
+          "subject_id",
+          "queue",
+          "priority",
+          "due_at",
+          "overdue",
+          "status",
+          "owner",
+          "title",
+          "opened_at",
+          "claimed_at",
+          "closed_at"
+        ],
+        "type": "object"
+      },
       "analytics.RefillReport": {
         "properties": {
           "cells": {
@@ -19333,6 +19464,18 @@
         "required": [
           "answer",
           "recorded_by"
+        ],
+        "type": "object"
+      },
+      "handlers_work_queue.AssignBody": {
+        "properties": {
+          "to": {
+            "description": "The person who should have the item.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to"
         ],
         "type": "object"
       },
@@ -33962,6 +34105,355 @@
         "summary": "`GET /api/wards/:id/rooms`.",
         "tags": [
           "Wards"
+        ]
+      }
+    },
+    "/api/work-items": {
+      "get": {
+        "operationId": "get_api_work_items",
+        "parameters": [
+          {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "One queue: `booking`, `communication`, `operations` or `validation`.",
+            "in": "path",
+            "name": "queue",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "`me` for the signed-in person's items, `none` for items nobody has, or a person's name.",
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Only items due before now.",
+            "in": "path",
+            "name": "overdue",
+            "required": true,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/work-items`: open and claimed work, most urgent first, then soonest due, then oldest.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-items/reminders": {
+      "get": {
+        "operationId": "get_api_work_items_reminders",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminders"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/work-items/reminders`: the signed-in person's items past due, and those due by the end of the\ncurrent working day. The reminder before an item is due is shown where the person works; nothing is sent.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-items/{id}": {
+      "get": {
+        "operationId": "get_api_work_items__id",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItem"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/work-items/{id}`: one work item.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-items/{id}/assign": {
+      "post": {
+        "operationId": "post_api_work_items__id__assign",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handlers_work_queue.AssignBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItem"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/work-items/{id}/assign`: give the item to a named person.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-items/{id}/claim": {
+      "post": {
+        "operationId": "post_api_work_items__id__claim",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItem"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/work-items/{id}/claim`: the signed-in person takes the item. `409` if someone else has it.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-items/{id}/release": {
+      "post": {
+        "operationId": "post_api_work_items__id__release",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItem"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/work-items/{id}/release`: the person who has the item gives it back to its queue.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-queues/{queue}/next": {
+      "post": {
+        "operationId": "post_api_work_queues__queue__next",
+        "parameters": [
+          {
+            "description": "`booking`, `communication`, `operations` or `validation`",
+            "in": "path",
+            "name": "queue",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItem"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/work-queues/{queue}/next`: the signed-in person takes the next open item of the queue (most\nurgent, then soonest due, then oldest). `404` when the queue is empty.",
+        "tags": [
+          "Work queue"
         ]
       }
     },

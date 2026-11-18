@@ -8,7 +8,7 @@ pub use series::{
 };
 
 use crate::db::sql::Pool;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use std::sync::Arc;
 use uuid::Uuid;
 

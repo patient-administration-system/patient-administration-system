@@ -142,10 +142,10 @@ fn pathway_to_row(p: &RTTPathway) -> Result<rtt_pathway::Model> {
         target_service: p.target_service.clone(),
         breach_weeks: breach_weeks_i32,
         status: rtt_status_to_str(p.status).to_string(),
-        started_at: p.started_at.fixed_offset(),
-        stopped_at: p.stopped_at.map(|t| t.fixed_offset()),
-        created_at: p.created_at.fixed_offset(),
-        updated_at: p.updated_at.fixed_offset(),
+        started_at: p.started_at,
+        stopped_at: p.stopped_at,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
     })
 }
 
@@ -162,10 +162,10 @@ fn pathway_from_model(m: rtt_pathway::Model) -> Result<RTTPathway> {
         target_service: m.target_service,
         breach_weeks,
         status: rtt_status_from_str(&m.status)?,
-        started_at: m.started_at.with_timezone(&chrono::Utc),
-        stopped_at: m.stopped_at.map(|t| t.with_timezone(&chrono::Utc)),
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        started_at: m.started_at,
+        stopped_at: m.stopped_at,
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 
@@ -175,8 +175,8 @@ fn event_to_row(e: &RTTClockEvent) -> rtt_clock_event::Model {
         pathway_id: e.pathway_id,
         kind: rtt_event_kind_to_str(e.kind).to_string(),
         reason: e.reason.clone(),
-        event_at: e.event_at.fixed_offset(),
-        created_at: e.created_at.fixed_offset(),
+        event_at: e.event_at,
+        created_at: e.created_at,
     }
 }
 
@@ -186,8 +186,8 @@ fn event_from_model(m: rtt_clock_event::Model) -> Result<RTTClockEvent> {
         pathway_id: m.pathway_id,
         kind: rtt_event_kind_from_str(&m.kind)?,
         reason: m.reason,
-        event_at: m.event_at.with_timezone(&chrono::Utc),
-        created_at: m.created_at.with_timezone(&chrono::Utc),
+        event_at: m.event_at,
+        created_at: m.created_at,
     })
 }
 

@@ -12,7 +12,9 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
 
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, Utc};
+use jiff::Timestamp;
+use jiff::civil::{Date, Time};
+use jiff_sqlx::ToSqlx;
 use sqlx::postgres::{PgArguments, PgRow};
 use sqlx::query::Query;
 use sqlx::{Arguments, AssertSqlSafe, Executor, Postgres};
@@ -52,9 +54,9 @@ pub enum Param {
     Int8(Option<i64>),
     Float8(Option<f64>),
     Bool(Option<bool>),
-    Time(Option<DateTime<Utc>>),
-    Date(Option<NaiveDate>),
-    TimeOfDay(Option<NaiveTime>),
+    Time(Option<Timestamp>),
+    Date(Option<Date>),
+    TimeOfDay(Option<Time>),
     Json(Option<serde_json::Value>),
     TextArray(Option<Vec<String>>),
     UuidArray(Option<Vec<Uuid>>),
@@ -89,10 +91,9 @@ param_from! {
     u64 => Int8(|v: u64| i64::try_from(v).unwrap_or(i64::MAX)),
     f64 => Float8(|v| v),
     bool => Bool(|v| v),
-    DateTime<Utc> => Time(|v| v),
-    DateTime<FixedOffset> => Time(|v: DateTime<FixedOffset>| v.to_utc()),
-    NaiveDate => Date(|v| v),
-    NaiveTime => TimeOfDay(|v| v),
+    Timestamp => Time(|v| v),
+    Date => Date(|v| v),
+    Time => TimeOfDay(|v| v),
     serde_json::Value => Json(|v| v),
     Vec<String> => TextArray(|v| v),
     Vec<Uuid> => UuidArray(|v| v),
@@ -108,9 +109,10 @@ impl Param {
             Param::Int8(v) => args.add(v),
             Param::Float8(v) => args.add(v),
             Param::Bool(v) => args.add(v),
-            Param::Time(v) => args.add(v),
-            Param::Date(v) => args.add(v),
-            Param::TimeOfDay(v) => args.add(v),
+            // jiff's types are bound through jiff-sqlx's wrappers (JIFF-1).
+            Param::Time(v) => args.add(v.map(|t| t.to_sqlx())),
+            Param::Date(v) => args.add(v.map(|d| d.to_sqlx())),
+            Param::TimeOfDay(v) => args.add(v.map(|t| t.to_sqlx())),
             Param::Json(v) => args.add(v),
             Param::TextArray(v) => args.add(v),
             Param::UuidArray(v) => args.add(v),

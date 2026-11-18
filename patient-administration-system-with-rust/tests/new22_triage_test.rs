@@ -3,7 +3,7 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -37,7 +37,7 @@ async fn record(
     at_minutes_ago: i64,
 ) -> patient_administration_system::Result<patient_administration_system::triage::TriageAssessment>
 {
-    let now = Utc::now();
+    let now = Timestamp::now();
     svc.record(
         enc,
         "mts",
@@ -45,7 +45,7 @@ async fn record(
         category,
         Some("Chest pain"),
         by,
-        now - Duration::minutes(at_minutes_ago),
+        now - SignedDuration::from_mins(at_minutes_ago),
         now,
         &UserContext::system(),
     )
@@ -120,8 +120,8 @@ async fn bad_input_and_the_wrong_encounter_are_refused() {
             "urgent",
             None,
             "Nurse Okafor",
-            Utc::now(),
-            Utc::now(),
+            Timestamp::now(),
+            Timestamp::now(),
             &UserContext::system(),
         )
         .await;

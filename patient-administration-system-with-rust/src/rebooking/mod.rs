@@ -18,8 +18,7 @@ use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
 use std::sync::Arc;
 
-use chrono::{DateTime, Duration, Timelike, Utc};
-use chrono_tz::Tz;
+use jiff::{SignedDuration, Timestamp};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -37,8 +36,8 @@ pub const OFFER_SIZE: usize = 3;
 #[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema, PartialEq, Eq)]
 pub struct OfferedSlot {
     pub slot_id: Uuid,
-    pub starts_at: DateTime<Utc>,
-    pub ends_at: DateTime<Utc>,
+    pub starts_at: Timestamp,
+    pub ends_at: Timestamp,
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
@@ -48,13 +47,13 @@ pub struct Offer {
     pub offer_id: Option<Uuid>,
     pub appointment_id: Uuid,
     #[schema(required = true)]
-    pub expires_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<Timestamp>,
     pub time_zone: String,
     pub options: Vec<OfferedSlot>,
 }
 
-fn part_of_day(at: DateTime<Utc>, tz: Tz) -> u8 {
-    match at.with_timezone(&tz).hour() {
+fn part_of_day(at: Timestamp, tz: &jiff::tz::TimeZone) -> u8 {
+    match at.to_zoned_datetime(tz.clone()).hour() {
         0..=11 => 0,
         12..=16 => 1,
         _ => 2,
@@ -63,8 +62,8 @@ fn part_of_day(at: DateTime<Utc>, tz: Tz) -> u8 {
 
 /// Choose up to `n` slots from `candidates` (sorted by start): prefer a new day and a new part of the day,
 /// then a new day, then anything, always soonest first. The result is in time order.
-pub fn spread(candidates: &[OfferedSlot], tz: Tz, n: usize) -> Vec<OfferedSlot> {
-    let day = |s: &OfferedSlot| s.starts_at.with_timezone(&tz).date_naive();
+pub fn spread(candidates: &[OfferedSlot], tz: &jiff::tz::TimeZone, n: usize) -> Vec<OfferedSlot> {
+    let day = |s: &OfferedSlot| s.starts_at.to_zoned_datetime(tz.clone()).date();
     let mut chosen: Vec<OfferedSlot> = Vec::new();
     while chosen.len() < n {
         let fresh = |s: &&OfferedSlot| !chosen.iter().any(|c| c.slot_id == s.slot_id);
@@ -101,18 +100,18 @@ impl RebookService {
     }
 
     /// `PAS_REBOOK_HORIZON_DAYS` (default 42), how far ahead alternatives are looked for.
-    fn horizon() -> Duration {
-        Duration::days(env::int("PAS_REBOOK_HORIZON_DAYS"))
+    fn horizon() -> SignedDuration {
+        crate::time::days(env::int("PAS_REBOOK_HORIZON_DAYS"))
     }
 
     /// `PAS_REBOOK_MIN_NOTICE_HOURS` (default 24): a slot sooner than this is not offered.
-    fn min_notice() -> Duration {
-        Duration::hours(env::int("PAS_REBOOK_MIN_NOTICE_HOURS"))
+    fn min_notice() -> SignedDuration {
+        SignedDuration::from_hours(env::int("PAS_REBOOK_MIN_NOTICE_HOURS"))
     }
 
     /// `PAS_REBOOK_OFFER_MINUTES` (default 120): how long a patient has to choose.
-    fn offer_ttl() -> Duration {
-        Duration::minutes(env::int("PAS_REBOOK_OFFER_MINUTES"))
+    fn offer_ttl() -> SignedDuration {
+        SignedDuration::from_mins(env::int("PAS_REBOOK_OFFER_MINUTES"))
     }
 
     async fn movable(&self, appointment_id: Uuid) -> Result<Appointment> {
@@ -128,13 +127,13 @@ impl RebookService {
                 appt.status
             )));
         }
-        if appt.start_datetime <= Utc::now() {
+        if appt.start_datetime <= Timestamp::now() {
             return Err(Error::conflict("that appointment has already started"));
         }
         Ok(appt)
     }
 
-    async fn candidates(&self, appt: &Appointment, now: DateTime<Utc>) -> Result<Vec<OfferedSlot>> {
+    async fn candidates(&self, appt: &Appointment, now: Timestamp) -> Result<Vec<OfferedSlot>> {
         let Some(slot_id) = appt.slot_id else {
             return Ok(vec![]);
         };
@@ -176,14 +175,14 @@ impl RebookService {
     /// are still good) returns the same offer, so a refresh does not change the choices under the patient.
     pub async fn offer(&self, appointment_id: Uuid) -> Result<Offer> {
         let appt = self.movable(appointment_id).await?;
-        let now = Utc::now();
+        let now = Timestamp::now();
         let tz = messages::timezone();
         let candidates = self.candidates(&appt, now).await?;
         let empty = || Offer {
             offer_id: None,
             appointment_id,
             expires_at: None,
-            time_zone: tz.name().to_string(),
+            time_zone: crate::time::zone_name(&tz),
             options: vec![],
         };
         if candidates.is_empty() {
@@ -210,13 +209,13 @@ impl RebookService {
                     offer_id: Some(row.col("id")?),
                     appointment_id,
                     expires_at: Some(row.col("expires_at")?),
-                    time_zone: tz.name().to_string(),
+                    time_zone: crate::time::zone_name(&tz),
                     options: still,
                 });
             }
         }
 
-        let options = spread(&candidates, tz, OFFER_SIZE);
+        let options = spread(&candidates, &tz, OFFER_SIZE);
         let offer_id = Uuid::new_v4();
         let expires_at = (now + Self::offer_ttl()).min(appt.start_datetime);
         let ids: Vec<String> = options.iter().map(|o| o.slot_id.to_string()).collect();
@@ -237,7 +236,7 @@ impl RebookService {
             offer_id: Some(offer_id),
             appointment_id,
             expires_at: Some(expires_at),
-            time_zone: tz.name().to_string(),
+            time_zone: crate::time::zone_name(&tz),
             options,
         })
     }
@@ -277,7 +276,7 @@ impl RebookService {
         appointment_id: Uuid,
         offer_id: Uuid,
         slot_id: Uuid,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<(Appointment, Appointment)> {
         let ctx = ctx.clone();
@@ -303,9 +302,9 @@ impl RebookService {
                     if used {
                         return Err(Error::conflict("that offer has already been used"));
                     }
-                    let expires: DateTime<Utc> =
+                    let expires: Timestamp =
                         row.col("expires_at")?;
-                    if expires <= Utc::now() {
+                    if expires <= Timestamp::now() {
                         return Err(Error::validation("that offer has expired"));
                     }
                     if !stored_ids(&row)?.contains(&slot_id) {
@@ -353,14 +352,13 @@ fn stored_ids(row: &Row) -> Result<Vec<Uuid>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
-    fn at(day: u32, hour: u32) -> OfferedSlot {
-        let t = Utc.with_ymd_and_hms(2030, 1, day, hour, 0, 0).unwrap();
+    fn at(day: i8, hour: i8) -> OfferedSlot {
+        let t = crate::time::utc(2030, 1, day, hour, 0, 0);
         OfferedSlot {
             slot_id: Uuid::new_v4(),
             starts_at: t,
-            ends_at: t + Duration::minutes(15),
+            ends_at: t + SignedDuration::from_mins(15),
         }
     }
 
@@ -368,7 +366,7 @@ mod tests {
     fn test_spread_prefers_other_days_and_parts_of_day() {
         // Plenty on Monday morning, then one Tuesday afternoon and one Wednesday evening.
         let c = vec![at(7, 9), at(7, 10), at(7, 11), at(8, 14), at(9, 18)];
-        let got = spread(&c, chrono_tz::UTC, 3);
+        let got = spread(&c, &jiff::tz::TimeZone::UTC, 3);
         assert_eq!(
             got.iter().map(|s| s.starts_at).collect::<Vec<_>>(),
             vec![c[0].starts_at, c[3].starts_at, c[4].starts_at]
@@ -378,7 +376,7 @@ mod tests {
     #[test]
     fn test_spread_falls_back_when_there_is_no_variety() {
         let c = vec![at(7, 9), at(7, 10), at(7, 11), at(7, 12)];
-        let got = spread(&c, chrono_tz::UTC, 3);
+        let got = spread(&c, &jiff::tz::TimeZone::UTC, 3);
         assert_eq!(got.len(), 3);
         assert_eq!(got[0].slot_id, c[0].slot_id, "soonest first");
         let mut ids: Vec<_> = got.iter().map(|s| s.slot_id).collect();
@@ -388,8 +386,8 @@ mod tests {
 
     #[test]
     fn test_spread_with_fewer_candidates_than_asked() {
-        assert!(spread(&[], chrono_tz::UTC, 3).is_empty());
-        assert_eq!(spread(&[at(7, 9)], chrono_tz::UTC, 3).len(), 1);
+        assert!(spread(&[], &jiff::tz::TimeZone::UTC, 3).is_empty());
+        assert_eq!(spread(&[at(7, 9)], &jiff::tz::TimeZone::UTC, 3).len(), 1);
     }
 
     #[test]
@@ -397,9 +395,24 @@ mod tests {
         // 08:00 UTC is morning in London in January, but 03:00 in New York, still night = morning bucket;
         // 18:00 UTC is evening in London and 13:00 (afternoon) in New York.
         let s = at(7, 18);
-        assert_eq!(part_of_day(s.starts_at, chrono_tz::Europe::London), 2);
-        assert_eq!(part_of_day(s.starts_at, chrono_tz::America::New_York), 1);
+        assert_eq!(
+            part_of_day(
+                s.starts_at,
+                &crate::time::zone(crate::config::env::DEFAULT_TIME_ZONE).unwrap()
+            ),
+            2
+        );
+        assert_eq!(
+            part_of_day(s.starts_at, &crate::time::zone("America/New_York").unwrap()),
+            1
+        );
         let m = at(7, 8);
-        assert_eq!(part_of_day(m.starts_at, chrono_tz::Europe::London), 0);
+        assert_eq!(
+            part_of_day(
+                m.starts_at,
+                &crate::time::zone(crate::config::env::DEFAULT_TIME_ZONE).unwrap()
+            ),
+            0
+        );
     }
 }

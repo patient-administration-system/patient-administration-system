@@ -15,8 +15,8 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact, Txn};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use jiff::Timestamp;
+use serde::Deserialize;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -28,20 +28,8 @@ use crate::{Error, Result};
 
 // --- the standby list -------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct StandbyEntry {
-    pub id: Uuid,
-    pub person_id: Uuid,
-    pub service_type: String,
-    pub short_notice_ok: bool,
-    /// A locale code such as `cy-001`: the language the patient wants to be offered care in.
-    pub language: Option<String>,
-    pub needs_transport: bool,
-    pub phone_only: bool,
-    pub active: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
+// The list, releases and the checks on joining are domain rules (QUAL-52); reading them from rows is here.
+pub use patient_administration_system_domain::standby::*;
 
 impl crate::db::sql::FromRow for StandbyEntry {
     fn from_row(row: &crate::db::sql::Row) -> Result<Self> {
@@ -58,82 +46,6 @@ impl crate::db::sql::FromRow for StandbyEntry {
             updated_at: row.col("updated_at")?,
         })
     }
-}
-
-#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
-pub struct StandbyInput {
-    pub person_id: Uuid,
-    pub service_type: String,
-    #[serde(default = "yes")]
-    pub short_notice_ok: bool,
-    #[serde(default)]
-    pub language: Option<String>,
-    #[serde(default)]
-    pub needs_transport: bool,
-    #[serde(default)]
-    pub phone_only: bool,
-}
-
-fn yes() -> bool {
-    true
-}
-
-impl StandbyInput {
-    pub fn validate(&self) -> Result<()> {
-        let st = self.service_type.trim();
-        if st.is_empty() || st.len() > 80 {
-            return Err(Error::validation("service_type must be 1 to 80 characters"));
-        }
-        if let Some(l) = &self.language
-            && !(2..=12).contains(&l.len())
-        {
-            return Err(Error::validation(
-                "language must be a locale code such as cy-001",
-            ));
-        }
-        Ok(())
-    }
-}
-
-/// Optional tag filters a coordinator can apply to candidates.
-#[derive(Debug, Clone, Default, Deserialize, utoipa::IntoParams)]
-pub struct CandidateFilter {
-    pub language: Option<String>,
-    pub needs_transport: Option<bool>,
-    pub phone_only: Option<bool>,
-}
-
-// --- releases ---------------------------------------------------------------------------------
-
-crate::string_enum! {
-    /// Where a released slot stands.
-    pub enum ReleaseStatus {
-        Open = "open",
-        Refilled = "refilled",
-        /// Derived, never stored: still open after the slot's start time has passed.
-        Expired = "expired",
-    }
-}
-
-impl ReleaseStatus {
-    /// The values `slot_releases.status` stores; `expired` is only ever derived.
-    pub const STORED: &'static [&'static str] = &["open", "refilled"];
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct SlotRelease {
-    pub id: Uuid,
-    pub slot_id: Uuid,
-    pub appointment_id: Uuid,
-    pub service_type: Option<String>,
-    pub start_datetime: DateTime<Utc>,
-    pub released_at: DateTime<Utc>,
-    pub notice_days: Option<i32>,
-    pub release_class: crate::models::appointment::ReleaseClass,
-    pub status: ReleaseStatus,
-    pub refilled_by_appointment_id: Option<Uuid>,
-    pub refilled_at: Option<DateTime<Utc>>,
-    pub seconds_to_refill: Option<i64>,
 }
 
 impl crate::db::sql::FromRow for SlotRelease {
@@ -155,16 +67,6 @@ impl crate::db::sql::FromRow for SlotRelease {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct ReleaseSummary {
-    pub total: i64,
-    pub open: i64,
-    pub refilled: i64,
-    pub expired: i64,
-    /// Median seconds from release to refill, over refilled releases. `None` when there are none.
-    pub median_seconds_to_refill: Option<f64>,
-}
-
 impl crate::db::sql::FromRow for ReleaseSummary {
     fn from_row(row: &crate::db::sql::Row) -> Result<Self> {
         Ok(Self {
@@ -177,12 +79,15 @@ impl crate::db::sql::FromRow for ReleaseSummary {
     }
 }
 
-/// What `GET /api/slot-releases` sends: the counts and the releases they count.
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct Releases {
-    pub summary: ReleaseSummary,
-    pub releases: Vec<SlotRelease>,
+/// Optional tag filters a coordinator can apply to candidates.
+#[derive(Debug, Clone, Default, Deserialize, utoipa::IntoParams)]
+pub struct CandidateFilter {
+    pub language: Option<String>,
+    pub needs_transport: Option<bool>,
+    pub phone_only: Option<bool>,
 }
+
+// --- releases ---------------------------------------------------------------------------------
 
 const RELEASE_SELECT: &str = "SELECT r.id, r.slot_id, r.appointment_id, r.service_type, r.start_datetime, \
      r.released_at, r.notice_days, r.release_class, \
@@ -200,7 +105,7 @@ pub(crate) async fn record_release(
     let Some(slot_id) = appt.slot_id else {
         return Ok(None);
     };
-    if appt.start_datetime <= Utc::now() {
+    if appt.start_datetime <= Timestamp::now() {
         return Ok(None);
     }
     // A place in a group session is not offered to the standby list: nobody is put into a group
@@ -335,7 +240,7 @@ impl StandbyService {
     pub async fn deactivate_if_unchanged(
         &self,
         id: Uuid,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<()> {
         let ctx = ctx.clone();
@@ -348,7 +253,7 @@ impl StandbyService {
                         ))
 .await?
                         .ok_or_else(|| Error::not_found(format!("standby entry {id}")))?;
-                    let stored: DateTime<Utc> = locked.col("updated_at")?;
+                    let stored: Timestamp = locked.col("updated_at")?;
                     if !crate::api::rest::concurrency::is_current(stored, expected) {
                         return Err(Error::precondition_failed(
                             "that standby entry has changed since you read it; read it again",
@@ -388,7 +293,7 @@ impl StandbyService {
         &self,
         id: Uuid,
         slot_id: Uuid,
-        expected: Option<DateTime<Utc>>,
+        expected: Option<Timestamp>,
         ctx: &UserContext,
     ) -> Result<Appointment> {
         let ctx = ctx.clone();
@@ -434,8 +339,8 @@ impl StandbyService {
 
     pub async fn releases(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: Timestamp,
+        to: Timestamp,
         status: Option<ReleaseStatus>,
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<(ReleaseSummary, Vec<SlotRelease>)> {
@@ -486,8 +391,8 @@ impl StandbyService {
         let Some(service) = service else {
             return Ok(Vec::new());
         };
-        let start: DateTime<Utc> = rel.col("start_datetime")?;
-        let end: DateTime<Utc> = rel.col("end_datetime")?;
+        let start: Timestamp = rel.col("start_datetime")?;
+        let end: Timestamp = rel.col("end_datetime")?;
         let gave_up: Option<Uuid> = rel.col("person_id")?;
         self.db.all_as::<StandbyEntry>(Stmt::new("SELECT se.id, se.person_id, se.service_type, se.short_notice_ok, se.language, se.needs_transport, se.phone_only, se.active, se.created_at, se.updated_at \
              FROM standby_entries se \

@@ -8,7 +8,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
@@ -100,8 +100,8 @@ async fn booked(s: &AppState, person: Uuid, days: i64) -> Appointment {
 /// `n` past appointments for the patient with the given status.
 async fn history(s: &AppState, person: Uuid, status: &str, n: i64) {
     for i in 0..n {
-        let start = Utc::now() - Duration::days(10 + i);
-        let mut a = Appointment::new(person, start, start + Duration::minutes(15));
+        let start = Timestamp::now() - patient_administration_system::time::days(10 + i);
+        let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(15));
         a.status = AppointmentStatus::Booked;
         let a = AppointmentRepository::create(&s.db, &a).await.unwrap();
         s.db.run(Stmt::new(
@@ -555,9 +555,11 @@ fn test_the_scoring_module_never_writes_to_slots_offers_standby_or_appointments(
     // A crude, blunt guard: the module's source never names the tables that decide what a patient is offered,
     // and never changes an appointment, so it cannot hold back, reorder or remove a slot.
     // Every file of the module (it is split into several): a guard that read only `mod.rs` would check a fraction.
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/noshow");
-    let mut files: Vec<_> = std::fs::read_dir(&dir)
-        .unwrap()
+    // The model itself is in the domain crate (QUAL-52), so both halves are read.
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut files: Vec<_> = ["src/noshow", "domain/src/noshow"]
+        .iter()
+        .flat_map(|d| std::fs::read_dir(root.join(d)).unwrap())
         .map(|e| e.unwrap().path())
         .filter(|p| p.extension().is_some_and(|x| x == "rs"))
         .collect();
@@ -851,7 +853,7 @@ async fn a_clinic_goes_live_only_after_enough_shadow_data_by_a_named_person_and_
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
 async fn the_evaluation_reports_calibration_and_before_after_against_clinics_still_in_shadow() {
-    use chrono::Duration;
+    use jiff::SignedDuration;
     let s = state().await;
     reset(&s).await;
     set("PAS_NOSHOW_SCORE", "true");
@@ -882,7 +884,7 @@ async fn the_evaluation_reports_calibration_and_before_after_against_clinics_sti
         .await
         .unwrap();
     }
-    let _ = Duration::zero();
+    let _ = SignedDuration::ZERO;
     let v = serde_json::to_value(s.noshow.evaluation(180, None).await.unwrap()).unwrap();
     let cal: Vec<&serde_json::Value> = v["calibration"]
         .as_array()

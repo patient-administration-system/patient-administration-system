@@ -16,6 +16,7 @@ const STAFF_PAGES = [
   "/history?appointment=44444444-4444-4444-4444-444444444444",
   "/waits",
   "/tolerances",
+  "/work",
   "/admin/reminders",
   "/home",
   "/suspicions",

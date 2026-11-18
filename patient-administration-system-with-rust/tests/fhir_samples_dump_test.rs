@@ -8,7 +8,7 @@ use axum::{
     body::{Body, to_bytes},
     http::Request,
 };
-use chrono::{Datelike, Duration, TimeZone, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::fhir::fhir_router;
 use patient_administration_system::api::rest::router;
 use patient_administration_system::db::repositories::audit::{AuditLogRepository, UserContext};
@@ -123,15 +123,15 @@ async fn dump_r4_samples_for_the_validator() {
     let ScheduleOwner::Practitioner(doctor) = sched.owner else {
         panic!("a practitioner schedule");
     };
-    let day = (Utc::now() + Duration::days(30)).date_naive();
-    let at = |h| {
-        Utc.with_ymd_and_hms(day.year(), day.month(), day.day(), h, 0, 0)
-            .unwrap()
-    };
+    let day = (Timestamp::now() + patient_administration_system::time::days(30))
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
+    let at =
+        |h| patient_administration_system::time::utc(day.year(), day.month(), day.day(), h, 0, 0);
     for h in [9, 10] {
         SlotRepository::create(
             &state.db,
-            &Slot::new(sched.id, at(h), at(h) + Duration::minutes(15)),
+            &Slot::new(sched.id, at(h), at(h) + SignedDuration::from_mins(15)),
         )
         .await
         .unwrap();
@@ -155,7 +155,7 @@ async fn dump_r4_samples_for_the_validator() {
         "$find",
         json!({"resourceType": "Parameters", "parameter": [
             {"name": "start", "valueDateTime": at(0)},
-            {"name": "end", "valueDateTime": at(0) + Duration::days(1)},
+            {"name": "end", "valueDateTime": at(0) + patient_administration_system::time::days(1)},
             {"name": "practitioner", "valueReference": {"reference": format!("Practitioner/{doctor}")}},
             {"name": "patient-reference", "valueReference": {"reference": format!("Patient/{}", Uuid::new_v4())}},
         ]}),
@@ -385,7 +385,7 @@ async fn dump_the_other_r5_reads_for_the_validator() {
                 review_by: None,
                 recorded_by: "Nurse Okafor",
             },
-            Utc::now(),
+            Timestamp::now(),
             &ctx,
         )
         .await
@@ -396,7 +396,7 @@ async fn dump_the_other_r5_reads_for_the_validator() {
     )
     .await
     .unwrap();
-    let now = Utc::now();
+    let now = Timestamp::now();
     TriageService::new(state.db.clone())
         .record(
             er.id,
@@ -405,7 +405,7 @@ async fn dump_the_other_r5_reads_for_the_validator() {
             "urgent",
             None,
             "Nurse Okafor",
-            now - Duration::minutes(5),
+            now - SignedDuration::from_mins(5),
             now,
             &ctx,
         )

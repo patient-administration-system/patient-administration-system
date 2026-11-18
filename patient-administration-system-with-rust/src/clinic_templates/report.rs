@@ -17,7 +17,7 @@
 //! describes; it moves, removes and reorders nothing (NFR-11).
 
 use crate::db::sql::{Conn, Pool, Stmt};
-use chrono::{DateTime, Duration, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 
 use crate::db::row::RowExt;
@@ -51,9 +51,9 @@ pub struct TypeRow {
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CapacityReport {
     pub service_type: String,
-    pub forward_from: DateTime<Utc>,
-    pub forward_to: DateTime<Utc>,
-    pub lookback_from: DateTime<Utc>,
+    pub forward_from: Timestamp,
+    pub forward_to: Timestamp,
+    pub lookback_from: Timestamp,
     pub by_type: Vec<TypeRow>,
     pub available_slots: i64,
     pub ring_fenced_slots: i64,
@@ -75,14 +75,14 @@ pub struct CapacityReport {
 pub async fn capacity_report(
     db: &Pool,
     service_type: &str,
-    from: DateTime<Utc>,
-    to: DateTime<Utc>,
+    from: Timestamp,
+    to: Timestamp,
     lookback_days: i64,
 ) -> Result<CapacityReport> {
     if service_type.trim().is_empty() {
         return Err(Error::validation("service_type is required"));
     }
-    if to <= from || (to - from).num_days() > MAX_DAYS {
+    if to <= from || crate::time::whole_days(to.duration_since(from)) > MAX_DAYS {
         return Err(Error::validation(format!(
             "the window must be forward and at most {MAX_DAYS} days"
         )));
@@ -92,7 +92,7 @@ pub async fn capacity_report(
             "lookback_days must be between 7 and {MAX_DAYS}"
         )));
     }
-    let lookback_from = from - Duration::days(lookback_days);
+    let lookback_from = from - crate::time::days(lookback_days);
     let rows = db
         .all(Stmt::new(
             "SELECT coalesce(s.slot_type, 'untyped') AS slot_type, count(*) AS slots, \
@@ -145,7 +145,7 @@ pub async fn capacity_report(
     let rate = (attended + missed > 0).then(|| missed as f64 / (attended + missed) as f64);
 
     let lookback_weeks = lookback_days as f64 / 7.0;
-    let forward_weeks = (to - from).num_seconds() as f64 / (7.0 * 86_400.0);
+    let forward_weeks = (to - from).as_secs() as f64 / (7.0 * 86_400.0);
     let demand_per_week = referrals as f64 / lookback_weeks;
     let required = required_per_week(demand_per_week, rate);
     let available_per_week = available_slots as f64 / forward_weeks;

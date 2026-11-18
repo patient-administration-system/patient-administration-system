@@ -9,7 +9,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
@@ -68,8 +68,8 @@ async fn world() -> (AppState, Router) {
 }
 
 async fn booked(s: &AppState) -> Appointment {
-    let start = Utc::now() + Duration::days(9);
-    let mut a = Appointment::new(Uuid::new_v4(), start, start + Duration::minutes(30));
+    let start = Timestamp::now() + patient_administration_system::time::days(9);
+    let mut a = Appointment::new(Uuid::new_v4(), start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     AppointmentRepository::create(&s.db, &a).await.unwrap()
 }
@@ -578,7 +578,7 @@ async fn a_letter_template_edit_checks_the_template_version() {
         serde_json::json!({
             "id": Uuid::nil(), "name": name, "subject": "Hello", "body_tera": body,
             "required_variables": [], "channels": ["sms"], "active": false,
-            "created_at": Utc::now(), "updated_at": Utc::now(),
+            "created_at": Timestamp::now(), "updated_at": Timestamp::now(),
         })
     };
     let (st, _, v) = call(
@@ -675,7 +675,9 @@ async fn a_consent_withdrawal_needs_no_version_and_a_repeat_changes_nothing() {
     use patient_administration_system::models::consent::{Consent, ConsentType};
     let (_s, app) = world().await;
     let person = Uuid::new_v4();
-    let today = Utc::now().date_naive();
+    let today = Timestamp::now()
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
     let (st, _, v) = call(
         &app,
         "POST",
@@ -704,7 +706,7 @@ async fn pifu_review_request_and_handle_are_safe_without_a_version() {
     let (s, _app) = world().await;
     let svc = PifuService::new(s.db.clone());
     let ctx = UserContext::system();
-    let now = Utc::now();
+    let now = Timestamp::now();
     let person = Uuid::new_v4();
     let episode = svc
         .open(
@@ -712,7 +714,7 @@ async fn pifu_review_request_and_handle_are_safe_without_a_version() {
             &NewEpisode {
                 service_type: &format!("svc-{}", Uuid::new_v4()),
                 conditions: "Call us if the symptoms come back",
-                expires_at: now + Duration::days(30),
+                expires_at: now + patient_administration_system::time::days(30),
                 opened_by: "Dr Hughes",
                 urgent_override_by: None,
             },
@@ -723,8 +725,8 @@ async fn pifu_review_request_and_handle_are_safe_without_a_version() {
         .unwrap();
 
     // Two reviews of the same ended window at once: one extends it, the other finds the window open again.
-    let later = now + Duration::days(31);
-    let until = later + Duration::days(60);
+    let later = now + patient_administration_system::time::days(31);
+    let until = later + patient_administration_system::time::days(60);
     let (a, b) = tokio::join!(
         svc.review(episode.id, Decision::Extend(until), "Dr A", later, &ctx),
         svc.review(episode.id, Decision::Extend(until), "Dr B", later, &ctx),
@@ -812,7 +814,7 @@ async fn closing_an_account_twice_is_refused_and_moves_nothing() {
 async fn cancelling_a_series_never_cancels_a_patient_who_has_arrived() {
     let (s, app) = world().await;
     for _ in 0..5 {
-        let start = (Utc::now() + Duration::days(30)).to_rfc3339();
+        let start = (Timestamp::now() + patient_administration_system::time::days(30)).to_string();
         let (st, _, v) = call(
             &app,
             "POST",

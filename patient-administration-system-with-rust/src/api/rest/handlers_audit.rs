@@ -111,9 +111,9 @@ pub async fn list_local_for_person(
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct BalpQuery {
     /// Start of the window (inclusive); defaults to 24 hours before `to`.
-    pub from: Option<chrono::DateTime<chrono::Utc>>,
+    pub from: Option<jiff::Timestamp>,
     /// End of the window (exclusive); defaults to now.
-    pub to: Option<chrono::DateTime<chrono::Utc>>,
+    pub to: Option<jiff::Timestamp>,
     pub entity_type: Option<String>,
     pub entity_id: Option<Uuid>,
     /// At most 500; default 100.
@@ -145,12 +145,12 @@ pub async fn export_balp(
 
     let now = state.clock.now();
     let to = q.to.unwrap_or(now);
-    let from = q.from.unwrap_or(to - chrono::Duration::hours(24));
+    let from = q.from.unwrap_or(to - jiff::SignedDuration::from_hours(24));
     if to <= from {
         return error_to_response(crate::Error::validation("to must be after from"))
             .into_response();
     }
-    if to - from > chrono::Duration::days(31) {
+    if to - from > crate::time::days(31) {
         return error_to_response(crate::Error::validation(
             "the window can be at most 31 days",
         ))

@@ -313,6 +313,8 @@ async fn run(args: Args) -> Result<bool, Fail> {
     let budgets = Budgets::parse(&std::fs::read_to_string(&args.budgets)?)?;
     let phases = runner::profile(&args.profile, args.overrides)
         .ok_or_else(|| format!("unknown profile {:?}", args.profile))?;
+    // reqwest is built without a bundled TLS provider: install ring before the client.
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
         .pool_max_idle_per_host(512)
@@ -342,7 +344,7 @@ async fn run(args: Args) -> Result<bool, Fail> {
         run_id,
         url: args.url.clone(),
         profile: args.profile.clone(),
-        started_at: chrono::Utc::now().to_rfc3339(),
+        started_at: jiff::Timestamp::now().to_string(),
         phases: Vec::new(),
         breaches: Vec::new(),
         knees: BTreeMap::new(),

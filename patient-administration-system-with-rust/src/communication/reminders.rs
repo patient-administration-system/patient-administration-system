@@ -12,7 +12,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use std::sync::Arc;
 
 use super::CommunicationService;
@@ -45,6 +45,8 @@ pub struct ReminderReport {
     pub skipped_opted_out: usize,
     /// Failed before and not yet due for another try (NOT-4).
     pub backing_off: usize,
+    /// Cancelled, moved or attended after the scan and before its reminder went: not sent (TSC-2).
+    pub skipped_no_longer_booked: usize,
 }
 
 pub struct ReminderService {
@@ -124,16 +126,29 @@ impl ReminderService {
     }
 
     #[tracing::instrument(skip_all, fields(job = "reminders"))]
-    pub async fn run_once(&self, now: DateTime<Utc>, lead: Duration) -> Result<ReminderReport> {
+    pub async fn run_once(&self, now: Timestamp, lead: SignedDuration) -> Result<ReminderReport> {
         let templates = self.ensure_default_templates().await?;
-        let required = super::templates::required_locales();
-        let ids: Vec<uuid::Uuid> = templates.iter().map(|t| t.id).collect();
         let channels = templates
             .first()
             .map(|t| t.channels.clone())
             .unwrap_or_default();
         let appointments =
             AppointmentRepository::list_booked_starting_between(&self.db, now, now + lead).await?;
+        self.remind(&templates, &channels, appointments, now).await
+    }
+
+    /// Remind each of `appointments`, as one scan found them. Each is checked again just before its
+    /// reminder goes, so one cancelled or moved since the scan is skipped, with the reason counted (TSC-2).
+    /// Public so a test can hand it a stale list.
+    pub async fn remind(
+        &self,
+        templates: &[LetterTemplate],
+        channels: &[DeliveryChannel],
+        appointments: Vec<Appointment>,
+        now: Timestamp,
+    ) -> Result<ReminderReport> {
+        let required = super::templates::required_locales();
+        let ids: Vec<uuid::Uuid> = templates.iter().map(|t| t.id).collect();
         let mut report = ReminderReport {
             considered: appointments.len(),
             ..Default::default()
@@ -159,15 +174,18 @@ impl ReminderService {
             // time zone, which is how they will read it (the RFC 3339 `start` stays for templates that want it).
             let language = crate::contact::preferred_language(&self.db, a.person_id).await?;
             let Some(template) =
-                super::templates::choose(&templates, language.as_deref(), &required)
+                super::templates::choose(templates, language.as_deref(), &required)
             else {
                 report.skipped_no_channel += 1;
                 continue;
             };
-            match self
-                .try_channels(&a, template, &channels, now, &ctx)
-                .await?
-            {
+            // The purpose is checked at the moment it would go, not only when the scan ran (TSC-2).
+            if !AppointmentRepository::still_booked_at(&self.db, a.id, a.start_datetime).await? {
+                tracing::info!(target: "pas::reminders", appointment_id = %a.id, "not sent: no longer booked at that time");
+                report.skipped_no_longer_booked += 1;
+                continue;
+            }
+            match self.try_channels(&a, template, channels, now, &ctx).await? {
                 Tried::Sent => report.sent += 1,
                 Tried::Deferred => report.deferred_quiet_hours += 1,
                 Tried::OptedOut => report.skipped_opted_out += 1,
@@ -182,7 +200,7 @@ impl ReminderService {
         &self,
         a: &Appointment,
         template_ids: &[uuid::Uuid],
-        now: DateTime<Utc>,
+        now: Timestamp,
     ) -> Result<Option<Skip>> {
         // Any language variant counts: the patient was reminded either way.
         let mut already = false;
@@ -200,7 +218,7 @@ impl ReminderService {
         }
         // A reminder that failed is tried again after a growing delay, not on every scan (NOT-4).
         if self.backoff && failed > 0 {
-            let last: Option<DateTime<Utc>> = self
+            let last: Option<Timestamp> = self
                 .db
                 .one(Stmt::new(
                     "SELECT max(updated_at) AS t FROM generated_letters \
@@ -224,15 +242,15 @@ impl ReminderService {
         a: &Appointment,
         template: &LetterTemplate,
         channels: &[DeliveryChannel],
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<Tried> {
         let lang = crate::inbound::messages::Lang::from_preference(Some(&template.locale));
         let extra = serde_json::json!({
             "appointment": {
                 "id": a.id,
-                "start": a.start_datetime.to_rfc3339(),
-                "end": a.end_datetime.to_rfc3339(),
+                "start": a.start_datetime.to_string(),
+                "end": a.end_datetime.to_string(),
                 "when": crate::inbound::messages::when(a.start_datetime, lang, crate::inbound::messages::timezone()),
                 "reason": a.reason,
             }
@@ -385,7 +403,7 @@ pub fn prefer_first(
 }
 
 /// Parse `PAS_REMINDER_LEAD_HOURS` (default 24).
-pub fn lead_from_hours(hours: Option<&str>) -> Result<Duration> {
+pub fn lead_from_hours(hours: Option<&str>) -> Result<SignedDuration> {
     let h: i64 = match hours {
         None | Some("") => 24,
         Some(v) => v.parse().map_err(|_| {
@@ -395,7 +413,7 @@ pub fn lead_from_hours(hours: Option<&str>) -> Result<Duration> {
     if !(1..=24 * 30).contains(&h) {
         return Err(Error::validation("PAS_REMINDER_LEAD_HOURS must be 1..=720"));
     }
-    Ok(Duration::hours(h))
+    Ok(SignedDuration::from_hours(h))
 }
 
 #[cfg(test)]
@@ -461,13 +479,22 @@ mod tests {
 
     #[test]
     fn test_lead_defaults_to_24_hours() {
-        assert_eq!(lead_from_hours(None).unwrap(), Duration::hours(24));
-        assert_eq!(lead_from_hours(Some("")).unwrap(), Duration::hours(24));
+        assert_eq!(
+            lead_from_hours(None).unwrap(),
+            SignedDuration::from_hours(24)
+        );
+        assert_eq!(
+            lead_from_hours(Some("")).unwrap(),
+            SignedDuration::from_hours(24)
+        );
     }
 
     #[test]
     fn test_lead_parses_and_bounds() {
-        assert_eq!(lead_from_hours(Some("48")).unwrap(), Duration::hours(48));
+        assert_eq!(
+            lead_from_hours(Some("48")).unwrap(),
+            SignedDuration::from_hours(48)
+        );
         assert!(lead_from_hours(Some("0")).is_err());
         assert!(lead_from_hours(Some("721")).is_err());
         assert!(lead_from_hours(Some("abc")).is_err());

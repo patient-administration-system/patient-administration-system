@@ -472,12 +472,12 @@ pub fn person(resource_type: &str, id: uuid::Uuid, data: &Map<String, Value>) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
+    use jiff::Timestamp;
     use uuid::Uuid;
 
     #[test]
     fn slot_names_its_schedule_and_blocked_out_is_busy_unavailable() {
-        let mut s = Slot::new(Uuid::new_v4(), Utc::now(), Utc::now());
+        let mut s = Slot::new(Uuid::new_v4(), Timestamp::now(), Timestamp::now());
         s.status = SlotStatus::BlockedOut;
         let v = slot(&s);
         assert_eq!(v["status"], "busy-unavailable");

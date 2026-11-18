@@ -41,24 +41,21 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use chrono::{DateTime, SecondsFormat, Utc};
+use jiff::Timestamp;
 
 use crate::{Error, Result};
 
 /// The tag for a version: the time to the microsecond, in quotes.
 ///
 /// ```
-/// use chrono::{TimeZone, Utc};
+/// use jiff::Timestamp;
 /// use patient_administration_system::api::rest::concurrency::etag;
 ///
-/// let t = Utc.with_ymd_and_hms(2026, 11, 2, 10, 0, 0).unwrap();
+/// let t = patient_administration_system::time::utc(2026, 11, 2, 10, 0, 0);
 /// assert_eq!(etag(t), "\"2026-11-02T10:00:00.000000Z\"");
 /// ```
-pub fn etag(updated_at: DateTime<Utc>) -> String {
-    format!(
-        "\"{}\"",
-        updated_at.to_rfc3339_opts(SecondsFormat::Micros, true)
-    )
+pub fn etag(updated_at: Timestamp) -> String {
+    format!("\"{}\"", updated_at.strftime("%Y-%m-%dT%H:%M:%S%.6fZ"))
 }
 
 /// The version named in `If-Match`. `Ok(None)` means the caller said `*` (any version).
@@ -80,7 +77,7 @@ pub fn etag(updated_at: DateTime<Utc>) -> String {
 /// h.insert(header::IF_MATCH, HeaderValue::from_static("\"2026-11-02T10:00:00.000000Z\""));
 /// assert!(require_if_match(&h, "appointment").unwrap().is_some());
 /// ```
-pub fn require_if_match(headers: &HeaderMap, what: &str) -> Result<Option<DateTime<Utc>>> {
+pub fn require_if_match(headers: &HeaderMap, what: &str) -> Result<Option<Timestamp>> {
     let Some(raw) = headers.get(header::IF_MATCH) else {
         return Err(Error::precondition_required(format!(
             "send If-Match with the {what}'s ETag (its updated_at) to change it; read it first, or send * to overwrite"
@@ -94,28 +91,28 @@ pub fn require_if_match(headers: &HeaderMap, what: &str) -> Result<Option<DateTi
         return Ok(None);
     }
     let text = text.strip_prefix("W/").unwrap_or(text).trim_matches('"');
-    DateTime::parse_from_rfc3339(text)
-        .map(|t| Some(t.with_timezone(&Utc)))
+    text.parse::<jiff::Timestamp>()
+        .map(Some)
         .map_err(|_| Error::validation(format!("If-Match must be the {what}'s ETag")))
 }
 
 /// Is the stored version the one the caller read? `None` (sent `*`) always is.
 ///
-/// Both sides are compared as whole microseconds. The database keeps microseconds, but a `DateTime<Utc>` made
+/// Both sides are compared as whole microseconds. The database keeps microseconds, but a `Timestamp` made
 /// in Rust carries nanoseconds, so comparing them as they are would call a record stale the moment it was
 /// read back.
 ///
 /// ```
-/// use chrono::{Duration, Utc};
+/// use jiff::{SignedDuration, Timestamp};
 /// use patient_administration_system::api::rest::concurrency::is_current;
 ///
-/// let stored = Utc::now();
+/// let stored = Timestamp::now();
 /// assert!(is_current(stored, Some(stored)));
 /// assert!(is_current(stored, None), "`*` accepts any version");
-/// assert!(!is_current(stored, Some(stored - Duration::microseconds(1))));
+/// assert!(!is_current(stored, Some(stored - SignedDuration::from_micros(1))));
 /// ```
-pub fn is_current(stored: DateTime<Utc>, seen: Option<DateTime<Utc>>) -> bool {
-    seen.is_none_or(|s| s.timestamp_micros() == stored.timestamp_micros())
+pub fn is_current(stored: Timestamp, seen: Option<Timestamp>) -> bool {
+    seen.is_none_or(|s| s.as_microsecond() == stored.as_microsecond())
 }
 
 /// The id a versioned path names (`/api/appointments/{id}...`), if it is one.
@@ -187,14 +184,12 @@ pub async fn etag_middleware(req: Request, next: Next) -> Response {
 /// The `id` test is the safety of the whole tag: a response to `POST /api/appointments/{id}/rebook` holds two
 /// *other* appointments, and a tag taken from either would be the version of a record the client did not ask
 /// about. Only a body that is the very record the path names is tagged.
-fn version_of(bytes: &[u8], id: &str) -> Option<DateTime<Utc>> {
+fn version_of(bytes: &[u8], id: &str) -> Option<Timestamp> {
     let v: serde_json::Value = serde_json::from_slice(bytes).ok()?;
     let data = v.get("data")?.as_object()?;
     (data.get("id")?.as_str()? == id).then_some(())?;
     let at = data.get("updated_at")?.as_str()?;
-    DateTime::parse_from_rfc3339(at)
-        .ok()
-        .map(|t| t.with_timezone(&Utc))
+    at.parse::<jiff::Timestamp>().ok()
 }
 
 #[cfg(test)]
@@ -224,13 +219,13 @@ mod tests {
 
     #[test]
     fn the_tag_round_trips_and_compares_to_the_microsecond() {
-        let t = DateTime::parse_from_rfc3339("2026-11-02T10:00:00.123456789Z")
-            .unwrap()
-            .with_timezone(&Utc);
+        let t = "2026-11-02T10:00:00.123456789Z"
+            .parse::<jiff::Timestamp>()
+            .unwrap();
         let seen = require_if_match(&headers(Some(&etag(t))), "x").unwrap();
         assert!(is_current(t, seen));
         assert!(is_current(t, None));
-        assert!(!is_current(t + chrono::Duration::microseconds(1), seen));
+        assert!(!is_current(t + jiff::SignedDuration::from_micros(1), seen));
         let weak = format!("W/{}", etag(t));
         assert!(is_current(
             t,

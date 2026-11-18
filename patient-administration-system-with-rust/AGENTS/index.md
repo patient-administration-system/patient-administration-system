@@ -9,7 +9,7 @@ Detailed reference documentation for the Patient Administration System (PAS Axum
 | File | Description |
 |------|-------------|
 | [architecture.md](architecture.md) | Layered architecture (api → service → repository → db), aggregates, transactional outbox, four state machines, time handling, soft delete, module structure, error mapping, schema summary |
-| [models.md](models.md) | Domain model reference for every type under `src/models/` — fields, factory methods, state-machine methods |
+| [models.md](models.md) | Domain model reference for every type under `domain/src/models/` — fields, factory methods, state-machine methods |
 | [restful.md](restful.md) | REST envelope, error-to-status mapping (REST + FHIR), auth/CORS, headline request/response shapes. Full route list lives in `../README.md`. |
 | [matching.md](matching.md) | Scheduling and RTT clock reference: appointment overlap detection, slot/bed booking concurrency, RTT clock arithmetic and breach predicate. (Title kept for stable links; content is PAS-specific, not the legacy MPI matching doc.) |
 | [testing.md](testing.md) | Testing strategy: unit tests, database integration tests (`#[ignore]`d, gated on `DATABASE_URL`), the chaos tests, three Criterion benches, quality gates. Live counts: `../../spec/14-implementation-status.md` |

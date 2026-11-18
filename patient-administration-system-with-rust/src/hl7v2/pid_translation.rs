@@ -207,7 +207,7 @@ pub fn extract_mrn_from_mrg(mrg: &Segment) -> Option<String> {
 #[derive(Debug, Clone)]
 pub struct Ft1 {
     pub set_id: u32,
-    pub posted_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub posted_at: Option<jiff::Timestamp>,
     pub transaction_type: String,
     pub code: String,
     pub description: String,
@@ -271,47 +271,27 @@ pub fn parse_ft1(ft1: &Segment) -> crate::Result<Ft1> {
 
 /// Parse `YYYYMMDDHHMMSS` (or shorter `YYYYMMDDHHMM` / `YYYYMMDD`) into
 /// UTC. Returns `None` on malformed input.
-pub fn parse_hl7_datetime(raw: &str) -> Option<chrono::DateTime<chrono::Utc>> {
-    use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
+pub fn parse_hl7_datetime(raw: &str) -> Option<jiff::Timestamp> {
+    use jiff::civil::{Date, DateTime, Time};
     let s = raw.split(['+', '-']).next().unwrap_or("");
     if s.is_empty() || !s.is_ascii() {
         return None;
     }
-    let (date, time) = match s.len() {
-        14 => {
-            let d = NaiveDate::from_ymd_opt(
-                s[0..4].parse().ok()?,
-                s[4..6].parse().ok()?,
-                s[6..8].parse().ok()?,
-            )?;
-            let t = NaiveTime::from_hms_opt(
-                s[8..10].parse().ok()?,
-                s[10..12].parse().ok()?,
-                s[12..14].parse().ok()?,
-            )?;
-            (d, t)
-        }
-        12 => {
-            let d = NaiveDate::from_ymd_opt(
-                s[0..4].parse().ok()?,
-                s[4..6].parse().ok()?,
-                s[6..8].parse().ok()?,
-            )?;
-            let t = NaiveTime::from_hms_opt(s[8..10].parse().ok()?, s[10..12].parse().ok()?, 0)?;
-            (d, t)
-        }
-        8 => {
-            let d = NaiveDate::from_ymd_opt(
-                s[0..4].parse().ok()?,
-                s[4..6].parse().ok()?,
-                s[6..8].parse().ok()?,
-            )?;
-            (d, NaiveTime::from_hms_opt(0, 0, 0)?)
-        }
+    let num = |a: usize, b: usize| s.get(a..b)?.parse::<i16>().ok();
+    let small = |a: usize, b: usize| i8::try_from(num(a, b)?).ok();
+    let (hour, minute, second) = match s.len() {
+        14 => (small(8, 10)?, small(10, 12)?, small(12, 14)?),
+        12 => (small(8, 10)?, small(10, 12)?, 0),
+        8 => (0, 0, 0),
         _ => return None,
     };
-    let ndt = NaiveDateTime::new(date, time);
-    Some(Utc.from_utc_datetime(&ndt))
+    let date = Date::new(num(0, 4)?, small(4, 6)?, small(6, 8)?).ok()?;
+    let time = Time::new(hour, minute, second, 0).ok()?;
+    // Read as UTC, as before: the offset in the field is ignored.
+    DateTime::from_parts(date, time)
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .ok()
+        .map(|z| z.timestamp())
 }
 
 /// Parsed SCH (Schedule Activity Information) segment fields the PAS
@@ -324,7 +304,7 @@ pub struct Sch {
     pub filler_id: Option<uuid::Uuid>,
     pub reason: Option<String>,
     pub duration_minutes: Option<u32>,
-    pub start: Option<chrono::DateTime<chrono::Utc>>,
+    pub start: Option<jiff::Timestamp>,
 }
 
 pub fn parse_sch(sch: &Segment) -> Sch {
@@ -582,7 +562,7 @@ mod tests {
             ))
             .unwrap();
             let start = parse_sch(m.segment("SCH").unwrap()).start.expect(field);
-            assert_eq!(start.to_rfc3339(), "2026-12-01T09:30:00+00:00", "{field}");
+            assert_eq!(start.to_string(), "2026-12-01T09:30:00Z", "{field}");
         }
     }
 

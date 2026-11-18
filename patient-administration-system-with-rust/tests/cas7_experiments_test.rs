@@ -8,7 +8,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::communication::ladder::LadderService;
@@ -176,9 +176,9 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
     group(&s, &b_name, "VARIANT-B").await;
 
     // 24 patients (some Welsh), each with an appointment a year ahead within a few minutes of each other.
-    let base: DateTime<Utc> = Utc::now()
-        + Duration::days(900)
-        + Duration::minutes((Uuid::new_v4().as_u128() % 1_000_000) as i64 * 40);
+    let base: Timestamp = Timestamp::now()
+        + patient_administration_system::time::days(900)
+        + SignedDuration::from_mins((Uuid::new_v4().as_u128() % 1_000_000) as i64 * 40);
     let mut who: Vec<(Uuid, String, Uuid)> = Vec::new(); // (person, phone, appointment)
     let mut welsh = Vec::new();
     for i in 0..24 {
@@ -192,8 +192,8 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
             serde_json::json!([{ "system": "phone", "value": phone }]),
         );
         stub.insert(Person { id: person, data });
-        let start = base + Duration::minutes(i);
-        let mut a = Appointment::new(person, start, start + Duration::minutes(15));
+        let start = base + SignedDuration::from_mins(i);
+        let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(15));
         a.status = AppointmentStatus::Booked;
         let a = AppointmentRepository::create(&s.db, &a).await.unwrap();
         who.push((person, phone, a.id));
@@ -230,7 +230,8 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
         .unwrap();
     let ladder = LadderService::new(s.db.clone(), s.communication.clone())
         .with_link_base(Some("https://pas.test".into()));
-    let now = base + Duration::minutes(23) - Duration::days(7) + Duration::minutes(1);
+    let now = base + SignedDuration::from_mins(23) - patient_administration_system::time::days(7)
+        + SignedDuration::from_mins(1);
     ladder.run_once(now).await.unwrap();
 
     let sent = log.lock().unwrap().clone();
@@ -339,7 +340,7 @@ async fn the_readout_splits_by_quintile_and_language_and_withholds_small_cells_w
         )
         .await
         .unwrap();
-    let start = Utc::now() + Duration::days(30);
+    let start = Timestamp::now() + patient_administration_system::time::days(30);
     let mut ids = Vec::new();
     // Variant A, quintile 1, English: 12 patients, 10 attended and 2 missed. Variant B: 12, 6 attended, 6 missed.
     // Plus 3 and 2 in quintile 5 (too few to show; two hidden cells, so no secondary suppression).
@@ -351,7 +352,7 @@ async fn the_readout_splits_by_quintile_and_language_and_withholds_small_cells_w
     ] {
         for i in 0..n {
             let person = Uuid::new_v4();
-            let mut ap = Appointment::new(person, start, start + Duration::minutes(15));
+            let mut ap = Appointment::new(person, start, start + SignedDuration::from_mins(15));
             ap.status = AppointmentStatus::Booked;
             let ap = AppointmentRepository::create(&s.db, &ap).await.unwrap();
             ids.push((person, ap.id));

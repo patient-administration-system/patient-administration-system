@@ -43,6 +43,7 @@ fn audit_outbox_and_event_results_are_never_discarded() {
     let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut files = Vec::new();
     rust_files(&src, &mut files);
+    rust_files(&src.join("../domain/src"), &mut files);
     let mut offenders = Vec::new();
     for path in files {
         let text = std::fs::read_to_string(&path).expect("read");

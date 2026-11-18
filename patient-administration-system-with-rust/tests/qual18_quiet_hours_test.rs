@@ -4,37 +4,43 @@
 //! `PAS_QUIET_HOURS` is read, passed every test. These pin both down. Run single-threaded: one test sets an
 //! environment variable.
 
-use chrono::{TimeZone, Utc};
-use chrono_tz::Europe::London;
 use patient_administration_system::communication::consent::{DEFAULT_QUIET_HOURS, QuietHours};
 
-fn london(h: u32, m: u32) -> chrono::DateTime<Utc> {
+fn london(h: i8, m: i8) -> jiff::Timestamp {
     // A winter date, so London is UTC and the hours read plainly.
-    London
-        .with_ymd_and_hms(2030, 1, 15, h, m, 0)
+    jiff::civil::date(2030, 1, 15)
+        .at(h, m, 0, 0)
+        .to_zoned_datetime(london_zone())
         .unwrap()
-        .with_timezone(&Utc)
+        .timestamp()
+}
+
+fn london_zone() -> jiff::tz::TimeZone {
+    patient_administration_system::time::zone("Europe/London").unwrap()
 }
 
 #[test]
 fn the_window_starts_on_its_first_minute_and_ends_before_its_last() {
     let q = QuietHours::parse("21:00-08:00").unwrap();
-    assert!(!q.contains(london(20, 59), London));
-    assert!(q.contains(london(21, 0), London), "21:00 is already quiet");
-    assert!(q.contains(london(0, 0), London));
-    assert!(q.contains(london(7, 59), London));
+    assert!(!q.contains(london(20, 59), london_zone()));
     assert!(
-        !q.contains(london(8, 0), London),
+        q.contains(london(21, 0), london_zone()),
+        "21:00 is already quiet"
+    );
+    assert!(q.contains(london(0, 0), london_zone()));
+    assert!(q.contains(london(7, 59), london_zone()));
+    assert!(
+        !q.contains(london(8, 0), london_zone()),
         "08:00 is no longer quiet"
     );
 
     let day = QuietHours::parse("13:00-14:00").unwrap();
-    assert!(day.contains(london(13, 0), London));
+    assert!(day.contains(london(13, 0), london_zone()));
     assert!(
-        !day.contains(london(14, 0), London),
+        !day.contains(london(14, 0), london_zone()),
         "14:00 is no longer quiet"
     );
-    assert!(!day.contains(london(12, 59), London));
+    assert!(!day.contains(london(12, 59), london_zone()));
 }
 
 #[test]

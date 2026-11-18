@@ -62,7 +62,7 @@ impl UserContext {
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct UpstreamAuditEntry {
     pub id: Uuid,
-    pub at: chrono::DateTime<chrono::Utc>,
+    pub at: jiff::Timestamp,
     pub action: String,
     pub user_id: Option<String>,
     #[serde(default)]

@@ -156,7 +156,7 @@ pub async fn unconfirmed(
     match InterpreterService::new(state.db.clone())
         .unconfirmed(
             state.clock.now(),
-            chrono::Duration::hours(hours),
+            jiff::SignedDuration::from_hours(hours),
             page.rows(),
         )
         .await

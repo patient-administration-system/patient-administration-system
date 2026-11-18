@@ -20,8 +20,8 @@ pub struct Model {
     pub description: String,
     pub amount_value: String,
     pub amount_currency: String,
-    pub posted_at: chrono::DateTime<chrono::FixedOffset>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
+    pub posted_at: jiff::Timestamp,
+    pub created_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

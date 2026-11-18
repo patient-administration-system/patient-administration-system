@@ -14,7 +14,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact};
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::{Timestamp, civil::Date};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -27,13 +27,13 @@ use crate::{Error, Result};
 pub const BANDS: [&str; 4] = ["on_time", "under_50", "50_to_99", "100_or_more"];
 
 /// How far past its target an entry is, in whole percent of the target interval (0 when not past it).
-pub fn delay_percent(added: NaiveDate, target: NaiveDate, today: NaiveDate) -> i64 {
-    let past = (today - target).num_days();
+pub fn delay_percent(added: Date, target: Date, today: Date) -> i64 {
+    let past = crate::time::day_count(target, today);
     if past <= 0 {
         return 0;
     }
     // A target on the day the entry was added (or before it) counts as a one-day interval.
-    let interval = (target - added).num_days().max(1);
+    let interval = crate::time::day_count(added, target).max(1);
     past * 100 / interval
 }
 
@@ -50,7 +50,7 @@ pub fn band(percent: i64) -> &'static str {
 /// The report: one cell per (booked, band), small ones withheld, and the true total.
 #[derive(Debug, Serialize)]
 pub struct DelayReport {
-    pub as_of: NaiveDate,
+    pub as_of: Date,
     pub k: i64,
     /// Every follow-up entry with a target that is waiting or booked.
     pub total: i64,
@@ -70,7 +70,7 @@ impl FollowUpDelayService {
     pub async fn set_target(
         &self,
         entry_id: Uuid,
-        target: NaiveDate,
+        target: Date,
         set_by: &str,
         ctx: &UserContext,
     ) -> Result<()> {
@@ -83,9 +83,9 @@ impl FollowUpDelayService {
     pub async fn set_target_if_unchanged(
         &self,
         entry_id: Uuid,
-        target: NaiveDate,
+        target: Date,
         set_by: &str,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<()> {
         let set_by = named_person(set_by, "set_by: the person setting the target is required")?;
@@ -96,8 +96,8 @@ impl FollowUpDelayService {
             ))
 .await?
             .ok_or_else(|| Error::not_found(format!("waiting or booked waiting-list entry {entry_id}")))?;
-        let old: Option<NaiveDate> = before.col("follow_up_target")?;
-        let stored: chrono::DateTime<chrono::Utc> = before.col("updated_at")?;
+        let old: Option<Date> = before.col("follow_up_target")?;
+        let stored: jiff::Timestamp = before.col("updated_at")?;
         if !crate::api::rest::concurrency::is_current(stored, expected) {
             return Err(Error::precondition_failed(
                 "the waiting-list entry has changed since it was read; read it again",
@@ -122,7 +122,7 @@ impl FollowUpDelayService {
     }
 
     /// The delayed-follow-up count as of `today` (the clinic's date), with cells under `k` withheld.
-    pub async fn report(&self, today: NaiveDate, k: i64) -> Result<DelayReport> {
+    pub async fn report(&self, today: Date, k: i64) -> Result<DelayReport> {
         let rows = self
             .db
             .all(Stmt::text(
@@ -139,9 +139,9 @@ impl FollowUpDelayService {
         }
         for r in &rows {
             let status: String = r.col("status")?;
-            let added: DateTime<Utc> = r.col("created_at")?;
-            let target: NaiveDate = r.col("follow_up_target")?;
-            let pct = delay_percent(added.with_timezone(&tz).date_naive(), target, today);
+            let added: Timestamp = r.col("created_at")?;
+            let target: Date = r.col("follow_up_target")?;
+            let pct = delay_percent(added.to_zoned_datetime(tz.clone()).date(), target, today);
             *counts.entry((status == "booked", band(pct))).or_insert(0) += 1;
         }
         let total = counts.values().sum();
@@ -173,8 +173,8 @@ impl FollowUpDelayService {
 mod tests {
     use super::*;
 
-    fn d(day: i64) -> NaiveDate {
-        NaiveDate::from_ymd_opt(2030, 1, 1).unwrap() + chrono::Duration::days(day)
+    fn d(day: i64) -> Date {
+        jiff::civil::date(2030, 1, 1) + crate::time::days(day)
     }
 
     #[test]

@@ -52,6 +52,7 @@ pub mod handlers_virtual;
 pub mod handlers_waitlist;
 pub mod handlers_waits;
 pub mod handlers_whatsapp;
+pub mod handlers_work_queue;
 pub mod handlers_writeback;
 pub mod hl7_dedupe;
 pub mod idempotency;

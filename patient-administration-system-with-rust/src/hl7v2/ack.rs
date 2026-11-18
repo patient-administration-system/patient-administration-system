@@ -13,7 +13,7 @@
 //! Values copied from the inbound header are its wire text (`raw`), so they are already valid in the same
 //! position and are not escaped again.
 
-use chrono::Utc;
+use jiff::Timestamp;
 
 use super::{Message, SegmentRead, encode_message, escape::escape_value, message, segment};
 
@@ -120,7 +120,7 @@ fn or<'a>(value: &'a str, fallback: &'a str) -> &'a str {
 
 /// The ACK for `inbound`, with `code` and an optional reason in MSA-3.
 pub fn ack_to(inbound: &Inbound, code: AckCode, text: Option<&str>) -> String {
-    let now = Utc::now().format("%Y%m%d%H%M%S").to_string();
+    let now = Timestamp::now().strftime("%Y%m%d%H%M%S").to_string();
     let message_type = if inbound.event.is_empty() {
         "ACK".to_string()
     } else {
@@ -192,6 +192,24 @@ mod tests {
         let msg = parse_message(ack).unwrap();
         let seg = msg.segment(name).unwrap();
         (1..=12).map(|n| seg.raw(n)).collect()
+    }
+
+    #[test]
+    fn every_code_parses_back_to_itself_and_nothing_else_parses() {
+        for code in [AckCode::Accept, AckCode::AppError, AckCode::Reject] {
+            assert_eq!(AckCode::parse(code.as_str()), Some(code));
+        }
+        assert_eq!(AckCode::parse("CA"), None);
+        assert_eq!(AckCode::parse(""), None);
+    }
+
+    #[test]
+    fn an_ack_from_the_bare_names_is_from_the_sender_to_the_receiver() {
+        let a = ack("PASAPP", "EMR", "CTL-1", AckCode::Reject, Some("bad"));
+        let msh = fields(&a, "MSH");
+        assert_eq!((msh[2].as_str(), msh[4].as_str()), ("PASAPP", "EMR"));
+        let msa = fields(&a, "MSA");
+        assert_eq!(&msa[..3], ["AR", "CTL-1", "bad"]);
     }
 
     #[test]

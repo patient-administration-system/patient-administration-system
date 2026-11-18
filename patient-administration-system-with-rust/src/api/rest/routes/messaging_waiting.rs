@@ -39,6 +39,29 @@ pub(super) fn messaging() -> Router<AppState> {
             "/api/staff-call-tasks/{id}/outcome",
             post(handlers_links::call_outcome),
         )
+        // One staff work queue (TSC-1).
+        .route("/api/work-items", get(handlers_work_queue::list))
+        .route(
+            "/api/work-items/reminders",
+            get(handlers_work_queue::reminders),
+        )
+        .route("/api/work-items/{id}", get(handlers_work_queue::get))
+        .route(
+            "/api/work-items/{id}/claim",
+            post(handlers_work_queue::claim),
+        )
+        .route(
+            "/api/work-items/{id}/release",
+            post(handlers_work_queue::release),
+        )
+        .route(
+            "/api/work-items/{id}/assign",
+            post(handlers_work_queue::assign),
+        )
+        .route(
+            "/api/work-queues/{queue}/next",
+            post(handlers_work_queue::take_next),
+        )
         .route(
             "/api/letter-template-groups",
             post(handlers_letters::create_group),

@@ -13,13 +13,13 @@ pub struct Model {
     pub person_id: Uuid,
     pub consent_type: String,
     pub status: String,
-    pub granted_date: chrono::NaiveDate,
-    pub expiry_date: Option<chrono::NaiveDate>,
-    pub revoked_date: Option<chrono::NaiveDate>,
+    pub granted_date: jiff::civil::Date,
+    pub expiry_date: Option<jiff::civil::Date>,
+    pub revoked_date: Option<jiff::civil::Date>,
     pub purpose: Option<String>,
     pub method: Option<String>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

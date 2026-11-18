@@ -47,7 +47,7 @@ pub struct DomainEvent {
     /// JSON-encoded event body.
     pub payload: Value,
     /// Wall-clock time at which the event was constructed.
-    pub at: chrono::DateTime<chrono::Utc>,
+    pub at: jiff::Timestamp,
 }
 
 impl DomainEvent {
@@ -57,7 +57,7 @@ impl DomainEvent {
             id: Uuid::new_v4(),
             event_type: event_type.into(),
             payload,
-            at: chrono::Utc::now(),
+            at: jiff::Timestamp::now(),
         }
     }
 }
@@ -424,9 +424,9 @@ mod tests {
 
     #[test]
     fn test_domain_event_new_assigns_id_and_now() {
-        let before = chrono::Utc::now();
+        let before = jiff::Timestamp::now();
         let e = DomainEvent::new("X", json!({}));
-        let after = chrono::Utc::now();
+        let after = jiff::Timestamp::now();
         assert!(e.at >= before && e.at <= after);
         assert_eq!(e.event_type, "X");
         // IDs from different calls differ.

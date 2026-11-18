@@ -13,8 +13,8 @@ pub struct Model {
     pub pathway_id: Uuid,
     pub kind: String,
     pub reason: Option<String>,
-    pub event_at: chrono::DateTime<chrono::FixedOffset>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
+    pub event_at: jiff::Timestamp,
+    pub created_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

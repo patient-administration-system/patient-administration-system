@@ -62,7 +62,7 @@ pub struct DueCheck {
     pub person_id: Uuid,
     pub target_service: String,
     pub weeks_waited: u32,
-    pub last_check_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub last_check_at: Option<jiff::Timestamp>,
 }
 
 /// `GET /api/pathways/due-check?weeks=26&repeat_days=90`: long waiters nobody has asked recently whether

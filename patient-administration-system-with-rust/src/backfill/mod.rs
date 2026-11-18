@@ -20,7 +20,7 @@ use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
 use std::sync::Arc;
 
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -34,8 +34,8 @@ use crate::{Error, Result};
 
 pub const TEMPLATE_NAME: &str = "slot_offer";
 
-fn ttl() -> Duration {
-    Duration::minutes(env::int("PAS_OFFER_MINUTES"))
+fn ttl() -> SignedDuration {
+    SignedDuration::from_mins(env::int("PAS_OFFER_MINUTES"))
 }
 
 pub fn enabled() -> bool {
@@ -53,7 +53,7 @@ pub struct Offer {
     pub release_id: Uuid,
     pub slot_id: Uuid,
     pub person_id: Uuid,
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
 }
 
 crate::string_enum! {
@@ -125,16 +125,16 @@ impl PartialEq<&str> for OfferStatus {
 pub struct OfferInfo {
     /// `gone` means the slot was taken.
     pub state: OfferState,
-    pub starts_at: Option<DateTime<Utc>>,
+    pub starts_at: Option<Timestamp>,
     pub time_zone: String,
-    pub expires_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<Timestamp>,
     pub actions: Vec<&'static str>,
 }
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct OfferOutcome {
     pub status: OfferStatus,
-    pub starts_at: Option<DateTime<Utc>>,
+    pub starts_at: Option<Timestamp>,
     pub time_zone: String,
 }
 
@@ -159,7 +159,7 @@ struct Row {
     slot_id: Uuid,
     standby_entry_id: Uuid,
     status: SlotOfferStatus,
-    expires_at: DateTime<Utc>,
+    expires_at: Timestamp,
 }
 
 impl BackfillService {
@@ -168,7 +168,7 @@ impl BackfillService {
         *self.clock.write().unwrap_or_else(|p| p.into_inner()) = clock;
     }
 
-    fn now(&self) -> DateTime<Utc> {
+    fn now(&self) -> Timestamp {
         let clock = self.clock.read().unwrap_or_else(|p| p.into_inner()).clone();
         clock.now()
     }
@@ -229,7 +229,7 @@ impl BackfillService {
         })
     }
 
-    async fn slot_start(&self, slot_id: Uuid) -> Result<Option<DateTime<Utc>>> {
+    async fn slot_start(&self, slot_id: Uuid) -> Result<Option<Timestamp>> {
         self.db
             .one(Stmt::new(
                 "SELECT start_datetime FROM slots WHERE id = $1",
@@ -262,7 +262,7 @@ impl BackfillService {
             .await?
             .ok_or_else(|| Error::not_found(format!("slot release {release_id}")))?;
         let status: crate::standby::ReleaseStatus = rel.col::<String>("status")?.parse()?;
-        let start: DateTime<Utc> = rel.col("start_datetime")?;
+        let start: Timestamp = rel.col("start_datetime")?;
         let slot_id: Uuid = rel.col("slot_id")?;
         let now = self.now();
         if status != crate::standby::ReleaseStatus::Open || start <= now {
@@ -364,7 +364,7 @@ impl BackfillService {
         let extra = serde_json::json!({
             "offer": {
                 "when": messages::when(start, lang, messages::timezone()),
-                "minutes": (offer.expires_at - self.now()).num_minutes().max(1),
+                "minutes": (offer.expires_at - self.now()).as_mins().max(1),
             },
             "offer_url": format!("{base}/o/{token}"),
         });
@@ -450,7 +450,7 @@ impl BackfillService {
     }
 
     /// Expire offers past their time and move each release on to the next patient.
-    pub async fn tick(&self, now: DateTime<Utc>) -> Result<TickReport> {
+    pub async fn tick(&self, now: Timestamp) -> Result<TickReport> {
         let rows = self
             .db
             .all(Stmt::new(
@@ -476,7 +476,7 @@ impl BackfillService {
     pub async fn info(&self, token: &str) -> Result<OfferInfo> {
         let row = self.row_by_hash(&hash(token)).await?;
         let start = self.slot_start(row.slot_id).await?;
-        let tz = messages::timezone().name().to_string();
+        let tz = crate::time::zone_name(&messages::timezone());
         let state = match row.status {
             SlotOfferStatus::Open if row.expires_at <= self.now() => OfferState::Expired,
             SlotOfferStatus::Open => OfferState::Open,
@@ -506,7 +506,7 @@ impl BackfillService {
     pub async fn accept(&self, token: &str, ctx: &UserContext) -> Result<OfferOutcome> {
         let h = hash(token);
         let row = self.row_by_hash(&h).await?;
-        let tz = messages::timezone().name().to_string();
+        let tz = crate::time::zone_name(&messages::timezone());
         if row.status != SlotOfferStatus::Open {
             return Err(Error::conflict("this offer has already been answered"));
         }
@@ -577,7 +577,7 @@ impl BackfillService {
     /// Decline: the offer is over and the next patient is offered the slot.
     pub async fn decline(&self, token: &str) -> Result<OfferOutcome> {
         let row = self.row_by_hash(&hash(token)).await?;
-        let tz = messages::timezone().name().to_string();
+        let tz = crate::time::zone_name(&messages::timezone());
         let r = self
             .db
             .run(Stmt::new(
@@ -616,8 +616,8 @@ impl BackfillService {
                 Ok(serde_json::json!({
                     "id": r.col::<Uuid>("id")?,
                     "status": r.col::<String>("status")?.parse::<SlotOfferStatus>()?,
-                    "offered_at": r.col::<DateTime<Utc>>("offered_at")?,
-                    "expires_at": r.col::<DateTime<Utc>>("expires_at")?,
+                    "offered_at": r.col::<Timestamp>("offered_at")?,
+                    "expires_at": r.col::<Timestamp>("expires_at")?,
                     "message_sent": r.col::<bool>("message_sent")?,
                 }))
             })

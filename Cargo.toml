@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "patient-administration-system-with-rust",
+    "patient-administration-system-with-rust/domain",
     "patient-administration-system-with-rust/migrations",
     "patient-administration-system-with-rust/load",
     "patient-administration-system-frontend",

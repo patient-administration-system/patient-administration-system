@@ -12,7 +12,7 @@ pub struct CallItem {
     /// Present (not null) only once the weights are calibrated and the percentage is switched on.
     #[schema(required = true)]
     pub probability_percent: Option<f64>,
-    pub starts_at: DateTime<Utc>,
+    pub starts_at: Timestamp,
     pub sample_size: i32,
     pub factors: Vec<Factor>,
 }
@@ -67,7 +67,7 @@ impl NoShowService {
                     appointment_id: r.col::<Uuid>("appointment_id")?,
                     task_id: r.col::<Uuid>("task_id")?,
                     probability_percent: percent_shown().then(|| (p * 1000.0).round() / 10.0),
-                    starts_at: r.col::<DateTime<Utc>>("start_datetime")?,
+                    starts_at: r.col::<Timestamp>("start_datetime")?,
                     sample_size: r.col::<i32>("sample_size")?,
                     factors: serde_json::from_value(r.col::<serde_json::Value>("factors")?)
                         .map_err(|e| {

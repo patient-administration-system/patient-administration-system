@@ -10,7 +10,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact, Txn};
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -87,7 +87,7 @@ pub struct UnconfirmedRequest {
     pub kind: InterpreterKind,
     #[schema(required = true)]
     pub language: Option<String>,
-    pub starts_at: DateTime<Utc>,
+    pub starts_at: Timestamp,
 }
 
 pub struct InterpreterService {
@@ -168,7 +168,7 @@ impl InterpreterService {
         request_id: Uuid,
         confirmed_by: &str,
         booking_ref: Option<&str>,
-        at: DateTime<Utc>,
+        at: Timestamp,
         ctx: &UserContext,
     ) -> Result<()> {
         let by = named_person(
@@ -204,8 +204,8 @@ impl InterpreterService {
     /// soonest first. At most `fetch` rows (see `crate::paging`).
     pub async fn unconfirmed(
         &self,
-        now: DateTime<Utc>,
-        within: Duration,
+        now: Timestamp,
+        within: SignedDuration,
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<UnconfirmedRequest>> {
         let rows = rows.into();

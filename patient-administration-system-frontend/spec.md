@@ -283,11 +283,11 @@ Mirrors `Cargo.toml`. Anything below is actually compiled.
 | Command line | `clap` 4 | `Cli::parse` |
 | Cookie storage | `axum-extra` 0.12 (`cookie`) | `CookieJar` extractor for CSRF middleware |
 | Async runtime | `tokio` 1.49 (`full`) | `#[tokio::main]` in `main.rs` |
-| Database | `sqlx` 0.9 (`postgres`, `derive`, `chrono`, `uuid`, `json`) | Read-only projections, with SQL checked at run time |
+| Database | `sqlx` 0.9 (`postgres`, `derive`, `uuid`, `json`), times through `jiff-sqlx` | Read-only projections, with SQL checked at run time |
 | Migrations (path dep) | `patient-administration-system-migrations` | Schema shared with the PAS Axum binary |
 | Serialization | `serde`, `serde_json` 1.0 | JSON encode/decode |
 | HTTP client | `reqwest` 0.12 (`rustls-tls`, `json`) | PAS API client (no native-tls; rustls only) |
-| Utilities | `uuid` 1.19, `chrono` 0.4 | IDs + timestamps |
+| Utilities | `uuid` 1.19, `jiff` 1 | IDs + timestamps |
 | Errors | `thiserror` 2.0 | `PasApiError` enum |
 | Dev — testing | `axa` with the `testing` feature | `request::<App, _, _>` helper |
 | Dev — serial | `serial_test` 3.2 | `#[serial]` on integration tests because they share one database |

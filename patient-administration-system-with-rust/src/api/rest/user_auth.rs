@@ -137,6 +137,8 @@ impl UserAuth {
     /// Decide the mode from the configuration. `Ok(None)` is trusted-caller mode. An `Err` is a
     /// configuration the server must not start with.
     pub async fn build(cfg: UserAuthConfig) -> Result<Option<Arc<UserAuth>>, String> {
+        // Fetching the keys by URL builds a reqwest client inside authentication-verifier.
+        crate::tls::ensure_provider();
         if cfg.require_auth && !cfg.paseto_configured() {
             return Err("PAS_REQUIRE_AUTH is set but per-user authentication is not configured: set \
                         PAS_PASETO_KEYS_URL (or PAS_PASETO_KEYS_JSON). A shared API_TOKEN alone does not \

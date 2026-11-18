@@ -21,7 +21,7 @@ pub struct RolloutRow {
     #[schema(required = true)]
     pub changed_by: Option<String>,
     #[schema(required = true)]
-    pub live_since: Option<DateTime<Utc>>,
+    pub live_since: Option<Timestamp>,
     pub assessments: i64,
     pub days_in_shadow: i64,
     pub may_go_live: bool,
@@ -43,13 +43,13 @@ impl NoShowService {
         let min = shadow_min_days();
         rows.iter()
             .map(|r| {
-                let first: DateTime<Utc> = r.col("first_at")?;
-                let days = (Utc::now() - first).num_days();
+                let first: Timestamp = r.col("first_at")?;
+                let days = crate::time::whole_days(Timestamp::now().duration_since(first));
                 Ok(RolloutRow {
                     service_type: r.col::<String>("svc")?,
                     stage: r.col::<String>("stage")?.parse()?,
                     changed_by: r.col::<Option<String>>("changed_by")?,
-                    live_since: r.col::<Option<DateTime<Utc>>>("live_since")?,
+                    live_since: r.col::<Option<Timestamp>>("live_since")?,
                     assessments: r.col::<i64>("n")?,
                     days_in_shadow: days,
                     may_go_live: days >= min,
@@ -94,8 +94,10 @@ impl NoShowService {
                     [svc.into()],
                 ))
 .await?;
-            let first: Option<DateTime<Utc>> = row.and_then(|r| r.col("first_at").ok());
-            let days = first.map_or(0, |f| (Utc::now() - f).num_days());
+            let first: Option<Timestamp> = row.and_then(|r| r.col("first_at").ok());
+            let days = first.map_or(0, |f| {
+                crate::time::whole_days(Timestamp::now().duration_since(f))
+            });
             if days < shadow_min_days() {
                 return Err(Error::conflict(format!(
                     "{svc} has {days} days of shadow data; at least {} are needed before it goes live",
@@ -224,7 +226,7 @@ impl NoShowService {
                 let g = |c: &str| r.col::<i64>(c).unwrap_or(0);
                 ClinicEffect {
                     service_type: r.col::<String>("svc").unwrap_or_default(),
-                    live_since: r.col::<DateTime<Utc>>("live_since").ok(),
+                    live_since: r.col::<Timestamp>("live_since").ok(),
                     before: window(g("before_missed"), g("before_n")),
                     after: window(g("after_missed"), g("after_n")),
                     same_period_clinics_still_in_shadow: window(g("shadow_missed"), g("shadow_n")),
@@ -276,7 +278,7 @@ pub struct RateWindow {
 pub struct ClinicEffect {
     pub service_type: String,
     #[schema(required = true)]
-    pub live_since: Option<DateTime<Utc>>,
+    pub live_since: Option<Timestamp>,
     pub before: RateWindow,
     pub after: RateWindow,
     pub same_period_clinics_still_in_shadow: RateWindow,

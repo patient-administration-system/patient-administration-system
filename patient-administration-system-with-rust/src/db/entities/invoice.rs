@@ -18,9 +18,9 @@ pub struct Model {
     pub total_value: String,
     pub total_currency: String,
     pub charge_ids: serde_json::Value,
-    pub finalized_at: Option<chrono::DateTime<chrono::FixedOffset>>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub finalized_at: Option<jiff::Timestamp>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

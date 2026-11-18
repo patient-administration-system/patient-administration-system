@@ -108,7 +108,7 @@ pub async fn tick_with_limit(
             id: row.id,
             event_type: row.event_type.clone(),
             payload: row.payload.clone(),
-            at: row.at.with_timezone(&chrono::Utc),
+            at: row.at,
         };
         match publisher.publish(ev).await {
             Ok(()) => {
@@ -134,8 +134,9 @@ pub async fn tick_with_limit(
                 };
                 let err_str = e.to_string();
                 let wait = backoff(row.retry_count.saturating_add(1), retry_after);
-                let next = chrono::Utc::now()
-                    + chrono::Duration::from_std(wait).unwrap_or(chrono::Duration::minutes(15));
+                let next = jiff::Timestamp::now()
+                    + jiff::SignedDuration::try_from(wait)
+                        .unwrap_or(jiff::SignedDuration::from_mins(15));
                 let new_count =
                     OutboxRepository::record_failure(db, row.id, &err_str, next).await?;
                 if max_retries > 0 && new_count >= max_retries as i32 {

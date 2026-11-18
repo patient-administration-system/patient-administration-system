@@ -14,10 +14,10 @@ pub struct Model {
     pub target_service: String,
     pub breach_weeks: i32,
     pub status: String,
-    pub started_at: chrono::DateTime<chrono::FixedOffset>,
-    pub stopped_at: Option<chrono::DateTime<chrono::FixedOffset>>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub started_at: jiff::Timestamp,
+    pub stopped_at: Option<jiff::Timestamp>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

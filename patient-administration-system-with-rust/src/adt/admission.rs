@@ -340,7 +340,7 @@ impl AdtService {
         &self,
         admission_id: Uuid,
         reason: Option<&str>,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Admission> {
         let ctx_clone = ctx.clone();

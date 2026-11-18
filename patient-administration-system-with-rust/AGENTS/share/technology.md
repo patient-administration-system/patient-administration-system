@@ -14,18 +14,18 @@ The v0.3.1 dep audit removed 15 unused direct deps (`loco-rs`, `fluvio`, `tonic`
 | **HTTP middleware**  | tower (`util`), tower-http (`cors`, `trace`, `compression-full`) | CORS / trace / compression / `ServiceExt::oneshot` |
 | **Templates**        | Tera 1.20                                   | Server-side rendering for letters + dashboard |
 | **Database**         | PostgreSQL 18+                              | Persistence                              |
-| **Database**         | sqlx 0.9, through `src/db/sql.rs`           | Async ORM (sqlx-postgres, rustls runtime, chrono/uuid/json types) |
+| **Database**         | sqlx 0.9, through `src/db/sql.rs`           | Async ORM (sqlx-postgres, rustls runtime, uuid/json types; times through jiff-sqlx) |
 | **Migrations**       | SQL files, `sqlx::migrate`, `pas-migrate`   | Schema management                        |
 | **Streaming**        | `InMemoryEventPublisher` (production + tests) + `Hl7v2MllpPublisher` (outbound ADT over MLLP) + `FluvioEventPublisher` stub | Event publishing |
 | **API Docs**         | Utoipa 5.4 + `utoipa-swagger-ui` 8.1        | OpenAPI 3.1 annotations + Swagger UI     |
 | **Serialization**    | Serde 1.0, serde_json 1.0, quick-xml 0.36 (`serialize`), csv 1.3 | JSON / XML / CSV / TSV |
 | **Logging / Tracing**| `tracing` 0.1, `tracing-subscriber` 0.3 (`env-filter`, `json`) | Structured logging (reads `RUST_LOG`) |
 | **Observability**    | OpenTelemetry 0.27 + OTLP HTTP/protobuf via reqwest (`opentelemetry`, `opentelemetry_sdk` with `rt-tokio`, `opentelemetry-otlp` with `http-proto` + `reqwest-client`, `tracing-opentelemetry` 0.28) | Wires when `OTLP_ENDPOINT` is set; v0.7.0. See [observability.md](observability.md) |
-| **Utilities**        | uuid 1.19, chrono 0.4, dotenvy 0.15, async-trait 0.1 | UUIDs, timestamps, env, async traits |
+| **Utilities**        | uuid 1.19, jiff 1 (with jiff-sqlx), dotenvy 0.15, async-trait 0.1 | UUIDs, timestamps, env, async traits |
 | **Error Handling**   | thiserror 2.0                               | Typed errors                             |
 | **Money / Decimal**  | rust_decimal 1.36 (`serde-with-str`)        | Exact monetary arithmetic                |
 | **Testing**          | assertables 9.8, tempfile 3.24              | Rich asserts + temp directories          |
-| **Benchmarking**     | Criterion 0.5 (`html_reports`, `async_tokio`) | Statistical performance benchmarks     |
+| **Benchmarking**     | Criterion 0.8 (`html_reports`, `async_tokio`) | Statistical performance benchmarks     |
 | **Containerization** | Podman (multi-stage Containerfile), podman compose        | Deployment packaging                     |
 
 ## Workspace context

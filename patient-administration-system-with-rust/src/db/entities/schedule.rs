@@ -14,8 +14,8 @@ pub struct Model {
     pub owner_id: Uuid,
     pub service_type: String,
     pub active: bool,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

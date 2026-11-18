@@ -2,7 +2,7 @@
 
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::{DateTime, Duration, NaiveDate, NaiveTime, Utc};
+use jiff::{Timestamp, civil::Date, civil::Time};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -111,9 +111,10 @@ pub struct ProposeBody {
     /// ISO weekday: 1 Monday to 7 Sunday.
     pub weekday: i16,
     /// `HH:MM` or `HH:MM:SS`, London local time.
-    pub start_time: NaiveTime,
+    #[schema(value_type = String)]
+    pub start_time: Time,
     pub slot_minutes: i32,
-    pub effective_from: NaiveDate,
+    pub effective_from: Date,
     pub lines: Vec<Line>,
     pub proposed_by: String,
 }
@@ -201,8 +202,8 @@ pub async fn approve(
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct GenerateBody {
-    pub from: NaiveDate,
-    pub to: NaiveDate,
+    pub from: Date,
+    pub to: Date,
     pub generated_by: String,
 }
 
@@ -295,9 +296,9 @@ pub async fn ring_fence(
 pub struct ReportQuery {
     pub service_type: String,
     /// Start of the forward window; defaults to now.
-    pub from: Option<DateTime<Utc>>,
+    pub from: Option<Timestamp>,
     /// End of the forward window; defaults to 28 days after `from`.
-    pub to: Option<DateTime<Utc>>,
+    pub to: Option<Timestamp>,
     /// How far back demand and non-attendance are measured; defaults to 84 days.
     pub lookback_days: Option<i64>,
 }
@@ -318,7 +319,7 @@ pub struct ReportQuery {
 )]
 pub async fn report(State(state): State<AppState>, Query(q): Query<ReportQuery>) -> HandlerResult {
     let from = q.from.unwrap_or_else(|| state.clock.now());
-    let to = q.to.unwrap_or(from + Duration::days(28));
+    let to = q.to.unwrap_or(from + crate::time::days(28));
     match capacity_report(
         &state.db,
         &q.service_type,

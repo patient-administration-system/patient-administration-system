@@ -22,15 +22,19 @@ fn production_part(text: &str) -> &str {
 }
 
 fn sources() -> Vec<(PathBuf, String)> {
-    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    // The server's sources and the domain crate's (whose `config/env.rs` is the registry itself).
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut files = Vec::new();
-    rust_files(&src, &mut files);
-    files
-        .into_iter()
-        .filter(|p| {
+    for src in [dir.join("src"), dir.join("domain/src")] {
+        let mut here = Vec::new();
+        rust_files(&src, &mut here);
+        files.extend(here.into_iter().filter(|p| {
             let rel = p.strip_prefix(&src).expect("under src");
             !rel.starts_with("config") && !rel.starts_with("bin")
-        })
+        }));
+    }
+    files
+        .into_iter()
         .map(|p| {
             let text = std::fs::read_to_string(&p).expect("read");
             (p, text)

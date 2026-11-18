@@ -8,7 +8,7 @@ use patient_administration_system::db::sql::{Conn, Stmt};
 use std::sync::{Arc, Mutex};
 
 use axum::{Router, body::Bytes, extract::State, http::HeaderMap, http::StatusCode, routing::post};
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::outbox::OutboxRepository;
 use patient_administration_system::streaming::WebhookEventPublisher;
@@ -131,7 +131,7 @@ async fn a_change_reaches_each_subscriber_once_and_only_the_right_topic() {
 
     let appt = Uuid::new_v4();
     event(&state.db, "AppointmentBooked", appt).await;
-    let now = Utc::now() + Duration::seconds(5);
+    let now = Timestamp::now() + SignedDuration::from_secs(5);
     // Three passes: still once each.
     for _ in 0..3 {
         svc.tick(now).await.unwrap();
@@ -189,7 +189,7 @@ async fn a_failure_is_retried_later_survives_a_restart_and_is_given_up_on() {
         .unwrap();
     event(&state.db, "AppointmentBooked", Uuid::new_v4()).await;
 
-    let t0 = Utc::now() + Duration::seconds(5);
+    let t0 = Timestamp::now() + SignedDuration::from_secs(5);
     // First attempt fails: still pending, and not tried again before its delay.
     SubscriptionService::new(state.db.clone())
         .tick(t0)
@@ -198,20 +198,20 @@ async fn a_failure_is_retried_later_survives_a_restart_and_is_given_up_on() {
     assert_eq!(seen.lock().unwrap().len(), 1);
     assert_eq!(status_of(&state.db, sub.id).await, (1, 0, 0));
     SubscriptionService::new(state.db.clone())
-        .tick(t0 + Duration::seconds(10))
+        .tick(t0 + SignedDuration::from_secs(10))
         .await
         .unwrap();
     assert_eq!(seen.lock().unwrap().len(), 1, "30 seconds have not passed");
 
     // A new service (a restart) picks the delivery up after the delay; the second try fails too.
     SubscriptionService::new(state.db.clone())
-        .tick(t0 + Duration::seconds(31))
+        .tick(t0 + SignedDuration::from_secs(31))
         .await
         .unwrap();
     assert_eq!(seen.lock().unwrap().len(), 2);
     // The third succeeds, after the doubled delay.
     SubscriptionService::new(state.db.clone())
-        .tick(t0 + Duration::seconds(31 + 61))
+        .tick(t0 + SignedDuration::from_secs(31 + 61))
         .await
         .unwrap();
     assert_eq!(seen.lock().unwrap().len(), 3);
@@ -236,13 +236,13 @@ async fn a_failure_is_retried_later_survives_a_restart_and_is_given_up_on() {
         .await
         .unwrap();
     event(&state.db, "AppointmentNoShow", Uuid::new_v4()).await;
-    let mut t = Utc::now() + Duration::seconds(5);
+    let mut t = Timestamp::now() + SignedDuration::from_secs(5);
     for _ in 0..12 {
         SubscriptionService::new(state.db.clone())
             .tick(t)
             .await
             .unwrap();
-        t += Duration::hours(2);
+        t += SignedDuration::from_hours(2);
     }
     assert_eq!(status_of(&state.db, doomed.id).await, (0, 0, 1));
 }
@@ -283,7 +283,9 @@ async fn registration_refuses_what_it_should() {
         .await
         .unwrap();
     event(&state.db, "AppointmentBooked", Uuid::new_v4()).await;
-    svc.tick(Utc::now() + Duration::seconds(5)).await.unwrap();
+    svc.tick(Timestamp::now() + SignedDuration::from_secs(5))
+        .await
+        .unwrap();
     assert!(seen.lock().unwrap().is_empty());
     assert_eq!(status_of(&state.db, s.id).await, (1, 0, 0));
 }
@@ -306,7 +308,7 @@ async fn a_subscriber_with_a_long_backlog_does_not_keep_another_waiting() {
     for _ in 0..100 {
         event(&state.db, "AppointmentBooked", Uuid::new_v4()).await;
     }
-    let now = Utc::now() + Duration::seconds(5);
+    let now = Timestamp::now() + SignedDuration::from_secs(5);
     for _ in 0..8 {
         svc.tick(now).await.unwrap();
     }

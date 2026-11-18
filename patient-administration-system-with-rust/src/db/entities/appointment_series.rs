@@ -13,7 +13,7 @@ pub struct Model {
     pub person_id: Uuid,
     pub worker_id: Option<Uuid>,
     pub service_type: String,
-    pub start_datetime: chrono::DateTime<chrono::FixedOffset>,
+    pub start_datetime: jiff::Timestamp,
     pub duration_minutes: i32,
     /// Encoded [`crate::models::appointment_series::RecurrenceRule`].
     /// Stored as a JSONB blob; never queried into directly — the
@@ -21,8 +21,8 @@ pub struct Model {
     pub rule: serde_json::Value,
     pub status: String,
     pub reason: Option<String>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

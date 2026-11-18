@@ -18,24 +18,22 @@ fn keep_worst<T>(rows: Vec<T>, limit: usize, rank: impl Fn(&T) -> u8) -> Vec<T> 
     kept.into_iter().map(|(_, r)| r).collect()
 }
 
-impl Status {
-    /// Cut `by_service` and `by_ward` to at most `limit` readings each, keeping the worst, and say whether
-    /// either lost any (QUAL-47). The whole-service `readings` are one per measure, and `overall` was read from
-    /// everything before the cut.
-    pub fn page(mut self, limit: i64) -> (Self, PageMeta) {
-        let keep = usize::try_from(limit).unwrap_or(0);
-        let before = self.by_service.len() + self.by_ward.len();
-        self.by_service = keep_worst(self.by_service, keep, |r| r.rag.rank());
-        self.by_ward = keep_worst(self.by_ward, keep, |r| r.rag.rank());
-        let returned = self.by_service.len() + self.by_ward.len();
-        let meta = PageMeta {
-            limit,
-            returned,
-            truncated: returned < before,
-            next: None,
-        };
-        (self, meta)
-    }
+/// Cut `by_service` and `by_ward` to at most `limit` readings each, keeping the worst, and say whether either
+/// lost any (QUAL-47). The whole-service `readings` are one per measure, and `overall` was read from everything
+/// before the cut. (A free function: `Status` is a domain type and `PageMeta` a server one.)
+pub fn page(mut status: Status, limit: i64) -> (Status, PageMeta) {
+    let keep = usize::try_from(limit).unwrap_or(0);
+    let before = status.by_service.len() + status.by_ward.len();
+    status.by_service = keep_worst(status.by_service, keep, |r| r.rag.rank());
+    status.by_ward = keep_worst(status.by_ward, keep, |r| r.rag.rank());
+    let returned = status.by_service.len() + status.by_ward.len();
+    let meta = PageMeta {
+        limit,
+        returned,
+        truncated: returned < before,
+        next: None,
+    };
+    (status, meta)
 }
 
 impl ToleranceService {
@@ -43,8 +41,8 @@ impl ToleranceService {
     /// each service and ward, and put each in its tier.
     pub async fn status(&self, days: i64) -> Result<Status> {
         let days = days.clamp(1, 365);
-        let to = Utc::now();
-        let from = to - Duration::days(days);
+        let to = Timestamp::now();
+        let from = to - SignedDuration::from_hours(24 * (days));
         let report = self
             .reports
             .clinic_activity(Some(from), Some(to), GroupBy::Day)
@@ -162,8 +160,8 @@ impl ToleranceService {
     /// The four service-level measures for each service that has appointments, slots or open pathways.
     pub(super) async fn service_measures(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: Timestamp,
+        to: Timestamp,
         report: &crate::reports::Report,
     ) -> Result<Vec<Measure>> {
         let q = |sql: &str| Stmt::new(sql.to_string(), [from.into(), to.into()]);
@@ -287,11 +285,7 @@ impl ToleranceService {
 
     /// Money invoiced and collected on invoices finalised in the window. Amounts are summed as written, so
     /// this assumes one currency; a second currency in the window would be added into the same total.
-    pub(super) async fn money(
-        &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
-    ) -> Result<(f64, f64, i64)> {
+    pub(super) async fn money(&self, from: Timestamp, to: Timestamp) -> Result<(f64, f64, i64)> {
         let row = self
             .db
             .one(Stmt::new("SELECT COALESCE(sum(i.total_value::numeric), 0)::float8 AS invoiced, \

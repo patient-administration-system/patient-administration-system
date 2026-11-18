@@ -148,7 +148,7 @@ pub struct OptOutBody {
 pub struct OptOut {
     pub channel: String,
     #[schema(required = true)]
-    pub opted_out_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub opted_out_at: Option<jiff::Timestamp>,
     pub source: String,
 }
 
@@ -196,7 +196,7 @@ pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -
                 .iter()
                 .map(|r| OptOut {
                     channel: r.col::<String>("channel").unwrap_or_default(),
-                    opted_out_at: r.col::<chrono::DateTime<chrono::Utc>>("opted_out_at").ok(),
+                    opted_out_at: r.col::<jiff::Timestamp>("opted_out_at").ok(),
                     source: r.col::<String>("source").unwrap_or_default(),
                 })
                 .collect();

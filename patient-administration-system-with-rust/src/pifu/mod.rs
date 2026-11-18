@@ -13,7 +13,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
-use chrono::{DateTime, Duration, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -45,7 +45,7 @@ crate::string_enum! {
 pub const MAX_WINDOW_DAYS: i64 = 730;
 
 /// Where a request goes: a booking task inside the window, a person's decision after it.
-pub fn route_for(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> &'static str {
+pub fn route_for(now: Timestamp, expires_at: Timestamp) -> &'static str {
     if now < expires_at {
         "booking"
     } else {
@@ -61,8 +61,8 @@ pub struct Episode {
     pub service_type: String,
     pub conditions: String,
     pub opened_by: String,
-    pub opened_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
+    pub opened_at: Timestamp,
+    pub expires_at: Timestamp,
     #[schema(required = true)]
     pub urgent_override_by: Option<String>,
     pub extended_count: i32,
@@ -76,7 +76,7 @@ pub struct Request {
     pub episode_id: Uuid,
     pub person_id: Uuid,
     pub service_type: String,
-    pub requested_at: DateTime<Utc>,
+    pub requested_at: Timestamp,
     pub channel: RequestChannel,
     /// `booking` or `person`.
     pub route: String,
@@ -87,7 +87,7 @@ pub struct Request {
 pub struct NewEpisode<'a> {
     pub service_type: &'a str,
     pub conditions: &'a str,
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
     pub opened_by: &'a str,
     /// Required when the service is on the urgent follow-up list.
     pub urgent_override_by: Option<&'a str>,
@@ -97,7 +97,7 @@ pub struct NewEpisode<'a> {
 #[derive(Debug, Clone, Copy)]
 pub enum Decision {
     Discharge,
-    Extend(DateTime<Utc>),
+    Extend(Timestamp),
 }
 
 const EP_COLS: &str = "id, person_id, service_type, conditions, opened_by, opened_at, expires_at, \
@@ -139,7 +139,7 @@ impl PifuService {
         &self,
         person_id: Uuid,
         new: &NewEpisode<'_>,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<Episode> {
         let by = named_person(
@@ -222,7 +222,7 @@ impl PifuService {
         &self,
         episode_id: Uuid,
         channel: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<Request> {
         let channel: RequestChannel = channel.parse().map_err(|_| {
@@ -332,7 +332,7 @@ impl PifuService {
         request_id: Uuid,
         handled_by: &str,
         appointment_id: Option<Uuid>,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<()> {
         let by = named_person(
@@ -371,7 +371,7 @@ impl PifuService {
     /// Episodes whose window has ended and nobody has reviewed: the review task. Oldest expiry first.
     pub async fn due_reviews(
         &self,
-        now: DateTime<Utc>,
+        now: Timestamp,
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<Episode>> {
         let rows = rows.into();
@@ -394,7 +394,7 @@ impl PifuService {
         episode_id: Uuid,
         decision: Decision,
         by: &str,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<()> {
         let by = named_person(
@@ -494,11 +494,11 @@ impl PifuService {
     }
 }
 
-fn check_window(now: DateTime<Utc>, until: DateTime<Utc>) -> Result<()> {
+fn check_window(now: Timestamp, until: Timestamp) -> Result<()> {
     if until <= now {
         return Err(Error::validation("the window must end in the future"));
     }
-    if until > now + Duration::days(MAX_WINDOW_DAYS) {
+    if until > now + crate::time::days(MAX_WINDOW_DAYS) {
         return Err(Error::validation(format!(
             "the window may be at most {MAX_WINDOW_DAYS} days"
         )));
@@ -509,20 +509,24 @@ fn check_window(now: DateTime<Utc>, until: DateTime<Utc>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jiff::SignedDuration;
 
     #[test]
     fn inside_the_window_is_a_booking_and_at_or_after_its_end_is_a_person() {
-        let end = Utc::now() + Duration::days(10);
-        assert_eq!(route_for(end - Duration::seconds(1), end), "booking");
+        let end = Timestamp::now() + crate::time::days(10);
+        assert_eq!(
+            route_for(end - SignedDuration::from_secs(1), end),
+            "booking"
+        );
         assert_eq!(route_for(end, end), "person");
-        assert_eq!(route_for(end + Duration::days(1), end), "person");
+        assert_eq!(route_for(end + crate::time::days(1), end), "person");
     }
 
     #[test]
     fn a_window_must_end_in_the_future_and_within_two_years() {
-        let now = Utc::now();
-        assert!(check_window(now, now - Duration::days(1)).is_err());
-        assert!(check_window(now, now + Duration::days(MAX_WINDOW_DAYS + 1)).is_err());
-        assert!(check_window(now, now + Duration::days(180)).is_ok());
+        let now = Timestamp::now();
+        assert!(check_window(now, now - crate::time::days(1)).is_err());
+        assert!(check_window(now, now + crate::time::days(MAX_WINDOW_DAYS + 1)).is_err());
+        assert!(check_window(now, now + crate::time::days(180)).is_ok());
     }
 }

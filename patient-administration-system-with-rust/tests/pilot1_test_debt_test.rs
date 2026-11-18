@@ -9,7 +9,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::communication::reminders::{
     MAX_FAILED_ATTEMPTS, ReminderService,
@@ -82,8 +82,8 @@ async fn world(
             }),
         );
     }
-    let start = Utc::now() + Duration::hours(2);
-    let mut a = Appointment::new(person, start, start + Duration::minutes(30));
+    let start = Timestamp::now() + SignedDuration::from_hours(2);
+    let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     let a = AppointmentRepository::create(&state.db, &a).await.unwrap();
     (state, person, a, log)
@@ -117,7 +117,7 @@ async fn when_the_first_channel_fails_the_reminder_reaches_the_second_and_stops(
     ])
     .await;
     let report = ReminderService::new(s.db.clone(), s.communication.clone())
-        .run_once(Utc::now(), Duration::hours(24))
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
         .await
         .unwrap();
     assert!(report.sent >= 1);
@@ -136,7 +136,7 @@ async fn when_the_first_channel_fails_the_reminder_reaches_the_second_and_stops(
 
     // The patient is now reminded: a second scan must not send again, despite the failed WhatsApp letter.
     ReminderService::new(s.db.clone(), s.communication.clone())
-        .run_once(Utc::now(), Duration::hours(24))
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
         .await
         .unwrap();
     assert_eq!(
@@ -159,7 +159,9 @@ async fn when_every_channel_fails_the_reminder_gives_up_after_the_cap_instead_of
     // Without the back-off, so each scan tries again at once and the cap is reached quickly.
     let svc = ReminderService::new(s.db.clone(), s.communication.clone()).without_backoff();
     for _ in 0..8 {
-        svc.run_once(Utc::now(), Duration::hours(24)).await.unwrap();
+        svc.run_once(Timestamp::now(), SignedDuration::from_hours(24))
+            .await
+            .unwrap();
     }
     let failed = letters_by_channel(&s, a.id).await;
     assert_eq!(
@@ -173,7 +175,10 @@ async fn when_every_channel_fails_the_reminder_gives_up_after_the_cap_instead_of
         MAX_FAILED_ATTEMPTS,
         "and the carriers are not hammered further"
     );
-    let last = svc.run_once(Utc::now(), Duration::hours(24)).await.unwrap();
+    let last = svc
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
+        .await
+        .unwrap();
     assert!(last.gave_up >= 1, "the report says it gave up");
     let template = svc.ensure_default_template().await.unwrap();
     assert!(
@@ -216,7 +221,7 @@ fn template_json(name: &str, subject: &str, body: &str) -> serde_json::Value {
     serde_json::json!({
         "id": Uuid::nil(), "name": name, "subject": subject, "body_tera": body,
         "required_variables": [], "channels": ["sms"], "active": true,
-        "created_at": Utc::now(), "updated_at": Utc::now(),
+        "created_at": Timestamp::now(), "updated_at": Timestamp::now(),
     })
 }
 
@@ -318,9 +323,9 @@ async fn invalid_template_syntax_is_refused_on_create_and_on_update_and_nothing_
 async fn the_appointment_range_must_be_forward_and_at_most_366_days() {
     let state = common::build_state(&common::database_url().unwrap()).await;
     let app = patient_administration_system::api::rest::router(state);
-    let from = Utc::now();
-    let iso = |t: chrono::DateTime<Utc>| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let url = |a: chrono::DateTime<Utc>, b: chrono::DateTime<Utc>| {
+    let from = Timestamp::now();
+    let iso = |t: jiff::Timestamp| t.strftime("%Y-%m-%dT%H:%M:%SZ").to_string();
+    let url = |a: jiff::Timestamp, b: jiff::Timestamp| {
         format!("/api/appointments?from={}&to={}", iso(a), iso(b))
     };
 
@@ -328,7 +333,7 @@ async fn the_appointment_range_must_be_forward_and_at_most_366_days() {
         call(
             app.clone(),
             "GET",
-            &url(from, from + Duration::days(7)),
+            &url(from, from + patient_administration_system::time::days(7)),
             None
         )
         .await
@@ -339,7 +344,7 @@ async fn the_appointment_range_must_be_forward_and_at_most_366_days() {
         call(
             app.clone(),
             "GET",
-            &url(from, from + Duration::days(366)),
+            &url(from, from + patient_administration_system::time::days(366)),
             None
         )
         .await
@@ -351,7 +356,11 @@ async fn the_appointment_range_must_be_forward_and_at_most_366_days() {
         call(
             app.clone(),
             "GET",
-            &url(from, from + Duration::days(366) + Duration::seconds(1)),
+            &url(
+                from,
+                from + patient_administration_system::time::days(366)
+                    + SignedDuration::from_secs(1)
+            ),
             None
         )
         .await
@@ -368,7 +377,7 @@ async fn the_appointment_range_must_be_forward_and_at_most_366_days() {
         call(
             app.clone(),
             "GET",
-            &url(from + Duration::days(1), from),
+            &url(from + patient_administration_system::time::days(1), from),
             None
         )
         .await

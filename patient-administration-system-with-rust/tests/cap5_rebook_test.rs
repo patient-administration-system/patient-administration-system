@@ -8,7 +8,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::repositories::audit::UserContext;
@@ -27,10 +27,11 @@ fn sys() -> UserContext {
 }
 
 /// `days` ahead at `hour`:00 UTC.
-fn at(days: i64, hour: u32) -> DateTime<Utc> {
-    let d = (Utc::now() + Duration::days(days)).date_naive();
-    Utc.with_ymd_and_hms(d.year(), d.month(), d.day(), hour, 0, 0)
-        .unwrap()
+fn at(days: i64, hour: i8) -> Timestamp {
+    let d = (Timestamp::now() + patient_administration_system::time::days(days))
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date();
+    patient_administration_system::time::utc(d.year(), d.month(), d.day(), hour, 0, 0)
 }
 
 struct W {
@@ -40,10 +41,10 @@ struct W {
     appt: Appointment,
 }
 
-async fn slot(s: &AppState, schedule: Uuid, start: DateTime<Utc>, mins: i64) -> Slot {
+async fn slot(s: &AppState, schedule: Uuid, start: Timestamp, mins: i64) -> Slot {
     SlotRepository::create(
         &s.db,
-        &Slot::new(schedule, start, start + Duration::minutes(mins)),
+        &Slot::new(schedule, start, start + SignedDuration::from_mins(mins)),
     )
     .await
     .unwrap()
@@ -69,7 +70,7 @@ async fn world() -> W {
 }
 
 impl W {
-    async fn add(&self, days: i64, hour: u32) -> Slot {
+    async fn add(&self, days: i64, hour: i8) -> Slot {
         slot(&self.s, self.schedule, at(days, hour), 15).await
     }
     async fn status(&self, id: Uuid) -> AppointmentStatus {
@@ -123,7 +124,11 @@ async fn options_are_never_clashing_taken_too_soon_too_far_or_the_wrong_length()
     let w = world().await;
     // The patient has another appointment on day +6 at 09:00.
     let other_start = at(6, 9);
-    let mut other = Appointment::new(w.person, other_start, other_start + Duration::minutes(30));
+    let mut other = Appointment::new(
+        w.person,
+        other_start,
+        other_start + SignedDuration::from_mins(30),
+    );
     other.status = AppointmentStatus::Booked;
     AppointmentRepository::create(&w.s.db, &other)
         .await
@@ -138,7 +143,13 @@ async fn options_are_never_clashing_taken_too_soon_too_far_or_the_wrong_length()
     SlotRepository::update_status(&w.s.db, blocked.id, SlotStatus::BlockedOut)
         .await
         .unwrap();
-    let too_soon = slot(&w.s, w.schedule, Utc::now() + Duration::hours(2), 15).await;
+    let too_soon = slot(
+        &w.s,
+        w.schedule,
+        Timestamp::now() + SignedDuration::from_hours(2),
+        15,
+    )
+    .await;
     let too_far = w.add(400, 9).await;
     let long = slot(&w.s, w.schedule, at(9, 10), 45).await;
     let elsewhere_schedule = common::new_schedule(&w.s.db).await.id;

@@ -158,7 +158,7 @@ pub async fn status(State(state): State<AppState>, Query(q): Query<StatusQuery>)
     };
     match state.tolerance.status(q.days.unwrap_or(30)).await {
         Ok(v) => {
-            let (status, meta) = v.page(limit);
+            let (status, meta) = crate::tolerance::page(v, limit);
             ok_json_page(status, meta)
         }
         Err(e) => error_to_response(e),

@@ -48,6 +48,7 @@ fn no_file_gains_a_national_name() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut now = BTreeMap::new();
     count(&root.join("src"), root, &mut now);
+    count(&root.join("domain/src"), root, &mut now);
     let baseline: BTreeMap<String, usize> =
         std::fs::read_to_string(root.join("../governance/national-assumptions-baseline.csv"))
             .unwrap()

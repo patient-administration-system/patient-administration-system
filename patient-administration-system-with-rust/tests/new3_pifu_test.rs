@@ -2,7 +2,7 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
+use jiff::Timestamp;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -13,7 +13,7 @@ fn new<'a>(service: &'a str, days: i64) -> NewEpisode<'a> {
     NewEpisode {
         service_type: service,
         conditions: "Ring us if the pain returns or you cannot walk to the shops.",
-        expires_at: Utc::now() + Duration::days(days),
+        expires_at: Timestamp::now() + patient_administration_system::time::days(days),
         opened_by: "Dr Evans",
         urgent_override_by: None,
     }
@@ -34,7 +34,7 @@ async fn setup() -> (
 async fn a_request_inside_the_window_is_a_booking_task_and_is_handled_once() {
     let (_s, svc, ctx) = setup().await;
     let person = Uuid::new_v4();
-    let now = Utc::now();
+    let now = Timestamp::now();
     let ep = svc
         .open(person, &new("new3-a", 180), now, &ctx)
         .await
@@ -62,13 +62,13 @@ async fn a_request_inside_the_window_is_a_booking_task_and_is_handled_once() {
 async fn expiry_creates_a_review_task_and_never_discharges_by_itself() {
     let (_s, svc, ctx) = setup().await;
     let person = Uuid::new_v4();
-    let now = Utc::now();
+    let now = Timestamp::now();
     let ep = svc
         .open(person, &new("new3-b", 30), now, &ctx)
         .await
         .unwrap();
 
-    let later = now + Duration::days(31);
+    let later = now + patient_administration_system::time::days(31);
     let due = svc.due_reviews(later, 501).await.unwrap();
     assert!(due.iter().any(|e| e.id == ep.id), "the review task exists");
     assert!(
@@ -96,7 +96,7 @@ async fn expiry_creates_a_review_task_and_never_discharges_by_itself() {
     );
     svc.review(
         ep.id,
-        Decision::Extend(later + Duration::days(90)),
+        Decision::Extend(later + patient_administration_system::time::days(90)),
         "Dr Evans",
         later,
         &ctx,
@@ -110,7 +110,7 @@ async fn expiry_creates_a_review_task_and_never_discharges_by_itself() {
             .iter()
             .any(|e| e.id == ep.id)
     );
-    let much_later = later + Duration::days(91);
+    let much_later = later + patient_administration_system::time::days(91);
     svc.review(ep.id, Decision::Discharge, "Dr Evans", much_later, &ctx)
         .await
         .unwrap();
@@ -126,12 +126,12 @@ async fn expiry_creates_a_review_task_and_never_discharges_by_itself() {
 async fn a_request_after_the_window_goes_to_a_person_and_blocks_the_review_until_handled() {
     let (_s, svc, ctx) = setup().await;
     let person = Uuid::new_v4();
-    let now = Utc::now();
+    let now = Timestamp::now();
     let ep = svc
         .open(person, &new("new3-c", 10), now, &ctx)
         .await
         .unwrap();
-    let later = now + Duration::days(11);
+    let later = now + patient_administration_system::time::days(11);
 
     let r = svc.request(ep.id, "phone", later, &ctx).await.unwrap();
     assert_eq!(
@@ -171,7 +171,7 @@ async fn a_request_after_the_window_goes_to_a_person_and_blocks_the_review_until
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn an_urgent_service_needs_a_named_override_and_bad_input_is_refused() {
     let (state, svc, ctx) = setup().await;
-    let now = Utc::now();
+    let now = Timestamp::now();
     state
         .db
         .run(Stmt::text("INSERT INTO follow_up_policies (service_type, approved_by) VALUES ('new3-urgent', 'Dr Approver') \

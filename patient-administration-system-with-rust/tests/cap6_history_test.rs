@@ -76,7 +76,7 @@ async fn a_patients_cancel_shows_who_when_and_why() {
     assert_eq!(reply["context"]["channel"], "sms");
     // Oldest first: booked, then the patient's reply, then the cancel.
     // Compared as instants: as text, "…09.662Z" sorts after "…09.662870Z".
-    let at: Vec<chrono::DateTime<chrono::Utc>> = h
+    let at: Vec<jiff::Timestamp> = h
         .iter()
         .map(|e| e["at"].as_str().unwrap().parse().unwrap())
         .collect();
@@ -186,14 +186,11 @@ async fn a_cancel_with_a_stale_if_match_is_refused_and_changes_nothing() {
             r.status()
         }
     };
-    let stale = (a.updated_at - chrono::Duration::seconds(5)).to_rfc3339();
+    let stale = (a.updated_at - jiff::SignedDuration::from_secs(5)).to_string();
     assert_eq!(
         call(format!("\"{stale}\"")).await,
         StatusCode::PRECONDITION_FAILED
     );
     assert_eq!(call("garbage".into()).await, StatusCode::BAD_REQUEST);
-    assert_eq!(
-        call(format!("\"{}\"", a.updated_at.to_rfc3339())).await,
-        StatusCode::OK
-    );
+    assert_eq!(call(format!("\"{}\"", a.updated_at)).await, StatusCode::OK);
 }

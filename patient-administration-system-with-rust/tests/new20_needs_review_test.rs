@@ -3,7 +3,7 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
+use jiff::Timestamp;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -22,7 +22,7 @@ async fn profile(db: &patient_administration_system::db::sql::Pool, needs: &[&st
 }
 
 async fn is_due(svc: &NeedsReviewService, person: Uuid, months: u32) -> bool {
-    svc.due(Utc::now(), months, 501)
+    svc.due(Timestamp::now(), months, 501)
         .await
         .unwrap()
         .iter()
@@ -44,7 +44,7 @@ async fn needs_are_due_for_review_until_a_named_person_reviews_them_and_again_af
     );
 
     assert!(
-        svc.record_review(with_needs, " ", Utc::now(), &UserContext::system())
+        svc.record_review(with_needs, " ", Timestamp::now(), &UserContext::system())
             .await
             .is_err(),
         "a named person is required"
@@ -57,7 +57,7 @@ async fn needs_are_due_for_review_until_a_named_person_reviews_them_and_again_af
     svc.record_review(
         with_needs,
         "Outpatient nurse",
-        Utc::now(),
+        Timestamp::now(),
         &UserContext::system(),
     )
     .await
@@ -68,7 +68,7 @@ async fn needs_are_due_for_review_until_a_named_person_reviews_them_and_again_af
     svc.record_review(
         with_needs,
         "Outpatient nurse",
-        Utc::now() - Duration::days(400),
+        Timestamp::now() - patient_administration_system::time::days(400),
         &UserContext::system(),
     )
     .await
@@ -103,12 +103,12 @@ async fn a_review_needs_a_profile_and_a_sensible_period() {
         svc.record_review(
             Uuid::new_v4(),
             "Outpatient nurse",
-            Utc::now(),
+            Timestamp::now(),
             &UserContext::system()
         )
         .await
         .is_err()
     );
-    assert!(svc.due(Utc::now(), 0, 10).await.is_err());
-    assert!(svc.due(Utc::now(), 121, 10).await.is_err());
+    assert!(svc.due(Timestamp::now(), 0, 10).await.is_err());
+    assert!(svc.due(Timestamp::now(), 121, 10).await.is_err());
 }

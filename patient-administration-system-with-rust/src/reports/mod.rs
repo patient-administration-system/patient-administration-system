@@ -12,7 +12,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Param, Pool, Stmt};
-use chrono::{DateTime, Duration, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -70,8 +70,8 @@ pub struct Stats {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Report {
-    pub from: DateTime<Utc>,
-    pub to: DateTime<Utc>,
+    pub from: Timestamp,
+    pub to: Timestamp,
     pub group_by: &'static str,
     pub total_appointments: i64,
     pub total_slots: i64,
@@ -154,16 +154,13 @@ pub fn stats(mut v: Vec<f64>) -> Stats {
 }
 
 /// The report's range: `to` defaults to now, `from` to 30 days earlier; at most [`MAX_RANGE_DAYS`].
-fn check_range(
-    from: Option<DateTime<Utc>>,
-    to: Option<DateTime<Utc>>,
-) -> Result<(DateTime<Utc>, DateTime<Utc>)> {
-    let to = to.unwrap_or_else(Utc::now);
-    let from = from.unwrap_or_else(|| to - Duration::days(30));
+fn check_range(from: Option<Timestamp>, to: Option<Timestamp>) -> Result<(Timestamp, Timestamp)> {
+    let to = to.unwrap_or_else(jiff::Timestamp::now);
+    let from = from.unwrap_or_else(|| to - crate::time::days(30));
     if to < from {
         return Err(Error::validation("to must not be before from"));
     }
-    if to - from > Duration::days(MAX_RANGE_DAYS) {
+    if to - from > crate::time::days(MAX_RANGE_DAYS) {
         return Err(Error::validation(format!(
             "the range may be at most {MAX_RANGE_DAYS} days"
         )));
@@ -182,8 +179,8 @@ impl ReportService {
 
     pub async fn clinic_activity(
         &self,
-        from: Option<DateTime<Utc>>,
-        to: Option<DateTime<Utc>>,
+        from: Option<Timestamp>,
+        to: Option<Timestamp>,
         group: GroupBy,
     ) -> Result<Report> {
         let (from, to) = check_range(from, to)?;
@@ -213,11 +210,11 @@ impl ReportService {
     /// One row per day or schedule: appointments by outcome and slot use, with the service of each schedule.
     async fn activity_rows(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: Timestamp,
+        to: Timestamp,
         group: GroupBy,
     ) -> Result<Vec<Row>> {
-        let tz = crate::inbound::messages::timezone().name().to_string();
+        let tz = crate::time::zone_name(&crate::inbound::messages::timezone());
         let (appt_key, slot_key) = match group {
             GroupBy::Day => (
                 "to_char(a.start_datetime AT TIME ZONE $3::text, 'YYYY-MM-DD')",
@@ -316,7 +313,7 @@ impl ReportService {
     }
 
     /// Days from booking to the visit, for appointments in the range that were ever booked.
-    async fn lead_days(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<f64>> {
+    async fn lead_days(&self, from: Timestamp, to: Timestamp) -> Result<Vec<f64>> {
         let leads = self
             .db
             .all(Stmt::new("SELECT (extract(epoch FROM (start_datetime - created_at)) / 86400)::float8 AS d FROM appointments \
@@ -338,7 +335,7 @@ impl ReportService {
         let paths = RttRepository::open_pathways(&self.db).await?;
         let ids: Vec<uuid::Uuid> = paths.iter().map(|p| p.id).collect();
         let events = RttRepository::events_for_pathways(&self.db, &ids).await?;
-        let now = Utc::now();
+        let now = Timestamp::now();
         let mut weeks = Vec::with_capacity(paths.len());
         let mut by_service = Vec::with_capacity(paths.len());
         let mut breaching = 0;

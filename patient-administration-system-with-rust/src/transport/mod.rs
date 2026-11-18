@@ -22,7 +22,7 @@ use crate::db::sql::{Conn, Pool, Stmt};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -41,15 +41,15 @@ pub struct TransportRequest {
     pub reference: Uuid,
     pub pickup_address: String,
     pub destination: String,
-    pub appointment_start: DateTime<Utc>,
-    pub appointment_end: DateTime<Utc>,
+    pub appointment_start: Timestamp,
+    pub appointment_end: Timestamp,
 }
 
 #[derive(Debug, Clone)]
 pub struct TransportConfirmation {
     pub provider_ref: String,
-    pub window_start: DateTime<Utc>,
-    pub window_end: DateTime<Utc>,
+    pub window_start: Timestamp,
+    pub window_end: Timestamp,
 }
 
 #[async_trait]
@@ -67,8 +67,8 @@ impl TransportClient for LoggingTransportClient {
         tracing::info!(target: "pas::transport", reference = %req.reference, "transport would be requested (no provider configured)");
         Ok(TransportConfirmation {
             provider_ref: format!("stub-{}", req.reference),
-            window_start: req.appointment_start - Duration::minutes(90),
-            window_end: req.appointment_start - Duration::minutes(60),
+            window_start: req.appointment_start - SignedDuration::from_mins(90),
+            window_end: req.appointment_start - SignedDuration::from_mins(60),
         })
     }
     async fn cancel(&self, provider_ref: &str) -> Result<()> {
@@ -123,9 +123,9 @@ pub struct Booking {
     #[schema(required = true)]
     pub provider_ref: Option<String>,
     #[schema(required = true)]
-    pub window_start: Option<DateTime<Utc>>,
+    pub window_start: Option<Timestamp>,
     #[schema(required = true)]
-    pub window_end: Option<DateTime<Utc>>,
+    pub window_end: Option<Timestamp>,
     #[schema(required = true)]
     pub last_error: Option<String>,
 }

@@ -2,7 +2,7 @@
 
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::{DateTime, Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
@@ -158,8 +158,8 @@ pub async fn book_from_standby(
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ReleasesQuery {
-    pub from: Option<DateTime<Utc>>,
-    pub to: Option<DateTime<Utc>>,
+    pub from: Option<Timestamp>,
+    pub to: Option<Timestamp>,
     /// `open`, `refilled` or `expired`.
     pub status: Option<String>,
 }
@@ -182,8 +182,9 @@ pub async fn list_releases(
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<ReleasesQuery>,
 ) -> HandlerResult {
-    let to = q.to.unwrap_or_else(|| Utc::now() + Duration::minutes(1));
-    let from = q.from.unwrap_or(to - Duration::days(30));
+    let to =
+        q.to.unwrap_or_else(|| Timestamp::now() + SignedDuration::from_mins(1));
+    let from = q.from.unwrap_or(to - crate::time::days(30));
     let page = match crate::paging::Page::new(&uri, 100) {
         Ok(p) => p,
         Err(e) => return error_to_response(e),

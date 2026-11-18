@@ -333,7 +333,7 @@ These are **non-negotiable**. Every reviewer (human or agent) checks them.
 | 1 | **Identity and workforce are HTTP-delegated** to `person-service` and `worker-service`. The PAS schema holds no `patients` / `practitioners` / `practitioner_roles` / `departments` tables; PAS-owned rows reference identity via `person_id: Uuid` and `worker_id: Uuid` columns (no DB-level FK — the row lives in another service's database). | Single source of truth per concern; avoids dual identity stores. |
 | 2 | **Hard runtime dependency** on both upstream services. PAS handlers that write a `person_id` or `worker_id` resolve the id against the upstream before persisting; unreachable upstream → `503 + UPSTREAM_UNAVAILABLE` envelope. No local read-through cache in v0.44.0 (see §4.0.1 decision callout). | Honest about coupling. Cache can be added in Phase 7 if latency or availability demand it. |
 | 3 | Money is `rust_decimal::Decimal` + `Iso4217`. **Never** `f64`. | Financial precision; multi-currency safety. |
-| 4 | Time at the domain layer is `chrono::DateTime<Utc>`. Naive local times never enter the domain. `timestamptz` at the DB, read and bound as `DateTime<Utc>` by sqlx. | Audit determinism; timezone-safe arithmetic. |
+| 4 | Time at the domain layer is `jiff::Timestamp` (UTC). Naive local times never enter the domain. `timestamptz` at the DB, read and bound as `DateTime<Utc>` by sqlx. | Audit determinism; timezone-safe arithmetic. |
 | 5 | Soft-delete (`deleted_at TIMESTAMPTZ`) **only on** `encounters` and `appointments`. Other tables are append-only or operational. Patient/practitioner soft-delete is upstream's concern. | Audit retention vs. operational simplicity. |
 | 6 | State changes touching multiple rows run in one `DatabaseTransaction` and write `audit_log` + `outbox_events` rows in the same transaction. Never split. **Cross-service writes (PAS + upstream) are *not* transactional** — see §4.8.2 for FHIR transaction Bundle implications. | Outbox invariant for PAS-owned writes; cross-service atomicity is given up by Option C. |
 | 7 | `SELECT … FOR UPDATE` on contention points (bed allocation, slot booking). The partial unique index `bed_assignments (bed_id) WHERE released_at IS NULL` enforces "at most one active assignment per bed" at the database level. | Concurrent-booking safety. |
@@ -664,8 +664,8 @@ The migration is **forward-only** (no `down` implementation). See §13 Layer 11 
 
 ### 9.3 Time handling
 
-- Domain layer: `chrono::DateTime<Utc>` throughout.
-- DB layer: `timestamptz` columns, read and bound by sqlx as `chrono::DateTime<Utc>`.
+- Domain layer: `jiff::Timestamp` throughout; `jiff::civil::Date` for dates.
+- DB layer: `timestamptz` columns, read and bound through jiff-sqlx in `db::sql` and `db::row` (JIFF-1).
 - Effective time vs system time: every entity has `created_at` / `updated_at` for system bookkeeping. Entities with their own event time additionally carry domain-time columns (`Encounter.period_start/end`, `Admission.admitted_at`, `Transfer.transferred_at`, `Discharge.discharged_at`, `Slot.start_datetime/end_datetime`, `Appointment.start_datetime/end_datetime`, `RTTClockEvent.event_at`). A corrective backdated entry can move `event_at` without altering `created_at`.
 
 ---
@@ -680,14 +680,14 @@ Mirrors `Cargo.toml`. The v0.3.1 audit removed 15 unused direct deps; v0.3.4 rem
 | Web                  | `axum` 0.7 (`macros`)                                                  |
 | HTTP middleware      | `tower` (`util`), `tower-http` (`cors`, `trace`, `compression-full`)   |
 | Templates            | `tera` 1.20                                                            |
-| Database access      | `sqlx` (PostgreSQL, Tokio, rustls, chrono, uuid, json), literal SQL in the repositories; no ORM |
+| Database access      | `sqlx` (PostgreSQL, Tokio, rustls, uuid, json; times through jiff-sqlx), literal SQL in the repositories; no ORM |
 | Migrations           | `sqlx::migrate`, SQL files in `migrations/sql`                         |
 | Upstream HTTP client | `reqwest` 0.12 (`json`, `rustls-tls`) — promoted from transitive to direct in v0.44.0 for the two `PersonClient` / `WorkerClient` impls; was already a direct dep at v0.14 for `WebhookEventPublisher`. |
 | OpenAPI              | `utoipa` 5.4 + `utoipa-swagger-ui` 8.1                                 |
 | Serialization        | `serde`, `serde_json`, `quick-xml` 0.36 (`serialize`), `csv` 1.3       |
 | Logging              | `tracing` 0.1, `tracing-subscriber` 0.3 (`env-filter`, `json`)         |
 | Tracing exporter (v0.7) | `opentelemetry` 0.27, `opentelemetry_sdk` 0.27 (`rt-tokio`), `opentelemetry-otlp` 0.27 (`http-proto`, `reqwest-client`), `tracing-opentelemetry` 0.28 |
-| IDs / time           | `uuid` 1.19 (`v4`, `serde`), `chrono` 0.4 (`serde`)                    |
+| IDs / time           | `uuid` 1.19 (`v4`, `serde`), `jiff` 1 (`serde`, bundled time zones)                    |
 | Env                  | `dotenvy` 0.15                                                         |
 | Async traits         | `async-trait` 0.1                                                      |
 | Errors               | `thiserror` 2.0                                                        |

@@ -52,7 +52,7 @@ pub async fn service_is_virtual_ok<C: Conn>(conn: &C, slot_id: Option<Uuid>) -> 
 pub struct ApprovedService {
     pub service_type: String,
     pub approved_by: String,
-    pub approved_at: chrono::DateTime<chrono::Utc>,
+    pub approved_at: jiff::Timestamp,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -206,7 +206,7 @@ impl VirtualVisitService {
                             "that appointment has no conversion waiting for review",
                         ));
                     }
-                    if a.start_datetime <= chrono::Utc::now() {
+                    if a.start_datetime <= jiff::Timestamp::now() {
                         return Err(Error::conflict("that appointment has already started"));
                     }
                     let was = a.modality;
@@ -217,7 +217,7 @@ impl VirtualVisitService {
                             a.modality = Modality::InPerson;
                         }
                     }
-                    a.updated_at = chrono::Utc::now();
+                    a.updated_at = jiff::Timestamp::now();
                     let a = AppointmentRepository::update(txn, &a).await?;
                     let verb = if decision == Review::Confirm { "confirmed" } else { "vetoed" };
                     AuditLogRepository::log(
@@ -271,12 +271,12 @@ impl VirtualVisitService {
                         a.status,
                         crate::models::appointment::AppointmentStatus::Booked
                             | crate::models::appointment::AppointmentStatus::Arrived
-                    ) || a.end_datetime <= chrono::Utc::now()
+                    ) || a.end_datetime <= jiff::Timestamp::now()
                     {
                         return Err(Error::conflict("that appointment is not one that is under way or still to come"));
                     }
                     a.modality = Modality::Phone;
-                    a.updated_at = chrono::Utc::now();
+                    a.updated_at = jiff::Timestamp::now();
                     let a = AppointmentRepository::update(txn, &a).await?;
                     txn.run(Stmt::new("INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) \
                          VALUES ($1,$2,$3,'video_failed', now()) ON CONFLICT (appointment_id, reason) DO NOTHING",

@@ -66,7 +66,7 @@ impl ScheduleRepository {
         am.set("owner_id", owner_id);
         am.set("service_type", s.service_type.clone());
         am.set("active", s.active);
-        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        am.set("updated_at", jiff::Timestamp::now());
         am.update(conn).await?;
         Ok(s.clone())
     }
@@ -121,8 +121,8 @@ fn to_row(s: &Schedule) -> schedule::Model {
         owner_id,
         service_type: s.service_type.clone(),
         active: s.active,
-        created_at: s.created_at.fixed_offset(),
-        updated_at: s.updated_at.fixed_offset(),
+        created_at: s.created_at,
+        updated_at: s.updated_at,
     }
 }
 
@@ -132,8 +132,8 @@ fn from_model(m: schedule::Model) -> Result<Schedule> {
         owner: owner_from_kind_and_id(&m.owner_kind, m.owner_id)?,
         service_type: m.service_type,
         active: m.active,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 

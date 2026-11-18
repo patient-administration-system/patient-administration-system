@@ -8,7 +8,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::Timestamp;
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -121,11 +121,11 @@ async fn a_lapsed_hold_gives_the_bed_back_and_one_with_no_time_never_does() {
     assert_eq!(bed_status(&s, held).await, BedStatus::Reserved);
 
     // Before the time: nothing lapses.
-    s.adt.release_expired_holds(Utc::now()).await.unwrap();
+    s.adt.release_expired_holds(Timestamp::now()).await.unwrap();
     assert_eq!(bed_status(&s, held).await, BedStatus::Reserved);
 
     // After it: this bed lapses; the one with no hold time does not, however late.
-    let later = Utc::now() + Duration::days(400);
+    let later = Timestamp::now() + patient_administration_system::time::days(400);
     // Other tests on this database may have holds of their own, so count this bed's, not the sweep's.
     assert!(s.adt.release_expired_holds(later).await.unwrap() >= 1);
     assert_eq!(bed_status(&s, held).await, BedStatus::Available);
@@ -190,7 +190,7 @@ async fn a_cancelled_pre_admission_closes_its_hold() {
     assert_eq!(bed_status(&s, b).await, BedStatus::Available);
     assert_eq!(events(&app, b).await, ["reserved", "cancelled"]);
     s.adt
-        .release_expired_holds(Utc::now() + Duration::days(1))
+        .release_expired_holds(Timestamp::now() + patient_administration_system::time::days(1))
         .await
         .unwrap();
     assert_eq!(

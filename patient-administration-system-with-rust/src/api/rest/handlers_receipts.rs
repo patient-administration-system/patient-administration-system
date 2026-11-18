@@ -2,7 +2,7 @@
 
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
@@ -24,7 +24,7 @@ pub struct ReceiptBody {
     #[serde(default)]
     pub detail: Option<String>,
     #[serde(default)]
-    pub occurred_at: Option<DateTime<Utc>>,
+    pub occurred_at: Option<Timestamp>,
 }
 
 /// `POST /api/write-back/receipts`: a carrier reports what happened to a message. Carrier-authenticated like

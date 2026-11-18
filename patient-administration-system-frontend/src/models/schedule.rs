@@ -69,8 +69,16 @@ pub async fn list_free_slots(
                 m.start_datetime.to_jiff().strftime("%H:%M"),
                 m.end_datetime.to_jiff().strftime("%H:%M"),
             ),
-            start_iso: m.start_datetime.to_jiff().strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
-            end_iso: m.end_datetime.to_jiff().strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
+            start_iso: m
+                .start_datetime
+                .to_jiff()
+                .strftime("%Y-%m-%dT%H:%M:%S%:z")
+                .to_string(),
+            end_iso: m
+                .end_datetime
+                .to_jiff()
+                .strftime("%Y-%m-%dT%H:%M:%S%:z")
+                .to_string(),
         })
         .collect())
 }

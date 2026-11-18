@@ -7,7 +7,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::communication::reminders::ReminderService;
@@ -102,7 +102,7 @@ async fn a_pair_is_created_together_and_a_one_language_template_is_refused() {
 
     // The same through the single-template endpoint.
     let single = serde_json::json!({ "name": n, "subject": "Hi", "body_tera": "Hi", "channels": ["sms"], "required_variables": [], "active": true, "locale": "en-001",
-        "id": Uuid::nil(), "created_at": Utc::now(), "updated_at": Utc::now() });
+        "id": Uuid::nil(), "created_at": Timestamp::now(), "updated_at": Timestamp::now() });
     let (st, _) = call(&app, "POST", "/api/letter-templates", Some(single)).await;
     assert_eq!(st, StatusCode::BAD_REQUEST);
     assert!(
@@ -283,8 +283,8 @@ async fn world(language: Option<&str>) -> (AppState, Uuid, Log) {
             .await
             .unwrap();
     }
-    let start = Utc::now() + Duration::hours(2);
-    let mut a = Appointment::new(person, start, start + Duration::minutes(30));
+    let start = Timestamp::now() + SignedDuration::from_hours(2);
+    let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     AppointmentRepository::create(&s.db, &a).await.unwrap();
     (s, person, log)
@@ -292,7 +292,7 @@ async fn world(language: Option<&str>) -> (AppState, Uuid, Log) {
 
 async fn scan(s: &AppState) {
     ReminderService::new(s.db.clone(), s.communication.clone())
-        .run_once(Utc::now(), Duration::hours(24))
+        .run_once(Timestamp::now(), SignedDuration::from_hours(24))
         .await
         .unwrap();
 }

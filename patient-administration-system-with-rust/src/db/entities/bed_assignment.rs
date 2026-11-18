@@ -12,10 +12,10 @@ pub struct Model {
     pub id: Uuid,
     pub encounter_id: Uuid,
     pub bed_id: Uuid,
-    pub assigned_at: chrono::DateTime<chrono::FixedOffset>,
-    pub released_at: Option<chrono::DateTime<chrono::FixedOffset>>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
-    pub updated_at: chrono::DateTime<chrono::FixedOffset>,
+    pub assigned_at: jiff::Timestamp,
+    pub released_at: Option<jiff::Timestamp>,
+    pub created_at: jiff::Timestamp,
+    pub updated_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

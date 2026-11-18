@@ -27,7 +27,7 @@ impl AdtService {
         &self,
         admission_id: Uuid,
         new_bed_id: Uuid,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Transfer> {
         let ctx_clone = ctx.clone();
@@ -250,7 +250,7 @@ impl AdtService {
         &self,
         admission_id: Uuid,
         source: Option<&str>,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Encounter> {
         let ctx_clone = ctx.clone();
@@ -354,7 +354,7 @@ impl AdtService {
         &self,
         admission_id: Uuid,
         source: Option<&str>,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<Admission> {
         let ctx_clone = ctx.clone();

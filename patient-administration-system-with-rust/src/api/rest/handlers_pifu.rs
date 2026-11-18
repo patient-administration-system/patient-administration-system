@@ -2,7 +2,7 @@
 
 use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -17,7 +17,7 @@ pub struct OpenBody {
     /// The conditions, in words the patient can follow (10 to 1000 characters).
     pub conditions: String,
     /// When the window ends (at most two years ahead).
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
     pub opened_by: String,
     /// Needed when the service is on the urgent follow-up list: the clinician who says PIFU is safe for it.
     pub urgent_override_by: Option<String>,
@@ -235,7 +235,7 @@ pub struct ReviewBody {
     /// `discharge` or `extend`.
     pub decision: String,
     /// For `extend`: the new end of the window.
-    pub expires_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<Timestamp>,
     pub reviewed_by: String,
 }
 

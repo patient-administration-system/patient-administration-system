@@ -178,7 +178,7 @@ pub fn to_audit_event(row: &audit_log::Model, server_address: Option<&str>) -> V
         "id": row.id,
         "type": coding(AUDIT_TYPE, "rest"),
         "action": kind.action(),
-        "recorded": row.at.with_timezone(&chrono::Utc),
+        "recorded": row.at,
         "outcome": "0",
         "agent": agents,
         "source": { "observer": { "type": "Device", "identifier": { "value": SYSTEM_NAME } } },
@@ -307,7 +307,7 @@ pub fn violations(e: &Value) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
+    use jiff::Timestamp;
     use uuid::Uuid;
 
     fn row(
@@ -328,7 +328,7 @@ mod tests {
             user_agent: Some("pas-ui/1".into()),
             reason_code: None,
             context: None,
-            at: Utc::now().fixed_offset(),
+            at: Timestamp::now(),
         }
     }
 

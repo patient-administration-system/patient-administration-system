@@ -85,7 +85,7 @@ impl WaitlistService {
     pub async fn remove_if_unchanged(
         &self,
         entry_id: Uuid,
-        expected: Option<chrono::DateTime<chrono::Utc>>,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<WaitlistEntry> {
         let ctx_clone = ctx.clone();
@@ -96,7 +96,7 @@ impl WaitlistService {
                     let mut e =
                         WaitlistRepository::lock_entry_if_current(txn, entry_id, expected).await?;
                     e.status = WaitlistStatus::Removed;
-                    e.updated_at = chrono::Utc::now();
+                    e.updated_at = jiff::Timestamp::now();
                     let e = WaitlistRepository::update_entry(txn, &e).await?;
                     AuditLogRepository::log(
                         txn,
@@ -260,9 +260,9 @@ impl RttService {
                     let mut am = m.patch();
                     am.set("status", status_str.to_string());
                     if matches!(new_status, RTTStatus::Stopped) {
-                        am.set("stopped_at", Some(chrono::Utc::now().fixed_offset()));
+                        am.set("stopped_at", Some(jiff::Timestamp::now()));
                     }
-                    am.set("updated_at", chrono::Utc::now().fixed_offset());
+                    am.set("updated_at", jiff::Timestamp::now());
                     am.update(txn).await?;
                     AuditLogRepository::log(
                         txn,
@@ -296,7 +296,7 @@ impl RttService {
 
     pub async fn weeks_waiting(&self, pathway_id: Uuid) -> Result<u32> {
         let events = RttRepository::list_events_for_pathway(&self.db, pathway_id).await?;
-        Ok(compute_active_weeks(&events, chrono::Utc::now()))
+        Ok(compute_active_weeks(&events, jiff::Timestamp::now()))
     }
 
     pub async fn is_breaching(&self, pathway_id: Uuid) -> Result<bool> {
@@ -304,7 +304,7 @@ impl RttService {
             .await?
             .ok_or_else(|| Error::not_found(format!("rtt_pathway {pathway_id}")))?;
         let events = RttRepository::list_events_for_pathway(&self.db, pathway_id).await?;
-        Ok(pathway.is_breaching(&events, chrono::Utc::now()))
+        Ok(pathway.is_breaching(&events, jiff::Timestamp::now()))
     }
 }
 
@@ -314,6 +314,6 @@ mod tests {
 
     #[test]
     fn test_compute_weeks_empty() {
-        assert_eq!(compute_active_weeks(&[], chrono::Utc::now()), 0);
+        assert_eq!(compute_active_weeks(&[], jiff::Timestamp::now()), 0);
     }
 }

@@ -9,6 +9,7 @@ use patient_administration_system_frontend::app::App;
 
 #[tokio::main]
 async fn main() -> axa::Result<()> {
+    patient_administration_system_frontend::services::ensure_tls_provider();
     let cli = axa::cli::parse(
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),

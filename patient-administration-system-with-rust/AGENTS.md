@@ -17,7 +17,7 @@ Read in this order before touching code:
 
 1. [README.md](README.md) — public surface: features, quick start, full endpoint table, configuration, status.
 2. [AGENTS/architecture.md](AGENTS/architecture.md) — layered design, aggregates, transactional outbox, state machines, time handling, soft-delete.
-3. [AGENTS/models.md](AGENTS/models.md) — every type under `src/models/` with field lists and method signatures.
+3. [AGENTS/models.md](AGENTS/models.md) — every type under `domain/src/models/` with field lists and method signatures.
 4. [AGENTS/restful.md](AGENTS/restful.md) — response envelope, error mapping, auth/CORS, headline request shapes.
 5. [AGENTS/interchange.md](AGENTS/interchange.md) — v0.2/v0.3 bulk JSON/XML/TSV/CSV import-export, FHIR R5 read/write Bundles, HL7 v2 ADT over HTTP + MLLP.
 6. [AGENTS/testing.md](AGENTS/testing.md) — unit-test layout, integration tests gated on `DATABASE_URL`, benchmark suites.
@@ -28,7 +28,7 @@ Ground truth for any claim about behavior:
 - `src/api/fhir/routes.rs` — the FHIR R5 route table.
 - `src/api/rest/handlers.rs` — handler shapes and validation.
 - `src/lib.rs` — the module tree.
-- `src/models/*.rs` — every domain type.
+- `domain/src/models/*.rs` — every domain type.
 - `migrations/sql/20260520000001_init.sql` — the database schema.
 - `spec.md` — comprehensive specification-driven-development document (scope, invariants, architecture, build sequence, acceptance criteria). Cross-check when in doubt about *what the system is* or *how it was assembled*.
 
@@ -38,7 +38,7 @@ Ground truth for any claim about behavior:
 |----------|-------------|
 | [AGENTS/index.md](AGENTS/index.md) | Index of every AGENTS file |
 | [AGENTS/architecture.md](AGENTS/architecture.md) | Layered architecture, transactional outbox, four state machines, time handling, soft-delete |
-| [AGENTS/models.md](AGENTS/models.md) | Domain model reference, one section per `src/models/*.rs` file |
+| [AGENTS/models.md](AGENTS/models.md) | Domain model reference, one section per `domain/src/models/*.rs` file |
 | [AGENTS/restful.md](AGENTS/restful.md) | REST envelope, error-to-status mapping, auth/CORS contract, headline request shapes |
 | [AGENTS/interchange.md](AGENTS/interchange.md) | v0.2/v0.3 interchange surface: bulk JSON/XML/TSV/CSV, FHIR Bundles, HL7 v2 ADT (HTTP + MLLP + outbound) |
 | [AGENTS/matching.md](AGENTS/matching.md) | Scheduling overlap detection, slot/bed booking concurrency, RTT clock arithmetic |
@@ -63,7 +63,7 @@ Ground truth for any claim about behavior:
 
 - The PAS is administrative, not clinical. ADT, scheduling, waitlists, resources, communications, billing. No diagnoses, prescriptions, vitals. **Identity and workforce are also out of scope** as of the v0.44.0 target — they live in `person-service` and `worker-service` respectively, reached via HTTP.
 - Money is `rust_decimal::Decimal` + `Iso4217`. Never `f64`.
-- Time at the domain layer is `chrono::DateTime<Utc>`. Naive local times are never accepted.
+- Time is jiff (JIFF-1): instants are `jiff::Timestamp` (UTC), calendar dates `jiff::civil::Date`; `domain::time` (`crate::time`) has the shared conversions (`days`, `utc_date`, `day_count`, `utc` for tests). Naive local times are never accepted.
 - State changes touching multiple rows run inside one `DatabaseTransaction` and write `audit_log` + `outbox_events` rows in the same transaction. **Cross-service writes (PAS + upstream) are not transactional** — Option C accepts this.
 - Soft-delete (`deleted_at`) only on `encounters` and `appointments` (v0.44.0 target — was also on `patients` at v0.43.0). Other PAS-owned tables are append-only or operational. Patient/practitioner soft-delete is the upstream's concern.
 - **Never depend on `person-service` or `worker-service` as Cargo deps.** Integration is HTTP-only via `src/upstream/`. Adding the upstream crates as path / git deps would pull their full transitive trees in for no benefit.
@@ -74,11 +74,12 @@ Ground truth for any claim about behavior:
 
 ## Workspace orientation
 
-This crate is one of three workspace members rooted at `..`:
+This crate is one of five workspace members rooted at `..` (with `load/`, the load generator):
 
 | Crate / Service                                | Role                                                              | Port  |
 |------------------------------------------------|-------------------------------------------------------------------|-------|
 | `patient-administration-system` (this one)     | Workflow service. REST + FHIR R5 (the `fhir` crate) + HL7 v2 (the `er7` crate; HTTP + MLLP). Proxies identity + workforce to upstream services. | 8080 |
+| `patient-administration-system-domain`         | Business rules with no web or database (`domain/`): models and state lists, validation, identifiers, the clock, the settings registry, and pure rules. Re-exported here at the old paths (`crate::models::...`). `tests/qual52_domain_boundary_test.rs` keeps web, HTTP, database and async crates out. | n/a |
 | `patient-administration-system-migrations`     | sqlx migration crate, shared by both PAS apps; CLI is `pas-migrate`. | n/a |
 | `patient-administration-system-frontend`       | Axum and axa read-mostly UI. Tera + HTMX + Lily Design System.    | 1241  |
 | `person-service` *(HTTP dep, external)*   | Person identity, demographics, search, match, merge, FHIR R5 Person. | 5180 |

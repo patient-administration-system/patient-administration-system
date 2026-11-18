@@ -13,6 +13,8 @@ keywords = ["healthcare", "pas", "fhir", "hl7", "admin"]
 categories = ["science", "database"]
 
 [dependencies]
+# Domain logic and business rules (models, validation, identifiers, the clock, the settings registry).
+patient-administration-system-domain = { path = "domain", version = "0.49.0" }
 er7 = "0.2.2"
 fhir = "4.2.4"
 # Async Runtime
@@ -30,7 +32,7 @@ csv = "1.4"
 
 # Database (PostgreSQL, through src/db/sql.rs)
 axa-postgres-sqlx = "0.2"
-sqlx = { version = "0.9", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-ring-webpki", "migrate", "chrono", "uuid", "json"] }
+sqlx = { version = "0.9", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-ring-webpki", "migrate", "uuid", "json"] }
 
 # Templating
 tera = "1.20"
@@ -38,7 +40,9 @@ tera = "1.20"
 # Search Engine
 
 # OpenAPI Documentation
-utoipa = { version = "6.0", features = ["chrono", "uuid"] }
+# `jiff_0_2` makes the derive treat fields named `Timestamp`, `Date` and `Zoned` as RFC 3339 strings; it
+# matches by name and adds no jiff crate, so it serves jiff 1 too.
+utoipa = { version = "6.0", features = ["jiff_0_2", "uuid"] }
 # Optional so the fuzz crate can build the library without it: its build script downloads Swagger UI
 # from GitHub, and a failed download fails the build. The server binary requires it.
 utoipa-swagger-ui = { version = "10.0", features = ["axum"], optional = true }
@@ -65,7 +69,7 @@ base64 = "0.23"
 # Utilities
 axa-problem = "0.2"
 # Json, Path and Query that refuse a bad request with a problem quoting nothing sent (`axa::extract`).
-axa = { version = "0.17", default-features = false }
+axa = { version = "0.20", default-features = false }
 # Requests per client, and the lockout after repeated 401s (`api::rest::rate_limit`).
 axa-request-rate-limit = "0.3"
 # Which environment this is, so that `pas-seed` refuses outside development and test.
@@ -73,8 +77,10 @@ axa-environment = "0.2"
 # Signed cursors to the next page of a list (`paging`).
 axa-cursor-pagination = "0.1"
 uuid = { version = "1.29", features = ["v4", "v5", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
-chrono-tz = "0.10"
+# Time (JIFF-1): instants are `jiff::Timestamp`, dates `jiff::civil::Date`; the time zone database is
+# bundled so a minimal container image needs none. `jiff-sqlx` binds and decodes them (through `db::sql`).
+jiff = { version = "1", features = ["serde", "tzdb-bundle-always"] }
+jiff-sqlx = { version = "1", features = ["postgres", "serde"] }
 thiserror = "2.0"
 dotenvy = "0.15"
 async-trait = "0.1"
@@ -163,6 +169,10 @@ harness = false
 
 [[bench]]
 name = "rules_bench"
+harness = false
+
+[[bench]]
+name = "hub_bench"
 harness = false
 
 [[bench]]

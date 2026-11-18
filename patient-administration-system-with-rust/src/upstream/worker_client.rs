@@ -88,6 +88,7 @@ pub struct HttpWorkerClient {
 
 impl HttpWorkerClient {
     pub fn new(base_url: String, timeout: Duration, bearer: Option<String>) -> Result<Self> {
+        crate::tls::ensure_provider();
         let http = reqwest::Client::builder()
             .timeout(timeout)
             .build()

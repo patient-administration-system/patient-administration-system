@@ -10,7 +10,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::{Timestamp, civil::Date};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -114,13 +114,13 @@ pub struct Adjustment {
     #[schema(required = true)]
     pub note: Option<String>,
     #[schema(required = true)]
-    pub review_by: Option<NaiveDate>,
+    pub review_by: Option<Date>,
     pub recorded_by: String,
-    pub recorded_at: DateTime<Utc>,
+    pub recorded_at: Timestamp,
     #[schema(required = true)]
     pub ended_by: Option<String>,
     #[schema(required = true)]
-    pub ended_at: Option<DateTime<Utc>>,
+    pub ended_at: Option<Timestamp>,
     /// The same adjustment as a FHIR `Flag`.
     #[schema(value_type = Object)]
     pub fhir: Value,
@@ -129,9 +129,9 @@ pub struct Adjustment {
 /// An adjustment as a FHIR R5 `Flag`: active until ended, the code and category as codings, the note as the
 /// code's text, and the period from when it was recorded.
 pub fn to_flag(a: &Adjustment) -> Value {
-    let mut period = json!({ "start": a.recorded_at.to_rfc3339() });
+    let mut period = json!({ "start": a.recorded_at.to_string() });
     if let Some(end) = a.ended_at {
-        period["end"] = json!(end.to_rfc3339());
+        period["end"] = json!(end.to_string());
     }
     let mut code =
         json!({ "coding": [{ "system": CODE_SYSTEM, "code": a.code, "display": a.display }] });
@@ -178,7 +178,7 @@ fn from_row(r: &Row) -> Result<Adjustment> {
 pub struct NewAdjustment<'a> {
     pub code: &'a str,
     pub note: Option<&'a str>,
-    pub review_by: Option<NaiveDate>,
+    pub review_by: Option<Date>,
     pub recorded_by: &'a str,
 }
 
@@ -197,7 +197,7 @@ impl AdjustmentService {
         &self,
         person_id: Uuid,
         new: &NewAdjustment<'_>,
-        at: DateTime<Utc>,
+        at: Timestamp,
         ctx: &UserContext,
     ) -> Result<Adjustment> {
         let NewAdjustment {
@@ -225,7 +225,7 @@ impl AdjustmentService {
             ));
         }
         if let Some(d) = review_by
-            && d < at.date_naive()
+            && d < at.to_zoned_datetime(jiff::tz::TimeZone::UTC).date()
         {
             return Err(Error::validation("review_by may not be in the past"));
         }
@@ -274,7 +274,7 @@ impl AdjustmentService {
         &self,
         id: Uuid,
         ended_by: &str,
-        at: DateTime<Utc>,
+        at: Timestamp,
         ctx: &UserContext,
     ) -> Result<()> {
         let by = named_person(
@@ -386,7 +386,7 @@ mod tests {
 
     #[test]
     fn a_flag_is_active_until_ended_and_carries_the_code_and_subject() {
-        let now = Utc::now();
+        let now = Timestamp::now();
         let mut a = Adjustment {
             id: Uuid::new_v4(),
             person_id: Uuid::new_v4(),

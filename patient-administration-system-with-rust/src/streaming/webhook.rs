@@ -81,6 +81,7 @@ impl WebhookEventPublisher {
         if url.is_empty() {
             return Err(Error::Streaming("webhook URL must be non-empty".into()));
         }
+        crate::tls::ensure_provider();
         let client = reqwest::Client::builder()
             .timeout(timeout)
             .build()

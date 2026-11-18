@@ -11,7 +11,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Row, Stmt, Transact};
-use chrono::Duration;
+use jiff::SignedDuration;
 
 use super::*;
 
@@ -24,25 +24,25 @@ pub struct Proposal {
     pub id: Uuid,
     pub slot_id: Uuid,
     pub person_id: Uuid,
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
+    pub start: Timestamp,
+    pub end: Timestamp,
     /// `proposed`, `held` or `booked`.
     pub status: String,
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
     pub appointment_id: Option<Uuid>,
     /// The owner of the slot's schedule: `practitioner`, `room`, `bed` or `equipment`.
     pub owner_kind: String,
     pub owner_id: Uuid,
     /// The window the `$find` asked for; `None` for a proposal made before it was kept.
-    pub requested: Option<(DateTime<Utc>, DateTime<Utc>)>,
+    pub requested: Option<(Timestamp, Timestamp)>,
 }
 
 /// What `$find` asks for.
 #[derive(Debug, Clone)]
 pub struct FindQuery {
     pub patient: Uuid,
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
+    pub start: Timestamp,
+    pub end: Timestamp,
     pub practitioner: Option<Uuid>,
     /// A room or bed, as `Location/<id>`.
     pub location: Option<Uuid>,
@@ -66,8 +66,8 @@ fn proposal_of(r: &Row) -> Result<Proposal> {
         owner_kind: r.col("owner_kind")?,
         owner_id: r.col("owner_id")?,
         requested: match (
-            r.col::<Option<DateTime<Utc>>>("requested_start")?,
-            r.col::<Option<DateTime<Utc>>>("requested_end")?,
+            r.col::<Option<Timestamp>>("requested_start")?,
+            r.col::<Option<Timestamp>>("requested_end")?,
         ) {
             (Some(a), Some(b)) => Some((a, b)),
             _ => None,
@@ -86,13 +86,13 @@ impl SchedulingService {
     pub async fn find_proposals(
         &self,
         q: &FindQuery,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<Vec<Proposal>> {
         if q.end <= q.start {
             return Err(Error::validation("end must be after start"));
         }
-        if q.end - q.start > Duration::days(90) {
+        if q.end - q.start > crate::time::days(90) {
             return Err(Error::validation("the period can be at most 90 days"));
         }
         let from = q.start.max(now);
@@ -130,7 +130,7 @@ impl SchedulingService {
                     id.into(),
                     slot_id.into(),
                     q.patient.into(),
-                    (now + Duration::minutes(PROPOSAL_MINUTES)).into(),
+                    (now + SignedDuration::from_mins(PROPOSAL_MINUTES)).into(),
                     q.start.into(),
                     q.end.into(),
                 ],
@@ -177,8 +177,8 @@ impl SchedulingService {
     pub async fn hold_proposal(
         &self,
         id: Uuid,
-        now: DateTime<Utc>,
-        ttl: Duration,
+        now: Timestamp,
+        ttl: SignedDuration,
         ctx: &UserContext,
     ) -> Result<Proposal> {
         let ctx = ctx.clone();
@@ -196,7 +196,7 @@ impl SchedulingService {
                     let slot_id: Uuid = p.col("slot_id")?;
                     let person_id: Uuid = p.col("person_id")?;
                     let status: String = p.col("status")?;
-                    let expires_at: DateTime<Utc> = p.col("expires_at")?;
+                    let expires_at: Timestamp = p.col("expires_at")?;
                     match status.as_str() {
                         "booked" => return Err(gone()),
                         "held" if expires_at > now => return Ok(()),
@@ -263,7 +263,7 @@ impl SchedulingService {
     pub async fn book_proposal(
         &self,
         id: Uuid,
-        now: DateTime<Utc>,
+        now: Timestamp,
         ctx: &UserContext,
     ) -> Result<(Proposal, Appointment)> {
         let ctx = ctx.clone();
@@ -281,7 +281,7 @@ impl SchedulingService {
                     let slot_id: Uuid = p.col("slot_id")?;
                     let person_id: Uuid = p.col("person_id")?;
                     let status: String = p.col("status")?;
-                    let expires_at: DateTime<Utc> = p.col("expires_at")?;
+                    let expires_at: Timestamp = p.col("expires_at")?;
                     match status.as_str() {
                         "booked" => return Err(Error::conflict("that appointment is already booked")),
                         "proposed" if expires_at <= now => return Err(gone()),

@@ -30,5 +30,7 @@ All non-English catalogues in `patient-administration-system-ui-with-svelte/src/
 
 - **Privacy page (UI-4, 2026-11-16).** `privacy.*` and `app.privacy`, in the UI and as a page on the public website in five languages. It names the cookies (`theme`, `locale`) and storage keys as code, untranslated. A reviewer should check that each translation says no more and no less than the English about what is kept and for how long. First drafts.
 
+- **Work queue (TSC-1, 2026-11-18).** `work.*` and `nav.work`: first drafts, by the AI, of the staff work queue page and its reminders. "Queue" is rendered as a list in German ("Arbeitsliste", "Liste") and Welsh uses "ciw"; check both read naturally to staff. The five kinds of work repeat terms already in the catalogues (call, follow-up, waiting-list validation, communication needs, tolerance), so they should match the reviewer's choices there.
+
 ## How to record a review
 Fill in the table above, commit, and keep the reviewer's name out of the repository if they prefer (initials and a date are enough).

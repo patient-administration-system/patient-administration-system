@@ -5201,6 +5201,131 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/work-items": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** `GET /api/work-items`: open and claimed work, most urgent first, then soonest due, then oldest. */
+    get: operations["get_api_work_items"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/work-items/reminders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/work-items/reminders`: the signed-in person's items past due, and those due by the end of the
+     *     current working day. The reminder before an item is due is shown where the person works; nothing is sent.
+     */
+    get: operations["get_api_work_items_reminders"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/work-items/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** `GET /api/work-items/{id}`: one work item. */
+    get: operations["get_api_work_items__id"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/work-items/{id}/assign": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** `POST /api/work-items/{id}/assign`: give the item to a named person. */
+    post: operations["post_api_work_items__id__assign"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/work-items/{id}/claim": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** `POST /api/work-items/{id}/claim`: the signed-in person takes the item. `409` if someone else has it. */
+    post: operations["post_api_work_items__id__claim"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/work-items/{id}/release": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** `POST /api/work-items/{id}/release`: the person who has the item gives it back to its queue. */
+    post: operations["post_api_work_items__id__release"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/work-queues/{queue}/next": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * `POST /api/work-queues/{queue}/next`: the signed-in person takes the next open item of the queue (most
+     *     urgent, then soonest due, then oldest). `404` when the queue is empty.
+     */
+    post: operations["post_api_work_queues__queue__next"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/write-back/batch": {
     parameters: {
       query?: never;
@@ -10169,12 +10294,12 @@ export interface components {
      *       `POST /api/letters/{id}/sent` is the manual signal.
      *     - `Email` — render and store; same manual-flip semantics as `Print`.
      *     - `Sms` — render and store. As of v0.8, when an enabled
-     *       [`crate::communication::SmsProvider`] is wired (`PAS_SMS_PROVIDER=log`
+     *       the server's `communication::SmsProvider` is wired (`PAS_SMS_PROVIDER=log`
      *       or a consumer-supplied provider), `CommunicationService::generate_letter`
      *       also auto-dispatches the message to the patient's first
      *       `ContactPoint { system: Phone }` and flips status to `Sent` on success
      *       or `Failed` on error. When the configured provider is
-     *       [`crate::communication::NoopSmsProvider`] (the default), the letter
+     *       the server's `communication::NoopSmsProvider` (the default), the letter
      *       stays `Pending` — the same behavior as `Print` and `Email`.
      * @enum {string}
      */
@@ -11544,6 +11669,16 @@ export interface components {
       releases: components["schemas"]["SlotRelease"][];
       summary: components["schemas"]["ReleaseSummary"];
     };
+    /** @description A person's reminders: their items already past due, and those due by the end of the current working day. */
+    Reminders: {
+      /**
+       * Format: date-time
+       * @description The end of the working day the reminders are counted to.
+       */
+      due_by: string;
+      due_today: components["schemas"]["WorkItem"][];
+      overdue: components["schemas"]["WorkItem"][];
+    };
     /** @description Removals, reinstatements and keeps for one service in the period. No identifiers. */
     RemovalsByService: {
       /** Format: int64 */
@@ -12300,6 +12435,42 @@ export interface components {
       prior_visits: number;
       weekday: number[];
     };
+    /** @description One work item, as the API sends it. */
+    WorkItem: {
+      /** Format: date-time */
+      claimed_at: string | null;
+      /** Format: date-time */
+      closed_at: string | null;
+      /** Format: date-time */
+      due_at: string;
+      /** Format: uuid */
+      id: string;
+      kind: string;
+      /** Format: date-time */
+      opened_at: string;
+      /** @description Due before now and not closed. */
+      overdue: boolean;
+      owner: string | null;
+      /** Format: uuid */
+      person_id: string | null;
+      /**
+       * Format: int32
+       * @description 1 is high, 3 is low.
+       */
+      priority: number;
+      queue: string;
+      /**
+       * Format: uuid
+       * @description The row of the source list this item stands for.
+       */
+      source_id: string;
+      status: string;
+      /** Format: uuid */
+      subject_id: string | null;
+      /** @description `appointment`, `pathway`, `profile` or `alert`. */
+      subject_kind: string | null;
+      title: string;
+    };
     "analytics.RefillReport": {
       cells: components["schemas"]["RefillCell"][];
       /** Format: date-time */
@@ -12499,6 +12670,10 @@ export interface components {
     "handlers_waits.AnswerBody": {
       answer: string;
       recorded_by: string;
+    };
+    "handlers_work_queue.AssignBody": {
+      /** @description The person who should have the item. */
+      to: string;
     };
     "list_validation.Campaign": {
       /** @description Items by state (`selected`, `asked`, ...), for the campaign page. */
@@ -24523,6 +24698,278 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponse_Vec_Room"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_work_items: {
+    parameters: {
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
+      header?: never;
+      path: {
+        /** @description One queue: `booking`, `communication`, `operations` or `validation`. */
+        queue: string | null;
+        /** @description `me` for the signed-in person's items, `none` for items nobody has, or a person's name. */
+        owner: string | null;
+        /** @description Only items due before now. */
+        overdue: boolean | null;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkItem"][];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_work_items_reminders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Reminders"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_work_items__id: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkItem"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_work_items__id__assign: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["handlers_work_queue.AssignBody"];
+      };
+    };
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkItem"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_work_items__id__claim: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkItem"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_work_items__id__release: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkItem"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_work_queues__queue__next: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description `booking`, `communication`, `operations` or `validation` */
+        queue: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkItem"];
         };
       };
       /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */

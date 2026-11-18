@@ -49,7 +49,8 @@ fn fhir_of<T: serde::Serialize>(kind: &str, value: T) -> FhirResult {
     }
 }
 
-fn error_to_response(err: Error) -> (StatusCode, Json<OperationOutcome>) {
+fn error_to_response(err: impl Into<Error>) -> (StatusCode, Json<OperationOutcome>) {
+    let err: Error = err.into();
     let (status, code) = match &err {
         Error::NotFound(_) => (StatusCode::NOT_FOUND, "not-found"),
         Error::Validation(_) | Error::Fhir(_) => (StatusCode::BAD_REQUEST, "invalid"),
@@ -244,7 +245,7 @@ mod tests {
     fn parse_dt_round_trips_rfc3339() {
         let v = json!({ "start": "2026-06-01T09:00:00Z" });
         let got = parse_dt(&v, "start").unwrap();
-        assert_eq!(got.format("%Y%m%d%H%M%S").to_string(), "20260601090000");
+        assert_eq!(got.strftime("%Y%m%d%H%M%S").to_string(), "20260601090000");
     }
 
     #[test]

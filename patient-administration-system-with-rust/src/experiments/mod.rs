@@ -16,7 +16,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -90,9 +90,9 @@ pub struct Experiment {
     pub template_name: String,
     pub variants: Vec<(String, String)>,
     pub started_by: String,
-    pub started_at: DateTime<Utc>,
+    pub started_at: Timestamp,
     #[schema(required = true)]
-    pub stopped_at: Option<DateTime<Utc>>,
+    pub stopped_at: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]

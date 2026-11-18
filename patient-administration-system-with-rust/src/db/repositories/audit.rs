@@ -89,7 +89,7 @@ impl AuditLogRepository {
             user_agent: ctx.user_agent.clone(),
             reason_code: reason_code.map(String::from),
             context,
-            at: chrono::Utc::now().fixed_offset(),
+            at: jiff::Timestamp::now(),
         };
         am.insert(conn).await?;
         Ok(())

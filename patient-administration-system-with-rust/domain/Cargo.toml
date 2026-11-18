@@ -1,0 +1,35 @@
+[package]
+name = "patient-administration-system-domain"
+version = "0.49.0"
+edition = "2024"
+# MSRV: two releases behind the pinned toolchain (rust-toolchain.toml); `cargo +1.98 check` proves it.
+rust-version = "1.98"
+authors = ["joel@joelparkerhenderson.com"]
+description = "Domain logic and business rules for the Patient Administration System: models, state lists, validation, identifiers, and the rules with no web or database"
+license = "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only"
+repository = "https://github.com/patient-administration-system/patient-administration-system"
+keywords = ["healthcare", "pas", "domain", "nhs", "rtt"]
+categories = ["science"]
+
+[lib]
+name = "patient_administration_system_domain"
+path = "src/lib.rs"
+
+# No web framework, HTTP client, database driver or async runtime: `tests/domain_boundary_test.rs` in the server
+# crate fails if one appears here. `utoipa` is the exception, because a type's OpenAPI schema is derived next to
+# the type (Rust's orphan rule) and describes its shape, not a route.
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+utoipa = { version = "6.0", features = ["jiff_0_2", "uuid"] }
+uuid = { version = "1.29", features = ["v4", "v5", "serde"] }
+jiff = { version = "1", features = ["serde", "tzdb-bundle-always"] }
+thiserror = "2.0"
+# The logging facade only (no subscriber): a rule can say why it fell back to a default.
+tracing = "0.1"
+rust_decimal = { version = "1.43", features = ["serde-with-str"] }
+
+[dev-dependencies]
+
+[lints]
+workspace = true

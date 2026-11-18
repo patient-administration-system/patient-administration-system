@@ -6,7 +6,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::slot::SlotRepository;
@@ -123,13 +123,14 @@ async fn the_earliest_free_slot_of_the_service_is_booked_and_linked() {
         &w.s.db,
         &Slot::new(
             w.schedule,
-            Utc::now() - Duration::days(1),
-            Utc::now() - Duration::days(1) + Duration::minutes(30),
+            Timestamp::now() - patient_administration_system::time::days(1),
+            Timestamp::now() - patient_administration_system::time::days(1)
+                + SignedDuration::from_mins(30),
         ),
     )
     .await
     .unwrap();
-    assert!(past.start_datetime < Utc::now());
+    assert!(past.start_datetime < Timestamp::now());
     let other = common::new_schedule_for(&w.s.db, &format!("other-{}", Uuid::new_v4()))
         .await
         .id;

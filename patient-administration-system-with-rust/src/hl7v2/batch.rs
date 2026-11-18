@@ -193,7 +193,7 @@ impl BatchInbound {
 /// this put the control id in BHS-9 and `P` and `2.5` in BHS-10 and BHS-11.) Each per-message ACK is already a
 /// complete `MSH ... MSA` block, so this only stitches them into the envelope.
 pub fn encode_batch_ack(inbound: &BatchInbound, per_message_acks: &[String]) -> String {
-    let now = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
+    let now = jiff::Timestamp::now().strftime("%Y%m%d%H%M%S").to_string();
     let own_id = uuid::Uuid::new_v4().simple().to_string()[..20].to_string();
     let us = if inbound.receiving_app.is_empty() {
         crate::hl7v2::ack::PAS_APP

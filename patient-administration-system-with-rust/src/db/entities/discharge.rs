@@ -12,10 +12,10 @@ pub struct Model {
     pub id: Uuid,
     pub admission_id: Uuid,
     pub discharging_worker_id: Option<Uuid>,
-    pub discharged_at: chrono::DateTime<chrono::FixedOffset>,
+    pub discharged_at: jiff::Timestamp,
     pub disposition: Option<String>,
     pub notes: Option<String>,
-    pub created_at: chrono::DateTime<chrono::FixedOffset>,
+    pub created_at: jiff::Timestamp,
 }
 
 impl FromRow for Model {

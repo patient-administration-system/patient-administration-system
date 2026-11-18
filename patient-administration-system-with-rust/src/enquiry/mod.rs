@@ -7,7 +7,7 @@
 //! The route is under `/api/patients/{id}/`, so the read audit writes one `read` row for the enquiry
 //! (NEW-9): one access, one row.
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -34,9 +34,9 @@ pub struct LetterSummary {
     pub appointment_id: Option<Uuid>,
     pub channel: DeliveryChannel,
     pub status: LetterStatus,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
     #[schema(required = true)]
-    pub sent_at: Option<DateTime<Utc>>,
+    pub sent_at: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]

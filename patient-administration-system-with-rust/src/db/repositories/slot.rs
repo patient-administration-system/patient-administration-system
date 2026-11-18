@@ -1,7 +1,7 @@
 //! slot repository
 
 use crate::db::sql::{Conn, Stmt, Table};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use uuid::Uuid;
 
 use crate::db::entities::slot;
@@ -33,10 +33,10 @@ impl SlotRepository {
     pub async fn find_free_in_range<C: Conn>(
         conn: &C,
         schedule_id: Uuid,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
+        start: Timestamp,
+        end: Timestamp,
     ) -> Result<Vec<Slot>> {
-        let rows = conn.all_as::<slot::Model>(Stmt::new("SELECT * FROM slots WHERE schedule_id = $1 AND status = $2 AND start_datetime >= $3 AND end_datetime <= $4", [schedule_id.into(), slot_status_to_str(SlotStatus::Free).into(), start.fixed_offset().into(), end.fixed_offset().into()])).await?;
+        let rows = conn.all_as::<slot::Model>(Stmt::new("SELECT * FROM slots WHERE schedule_id = $1 AND status = $2 AND start_datetime >= $3 AND end_datetime <= $4", [schedule_id.into(), slot_status_to_str(SlotStatus::Free).into(), start.into(), end.into()])).await?;
         rows.into_iter().map(from_model).collect()
     }
 
@@ -55,7 +55,7 @@ impl SlotRepository {
             .ok_or_else(|| Error::not_found(format!("slot {id}")))?;
         let current = slot_status_from_str(&m.status)?;
         current.try_transition_to(new_status)?;
-        let now = chrono::Utc::now().fixed_offset();
+        let now = jiff::Timestamp::now();
         let mut am = m.patch();
         am.set("status", slot_status_to_str(new_status).to_string());
         am.set("updated_at", now);
@@ -90,10 +90,10 @@ impl SlotRepository {
             .ok_or_else(|| Error::not_found(format!("slot {}", s.id)))?;
         let mut am = existing.patch();
         am.set("schedule_id", s.schedule_id);
-        am.set("start_datetime", s.start_datetime.fixed_offset());
-        am.set("end_datetime", s.end_datetime.fixed_offset());
+        am.set("start_datetime", s.start_datetime);
+        am.set("end_datetime", s.end_datetime);
         am.set("status", slot_status_to_str(s.status).to_string());
-        am.set("updated_at", chrono::Utc::now().fixed_offset());
+        am.set("updated_at", jiff::Timestamp::now());
         am.update(conn).await?;
         Ok(s.clone())
     }
@@ -135,11 +135,11 @@ fn to_row(s: &Slot) -> slot::Model {
     slot::Model {
         id: s.id,
         schedule_id: s.schedule_id,
-        start_datetime: s.start_datetime.fixed_offset(),
-        end_datetime: s.end_datetime.fixed_offset(),
+        start_datetime: s.start_datetime,
+        end_datetime: s.end_datetime,
         status: slot_status_to_str(s.status).to_string(),
-        created_at: s.created_at.fixed_offset(),
-        updated_at: s.updated_at.fixed_offset(),
+        created_at: s.created_at,
+        updated_at: s.updated_at,
     }
 }
 
@@ -147,23 +147,22 @@ fn from_model(m: slot::Model) -> Result<Slot> {
     Ok(Slot {
         id: m.id,
         schedule_id: m.schedule_id,
-        start_datetime: m.start_datetime.with_timezone(&chrono::Utc),
-        end_datetime: m.end_datetime.with_timezone(&chrono::Utc),
+        start_datetime: m.start_datetime,
+        end_datetime: m.end_datetime,
         status: slot_status_from_str(&m.status)?,
-        created_at: m.created_at.with_timezone(&chrono::Utc),
-        updated_at: m.updated_at.with_timezone(&chrono::Utc),
+        created_at: m.created_at,
+        updated_at: m.updated_at,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
     #[test]
     fn test_slot_roundtrip_via_row() {
-        let start = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
-        let end = Utc.with_ymd_and_hms(2026, 5, 20, 10, 0, 0).unwrap();
+        let start = crate::time::utc(2026, 5, 20, 9, 0, 0);
+        let end = crate::time::utc(2026, 5, 20, 10, 0, 0);
         let s = Slot::new(Uuid::new_v4(), start, end);
         let am = to_row(&s);
         let m = slot::Model {

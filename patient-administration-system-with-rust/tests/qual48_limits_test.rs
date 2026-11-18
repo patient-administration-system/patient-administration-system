@@ -3,7 +3,7 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
+use jiff::{SignedDuration, Timestamp};
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::repositories::appointment::AppointmentRepository;
 use patient_administration_system::db::sql::{Conn, Stmt};
@@ -52,8 +52,8 @@ async fn the_report_counts_every_open_pathway_past_twenty_thousand() {
     let report = s
         .reports
         .clinic_activity(
-            Some(Utc::now() - Duration::days(1)),
-            Some(Utc::now()),
+            Some(Timestamp::now() - patient_administration_system::time::days(1)),
+            Some(Timestamp::now()),
             GroupBy::Day,
         )
         .await;
@@ -102,8 +102,8 @@ async fn a_long_waiter_behind_five_thousand_older_pathways_is_still_due() {
 async fn a_fairness_audit_cut_short_says_so() {
     let s = common::build_state(&common::database_url().unwrap()).await;
     for days in [1, 2] {
-        let start = Utc::now() - Duration::days(days);
-        let visit = Appointment::new(Uuid::new_v4(), start, start + Duration::minutes(15));
+        let start = Timestamp::now() - patient_administration_system::time::days(days);
+        let visit = Appointment::new(Uuid::new_v4(), start, start + SignedDuration::from_mins(15));
         let visit = AppointmentRepository::create(&s.db, &visit).await.unwrap();
         s.db.run(Stmt::new(
             "UPDATE appointments SET status = 'fulfilled' WHERE id = $1",
