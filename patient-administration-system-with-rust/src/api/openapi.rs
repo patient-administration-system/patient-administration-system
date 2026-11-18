@@ -247,6 +247,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_needs_review::record_review,
         crate::api::rest::handlers_needs_review::due_review,
         crate::api::rest::handlers_work_queue::list,
+        crate::api::rest::handlers_work_queue::reminders,
         crate::api::rest::handlers_work_queue::get,
         crate::api::rest::handlers_work_queue::claim,
         crate::api::rest::handlers_work_queue::release,

@@ -98,6 +98,15 @@ pub struct Filter {
     pub overdue: bool,
 }
 
+/// A person's reminders: their items already past due, and those due by the end of the current working day.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, utoipa::ToSchema)]
+pub struct Reminders {
+    pub overdue: Vec<WorkItem>,
+    pub due_today: Vec<WorkItem>,
+    /// The end of the working day the reminders are counted to.
+    pub due_by: Timestamp,
+}
+
 /// What one sync did.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 pub struct SyncReport {
@@ -403,6 +412,34 @@ impl WorkQueueService {
                 ],
             ))
             .await
+    }
+
+    /// `owner`'s items due by the end of the current working day (17:00 local; on a day off, the next working
+    /// day's), split into those already past due and the rest: the reminder shown before an item is due.
+    pub async fn reminders(&self, owner: &str, now: Timestamp) -> Result<Reminders> {
+        let owner = crate::validation::named_person(owner, "reminders are for a signed-in person")?;
+        let today = crate::time::date_in(now, &self.tz);
+        let mut due_by = end_of(self.calendar.add_working_days(today, 0)?, &self.tz)?;
+        if due_by <= now {
+            // After 17:00: the next working day's end.
+            due_by = due_after(now, 1, &self.calendar, &self.tz)?;
+        }
+        let items = self
+            .db
+            .all_as::<WorkItem>(Stmt::new(
+                format!(
+                    "{SELECT} WHERE status = 'claimed' AND owner = $1 AND due_at <= $2 \
+                     ORDER BY due_at, priority, id LIMIT 200"
+                ),
+                [owner.into(), due_by.into()],
+            ))
+            .await?;
+        let (overdue, due_today) = items.into_iter().partition(|w| w.due_at < now);
+        Ok(Reminders {
+            overdue,
+            due_today,
+            due_by,
+        })
     }
 
     pub async fn get(&self, id: Uuid) -> Result<WorkItem> {

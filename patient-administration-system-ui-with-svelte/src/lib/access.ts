@@ -37,6 +37,7 @@ export function navFor(p: Principal | null | undefined): NavItem[] {
   if (isStaff(p)) {
     const items: NavItem[] = [
       { href: "/home", key: "nav.home" },
+      { href: "/work", key: "nav.work" },
       { href: "/appointments", key: "nav.appointments" },
       { href: "/waitlist", key: "nav.waitlist" },
       { href: "/schedule", key: "nav.schedule" },

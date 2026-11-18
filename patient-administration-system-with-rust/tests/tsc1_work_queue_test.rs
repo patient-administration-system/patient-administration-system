@@ -373,3 +373,54 @@ fn the_work_queue_never_writes_to_a_patients_records_or_to_its_sources() {
         }
     }
 }
+
+/// A call task due at `due`.
+async fn call_due(db: &Pool, due: Timestamp) -> Uuid {
+    let id = Uuid::new_v4();
+    db.run(Stmt::new(
+        "INSERT INTO staff_call_tasks (id, appointment_id, person_id, reason, due_at) VALUES ($1,$2,$3,'silent',$4)",
+        [id.into(), Uuid::new_v4().into(), Uuid::new_v4().into(), due.into()],
+    ))
+    .await
+    .unwrap();
+    id
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn reminders_are_the_owners_items_past_due_or_due_by_the_end_of_the_working_day() {
+    let db = db().await;
+    let svc = WorkQueueService::new(db.clone());
+    let now = Timestamp::now();
+    let late = call_due(&db, now - SignedDuration::from_hours(2)).await;
+    let soon = call_due(&db, now + SignedDuration::from_mins(1)).await;
+    let later = call_due(&db, now + patient_administration_system::time::days(30)).await;
+    svc.sync(now).await.unwrap();
+    let who = format!("rem-{}", Uuid::new_v4());
+    for t in [late, soon, later] {
+        let (id, ..) = item(&db, WorkKind::Call, t).await.unwrap();
+        svc.assign(id, &who, &ctx(&who)).await.unwrap();
+    }
+    let r = svc.reminders(&who, Timestamp::now()).await.unwrap();
+    let ids = |v: &[WorkItem]| v.iter().map(|w| w.source_id).collect::<Vec<_>>();
+    assert_eq!(ids(&r.overdue), [late], "past due");
+    assert_eq!(
+        ids(&r.due_today),
+        [soon],
+        "due before the end of the working day"
+    );
+    assert!(r.due_by > Timestamp::now());
+    // Someone else's reminders are not these.
+    assert!(
+        svc.reminders("someone-else", Timestamp::now())
+            .await
+            .unwrap()
+            .overdue
+            .iter()
+            .all(|w| w.owner.as_deref() != Some(who.as_str()))
+    );
+    for t in [late, soon, later] {
+        handle_call(&db, t).await;
+    }
+    svc.sync(Timestamp::now()).await.unwrap();
+}

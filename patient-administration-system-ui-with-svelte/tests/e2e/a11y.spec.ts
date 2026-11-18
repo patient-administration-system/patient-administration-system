@@ -34,6 +34,7 @@ const STAFF_AND_ADMIN = [
   "/history",
   "/waits",
   "/tolerances",
+  "/work",
   "/home",
   "/suspicions",
   "/enquiry?patient=00000000-0000-0000-0000-000000000000",

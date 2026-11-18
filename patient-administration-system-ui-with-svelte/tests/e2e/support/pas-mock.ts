@@ -35,6 +35,39 @@ const DEFAULT_TEMPLATE: S["LetterTemplate"] = {
 let template: S["LetterTemplate"] = { ...DEFAULT_TEMPLATE };
 let proofing = true;
 const acts: { token: string; action: string }[] = [];
+// The work queue (TSC-1): an overdue call already the signed-in person's, and two open items nobody has. The
+// person's subject is Keycloak's, unknown until the first call, so the overdue call is given to the first caller.
+const FIRST_CALLER = "first-caller";
+type MockWork = Pick<S["WorkItem"], "id" | "kind" | "queue" | "priority" | "due_at" | "status" | "owner">;
+const work: MockWork[] = [
+  {
+    id: "eeeeeeee-0000-4000-8000-000000000001",
+    kind: "call",
+    queue: "booking",
+    priority: 2,
+    due_at: new Date(Date.now() - 3600_000).toISOString(),
+    status: "claimed",
+    owner: FIRST_CALLER,
+  },
+  {
+    id: "eeeeeeee-0000-4000-8000-000000000002",
+    kind: "follow_up",
+    queue: "booking",
+    priority: 2,
+    due_at: new Date(Date.now() + 86_400_000).toISOString(),
+    status: "open",
+    owner: null,
+  },
+  {
+    id: "eeeeeeee-0000-4000-8000-000000000003",
+    kind: "tolerance_alert",
+    queue: "operations",
+    priority: 1,
+    due_at: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+    status: "open",
+    owner: null,
+  },
+];
 const acked = new Set<string>();
 const ISSUER_URL = process.env.ISSUER_URL ?? null;
 const ISSUER = "authentication-service";
@@ -559,6 +592,74 @@ http
           ],
         }),
       );
+    }
+    // The staff work queue (TSC-1). The person is the one the UI acts for (`X-On-Behalf-Of`), as the PAS sees it.
+    if (url.pathname.startsWith("/api/work-")) {
+      const me = String(req.headers["x-on-behalf-of"] ?? "");
+      for (const w of work) if (w.owner === FIRST_CALLER && me) w.owner = me;
+      const problem = (status: number, code: string, detail: string) => {
+        res.statusCode = status;
+        return res.end(JSON.stringify({ type: "about:blank", code, detail }));
+      };
+      const view = (w: MockWork): S["WorkItem"] => ({
+        ...w,
+        source_id: w.id,
+        person_id: null,
+        subject_kind: null,
+        subject_id: null,
+        title: w.kind,
+        overdue: w.status !== "closed" && Date.parse(w.due_at) < Date.now(),
+        opened_at: new Date().toISOString(),
+        claimed_at: w.owner ? new Date().toISOString() : null,
+        closed_at: null,
+      });
+      if (url.pathname === "/api/work-items/reminders") {
+        const mine = work.filter((w) => w.owner === me && w.status === "claimed").map(view);
+        const by = new Date(Date.now() + 8 * 3600_000).toISOString();
+        return res.end(
+          envelope<S["Reminders"]>({
+            overdue: mine.filter((w) => w.overdue),
+            due_today: mine.filter((w) => !w.overdue && w.due_at <= by),
+            due_by: by,
+          }),
+        );
+      }
+      if (url.pathname === "/api/work-items") {
+        const owner = url.searchParams.get("owner");
+        const queue = url.searchParams.get("queue");
+        const rows = work
+          .filter((w) => w.status !== "closed")
+          .filter((w) => !queue || w.queue === queue)
+          .filter((w) => owner !== "me" || w.owner === me)
+          .filter((w) => owner !== "none" || w.owner === null)
+          .map(view)
+          .filter((w) => url.searchParams.get("overdue") !== "true" || w.overdue);
+        return res.end(paged<S["WorkItem"][]>(rows, url));
+      }
+      const m = /^\/api\/work-items\/([0-9a-f-]+)\/(claim|release)$/.exec(url.pathname);
+      if (m && req.method === "POST") {
+        const w = work.find((x) => x.id === m[1]);
+        if (!w) return problem(404, "not_found", "no such work item");
+        if (m[2] === "claim") {
+          if (w.status !== "open") return problem(409, "conflict", "someone else has this item");
+          Object.assign(w, { status: "claimed", owner: me });
+        } else {
+          if (w.owner !== me) return problem(409, "conflict", "only the person who has it can release it");
+          Object.assign(w, { status: "open", owner: null });
+        }
+        acts.push({ token: w.id, action: `work-${m[2]}:${me}` });
+        return res.end(envelope(view(w)));
+      }
+      const n = /^\/api\/work-queues\/([a-z]+)\/next$/.exec(url.pathname);
+      if (n && req.method === "POST") {
+        const w = work
+          .filter((x) => x.queue === n[1] && x.status === "open")
+          .sort((a, b) => a.priority - b.priority)[0];
+        if (!w) return problem(404, "not_found", "nothing open in that queue");
+        Object.assign(w, { status: "claimed", owner: me });
+        acts.push({ token: w.id, action: `work-next:${me}` });
+        return res.end(envelope(view(w)));
+      }
     }
     if (url.pathname === "/api/tolerance-alerts") {
       return res.end(

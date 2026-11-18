@@ -5218,6 +5218,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/work-items/reminders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/work-items/reminders`: the signed-in person's items past due, and those due by the end of the
+     *     current working day. The reminder before an item is due is shown where the person works; nothing is sent.
+     */
+    get: operations["get_api_work_items_reminders"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/work-items/{id}": {
     parameters: {
       query?: never;
@@ -11648,6 +11668,16 @@ export interface components {
     Releases: {
       releases: components["schemas"]["SlotRelease"][];
       summary: components["schemas"]["ReleaseSummary"];
+    };
+    /** @description A person's reminders: their items already past due, and those due by the end of the current working day. */
+    Reminders: {
+      /**
+       * Format: date-time
+       * @description The end of the working day the reminders are counted to.
+       */
+      due_by: string;
+      due_today: components["schemas"]["WorkItem"][];
+      overdue: components["schemas"]["WorkItem"][];
     };
     /** @description Removals, reinstatements and keeps for one service in the period. No identifiers. */
     RemovalsByService: {
@@ -24717,6 +24747,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["WorkItem"][];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_work_items_reminders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Reminders"];
         };
       };
       /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */

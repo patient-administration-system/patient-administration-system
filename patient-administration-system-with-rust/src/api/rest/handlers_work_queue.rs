@@ -28,8 +28,22 @@ pub struct AssignBody {
     pub to: String,
 }
 
+/// The person an item belongs to. A trusted service acting for someone (the UI's back end) is recorded as
+/// `svc:<service> for <person>`; the item is that person's, while the audit row keeps the whole identity.
+fn person_of(identity: &str) -> &str {
+    match identity
+        .strip_prefix("svc:")
+        .and_then(|rest| rest.split_once(" for "))
+    {
+        Some((_, person)) if !person.trim().is_empty() => person.trim(),
+        _ => identity,
+    }
+}
+
 fn me(headers: &HeaderMap) -> Option<String> {
-    request_audit_ctx(headers).user_id
+    request_audit_ctx(headers)
+        .user_id
+        .map(|id| person_of(&id).to_string())
 }
 
 /// `GET /api/work-items`: open and claimed work, most urgent first, then soonest due, then oldest.
@@ -79,6 +93,31 @@ pub async fn list(
     }
 }
 
+/// `GET /api/work-items/reminders`: the signed-in person's items past due, and those due by the end of the
+/// current working day. The reminder before an item is due is shown where the person works; nothing is sent.
+#[utoipa::path(
+    get,
+    path = "/api/work-items/reminders",
+    tag = "Work queue",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::work_queue::Reminders),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn reminders(State(state): State<AppState>, headers: HeaderMap) -> HandlerResult {
+    let Some(who) = me(&headers) else {
+        return error_to_response(Error::validation("reminders need a signed-in person"));
+    };
+    match WorkQueueService::new(state.db.clone())
+        .reminders(&who, state.clock.now())
+        .await
+    {
+        Ok(v) => ok_json(v),
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `GET /api/work-items/{id}`: one work item.
 #[utoipa::path(
     get,
@@ -116,7 +155,7 @@ pub async fn claim(
     Path(id): Path<Uuid>,
 ) -> HandlerResult {
     let ctx = request_audit_ctx(&headers);
-    let who = ctx.user_id.clone().unwrap_or_default();
+    let who = me(&headers).unwrap_or_default();
     match WorkQueueService::new(state.db.clone())
         .claim(id, &who, &ctx)
         .await
@@ -144,7 +183,7 @@ pub async fn release(
     Path(id): Path<Uuid>,
 ) -> HandlerResult {
     let ctx = request_audit_ctx(&headers);
-    let who = ctx.user_id.clone().unwrap_or_default();
+    let who = me(&headers).unwrap_or_default();
     match WorkQueueService::new(state.db.clone())
         .release(id, &who, &ctx)
         .await
@@ -201,7 +240,7 @@ pub async fn take_next(
     Path(queue): Path<String>,
 ) -> HandlerResult {
     let ctx = request_audit_ctx(&headers);
-    let who = ctx.user_id.clone().unwrap_or_default();
+    let who = me(&headers).unwrap_or_default();
     match WorkQueueService::new(state.db.clone())
         .take_next(&queue, &who, &ctx)
         .await
@@ -211,5 +250,22 @@ pub async fn take_next(
             "nothing open in the {queue} queue"
         ))),
         Err(e) => error_to_response(e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::person_of;
+
+    #[test]
+    fn an_item_belongs_to_the_person_a_service_acts_for() {
+        assert_eq!(person_of("svc:pas-ui for nurse-7"), "nurse-7");
+        assert_eq!(person_of("nurse-7"), "nurse-7");
+        assert_eq!(
+            person_of("svc:pas-ui"),
+            "svc:pas-ui",
+            "a service on its own is itself"
+        );
+        assert_eq!(person_of("svc:pas-ui for  "), "svc:pas-ui for  ");
     }
 }

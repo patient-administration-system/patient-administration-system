@@ -32,6 +32,8 @@ const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
     "adjustment.braille",
   ],
   "de-001": [
+    // Normal is the German word too.
+    "work.priority.2",
     "condition.diabetes",
     ...PROPER,
     "col.status",
@@ -44,6 +46,8 @@ const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
     "adjustment.braille",
   ],
   "de-de": [
+    // Normal is the German word too.
+    "work.priority.2",
     "condition.diabetes",
     ...PROPER,
     "col.status",
@@ -56,6 +60,8 @@ const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
     "adjustment.braille",
   ],
   "es-001": [
+    // Normal is the Spanish word too.
+    "work.priority.2",
     "condition.diabetes",
     "subtype.wales-primary-cancer-site.05",
     ...PROPER,
@@ -64,6 +70,8 @@ const SAME_AS_ENGLISH: Partial<Record<Locale, string[]>> = {
     "adjustment.braille",
   ],
   "fr-001": [
+    // Action is the French word too.
+    "work.col.action",
     "subtype.generic-diabetes-type.type_1",
     "subtype.generic-diabetes-type.type_2",
     "condition.cancer",

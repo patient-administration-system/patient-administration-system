@@ -41,6 +41,10 @@ pub(super) fn messaging() -> Router<AppState> {
         )
         // One staff work queue (TSC-1).
         .route("/api/work-items", get(handlers_work_queue::list))
+        .route(
+            "/api/work-items/reminders",
+            get(handlers_work_queue::reminders),
+        )
         .route("/api/work-items/{id}", get(handlers_work_queue::get))
         .route(
             "/api/work-items/{id}/claim",

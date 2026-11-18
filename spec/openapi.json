@@ -16470,6 +16470,34 @@
         ],
         "type": "object"
       },
+      "Reminders": {
+        "description": "A person's reminders: their items already past due, and those due by the end of the current working day.",
+        "properties": {
+          "due_by": {
+            "description": "The end of the working day the reminders are counted to.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "due_today": {
+            "items": {
+              "$ref": "#/components/schemas/WorkItem"
+            },
+            "type": "array"
+          },
+          "overdue": {
+            "items": {
+              "$ref": "#/components/schemas/WorkItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "overdue",
+          "due_today",
+          "due_by"
+        ],
+        "type": "object"
+      },
       "RemovalsByService": {
         "description": "Removals, reinstatements and keeps for one service in the period. No identifiers.",
         "properties": {
@@ -34167,6 +34195,38 @@
           }
         ],
         "summary": "`GET /api/work-items`: open and claimed work, most urgent first, then soonest due, then oldest.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-items/reminders": {
+      "get": {
+        "operationId": "get_api_work_items_reminders",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminders"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/work-items/reminders`: the signed-in person's items past due, and those due by the end of the\ncurrent working day. The reminder before an item is due is shown where the person works; nothing is sent.",
         "tags": [
           "Work queue"
         ]
