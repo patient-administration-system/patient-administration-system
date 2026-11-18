@@ -57,21 +57,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component llvm-tools && rustup default "$RUST_TOOLCHAIN"
+      - run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal && rustup default "$RUST_TOOLCHAIN"
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
-          tool: cargo-llvm-cov,just
-      # `--ignored` runs ONLY the tests marked #[ignore]; they fail (not skip) without a database. Run under
-      # coverage, with the unit tests after them, so CI publishes one line-coverage report (QUAL-17).
+          tool: cargo-tarpaulin,just
+      # `--include-ignored` runs the tests marked #[ignore] (they fail, not skip, without a database) and the
+      # unit tests in one run under cargo-tarpaulin, so CI publishes one line-coverage report (QUAL-17).
       - run: just rust-db-coverage
       - name: Coverage report
         run: |
           {
-            echo '### Rust line coverage (unit and database tests)'
-            echo '```'
+            echo '### Rust line coverage (unit and database tests, cargo-tarpaulin)'
             just coverage-summary
-            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

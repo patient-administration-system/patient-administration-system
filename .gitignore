@@ -4,3 +4,8 @@
 *.swp
 .claude
 .dev-auth
+
+# Coverage output (`just rust-db-coverage`, cargo-tarpaulin; QUAL-17).
+/lcov.info
+/tarpaulin-report.*
+*.profraw
