@@ -55,7 +55,7 @@ A change under one of these paths (relative to `patient-administration-system-wi
 | H-13 | `src/noshow/` and `domain/src/noshow/` (the model) |
 | H-11 | `src/streaming/`, `src/db/repositories/outbox.rs` |
 | H-12 | `src/identity/`, `src/proxy/`, `src/writeback/`, `src/virtual_visits/` |
-| H-14 | `src/list_validation/`, `src/waitlist/` |
+| H-14 | `src/list_validation/` and `domain/src/list_validation.rs` (the decision rules), `src/waitlist/` |
 | H-15 | `src/api/rest/concurrency.rs`, `src/error.rs` |
 | H-16 | `src/adt/reservations.rs` |
 | H-17 | `src/triage/` and `domain/src/triage/` |

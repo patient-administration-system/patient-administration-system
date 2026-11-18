@@ -19,6 +19,7 @@ pub mod config;
 pub mod error;
 pub mod identifiers;
 pub mod inbound;
+pub mod list_validation;
 pub mod models;
 pub mod noshow;
 pub mod privacy;

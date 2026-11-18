@@ -17,8 +17,7 @@
 //! records it. The letter is posted by a person and recorded.
 
 use crate::db::sql::Pool;
-use jiff::{Timestamp, civil::Date};
-use serde::{Deserialize, Serialize};
+use jiff::Timestamp;
 use uuid::Uuid;
 
 use crate::db::repositories::audit::{AuditLogRepository, UserContext};
@@ -26,114 +25,13 @@ use crate::db::repositories::outbox::OutboxRepository;
 use crate::waits::WaitsService;
 use crate::{Error, Result};
 
+// The states, answers, shapes and decision rules are domain rules (QUAL-52).
+pub use patient_administration_system_domain::list_validation::*;
+
 mod cohort;
 mod decision;
 mod read;
 mod steps;
-
-/// How long after a removal it can be undone.
-pub const REINSTATE_DAYS: i64 = 90;
-/// The most pathways one campaign may take.
-pub const MAX_COHORT: i64 = 500;
-pub const ANSWERS: [&str; 3] = ["still_needed", "no_longer_needed", "unsure"];
-pub const CHANNELS: [&str; 5] = ["phone", "sms", "whatsapp", "email", "in_person"];
-
-crate::string_enum! {
-    /// Whether a campaign still takes steps (`validation_campaigns.status`).
-    pub enum CampaignStatus {
-        Open = "open",
-        Closed = "closed",
-    }
-}
-
-crate::string_enum! {
-    /// Where one pathway is in its campaign (`validation_items.state`).
-    pub enum ItemState {
-        Selected = "selected",
-        Asked = "asked",
-        Answered = "answered",
-        LetterSent = "letter_sent",
-        Kept = "kept",
-        Removed = "removed",
-        Reinstated = "reinstated",
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-#[schema(as = list_validation::Campaign)]
-pub struct Campaign {
-    pub id: Uuid,
-    pub name: String,
-    #[schema(required = true)]
-    pub service_type: Option<String>,
-    pub min_weeks: i32,
-    pub started_by: String,
-    pub reply_by: Date,
-    pub final_wait_days: i32,
-    pub status: CampaignStatus,
-    pub created_at: Timestamp,
-    /// Items by state (`selected`, `asked`, ...), for the campaign page.
-    #[schema(value_type = HashMap<String, i64>)]
-    pub counts: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-#[schema(as = list_validation::Item)]
-pub struct Item {
-    pub id: Uuid,
-    pub campaign_id: Uuid,
-    pub pathway_id: Uuid,
-    pub person_id: Uuid,
-    pub target_service: String,
-    pub state: ItemState,
-    #[schema(required = true)]
-    pub answer: Option<String>,
-    #[schema(required = true)]
-    pub asked_at: Option<Timestamp>,
-    #[schema(required = true)]
-    pub letter_sent_at: Option<Timestamp>,
-    #[schema(required = true)]
-    pub final_by: Option<Date>,
-    #[schema(required = true)]
-    pub decided_by: Option<String>,
-    #[schema(required = true)]
-    pub removed_at: Option<Timestamp>,
-    /// Why a person may act now, if they may: `letter_due`, `decision_due`.
-    #[schema(required = true)]
-    pub next: Option<String>,
-}
-
-/// Removals, reinstatements and keeps for one service in the period. No identifiers.
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct RemovalsByService {
-    pub service: String,
-    pub removed: i64,
-    pub reinstated: i64,
-    pub kept: i64,
-}
-
-/// The validation removals report: the period and a row per service.
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct RemovalsReport {
-    pub from: Timestamp,
-    pub to: Timestamp,
-    pub by_service: Vec<RemovalsByService>,
-}
-
-#[derive(Debug, Clone)]
-pub struct NewCampaign {
-    pub name: String,
-    pub started_by: String,
-    pub service_type: Option<String>,
-    /// Defaults to `PAS_CHECK_WEEKS`.
-    pub min_weeks: Option<i64>,
-    /// Days from now until the first reply is expected (default 14).
-    pub reply_in_days: i64,
-    /// Days to wait for a reply to the letter (default 14).
-    pub final_wait_days: i64,
-    /// How many pathways to take, longest-waiting first (1 to [`MAX_COHORT`]).
-    pub limit: i64,
-}
 
 pub struct ListValidationService {
     db: Pool,
