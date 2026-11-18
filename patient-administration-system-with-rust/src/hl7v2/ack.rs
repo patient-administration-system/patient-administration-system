@@ -195,6 +195,24 @@ mod tests {
     }
 
     #[test]
+    fn every_code_parses_back_to_itself_and_nothing_else_parses() {
+        for code in [AckCode::Accept, AckCode::AppError, AckCode::Reject] {
+            assert_eq!(AckCode::parse(code.as_str()), Some(code));
+        }
+        assert_eq!(AckCode::parse("CA"), None);
+        assert_eq!(AckCode::parse(""), None);
+    }
+
+    #[test]
+    fn an_ack_from_the_bare_names_is_from_the_sender_to_the_receiver() {
+        let a = ack("PASAPP", "EMR", "CTL-1", AckCode::Reject, Some("bad"));
+        let msh = fields(&a, "MSH");
+        assert_eq!((msh[2].as_str(), msh[4].as_str()), ("PASAPP", "EMR"));
+        let msa = fields(&a, "MSA");
+        assert_eq!(&msa[..3], ["AR", "CTL-1", "bad"]);
+    }
+
+    #[test]
     fn swaps_sender_and_receiver_and_copies_processing_id_and_version() {
         let i = inbound("MSH|^~\\&|EMR|WARDS|PASAPP|HOSP|20260523120000||ADT^A01|MSG001|T|2.4");
         let a = ack_to(&i, AckCode::Accept, None);

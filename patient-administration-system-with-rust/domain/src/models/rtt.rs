@@ -152,10 +152,8 @@ pub fn compute_active_weeks(events: &[RTTClockEvent], now: Timestamp) -> u32 {
     }
 
     const SECONDS_PER_WEEK: i64 = 7 * 24 * 3600;
-    if total_active_seconds < 0 {
-        return 0;
-    }
-    (total_active_seconds / SECONDS_PER_WEEK) as u32
+    // Events out of order can make the total negative: that is no time waited, not a huge one.
+    u32::try_from(total_active_seconds / SECONDS_PER_WEEK).unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -175,6 +173,31 @@ mod tests {
             event_at,
             created_at: event_at,
         }
+    }
+
+    #[test]
+    fn a_stop_before_its_start_counts_as_no_time_not_a_huge_one() {
+        let p = Uuid::new_v4();
+        let now = Timestamp::now();
+        // Recorded out of order: stopped three weeks before it started.
+        let events = vec![
+            event(p, RTTEventKind::Started, at(now, 1)),
+            event(p, RTTEventKind::Stopped, at(now, 4)),
+        ];
+        assert_eq!(compute_active_weeks(&events, now), 0);
+    }
+
+    #[test]
+    fn a_closed_interval_counts_its_whole_weeks_and_an_open_one_runs_to_now() {
+        let p = Uuid::new_v4();
+        let now = Timestamp::now();
+        // Three weeks, paused; resumed two weeks ago and still running.
+        let events = vec![
+            event(p, RTTEventKind::Started, at(now, 10)),
+            event(p, RTTEventKind::Paused, at(now, 7)),
+            event(p, RTTEventKind::Resumed, at(now, 2)),
+        ];
+        assert_eq!(compute_active_weeks(&events, now), 5);
     }
 
     #[test]
