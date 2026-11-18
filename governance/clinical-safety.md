@@ -61,7 +61,7 @@ A change under one of these paths (relative to `patient-administration-system-wi
 | H-17 | `src/triage/` and `domain/src/triage/` |
 | H-18 | `src/triage/` and `domain/src/triage/` |
 | H-19 | `domain/src/triage/targets.rs`, `domain/src/triage/waits.rs` (the arithmetic) and `src/triage/waits.rs` (the reads) |
-| H-20 | `src/suspicions/` and `domain/src/suspicions/` (the profile), `src/referrals/` and `domain/src/referrals.rs` |
+| H-20 | `src/suspicions/` and `domain/src/suspicions/` (the profile, the stop reasons and the waits), `src/referrals/` and `domain/src/referrals.rs` |
 | H-21 | `src/suspicions/` and `domain/src/suspicions/`, `src/writeback/`, `src/follow_up/` |
 | H-22 | `src/hl7v2/`, `src/api/rest/hl7_dedupe.rs`, `src/api/rest/handlers_hl7v2/` |
 
