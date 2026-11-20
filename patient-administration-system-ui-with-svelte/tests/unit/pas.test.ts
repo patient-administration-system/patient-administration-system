@@ -11,14 +11,38 @@ vi.mock("$app/env/private", () => ({
 
 const {
   PasError,
+  acknowledgeToleranceAlert,
+  adjustmentsFor,
+  appointmentHistory,
+  appointmentsBetween,
+  askStillNeeded,
+  contactLog,
+  dueChecks,
   facilitiesWithWards,
   identityProofed,
   isCursor,
+  letterTemplates,
   nextCursor,
+  noshowFor,
+  offerLinkAct,
+  offerLinkInfo,
+  openSuspicions,
   pas,
+  pasAllPages,
   pasArray,
   pasPage,
+  patientAppointments,
+  patientEnquiry,
+  portalMessages,
+  replyLinkAct,
+  replyLinkInfo,
+  replyLinkRebook,
+  suspicionProfile,
+  toleranceAlerts,
   toleranceStatus,
+  updateLetterTemplate,
+  waitlist,
+  wardOverview,
   withCursor,
   workItems,
   workReminders,
@@ -90,6 +114,10 @@ describe("pas()", () => {
     const { fetch } = fake(503, "<html>Service Unavailable</html>");
     await expect(pas(fetch, "/api/x")).rejects.toMatchObject({ status: 503 });
   });
+
+  it("accepts a successful response with an empty body", async () => {
+    await expect(pas(fake(200, "").fetch, "/api/x")).resolves.toEqual({});
+  });
 });
 
 describe("pasArray()", () => {
@@ -156,6 +184,72 @@ describe("pasPage()", () => {
   });
 });
 
+describe("pasAllPages()", () => {
+  it("joins every signed-cursor page so a busy calendar is whole", async () => {
+    const calls: string[] = [];
+    const fetch = vi.fn(async (url: RequestInfo | URL) => {
+      calls.push(String(url));
+      const second = String(url).includes("cursor=next_2");
+      return new Response(
+        JSON.stringify(
+          second
+            ? { data: [{ id: "a3" }], meta: { limit: 2, returned: 1, truncated: false } }
+            : {
+                data: [{ id: "a1" }, { id: "a2" }],
+                meta: {
+                  limit: 2,
+                  returned: 2,
+                  truncated: true,
+                  next: "/api/appointments?from=x&to=y&limit=2&cursor=next_2",
+                },
+              },
+        ),
+        { status: 200 },
+      );
+    }) as unknown as typeof globalThis.fetch;
+
+    await expect(pasAllPages<{ id: string }>(fetch, "/api/appointments?from=x&to=y&limit=2")).resolves.toEqual([
+      { id: "a1" },
+      { id: "a2" },
+      { id: "a3" },
+    ]);
+    expect(calls).toEqual([
+      "http://pas.test/api/appointments?from=x&to=y&limit=2",
+      "http://pas.test/api/appointments?from=x&to=y&limit=2&cursor=next_2",
+    ]);
+  });
+
+  it("refuses a repeated cursor instead of looping or showing a partial calendar", async () => {
+    const fetch = fake(
+      200,
+      JSON.stringify({
+        data: [{ id: "a1" }],
+        meta: { limit: 1, returned: 1, truncated: true, next: "/api/x?cursor=again" },
+      }),
+    ).fetch;
+    await expect(pasAllPages(fetch, "/api/x")).rejects.toMatchObject({ status: 502 });
+  });
+
+  it("refuses a truncated page with no cursor instead of showing a partial calendar", async () => {
+    const fetch = fake(
+      200,
+      JSON.stringify({ data: [{ id: "a1" }], meta: { limit: 1, returned: 1, truncated: true } }),
+    ).fetch;
+    await expect(pasAllPages(fetch, "/api/x")).rejects.toMatchObject({ status: 502 });
+  });
+
+  it("asks for the largest allowed pages when reading appointments", async () => {
+    const { fetch, calls } = fake(
+      200,
+      JSON.stringify({ data: [], meta: { limit: 500, returned: 0, truncated: false } }),
+    );
+    await appointmentsBetween(fetch, "2026-01-01T00:00:00Z", "2026-02-01T00:00:00Z");
+    expect(calls[0]?.url).toBe(
+      "http://pas.test/api/appointments?from=2026-01-01T00%3A00%3A00Z&to=2026-02-01T00%3A00%3A00Z&limit=500",
+    );
+  });
+});
+
 describe("toleranceStatus()", () => {
   const good = { overall: "green", from: "a", to: "b", readings: [], by_service: [], by_ward: [] };
 
@@ -211,6 +305,74 @@ describe("facilitiesWithWards()", () => {
     expect(got).toHaveLength(1);
     expect(got[0]!.facility.name).toBe("General");
     expect(got[0]!.wards.map((w) => w.id)).toEqual(["w1"]);
+  });
+});
+
+describe("typed PAS route wrappers", () => {
+  it("encode path and query values and use the declared action method", async () => {
+    const { fetch, calls } = fake(200, JSON.stringify({ data: [] }));
+    await patientAppointments(fetch, "person/1");
+    await letterTemplates(fetch);
+    await waitlist(fetch);
+    await portalMessages(fetch, "person/1");
+    await noshowFor(fetch, ["a/b", "c d"]);
+    await adjustmentsFor(fetch, ["a/b", "c d"]);
+    await appointmentHistory(fetch, "appointment/1");
+    await contactLog(fetch, "person/1", "page_2");
+    await dueChecks(fetch, "page_3");
+    await askStillNeeded(fetch, "pathway/1", "Ada");
+    await toleranceAlerts(fetch, "page_4");
+    await acknowledgeToleranceAlert(fetch, "alert/1", "Ada");
+    await replyLinkInfo(fetch, "token/1");
+    await replyLinkAct(fetch, "token/1", "cancel now", true, "transport");
+    await replyLinkRebook(fetch, "token/1", "slot/1");
+    await offerLinkInfo(fetch, "offer/1");
+    await offerLinkAct(fetch, "offer/1", "accept");
+    await suspicionProfile(fetch);
+    await openSuspicions(fetch, "type/a", "page_5");
+    await patientEnquiry(fetch, "person/1");
+    await wardOverview(fetch, "ward/1");
+
+    expect(calls.map((c) => [c.init.method, c.url, c.init.body])).toEqual([
+      ["GET", "http://pas.test/api/patients/person%2F1/appointments", undefined],
+      ["GET", "http://pas.test/api/letter-templates", undefined],
+      ["GET", "http://pas.test/api/waitlist", undefined],
+      ["GET", "http://pas.test/api/patients/person%2F1/letters?channel=portal", undefined],
+      ["GET", "http://pas.test/api/noshow/for-appointments?ids=a%2Fb,c%20d", undefined],
+      ["GET", "http://pas.test/api/reasonable-adjustments/for-appointments?ids=a%2Fb,c%20d", undefined],
+      ["GET", "http://pas.test/api/appointments/appointment%2F1/history", undefined],
+      ["GET", "http://pas.test/api/patients/person%2F1/contact-log?cursor=page_2", undefined],
+      ["GET", "http://pas.test/api/pathways/due-check?cursor=page_3", undefined],
+      ["POST", "http://pas.test/api/pathways/pathway%2F1/still-needed-checks", '{"asked_by":"Ada"}'],
+      ["GET", "http://pas.test/api/tolerance-alerts?open=true&cursor=page_4", undefined],
+      ["POST", "http://pas.test/api/tolerance-alerts/alert%2F1/acknowledge", '{"acknowledged_by":"Ada"}'],
+      ["GET", "http://pas.test/api/reply-links/token%2F1", undefined],
+      [
+        "POST",
+        "http://pas.test/api/reply-links/token%2F1/cancel%20now",
+        '{"confirmed":true,"barrier_code":"transport"}',
+      ],
+      ["POST", "http://pas.test/api/reply-links/token%2F1/rebook", '{"slot_id":"slot/1"}'],
+      ["GET", "http://pas.test/api/offer-links/offer%2F1", undefined],
+      ["POST", "http://pas.test/api/offer-links/offer%2F1/accept", "{}"],
+      ["GET", "http://pas.test/api/suspicion-profile", undefined],
+      ["GET", "http://pas.test/api/suspicions?condition=type%2Fa&cursor=page_5", undefined],
+      ["GET", "http://pas.test/api/patients/person%2F1/enquiry", undefined],
+      ["GET", "http://pas.test/api/wards/ward%2F1/overview", undefined],
+    ]);
+  });
+
+  it("takes the optional wrapper branches", async () => {
+    const { fetch, calls } = fake(200, JSON.stringify({ data: [] }));
+    await replyLinkAct(fetch, "token", "cancel");
+    await openSuspicions(fetch, null);
+    await updateLetterTemplate(fetch, { id: "template/1" } as Parameters<typeof updateLetterTemplate>[1]);
+    expect(nextCursor({ limit: 1, returned: 1, truncated: true, next: "http://[" })).toBeNull();
+    expect(calls.map((c) => [c.init.method, c.url, c.init.body])).toEqual([
+      ["POST", "http://pas.test/api/reply-links/token/cancel", '{"confirmed":false}'],
+      ["GET", "http://pas.test/api/suspicions", undefined],
+      ["PUT", "http://pas.test/api/letter-templates/template%2F1", '{"id":"template/1"}'],
+    ]);
   });
 });
 

@@ -140,35 +140,24 @@ pub async fn stale_profiles(
 #[derive(Deserialize, utoipa::ToSchema)]
 pub struct OptOutBody {
     /// `sms`, `whatsapp`, `apple_messages` or `email`.
+    #[schema(value_type = crate::models::communication::PatientOptOutChannel)]
     pub channel: String,
 }
 
 /// One channel a patient has asked us not to use.
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct OptOut {
-    pub channel: String,
+    pub channel: crate::models::communication::OptOutChannel,
     #[schema(required = true)]
     pub opted_out_at: Option<jiff::Timestamp>,
-    pub source: String,
+    pub source: crate::models::communication::OptOutSource,
 }
 
 /// Whether a patient is opted out of a channel, after a change.
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct OptOutState {
-    pub channel: String,
+    pub channel: crate::models::communication::PatientOptOutChannel,
     pub opted_out: bool,
-}
-
-const OPTOUT_CHANNELS: [&str; 4] = ["sms", "whatsapp", "apple_messages", "email"];
-
-fn check_channel(c: &str) -> Result<(), Error> {
-    if OPTOUT_CHANNELS.contains(&c) {
-        Ok(())
-    } else {
-        Err(Error::validation(
-            "channel must be sms, whatsapp, apple_messages or email",
-        ))
-    }
 }
 
 /// `GET /api/patients/{id}/channel-optouts`: the channels this patient has asked us not to use.
@@ -192,15 +181,24 @@ pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -
         .await;
     match rows {
         Ok(rows) => {
-            let list: Vec<OptOut> = rows
+            let list: Result<Vec<OptOut>, Error> = rows
                 .iter()
-                .map(|r| OptOut {
-                    channel: r.col::<String>("channel").unwrap_or_default(),
-                    opted_out_at: r.col::<jiff::Timestamp>("opted_out_at").ok(),
-                    source: r.col::<String>("source").unwrap_or_default(),
+                .map(|r| {
+                    Ok(OptOut {
+                        channel: r.col::<String>("channel")?.parse().map_err(|_| {
+                            Error::internal("message_optouts has an unknown channel")
+                        })?,
+                        opted_out_at: r.col::<jiff::Timestamp>("opted_out_at").ok(),
+                        source: r.col::<String>("source")?.parse().map_err(|_| {
+                            Error::internal("message_optouts has an unknown source")
+                        })?,
+                    })
                 })
                 .collect();
-            ok_json(list)
+            match list {
+                Ok(list) => ok_json(list),
+                Err(e) => error_to_response(e),
+            }
         }
         Err(e) => error_to_response(e),
     }
@@ -226,21 +224,25 @@ pub async fn add_optout(
     Path(id): Path<Uuid>,
     Json(body): Json<OptOutBody>,
 ) -> HandlerResult {
-    if let Err(e) = check_channel(&body.channel) {
-        return error_to_response(e);
-    }
+    let channel = match body
+        .channel
+        .parse::<crate::models::communication::PatientOptOutChannel>()
+    {
+        Ok(channel) => channel,
+        Err(e) => return error_to_response(e),
+    };
     let ctx = request_audit_ctx(&headers);
     match crate::communication::consent::record_optout(
         &state.db,
         &crate::communication::consent::person_subject(id),
-        &body.channel,
-        "staff",
+        channel.into(),
+        crate::models::communication::OptOutSource::Staff,
         ctx.user_id.as_deref(),
     )
     .await
     {
         Ok(()) => ok_json(OptOutState {
-            channel: body.channel,
+            channel,
             opted_out: true,
         }),
         Err(e) => error_to_response(e),
@@ -263,13 +265,14 @@ pub async fn remove_optout(
     State(state): State<AppState>,
     Path((id, channel)): Path<(Uuid, String)>,
 ) -> HandlerResult {
-    if let Err(e) = check_channel(&channel) {
-        return error_to_response(e);
-    }
+    let channel = match channel.parse::<crate::models::communication::PatientOptOutChannel>() {
+        Ok(channel) => channel,
+        Err(_) => return error_to_response(Error::validation("unknown opt-out channel")),
+    };
     match crate::communication::consent::resume(
         &state.db,
         &crate::communication::consent::person_subject(id),
-        &channel,
+        channel.into(),
     )
     .await
     {

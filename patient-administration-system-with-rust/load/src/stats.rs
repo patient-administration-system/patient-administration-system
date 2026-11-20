@@ -163,6 +163,10 @@ mod tests {
         assert_eq!(percentile(&v, 100.0), 100);
         assert_eq!(percentile(&[7], 99.0), 7);
         assert_eq!(percentile(&[], 50.0), 0);
+
+        let empty = OpSummary::of(&OpStats::default(), Duration::from_secs(1));
+        assert_eq!(empty.count, 0);
+        assert_eq!(empty.mean_ms, 0.0);
     }
 
     #[test]

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("$app/env/private", () => ({ PAS_API_URL: "http://pas.test", PAS_API_TOKEN: "t", PAS_API_TOKEN_FILE: "" }));
 
 const { PasError } = await import("#lib/server/pas.js");
-const { actorName, fromPas, pasFailure, signedInFetch } = await import("#lib/server/route.js");
+const { actorName, fromPas, pageFromPas, pasFailure, signedInFetch } = await import("#lib/server/route.js");
 const { LINK_PAGE_HEADERS, isLinkToken, linkFailureStatus, linkStateFor } = await import("#lib/server/token-link.js");
 
 const locals = (user: { sub: string; name?: string } | null) =>
@@ -53,6 +53,56 @@ describe("pasFailure", () => {
 
   it("throws anything that is not a PAS failure", async () => {
     await expect(pasFailure(() => Promise.reject(new RangeError("bug")), {})).rejects.toThrow(RangeError);
+  });
+});
+
+describe("pageFromPas", () => {
+  it("passes only a valid cursor and builds next and first-page links", async () => {
+    const load = vi.fn(async () => ({ rows: [1], cutAt: 1, next: "next_2" }));
+    await expect(pageFromPas(new URL("https://ui.test/history?patient=p1&cursor=bad%20cursor"), load)).resolves.toEqual(
+      {
+        rows: [1],
+        cutAt: 1,
+        next: "next_2",
+        nextHref: "/history?patient=p1&cursor=next_2",
+        firstHref: null,
+      },
+    );
+    expect(load).toHaveBeenLastCalledWith(null);
+
+    load.mockResolvedValueOnce({ rows: [2], cutAt: null, next: null });
+    await expect(pageFromPas(new URL("https://ui.test/history?patient=p1&cursor=page_2"), load)).resolves.toEqual({
+      rows: [2],
+      cutAt: null,
+      next: null,
+      nextHref: null,
+      firstHref: "/history?patient=p1",
+    });
+    expect(load).toHaveBeenLastCalledWith("page_2");
+  });
+
+  it("redirects a refused cursor to the first page", async () => {
+    const e = await pageFromPas(new URL("https://ui.test/waits?cursor=old_1&open=true"), async () => {
+      throw new PasError(422, "old cursor");
+    }).catch((x: unknown) => x);
+    expect(e).toMatchObject({ status: 303, location: "/waits?open=true" });
+  });
+
+  it("maps PAS failures like fromPas and lets programming bugs through", async () => {
+    const rejected = (e: unknown) => async () => {
+      throw e;
+    };
+    expect(
+      (await pageFromPas(new URL("https://ui.test/x"), rejected(new PasError(404, "missing")), {
+        notFound: true,
+      }).catch((x: unknown) => x)) as { status: number },
+    ).toMatchObject({ status: 404 });
+    expect(
+      (await pageFromPas(new URL("https://ui.test/x"), rejected(new PasError(500, "down"))).catch(
+        (x: unknown) => x,
+      )) as { status: number },
+    ).toMatchObject({ status: 502 });
+    await expect(pageFromPas(new URL("https://ui.test/x"), rejected(new TypeError("bug")))).rejects.toThrow(TypeError);
   });
 });
 

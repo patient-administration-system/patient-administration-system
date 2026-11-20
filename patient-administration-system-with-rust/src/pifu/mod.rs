@@ -41,15 +41,23 @@ crate::string_enum! {
     }
 }
 
+crate::string_enum! {
+    /// Where a PIFU request goes for action.
+    pub enum RequestRoute {
+        Booking = "booking",
+        Person = "person",
+    }
+}
+
 /// The longest window an episode may be opened or extended for.
 pub const MAX_WINDOW_DAYS: i64 = 730;
 
 /// Where a request goes: a booking task inside the window, a person's decision after it.
-pub fn route_for(now: Timestamp, expires_at: Timestamp) -> &'static str {
+pub fn route_for(now: Timestamp, expires_at: Timestamp) -> RequestRoute {
     if now < expires_at {
-        "booking"
+        RequestRoute::Booking
     } else {
-        "person"
+        RequestRoute::Person
     }
 }
 
@@ -78,8 +86,7 @@ pub struct Request {
     pub service_type: String,
     pub requested_at: Timestamp,
     pub channel: RequestChannel,
-    /// `booking` or `person`.
-    pub route: String,
+    pub route: RequestRoute,
 }
 
 /// What a clinician supplies to open an episode.
@@ -243,7 +250,7 @@ impl PifuService {
         let route = if ep.status == EpisodeStatus::Active {
             route_for(now, ep.expires_at)
         } else {
-            "person"
+            RequestRoute::Person
         };
         let id = Uuid::new_v4();
         let inserted = txn
@@ -255,7 +262,7 @@ impl PifuService {
                     ep.person_id.into(),
                     now.into(),
                     channel.as_str().into(),
-                    route.into(),
+                    route.as_str().into(),
                 ],
             ))
 .await?;
@@ -289,7 +296,7 @@ impl PifuService {
             service_type: ep.service_type,
             requested_at: open.col("requested_at")?,
             channel: open.col::<String>("channel")?.parse()?,
-            route: open.col("route")?,
+            route: open.col::<String>("route")?.parse()?,
         })
     }
 
@@ -300,15 +307,15 @@ impl PifuService {
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<Request>> {
         let rows = rows.into();
-        if !["booking", "person"].contains(&route) {
-            return Err(Error::validation("route must be booking or person"));
-        }
+        let route: RequestRoute = route
+            .parse()
+            .map_err(|_| Error::validation("route must be booking or person"))?;
         let rows = self
             .db
             .all(Stmt::new("SELECT r.id, r.episode_id, r.person_id, e.service_type, r.requested_at, r.channel, r.route \
                  FROM pifu_requests r JOIN pifu_episodes e ON e.id = r.episode_id \
                  WHERE r.handled_at IS NULL AND r.route = $1 ORDER BY r.requested_at, r.id LIMIT $2 OFFSET $3",
-                [route.into(), rows.fetch().into(), rows.offset().into()],
+                [route.as_str().into(), rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows.iter()
@@ -320,7 +327,7 @@ impl PifuService {
                     service_type: r.col("service_type")?,
                     requested_at: r.col("requested_at")?,
                     channel: r.col::<String>("channel")?.parse()?,
-                    route: r.col("route")?,
+                    route: r.col::<String>("route")?.parse()?,
                 })
             })
             .collect()

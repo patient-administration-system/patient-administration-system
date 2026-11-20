@@ -12,7 +12,9 @@ use patient_administration_system::api::rest::AppState;
 use patient_administration_system::communication::MessageSender;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::letter::LetterRepository;
-use patient_administration_system::models::communication::{DeliveryChannel, LetterTemplate};
+use patient_administration_system::models::communication::{
+    DeliveryChannel, LetterTemplate, OptOutChannel, OptOutSource,
+};
 use patient_administration_system::upstream::{Person, StubPersonClient};
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
@@ -173,8 +175,8 @@ async fn the_rule_is_off_unless_switched_on_and_stop_still_silences_whatsapp() {
     patient_administration_system::communication::consent::record_optout(
         &s.db,
         &patient_administration_system::communication::consent::person_subject(person),
-        "whatsapp",
-        "staff",
+        OptOutChannel::WhatsApp,
+        OptOutSource::Staff,
         None,
     )
     .await

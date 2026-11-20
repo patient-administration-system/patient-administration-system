@@ -17,7 +17,7 @@ const HL7_A01: &str = include_str!("../../examples/hl7-adt-a01.txt");
 /// What a run drives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scenario {
-    /// Reads only: health, an appointment, a slot, a day's calendar, the two capability statements, and
+    /// Reads only: health, an appointment, a slot, a day or month of the calendar, the two capability statements, and
     /// an HL7 v2 parse (which writes nothing).
     Read,
     /// Each iteration books a free slot, reads it back for its `ETag`, and cancels it with `If-Match`.
@@ -197,7 +197,7 @@ pub async fn read_once(ctx: &Ctx, rng: &mut Rng, rec: &mut Recorder) {
                 ctx.request(Method::GET, &format!("/api/slots/{id}")),
             )
         }
-        55..75 => {
+        55..70 => {
             let from = fx.read_day;
             let path = format!(
                 "/api/appointments?from={}&to={}",
@@ -205,6 +205,15 @@ pub async fn read_once(ctx: &Ctx, rng: &mut Rng, rec: &mut Recorder) {
                 iso(from + patient_administration_system::time::days(1))
             );
             ("list_appointments_day", ctx.request(Method::GET, &path))
+        }
+        70..75 => {
+            let from = fx.read_day;
+            let path = format!(
+                "/api/appointments?from={}&to={}&limit=500",
+                iso(from),
+                iso(from + patient_administration_system::time::days(31))
+            );
+            ("list_appointments_month", ctx.request(Method::GET, &path))
         }
         75..80 => (
             "fhir_r5_metadata",
@@ -387,6 +396,88 @@ pub async fn once(scenario: Scenario, ctx: &Ctx, rng: &mut Rng, rec: &mut Record
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    async fn scenario_server(
+        appointment: Uuid,
+        empty_find: bool,
+    ) -> (String, tokio::task::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind scenario server");
+        let address = listener.local_addr().expect("scenario server address");
+        let server = tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
+                tokio::spawn(async move {
+                    let mut request = [0_u8; 8192];
+                    let read = socket.read(&mut request).await.unwrap_or(0);
+                    let head = String::from_utf8_lossy(&request[..read]);
+                    let line = head.lines().next().unwrap_or_default();
+                    let path = line.split_whitespace().nth(1).unwrap_or_default();
+                    let (status, etag, body) = if path == "/conflict" {
+                        ("409 Conflict", "", "{}".to_string())
+                    } else if path == "/error" {
+                        ("500 Internal Server Error", "", "{}".to_string())
+                    } else if path.starts_with("/fhir/r4/Appointment/$find") {
+                        (
+                            "200 OK",
+                            "",
+                            if empty_find {
+                                r#"{"entry":[]}"#.to_string()
+                            } else {
+                                r#"{"entry":[{"resource":{"id":"proposal-1"}}]}"#.to_string()
+                            },
+                        )
+                    } else if path.starts_with("/api/patients/") {
+                        (
+                            "200 OK",
+                            "",
+                            format!(r#"{{"data":[{{"id":"{appointment}"}}]}}"#),
+                        )
+                    } else if line.starts_with("POST /api/slots/") {
+                        (
+                            "200 OK",
+                            "",
+                            format!(r#"{{"data":{{"id":"{appointment}"}}}}"#),
+                        )
+                    } else if line.starts_with("GET /api/appointments/") {
+                        ("200 OK", "etag: \"fixture-v1\"\r\n", "{}".to_string())
+                    } else {
+                        ("200 OK", "", "{}".to_string())
+                    };
+                    let response = format!(
+                        "HTTP/1.1 {status}\r\ncontent-length: {}\r\n{etag}connection: close\r\n\r\n{body}",
+                        body.len()
+                    );
+                    let _written = socket.write_all(response.as_bytes()).await;
+                });
+            }
+        });
+        (format!("http://{address}"), server)
+    }
+
+    fn scenario_context(base: String) -> Ctx {
+        let at: Timestamp = "2026-11-20T12:00:00Z".parse().expect("fixed timestamp");
+        Ctx::new(
+            Client::new(),
+            base,
+            None,
+            Fixtures {
+                read_slots: vec![Uuid::new_v4()],
+                read_appointments: vec![Uuid::new_v4()],
+                read_day: at,
+                cycle_slots: vec![Uuid::new_v4()],
+                hot_slots: vec![Uuid::new_v4()],
+                ihe_practitioner: Uuid::new_v4(),
+                ihe_window: (at, at + patient_administration_system::time::days(1)),
+            },
+        )
+    }
 
     #[test]
     fn every_scenario_name_reads_back() {
@@ -413,5 +504,179 @@ mod tests {
         let body = serde_json::to_vec(&json!({"data": {"id": id}})).unwrap_or_default();
         assert_eq!(appointment_id(&body), Some(id));
         assert_eq!(appointment_id(b"not json"), None);
+        assert_eq!(appointment_id(br#"{"data":{"id":"not-a-uuid"}}"#), None);
+    }
+
+    #[test]
+    fn request_context_and_ihe_helpers_build_the_expected_wire_values() {
+        let _provider = rustls::crypto::ring::default_provider().install_default();
+        let at: Timestamp = "2026-11-19T08:00:00Z".parse().unwrap();
+        let fx = Fixtures {
+            read_slots: Vec::new(),
+            read_appointments: Vec::new(),
+            read_day: at,
+            cycle_slots: Vec::new(),
+            hot_slots: Vec::new(),
+            ihe_practitioner: Uuid::new_v4(),
+            ihe_window: (at, at),
+        };
+        let ctx = Ctx::new(
+            Client::new(),
+            "http://example.test".into(),
+            Some("token".into()),
+            fx,
+        );
+        let req = ctx.request(Method::GET, "/api/health").build().unwrap();
+        assert_eq!(req.url().as_str(), "http://example.test/api/health");
+        assert_eq!(req.headers()["x-user-id"], "load-test");
+        assert_eq!(req.headers()["authorization"], "Bearer token");
+
+        let booked = Uuid::new_v4();
+        ctx.note_booked(booked);
+        assert_eq!(*ctx.booked.lock().unwrap(), [booked]);
+        assert_eq!(iso(at), "2026-11-19T08:00:00Z");
+
+        let reference = reference("abc");
+        assert_eq!(
+            reference["parameter"][0]["valueReference"]["reference"],
+            "Appointment/abc"
+        );
+        let proposals = json!({
+            "entry": [
+                {"resource": {"id": "one"}},
+                {"resource": {"id": 2}},
+                {"resource": {"id": "three"}}
+            ]
+        });
+        assert_eq!(
+            proposal_ids(&serde_json::to_vec(&proposals).unwrap()),
+            ["one", "three"]
+        );
+        assert!(proposal_ids(b"bad json").is_empty());
+    }
+
+    #[tokio::test]
+    async fn scenarios_drive_their_complete_http_flows_and_classify_failures() {
+        let _provider = rustls::crypto::ring::default_provider().install_default();
+        let appointment = Uuid::new_v4();
+        let (base, server) = scenario_server(appointment, false).await;
+        let ctx = scenario_context(base.clone());
+        let mut recorder = Recorder::default();
+
+        let expected_reads = [
+            "get_health",
+            "get_appointment",
+            "get_slot",
+            "list_appointments_day",
+            "list_appointments_month",
+            "fhir_r5_metadata",
+            "fhir_r4_metadata",
+            "hl7v2_parse",
+        ];
+        for worker in 0..512 {
+            once(
+                Scenario::Read,
+                &ctx,
+                &mut Rng::seeded(worker),
+                &mut recorder,
+            )
+            .await;
+            let summaries = recorder.summarise(Duration::from_secs(1));
+            if expected_reads.iter().all(|op| summaries.contains_key(*op)) {
+                break;
+            }
+        }
+        let summaries = recorder.summarise(Duration::from_secs(1));
+        assert!(
+            expected_reads.iter().all(|op| summaries.contains_key(*op)),
+            "{summaries:?}"
+        );
+
+        once(Scenario::Cycle, &ctx, &mut Rng::seeded(1), &mut recorder).await;
+        once(
+            Scenario::Contention,
+            &ctx,
+            &mut Rng::seeded(2),
+            &mut recorder,
+        )
+        .await;
+        once(Scenario::Ihe, &ctx, &mut Rng::seeded(3), &mut recorder).await;
+        for worker in 0..128 {
+            once(
+                Scenario::Mixed,
+                &ctx,
+                &mut Rng::seeded(worker),
+                &mut recorder,
+            )
+            .await;
+        }
+
+        let summaries = recorder.summarise(Duration::from_secs(1));
+        for op in [
+            "book_slot",
+            "get_appointment_etag",
+            "cancel_appointment",
+            "book_contended",
+            "ihe_find",
+            "ihe_hold",
+            "ihe_book",
+            "list_patient_appointments",
+        ] {
+            assert!(summaries.contains_key(op), "missing {op}: {summaries:?}");
+        }
+        assert!(summaries.values().all(|summary| summary.errors == 0));
+        assert!(!ctx.booked.lock().expect("booked lock").is_empty());
+        assert!(
+            !ctx.contention_wins
+                .lock()
+                .expect("contention lock")
+                .is_empty()
+        );
+
+        assert!(
+            call(
+                &mut recorder,
+                "expected_conflict",
+                ctx.request(Method::GET, "/conflict"),
+                &[StatusCode::CONFLICT],
+            )
+            .await
+            .is_some()
+        );
+        assert!(
+            call(
+                &mut recorder,
+                "server_error",
+                ctx.request(Method::GET, "/error"),
+                &[],
+            )
+            .await
+            .is_some()
+        );
+        server.abort();
+        assert!(
+            call(
+                &mut recorder,
+                "transport_error",
+                Client::new().get(format!("{base}/after-stop")),
+                &[],
+            )
+            .await
+            .is_none()
+        );
+
+        let final_summaries = recorder.summarise(Duration::from_secs(1));
+        assert_eq!(final_summaries["expected_conflict"].contended, 1);
+        assert_eq!(final_summaries["server_error"].errors, 1);
+        assert_eq!(final_summaries["transport_error"].errors, 1);
+
+        let (empty_base, empty_server) = scenario_server(appointment, true).await;
+        let empty_ctx = scenario_context(empty_base);
+        let mut empty_recorder = Recorder::default();
+        ihe_once(&empty_ctx, &mut Rng::seeded(4), &mut empty_recorder).await;
+        let empty = empty_recorder.summarise(Duration::from_secs(1));
+        assert_eq!(empty["ihe_find_empty"].errors, 1);
+        assert!(!empty.contains_key("ihe_hold"));
+        empty_server.abort();
     }
 }

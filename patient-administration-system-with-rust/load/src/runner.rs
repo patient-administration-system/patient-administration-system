@@ -179,6 +179,54 @@ async fn collect(mut set: JoinSet<Recorder>) -> Recorder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fixtures::Fixtures;
+    use jiff::Timestamp;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use uuid::Uuid;
+
+    async fn test_server(delay: Duration) -> (String, tokio::task::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind test HTTP server");
+        let address = listener.local_addr().expect("test HTTP address");
+        let server = tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
+                tokio::spawn(async move {
+                    let mut request = [0_u8; 4096];
+                    let _read = socket.read(&mut request).await;
+                    tokio::time::sleep(delay).await;
+                    let _written = socket
+                        .write_all(
+                            b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{}",
+                        )
+                        .await;
+                });
+            }
+        });
+        (format!("http://{address}"), server)
+    }
+
+    fn context(base: String) -> Arc<Ctx> {
+        let now = Timestamp::now();
+        Arc::new(Ctx::new(
+            reqwest::Client::new(),
+            base,
+            None,
+            Fixtures {
+                read_slots: vec![Uuid::new_v4()],
+                read_appointments: vec![Uuid::new_v4()],
+                read_day: now,
+                cycle_slots: vec![Uuid::new_v4()],
+                hot_slots: vec![Uuid::new_v4()],
+                ihe_practitioner: Uuid::new_v4(),
+                ihe_window: (now, now),
+            },
+        ))
+    }
 
     #[test]
     fn every_profile_has_a_checked_phase_and_unknown_is_refused() {
@@ -211,5 +259,84 @@ mod tests {
         )
         .unwrap_or_default();
         assert_eq!(soak.len(), 4, "a warm-up and three one-minute windows");
+
+        let stress = profile(
+            "stress",
+            Overrides {
+                duration: Some(Duration::from_secs(7)),
+                ..Overrides::default()
+            },
+        )
+        .unwrap_or_default();
+        assert!(
+            stress
+                .iter()
+                .all(|phase| phase.duration == Duration::from_secs(7))
+        );
+    }
+
+    #[tokio::test]
+    async fn closed_and_open_phases_drive_requests_and_report_shedding() {
+        let _provider = rustls::crypto::ring::default_provider().install_default();
+        let (base, server) = test_server(Duration::from_millis(20)).await;
+        let ctx = context(base);
+
+        let closed_phase = Phase {
+            name: "closed-test".into(),
+            workers: 1,
+            duration: Duration::from_millis(45),
+            rate: None,
+            check: Check::None,
+        };
+        let (closed_recorder, closed_wall) = run_phase(&ctx, Scenario::Read, &closed_phase).await;
+        let closed_count: u64 = closed_recorder
+            .summarise(closed_wall)
+            .values()
+            .map(|summary| summary.count)
+            .sum();
+        assert!(closed_count > 0);
+        assert_eq!(closed_recorder.shed, 0);
+
+        let open_phase = Phase {
+            name: "open-test".into(),
+            workers: 1,
+            duration: Duration::from_millis(45),
+            rate: Some(1_000.0),
+            check: Check::None,
+        };
+        let (open_recorder, open_wall) = run_phase(&ctx, Scenario::Read, &open_phase).await;
+        let open_count: u64 = open_recorder
+            .summarise(open_wall)
+            .values()
+            .map(|summary| summary.count)
+            .sum();
+        assert!(open_count > 0);
+        assert!(
+            open_recorder.shed > 0,
+            "the one in-flight permit must shed ticks"
+        );
+
+        let mut workers = JoinSet::new();
+        workers.spawn(async { panic!("a failed worker must not discard successful workers") });
+        workers.spawn(async {
+            let mut recorder = Recorder::default();
+            recorder.record(crate::stats::Sample {
+                op: "survivor",
+                status: Some(200),
+                verdict: crate::stats::Verdict::Ok,
+                elapsed: Duration::from_millis(1),
+            });
+            recorder
+        });
+        let collected = collect(workers).await;
+        assert_eq!(
+            collected
+                .summarise(Duration::from_secs(1))
+                .get("survivor")
+                .map(|summary| summary.count),
+            Some(1)
+        );
+
+        server.abort();
     }
 }

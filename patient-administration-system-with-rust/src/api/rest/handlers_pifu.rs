@@ -121,6 +121,7 @@ pub struct Reviewed {
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct RequestsQuery {
     /// `booking` (default) or `person`.
+    #[param(value_type = Option<crate::pifu::RequestRoute>)]
     pub route: Option<String>,
 }
 

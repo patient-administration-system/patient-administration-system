@@ -5,9 +5,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { AXE_TAGS, PATIENT_ROUTES, ROUTE_PATTERNS, STAFF_AND_ADMIN_ROUTES } from "./support/a11y-routes";
 import { keycloakLogin } from "./support/login";
-
-const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 /** Page routes, from the route tree: `src/routes/my/messages/+page.svelte` is `/my/messages`. */
 function routes(dir = join(process.cwd(), "src/routes"), prefix = ""): string[] {
@@ -20,31 +19,10 @@ function routes(dir = join(process.cwd(), "src/routes"), prefix = ""): string[] 
 
 // Every route is audited somewhere below. Add a new route to one of these lists, or the coverage
 // test fails. `/` only redirects, so it is audited through where it lands.
-const PUBLIC = ["/signin", "/privacy"];
-// The reply-link page needs a token in its address, so it is audited by its own tests below.
-const LINKS = ["/r/[token]", "/o/[token]"];
-const PATIENT = ["/my/appointments", "/my/messages"];
-// `/patients` shows its data grid only after a search, so audit it with one.
-const STAFF_AND_ADMIN = [
-  "/appointments",
-  "/waitlist",
-  "/schedule",
-  "/patients?q=ada",
-  "/admin/reminders",
-  "/history",
-  "/waits",
-  "/tolerances",
-  "/work",
-  "/home",
-  "/suspicions",
-  "/enquiry?patient=00000000-0000-0000-0000-000000000000",
-  "/wards?ward=77777777-7777-7777-7777-777777777777",
-];
-
 async function audit(page: Page, path: string, locale = "en-001") {
   await page.goto(`/${locale}${path}`);
   await page.waitForLoadState("networkidle");
-  const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
   const bad = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(
     bad.map(
@@ -59,7 +37,7 @@ async function audit(page: Page, path: string, locale = "en-001") {
 }
 
 test("every route is audited (a new route fails this until it is added above)", () => {
-  const known = new Set(["/", ...PUBLIC, ...LINKS, ...PATIENT, ...STAFF_AND_ADMIN].map((r) => r.split("?")[0]));
+  const known = new Set(["/", ...ROUTE_PATTERNS].map((r) => r.split("?")[0]));
   expect(routes().filter((r) => !known.has(r))).toEqual([]);
 });
 
@@ -86,7 +64,7 @@ for (const scheme of ["light", "dark"] as const) {
       await page.goto("/en-001/signin");
       await page.getByRole("button", { name: "Theme" }).click();
       await expect(page.getByRole("listbox", { name: "Theme" })).toBeVisible();
-      const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+      const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
       expect(
         results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id),
       ).toEqual([]);
@@ -109,7 +87,7 @@ for (const scheme of ["light", "dark"] as const) {
       await page.goto(`/en-001/r/${"b".repeat(64)}`);
       await page.getByRole("button", { name: "Cancel my appointment" }).click();
       await expect(page.getByRole("heading", { name: "Are you sure?" })).toBeVisible();
-      const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+      const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
       expect(
         results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id),
       ).toEqual([]);
@@ -120,7 +98,7 @@ for (const scheme of ["light", "dark"] as const) {
         await page.goto(`/${locale}/r/${"a".repeat(64)}`);
         await page.locator('form[action="?/reschedule"] button').click();
         await expect(page.locator('form[action="?/rebook"] button').first()).toBeVisible();
-        const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+        const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
         expect(
           results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id),
         ).toEqual([]);
@@ -129,12 +107,12 @@ for (const scheme of ["light", "dark"] as const) {
 
     test("patient pages", async ({ page }) => {
       await keycloakLogin(page, "patient");
-      for (const r of PATIENT) await audit(page, r);
+      for (const r of PATIENT_ROUTES) await audit(page, r);
     });
 
     test("staff and administrator pages", async ({ page }) => {
       await keycloakLogin(page, "admin");
-      for (const r of STAFF_AND_ADMIN) await audit(page, r);
+      for (const r of STAFF_AND_ADMIN_ROUTES) await audit(page, r);
     });
   });
 }

@@ -19,7 +19,7 @@ use jiff::{Timestamp, civil::Time};
 use uuid::Uuid;
 
 use crate::config::env;
-use crate::models::communication::DeliveryChannel;
+use crate::models::communication::{DeliveryChannel, OptOutChannel, OptOutSource};
 use crate::{Error, Result};
 
 /// The default window: nothing intrusive between 9pm and 8am.
@@ -71,7 +71,11 @@ impl QuietHours {
 
 /// The text-style channels. A STOP or START covers all of them: "stop texting me" is not
 /// specific to the app the word was typed in.
-pub const TEXT_CHANNELS: [&str; 3] = ["sms", "whatsapp", "apple_messages"];
+pub const TEXT_CHANNELS: [OptOutChannel; 3] = [
+    OptOutChannel::Sms,
+    OptOutChannel::WhatsApp,
+    OptOutChannel::AppleMessages,
+];
 
 /// Channels held back during quiet hours.
 pub fn is_intrusive(channel: DeliveryChannel) -> bool {
@@ -82,12 +86,12 @@ pub fn is_intrusive(channel: DeliveryChannel) -> bool {
 }
 
 /// The opt-out channel name, or none for channels that cannot be opted out of one by one.
-pub fn optout_channel(channel: DeliveryChannel) -> Option<&'static str> {
+pub fn optout_channel(channel: DeliveryChannel) -> Option<OptOutChannel> {
     match channel {
-        DeliveryChannel::Sms => Some("sms"),
-        DeliveryChannel::WhatsApp => Some("whatsapp"),
-        DeliveryChannel::AppleMessages => Some("apple_messages"),
-        DeliveryChannel::Email => Some("email"),
+        DeliveryChannel::Sms => Some(OptOutChannel::Sms),
+        DeliveryChannel::WhatsApp => Some(OptOutChannel::WhatsApp),
+        DeliveryChannel::AppleMessages => Some(OptOutChannel::AppleMessages),
+        DeliveryChannel::Email => Some(OptOutChannel::Email),
         DeliveryChannel::Portal | DeliveryChannel::Print => None,
     }
 }
@@ -117,7 +121,7 @@ pub async fn is_opted_out<C: Conn>(
     }
     let row = conn
         .one(Stmt::new("SELECT 1 AS hit FROM message_optouts WHERE channel = $1 AND subject = ANY($2) AND resumed_at IS NULL LIMIT 1",
-            [ch.into(), subjects.into()],
+            [ch.as_str().into(), subjects.into()],
         ))
 .await?;
     Ok(row.is_some())
@@ -127,24 +131,24 @@ pub async fn is_opted_out<C: Conn>(
 pub async fn record_optout<C: Conn>(
     conn: &C,
     subject: &str,
-    channel: &str,
-    source: &str,
+    channel: OptOutChannel,
+    source: OptOutSource,
     by: Option<&str>,
 ) -> Result<()> {
     conn.run(Stmt::new("INSERT INTO message_optouts (id, subject, channel, source, recorded_by) VALUES ($1,$2,$3,$4,$5) \
          ON CONFLICT (subject, channel) DO UPDATE SET opted_out_at = now(), resumed_at = NULL, source = EXCLUDED.source, \
            recorded_by = EXCLUDED.recorded_by",
-        [Uuid::new_v4().into(), subject.into(), channel.into(), source.into(), by.map(String::from).into()],
+        [Uuid::new_v4().into(), subject.into(), channel.as_str().into(), source.as_str().into(), by.map(String::from).into()],
     ))
 .await?;
     Ok(())
 }
 
 /// The patient asked to hear from us again. Returns whether anything was active.
-pub async fn resume<C: Conn>(conn: &C, subject: &str, channel: &str) -> Result<bool> {
+pub async fn resume<C: Conn>(conn: &C, subject: &str, channel: OptOutChannel) -> Result<bool> {
     let r = conn
         .run(Stmt::new("UPDATE message_optouts SET resumed_at = now() WHERE subject = $1 AND channel = $2 AND resumed_at IS NULL",
-            [subject.into(), channel.into()],
+            [subject.into(), channel.as_str().into()],
         ))
 .await?;
     Ok(r.rows_affected() > 0)
@@ -217,7 +221,7 @@ mod tests {
         use DeliveryChannel::*;
         assert!(is_intrusive(Sms) && is_intrusive(WhatsApp) && is_intrusive(AppleMessages));
         assert!(!is_intrusive(Email) && !is_intrusive(Portal) && !is_intrusive(Print));
-        assert_eq!(optout_channel(Sms), Some("sms"));
+        assert_eq!(optout_channel(Sms), Some(OptOutChannel::Sms));
         assert_eq!(optout_channel(Portal), None);
     }
 

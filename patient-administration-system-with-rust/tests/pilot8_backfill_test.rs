@@ -16,7 +16,9 @@ use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, CancellationReason};
-use patient_administration_system::models::communication::DeliveryChannel;
+use patient_administration_system::models::communication::{
+    DeliveryChannel, OptOutChannel, OptOutSource,
+};
 use patient_administration_system::standby::StandbyInput;
 use patient_administration_system::upstream::{Person, StubPersonClient};
 use std::sync::{Arc, Mutex};
@@ -347,8 +349,8 @@ async fn the_offer_is_messaged_with_a_link_and_an_opted_out_patient_is_not() {
     patient_administration_system::communication::consent::record_optout(
         &w.s.db,
         &patient_administration_system::communication::consent::person_subject(w.people[0].0),
-        "sms",
-        "staff",
+        OptOutChannel::Sms,
+        OptOutSource::Staff,
         None,
     )
     .await

@@ -13,7 +13,7 @@ The generated contract is the OpenAPI document served at `/api-docs/openapi.json
 | `POST /api/suspicions/{id}/stop` | `If-Match` required (FR-216) |
 | `DELETE /api/waitlist/{id}`, `POST /api/waitlist/{id}/book`, `PUT /api/waitlist/{id}/clinical-priority`, `PUT /api/waitlist/{id}/follow-up-target` | `If-Match` required (FR-195) |
 | `POST /api/admissions/{id}/transfer`, `/discharge`, `/cancel-admit`, `/cancel-discharge`, `/cancel-transfer`, `/change-to-outpatient`, `/leave-start`, `/leave-end` | `If-Match` required (FR-195) |
-| `GET /api/appointments?from&to` | Appointments starting in `[from, to)`, at most 366 days |
+| `GET /api/appointments?from&to&limit&cursor` | Appointments starting in `[from, to)`, at most 366 days, earliest first; signed-cursor paging under NFR-23 (default and maximum 500) |
 | `GET /api/patients/{id}/appointments` | One patient's appointments, earliest first |
 | `GET /api/patients/{id}/letters?channel=` | One patient's letters, newest first; `channel=portal` is the portal inbox |
 | `GET /api/letter-templates`, `GET /api/letter-templates/{id}` | Read templates |

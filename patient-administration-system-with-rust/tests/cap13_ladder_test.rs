@@ -20,7 +20,9 @@ use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
-use patient_administration_system::models::communication::DeliveryChannel;
+use patient_administration_system::models::communication::{
+    DeliveryChannel, OptOutChannel, OptOutSource,
+};
 use patient_administration_system::reply_links::{self, LinkAction};
 use patient_administration_system::upstream::{Person, StubPersonClient};
 use patient_administration_system::writeback::{ReplyAction, ReplyRequest};
@@ -363,12 +365,17 @@ async fn the_touch_cap_stops_further_sends() {
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn opt_outs_stop_every_step_and_quiet_hours_only_hold_one() {
     let w = world().await;
-    for ch in ["sms", "whatsapp", "apple_messages", "email"] {
+    for ch in [
+        OptOutChannel::Sms,
+        OptOutChannel::WhatsApp,
+        OptOutChannel::AppleMessages,
+        OptOutChannel::Email,
+    ] {
         consent::record_optout(
             &w.s.db,
             &consent::person_subject(w.person),
             ch,
-            "staff",
+            OptOutSource::Staff,
             None,
         )
         .await

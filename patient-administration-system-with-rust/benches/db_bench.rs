@@ -164,6 +164,7 @@ fn bench_queries(c: &mut Criterion) {
                 &st.db,
                 from,
                 from + patient_administration_system::time::days(1),
+                patient_administration_system::paging::Rows::from(500_i64),
             )
             .await
             .expect("query")

@@ -29,7 +29,7 @@ Neither says what a deployment needs. That depends on its demand (clinics, booki
 
 | Scenario | Each iteration | Checks |
 |---|---|---|
-| `read` | One of: health (5%), an appointment (30%), a slot (20%), a day's calendar (20%), the R5 and R4 capability statements (5% each), an HL7 v2 parse (15%, writes nothing) | budgets |
+| `read` | One of: health (5%), an appointment (30%), a slot (20%), a day's calendar (15%), a 31-day calendar page (5%), the R5 and R4 capability statements (5% each), an HL7 v2 parse (15%, writes nothing) | budgets |
 | `cycle` | Book a free slot, read it back for its `ETag`, cancel it with `If-Match` (NFR-27). A cancelled slot is free again, so the 2000 slots are reused | budgets; audit and outbox |
 | `contention` | Every worker books a random one of 20 slots at once. A slot already taken answers 409, counted as *contended*, not an error | **each slot goes to exactly one caller**, over HTTP and in the database; audit and outbox |
 | `ihe` | IHE ITI Scheduling: `$find` five proposals, `$hold` one, `$book` it. A proposal someone else took answers 404 (the profile's "no longer available") or 409, counted as contended | budgets |
@@ -77,7 +77,7 @@ The cost grows with the appointments table, so a deployment with a year of appoi
 
 With 40 connections the cancels stop queueing and the bookings take the time instead: they are now limited by their own work in the database (the row lock on the slot, the owner lock, the clash check, the audit row and the outbox event in one transaction), not by waiting for a connection. Each replica has its own pool, so replicas times `PAS_DB_MAX_CONNECTIONS` must stay under PostgreSQL's `max_connections` (100 by default).
 
-**By design: bookings for one clinician, room or piece of equipment are one at a time.** A booking takes an advisory lock on its schedule's owner for its transaction (CORE-3), so two bookings arriving together through two schedules of the same clinician cannot both pass the clash check. On this laptop that caps one owner at about 340 bookings a second, far above any one clinician's real rate, and it is why the `cycle` fixture spreads its slots over 50 clinicians: the first version put them all under one and measured that lock.
+**By design: bookings for one clinician, room or piece of equipment are one at a time.** A booking takes an advisory lock on its schedule's owner for its transaction (CORE-3), so two bookings arriving together through two schedules of the same clinician cannot both pass the clash check. On this laptop that caps one owner at about 340 bookings a second, far above any one clinician's real rate, and it is why the `cycle` fixture spreads its slots over at most 50 clinicians: the first version put them all under one and measured that lock. The fixture distributes any remainder and creates exactly the requested number of cycle slots.
 
 ## Benchmark baselines
 
@@ -98,7 +98,7 @@ From one quick pass (`cargo bench -- --quick`) on the same laptop, 2026-11-15, t
 | `GET /api/appointments/{id}` through the router, in process | 0.37 ms |
 | One day's calendar through the router, in process | 19.5 ms |
 
-The calendar is the slow one, and it is not paged: see PERF-2 in `tasks.md`.
+The calendar was the slow one. PERF-2 now caps one response at 500 appointments and gives a signed cursor for the rest; the SvelteKit server follows every page for its bounded view.
 
 ### Added 2026-11-18 (PERF-3)
 

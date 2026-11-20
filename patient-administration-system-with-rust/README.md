@@ -182,7 +182,7 @@ The table lists the main routes. [`spec/openapi.json`](../spec/openapi.json) has
 | | GET | `/api/patients/:id/appointment-series` (v0.9 — series per patient) |
 | | GET | `/api/slots/:id` |
 | | POST | `/api/slots/:id/book` |
-| | GET | `/api/appointments?from=…&to=…` (at most 366 days) |
+| | GET | `/api/appointments?from=…&to=…&limit=…&cursor=…` (at most 366 days; signed-cursor pages of at most 500) |
 | | GET | `/api/appointments/:id` |
 | | POST | `/api/appointments/:id/cancel` |
 | | POST | `/api/appointments/:id/check-in` |

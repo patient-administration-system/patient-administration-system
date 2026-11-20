@@ -35,6 +35,51 @@ pub enum DeliveryChannel {
     Portal,
 }
 
+crate::string_enum! {
+    /// A channel stored in the message opt-out table.
+    ///
+    /// `voice` is reserved in storage; the patient API does not accept it yet.
+    pub enum OptOutChannel {
+        Sms = "sms",
+        WhatsApp = "whatsapp",
+        AppleMessages = "apple_messages",
+        Email = "email",
+        Voice = "voice",
+    }
+}
+
+crate::string_enum! {
+    /// A channel whose opt-out staff may record or lift through the patient API.
+    ///
+    /// `voice` is reserved in storage but is not a supported patient API channel.
+    pub enum PatientOptOutChannel {
+        Sms = "sms",
+        WhatsApp = "whatsapp",
+        AppleMessages = "apple_messages",
+        Email = "email",
+    }
+}
+
+impl From<PatientOptOutChannel> for OptOutChannel {
+    fn from(channel: PatientOptOutChannel) -> Self {
+        match channel {
+            PatientOptOutChannel::Sms => Self::Sms,
+            PatientOptOutChannel::WhatsApp => Self::WhatsApp,
+            PatientOptOutChannel::AppleMessages => Self::AppleMessages,
+            PatientOptOutChannel::Email => Self::Email,
+        }
+    }
+}
+
+crate::string_enum! {
+    /// How the PAS learned that a patient opted out of a channel.
+    pub enum OptOutSource {
+        ReplyStop = "reply_stop",
+        Staff = "staff",
+        Portal = "portal",
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum LetterStatus {
@@ -155,6 +200,16 @@ impl GeneratedLetter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn patient_opt_out_channels_exclude_the_reserved_voice_value() {
+        assert_eq!("sms".parse(), Ok(PatientOptOutChannel::Sms));
+        assert!("voice".parse::<PatientOptOutChannel>().is_err());
+        assert_eq!(
+            OptOutChannel::from(PatientOptOutChannel::AppleMessages),
+            OptOutChannel::AppleMessages
+        );
+    }
 
     fn sample_template() -> LetterTemplate {
         LetterTemplate::new(

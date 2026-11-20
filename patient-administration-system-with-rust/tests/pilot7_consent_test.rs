@@ -16,7 +16,9 @@ use patient_administration_system::db::repositories::appointment::AppointmentRep
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::inbound::InboundText;
 use patient_administration_system::models::appointment::{Appointment, AppointmentStatus};
-use patient_administration_system::models::communication::DeliveryChannel;
+use patient_administration_system::models::communication::{
+    DeliveryChannel, OptOutChannel, OptOutSource,
+};
 use patient_administration_system::upstream::{Person, StubPersonClient};
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
@@ -122,12 +124,12 @@ async fn a_patient_who_opted_out_of_the_text_channels_is_sent_the_email_only_and
     let email = format!("{}@example.test", Uuid::new_v4());
     let phone = e164(&number());
     let (s, person, log) = world(&phone, &email).await;
-    for ch in ["sms", "whatsapp"] {
+    for ch in [OptOutChannel::Sms, OptOutChannel::WhatsApp] {
         consent::record_optout(
             &s.db,
             &consent::person_subject(person),
             ch,
-            "staff",
+            OptOutSource::Staff,
             Some("tester"),
         )
         .await
@@ -149,10 +151,20 @@ async fn a_patient_who_opted_out_of_the_text_channels_is_sent_the_email_only_and
     let email2 = format!("{}@example.test", Uuid::new_v4());
     let phone2 = e164(&number());
     let (s2, p2, log2) = world(&phone2, &email2).await;
-    for ch in ["sms", "whatsapp", "email"] {
-        consent::record_optout(&s2.db, &consent::person_subject(p2), ch, "staff", None)
-            .await
-            .unwrap();
+    for ch in [
+        OptOutChannel::Sms,
+        OptOutChannel::WhatsApp,
+        OptOutChannel::Email,
+    ] {
+        consent::record_optout(
+            &s2.db,
+            &consent::person_subject(p2),
+            ch,
+            OptOutSource::Staff,
+            None,
+        )
+        .await
+        .unwrap();
     }
     let r = scan(&s2, None).await;
     assert!(r.skipped_opted_out >= 1, "{r:?}");
@@ -174,8 +186,8 @@ async fn nothing_can_bypass_an_opt_out_not_even_a_direct_letter() {
     consent::record_optout(
         &s.db,
         &consent::person_subject(person),
-        "sms",
-        "staff",
+        OptOutChannel::Sms,
+        OptOutSource::Staff,
         None,
     )
     .await
@@ -360,6 +372,17 @@ async fn staff_can_record_list_and_lift_an_opt_out_over_the_api() {
         call(
             "POST",
             base.clone(),
+            Some(serde_json::json!({ "channel": "voice" }))
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST,
+        "voice is reserved in storage but is not a supported message opt-out channel"
+    );
+    assert_eq!(
+        call(
+            "POST",
+            base.clone(),
             Some(serde_json::json!({ "channel": "sms" }))
         )
         .await
@@ -394,6 +417,10 @@ async fn staff_can_record_list_and_lift_an_opt_out_over_the_api() {
     );
     assert_eq!(
         call("DELETE", format!("{base}/pigeon"), None).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        call("DELETE", format!("{base}/voice"), None).await.0,
         StatusCode::BAD_REQUEST
     );
 }

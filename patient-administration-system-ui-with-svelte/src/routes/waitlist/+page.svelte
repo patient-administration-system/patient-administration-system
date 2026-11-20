@@ -20,5 +20,15 @@
   <p>{t("waitlist.nobody", { service: data.service })}</p>
 {:else}
   <!-- Read-only: status changes go through the booking and removal actions, not drag and drop. -->
-  <KanbanBoard label={t("waitlist.boardLabel", { service: data.service })} {columns} {cards} readonly />
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex (the overflowing region must be keyboard-scrollable) -->
+  <div class="board-scroll" role="region" tabindex="0" aria-label={t("waitlist.boardLabel", { service: data.service })}>
+    <KanbanBoard label={t("waitlist.boardLabel", { service: data.service })} {columns} {cards} readonly />
+  </div>
 {/if}
+
+<style>
+  .board-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+</style>

@@ -475,6 +475,7 @@ impl InboundService {
         lang: Option<Lang>,
     ) -> Result<Option<Decision>> {
         use crate::communication::consent as c;
+        use crate::models::communication::OptOutSource;
         let help = self.help_line.as_deref();
         let (kind, outcome) = match intent {
             Intent::Start => {
@@ -488,11 +489,23 @@ impl InboundService {
             }
             Intent::Stop => {
                 for ch in c::TEXT_CHANNELS {
-                    c::record_optout(&self.db, &c::address_subject(from), ch, "reply_stop", None)
-                        .await?;
+                    c::record_optout(
+                        &self.db,
+                        &c::address_subject(from),
+                        ch,
+                        OptOutSource::ReplyStop,
+                        None,
+                    )
+                    .await?;
                     if let Some(p) = single {
-                        c::record_optout(&self.db, &c::person_subject(p), ch, "reply_stop", None)
-                            .await?;
+                        c::record_optout(
+                            &self.db,
+                            &c::person_subject(p),
+                            ch,
+                            OptOutSource::ReplyStop,
+                            None,
+                        )
+                        .await?;
                     }
                 }
                 (Kind::Stop, TextOutcome::Stop)

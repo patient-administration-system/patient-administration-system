@@ -107,10 +107,20 @@ ui: ui-install
     pnpm run build
     pnpm run bundle:check
 
-[private]
 [working-directory("patient-administration-system-ui-with-svelte")]
 ui-install:
     pnpm install --frozen-lockfile
+
+# The ui-e2e job caches the browser by this pinned package version. GitHub supplies GITHUB_OUTPUT;
+# keeping the lookup here means the workflow itself still runs only named recipes.
+[working-directory("patient-administration-system-ui-with-svelte")]
+playwright-cache-key:
+    @test -n "${GITHUB_OUTPUT:-}" || { echo "GITHUB_OUTPUT is not set" >&2; exit 1; }
+    @version=$(node -p "require('@playwright/test/package.json').version"); echo "version=$version" >> "$GITHUB_OUTPUT"
+
+[working-directory("patient-administration-system-ui-with-svelte")]
+e2e-browser-install:
+    pnpm exec playwright install --with-deps chromium
 
 [private]
 [working-directory("patient-administration-system-ui-with-svelte")]

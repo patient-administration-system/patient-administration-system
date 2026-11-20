@@ -76,8 +76,9 @@ impl AppointmentRepository {
         conn: &C,
         from: jiff::Timestamp,
         to: jiff::Timestamp,
+        rows: crate::paging::Rows,
     ) -> Result<Vec<Appointment>> {
-        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE start_datetime >= $1 AND start_datetime < $2 AND deleted_at IS NULL ORDER BY start_datetime", [from.into(), to.into()])).await?;
+        let rows = conn.all_as::<appointment::Model>(Stmt::new("SELECT * FROM appointments WHERE start_datetime >= $1 AND start_datetime < $2 AND deleted_at IS NULL ORDER BY start_datetime, id LIMIT $3 OFFSET $4", [from.into(), to.into(), rows.fetch().into(), rows.offset().into()])).await?;
         rows.into_iter().map(from_model).collect()
     }
 

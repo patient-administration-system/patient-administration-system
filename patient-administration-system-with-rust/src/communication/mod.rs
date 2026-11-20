@@ -185,7 +185,7 @@ impl CommunicationService {
         }
         if let serde_json::Value::Object(map) = extra_context {
             for (k, v) in map {
-                tctx.insert(k, v);
+                tctx.insert(k.clone(), v);
             }
         }
         // Strict missing-variable check.

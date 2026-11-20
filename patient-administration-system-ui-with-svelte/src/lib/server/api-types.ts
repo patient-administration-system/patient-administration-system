@@ -7194,7 +7194,7 @@ export interface components {
     ApiResponse_OptOutState: {
       /** @description Whether a patient is opted out of a channel, after a change. */
       data?: {
-        channel: string;
+        channel: components["schemas"]["PatientOptOutChannel"];
         opted_out: boolean;
       };
       meta?: components["schemas"]["PageMeta"] | null;
@@ -8675,10 +8675,10 @@ export interface components {
      */
     ApiResponse_Vec_OptOut: {
       data?: {
-        channel: string;
+        channel: components["schemas"]["OptOutChannel"];
         /** Format: date-time */
         opted_out_at: string | null;
-        source: string;
+        source: components["schemas"]["OptOutSource"];
       }[];
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -9275,8 +9275,7 @@ export interface components {
         person_id: string;
         /** Format: date-time */
         requested_at: string;
-        /** @description `booking` or `person`. */
-        route: string;
+        route: components["schemas"]["RequestRoute"];
         service_type: string;
       }[];
       meta?: components["schemas"]["PageMeta"] | null;
@@ -9557,8 +9556,7 @@ export interface components {
         person_id: string;
         /** Format: date-time */
         requested_at: string;
-        /** @description `booking` or `person`. */
-        route: string;
+        route: components["schemas"]["RequestRoute"];
         service_type: string;
       };
       meta?: components["schemas"]["PageMeta"] | null;
@@ -11097,18 +11095,30 @@ export interface components {
     };
     /** @description One channel a patient has asked us not to use. */
     OptOut: {
-      channel: string;
+      channel: components["schemas"]["OptOutChannel"];
       /** Format: date-time */
       opted_out_at: string | null;
-      source: string;
+      source: components["schemas"]["OptOutSource"];
     };
     OptOutBody: {
       /** @description `sms`, `whatsapp`, `apple_messages` or `email`. */
-      channel: string;
+      channel: components["schemas"]["PatientOptOutChannel"];
     };
+    /**
+     * @description A channel stored in the message opt-out table.
+     *
+     *     `voice` is reserved in storage; the patient API does not accept it yet.
+     * @enum {string}
+     */
+    OptOutChannel: "sms" | "whatsapp" | "apple_messages" | "email" | "voice";
+    /**
+     * @description How the PAS learned that a patient opted out of a channel.
+     * @enum {string}
+     */
+    OptOutSource: "reply_stop" | "staff" | "portal";
     /** @description Whether a patient is opted out of a channel, after a change. */
     OptOutState: {
-      channel: string;
+      channel: components["schemas"]["PatientOptOutChannel"];
       opted_out: boolean;
     };
     /** @description What a list response says about itself, under `meta` in the envelope. */
@@ -11153,6 +11163,13 @@ export interface components {
       /** Format: int32 */
       weeks_waited: number;
     };
+    /**
+     * @description A channel whose opt-out staff may record or lift through the patient API.
+     *
+     *     `voice` is reserved in storage but is not a supported patient API channel.
+     * @enum {string}
+     */
+    PatientOptOutChannel: "sms" | "whatsapp" | "apple_messages" | "email";
     PatientWaits: {
       appointments: components["schemas"]["LeadTime"][];
       pathways: components["schemas"]["PathwayWait"][];
@@ -11781,6 +11798,11 @@ export interface components {
      * @enum {string}
      */
     RequestChannel: "staff" | "phone" | "text" | "reply_link" | "portal";
+    /**
+     * @description Where a PIFU request goes for action.
+     * @enum {string}
+     */
+    RequestRoute: "booking" | "person";
     /** @description The answer to cancelling a transfer. */
     Reverted: {
       /** Format: uuid */
@@ -12828,8 +12850,7 @@ export interface components {
       person_id: string;
       /** Format: date-time */
       requested_at: string;
-      /** @description `booking` or `person`. */
-      route: string;
+      route: components["schemas"]["RequestRoute"];
       service_type: string;
     };
     "triage.QueueEntry": {
@@ -14083,7 +14104,15 @@ export interface operations {
   };
   get_api_appointments: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         from: string;
@@ -20293,7 +20322,7 @@ export interface operations {
       header?: never;
       path: {
         /** @description `booking` (default) or `person`. */
-        route: string | null;
+        route: components["schemas"]["RequestRoute"] | null;
       };
       cookie?: never;
     };

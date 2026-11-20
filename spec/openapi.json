@@ -3513,7 +3513,7 @@
             "description": "Whether a patient is opted out of a channel, after a change.",
             "properties": {
               "channel": {
-                "type": "string"
+                "$ref": "#/components/schemas/PatientOptOutChannel"
               },
               "opted_out": {
                 "type": "boolean"
@@ -7981,7 +7981,7 @@
               "description": "One channel a patient has asked us not to use.",
               "properties": {
                 "channel": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/OptOutChannel"
                 },
                 "opted_out_at": {
                   "format": "date-time",
@@ -7991,7 +7991,7 @@
                   ]
                 },
                 "source": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/OptOutSource"
                 }
               },
               "required": [
@@ -9840,8 +9840,7 @@
                   "type": "string"
                 },
                 "route": {
-                  "description": "`booking` or `person`.",
-                  "type": "string"
+                  "$ref": "#/components/schemas/RequestRoute"
                 },
                 "service_type": {
                   "type": "string"
@@ -10735,8 +10734,7 @@
                 "type": "string"
               },
               "route": {
-                "description": "`booking` or `person`.",
-                "type": "string"
+                "$ref": "#/components/schemas/RequestRoute"
               },
               "service_type": {
                 "type": "string"
@@ -14834,7 +14832,7 @@
         "description": "One channel a patient has asked us not to use.",
         "properties": {
           "channel": {
-            "type": "string"
+            "$ref": "#/components/schemas/OptOutChannel"
           },
           "opted_out_at": {
             "format": "date-time",
@@ -14844,7 +14842,7 @@
             ]
           },
           "source": {
-            "type": "string"
+            "$ref": "#/components/schemas/OptOutSource"
           }
         },
         "required": [
@@ -14857,8 +14855,8 @@
       "OptOutBody": {
         "properties": {
           "channel": {
-            "description": "`sms`, `whatsapp`, `apple_messages` or `email`.",
-            "type": "string"
+            "$ref": "#/components/schemas/PatientOptOutChannel",
+            "description": "`sms`, `whatsapp`, `apple_messages` or `email`."
           }
         },
         "required": [
@@ -14866,11 +14864,31 @@
         ],
         "type": "object"
       },
+      "OptOutChannel": {
+        "description": "A channel stored in the message opt-out table.\n\n`voice` is reserved in storage; the patient API does not accept it yet.",
+        "enum": [
+          "sms",
+          "whatsapp",
+          "apple_messages",
+          "email",
+          "voice"
+        ],
+        "type": "string"
+      },
+      "OptOutSource": {
+        "description": "How the PAS learned that a patient opted out of a channel.",
+        "enum": [
+          "reply_stop",
+          "staff",
+          "portal"
+        ],
+        "type": "string"
+      },
       "OptOutState": {
         "description": "Whether a patient is opted out of a channel, after a change.",
         "properties": {
           "channel": {
-            "type": "string"
+            "$ref": "#/components/schemas/PatientOptOutChannel"
           },
           "opted_out": {
             "type": "boolean"
@@ -14983,6 +15001,16 @@
           "last_check_at"
         ],
         "type": "object"
+      },
+      "PatientOptOutChannel": {
+        "description": "A channel whose opt-out staff may record or lift through the patient API.\n\n`voice` is reserved in storage but is not a supported patient API channel.",
+        "enum": [
+          "sms",
+          "whatsapp",
+          "apple_messages",
+          "email"
+        ],
+        "type": "string"
       },
       "PatientWaits": {
         "properties": {
@@ -16808,6 +16836,14 @@
           "text",
           "reply_link",
           "portal"
+        ],
+        "type": "string"
+      },
+      "RequestRoute": {
+        "description": "Where a PIFU request goes for action.",
+        "enum": [
+          "booking",
+          "person"
         ],
         "type": "string"
       },
@@ -19866,8 +19902,7 @@
             "type": "string"
           },
           "route": {
-            "description": "`booking` or `person`.",
-            "type": "string"
+            "$ref": "#/components/schemas/RequestRoute"
           },
           "service_type": {
             "type": "string"
@@ -21516,6 +21551,25 @@
             "required": true,
             "schema": {
               "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
               "type": "string"
             }
           }
@@ -28649,9 +28703,13 @@
             "name": "route",
             "required": true,
             "schema": {
-              "type": [
-                "string",
-                "null"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/RequestRoute"
+                },
+                {
+                  "type": "null"
+                }
               ]
             }
           }

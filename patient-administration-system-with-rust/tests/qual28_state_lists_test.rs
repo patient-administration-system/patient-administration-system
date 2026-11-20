@@ -11,6 +11,7 @@ use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
 use std::collections::BTreeSet;
 
+use patient_administration_system::models::communication::{OptOutChannel, OptOutSource};
 use patient_administration_system::{
     backfill, clinic_templates, clinical_priority, communication, contact, follow_up, identity,
     inbound, interpreter, list_validation, noshow, pifu, proxy, receipts, referrals, standby,
@@ -57,6 +58,8 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ),
         ("identity_proofings_method_check", &identity::METHODS),
         ("message_receipts_event_check", &receipts::EVENTS),
+        ("message_optouts_channel_check", OptOutChannel::NAMES),
+        ("message_optouts_source_check", OptOutSource::NAMES),
         ("still_needed_checks_answer_check", &waits::ANSWERS),
         (
             "whatsapp_optins_source_check",
@@ -81,6 +84,7 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
             interpreter::InterpreterStatus::NAMES,
         ),
         ("pifu_requests_channel_check", pifu::RequestChannel::NAMES),
+        ("pifu_requests_route_check", pifu::RequestRoute::NAMES),
         ("pifu_episodes_status_check", pifu::EpisodeStatus::NAMES),
         (
             "validation_campaigns_status_check",

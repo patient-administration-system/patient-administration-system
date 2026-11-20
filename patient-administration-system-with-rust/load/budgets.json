@@ -27,6 +27,11 @@
       "p99_ms": 250,
       "max_error_rate": 0.001
     },
+    "list_appointments_month": {
+      "p95_ms": 100,
+      "p99_ms": 250,
+      "max_error_rate": 0.001
+    },
     "fhir_r5_metadata": {
       "p95_ms": 50,
       "p99_ms": 150,

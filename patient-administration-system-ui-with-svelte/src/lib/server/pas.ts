@@ -134,13 +134,36 @@ export async function pasPage<T>(fetchFn: FetchFn, path: string, cursor?: string
   return { rows: data as T[], cutAt: cutAt(meta), next: nextCursor(meta) };
 }
 
+/** Read every page of a bounded list. A repeated cursor is a broken API answer, not a partial calendar. */
+export async function pasAllPages<T>(fetchFn: FetchFn, path: string): Promise<T[]> {
+  const rows: T[] = [];
+  const seen = new Set<string>();
+  let cursor: string | null = null;
+  do {
+    const page: Page<T> = await pasPage<T>(fetchFn, path, cursor);
+    rows.push(...page.rows);
+    if (page.cutAt !== null && page.next === null) {
+      throw new PasError(502, "the PAS API cut a page without a next cursor");
+    }
+    cursor = page.next;
+    if (cursor !== null && seen.has(cursor)) {
+      throw new PasError(502, "the PAS API repeated a page cursor");
+    }
+    if (cursor !== null) seen.add(cursor);
+  } while (cursor !== null);
+  return rows;
+}
+
 export type Appointment = Schemas["Appointment"];
 
 export const patientAppointments = (f: FetchFn, personId: string) =>
   pasArray<Appointment>(f, `/api/patients/${encodeURIComponent(personId)}/appointments`);
 
 export const appointmentsBetween = (f: FetchFn, from: string, to: string) =>
-  pasArray<Appointment>(f, `/api/appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+  pasAllPages<Appointment>(
+    f,
+    `/api/appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=500`,
+  );
 
 export type LetterTemplate = Schemas["LetterTemplate"];
 

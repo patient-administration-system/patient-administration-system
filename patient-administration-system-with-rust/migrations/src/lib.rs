@@ -64,6 +64,7 @@ pub async fn status(pool: &PgPool) -> Result<Vec<MigrationStatus>, MigrateError>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::postgres::PgPoolOptions;
 
     #[test]
     fn the_migrations_are_all_there_and_the_first_six_are_forward_only() {
@@ -79,5 +80,26 @@ mod tests {
         assert_eq!(downs, 63);
         assert!(ups[..6].iter().all(|m| !m.migration_type.is_reversible()));
         assert!(ups[6..].iter().all(|m| m.migration_type.is_reversible()));
+    }
+
+    #[tokio::test]
+    #[ignore = "needs PostgreSQL and DATABASE_URL"]
+    async fn up_up_to_and_status_agree_on_the_complete_schema() {
+        let url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
+        let pool = PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&url)
+            .await
+            .expect("connect to PostgreSQL");
+
+        up(&pool).await.expect("apply pending migrations");
+        up_to(&pool, 20_261_117_000_069)
+            .await
+            .expect("apply through the newest migration");
+        let statuses = status(&pool).await.expect("read migration status");
+
+        assert_eq!(statuses.len(), 69);
+        assert!(statuses.iter().all(|migration| migration.applied));
+        assert_eq!(statuses.last().unwrap().version, 20_261_117_000_069);
     }
 }

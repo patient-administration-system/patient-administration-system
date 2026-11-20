@@ -48,7 +48,7 @@ pub struct RangeQuery {
     get,
     path = "/api/appointments",
     tag = "Appointments",
-    params(RangeQuery),
+    params(RangeQuery, crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::models::appointment::Appointment>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -57,6 +57,7 @@ pub struct RangeQuery {
 )]
 pub async fn list_appointments(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<RangeQuery>,
 ) -> HandlerResult {
     if q.to <= q.from || q.to - q.from > crate::time::days(366) {
@@ -64,12 +65,19 @@ pub async fn list_appointments(
             "`from` must precede `to` by at most 366 days",
         ));
     }
+    let page = match crate::paging::Page::new(&uri, 500) {
+        Ok(page) => page,
+        Err(e) => return error_to_response(e),
+    };
     match crate::db::repositories::appointment::AppointmentRepository::list_between(
-        &state.db, q.from, q.to,
+        &state.db,
+        q.from,
+        q.to,
+        page.rows(),
     )
     .await
     {
-        Ok(rows) => ok_json(rows),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

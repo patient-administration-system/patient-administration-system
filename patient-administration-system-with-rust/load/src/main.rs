@@ -310,6 +310,19 @@ async fn run_scenario(
 }
 
 async fn run(args: Args) -> Result<bool, Fail> {
+    run_with_sizes(
+        args,
+        Sizes {
+            read: 400,
+            cycle: 2000,
+            hot: 20,
+            ihe: 2000,
+        },
+    )
+    .await
+}
+
+async fn run_with_sizes(args: Args, sizes: Sizes) -> Result<bool, Fail> {
     let budgets = Budgets::parse(&std::fs::read_to_string(&args.budgets)?)?;
     let phases = runner::profile(&args.profile, args.overrides)
         .ok_or_else(|| format!("unknown profile {:?}", args.profile))?;
@@ -331,12 +344,6 @@ async fn run(args: Args) -> Result<bool, Fail> {
         args.profile, args.url
     );
     let db = Db::open(&args.database_url).await?;
-    let sizes = Sizes {
-        read: 400,
-        cycle: 2000,
-        hot: 20,
-        ihe: 2000,
-    };
     let fx = db.make(&run_id, sizes).await?;
     println!("fixtures made: schedules named load-{run_id}-*");
     let ctx = Arc::new(Ctx::new(client, args.url.clone(), args.token.clone(), fx));
@@ -409,6 +416,84 @@ async fn main() -> std::process::ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fixtures::Fixtures;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use uuid::Uuid;
+
+    async fn run_server(status: &'static str) -> (String, tokio::task::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind run test server");
+        let address = listener.local_addr().expect("run test server address");
+        let server = tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
+                tokio::spawn(async move {
+                    let mut request = [0_u8; 4096];
+                    let _read = socket.read(&mut request).await;
+                    let body = "{}";
+                    let response = format!(
+                        "HTTP/1.1 {status}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                        body.len()
+                    );
+                    let _written = socket.write_all(response.as_bytes()).await;
+                });
+            }
+        });
+        (format!("http://{address}"), server)
+    }
+
+    fn run_args(url: String, database_url: String) -> Args {
+        Args {
+            url,
+            database_url,
+            profile: "smoke".into(),
+            scenarios: vec![Scenario::Read],
+            overrides: Overrides {
+                workers: Some(1),
+                duration: Some(Duration::from_millis(25)),
+                rate: None,
+            },
+            budgets: format!("{}/budgets.json", env!("CARGO_MANIFEST_DIR")),
+            report: None,
+            token: None,
+        }
+    }
+
+    fn report(profile: &str) -> Report {
+        Report {
+            run_id: "test".into(),
+            url: "http://example.test".into(),
+            profile: profile.into(),
+            started_at: "2026-11-20T00:00:00Z".into(),
+            phases: Vec::new(),
+            breaches: Vec::new(),
+            knees: BTreeMap::new(),
+            correctness: Vec::new(),
+            passed: false,
+        }
+    }
+
+    fn run_context(base: String) -> Arc<Ctx> {
+        let now = jiff::Timestamp::now();
+        Arc::new(Ctx::new(
+            reqwest::Client::new(),
+            base,
+            None,
+            Fixtures {
+                read_slots: vec![Uuid::new_v4()],
+                read_appointments: vec![Uuid::new_v4()],
+                read_day: now,
+                cycle_slots: vec![Uuid::new_v4()],
+                hot_slots: vec![Uuid::new_v4()],
+                ihe_practitioner: Uuid::new_v4(),
+                ihe_window: (now, now),
+            },
+        ))
+    }
 
     fn args(v: &[&str]) -> Result<Args, String> {
         let mut all = vec!["--database-url", "postgres://x"];
@@ -451,6 +536,265 @@ mod tests {
     }
 
     #[test]
+    fn every_command_line_value_and_error_is_exercised() {
+        let a = args(&[
+            "--profile",
+            "soak",
+            "--scenario",
+            "all",
+            "--duration",
+            "2m",
+            "--budgets",
+            "limits.json",
+            "--report",
+            "report.json",
+            "--token",
+            "secret",
+        ])
+        .unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(a.profile, "soak");
+        assert_eq!(a.scenarios, Scenario::ALL);
+        assert_eq!(a.overrides.duration, Some(Duration::from_secs(120)));
+        assert_eq!(a.budgets, "limits.json");
+        assert_eq!(a.report.as_deref(), Some("report.json"));
+        assert_eq!(a.token.as_deref(), Some("secret"));
+
+        for bad in [
+            vec!["--workers", "many"],
+            vec!["--duration", "tomorrow"],
+            vec!["--rate", "fast"],
+            vec!["--help"],
+            vec!["-h"],
+        ] {
+            assert!(args(&bad).is_err(), "{bad:?}");
+        }
+        assert!(
+            parse_args(["--database-url", ""].into_iter().map(String::from)).is_err(),
+            "an explicitly empty database URL must be refused even when the environment sets one"
+        );
+    }
+
+    #[tokio::test]
+    #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+    async fn correctness_compares_http_wins_with_database_evidence() {
+        let Ok(url) = std::env::var("DATABASE_URL") else {
+            eprintln!(
+                "DATABASE_URL not set; skipping correctness_compares_http_wins_with_database_evidence"
+            );
+            return;
+        };
+        let db = Db::open(&url).await.expect("open correctness database");
+        let run = Uuid::new_v4().simple().to_string();
+        let mut fx = db
+            .make(
+                &run,
+                Sizes {
+                    read: 2,
+                    cycle: 0,
+                    hot: 0,
+                    ihe: 0,
+                },
+            )
+            .await
+            .expect("make correctness fixtures");
+        let slot = fx.read_slots[0];
+        let appointment = fx.read_appointments[0];
+        fx.hot_slots = vec![slot];
+        let _provider = rustls::crypto::ring::default_provider().install_default();
+        let ctx = Ctx::new(reqwest::Client::new(), "http://unused".into(), None, fx);
+        ctx.contention_wins
+            .lock()
+            .expect("contention wins lock")
+            .insert(slot, vec![appointment]);
+        ctx.booked.lock().expect("booked lock").push(appointment);
+
+        let checks = correctness(&db, &ctx, false)
+            .await
+            .expect("successful correctness checks");
+        assert_eq!(checks.len(), 3);
+        assert!(checks.iter().all(|check| check.passed), "{checks:?}");
+
+        ctx.contention_wins
+            .lock()
+            .expect("contention wins lock")
+            .insert(slot, vec![appointment, Uuid::new_v4()]);
+        let failed = correctness(&db, &ctx, true)
+            .await
+            .expect("failed correctness checks are reported");
+        assert!(!failed[0].passed, "a 429 fails the run");
+        assert!(!failed[1].passed, "two HTTP wins for one slot fail the run");
+        assert!(failed[2].passed, "the real booking still has its evidence");
+    }
+
+    #[tokio::test]
+    #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+    async fn a_complete_small_run_writes_a_passing_report_and_startup_errors_are_clear() {
+        let Ok(database_url) = std::env::var("DATABASE_URL") else {
+            eprintln!(
+                "DATABASE_URL not set; skipping a_complete_small_run_writes_a_passing_report_and_startup_errors_are_clear"
+            );
+            return;
+        };
+        let _provider = rustls::crypto::ring::default_provider().install_default();
+        let (base, server) = run_server("200 OK").await;
+        let report_path = std::env::temp_dir().join(format!(
+            "pas-load-small-run-{}.json",
+            Uuid::new_v4().simple()
+        ));
+        let mut args = run_args(base, database_url.clone());
+        args.report = Some(report_path.to_string_lossy().into_owned());
+        assert!(
+            run_with_sizes(
+                args,
+                Sizes {
+                    read: 2,
+                    cycle: 0,
+                    hot: 0,
+                    ihe: 0,
+                },
+            )
+            .await
+            .expect("small load run")
+        );
+        let report: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&report_path).expect("read small-run report"))
+                .expect("parse small-run report");
+        assert_eq!(report["passed"], true);
+        assert_eq!(report["profile"], "smoke");
+        std::fs::remove_file(report_path).expect("remove small-run report");
+        server.abort();
+
+        let mut bad_profile = run_args("http://127.0.0.1:9".into(), database_url.clone());
+        bad_profile.profile = "unknown".into();
+        assert!(
+            run_with_sizes(
+                bad_profile,
+                Sizes {
+                    read: 0,
+                    cycle: 0,
+                    hot: 0,
+                    ihe: 0
+                }
+            )
+            .await
+            .expect_err("unknown profile must fail")
+            .to_string()
+            .contains("unknown profile")
+        );
+
+        let mut missing_budgets = run_args("http://127.0.0.1:9".into(), database_url.clone());
+        missing_budgets.budgets = "/file-that-does-not-exist/pas-budgets.json".into();
+        assert!(
+            run_with_sizes(
+                missing_budgets,
+                Sizes {
+                    read: 0,
+                    cycle: 0,
+                    hot: 0,
+                    ihe: 0
+                }
+            )
+            .await
+            .is_err()
+        );
+
+        let (unhealthy, unhealthy_server) = run_server("503 Service Unavailable").await;
+        let error = run_with_sizes(
+            run_args(unhealthy, database_url.clone()),
+            Sizes {
+                read: 0,
+                cycle: 0,
+                hot: 0,
+                ihe: 0,
+            },
+        )
+        .await
+        .expect_err("unhealthy server must fail")
+        .to_string();
+        assert!(error.contains("503 Service Unavailable"), "{error}");
+        unhealthy_server.abort();
+
+        let error = run_with_sizes(
+            run_args("http://127.0.0.1:9".into(), database_url),
+            Sizes {
+                read: 0,
+                cycle: 0,
+                hot: 0,
+                ihe: 0,
+            },
+        )
+        .await
+        .expect_err("missing server must fail")
+        .to_string();
+        assert!(error.contains("no server at"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn scenario_reporting_records_stress_knees_breaches_and_soak_windows() {
+        let _provider = rustls::crypto::ring::default_provider().install_default();
+        let (base, server) = run_server("200 OK").await;
+        let ctx = run_context(base);
+        let strict = Budgets::parse(
+            r#"{"min_samples":0,"default":{"p95_ms":-1,"p99_ms":-1,"max_error_rate":1}}"#,
+        )
+        .expect("strict budgets");
+        let checked = Phase {
+            name: "step-1".into(),
+            workers: 1,
+            duration: Duration::from_millis(15),
+            rate: None,
+            check: Check::Budgets,
+        };
+
+        let mut stress = report("stress");
+        run_scenario(
+            &ctx,
+            Scenario::Read,
+            std::slice::from_ref(&checked),
+            &strict,
+            &mut stress,
+        )
+        .await;
+        assert_eq!(stress.knees.get("read").map(String::as_str), Some("step-1"));
+        assert!(stress.breaches.is_empty(), "stress reports the knee once");
+
+        let mut load = report("load");
+        run_scenario(
+            &ctx,
+            Scenario::Read,
+            std::slice::from_ref(&checked),
+            &strict,
+            &mut load,
+        )
+        .await;
+        assert!(!load.breaches.is_empty());
+        assert!(
+            load.breaches
+                .iter()
+                .all(|breach| breach.phase.starts_with("read/"))
+        );
+
+        let unchecked = |name: &str| Phase {
+            name: name.into(),
+            workers: 1,
+            duration: Duration::from_millis(5),
+            rate: None,
+            check: Check::None,
+        };
+        let mut soak = report("soak");
+        run_scenario(
+            &ctx,
+            Scenario::Read,
+            &[unchecked("minute-1"), unchecked("minute-2")],
+            &strict,
+            &mut soak,
+        )
+        .await;
+        assert_eq!(soak.phases.len(), 2);
+        server.abort();
+    }
+
+    #[test]
     fn a_soak_that_slows_down_is_drift() {
         let window = |name: &str, p95| {
             let mut ops = BTreeMap::new();
@@ -486,5 +830,73 @@ mod tests {
         let d = soak_drift(&[&window("minute-1", 10.0), &window("minute-2", 26.0)]);
         assert_eq!(d.len(), 1);
         assert_eq!(d[0].measure, "p95_drift_ms");
+
+        assert!(soak_drift(&[]).is_empty());
+        assert!(soak_drift(&[&window("minute-1", 10.0)]).is_empty());
+        assert!(soak_drift(&[&window("warm-up", 10.0), &window("steady", 100.0)]).is_empty());
+    }
+
+    #[test]
+    fn reports_print_in_closed_open_passed_and_failed_forms() {
+        let mut ops = BTreeMap::new();
+        ops.insert(
+            "get_slot".to_string(),
+            OpSummary {
+                count: 2,
+                ok: 1,
+                contended: 1,
+                errors: 0,
+                error_rate: 0.0,
+                per_second: 2.0,
+                mean_ms: 1.0,
+                p50_ms: 1.0,
+                p90_ms: 2.0,
+                p95_ms: 2.0,
+                p99_ms: 2.0,
+                max_ms: 2.0,
+                statuses: BTreeMap::new(),
+            },
+        );
+        let mut phase = PhaseReport {
+            scenario: "read",
+            phase: "steady".into(),
+            workers: 2,
+            rate: None,
+            seconds: 1.0,
+            shed: 0,
+            ops,
+        };
+        print_phase(&phase);
+        phase.rate = Some(10.0);
+        phase.shed = 3;
+        print_phase(&phase);
+
+        let mut report = Report {
+            run_id: "test".into(),
+            url: "http://example.test".into(),
+            profile: "smoke".into(),
+            started_at: "2026-11-19T00:00:00Z".into(),
+            phases: vec![phase],
+            breaches: Vec::new(),
+            knees: BTreeMap::new(),
+            correctness: vec![Correctness {
+                name: "double booking",
+                passed: true,
+                detail: "none".into(),
+            }],
+            passed: true,
+        };
+        print_verdict(&report);
+        report.correctness[0].passed = false;
+        report.breaches.push(Breach {
+            phase: "steady".into(),
+            op: "get_slot".into(),
+            measure: "p95_ms",
+            value: 3.0,
+            limit: 2.0,
+        });
+        report.knees.insert("read", "step-16".into());
+        report.passed = false;
+        print_verdict(&report);
     }
 }
