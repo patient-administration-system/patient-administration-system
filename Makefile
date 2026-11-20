@@ -1,4 +1,4 @@
-.PHONY: test-minimum-supported-rust-version
+.PHONY: ci-minimum-supported-rust-version
 
-test-minimum-supported-rust-version:
-	bin/make-test-minimum-supported-rust-version
+ci-minimum-supported-rust-version:
+	bin/make-ci-minimum-supported-rust-version
