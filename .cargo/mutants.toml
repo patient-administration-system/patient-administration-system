@@ -8,7 +8,7 @@ profile = "mutants"
 # reports the mutant again, which is the safe way round.
 exclude_re = [
     # `QuietHours::parse` refuses a window whose ends are equal, so `start < end` and `start <= end` always agree.
-    "consent.rs:65:23: replace < with <= in QuietHours::contains",
+    "consent.rs:64:23: replace < with <= in QuietHours::contains",
     # `Inbound::unknown` is `Self::default()`, so the mutant that returns `Default::default()` is the same code;
     # the name stays because ten call sites read better for it.
     "ack.rs:98:9: replace Inbound::unknown -> Self with Default::default\\(\\)",
