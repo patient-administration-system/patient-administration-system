@@ -635,3 +635,139 @@ async fn two_decisions_on_one_item_at_once_make_exactly_one() {
         other => panic!("the stored state does not match the winner: {other:?}"),
     }
 }
+
+/// The rest of the HTTP surface: reading campaigns and items, asking, the letter, the reinstatement, and what
+/// the handlers refuse (a bad channel, an early letter, a blank name, a bad report range).
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_http_surface_reads_asks_posts_the_letter_and_reinstates() {
+    let w = world().await;
+    w.waiting(30).await;
+    let app = patient_administration_system::api::rest::router(w.s.clone());
+    let call = |method: &'static str, uri: String, body: Option<serde_json::Value>| {
+        let app = app.clone();
+        async move {
+            let mut b = Request::builder().method(method).uri(uri);
+            let body = match body {
+                Some(v) => {
+                    b = b.header("content-type", "application/json");
+                    Body::from(v.to_string())
+                }
+                None => Body::empty(),
+            };
+            let r = app.oneshot(b.body(body).unwrap()).await.unwrap();
+            let st = r.status();
+            let bytes = to_bytes(r.into_body(), usize::MAX).await.unwrap();
+            (
+                st,
+                serde_json::from_slice::<serde_json::Value>(&bytes).unwrap_or_default(),
+            )
+        }
+    };
+    let (st, v) = call(
+        "POST",
+        "/api/validation-campaigns".into(),
+        Some(serde_json::json!({
+            "name": "autumn", "started_by": "Ms V", "service_type": w.service, "min_weeks": 20
+        })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let c = v["data"]["id"].as_str().unwrap().to_string();
+
+    let (st, v) = call("GET", "/api/validation-campaigns?limit=100".into(), None).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert!(v.to_string().contains(&c), "the new campaign is listed");
+    let (st, v) = call("GET", format!("/api/validation-campaigns/{c}"), None).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let (st, _) = call(
+        "GET",
+        format!("/api/validation-campaigns/{}", Uuid::new_v4()),
+        None,
+    )
+    .await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    let (st, _) = call(
+        "GET",
+        format!("/api/validation-campaigns/{c}/items?limit=lots"),
+        None,
+    )
+    .await;
+    assert!(st.is_client_error(), "a limit that is not a number");
+    let (_, v) = call("GET", format!("/api/validation-campaigns/{c}/items"), None).await;
+    let item = v["data"][0]["id"].as_str().unwrap().to_string();
+    let base = format!("/api/validation-campaigns/{c}/items/{item}");
+
+    // Asking: a channel that is not one is refused; a named person asks by phone.
+    let (st, _) = call(
+        "POST",
+        format!("{base}/asked"),
+        Some(serde_json::json!({ "asked_by": "Ms V", "channel": "carrier pigeon" })),
+    )
+    .await;
+    assert!(st.is_client_error());
+    let (st, v) = call(
+        "POST",
+        format!("{base}/asked"),
+        Some(serde_json::json!({ "asked_by": "Ms V", "channel": "phone" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+
+    // A letter before the reply date is refused; after it, a named person posts it.
+    let letter = |by: &str| serde_json::json!({ "sent_by": by });
+    let (st, _) = call("POST", format!("{base}/letter-sent"), Some(letter("Ms V"))).await;
+    assert!(st.is_client_error(), "before the reply date");
+    w.sql(&format!(
+        "UPDATE validation_campaigns SET reply_by = current_date - 1 WHERE id = '{c}'"
+    ))
+    .await;
+    let (st, _) = call("POST", format!("{base}/letter-sent"), Some(letter(" "))).await;
+    assert!(st.is_client_error(), "a blank name");
+    let (st, v) = call("POST", format!("{base}/letter-sent"), Some(letter("Ms V"))).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert_eq!(v["data"]["state"], "letter_sent");
+
+    // The wait ends, a person removes, and the removal is undone.
+    w.sql(&format!(
+        "UPDATE validation_items SET final_by = current_date - 1 WHERE id = '{item}'"
+    ))
+    .await;
+    let (st, v) = call(
+        "POST",
+        format!("{base}/decision"),
+        Some(serde_json::json!({ "decision": "remove", "decided_by": "Mr R" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let (st, _) = call(
+        "POST",
+        format!("{base}/reinstate"),
+        Some(serde_json::json!({ "reinstated_by": " " })),
+    )
+    .await;
+    assert!(st.is_client_error(), "a blank name");
+    let (st, v) = call(
+        "POST",
+        format!("{base}/reinstate"),
+        Some(serde_json::json!({ "reinstated_by": "Mr R" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+
+    // The report refuses an upside-down or over-long range, and answers a good one.
+    for q in [
+        "from=2026-02-01T00:00:00Z&to=2026-01-01T00:00:00Z",
+        "from=2020-01-01T00:00:00Z&to=2026-01-01T00:00:00Z",
+    ] {
+        let (st, _) = call("GET", format!("/api/reports/validation-removals?{q}"), None).await;
+        assert!(st.is_client_error(), "{q}");
+    }
+    let (st, v) = call(
+        "GET",
+        "/api/reports/validation-removals?from=2026-01-01T00:00:00Z&to=2026-12-31T00:00:00Z".into(),
+        None,
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+}
