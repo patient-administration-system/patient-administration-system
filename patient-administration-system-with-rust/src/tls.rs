@@ -3,15 +3,11 @@
 //! panics with "No rustls crypto provider is configured". Every place that builds an HTTP client calls
 //! [`ensure_provider`], and so does `main`, so tests and binaries both get it.
 
-use std::sync::Once;
-
 /// Install ring as the process's rustls provider, once. Safe to call from anywhere, any number of times; if
-/// another provider was installed first, that one stays.
+/// another provider was installed first, that one stays. This is `axa::tls::install_provider`, kept under its
+/// old name for the call sites.
 pub fn ensure_provider() {
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-    });
+    axa::tls::install_provider();
 }
 
 #[cfg(test)]

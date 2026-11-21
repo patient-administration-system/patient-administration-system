@@ -195,9 +195,9 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "axa"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "503f2f37873a0ed6adcc552126c7e79c517280e6771279d4af2376181ba02c16"
+checksum = "8fa587d5e9e7930c656a839d99b1716dbd637060291c32b123125e60508ce7f3"
 dependencies = [
  "async-trait",
  "axa-environment",
@@ -210,6 +210,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "ppp",
+ "rustls",
  "serde",
  "serde_json",
  "serde_path_to_error",
@@ -277,9 +278,9 @@ dependencies = [
 
 [[package]]
 name = "axa-test"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ece85427d5bf4b7a97b7fd01caf1b931569802e5bd9e877babc3f1313e642d96"
+checksum = "6d6fcc6e60d885cae7c348eaab271ff65860d4afb764ccd41bbffa417a84fa53"
 dependencies = [
  "axa",
  "axum-test",
