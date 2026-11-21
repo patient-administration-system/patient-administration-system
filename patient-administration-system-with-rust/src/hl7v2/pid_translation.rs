@@ -719,4 +719,87 @@ mod tests {
         );
         let _ = pid_to_person_create(&pid);
     }
+
+    fn mfe(event: &str, id: &str) -> Segment {
+        seg("MFE", &[event, "", "", id])
+    }
+
+    #[test]
+    fn test_staff_master_row_is_read_into_a_worker() {
+        let stf = seg(
+            "STF",
+            &["S9", "", "Okafor^Ada^Marie", "", "f", "19800231", "A"],
+        );
+        let s = parse_mfe_stf(&mfe(" mup ", " EMR-7 "), &stf).unwrap();
+        assert_eq!(s.event_code, "MUP");
+        assert_eq!(s.staff_id, "EMR-7");
+        assert_eq!((s.family.as_str(), s.given.as_str()), ("Okafor", "Ada"));
+        assert_eq!(s.middle.as_deref(), Some("Marie"));
+        assert_eq!(s.gender.as_deref(), Some("female"));
+        assert_eq!(s.birth_date.as_deref(), Some("1980-02-31"), "shape only");
+        assert!(s.active);
+    }
+
+    #[test]
+    fn test_staff_id_falls_back_to_stf_1_and_is_required() {
+        let stf = seg("STF", &["S9", "", "Okafor^Ada"]);
+        assert_eq!(parse_mfe_stf(&mfe("MAD", ""), &stf).unwrap().staff_id, "S9");
+        let none = seg("STF", &["  ", "", "Okafor^Ada"]);
+        assert!(parse_mfe_stf(&mfe("MAD", ""), &none).is_err());
+    }
+
+    #[test]
+    fn test_staff_event_code_must_be_a_master_file_action() {
+        let stf = seg("STF", &["S9", "", "Okafor^Ada"]);
+        assert!(parse_mfe_stf(&mfe("MXX", "1"), &stf).is_err());
+        assert!(parse_mfe_stf(&mfe("", "1"), &stf).is_err());
+        assert_eq!(
+            parse_mfe_stf(&mfe("mdl", "1"), &stf).unwrap().event_code,
+            "MDL"
+        );
+    }
+
+    #[test]
+    fn test_staff_gender_birth_date_and_active_variants() {
+        let row = |gender: &str, born: &str, active: &str| {
+            let stf = seg("STF", &["S9", "", "A^B", "", gender, born, active]);
+            parse_mfe_stf(&mfe("MAD", "1"), &stf).unwrap()
+        };
+        assert_eq!(row("M", "", "").gender.as_deref(), Some("male"));
+        assert_eq!(row("O", "", "").gender.as_deref(), Some("other"));
+        assert_eq!(row("U", "", "").gender.as_deref(), Some("unknown"));
+        assert_eq!(row("Z", "", "").gender.as_deref(), Some("unknown"));
+        assert_eq!(row("", "", "").gender, None);
+        assert_eq!(
+            row("", "19800105", "").birth_date.as_deref(),
+            Some("1980-01-05")
+        );
+        assert_eq!(row("", "1980010", "").birth_date, None, "too short");
+        assert_eq!(row("", "19800x05", "").birth_date, None, "not digits");
+        assert_eq!(row("", "198001é5", "").birth_date, None, "not ASCII");
+        assert!(row("", "", "A").active);
+        assert!(!row("", "", "I").active);
+        assert!(!row("", "", "inactive").active);
+        assert_eq!(row("", "", "").middle, None);
+    }
+
+    #[test]
+    fn test_location_master_row_is_read_into_a_bed() {
+        let loc = seg("LOC", &["WARD1^R2^B3", " Bed three "]);
+        let l = parse_mfe_loc(&mfe("mad", "x"), &loc).unwrap();
+        assert_eq!(l.event_code, "MAD");
+        assert_eq!(l.bed_code, "B3");
+        assert_eq!(l.room_code.as_deref(), Some("R2"));
+        assert_eq!(l.bed_name.as_deref(), Some("Bed three"));
+    }
+
+    #[test]
+    fn test_location_room_and_name_are_optional_but_the_bed_is_not() {
+        let loc = seg("LOC", &["WARD1^^B3"]);
+        let l = parse_mfe_loc(&mfe("MUP", "x"), &loc).unwrap();
+        assert_eq!((l.room_code, l.bed_name), (None, None));
+        assert!(parse_mfe_loc(&mfe("MUP", "x"), &seg("LOC", &["WARD1^R2"])).is_err());
+        assert!(parse_mfe_loc(&mfe("MUP", "x"), &seg("LOC", &["WARD1^R2^ "])).is_err());
+        assert!(parse_mfe_loc(&mfe("???", "x"), &loc).is_err());
+    }
 }
