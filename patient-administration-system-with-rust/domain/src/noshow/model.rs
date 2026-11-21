@@ -194,3 +194,93 @@ pub struct WeightsCard {
     pub weekday: [f64; 7],
     pub period: [f64; 3],
 }
+
+#[cfg(test)]
+mod env_tests {
+    use super::*;
+
+    /// Each variable here is private to one test in this module (`PAS_NOSHOW_MEDIUM` is read, never set,
+    /// because `config::env`'s tests set it).
+    fn with_var<T>(name: &str, value: Option<&str>, f: impl FnOnce() -> T) -> T {
+        let before = std::env::var(name).ok();
+        // SAFETY: test-only, and the variable is private to the calling test.
+        unsafe {
+            match value {
+                Some(v) => std::env::set_var(name, v),
+                None => std::env::remove_var(name),
+            }
+        }
+        let out = f();
+        unsafe {
+            match before {
+                Some(v) => std::env::set_var(name, v),
+                None => std::env::remove_var(name),
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn the_settings_have_their_documented_defaults() {
+        assert_eq!(
+            with_var("PAS_NOSHOW_CALL_CAPACITY", None, call_capacity),
+            10
+        );
+        assert_eq!(
+            with_var("PAS_NOSHOW_SHADOW_MIN_DAYS", None, shadow_min_days),
+            28
+        );
+        assert_eq!(
+            with_var("PAS_NOSHOW_CALL_HORIZON_DAYS", None, call_horizon_days),
+            7
+        );
+        assert!(!with_var("PAS_NOSHOW_SHOW_PERCENT", None, percent_shown));
+        assert!((0.0..=1.0).contains(&medium_threshold()));
+    }
+
+    #[test]
+    fn the_settings_read_their_variables() {
+        assert_eq!(
+            with_var("PAS_NOSHOW_CALL_CAPACITY", Some("25"), call_capacity),
+            25
+        );
+        assert_eq!(
+            with_var("PAS_NOSHOW_CALL_CAPACITY", Some("501"), call_capacity),
+            10,
+            "above the maximum of 500"
+        );
+        assert!(with_var(
+            "PAS_NOSHOW_SHOW_PERCENT",
+            Some("true"),
+            percent_shown
+        ));
+    }
+
+    #[test]
+    fn weights_come_from_json_or_fall_back_to_the_defaults() {
+        let w = with_var(
+            "PAS_NOSHOW_WEIGHTS",
+            Some(r#"{"base":0.2,"weekday":[0.1,0,0,0,0,0,0]}"#),
+            Weights::from_env,
+        );
+        assert!((w.base - 0.2).abs() < 1e-9);
+        assert!((w.weekday[0] - 0.1).abs() < 1e-9);
+        assert!(
+            (w.history - 0.9).abs() < 1e-9,
+            "unnamed fields keep defaults"
+        );
+        let d = Weights::default();
+        for bad in [None, Some("not json")] {
+            let w = with_var("PAS_NOSHOW_WEIGHTS", bad, Weights::from_env);
+            assert!((w.base - d.base).abs() < 1e-9);
+        }
+        let card = with_var(
+            "PAS_NOSHOW_WEIGHTS",
+            Some(r#"{"lead":0.5}"#),
+            Weights::from_env_for_card,
+        );
+        assert!((card.lead - 0.5).abs() < 1e-9);
+        assert!((card.base - d.base).abs() < 1e-9);
+        assert_eq!(card.period, d.period);
+    }
+}
