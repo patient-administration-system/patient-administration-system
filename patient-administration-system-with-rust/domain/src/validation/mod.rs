@@ -130,3 +130,81 @@ mod named_person_tests {
         assert!(named_person("a\nb", "m").is_err());
     }
 }
+
+#[cfg(test)]
+mod rule_tests {
+    use super::*;
+
+    fn point(system: ContactPointSystem, value: &str) -> ContactPoint {
+        ContactPoint {
+            system,
+            value: value.into(),
+            use_type: None,
+        }
+    }
+
+    #[test]
+    fn an_address_needs_something_to_route_by() {
+        let line_only = Address {
+            line1: Some("1 High St".into()),
+            state: Some("X".into()),
+            ..Address::default()
+        };
+        assert!(validate_address(&line_only).is_err());
+        assert!(validate_address(&Address::default()).is_err());
+        for a in [
+            Address {
+                city: Some("Leeds".into()),
+                ..Address::default()
+            },
+            Address {
+                postal_code: Some("LS1 1AA".into()),
+                ..Address::default()
+            },
+            Address {
+                country: Some("GB".into()),
+                ..Address::default()
+            },
+        ] {
+            assert!(validate_address(&a).is_ok());
+        }
+    }
+
+    #[test]
+    fn an_email_needs_an_at_and_a_dot() {
+        let email = |v| validate_contact_point(&point(ContactPointSystem::Email, v));
+        assert!(email("a@b.co").is_ok());
+        assert!(email("a.b.co").is_err());
+        assert!(email("a@bco").is_err());
+    }
+
+    #[test]
+    fn a_phone_needs_seven_to_fifteen_digits() {
+        for system in [
+            ContactPointSystem::Phone,
+            ContactPointSystem::Sms,
+            ContactPointSystem::Fax,
+        ] {
+            let ok = |v: &str| validate_contact_point(&point(system, v)).is_ok();
+            assert!(!ok("123456"));
+            assert!(ok("1234567"));
+            assert!(ok("+44 (0)20 7946 0958"));
+            assert!(ok("123456789012345"));
+            assert!(!ok("1234567890123456"));
+        }
+    }
+
+    #[test]
+    fn other_contact_systems_pass_unchecked() {
+        let other = ContactPointSystem::Url;
+        assert!(validate_contact_point(&point(other, "anything")).is_ok());
+    }
+
+    #[test]
+    fn phone_numbers_keep_digits_and_a_leading_plus() {
+        assert_eq!(normalize_phone(" +44 (0)20-7946 0958"), "+4402079460958");
+        assert_eq!(normalize_phone("020 7946 0958"), "02079460958");
+        assert_eq!(normalize_phone("a+1"), "1");
+        assert_eq!(normalize_phone(""), "");
+    }
+}
