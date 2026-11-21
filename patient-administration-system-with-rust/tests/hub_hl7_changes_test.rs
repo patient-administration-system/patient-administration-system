@@ -34,6 +34,7 @@ struct World {
     sender: String,
     bed_code: String,
     mrn: String,
+    room: Uuid,
 }
 
 async fn world() -> World {
@@ -87,6 +88,7 @@ async fn world() -> World {
         sender: format!("EMR-{tag}"),
         bed_code,
         mrn: format!("MRN-{tag}"),
+        room,
     }
 }
 
@@ -183,4 +185,138 @@ async fn a_pre_admission_is_taken_and_can_be_cancelled() {
     )
     .await;
     assert!(["AA", "AE"].contains(&code(&cancel).as_str()), "{cancel:?}");
+}
+
+/// Another available bed in the world's room.
+async fn another_bed(w: &World) -> String {
+    let code = format!("BED-{}", &Uuid::new_v4().simple().to_string()[..10]);
+    w.s.db
+        .run(Stmt::new(
+            "INSERT INTO beds (id, room_id, name, code, status, created_at, updated_at) VALUES ($1,$2,$3,$4,'available',now(),now())",
+            vec![Uuid::new_v4().into(), w.room.into(), "b".into(), code.clone().into()],
+        ))
+        .await
+        .unwrap();
+    code
+}
+
+/// `event` for the world's person in `bed`.
+fn in_bed(w: &World, event: &str, bed: &str) -> String {
+    let mut m = message(w, event, true, false);
+    m += &format!("PV1|1|I|W^R^{bed}\r");
+    m
+}
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn an_admission_can_be_left_updated_moved_discharged_and_taken_back() {
+    let w = world().await;
+    let b2 = another_bed(&w).await;
+    let steps: [(&str, &str, &str, &str); 9] = [
+        ("admit", "A01", &w.bed_code, "AA"),
+        ("leave-start", "A21", &w.bed_code, "AA"),
+        ("leave-end", "A22", &w.bed_code, "AA"),
+        ("update", "A08", &w.bed_code, "AA"),
+        ("transfer", "A02", &b2, "AA"),
+        ("cancel-transfer", "A12", &b2, "AA"),
+        ("discharge", "A03", &b2, "AA"),
+        ("cancel-discharge", "A13", &b2, "AA"),
+        ("cancel-admit", "A11", &b2, "AA"),
+    ];
+    for (path, event, bed, want) in steps {
+        let ack = post(&w, &format!("/api/hl7/v2/{path}"), &in_bed(&w, event, bed)).await;
+        assert_eq!(code(&ack), want, "{path}: {ack:?}");
+    }
+    // Nothing is open any more.
+    for (path, event) in [
+        ("cancel-admit", "A11"),
+        ("leave-start", "A21"),
+        ("change-to-outpatient", "A07"),
+    ] {
+        let ack = post(
+            &w,
+            &format!("/api/hl7/v2/{path}"),
+            &in_bed(&w, event, &w.bed_code),
+        )
+        .await;
+        assert_eq!(code(&ack), "AE", "{path} with no open admission: {ack:?}");
+    }
+}
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn a_pre_admission_is_cancelled_and_an_outpatient_is_promoted_and_returned() {
+    let w = world().await;
+    let bed = another_bed(&w).await;
+    let pre = post(&w, "/api/hl7/v2/pre-admit", &in_bed(&w, "A05", &bed)).await;
+    assert_eq!(code(&pre), "AA", "{pre:?}");
+    let cancel = post(&w, "/api/hl7/v2/cancel-pre-admit", &in_bed(&w, "A38", &bed)).await;
+    assert_eq!(code(&cancel), "AA", "{cancel:?}");
+
+    // Promoting needs an outpatient encounter to promote.
+    let early = post(
+        &w,
+        "/api/hl7/v2/change-to-inpatient",
+        &in_bed(&w, "A06", &bed),
+    )
+    .await;
+    assert_eq!(code(&early), "AE", "no outpatient yet: {early:?}");
+    let mut reg = message(&w, "A04", true, false);
+    reg += "PV1|1|O\r";
+    let reg = post(&w, "/api/hl7/v2/register", &reg).await;
+    assert_eq!(code(&reg), "AA", "{reg:?}");
+    let inpatient = post(
+        &w,
+        "/api/hl7/v2/change-to-inpatient",
+        &in_bed(&w, "A06", &bed),
+    )
+    .await;
+    assert_eq!(code(&inpatient), "AA", "{inpatient:?}");
+    let outpatient = post(
+        &w,
+        "/api/hl7/v2/change-to-outpatient",
+        &in_bed(&w, "A07", &bed),
+    )
+    .await;
+    assert_eq!(code(&outpatient), "AA", "{outpatient:?}");
+    for path in ["change-to-inpatient", "pre-admit", "cancel-pre-admit"] {
+        let none = post(
+            &w,
+            &format!("/api/hl7/v2/{path}"),
+            &message(&w, "A06", true, false),
+        )
+        .await;
+        assert_eq!(code(&none), "AE", "{path} without a bed: {none:?}");
+        let unknown = post(
+            &w,
+            &format!("/api/hl7/v2/{path}"),
+            &in_bed(&w, "A06", "NO-SUCH-BED"),
+        )
+        .await;
+        assert_eq!(code(&unknown), "AE", "{path} unknown bed: {unknown:?}");
+    }
+}
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn deleting_a_patient_and_merging_two_records() {
+    let w = world().await;
+    // The record to merge away exists under its own MRN.
+    let old = format!("OLD-{}", w.mrn);
+    let old_pid = format!(
+        "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||ADT^A04|{}|P|2.5\rEVN|A04|20261116120000\rPID|1||{old}^^^HOSP^MR||Lovelace^Ada||19900115|F\rPV1|1|O\r",
+        w.sender,
+        Uuid::new_v4().simple()
+    );
+    let reg = post(&w, "/api/hl7/v2/register", &old_pid).await;
+    assert_eq!(code(&reg), "AA", "{reg:?}");
+    let merge = post(&w, "/api/hl7/v2/merge", &message(&w, "A40", true, false)).await;
+    assert!(["AA", "AE"].contains(&code(&merge).as_str()), "{merge:?}");
+    let gone = post(
+        &w,
+        "/api/hl7/v2/delete-patient",
+        &message(&w, "A23", true, false),
+    )
+    .await;
+    assert_eq!(code(&gone), "AA", "{gone:?}");
 }
