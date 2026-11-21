@@ -9,7 +9,7 @@ use axum::{
 use patient_administration_system::api::rest::AppState;
 use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::hl7v2::{SegmentRead, parse_message};
-use patient_administration_system::upstream::StubPersonClient;
+use patient_administration_system::upstream::{StubPersonClient, StubWorkerClient};
 use std::sync::Arc;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -18,12 +18,17 @@ struct World {
     s: AppState,
     sender: String,
     mrn: String,
+    room_code: String,
+    bed_code: String,
+    workers: Arc<StubWorkerClient>,
 }
 
 async fn world() -> World {
+    let workers = Arc::new(StubWorkerClient::new());
     let s = common::build_state(&common::database_url().unwrap())
         .await
-        .with_person_client(Arc::new(StubPersonClient::new()));
+        .with_person_client(Arc::new(StubPersonClient::new()))
+        .with_worker_client(workers.clone());
     let tag = Uuid::new_v4().simple().to_string()[..10].to_string();
     let (fac, ward, room, bed) = (
         Uuid::new_v4(),
@@ -70,6 +75,9 @@ async fn world() -> World {
         s,
         sender: format!("EMR-{tag}"),
         mrn: format!("MRN-{tag}"),
+        room_code: format!("R{tag}"),
+        bed_code,
+        workers,
     }
 }
 
@@ -226,56 +234,109 @@ async fn a_scheduling_message_without_what_it_needs_is_refused_with_an_ae() {
     }
 }
 
-fn mfn(w: &World, kind: &str, event: &str, row: &str) -> String {
+fn mfn(w: &World, file: &str, event: &str, key: &str, row: &str) -> String {
     format!(
-        "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||MFN^{kind}|{}|P|2.5\rMFI|{}|||UPD|AL\rMFE|{event}||20261116|{}\r{row}\r",
+        "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||MFN^M02|{}|P|2.5\rMFI|{file}|||UPD|AL\rMFE|{event}||20261116|{key}\r{row}\r",
         w.sender,
         Uuid::new_v4().simple(),
-        if kind == "M02" { "STF" } else { "LOC" },
-        Uuid::new_v4().simple()
     )
 }
 
 #[tokio::test]
 #[ignore = "needs PostgreSQL"]
-async fn master_file_rows_add_change_and_retire_staff_and_beds() {
+async fn master_file_staff_rows_add_change_and_retire_workers() {
     let w = world().await;
-    let staff_id = format!("S-{}", Uuid::new_v4().simple());
-    let stf = |active: &str| format!("STF|{staff_id}||Okafor^Ada^M||F|19800105|{active}");
-    for (event, active) in [("MAD", "A"), ("MUP", "A"), ("MUP", "I"), ("MDL", "I")] {
-        let ack = post(
-            &w,
-            "/api/hl7/v2/mfn-staff",
-            &mfn(&w, "M02", event, &stf(active)),
-        )
-        .await;
-        assert!(
-            ["AA", "AE"].contains(&code(&ack).as_str()),
-            "{event}: {ack:?}"
-        );
+    let id = format!("S-{}", Uuid::new_v4().simple());
+    let stf = |active: &str| format!("STF|{id}||Okafor^Ada^M||F|19800105|{active}");
+    let send = |event: &'static str, active: &'static str| {
+        let (w, msg) = (&w, mfn(&w, "PRA", event, &id, &stf(active)));
+        async move { post(w, "/api/hl7/v2/mfn-staff", &msg).await }
+    };
+    let mad = send("MAD", "A").await;
+    assert_eq!(code(&mad), "AA", "{mad:?}");
+    assert_eq!(w.workers.len(), 1);
+    let again = send("MAD", "A").await;
+    assert_eq!(code(&again), "AE", "already exists: {again:?}");
+    let mup = send("MUP", "I").await;
+    assert_eq!(code(&mup), "AA", "{mup:?}");
+    let mdl = send("MDL", "I").await;
+    assert_eq!(code(&mdl), "AA", "{mdl:?}");
+    assert!(w.workers.is_empty());
+    for event in ["MUP", "MDL"] {
+        let gone = send(event, "A").await;
+        assert_eq!(code(&gone), "AE", "{event} of nobody: {gone:?}");
     }
-    let bad = post(
+
+    // What makes a message the wrong one.
+    let other_file = post(
         &w,
         "/api/hl7/v2/mfn-staff",
-        &mfn(&w, "M02", "XXX", &stf("A")),
+        &mfn(&w, "LOC", "MAD", &id, &stf("A")),
     )
     .await;
-    assert_eq!(code(&bad), "AE", "{bad:?}");
+    assert_eq!(code(&other_file), "AE", "{other_file:?}");
+    let bad_event = send("XXX", "A").await;
+    assert_eq!(code(&bad_event), "AE", "{bad_event:?}");
+    let no_mfi = format!(
+        "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||MFN^M02|{}|P|2.5\rMFE|MAD||20261116|x\r{}\r",
+        w.sender,
+        Uuid::new_v4().simple(),
+        stf("A")
+    );
+    assert_eq!(
+        code(&post(&w, "/api/hl7/v2/mfn-staff", &no_mfi).await),
+        "AE"
+    );
+    let no_rows = mfn(&w, "PRA", "MAD", &id, "NTE|1");
+    assert_eq!(
+        code(&post(&w, "/api/hl7/v2/mfn-staff", &no_rows).await),
+        "AE"
+    );
+    let orphan = format!(
+        "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||MFN^M02|{}|P|2.5\rMFI|PRA|||UPD|AL\r{}\r",
+        w.sender,
+        Uuid::new_v4().simple(),
+        stf("A")
+    );
+    assert_eq!(
+        code(&post(&w, "/api/hl7/v2/mfn-staff", &orphan).await),
+        "AE"
+    );
+}
 
-    let bed = format!("MB-{}", Uuid::new_v4().simple());
-    let loc = format!("LOC|WARD1^R1^{bed}|New bed");
-    for event in ["MAD", "MUP", "MDL"] {
-        let ack = post(&w, "/api/hl7/v2/mfn-location", &mfn(&w, "M05", event, &loc)).await;
-        assert!(
-            ["AA", "AE"].contains(&code(&ack).as_str()),
-            "{event}: {ack:?}"
-        );
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn master_file_location_rows_add_change_and_retire_beds() {
+    let w = world().await;
+    let new_bed = format!("MB-{}", Uuid::new_v4().simple());
+    let loc = |bed: &str, room: &str| format!("LOC|WARD1^{room}^{bed}|Bed name");
+    let send = |event: &'static str, row: String| {
+        let (w, msg) = (&w, mfn(&w, "LOC", event, &new_bed, &row));
+        async move { post(w, "/api/hl7/v2/mfn-location", &msg).await }
+    };
+    let mad = send("MAD", loc(&new_bed, &w.room_code)).await;
+    assert_eq!(code(&mad), "AA", "{mad:?}");
+    let again = send("MAD", loc(&new_bed, &w.room_code)).await;
+    assert_eq!(code(&again), "AE", "already exists: {again:?}");
+    let no_room = send("MAD", loc("MB-NEW-2", "")).await;
+    assert_eq!(code(&no_room), "AE", "{no_room:?}");
+    let bad_room = send("MAD", loc("MB-NEW-3", "NO-SUCH-ROOM")).await;
+    assert_eq!(code(&bad_room), "AE", "{bad_room:?}");
+    let mup = send("MUP", loc(&new_bed, &w.room_code)).await;
+    assert_eq!(code(&mup), "AA", "{mup:?}");
+    let mdl = send("MDL", loc(&w.bed_code, &w.room_code)).await;
+    assert_eq!(code(&mdl), "AA", "{mdl:?}");
+    for event in ["MUP", "MDL"] {
+        let gone = send(event, loc("NO-SUCH-BED", &w.room_code)).await;
+        assert_eq!(code(&gone), "AE", "{event} of no bed: {gone:?}");
     }
-    let no_bed = post(
+    let no_bed = send("MAD", "LOC|WARD1^R1".to_string()).await;
+    assert_eq!(code(&no_bed), "AE", "{no_bed:?}");
+    let wrong_file = post(
         &w,
         "/api/hl7/v2/mfn-location",
-        &mfn(&w, "M05", "MAD", "LOC|WARD1^R1"),
+        &mfn(&w, "PRA", "MAD", "X", &loc("X", "R")),
     )
     .await;
-    assert_eq!(code(&no_bed), "AE", "{no_bed:?}");
+    assert_eq!(code(&wrong_file), "AE", "{wrong_file:?}");
 }
