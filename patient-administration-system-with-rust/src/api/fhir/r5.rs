@@ -560,4 +560,236 @@ mod tests {
         );
         assert_eq!(b["entry"][0]["search"]["mode"], "match");
     }
+
+    #[test]
+    fn every_appointment_status_and_a_cancellation_reason_map() {
+        use crate::models::appointment::CancellationReason;
+        for (s, want) in [
+            (AppointmentStatus::Proposed, "proposed"),
+            (AppointmentStatus::Booked, "booked"),
+            (AppointmentStatus::Arrived, "arrived"),
+            (AppointmentStatus::Fulfilled, "fulfilled"),
+            (AppointmentStatus::Cancelled, "cancelled"),
+            (AppointmentStatus::NoShow, "noshow"),
+        ] {
+            let mut a = Appointment::new(Uuid::new_v4(), Timestamp::now(), Timestamp::now());
+            a.status = s;
+            assert_eq!(appointment(&a)["status"], want);
+        }
+        let mut a = Appointment::new(Uuid::new_v4(), Timestamp::now(), Timestamp::now());
+        a.status = AppointmentStatus::Cancelled;
+        a.cancellation_reason = Some(CancellationReason::PatientRequest);
+        a.worker_id = Some(Uuid::new_v4());
+        a.slot_id = Some(Uuid::new_v4());
+        a.reason = Some("knee".into());
+        let v = appointment(&a);
+        assert!(v["cancellationReason"]["text"].is_string());
+        assert_eq!(v["participant"].as_array().unwrap().len(), 2);
+        assert_eq!(v["reason"][0]["concept"]["text"], "knee");
+        assert!(
+            v["slot"][0]["reference"]
+                .as_str()
+                .unwrap()
+                .starts_with("Slot/")
+        );
+        a.reason = Some("  ".into());
+        assert!(appointment(&a).get("reason").is_none());
+    }
+
+    #[test]
+    fn every_encounter_status_and_class_maps_and_optional_parts_appear() {
+        for (s, want, sub) in [
+            (EncounterStatus::Planned, "planned", None),
+            (EncounterStatus::InProgress, "in-progress", None),
+            (EncounterStatus::OnLeave, "on-hold", Some("on-leave")),
+            (EncounterStatus::Cancelled, "cancelled", None),
+        ] {
+            assert_eq!(encounter_status(s), (want, sub));
+        }
+        for (c, code) in [
+            (EncounterClass::Outpatient, "AMB"),
+            (EncounterClass::Inpatient, "IMP"),
+            (EncounterClass::Emergency, "EMER"),
+            (EncounterClass::DayCase, "SS"),
+            (EncounterClass::HomeCare, "HH"),
+            (EncounterClass::Virtual, "VR"),
+        ] {
+            assert_eq!(encounter_class(c).0, code);
+        }
+        let mut e = Encounter::new(Uuid::new_v4(), EncounterClass::Inpatient);
+        e.status = EncounterStatus::OnLeave;
+        e.period_end = Some(Timestamp::now());
+        e.worker_id = Some(Uuid::new_v4());
+        e.reason = Some("chest pain".into());
+        let v = encounter(&e);
+        assert_eq!(v["subjectStatus"]["coding"][0]["code"], "on-leave");
+        assert!(v["actualPeriod"]["end"].is_string());
+        assert!(
+            v["participant"][0]["actor"]["reference"]
+                .as_str()
+                .unwrap()
+                .starts_with("Practitioner/")
+        );
+        assert_eq!(v["reason"][0]["value"][0]["concept"]["text"], "chest pain");
+    }
+
+    #[test]
+    fn slots_schedules_and_beds_cover_every_state() {
+        for (s, want) in [(SlotStatus::Free, "free"), (SlotStatus::Busy, "busy")] {
+            let mut slot_row = Slot::new(Uuid::new_v4(), Timestamp::now(), Timestamp::now());
+            slot_row.status = s;
+            assert_eq!(slot(&slot_row)["status"], want);
+        }
+        let id = Uuid::new_v4();
+        for (owner, prefix) in [
+            (ScheduleOwner::Practitioner(id), "Practitioner/"),
+            (ScheduleOwner::Room(id), "Location/"),
+        ] {
+            let v = schedule(&Schedule::new(owner, "x".into()));
+            assert!(
+                v["actor"][0]["reference"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with(prefix)
+            );
+        }
+        for (st, status, op) in [
+            (BedStatus::Available, "active", "U"),
+            (BedStatus::Occupied, "active", "O"),
+            (BedStatus::Reserved, "active", "U"),
+            (BedStatus::OutOfService, "inactive", "C"),
+            (BedStatus::Cleaning, "active", "H"),
+        ] {
+            let mut bed = Bed::new(Uuid::new_v4(), "Bed 1".into(), "B1".into());
+            bed.status = st;
+            let v = location(&bed);
+            assert_eq!(
+                (
+                    v["status"].as_str(),
+                    v["operationalStatus"]["code"].as_str()
+                ),
+                (Some(status), Some(op))
+            );
+            assert_eq!(v["identifier"][0]["value"], "B1");
+        }
+    }
+
+    #[test]
+    fn a_coverage_maps_its_state_kind_and_optional_parts() {
+        let mut c = Coverage::new(Uuid::new_v4(), "Payer", "POL-1");
+        let bare = coverage(&c);
+        assert_eq!(bare["status"], "active");
+        assert_eq!(bare["kind"], "insurance");
+        assert!(bare.get("class").is_none() && bare.get("subscriber").is_none());
+        assert_eq!(bare["identifier"][0]["value"], "POL-1");
+        for (s, want) in [
+            (CoverageStatus::Cancelled, "cancelled"),
+            (CoverageStatus::Draft, "draft"),
+            (CoverageStatus::EnteredInError, "entered-in-error"),
+        ] {
+            c.status = s;
+            assert_eq!(coverage(&c)["status"], want);
+        }
+        for (k, want) in [
+            (CoverageKind::SelfPay, "self-pay"),
+            (CoverageKind::Other, "other"),
+        ] {
+            c.kind = k;
+            assert_eq!(coverage(&c)["kind"], want);
+        }
+        c.payor_identifier = Some("EIN-9".into());
+        c.subscriber_id = Some(Uuid::new_v4());
+        c.group_number = Some("G7".into());
+        c.end_date = Some(c.start_date);
+        c.policy_number = "  ".into();
+        c.relationship = "Spouse".into();
+        let v = coverage(&c);
+        assert_eq!(v["insurer"]["identifier"]["value"], "EIN-9");
+        assert!(
+            v["subscriber"]["reference"]
+                .as_str()
+                .unwrap()
+                .starts_with("Patient/")
+        );
+        assert_eq!(v["class"][0]["value"]["value"], "G7");
+        assert!(v["period"]["end"].is_string());
+        assert!(
+            v.get("identifier").is_none(),
+            "a blank policy number is no identifier"
+        );
+        assert_eq!(v["relationship"]["coding"][0]["code"], "spouse");
+        c.relationship = "godparent".into();
+        assert_eq!(coverage(&c)["relationship"]["text"], "godparent");
+        c.relationship = " ".into();
+        assert!(coverage(&c).get("relationship").is_none());
+    }
+
+    #[test]
+    fn the_base_url_and_a_searchset_name_where_they_were_asked() {
+        let mut h = HeaderMap::new();
+        if std::env::var("PAS_FHIR_R5_BASE_URL").is_err() {
+            assert_eq!(base_url(&h), "http://localhost/fhir");
+        }
+        h.insert(header::HOST, "pas.example".parse().unwrap());
+        h.insert("x-forwarded-proto", "https".parse().unwrap());
+        let base = base_url(&h);
+        if std::env::var("PAS_FHIR_R5_BASE_URL").is_err() {
+            assert_eq!(base, "https://pas.example/fhir");
+        }
+        let b = searchset(
+            "http://h/fhir",
+            "/Slot?x=1",
+            vec![json!({"resourceType": "Slot", "id": "s1"})],
+        );
+        assert_eq!(b["total"], 1);
+        assert_eq!(b["entry"][0]["fullUrl"], "http://h/fhir/Slot/s1");
+        assert_eq!(b["link"][0]["url"], "http://h/fhir/Slot?x=1");
+    }
+
+    #[test]
+    fn a_person_carries_names_telecom_addresses_and_identifiers() {
+        let data = json!({
+            "active": true,
+            "name": [{ "family": "Lovelace", "given": ["Ada", " "], "prefix": "Dr", "suffix": ["PhD"], "text": "Ada L" }, "Bare Name", 7, { "family": " " }],
+            "gender": "FEMALE",
+            "birth_date": "1990-01",
+            "identifiers": [
+                { "system": "urn:oid:1.2", "value": "A1", "assigner": "Registry" },
+                { "type": "mrn", "value": "B2" },
+                { "value": " " }
+            ],
+            "telecom": [
+                { "system": "EMAIL", "value": "a@b.c", "use": "work" },
+                { "system": "carrier-pigeon", "value": "coo", "use": "never" },
+                { "system": "phone" }
+            ],
+            "addresses": [
+                { "line1": "1 High St", "line2": "Flat 2", "city": "Leeds", "state": "WY", "postal_code": "LS1", "country": "GB", "use_type": "home" },
+                { "use_type": "mystery" },
+                {}
+            ],
+        });
+        let v = person("Practitioner", Uuid::new_v4(), data.as_object().unwrap());
+        assert_eq!(v["resourceType"], "Practitioner");
+        assert_eq!(v["active"], true);
+        assert_eq!(v["name"].as_array().unwrap().len(), 2);
+        assert_eq!(v["name"][0]["given"], json!(["Ada"]));
+        assert_eq!(v["name"][0]["prefix"], json!(["Dr"]));
+        assert_eq!(v["gender"], "female");
+        assert_eq!(v["birthDate"], "1990-01");
+        assert_eq!(v["identifier"].as_array().unwrap().len(), 2);
+        assert_eq!(v["identifier"][0]["assigner"]["display"], "Registry");
+        assert_eq!(v["identifier"][1]["type"]["text"], "mrn");
+        assert_eq!(v["telecom"][0]["system"], "email");
+        assert_eq!(v["telecom"][0]["use"], "work");
+        assert_eq!(v["telecom"][1]["system"], "other");
+        assert!(v["telecom"][1].get("use").is_none());
+        assert_eq!(v["address"].as_array().unwrap().len(), 1);
+        assert_eq!(v["address"][0]["line"], json!(["1 High St", "Flat 2"]));
+        assert_eq!(v["address"][0]["postalCode"], "LS1");
+        assert_eq!(v["address"][0]["use"], "home");
+        // Nothing in: nothing out but the type and id.
+        let empty = person("Patient", Uuid::new_v4(), &Map::new());
+        assert_eq!(empty.as_object().unwrap().len(), 2);
+    }
 }

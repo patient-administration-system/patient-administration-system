@@ -308,4 +308,119 @@ mod tests {
         // Every status has a row above.
         assert_eq!(ReferralStatus::ALL.len(), 6);
     }
+
+    #[test]
+    fn every_appointment_status_and_a_cancellation_reason_map() {
+        use crate::models::appointment::CancellationReason;
+        for (s, want) in [
+            (AppointmentStatus::Proposed, "proposed"),
+            (AppointmentStatus::Booked, "booked"),
+            (AppointmentStatus::Arrived, "arrived"),
+            (AppointmentStatus::Fulfilled, "fulfilled"),
+            (AppointmentStatus::Cancelled, "cancelled"),
+        ] {
+            let mut a = Appointment::new(Uuid::new_v4(), Timestamp::now(), Timestamp::now());
+            a.status = s;
+            assert_eq!(appointment(&a)["status"], want);
+        }
+        let mut a = Appointment::new(Uuid::new_v4(), Timestamp::now(), Timestamp::now());
+        a.status = AppointmentStatus::Cancelled;
+        a.cancellation_reason = Some(CancellationReason::ProviderRequest);
+        a.reason = Some("knee".into());
+        let v = appointment(&a);
+        assert!(v["cancelationReason"]["text"].is_string());
+        assert_eq!(v["description"], "knee");
+        a.reason = Some(" ".into());
+        assert!(appointment(&a).get("description").is_none());
+        a.status = AppointmentStatus::Booked;
+        assert!(appointment(&a).get("cancelationReason").is_none());
+    }
+
+    #[test]
+    fn every_encounter_status_and_class_maps_and_optional_parts_appear() {
+        for (s, want) in [
+            (EncounterStatus::Planned, "planned"),
+            (EncounterStatus::Arrived, "arrived"),
+            (EncounterStatus::OnLeave, "onleave"),
+            (EncounterStatus::Finished, "finished"),
+            (EncounterStatus::Cancelled, "cancelled"),
+        ] {
+            assert_eq!(encounter_status(s), want);
+        }
+        for (c, code) in [
+            (EncounterClass::Outpatient, "AMB"),
+            (EncounterClass::Inpatient, "IMP"),
+            (EncounterClass::Emergency, "EMER"),
+            (EncounterClass::HomeCare, "HH"),
+            (EncounterClass::Virtual, "VR"),
+        ] {
+            assert_eq!(encounter_class(c).0, code);
+        }
+        let mut e = Encounter::new(Uuid::new_v4(), EncounterClass::Inpatient);
+        e.period_end = Some(Timestamp::now());
+        e.worker_id = Some(Uuid::new_v4());
+        e.reason = Some("chest pain".into());
+        let v = encounter(&e);
+        assert!(v["period"]["end"].is_string());
+        assert!(
+            v["participant"][0]["individual"]["reference"]
+                .as_str()
+                .unwrap()
+                .starts_with("Practitioner/")
+        );
+        assert_eq!(v["reasonCode"][0]["text"], "chest pain");
+    }
+
+    #[test]
+    fn a_referral_maps_to_a_service_request_with_its_optional_parts() {
+        use crate::referrals::ReferralSource;
+        let mut r = Referral {
+            id: Uuid::new_v4(),
+            person_id: Uuid::new_v4(),
+            source: ReferralSource::Gp,
+            external_ref: None,
+            target_service: "cardiology".into(),
+            reason: None,
+            referring_worker_id: None,
+            status: ReferralStatus::Received,
+            received_at: Timestamp::now(),
+            appointment_id: None,
+            triaged_by: None,
+            triaged_at: None,
+            redirected_to_service: None,
+            redirected_referral_id: None,
+            updated_at: Timestamp::now(),
+        };
+        let bare = service_request(&r);
+        assert_eq!(bare["status"], "active");
+        assert_eq!(bare["code"]["text"], "cardiology");
+        for key in ["identifier", "requester", "reasonCode"] {
+            assert!(bare.get(key).is_none(), "{key}");
+        }
+        r.external_ref = Some("REF-1".into());
+        r.referring_worker_id = Some(Uuid::new_v4());
+        r.reason = Some("palpitations".into());
+        let full = service_request(&r);
+        assert_eq!(full["identifier"][0]["system"], REFERENCE_SYSTEM);
+        assert_eq!(full["identifier"][0]["value"], "REF-1");
+        assert!(
+            full["requester"]["reference"]
+                .as_str()
+                .unwrap()
+                .starts_with("Practitioner/")
+        );
+        assert_eq!(full["reasonCode"][0]["text"], "palpitations");
+        r.external_ref = Some("  ".into());
+        assert!(service_request(&r).get("identifier").is_none());
+    }
+
+    #[test]
+    fn an_unknown_resource_is_an_operation_outcome_with_the_fhir_content_type() {
+        let id = Uuid::new_v4();
+        let r = not_found("Appointment", id);
+        assert_eq!(r.status(), StatusCode::NOT_FOUND);
+        assert_eq!(r.headers()[header::CONTENT_TYPE], CONTENT_TYPE);
+        let r = failed(&crate::Error::internal("boom"));
+        assert_eq!(r.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
 }
