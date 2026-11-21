@@ -203,4 +203,77 @@ mod tests {
         assert_eq!(weekday_from_name("x"), None);
         assert_eq!(monday_index(Weekday::Sunday), 6);
     }
+
+    #[test]
+    fn day_count_and_age() {
+        let d = jiff::civil::date;
+        assert_eq!(day_count(d(2026, 1, 1), d(2026, 1, 31)), 30);
+        assert_eq!(day_count(d(2026, 1, 31), d(2026, 1, 1)), -30);
+        assert_eq!(years_between(d(2000, 6, 15), d(2026, 6, 14)), Some(25));
+        assert_eq!(years_between(d(2000, 6, 15), d(2026, 6, 15)), Some(26));
+        assert_eq!(years_between(d(2026, 6, 15), d(2026, 6, 15)), Some(0));
+        assert_eq!(years_between(d(2026, 6, 16), d(2026, 6, 15)), None);
+    }
+
+    #[test]
+    fn months_clamp_to_the_end_of_a_shorter_month() {
+        let jan31 = utc(2026, 1, 31, 10, 0, 0);
+        assert_eq!(add_months_utc(jan31, 1), Some(utc(2026, 2, 28, 10, 0, 0)));
+        assert_eq!(add_months_utc(jan31, 0), Some(jan31));
+        let mar31 = utc(2026, 3, 31, 10, 0, 0);
+        assert_eq!(sub_months_utc(mar31, 1), Some(utc(2026, 2, 28, 10, 0, 0)));
+        assert_eq!(sub_months_utc(mar31, 3), Some(utc(2025, 12, 31, 10, 0, 0)));
+    }
+
+    #[test]
+    fn zones_by_name() {
+        assert_eq!(zone_name(&zone("Europe/London").unwrap()), "Europe/London");
+        assert_eq!(zone_name(&TimeZone::UTC), "UTC");
+        assert!(zone("Not/AZone").is_none());
+    }
+
+    #[test]
+    fn weekday_names_in_full_and_short_and_invalid() {
+        assert_eq!(weekday_from_name(" tue "), Some(Weekday::Tuesday));
+        for (n, w) in [
+            ("mon", Weekday::Monday),
+            ("thu", Weekday::Thursday),
+            ("fri", Weekday::Friday),
+            ("sat", Weekday::Saturday),
+            ("sun", Weekday::Sunday),
+        ] {
+            assert_eq!(weekday_from_name(n), Some(w));
+        }
+        assert_eq!(weekday_from_name("xyz"), None);
+        assert_eq!(weekday_from_name(""), None);
+        assert_eq!(weekday_name(Weekday::Monday), "Mon");
+    }
+
+    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
+    struct Days {
+        #[serde(with = "weekdays_serde")]
+        all: Vec<Weekday>,
+        #[serde(with = "weekdays_opt_serde", default)]
+        some: Option<Vec<Weekday>>,
+    }
+
+    #[test]
+    fn weekday_lists_serialise_as_names() {
+        let v = Days {
+            all: vec![Weekday::Monday, Weekday::Friday],
+            some: Some(vec![Weekday::Sunday]),
+        };
+        let json = serde_json::to_string(&v).unwrap();
+        assert_eq!(json, r#"{"all":["Mon","Fri"],"some":["Sun"]}"#);
+        assert_eq!(serde_json::from_str::<Days>(&json).unwrap(), v);
+        let none = Days {
+            all: vec![],
+            some: None,
+        };
+        let json = serde_json::to_string(&none).unwrap();
+        assert_eq!(json, r#"{"all":[],"some":null}"#);
+        assert_eq!(serde_json::from_str::<Days>(&json).unwrap(), none);
+        assert!(serde_json::from_str::<Days>(r#"{"all":["Funday"]}"#).is_err());
+        assert!(serde_json::from_str::<Days>(r#"{"all":[],"some":["Funday"]}"#).is_err());
+    }
 }

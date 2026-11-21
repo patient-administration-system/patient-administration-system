@@ -311,4 +311,79 @@ mod tests {
             }
         }
     }
+
+    /// Sets one variable for the closure and restores it after. Each test below owns its variable (no other
+    /// domain code reads it), so parallel tests do not see each other's values.
+    fn with_var<T>(name: &str, value: Option<&str>, f: impl FnOnce() -> T) -> T {
+        let before = std::env::var(name).ok();
+        // SAFETY: test-only, and the variable is private to the calling test.
+        unsafe {
+            match value {
+                Some(v) => std::env::set_var(name, v),
+                None => std::env::remove_var(name),
+            }
+        }
+        let out = f();
+        unsafe {
+            match before {
+                Some(v) => std::env::set_var(name, v),
+                None => std::env::remove_var(name),
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn text_is_none_when_unset_or_blank() {
+        assert_eq!(
+            with_var("PAS_TIMEZONE", None, || text("PAS_TIMEZONE")),
+            None
+        );
+        assert_eq!(
+            with_var("PAS_TIMEZONE", Some("  "), || text("PAS_TIMEZONE")),
+            None
+        );
+        assert_eq!(
+            with_var("PAS_TIMEZONE", Some("Europe/Paris"), || text(
+                "PAS_TIMEZONE"
+            )),
+            Some("Europe/Paris".to_string())
+        );
+    }
+
+    #[test]
+    fn flag_reads_the_value_or_falls_back_to_the_default() {
+        let f = |v| with_var("PAS_NOSHOW_SCORE", v, || flag("PAS_NOSHOW_SCORE"));
+        assert!(!f(None));
+        assert!(f(Some("yes")));
+        assert!(!f(Some("off")));
+        assert!(!f(Some("garbage")));
+        // Not registered: always off.
+        assert!(!flag("PAS_NOT_A_REAL_SETTING"));
+    }
+
+    #[test]
+    fn int_reads_within_bounds_or_falls_back_to_the_default() {
+        let f = |v| with_var("PAS_HL7_DEDUPE_DAYS", v, || int("PAS_HL7_DEDUPE_DAYS"));
+        assert_eq!(f(None), 7);
+        assert_eq!(f(Some(" 30 ")), 30);
+        assert_eq!(f(Some("0")), 7, "below the minimum");
+        assert_eq!(f(Some("99999")), 7, "above the maximum");
+        assert_eq!(f(Some("many")), 7);
+        assert_eq!(int("PAS_NOT_A_REAL_SETTING"), 0);
+        // A registered variable of another kind is not an int.
+        assert_eq!(int("PAS_TIMEZONE"), 0);
+        let v = var("PAS_HL7_DEDUPE_DAYS").unwrap();
+        assert!(problem(v, "99999").unwrap().contains("between 1 and 3650"));
+    }
+
+    #[test]
+    fn float_reads_within_bounds_or_falls_back_to_the_default() {
+        let f = |v| with_var("PAS_NOSHOW_MEDIUM", v, || float("PAS_NOSHOW_MEDIUM"));
+        assert!((f(None) - 0.40).abs() < 1e-9);
+        assert!((f(Some("0.75")) - 0.75).abs() < 1e-9);
+        assert!((f(Some("1.5")) - 0.40).abs() < 1e-9);
+        assert!((f(Some("high")) - 0.40).abs() < 1e-9);
+        assert_eq!(float("PAS_NOT_A_REAL_SETTING"), 0.0);
+    }
 }
