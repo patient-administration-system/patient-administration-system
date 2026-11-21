@@ -1,5 +1,5 @@
 //! DTAC-3: every licence a manifest declares has its text in the repository, and the security policy exists.
-//! No database needed. The root `LICENSE/` directory holds one `<SPDX id>.txt` per licence.
+//! No database needed. The root `LICENSES/` directory holds one `<lowercase SPDX id>/index.md` per licence.
 
 use std::path::PathBuf;
 
@@ -43,7 +43,10 @@ fn test_every_declared_licence_has_a_text_file() {
 
     for expr in declared {
         for id in ids(&expr) {
-            let file = repo().join("LICENSE").join(format!("{id}.txt"));
+            let file = repo()
+                .join("LICENSES")
+                .join(id.to_lowercase())
+                .join("index.md");
             let text = std::fs::read_to_string(&file)
                 .unwrap_or_else(|_| panic!("{id} is declared but {} is missing", file.display()));
             assert!(
@@ -57,13 +60,21 @@ fn test_every_declared_licence_has_a_text_file() {
 #[test]
 fn test_the_licence_summary_names_every_text_file() {
     let md = std::fs::read_to_string(repo().join("LICENSE.md")).unwrap();
-    for entry in std::fs::read_dir(repo().join("LICENSE")).unwrap() {
+    for entry in std::fs::read_dir(repo().join("LICENSES")).unwrap() {
         let name = entry.unwrap().file_name().into_string().unwrap();
         assert!(
-            md.contains(&name),
-            "LICENSE.md does not mention LICENSE/{name}"
+            md.contains(&format!("LICENSES/{name}/index.md")),
+            "LICENSE.md does not link LICENSES/{name}/index.md"
         );
     }
+}
+
+#[test]
+fn test_there_is_no_stray_licence_directory() {
+    assert!(
+        !repo().join("LICENSE").exists(),
+        "the old LICENSE/ directory must not exist; texts live in LICENSES/"
+    );
 }
 
 #[test]

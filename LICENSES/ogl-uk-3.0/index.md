@@ -1,3 +1,12 @@
+# UK Open Government Licence v3.0
+
+SPDX identifier: [`OGL-UK-3.0`](https://spdx.org/licenses/OGL-UK-3.0.html)
+
+Official page: <https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/>
+
+Full text:
+
+```text
 Open Government Licence v3.0
 
 You are encouraged to use and re-use the Information that is available under this licence freely and flexibly, with only a few conditions.
@@ -67,3 +76,5 @@ This is version 3.0 of the Open Government Licence. The National Archives may, f
 These terms are compatible with the Creative Commons Attribution License 4.0 and the Open Data Commons Attribution License, both of which license copyright and database rights. This means that when the Information is adapted and licensed under either of those licences, you automatically satisfy the conditions of the OGL when you comply with the other licence. The OGLv3.0 is Open Definition compliant.
 
 Further context, best practice and guidance can be found in the UK Government Licensing Framework section on The National Archives website.
+
+```

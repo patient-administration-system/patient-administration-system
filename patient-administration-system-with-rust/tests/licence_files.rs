@@ -1,4 +1,4 @@
-//! DTAC-3: every licence a manifest names has its text in `LICENSE/`, and the texts are real.
+//! DTAC-3: every licence a manifest names has `LICENSES/<lowercase-spdx-id>/index.md` with its text, and no stray `LICENSE/` directory exists.
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -44,11 +44,16 @@ fn manifest_licences() -> BTreeSet<String> {
 
 #[test]
 fn every_declared_licence_has_a_text() {
-    let dir = repo_root().join("LICENSE");
+    let dir = repo_root().join("LICENSES");
     for id in manifest_licences() {
-        let path = dir.join(format!("{id}.txt"));
+        let path = dir.join(id.to_lowercase()).join("index.md");
         let text =
             fs::read_to_string(&path).unwrap_or_else(|_| panic!("missing {}", path.display()));
+        assert!(
+            text.contains("```text"),
+            "{} has no text fence",
+            path.display()
+        );
         assert!(text.len() > 500, "{} looks empty", path.display());
     }
 }
@@ -56,13 +61,23 @@ fn every_declared_licence_has_a_text() {
 #[test]
 fn licence_index_lists_every_text() {
     let index = fs::read_to_string(repo_root().join("LICENSE.md")).unwrap();
-    for entry in fs::read_dir(repo_root().join("LICENSE")).unwrap() {
+    for entry in fs::read_dir(repo_root().join("LICENSES")).unwrap() {
         let name = entry.unwrap().file_name().to_string_lossy().into_owned();
         assert!(
-            index.contains(&format!("LICENSE/{name}")),
-            "LICENSE.md does not link {name}"
+            index.contains(&format!("LICENSES/{name}/index.md")),
+            "LICENSE.md does not link LICENSES/{name}/index.md"
         );
     }
+}
+
+#[test]
+fn there_is_no_stray_licence_directory() {
+    let dir = repo_root().join("LICENSE");
+    assert!(
+        !dir.exists(),
+        "{} must not exist; use LICENSES/",
+        dir.display()
+    );
 }
 
 #[test]

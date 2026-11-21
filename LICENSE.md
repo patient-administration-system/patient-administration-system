@@ -13,16 +13,28 @@ The front-end crate declares the narrower `MIT OR Apache-2.0`.
 
 | Licence | SPDX identifier | Text |
 |---|---|---|
-| MIT | `MIT` | [`LICENSE/MIT.txt`](LICENSE/MIT.txt) |
-| Apache License 2.0 | `Apache-2.0` | [`LICENSE/Apache-2.0.txt`](LICENSE/Apache-2.0.txt) |
-| BSD 3-Clause | `BSD-3-Clause` | [`LICENSE/BSD-3-Clause.txt`](LICENSE/BSD-3-Clause.txt) |
-| GNU GPL v2.0 | `GPL-2.0-only` | [`LICENSE/GPL-2.0-only.txt`](LICENSE/GPL-2.0-only.txt) |
-| GNU GPL v3.0 | `GPL-3.0-only` | [`LICENSE/GPL-3.0-only.txt`](LICENSE/GPL-3.0-only.txt) |
-| UK Open Government Licence v3.0 | `OGL-UK-3.0` | [`LICENSE/OGL-UK-3.0.txt`](LICENSE/OGL-UK-3.0.txt) |
-| Creative Commons Attribution Non Commercial Share Alike 4.0 International | `CC-BY-NC-SA-4.0` | [`LICENSE/CC-BY-NC-SA-4.0.txt`](LICENSE/CC-BY-NC-SA-4.0.txt) |
+| MIT | `MIT` | [`LICENSES/mit/index.md`](LICENSES/mit/index.md) |
+| Apache License 2.0 | `Apache-2.0` | [`LICENSES/apache-2.0/index.md`](LICENSES/apache-2.0/index.md) |
+| BSD 3-Clause | `BSD-3-Clause` | [`LICENSES/bsd-3-clause/index.md`](LICENSES/bsd-3-clause/index.md) |
+| GNU GPL v2.0 | `GPL-2.0-only` | [`LICENSES/gpl-2.0-only/index.md`](LICENSES/gpl-2.0-only/index.md) |
+| GNU GPL v3.0 | `GPL-3.0-only` | [`LICENSES/gpl-3.0-only/index.md`](LICENSES/gpl-3.0-only/index.md) |
+| UK Open Government Licence v3.0 | `OGL-UK-3.0` | [`LICENSES/ogl-uk-3.0/index.md`](LICENSES/ogl-uk-3.0/index.md) |
+| Creative Commons Attribution Non Commercial Share Alike 4.0 International | `CC-BY-NC-SA-4.0` | [`LICENSES/cc-by-nc-sa-4.0/index.md`](LICENSES/cc-by-nc-sa-4.0/index.md) |
 
 The permissive licences suit organizations that embed or adapt the code; Apache-2.0 adds an explicit patent grant. The GNU licences suit those who want copyleft. The UK Open Government Licence v3.0 suits public-sector reuse in the UK; CC BY-NC-SA 4.0 suits non-commercial reuse shared alike (it forbids commercial use, so it is not an open-source licence).
 
-A test (`patient-administration-system-with-rust/tests/licence_files.rs`) fails if a manifest names a licence that has no text in `LICENSE/`.
+A test (`patient-administration-system-with-rust/tests/licence_files.rs`) fails if a manifest names a licence that has no `LICENSES/<lowercase-spdx-id>/index.md`, if `LICENSE.md` does not link each text, or if a `LICENSE/` directory exists. All licence texts live in `LICENSES/`, one `index.md` per licence, and nowhere else.
 
 Third-party dependencies keep their own licences; `cargo deny check` enforces an allow-list (`deny.toml`).
+
+## Full license texts
+
+The full text of each license is in its own directory:
+
+- [MIT](LICENSES/mit/index.md)
+- [Apache-2.0](LICENSES/apache-2.0/index.md)
+- [BSD-3-Clause](LICENSES/bsd-3-clause/index.md)
+- [GPL-2.0-only](LICENSES/gpl-2.0-only/index.md)
+- [GPL-3.0-only](LICENSES/gpl-3.0-only/index.md)
+- [OGL-UK-3.0](LICENSES/ogl-uk-3.0/index.md)
+- [CC-BY-NC-SA-4.0](LICENSES/cc-by-nc-sa-4.0/index.md)
