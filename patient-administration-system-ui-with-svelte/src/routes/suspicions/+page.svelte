@@ -17,9 +17,9 @@
   <select id="condition" name="condition">
     <option value="" selected={data.condition === null}>{t("suspicions.all")}</option>
     {#each data.conditions as c (c.code)}
-      <option value={c.code} selected={data.condition === c.code}
-        >{labelFor(`condition.${c.code}`, c.name, c.code)}</option
-      >
+      <option value={c.code} selected={data.condition === c.code}>
+        {labelFor(`condition.${c.code}`, c.name, c.code)}
+      </option>
     {/each}
   </select>
   <button class="button" type="submit">{t("waitlist.show")}</button>

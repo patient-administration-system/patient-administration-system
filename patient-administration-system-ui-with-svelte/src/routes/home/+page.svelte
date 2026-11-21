@@ -15,11 +15,11 @@
     <li>
       <a href={localizePath(tile.href, i18n.locale)}>{t(tile.key)}</a>
       {#if tile.href === "/suspicions" && data.past > 0}
-        <span
-          >{data.pastIsMore
+        <span>
+          {data.pastIsMore
             ? t("home.pastTargetMore", { count: data.past })
-            : t("home.pastTarget", { count: data.past })}</span
-        >
+            : t("home.pastTarget", { count: data.past })}
+        </span>
       {/if}
     </li>
   {/each}

@@ -33,9 +33,10 @@
 
 <p>
   {t("tol.overall")}:
-  <span class="rag rag-{overall}" data-testid="overall"
-    ><span aria-hidden="true">{RAG_MARK[overall]}</span> {t(`tol.rag.${overall}`)}</span
-  >
+  <span class="rag rag-{overall}" data-testid="overall">
+    <span aria-hidden="true">{RAG_MARK[overall]}</span>
+    {t(`tol.rag.${overall}`)}
+  </span>
 </p>
 
 {#if data.status.readings.length === 0}
@@ -62,10 +63,9 @@
             {t(`tol.metric.${r.metric}`)}
             <br /><small>{t(`tol.kind.${r.kind}`)} · {t(`tol.dir.${r.direction}`)}</small>
           </th>
-          <td
-            ><span class="rag rag-{rag}"><span aria-hidden="true">{RAG_MARK[rag]}</span> {t(`tol.rag.${rag}`)}</span
-            ></td
-          >
+          <td>
+            <span class="rag rag-{rag}"><span aria-hidden="true">{RAG_MARK[rag]}</span> {t(`tol.rag.${rag}`)}</span>
+          </td>
           <td>{r.value === null ? "–" : amount(r.value, r.unit)}</td>
           <td>{amount(r.target, r.unit)}</td>
           <td>{amount(r.tolerance, r.unit)}</td>
@@ -98,10 +98,9 @@
         <tr data-scope-key={r.scope_key} data-scoped-metric={r.metric}>
           <th scope="row">{r.scope_key}</th>
           <td>{t(`tol.metric.${r.metric}`)}</td>
-          <td
-            ><span class="rag rag-{rag}"><span aria-hidden="true">{RAG_MARK[rag]}</span> {t(`tol.rag.${rag}`)}</span
-            ></td
-          >
+          <td>
+            <span class="rag rag-{rag}"><span aria-hidden="true">{RAG_MARK[rag]}</span> {t(`tol.rag.${rag}`)}</span>
+          </td>
           <td>{r.value === null ? "–" : amount(r.value, r.unit)}</td>
           <td>{amount(r.target, r.unit)}</td>
           <td>{amount(r.tolerance, r.unit)}</td>

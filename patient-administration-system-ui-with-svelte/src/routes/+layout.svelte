@@ -40,8 +40,10 @@
             href={localizePath(rest, code)}
             lang={code}
             hreflang={code}
-            aria-current={code === i18n.locale ? "true" : undefined}>{LOCALE_LABELS[code]}</a
+            aria-current={code === i18n.locale ? "true" : undefined}
           >
+            {LOCALE_LABELS[code]}
+          </a>
         </li>
       {/each}
     </ul>
