@@ -207,4 +207,33 @@ mod rule_tests {
         assert_eq!(normalize_phone("a+1"), "1");
         assert_eq!(normalize_phone(""), "");
     }
+
+    #[test]
+    fn an_appointment_must_start_before_it_ends() {
+        let t = crate::time::utc;
+        let (a, b) = (t(2026, 11, 3, 9, 0, 0), t(2026, 11, 3, 9, 30, 0));
+        let new = |s, e| Appointment::new(uuid::Uuid::nil(), s, e);
+        assert!(validate_appointment(&new(a, b)).is_ok());
+        assert!(validate_appointment(&new(a, a)).is_err(), "zero length");
+        assert!(validate_appointment(&new(b, a)).is_err(), "inverted");
+    }
+
+    #[test]
+    fn a_charge_cannot_be_negative() {
+        use crate::models::{Iso4217, Money};
+        let charge = |amount: &str| {
+            Charge::new(
+                uuid::Uuid::nil(),
+                "X1".into(),
+                "test".into(),
+                Money {
+                    amount: amount.parse().unwrap(),
+                    currency: Iso4217::new("GBP").unwrap(),
+                },
+            )
+        };
+        assert!(validate_charge(&charge("0")).is_ok());
+        assert!(validate_charge(&charge("12.50")).is_ok());
+        assert!(validate_charge(&charge("-0.01")).is_err());
+    }
 }
