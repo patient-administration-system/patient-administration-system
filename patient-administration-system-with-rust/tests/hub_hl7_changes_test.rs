@@ -320,3 +320,90 @@ async fn deleting_a_patient_and_merging_two_records() {
     .await;
     assert_eq!(code(&gone), "AA", "{gone:?}");
 }
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn the_basic_adt_endpoints_refuse_what_they_cannot_act_on() {
+    let w = world().await;
+    let head = |event: &str| {
+        format!(
+            "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||ADT^{event}|{}|P|2.5\r",
+            w.sender,
+            Uuid::new_v4().simple()
+        )
+    };
+    let pid = format!("PID|1||{}^^^HOSP^MR||Lovelace^Ada||19900115|F\r", w.mrn);
+    for (path, event) in [
+        ("patient", "A28"),
+        ("admit", "A01"),
+        ("transfer", "A02"),
+        ("discharge", "A03"),
+        ("register", "A04"),
+    ] {
+        let url = format!("/api/hl7/v2/{path}");
+        // Not HL7 at all: rejected, not accepted.
+        let junk = post(&w, &url, "not hl7").await;
+        assert_eq!(code(&junk), "AR", "{path}: {junk:?}");
+        // No PID.
+        let no_pid = post(
+            &w,
+            &url,
+            &format!("{}PV1|1|I|W^R^{}\r", head(event), w.bed_code),
+        )
+        .await;
+        assert_eq!(code(&no_pid), "AE", "{path} without PID: {no_pid:?}");
+    }
+    for (path, event) in [("admit", "A01"), ("transfer", "A02")] {
+        let url = format!("/api/hl7/v2/{path}");
+        // No PV1 where a bed is needed (a registration defaults to an outpatient).
+        let no_pv1 = post(&w, &url, &format!("{}{pid}", head(event))).await;
+        assert_eq!(code(&no_pv1), "AE", "{path} without PV1: {no_pv1:?}");
+    }
+    for (path, event) in [("admit", "A01"), ("transfer", "A02")] {
+        let url = format!("/api/hl7/v2/{path}");
+        let no_bed = post(&w, &url, &format!("{}{pid}PV1|1|I\r", head(event))).await;
+        assert_eq!(code(&no_bed), "AE", "{path} without a bed: {no_bed:?}");
+        let unknown = post(
+            &w,
+            &url,
+            &format!("{}{pid}PV1|1|I|W^R^NO-SUCH-BED\r", head(event)),
+        )
+        .await;
+        assert_eq!(
+            code(&unknown),
+            "AE",
+            "{path} with an unknown bed: {unknown:?}"
+        );
+    }
+    // A new person by A28 is created, then matched the second time.
+    let first = post(&w, "/api/hl7/v2/patient", &format!("{}{pid}", head("A28"))).await;
+    assert_eq!(code(&first), "AA", "{first:?}");
+    let second = post(&w, "/api/hl7/v2/patient", &format!("{}{pid}", head("A28"))).await;
+    assert_eq!(code(&second), "AA", "{second:?}");
+    assert!(second.contains("matched existing"), "{second:?}");
+}
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn without_a_person_service_the_endpoints_say_so() {
+    let mut w = world().await;
+    // A state with no person client: nothing can be resolved from a PID.
+    w.s = common::build_state(&common::database_url().unwrap()).await;
+    let pid = format!("PID|1||{}^^^HOSP^MR||Lovelace^Ada||19900115|F\r", w.mrn);
+    let msg = |event: &str| {
+        format!(
+            "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||ADT^{event}|{}|P|2.5\r{pid}PV1|1|I|W^R^{}\r",
+            w.sender,
+            Uuid::new_v4().simple(),
+            w.bed_code
+        )
+    };
+    for (path, event) in [("patient", "A28"), ("admit", "A01"), ("update", "A08")] {
+        let ack = post(&w, &format!("/api/hl7/v2/{path}"), &msg(event)).await;
+        assert_eq!(code(&ack), "AE", "{path}: {ack:?}");
+        assert!(
+            ack.contains("PERSON_SERVICE_URL") || ack.contains("person"),
+            "{path}: {ack:?}"
+        );
+    }
+}
