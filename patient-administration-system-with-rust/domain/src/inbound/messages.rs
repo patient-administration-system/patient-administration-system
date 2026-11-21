@@ -341,4 +341,81 @@ mod tests {
             "Which appointment? Reply with a number: 1 Tue 3 Nov 09:30, 2 Thu 5 Nov 14:00"
         );
     }
+
+    #[test]
+    fn test_rebooked_and_held_messages_name_the_time_and_help_line() {
+        for lang in [Lang::En, Lang::Cy] {
+            assert!(text(lang, Kind::Rebooked, "T1", None).contains("T1"));
+            let held = text(lang, Kind::HeldForCall, "T1", Some("  Call us.  "));
+            assert!(held.contains("T1") && held.ends_with(" Call us."));
+            // A blank help line adds nothing.
+            assert_eq!(
+                text(lang, Kind::Failed, "", Some("   ")),
+                text(lang, Kind::Failed, "", None)
+            );
+        }
+    }
+
+    #[test]
+    fn test_signposts_exist_in_both_languages_for_the_codes_with_help() {
+        use crate::models::appointment::BarrierCode;
+        let mut with = 0;
+        for code in BarrierCode::ALL {
+            let en = signpost(Lang::En, code);
+            let cy = signpost(Lang::Cy, code);
+            assert_eq!(en.is_some(), cy.is_some(), "{code:?}");
+            if let (Some(en), Some(cy)) = (en, cy) {
+                with += 1;
+                assert_ne!(en, cy);
+                assert!(en.contains("Cancelling will not affect your care"));
+            }
+        }
+        assert!(with >= 8);
+    }
+
+    #[test]
+    fn test_voice_prompts_in_both_languages() {
+        let whens = vec!["A".to_string(), "B".to_string()];
+        for lang in [Lang::En, Lang::Cy] {
+            assert!(ivr_menu(lang, "T1").contains("T1"));
+            assert!(!ivr_retry(lang).is_empty());
+            assert!(!ivr_kept(lang).is_empty());
+            assert!(ivr_cancel_sure(lang).starts_with(&are_you_sure(lang)));
+            let times = ivr_times(lang, &whens);
+            assert!(
+                times.contains("1 ")
+                    && times.contains("2 ")
+                    && times.contains('A')
+                    && times.contains('B')
+            );
+            assert!(times.ends_with('.'));
+            let rebook = rebook_options(lang, &whens);
+            assert!(rebook.contains("1 A, 2 B"));
+        }
+        assert_eq!(
+            ivr_times(Lang::En, &whens),
+            "Press 1 for A. Press 2 for B. Press 0 to go back."
+        );
+        assert!(ask(Lang::Cy, &whens).starts_with("Pa apwyntiad?"));
+    }
+
+    #[test]
+    fn test_bilingual_joins_both_languages_and_codes_are_stable() {
+        let b = bilingual(Kind::Stop);
+        assert_eq!(
+            b,
+            format!(
+                "{} / {}",
+                text(Lang::En, Kind::Stop, "", None),
+                text(Lang::Cy, Kind::Stop, "", None)
+            )
+        );
+        assert_eq!(Lang::En.code(), "en");
+        assert_eq!(Lang::Cy.code(), "cy");
+    }
+
+    #[test]
+    fn test_the_clinic_timezone_resolves() {
+        let _ = timezone();
+    }
 }
