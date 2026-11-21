@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn zones_by_name() {
-        assert_eq!(zone_name(&zone("Europe/London").unwrap()), "Europe/London");
+        assert_eq!(zone_name(&zone("Europe/Paris").unwrap()), "Europe/Paris");
         assert_eq!(zone_name(&TimeZone::UTC), "UTC");
         assert!(zone("Not/AZone").is_none());
     }

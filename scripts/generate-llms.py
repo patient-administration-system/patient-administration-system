@@ -84,7 +84,7 @@ SECTIONS = [
         ("Contributing", "CONTRIBUTING.md", "Checks to run, and the rules that are tests"),
         ("Governance of the project", "GOVERNANCE.md", "Single-maintainer decision making"),
         ("Maintainers", "MAINTAINERS.md", "Who maintains this"),
-        ("Licence", "LICENSE.md", "Choice of MIT, Apache-2.0, BSD-3-Clause, GPL-2.0-only or GPL-3.0-only"),
+        ("Licence", "LICENSE.md", "Choice of MIT, Apache-2.0, BSD-3-Clause, GPL-2.0-only, GPL-3.0-only, OGL-UK-3.0 or CC-BY-NC-SA-4.0"),
         ("Citation", "CITATION.cff", "How to cite"),
         ("Dependency policy", "deny.toml", "cargo-deny: licences, advisories (each ignore justified), sources"),
         ("CI", ".github/workflows/ci.yml", "One required check, ci-ok, over nine jobs"),

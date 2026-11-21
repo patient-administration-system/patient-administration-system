@@ -7,7 +7,7 @@
     "node": "=26"
   },
   "description": "SvelteKit front-end for the Patient Administration System: staff calendar, waitlist kanban, ward gantt, patient grid, reminder templates, and patient sign-in to see one's own appointments.",
-  "license": "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only",
+  "license": "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only OR OGL-UK-3.0 OR CC-BY-NC-SA-4.0",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
