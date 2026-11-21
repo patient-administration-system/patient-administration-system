@@ -104,3 +104,52 @@ pub struct Releases {
     pub summary: ReleaseSummary,
     pub releases: Vec<SlotRelease>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn input(service_type: &str, language: Option<&str>) -> StandbyInput {
+        StandbyInput {
+            person_id: Uuid::nil(),
+            service_type: service_type.into(),
+            short_notice_ok: yes(),
+            language: language.map(str::to_string),
+            needs_transport: false,
+            phone_only: false,
+        }
+    }
+
+    #[test]
+    fn test_short_notice_defaults_to_yes_when_absent() {
+        let json = format!(
+            r#"{{"person_id":"{}","service_type":"physio"}}"#,
+            Uuid::nil()
+        );
+        let i: StandbyInput = serde_json::from_str(&json).unwrap();
+        assert!(i.short_notice_ok);
+        assert!(!i.needs_transport && !i.phone_only);
+        assert_eq!(i.language, None);
+    }
+
+    #[test]
+    fn test_validate_service_type_bounds() {
+        assert!(input("physio", None).validate().is_ok());
+        assert!(input("   ", None).validate().is_err());
+        assert!(input(&"x".repeat(80), None).validate().is_ok());
+        assert!(input(&"x".repeat(81), None).validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_language_bounds() {
+        assert!(input("physio", Some("cy-001")).validate().is_ok());
+        assert!(input("physio", Some("c")).validate().is_err());
+        assert!(input("physio", Some("abcdefghijklm")).validate().is_err());
+    }
+
+    #[test]
+    fn test_expired_is_derived_not_stored() {
+        assert_eq!(ReleaseStatus::STORED, &["open", "refilled"]);
+        assert!(!ReleaseStatus::STORED.contains(&"expired"));
+    }
+}
