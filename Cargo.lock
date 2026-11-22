@@ -1210,9 +1210,9 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
 name = "er7"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2495dc0a44dfebe8595757972ab221be465f7aeab0d31f2c82102af612816d5"
+checksum = "ce2c35ec0abb27edded4b89389652602336101e0cd61182456472f4a95ab542b"
 
 [[package]]
 name = "erased-serde"
