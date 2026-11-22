@@ -212,3 +212,34 @@ mod tests {
         assert_eq!(DEFAULT_MAX_RETRIES, 10);
     }
 }
+
+#[cfg(test)]
+mod backoff_tests {
+    use super::*;
+
+    #[test]
+    fn the_delay_starts_at_five_seconds_doubles_and_stops_at_the_cap() {
+        assert_eq!(backoff(1, None), Duration::from_secs(5));
+        assert_eq!(backoff(2, None), Duration::from_secs(10));
+        assert_eq!(backoff(3, None), Duration::from_secs(20));
+        assert_eq!(backoff(8, None), Duration::from_secs(640));
+        // From the tenth failure the delay is the cap, and stays there however many more.
+        for failures in [10, 11, 40, i32::MAX] {
+            assert_eq!(backoff(failures, None), BACKOFF_CAP, "{failures}");
+        }
+    }
+
+    #[test]
+    fn a_count_below_one_is_treated_as_the_first_failure() {
+        for failures in [0, -1, i32::MIN] {
+            assert_eq!(backoff(failures, None), BACKOFF_START, "{failures}");
+        }
+    }
+
+    #[test]
+    fn a_receivers_retry_after_is_honoured_up_to_the_cap() {
+        assert_eq!(backoff(1, Some(120)), Duration::from_secs(120));
+        assert_eq!(backoff(1, Some(0)), Duration::ZERO);
+        assert_eq!(backoff(1, Some(u64::MAX)), BACKOFF_CAP);
+    }
+}

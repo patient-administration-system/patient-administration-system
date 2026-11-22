@@ -251,3 +251,49 @@ async fn a_dead_letter_holds_its_person_until_a_person_skips_it() {
     assert_eq!(w.row(second).await.map(|r| r.0), Some(true));
     w.clean().await;
 }
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn an_event_that_keeps_failing_is_dead_lettered_when_the_retry_budget_is_spent() {
+    let mut w = World::new().await;
+    let flaky = w.event(Uuid::new_v4(), "fail", 1).await;
+    // A budget of one: the first failure is the last try.
+    dispatcher::tick_with_limit(&w.db, &w.publisher, 1, 1)
+        .await
+        .unwrap();
+    assert_eq!(w.hits(flaky), 1);
+    assert_eq!(w.row(flaky).await, None, "moved out of the outbox");
+    let (_, why) = w.dead_letter(flaky).await.expect("dead-lettered");
+    assert!(
+        !why.starts_with("rejected: "),
+        "a deferral, not a rejection: {why}"
+    );
+    w.clean().await;
+}
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn the_dispatcher_loop_delivers_what_is_due_while_it_runs() {
+    let mut w = World::new().await;
+    let good = w.event(Uuid::new_v4(), "ok", 1).await;
+    let handle = tokio::spawn(dispatcher::run(
+        w.db.clone(),
+        w.publisher.clone(),
+        Duration::from_millis(50),
+        10,
+    ));
+    for _ in 0..100 {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        if w.row(good).await.map(|r| r.0) == Some(true) {
+            break;
+        }
+    }
+    handle.abort();
+    assert_eq!(
+        w.row(good).await.map(|r| r.0),
+        Some(true),
+        "delivered by the loop"
+    );
+    assert_eq!(w.hits(good), 1);
+    w.clean().await;
+}
