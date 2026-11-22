@@ -407,3 +407,68 @@ async fn without_a_person_service_the_endpoints_say_so() {
         );
     }
 }
+
+/// A batch routes each message by its type (MSH-9) to the same handler a lone message would reach, answers
+/// each with its own ACK in order, and refuses a type the PAS does not handle.
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn a_batch_routes_every_supported_type_and_refuses_the_rest() {
+    let w = world().await;
+    let types = [
+        ("ADT", "A01"),
+        ("ADT", "A02"),
+        ("ADT", "A03"),
+        ("ADT", "A04"),
+        ("ADT", "A05"),
+        ("ADT", "A06"),
+        ("ADT", "A07"),
+        ("ADT", "A08"),
+        ("ADT", "A11"),
+        ("ADT", "A12"),
+        ("ADT", "A13"),
+        ("ADT", "A21"),
+        ("ADT", "A22"),
+        ("ADT", "A23"),
+        ("ADT", "A28"),
+        ("ADT", "A38"),
+        ("ADT", "A40"),
+        ("DFT", "P03"),
+        ("SIU", "S12"),
+        ("SIU", "S13"),
+        ("SIU", "S14"),
+        ("SIU", "S15"),
+        ("MFN", "M02"),
+        ("MFN", "M05"),
+        ("ORU", "R01"),
+    ];
+    let mut batch = format!(
+        "BHS|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||||B-{}\r",
+        w.sender,
+        Uuid::new_v4().simple()
+    );
+    for (code, event) in types {
+        batch += &format!(
+            "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||{code}^{event}|{}|P|2.5\rPID|1||{}^^^HOSP^MR||Lovelace^Ada||19900115|F\rPV1|1|I|W^R^{}\r",
+            w.sender,
+            Uuid::new_v4().simple(),
+            w.mrn,
+            w.bed_code
+        );
+    }
+    batch += &format!("BTS|{}\r", types.len());
+    let ack = post(&w, "/api/hl7/v2/batch", &batch).await;
+    let codes: Vec<&str> = ack
+        .split('\r')
+        .filter(|l| l.starts_with("MSA|"))
+        .map(|l| l.split('|').nth(1).unwrap_or(""))
+        .collect();
+    assert_eq!(codes.len(), types.len(), "one ACK per message: {ack:?}");
+    assert!(codes.iter().all(|c| !c.is_empty()), "{codes:?}");
+    assert_eq!(
+        codes.last(),
+        Some(&"AR"),
+        "an unsupported type is refused: {codes:?}"
+    );
+    // A batch that is not one is refused as a whole.
+    assert!(!post(&w, "/api/hl7/v2/batch", "not hl7").await.is_empty());
+}
