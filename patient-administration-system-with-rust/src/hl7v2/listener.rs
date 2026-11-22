@@ -620,4 +620,106 @@ mod tests {
     fn test_route_for_payload_garbage_routes_to_patient() {
         assert_eq!(route_for_payload("not-v2"), Some("/api/hl7/v2/patient"));
     }
+
+    fn fixture_path(name: &str) -> String {
+        format!("{}/tests/fixtures/tls/{name}", env!("CARGO_MANIFEST_DIR"))
+    }
+
+    #[test]
+    fn the_message_type_is_msh_9_or_empty() {
+        let m = parse_message("MSH|^~\\&|S|F|R|F|20261117||ADT^A01|X|P|2.5\rPID|1\r").unwrap();
+        assert_eq!(message_type(&m), ("ADT".to_string(), "A01".to_string()));
+        let no_event = parse_message("MSH|^~\\&|S|F|R|F|20261117||ACK|X|P|2.5\r").unwrap();
+        assert_eq!(message_type(&no_event), ("ACK".to_string(), String::new()));
+        assert!(
+            parse_message("PID|1\r").is_err(),
+            "a message must start with MSH"
+        );
+    }
+
+    #[test]
+    fn the_listener_reports_off_until_it_is_started() {
+        // The state is process-wide; only the names are checked, in the order a listener goes through them.
+        for (state, name) in [(ACCEPTING, "accepting"), (STOPPED, "stopped"), (OFF, "off")] {
+            set_state(state);
+            assert_eq!(listener_state(), name);
+        }
+    }
+
+    #[test]
+    fn settings_without_tls_are_plain_and_a_client_ca_alone_is_refused() {
+        let o = MllpOptions::from_settings(None, None, None, Duration::from_secs(7), 3).unwrap();
+        assert!(o.tls.is_none());
+        assert_eq!((o.idle, o.max_connections), (Duration::from_secs(7), 3));
+        let d = MllpOptions::default();
+        assert_eq!((d.idle, d.max_connections), (Duration::from_secs(30), 64));
+        let e = MllpOptions::from_settings(None, None, Some(fixture_path("ca.pem")), d.idle, 1);
+        assert!(e.is_err(), "a client CA needs a certificate and key");
+    }
+
+    #[test]
+    fn a_certificate_without_a_key_or_a_file_that_cannot_be_read_stops_start_up() {
+        let (cert, key, ca) = (
+            fixture_path("server.pem"),
+            fixture_path("server.key"),
+            fixture_path("ca.pem"),
+        );
+        let idle = Duration::from_secs(1);
+        assert!(MllpOptions::from_settings(Some(cert.clone()), None, None, idle, 1).is_err());
+        assert!(MllpOptions::from_settings(None, Some(key.clone()), None, idle, 1).is_err());
+        for (c, k, a) in [
+            ("/no/such/cert", key.as_str(), None),
+            (cert.as_str(), "/no/such/key", None),
+            (cert.as_str(), key.as_str(), Some("/no/such/ca")),
+        ] {
+            let r = MllpOptions::from_settings(
+                Some(c.into()),
+                Some(k.into()),
+                a.map(String::from),
+                idle,
+                1,
+            );
+            assert!(r.is_err(), "{c} {k} {a:?}");
+        }
+        let ok = MllpOptions::from_settings(Some(cert), Some(key), Some(ca), idle, 2).unwrap();
+        assert!(ok.tls.is_some());
+    }
+
+    #[test]
+    fn a_tls_configuration_refuses_pem_that_is_not_a_certificate_or_a_key() {
+        let cert = std::fs::read(fixture_path("server.pem")).unwrap();
+        let key = std::fs::read(fixture_path("server.key")).unwrap();
+        assert!(
+            tls_server_config(b"", &key, None).is_err(),
+            "no certificate"
+        );
+        assert!(tls_server_config(&cert, b"not a key", None).is_err());
+        assert!(
+            tls_server_config(&cert, &key, Some(b"garbage")).is_err(),
+            "a client CA file with no certificate in it trusts nobody"
+        );
+        let other_key = std::fs::read(fixture_path("client.key")).unwrap();
+        assert!(
+            tls_server_config(&cert, &other_key, None).is_err(),
+            "a key that is not the certificate's"
+        );
+    }
+
+    #[tokio::test]
+    async fn one_frame_is_answered_and_a_closed_stream_is_not_an_error() {
+        let router = Router::new();
+        let (mut client, mut server) = tokio::io::duplex(8192);
+        let msg = "MSH|^~\\&|S|F|R|F|20261117||ZZZ^Z01|MSG-1|P|2.5\r";
+        mllp::write_frame(&mut client, msg.as_bytes())
+            .await
+            .unwrap();
+        handle_one_frame(&mut server, router.clone()).await.unwrap();
+        let ack = mllp::read_frame(&mut client).await.unwrap().unwrap();
+        let ack = String::from_utf8(ack).unwrap();
+        assert!(ack.contains("MSA|A"), "an ACK of some kind: {ack}");
+        drop(client);
+        let (client2, mut server2) = tokio::io::duplex(64);
+        drop(client2);
+        handle_one_frame(&mut server2, router).await.unwrap();
+    }
 }
