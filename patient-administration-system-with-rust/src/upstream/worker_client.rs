@@ -633,4 +633,183 @@ mod tests {
         let err = client.get(Uuid::new_v4(), &ctx()).await.unwrap_err();
         assert!(matches!(err, Error::Upstream(_)));
     }
+
+    /// A worker-service that answers each route with a success envelope of the right shape. A delete of the
+    /// all-zero id is refused with a 409 and an envelope; any other id is a 204.
+    async fn envelope_server() -> SocketAddr {
+        use axum::{
+            Json, Router,
+            extract::Path,
+            http::StatusCode,
+            routing::{get, post},
+        };
+        use serde_json::{Value, json};
+        fn ok(data: Value) -> Json<Value> {
+            Json(json!({ "success": true, "data": data, "error": null }))
+        }
+        fn worker(id: Uuid) -> Value {
+            json!({ "id": id, "active": true })
+        }
+        let app = Router::new()
+            .route("/api/health", get(|| async { "ok" }))
+            .route(
+                "/api/workers",
+                post(|Json(_): Json<Value>| async { ok(worker(Uuid::new_v4())) }),
+            )
+            .route(
+                "/api/workers/search",
+                get(|| async { ok(json!([worker(Uuid::new_v4())])) }),
+            )
+            .route(
+                "/api/workers/match",
+                post(|Json(_): Json<Value>| async {
+                    ok(json!([{ "worker": worker(Uuid::new_v4()), "score": 0.9 }]))
+                }),
+            )
+            .route(
+                "/api/workers/check-duplicates",
+                post(|Json(_): Json<Value>| async { ok(json!([])) }),
+            )
+            .route(
+                "/api/workers/merge",
+                post(|Json(b): Json<Value>| async move { ok(b) }),
+            )
+            .route(
+                "/api/workers/{id}/masked",
+                get(|Path(id): Path<Uuid>| async move { ok(worker(id)) }),
+            )
+            .route(
+                "/api/workers/{id}/export",
+                get(|Path(id): Path<Uuid>| async move { ok(json!({ "id": id })) }),
+            )
+            .route(
+                "/api/workers/{id}/audit",
+                get(|| async {
+                    ok(json!([{ "id": Uuid::new_v4(), "at": "2026-01-01T00:00:00Z", "action": "read", "user_id": null }]))
+                }),
+            )
+            .route(
+                "/api/workers/{id}",
+                get(|Path(id): Path<Uuid>| async move { ok(worker(id)) })
+                    .put(|Path(id): Path<Uuid>, Json(_): Json<Value>| async move { ok(worker(id)) })
+                    .delete(|Path(id): Path<Uuid>| async move {
+                        if id.is_nil() {
+                            (
+                                StatusCode::CONFLICT,
+                                Json(json!({ "success": false, "data": null, "error": { "code": "CONFLICT", "message": "in use" } })),
+                            )
+                        } else {
+                            (StatusCode::OK, Json(Value::Null))
+                        }
+                    }),
+            );
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        addr
+    }
+
+    #[tokio::test]
+    async fn every_http_call_reaches_its_route_and_reads_the_answer() {
+        let addr = envelope_server().await;
+        let client = HttpWorkerClient::new(
+            format!("http://{addr}"),
+            Duration::from_secs(2),
+            Some("secret".into()),
+        )
+        .unwrap();
+        client.ping().await.unwrap();
+        let w = client.create(make_worker_create(), &ctx()).await.unwrap();
+        let id = w.id;
+        assert_eq!(client.get(id, &ctx()).await.unwrap().id, id);
+        assert_eq!(
+            client
+                .update(id, make_worker_create(), &ctx())
+                .await
+                .unwrap()
+                .id,
+            id
+        );
+        assert_eq!(client.search("pat", 5, &ctx()).await.unwrap().len(), 1);
+        let matches = client
+            .match_workers(make_worker_create(), &ctx())
+            .await
+            .unwrap();
+        assert!((matches[0].score - 0.9).abs() < 1e-9);
+        assert!(
+            client
+                .check_duplicates(make_worker_create(), &ctx())
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
+        let merged = client.merge(a, b, &ctx()).await.unwrap();
+        assert_eq!((merged.source_id, merged.target_id), (a, b));
+        assert_eq!(client.masked(id, &ctx()).await.unwrap().id, id);
+        assert_eq!(
+            client.export(id, &ctx()).await.unwrap()["id"],
+            id.to_string()
+        );
+        assert_eq!(client.audit(id, 3, &ctx()).await.unwrap().len(), 1);
+        client.delete(id, &ctx()).await.unwrap();
+        // A refusal with an envelope is translated by its status.
+        let err = client.delete(Uuid::nil(), &ctx()).await.unwrap_err();
+        assert!(matches!(err, Error::Conflict(_)), "{err:?}");
+    }
+
+    #[tokio::test]
+    async fn an_error_status_is_translated_and_an_odd_envelope_is_an_upstream_error() {
+        for (status, want) in [
+            ("400 Bad Request", "validation"),
+            ("422 Unprocessable Entity", "validation"),
+            ("409 Conflict", "conflict"),
+            ("500 Internal Server Error", "upstream"),
+        ] {
+            let body = r#"{"success":false,"data":null,"error":{"code":"X","message":"m"}}"#;
+            let addr = one_shot_server(leak(http_envelope_status(status, body))).await;
+            let client =
+                HttpWorkerClient::new(format!("http://{addr}"), Duration::from_secs(2), None)
+                    .unwrap();
+            let err = client.get(Uuid::new_v4(), &ctx()).await.unwrap_err();
+            let kind = match err {
+                Error::Validation(_) => "validation",
+                Error::Conflict(_) => "conflict",
+                Error::Upstream(_) => "upstream",
+                other => panic!("{status}: {other:?}"),
+            };
+            assert_eq!(kind, want, "{status}");
+        }
+        // Success with no data, and a body that is no envelope at all.
+        for body in [r#"{"success":true,"data":null,"error":null}"#, "not json"] {
+            let addr = one_shot_server(leak(http_envelope_ok(body))).await;
+            let client =
+                HttpWorkerClient::new(format!("http://{addr}"), Duration::from_secs(2), None)
+                    .unwrap();
+            assert!(matches!(
+                client.get(Uuid::new_v4(), &ctx()).await.unwrap_err(),
+                Error::Upstream(_)
+            ));
+        }
+        // A delete refused without an envelope, and one that cannot be reached.
+        let addr = one_shot_server(leak(http_envelope_status(
+            "503 Service Unavailable",
+            "down",
+        )))
+        .await;
+        let client =
+            HttpWorkerClient::new(format!("http://{addr}"), Duration::from_secs(2), None).unwrap();
+        assert!(matches!(
+            client.delete(Uuid::new_v4(), &ctx()).await.unwrap_err(),
+            Error::Upstream(_)
+        ));
+        let gone = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = gone.local_addr().unwrap();
+        drop(gone);
+        let client =
+            HttpWorkerClient::new(format!("http://{addr}"), Duration::from_millis(300), None)
+                .unwrap();
+        assert!(client.delete(Uuid::new_v4(), &ctx()).await.is_err());
+        assert!(client.ping().await.is_err());
+    }
 }
