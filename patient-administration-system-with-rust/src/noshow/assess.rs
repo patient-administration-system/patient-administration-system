@@ -61,7 +61,11 @@ impl NoShowService {
                     [appointment_id.into(), now.to_zoned_datetime(jiff::tz::TimeZone::UTC).date().into()],
                 ))
 .await?;
-            if row.and_then(|r| r.col::<bool>("current").ok()) == Some(true) {
+            let current = row
+                .map(|r| r.col::<Option<bool>>("current"))
+                .transpose()?
+                .flatten();
+            if current == Some(true) {
                 return Ok(existing);
             }
         }

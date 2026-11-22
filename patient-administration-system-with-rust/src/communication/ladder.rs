@@ -302,7 +302,10 @@ impl LadderService {
                 [appointment_id.into()],
             ))
 .await?;
-        Ok(r.and_then(|r| r.col::<bool>("acted").ok()).unwrap_or(false))
+        // No such appointment has had nothing done to it; an unreadable column is an error.
+        Ok(r.map(|r| r.col::<bool>("acted"))
+            .transpose()?
+            .unwrap_or(false))
     }
 
     async fn logged(&self, appointment_id: Uuid) -> Result<Vec<(String, String, Option<String>)>> {

@@ -118,7 +118,9 @@ pub(crate) async fn record_release(
             [slot_id.into()],
         ))
 .await?
-        .and_then(|r| r.col("service_type").ok());
+        .map(|r| r.col::<Option<String>>("service_type"))
+        .transpose()?
+        .flatten();
     let id = Uuid::new_v4();
     let class_str = class.as_str();
     txn.run(Stmt::new("INSERT INTO slot_releases (id, slot_id, appointment_id, service_type, start_datetime, released_at, notice_days, release_class) \

@@ -226,7 +226,9 @@ impl ReminderService {
                     [a.id.into(), template_ids.to_vec().into()],
                 ))
                 .await?
-                .and_then(|r| r.col("t").ok());
+                .map(|r| r.col::<Option<Timestamp>>("t"))
+                .transpose()?
+                .flatten();
             if let Some(last) = last
                 && now < last + crate::receipts::retry_delay(failed)
             {

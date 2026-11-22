@@ -330,9 +330,8 @@ impl ReportService {
 .await?;
         let lead_days: Vec<f64> = leads
             .iter()
-            .filter_map(|r| r.col::<f64>("d").ok())
-            .map(|d| d.max(0.0).floor())
-            .collect();
+            .map(|r| r.col::<f64>("d").map(|d| d.max(0.0).floor()))
+            .collect::<Result<_>>()?;
 
         Ok(lead_days)
     }

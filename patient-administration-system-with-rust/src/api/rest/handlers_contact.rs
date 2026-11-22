@@ -188,7 +188,7 @@ pub async fn list_optouts(State(state): State<AppState>, Path(id): Path<Uuid>) -
                         channel: r.col::<String>("channel")?.parse().map_err(|_| {
                             Error::internal("message_optouts has an unknown channel")
                         })?,
-                        opted_out_at: r.col::<jiff::Timestamp>("opted_out_at").ok(),
+                        opted_out_at: r.col::<Option<jiff::Timestamp>>("opted_out_at")?,
                         source: r.col::<String>("source")?.parse().map_err(|_| {
                             Error::internal("message_optouts has an unknown source")
                         })?,

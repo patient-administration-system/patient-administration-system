@@ -95,7 +95,11 @@ impl NoShowService {
                     [svc.into()],
                 ))
 .await?;
-            let first: Option<Timestamp> = row.and_then(|r| r.col("first_at").ok());
+            // `min` of no rows is NULL: no assessment yet is `None`; an unreadable column is an error.
+            let first: Option<Timestamp> = row
+                .map(|r| r.col::<Option<Timestamp>>("first_at"))
+                .transpose()?
+                .flatten();
             let days = first.map_or(0, |f| {
                 crate::time::whole_days(Timestamp::now().duration_since(f))
             });

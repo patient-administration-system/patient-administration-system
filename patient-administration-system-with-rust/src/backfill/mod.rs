@@ -277,8 +277,8 @@ impl BackfillService {
             ))
             .await?
             .iter()
-            .filter_map(|r| r.col("person_id").ok())
-            .collect();
+            .map(|r| r.col("person_id"))
+            .collect::<Result<_>>()?;
         let candidates = self
             .standby
             .candidates(release_id, &CandidateFilter::default())
