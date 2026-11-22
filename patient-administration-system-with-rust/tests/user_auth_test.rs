@@ -816,3 +816,130 @@ async fn a_handler_can_ask_about_a_resource_the_path_does_not_name() {
         StatusCode::FORBIDDEN
     );
 }
+
+#[tokio::test]
+async fn administrator_only_routes_refuse_a_user_without_the_admin_attribute() {
+    let app = app(per_user().await);
+    let plain = Tok::default().mint();
+    let admin = Tok::default().attr("access", "admin").mint();
+    for (method, path) in [
+        ("PUT", "/api/tolerances/lateness"),
+        ("DELETE", "/api/tolerances/lateness"),
+        ("POST", "/api/tolerance-alerts/1/acknowledge"),
+        ("GET", "/api/admin/metrics"),
+        ("GET", "/api/admin/subscriptions"),
+        ("POST", "/api/admin/subscriptions/1"),
+    ] {
+        let (st, _) = call(&app, method, path, Some(&plain), &[]).await;
+        assert_eq!(st, StatusCode::FORBIDDEN, "{method} {path}");
+        // The administrator is let through (to a route this tiny app does not have).
+        let (st, _) = call(&app, method, path, Some(&admin), &[]).await;
+        assert_ne!(st, StatusCode::FORBIDDEN, "{method} {path}");
+        assert_ne!(st, StatusCode::UNAUTHORIZED, "{method} {path}");
+    }
+}
+
+#[tokio::test]
+async fn a_carrier_message_missing_a_header_or_too_large_is_refused() {
+    let app = carrier_app().await;
+    for missing in ["x-carrier-id", "x-carrier-timestamp", "x-carrier-signature"] {
+        let mut b = Request::builder()
+            .method("POST")
+            .uri("/api/write-back/replies");
+        for h in ["x-carrier-id", "x-carrier-timestamp", "x-carrier-signature"] {
+            if h != missing {
+                b = b.header(h, "x");
+            }
+        }
+        let r = app
+            .clone()
+            .oneshot(b.body(Body::from("{}")).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(r.status(), StatusCode::UNAUTHORIZED, "without {missing}");
+    }
+    let big = "x".repeat(2 * 1024 * 1024 + 1);
+    let (st, _) = carrier_post(&app, "/api/write-back/replies", "twilio", now(), "00", &big).await;
+    assert_eq!(st, StatusCode::PAYLOAD_TOO_LARGE);
+}
+
+#[tokio::test]
+async fn an_unreachable_key_service_fails_closed_and_the_refresh_keeps_trying() {
+    let closed = {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        format!("http://{}/keys", l.local_addr().unwrap())
+    };
+    let auth = UserAuth::build(UserAuthConfig {
+        keys_url: Some(closed),
+        keys_json: None,
+        issuer: ISSUER.into(),
+        audience: AUDIENCE.into(),
+        ..Default::default()
+    })
+    .await
+    .unwrap()
+    .unwrap();
+    // Booted, but no token verifies until the keys load.
+    let app = app(auth.clone());
+    let (st, _) = call(&app, "GET", "/api/echo", Some(&Tok::default().mint()), &[]).await;
+    assert_eq!(st, StatusCode::UNAUTHORIZED);
+    patient_administration_system::api::rest::user_auth::spawn_key_refresh(
+        auth,
+        std::time::Duration::from_millis(20),
+    );
+    tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+    // The refresh failed quietly and the service is still refusing, not panicking.
+    let (st, _) = call(&app, "GET", "/api/echo", Some(&Tok::default().mint()), &[]).await;
+    assert_eq!(st, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn the_refresh_picks_up_keys_the_service_publishes_later() {
+    let doc = keys_json(1, KID);
+    let served = Router::new().route(
+        "/keys",
+        get(move || {
+            let doc = doc.clone();
+            async move { ([("content-type", "application/json")], doc) }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/keys", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, served).await.unwrap() });
+    let auth = UserAuth::build(UserAuthConfig {
+        keys_url: Some(url),
+        keys_json: None,
+        issuer: ISSUER.into(),
+        audience: AUDIENCE.into(),
+        ..Default::default()
+    })
+    .await
+    .unwrap()
+    .unwrap();
+    patient_administration_system::api::rest::user_auth::spawn_key_refresh(
+        auth.clone(),
+        std::time::Duration::from_millis(20),
+    );
+    tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+    let (st, _) = call(
+        &app(auth),
+        "GET",
+        "/api/echo",
+        Some(&Tok::default().mint()),
+        &[],
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+}
+
+#[test]
+fn the_config_reads_its_defaults_from_the_environment() {
+    let c = UserAuthConfig::from_env(Some("legacy".into()));
+    assert_eq!(c.legacy_token.as_deref(), Some("legacy"));
+    if std::env::var("PAS_PASETO_ISSUER").is_err() {
+        assert_eq!(c.issuer, "authentication-service");
+    }
+    if std::env::var("PAS_PASETO_AUDIENCE").is_err() {
+        assert_eq!(c.audience, "patient-administration-system");
+    }
+}
