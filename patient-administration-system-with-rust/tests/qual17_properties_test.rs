@@ -19,7 +19,10 @@ use proptest::prelude::*;
 
 /// The check digit for nine digits, or `None` when the remainder makes the number impossible.
 fn check_digit(nine: &[u32]) -> Option<u32> {
-    let sum: u32 = nine.iter().zip((2..=10).rev()).map(|(d, w)| d * w).sum();
+    let sum: u32 = nine
+        .iter()
+        .zip((2..=10).rev())
+        .fold(0, |total, (d, w)| total + d * w);
     match 11 - (sum % 11) {
         11 => Some(0),
         10 => None,

@@ -356,7 +356,7 @@ impl TemplateService {
             .all(Stmt::new(
                 "SELECT id, schedule_id, name FROM session_templates \
                  WHERE ($1::uuid IS NULL OR schedule_id = $1) ORDER BY created_at, id LIMIT $2 OFFSET $3",
-                [schedule_id.into(), rows.fetch().into(), rows.offset().into()],
+                [schedule_id.into(), rows.fetch()?.into(), rows.offset()?.into()],
             ))
             .await?;
         let mut out = Vec::new();

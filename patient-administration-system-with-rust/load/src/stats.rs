@@ -117,7 +117,9 @@ impl OpSummary {
         let mean = if l.is_empty() {
             0.0
         } else {
-            ms(l.iter().sum::<u64>()) / l.len() as f64
+            ms(l.iter().fold(0_u64, |total, us| {
+                total.checked_add(*us).unwrap_or(u64::MAX)
+            })) / l.len() as f64
         };
         Self {
             count,
@@ -147,7 +149,13 @@ pub fn percentile(sorted: &[u64], p: f64) -> u64 {
         return 0;
     }
     let rank = ((p / 100.0) * sorted.len() as f64).ceil() as usize;
-    sorted[rank.clamp(1, sorted.len()) - 1]
+    // Nearest rank: p = 0 reads the first value, and a rank past the end reads the last.
+    rank.max(1)
+        .checked_sub(1)
+        .and_then(|i| sorted.get(i))
+        .or(sorted.last())
+        .copied()
+        .unwrap_or(0)
 }
 
 #[cfg(test)]

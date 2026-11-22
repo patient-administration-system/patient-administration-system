@@ -199,8 +199,8 @@ impl SuspicionService {
             vec![
                 condition.map(String::from).into(),
                 subtype.map(String::from).into(),
-                rows.fetch().into(),
-                rows.offset().into(),
+                rows.fetch()?.into(),
+                rows.offset()?.into(),
             ],
         )
         .await

@@ -53,7 +53,7 @@ impl ListValidationService {
         self.db
             .all(Stmt::new(
                 "SELECT id FROM validation_campaigns ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2",
-                [rows.fetch().into(), rows.offset().into()],
+                [rows.fetch()?.into(), rows.offset()?.into()],
             ))
             .await?
             .iter()
@@ -84,7 +84,7 @@ impl ListValidationService {
                     campaign.into(),
                     state.map(String::from).into(),
                     next.map(String::from).into(),
-                    crate::paging::fetch(limit).into(),
+                    crate::paging::fetch(limit)?.into(),
                 ],
             ))
 .await?

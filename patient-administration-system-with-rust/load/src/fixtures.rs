@@ -232,7 +232,7 @@ mod tests {
 
         let sizes = cycle_owner_sizes(52);
         assert_eq!(sizes.len(), CYCLE_OWNERS);
-        assert_eq!(sizes.iter().sum::<usize>(), 52);
+        assert_eq!(sizes.iter().fold(0, |total, n| total + n), 52);
         assert_eq!(&sizes[..2], &[2, 2]);
         assert!(sizes[2..].iter().all(|size| *size == 1));
     }

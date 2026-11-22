@@ -70,10 +70,11 @@ pub trait SegmentRead {
 impl SegmentRead for Segment {
     fn raw(&self, n: usize) -> String {
         let separators = Separators::default();
-        n.checked_sub(1)
-            .and_then(|i| self.fields.get(i))
-            .map(|f| f.to_er7(&separators))
-            .unwrap_or_default()
+        match n.checked_sub(1).and_then(|i| self.fields.get(i)) {
+            Some(field) => field.to_er7(&separators),
+            // HL7 v2: a field the sender left out reads as an empty field, so absent is the empty text.
+            None => String::new(),
+        }
     }
 
     fn component_text(&self, n: usize, c: usize) -> String {

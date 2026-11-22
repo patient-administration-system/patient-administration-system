@@ -221,7 +221,7 @@ mod tests {
             t0() + SignedDuration::from_hours(10),
         );
         assert_eq!((r.attendances, r.excluded_without_category), (2, 1));
-        assert_eq!(r.by_category.iter().map(|c| c.attended).sum::<u32>(), 1);
+        assert_eq!(r.by_category.iter().fold(0, |acc, c| acc + c.attended), 1);
         assert!(r.past_target.is_empty());
     }
 

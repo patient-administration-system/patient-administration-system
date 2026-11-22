@@ -57,7 +57,7 @@ impl NoShowService {
                  JOIN staff_call_tasks t ON t.appointment_id = n.appointment_id AND t.reason = 'high_risk' \
                  WHERE a.status = 'booked' AND a.start_datetime > now() AND t.handled_at IS NULL \
                  ORDER BY n.probability DESC, a.start_datetime, n.appointment_id LIMIT $1 OFFSET $2",
-                [rows.fetch().into(), rows.offset().into()],
+                [rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         rows.iter()

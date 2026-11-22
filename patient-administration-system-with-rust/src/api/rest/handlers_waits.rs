@@ -87,13 +87,15 @@ pub async fn due_for_check(
         Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    match state.waits.due_for_check(q.weeks, q.repeat_days).await {
-        // Every open pathway is read and sorted in memory (QUAL-48), so the page is taken from that.
+    let due = match state.waits.due_for_check(q.weeks, q.repeat_days).await {
+        Ok(v) => v,
+        Err(e) => return error_to_response(e),
+    };
+    // Every open pathway is read and sorted in memory (QUAL-48), so the page is taken from that.
+    match page.rows().take(due) {
         Ok(v) => crate::api::rest::handlers::ok_cursor_page(
             &page,
-            page.rows()
-                .take(v)
-                .into_iter()
+            v.into_iter()
                 .map(|(person_id, p)| DueCheck {
                     pathway_id: p.pathway_id,
                     person_id,

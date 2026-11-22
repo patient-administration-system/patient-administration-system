@@ -173,7 +173,7 @@ impl VirtualVisitService {
                 "SELECT id FROM appointments WHERE conversion_state = 'pending_review' \
                  AND status = 'booked' AND deleted_at IS NULL AND start_datetime > now() \
                  ORDER BY start_datetime, id LIMIT $1 OFFSET $2",
-                [rows.fetch().into(), rows.offset().into()],
+                [rows.fetch()?.into(), rows.offset()?.into()],
             ))
             .await?;
         let mut out = Vec::new();

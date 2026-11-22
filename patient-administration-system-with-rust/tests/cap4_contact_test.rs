@@ -215,7 +215,7 @@ async fn the_stale_list_has_missing_unverified_and_old_numbers_but_not_fresh_one
     s.db.run(Stmt::new("UPDATE patient_communication_profiles SET mobile_verified_at = now() - interval '400 days' WHERE person_id = $1", [old.into()])).await.unwrap();
     let stale: Vec<Uuid> = s
         .contact
-        .stale(365, 1000)
+        .stale(365, 500)
         .await
         .unwrap()
         .iter()

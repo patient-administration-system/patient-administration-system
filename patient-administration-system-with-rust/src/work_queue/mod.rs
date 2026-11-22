@@ -407,8 +407,8 @@ impl WorkQueueService {
                     filter.owner.clone().into(),
                     filter.unclaimed.into(),
                     filter.overdue.into(),
-                    rows.fetch().into(),
-                    rows.offset().into(),
+                    rows.fetch()?.into(),
+                    rows.offset()?.into(),
                 ],
             ))
             .await

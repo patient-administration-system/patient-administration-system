@@ -42,7 +42,7 @@ impl OutboxRepository {
         let rows = rows.into();
         conn.all_as::<outbox_event::Model>(Stmt::new(
             "SELECT * FROM outbox_events WHERE published = $1 ORDER BY at, id LIMIT $2 OFFSET $3",
-            [false.into(), rows.limit().into(), rows.offset().into()],
+            [false.into(), rows.limit()?.into(), rows.offset()?.into()],
         ))
         .await
     }
@@ -181,7 +181,7 @@ impl DeadLetterRepository {
         let rows = rows.into();
         conn.all_as::<outbox_dead_letter::Model>(Stmt::new(
             "SELECT * FROM outbox_dead_letters ORDER BY dead_lettered_at DESC, id DESC LIMIT $1 OFFSET $2",
-            [rows.limit().into(), rows.offset().into()],
+            [rows.limit()?.into(), rows.offset()?.into()],
         ))
         .await
     }

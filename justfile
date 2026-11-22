@@ -33,13 +33,17 @@ hooks:
     @echo "pre-push hook on. To turn it off: git config --unset core.hooksPath"
 
 # The `rust` job: format, lint, and the tests that need no database.
-rust: fmt clippy test
+rust: fmt clippy rca test
 
 fmt:
     cargo fmt --all -- --check
 
 clippy:
     cargo clippy --workspace --all-targets -- -D warnings
+
+# The review greps of spec/rust-checked-arithmetic (RCA-ENF-5, RCA-ENF-7); the second is a ratchet.
+rca:
+    python3 scripts/check-checked-arithmetic.py
 
 test:
     cargo test --workspace

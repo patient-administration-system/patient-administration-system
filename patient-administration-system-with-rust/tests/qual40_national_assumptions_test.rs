@@ -34,7 +34,9 @@ fn count(dir: &Path, root: &Path, out: &mut BTreeMap<String, usize>) {
             count(&path, root, out);
         } else if path.extension().is_some_and(|e| e == "rs") {
             let text = std::fs::read_to_string(&path).unwrap();
-            let n: usize = TOKENS.iter().map(|t| text.matches(t).count()).sum();
+            let n: usize = TOKENS
+                .iter()
+                .fold(0, |total, t| total + text.matches(t).count());
             if n > 0 {
                 let rel = path.strip_prefix(root).unwrap();
                 out.insert(rel.to_string_lossy().replace('\\', "/"), n);

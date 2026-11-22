@@ -386,4 +386,47 @@ mod tests {
         assert!((f(Some("high")) - 0.40).abs() < 1e-9);
         assert_eq!(float("PAS_NOT_A_REAL_SETTING"), 0.0);
     }
+
+    /// RCA-TEST-8 for every registered setting: the declared minimum and maximum are accepted, one outside
+    /// either is refused, and so is text that is not a number. Start-up fails on any of them (`validate`).
+    #[test]
+    fn every_registered_number_is_accepted_at_its_limits_and_refused_outside_them() {
+        let mut checked = 0;
+        for v in VARS {
+            match v.kind {
+                Kind::Int { min, max, .. } => {
+                    for ok in [min, max] {
+                        assert!(problem(v, &ok.to_string()).is_none(), "{} = {ok}", v.name);
+                    }
+                    for bad in [min.checked_sub(1), max.checked_add(1)]
+                        .into_iter()
+                        .flatten()
+                    {
+                        assert!(problem(v, &bad.to_string()).is_some(), "{} = {bad}", v.name);
+                    }
+                    for bad in ["", "lots", "1.5", "99999999999999999999"] {
+                        assert!(problem(v, bad).is_some(), "{} = {bad:?}", v.name);
+                    }
+                    checked += 1;
+                }
+                Kind::Float { min, max, .. } => {
+                    for ok in [min, max] {
+                        assert!(problem(v, &ok.to_string()).is_none(), "{} = {ok}", v.name);
+                    }
+                    for bad in ["lots", "", "NaN"] {
+                        assert!(problem(v, bad).is_some(), "{} = {bad:?}", v.name);
+                    }
+                    checked += 1;
+                }
+                Kind::Flag { .. } => {
+                    for bad in ["maybe", "2", ""] {
+                        assert!(problem(v, bad).is_some(), "{} = {bad:?}", v.name);
+                    }
+                    checked += 1;
+                }
+                _ => {}
+            }
+        }
+        assert!(checked > 20, "only {checked} numeric settings were checked");
+    }
 }

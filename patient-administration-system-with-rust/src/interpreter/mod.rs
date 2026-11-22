@@ -220,8 +220,8 @@ impl InterpreterService {
                 [
                     now.into(),
                     (now + within).into(),
-                    rows.fetch().into(),
-                    rows.offset().into(),
+                    rows.fetch()?.into(),
+                    rows.offset()?.into(),
                 ],
             ))
             .await?;

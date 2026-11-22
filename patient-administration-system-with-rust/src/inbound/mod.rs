@@ -776,7 +776,7 @@ impl InboundService {
             .all(Stmt::new("SELECT id, received_at, outcome, intent, person_id, appointment_id, body FROM inbound_texts \
                  WHERE handled_at IS NULL AND outcome IN ('needs_staff','unmatched','ambiguous_number','no_open_reminder','unknown','rejected') \
                  ORDER BY received_at, id LIMIT $1 OFFSET $2",
-                [rows.fetch().into(), rows.offset().into()],
+                [rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         rows.iter()

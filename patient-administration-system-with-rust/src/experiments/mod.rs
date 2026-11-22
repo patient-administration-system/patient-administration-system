@@ -257,7 +257,7 @@ impl ExperimentService {
         let rows = self
             .db
             .all(Stmt::new("SELECT id, template_name, started_by, started_at, stopped_at FROM message_experiments ORDER BY started_at DESC, id DESC LIMIT $1 OFFSET $2",
-                [rows.fetch().into(), rows.offset().into()],
+                [rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         let mut out = Vec::new();

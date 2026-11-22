@@ -133,7 +133,7 @@ impl ClinicalPriorityService {
                  FROM waitlist_entries \
                  WHERE clinical_priority_review_by < $1 AND status IN ('waiting','booked') \
                  ORDER BY clinical_priority_review_by, id LIMIT $2 OFFSET $3",
-                [today.into(), rows.fetch().into(), rows.offset().into()],
+                [today.into(), rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         rows.iter()

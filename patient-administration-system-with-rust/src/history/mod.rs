@@ -119,7 +119,7 @@ impl HistoryService {
                           jsonb_build_object('appointment_id', appointment_id), id \
                      FROM inbound_texts WHERE person_id = $1 \
                  ) c ORDER BY at DESC, kind, row_id DESC LIMIT $2 OFFSET $3",
-                [person_id.into(), rows.fetch().into(), rows.offset().into()],
+                [person_id.into(), rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         rows_to_history(&rows)

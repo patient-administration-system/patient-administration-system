@@ -139,7 +139,14 @@ async fn closed(ctx: &Arc<Ctx>, scenario: Scenario, phase: &Phase) -> Recorder {
 async fn open(ctx: &Arc<Ctx>, scenario: Scenario, phase: &Phase, rate: f64) -> Recorder {
     let deadline = Instant::now() + phase.duration;
     let limit = Arc::new(Semaphore::new(phase.workers.max(1)));
-    let mut tick = tokio::time::interval(Duration::from_secs_f64(1.0 / rate.max(0.001)));
+    // A rate that is not a positive finite number sends nothing: the empty recorder shows zero requests.
+    let Ok(period) = Duration::try_from_secs_f64(1.0 / rate) else {
+        return Recorder::default();
+    };
+    if period.is_zero() {
+        return Recorder::default();
+    }
+    let mut tick = tokio::time::interval(period);
     // A late tick is still a request a client would have sent: send the ones that are due.
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Burst);
     let mut set = JoinSet::new();
@@ -292,8 +299,7 @@ mod tests {
         let closed_count: u64 = closed_recorder
             .summarise(closed_wall)
             .values()
-            .map(|summary| summary.count)
-            .sum();
+            .fold(0_u64, |total, summary| total + summary.count);
         assert!(closed_count > 0);
         assert_eq!(closed_recorder.shed, 0);
 
@@ -308,8 +314,7 @@ mod tests {
         let open_count: u64 = open_recorder
             .summarise(open_wall)
             .values()
-            .map(|summary| summary.count)
-            .sum();
+            .fold(0_u64, |total, summary| total + summary.count);
         assert!(open_count > 0);
         assert!(
             open_recorder.shed > 0,

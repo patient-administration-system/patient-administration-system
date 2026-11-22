@@ -250,7 +250,7 @@ async fn a_flaky_carrier_never_causes_a_double_send_a_false_record_or_a_lost_esc
     eprintln!(
         "chaos seed {seed}: {} send attempts, {} delivered, {sent_rows_total} recorded as sent",
         carrier.attempts.load(Ordering::Relaxed),
-        delivered.values().sum::<usize>()
+        delivered.values().fold(0, |total, n| total + n)
     );
     assert!(carrier.attempts.load(Ordering::Relaxed) > 0);
 }

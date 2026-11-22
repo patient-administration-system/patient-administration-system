@@ -205,7 +205,7 @@ impl FollowUpService {
             .all(Stmt::new("SELECT t.id, t.appointment_id, t.person_id, t.service_type, t.due_at, a.start_datetime \
                  FROM follow_up_tasks t JOIN appointments a ON a.id = t.appointment_id \
                  WHERE t.closed_at IS NULL ORDER BY t.due_at, t.id LIMIT $1 OFFSET $2",
-                [rows.fetch().into(), rows.offset().into()],
+                [rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         let now = Timestamp::now();

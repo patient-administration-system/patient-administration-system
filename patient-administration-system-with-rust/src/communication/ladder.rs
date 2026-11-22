@@ -643,7 +643,7 @@ impl LadderService {
             .db
             .all(Stmt::new("SELECT t.id, t.appointment_id, t.person_id, t.reason, t.due_at, a.start_datetime FROM staff_call_tasks t \
                  JOIN appointments a ON a.id = t.appointment_id WHERE t.handled_at IS NULL ORDER BY a.start_datetime, t.due_at, t.id LIMIT $1 OFFSET $2",
-                [rows.fetch().into(), rows.offset().into()],
+                [rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         rows.iter()

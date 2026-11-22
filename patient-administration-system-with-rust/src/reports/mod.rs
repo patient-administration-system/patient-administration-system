@@ -151,7 +151,7 @@ pub fn stats(mut v: Vec<f64>) -> Stats {
     let round = |x: f64| (x * 100.0).round() / 100.0;
     Stats {
         n: n as i64,
-        mean: round(v.iter().sum::<f64>() / n as f64),
+        mean: round(v.iter().fold(0.0, |total, x| total + x) / n as f64),
         median: round(at(0.5)),
         p90: round(at(0.9)),
         max: round(v.last().copied().unwrap_or_default()),

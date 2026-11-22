@@ -74,9 +74,18 @@ pub fn topic_url(topic: &str) -> Option<&'static str> {
 }
 
 /// Seconds to wait after the `attempts`-th failure.
+///
+/// The delay is 30 seconds doubled for each failure after the first, and at most an hour (a design choice of
+/// the retry, not an input: `attempts` is our own stored count, so a count below 1 is read as the first).
 pub fn backoff_seconds(attempts: i32) -> i64 {
-    let exp = u32::try_from((attempts - 1).clamp(0, 12)).unwrap_or(12);
-    (30_i64 << exp).min(3_600)
+    const FIRST: i64 = 30;
+    const CAP: i64 = 3_600;
+    let doublings = u32::try_from(attempts.checked_sub(1).unwrap_or(0)).unwrap_or(0);
+    2_i64
+        .checked_pow(doublings)
+        .and_then(|factor| FIRST.checked_mul(factor))
+        .unwrap_or(CAP) // overflow means "past the cap"
+        .min(CAP)
 }
 
 /// An endpoint a subscription may use: `https`, or `http` on the machine itself.
@@ -482,6 +491,10 @@ mod tests {
         let got: Vec<_> = [1, 2, 3, 4, 5, 7, 8, 30].map(backoff_seconds).to_vec();
         assert_eq!(got, vec![30, 60, 120, 240, 480, 1920, 3600, 3600]);
         assert_eq!(backoff_seconds(0), 30);
+        // A count below one is read as the first failure, and a huge one is the cap, not an overflow.
+        assert_eq!(backoff_seconds(i32::MIN), 30);
+        assert_eq!(backoff_seconds(-5), 30);
+        assert_eq!(backoff_seconds(i32::MAX), 3600);
     }
 
     #[test]

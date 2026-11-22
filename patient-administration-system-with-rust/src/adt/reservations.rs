@@ -249,7 +249,7 @@ impl AdtService {
             .db
             .all(Stmt::new("SELECT id, bed_id, event, reservation_id, person_id, actor, at FROM bed_occupancy_events \
                  WHERE bed_id = $1 ORDER BY at DESC, id LIMIT $2 OFFSET $3",
-                [bed_id.into(), rows.fetch().into(), rows.offset().into()],
+                [bed_id.into(), rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         rows.iter()

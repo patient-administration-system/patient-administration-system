@@ -22,6 +22,7 @@ use axum::http::Uri;
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
+use patient_administration_system_domain::arith::in_range;
 
 /// The most rows one list request may ask for.
 pub const MAX_LIMIT: i64 = 500;
@@ -63,7 +64,7 @@ fn bad_limit() -> Error {
 /// is the same `422` on every list.
 pub fn limit(requested: Option<&str>, default: i64) -> Result<i64> {
     let Some(text) = requested else {
-        return Ok(default.clamp(1, MAX_LIMIT));
+        return Ok(in_range("limit", default, 1, MAX_LIMIT)?);
     };
     text.parse::<i64>()
         .ok()
@@ -77,10 +78,10 @@ pub fn ask_for(limit: i64) -> i64 {
     limit + 1
 }
 
-/// Clamp the number of rows a service query returns: 1 to [`MAX_LIMIT`] + 1 (the extra row is how a handler
-/// finds out the list was cut short).
-pub fn fetch(limit: i64) -> i64 {
-    limit.clamp(1, MAX_LIMIT + 1)
+/// The number of rows a service query returns: 1 to [`MAX_LIMIT`] + 1 (the extra row is how a handler finds
+/// out the list was cut short). A number outside that is refused, never moved to the nearest bound (RCA-IN-2).
+pub fn fetch(limit: i64) -> Result<i64> {
+    Ok(in_range("limit", limit, 1, MAX_LIMIT + 1)?)
 }
 
 /// Keep at most `limit` rows and report whether there were more.
@@ -112,26 +113,28 @@ impl Rows {
         Self { limit, offset }
     }
 
-    /// `LIMIT`: the rows asked for, clamped as [`fetch`] clamps them.
-    pub fn fetch(self) -> i64 {
+    /// `LIMIT`: the rows asked for, which [`fetch`] refuses outside 1 to [`MAX_LIMIT`] + 1.
+    pub fn fetch(self) -> Result<i64> {
         fetch(self.limit)
     }
 
-    /// `LIMIT` as given, unclamped, for a repository whose callers include more than list routes.
-    pub fn limit(self) -> i64 {
-        self.limit.max(0)
+    /// `LIMIT` as given, for a repository whose callers include more than list routes: not negative.
+    pub fn limit(self) -> Result<i64> {
+        Ok(in_range("limit", self.limit, 0, i64::MAX)?)
     }
 
-    /// `OFFSET`: rows to skip, never negative.
-    pub fn offset(self) -> i64 {
-        self.offset.max(0)
+    /// `OFFSET`: rows to skip, not negative.
+    pub fn offset(self) -> Result<i64> {
+        Ok(in_range("offset", self.offset, 0, i64::MAX)?)
     }
 
     /// The same window over a list already in memory.
-    pub fn take<T>(self, rows: Vec<T>) -> Vec<T> {
-        let skip = usize::try_from(self.offset()).unwrap_or(usize::MAX);
-        let take = usize::try_from(self.fetch()).unwrap_or(0);
-        rows.into_iter().skip(skip).take(take).collect()
+    pub fn take<T>(self, rows: Vec<T>) -> Result<Vec<T>> {
+        let skip = usize::try_from(self.offset()?)
+            .map_err(|_| Error::validation("offset is too large for this platform"))?;
+        let take = usize::try_from(self.fetch()?)
+            .map_err(|_| Error::validation("limit is too large for this platform"))?;
+        Ok(rows.into_iter().skip(skip).take(take).collect())
     }
 }
 
@@ -204,9 +207,13 @@ impl Page {
     /// [`Error::Unprocessable`] for a limit outside 1 to [`MAX_LIMIT`], or a cursor this server did not sign
     /// for this path and these filters. Neither quotes what was sent.
     pub fn new(uri: &Uri, default_limit: i64) -> Result<Self> {
+        // A list's own default is a figure in the code, so one outside 1 to MAX_LIMIT is a defect to find at once.
+        let default_limit = in_range("default limit", default_limit, 1, MAX_LIMIT)?;
         let limits = CursorLimits {
-            default_limit: u64::try_from(default_limit.clamp(1, MAX_LIMIT)).unwrap_or(1),
-            max_limit: u64::try_from(MAX_LIMIT).unwrap_or(1),
+            default_limit: u64::try_from(default_limit)
+                .map_err(|_| Error::internal("default limit is not a count"))?,
+            max_limit: u64::try_from(MAX_LIMIT)
+                .map_err(|_| Error::internal("the page maximum is not a count"))?,
         };
         CursorPage::new(key()?, limits, uri)
             .map(|inner| Self { inner })
@@ -304,16 +311,33 @@ mod tests {
 
     #[test]
     fn the_service_side_allows_the_one_extra_row() {
-        assert_eq!(fetch(ask_for(MAX_LIMIT)), MAX_LIMIT + 1);
-        assert_eq!(fetch(0), 1);
-        assert_eq!(fetch(i64::MAX), MAX_LIMIT + 1);
-        assert_eq!(Rows::from(7_i64).offset(), 0);
+        assert_eq!(fetch(ask_for(MAX_LIMIT)).unwrap(), MAX_LIMIT + 1);
+        assert_eq!(fetch(1).unwrap(), 1);
+        // Outside the range is refused, not moved to the nearest bound.
+        for bad in [0, -1, MAX_LIMIT + 2, i64::MAX, i64::MIN] {
+            let e = fetch(bad).unwrap_err().to_string();
+            assert!(e.contains("limit") && e.contains("1 to 501"), "{bad}: {e}");
+        }
+        assert_eq!(Rows::from(7_i64).offset().unwrap(), 0);
+        assert!(Rows::window(10, -1).offset().is_err());
+        assert!(Rows::window(-1, 0).limit().is_err());
+        assert!(
+            Page::new(&uri("/api/x"), 0).is_err(),
+            "a default of 0 is a defect"
+        );
+        assert!(Page::new(&uri("/api/x"), MAX_LIMIT + 1).is_err());
     }
 
     #[test]
     fn a_cut_page_points_to_the_next_and_the_next_starts_after_it() {
         let first = Page::new(&uri("/api/things?status=open&limit=2"), 100).unwrap();
-        assert_eq!((first.rows().fetch(), first.rows().offset()), (3, 0));
+        assert_eq!(
+            (
+                first.rows().fetch().unwrap(),
+                first.rows().offset().unwrap()
+            ),
+            (3, 0)
+        );
         let (rows, meta) = first.cut(vec!["a", "b", "c"]);
         assert_eq!(rows, vec!["a", "b"]);
         let next = meta.next.expect("a next page");
@@ -323,7 +347,13 @@ mod tests {
         );
 
         let second = Page::new(&uri(&next), 100).unwrap();
-        assert_eq!((second.rows().fetch(), second.rows().offset()), (3, 2));
+        assert_eq!(
+            (
+                second.rows().fetch().unwrap(),
+                second.rows().offset().unwrap()
+            ),
+            (3, 2)
+        );
         let (_, meta) = second.cut(vec!["c"]);
         assert_eq!((meta.truncated, meta.next), (false, None));
     }
@@ -345,7 +375,14 @@ mod tests {
             );
         }
         let wider = format!("/api/things?status=open&limit=50&cursor={cursor}");
-        assert_eq!(Page::new(&uri(&wider), 100).unwrap().rows().offset(), 1);
+        assert_eq!(
+            Page::new(&uri(&wider), 100)
+                .unwrap()
+                .rows()
+                .offset()
+                .unwrap(),
+            1
+        );
     }
 
     #[test]
@@ -353,7 +390,10 @@ mod tests {
         let page = Page::new(&uri("/api/x?limit=2"), 100).unwrap();
         let next = page.cut(vec![1, 2, 3]).1.next.unwrap();
         let second = Page::new(&uri(&next), 100).unwrap();
-        assert_eq!(second.rows().take(vec![1, 2, 3, 4, 5, 6]), vec![3, 4, 5]);
+        assert_eq!(
+            second.rows().take(vec![1, 2, 3, 4, 5, 6]).unwrap(),
+            vec![3, 4, 5]
+        );
     }
 
     #[test]

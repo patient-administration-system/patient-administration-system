@@ -103,7 +103,7 @@ impl AuditLogRepository {
         let rows = rows.into();
         conn.all_as::<audit_log::Model>(Stmt::new(
             "SELECT * FROM audit_log ORDER BY at DESC, id DESC LIMIT $1 OFFSET $2",
-            [rows.limit().into(), rows.offset().into()],
+            [rows.limit()?.into(), rows.offset()?.into()],
         ))
         .await
     }
@@ -116,7 +116,7 @@ impl AuditLogRepository {
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<audit_log::Model>> {
         let rows = rows.into();
-        conn.all_as::<audit_log::Model>(Stmt::new("SELECT * FROM audit_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY at DESC, id DESC LIMIT $3 OFFSET $4", [entity_type.into(), entity_id.into(), rows.limit().into(), rows.offset().into()])).await
+        conn.all_as::<audit_log::Model>(Stmt::new("SELECT * FROM audit_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY at DESC, id DESC LIMIT $3 OFFSET $4", [entity_type.into(), entity_id.into(), rows.limit()?.into(), rows.offset()?.into()])).await
     }
 }
 

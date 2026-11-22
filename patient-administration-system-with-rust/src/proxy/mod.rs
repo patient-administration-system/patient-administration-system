@@ -242,8 +242,8 @@ impl ProxyService {
                     person_id.into(),
                     include_inactive.into(),
                     now.into(),
-                    rows.fetch().into(),
-                    rows.offset().into(),
+                    rows.fetch()?.into(),
+                    rows.offset()?.into(),
                 ],
             ))
             .await?;

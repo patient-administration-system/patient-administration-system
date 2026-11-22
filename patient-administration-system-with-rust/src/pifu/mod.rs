@@ -315,7 +315,7 @@ impl PifuService {
             .all(Stmt::new("SELECT r.id, r.episode_id, r.person_id, e.service_type, r.requested_at, r.channel, r.route \
                  FROM pifu_requests r JOIN pifu_episodes e ON e.id = r.episode_id \
                  WHERE r.handled_at IS NULL AND r.route = $1 ORDER BY r.requested_at, r.id LIMIT $2 OFFSET $3",
-                [route.as_str().into(), rows.fetch().into(), rows.offset().into()],
+                [route.as_str().into(), rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         rows.iter()
@@ -388,7 +388,7 @@ impl PifuService {
                     "SELECT {EP_COLS} FROM pifu_episodes WHERE status = 'active' AND expires_at <= $1 \
                      ORDER BY expires_at, id LIMIT $2 OFFSET $3"
                 ),
-                [now.into(), rows.fetch().into(), rows.offset().into()],
+                [now.into(), rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         rows.iter().map(episode).collect()

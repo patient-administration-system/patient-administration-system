@@ -184,7 +184,7 @@ async fn outcomes_reconcile_and_utilization_is_busy_over_total_per_schedule() {
     );
     assert_eq!(
         r.total_appointments,
-        r.rows.iter().map(|x| x.total).sum::<i64>()
+        r.rows.iter().fold(0_i64, |total, x| total + x.total)
     );
     assert_eq!(r.total_appointments, 7);
     assert_eq!((r.total_slots, r.busy_slots), (14, 4));

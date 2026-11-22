@@ -186,8 +186,11 @@ pub fn job_finished(name: &str, outcome: Outcome) {
 /// A request was answered with `status` after `micros` microseconds.
 pub fn http_finished(status: u16, micros: u64) {
     let r = registry();
-    let class = usize::from(status / 100).clamp(1, 5) - 1;
-    if let Some(counter) = r.http.get(class) {
+    // Classes 1xx to 5xx are counted; a status outside them is not a class, so it counts in none.
+    if let Some(counter) = usize::from(status / 100)
+        .checked_sub(1)
+        .and_then(|class| r.http.get(class))
+    {
         counter.fetch_add(1, Ordering::Relaxed);
     }
     r.http_micros.fetch_add(micros, Ordering::Relaxed);
@@ -415,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn a_status_outside_the_classes_is_counted_somewhere_not_lost_or_panicking() {
+    fn a_status_outside_the_classes_is_counted_in_none_and_does_not_panic() {
         http_finished(0, 0);
         http_finished(999, 0);
     }

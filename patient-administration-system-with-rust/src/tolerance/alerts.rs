@@ -127,7 +127,7 @@ impl ToleranceService {
                      FROM tolerance_alerts {} ORDER BY raised_at DESC, id DESC LIMIT $1 OFFSET $2",
                     if open_only { "WHERE cleared_at IS NULL" } else { "" }
                 ),
-                [rows.fetch().into(), rows.offset().into()],
+                [rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         let mut out = Vec::new();

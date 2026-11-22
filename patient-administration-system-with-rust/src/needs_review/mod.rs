@@ -92,7 +92,7 @@ impl NeedsReviewService {
                  WHERE cardinality(accessibility_needs) > 0 \
                    AND (needs_reviewed_at IS NULL OR needs_reviewed_at < $1) \
                  ORDER BY needs_reviewed_at NULLS FIRST, person_id LIMIT $2 OFFSET $3",
-                [cutoff.into(), rows.fetch().into(), rows.offset().into()],
+                [cutoff.into(), rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         rows.iter()

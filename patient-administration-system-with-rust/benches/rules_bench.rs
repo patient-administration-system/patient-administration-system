@@ -36,7 +36,10 @@ fn bench_noshow(c: &mut Criterion) {
         let rows = inputs(n);
         group.throughput(Throughput::Elements(n as u64));
         group.bench_with_input(BenchmarkId::from_parameter(n), &rows, |b, rows| {
-            b.iter(|| rows.iter().map(|i| compute(i, &w).probability).sum::<f64>());
+            b.iter(|| {
+                rows.iter()
+                    .fold(0.0, |total, i| total + compute(i, &w).probability)
+            });
         });
     }
     group.finish();

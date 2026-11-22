@@ -170,7 +170,7 @@ impl ReceiptService {
                    AND NOT EXISTS (SELECT 1 FROM contact_problem_resolutions c \
                                    WHERE c.person_id = g.person_id AND c.resolved_at >= r.occurred_at) \
                  GROUP BY g.person_id ORDER BY max(r.occurred_at) DESC, g.person_id LIMIT $2 OFFSET $3",
-                [since_days.into(), rows.fetch().into(), rows.offset().into()],
+                [since_days.into(), rows.fetch()?.into(), rows.offset()?.into()],
             ))
 .await?;
         rows.iter()

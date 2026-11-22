@@ -110,7 +110,7 @@ impl SupportService {
             .all(Stmt::new(
                 "SELECT id, person_id, appointment_id, kind, reason_code, created_by, created_at \
                  FROM support_flags WHERE resolved_at IS NULL ORDER BY created_at, id LIMIT $1 OFFSET $2",
-                [rows.fetch().into(), rows.offset().into()],
+                [rows.fetch()?.into(), rows.offset()?.into()],
             ))
             .await?;
         rows.iter()

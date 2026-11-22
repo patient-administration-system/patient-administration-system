@@ -48,3 +48,6 @@ too_many_lines = "deny"
 # `checked_sub(x).unwrap_or(0)` is how spec/rust-checked-arithmetic writes a declared fallback (RCA-NONE-2, RCA-INT-4:
 # no `saturating_*`), so this lint, which asks for the saturating form, is turned off.
 manual_saturating_arithmetic = "allow"
+# `fold(0, |a, b| a + b)` is how a sum is written where `Iterator::sum` is disallowed (RCA-AGG-1, clippy.toml), so
+# this lint, which asks for `sum`, is turned off.
+unnecessary_fold = "allow"

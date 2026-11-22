@@ -84,7 +84,10 @@ mod tests {
         for n in 0..2000u32 {
             let first9 = format!("{n:09}");
             let d: Vec<u32> = first9.chars().map(|c| c.to_digit(10).unwrap()).collect();
-            let sum: u32 = d.iter().zip((2..=10).rev()).map(|(x, w)| x * w).sum();
+            let sum: u32 = d
+                .iter()
+                .zip((2..=10).rev())
+                .fold(0, |acc, (x, w)| acc + x * w);
             if 11 - (sum % 11) == 10 {
                 found = true;
                 for last in 0..=9 {

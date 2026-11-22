@@ -187,7 +187,11 @@ pub const EARLY_RELEASE_DAYS: i32 = 3;
 /// gives no notice).
 pub fn notice_days(cancelled_at: Timestamp, start: Timestamp) -> i32 {
     let days = crate::time::whole_days(start.duration_since(cancelled_at));
-    days.clamp(0, i64::from(i32::MAX)) as i32
+    if days < 0 {
+        return 0; // declared above: cancelling after the start gives no notice
+    }
+    // A notice too long for an i32 count of days is as early as the count can say.
+    i32::try_from(days).unwrap_or(i32::MAX)
 }
 
 /// Classify an ended appointment. `None` for one that has not ended without attendance.

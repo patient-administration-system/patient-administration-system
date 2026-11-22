@@ -112,7 +112,11 @@ pub struct Rng(u64);
 
 impl Rng {
     pub fn seeded(worker: usize) -> Self {
-        Self(0x9E37_79B9_7F4A_7C15 ^ (worker as u64 + 1).wrapping_mul(0xBF58_476D_1CE4_E5B9))
+        const MIX: u64 = 0xBF58_476D_1CE4_E5B9;
+        let w = u64::try_from(worker).unwrap_or(0);
+        // Rotating by the worker number (a bit operation, so nothing overflows) keeps every worker's stream apart.
+        let stream = MIX.rotate_left(u32::try_from(w & 63).unwrap_or(0)) ^ w;
+        Self(0x9E37_79B9_7F4A_7C15 ^ stream)
     }
 
     pub fn below(&mut self, n: usize) -> usize {

@@ -203,9 +203,14 @@ pub struct WeightsCard {
 mod env_tests {
     use super::*;
 
-    /// Each variable here is private to one test in this module (`PAS_NOSHOW_MEDIUM` is read, never set,
+    /// The variables here are set by this module's tests one at a time (`PAS_NOSHOW_MEDIUM` is read, never set,
     /// because `config::env`'s tests set it).
     fn with_var<T>(name: &str, value: Option<&str>, f: impl FnOnce() -> T) -> T {
+        // Two tests here set the same variable; one at a time, or one reads what the other just set.
+        static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _turn = ONE_AT_A_TIME
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let before = std::env::var(name).ok();
         // SAFETY: test-only, and the variable is private to the calling test.
         unsafe {

@@ -4,3 +4,18 @@ allow-dbg-in-tests = true
 # Every function above 150 code lines was split (the longest were 250). 44 functions still exceed 80, and a few
 # scenario tests sit between 130 and 150, so lowering it needs those tests shortened first.
 too-many-lines-threshold = 150
+
+# RCA-ENF-2 (spec/rust-checked-arithmetic): what bypasses checking. Each entry's reason names its rule.
+disallowed-methods = [
+    { path = "core::iter::Iterator::sum", reason = "RCA-AGG-1: use try_fold with checked_add (domain::arith::checked_sum)" },
+    { path = "core::iter::Iterator::product", reason = "RCA-AGG-1: use try_fold with checked_mul" },
+    { path = "core::time::Duration::from_secs_f64", reason = "RCA-TIME-2: use try_from_secs_f64" },
+    { path = "core::time::Duration::from_secs_f32", reason = "RCA-TIME-2: use try_from_secs_f32" },
+    { path = "std::time::Instant::duration_since", reason = "RCA-TIME-1: use checked_duration_since" },
+    { path = "std::time::Instant::saturating_duration_since", reason = "RCA-INT-4: no saturation" },
+    { path = "core::cmp::Ord::clamp", reason = "RCA-INT-6, RCA-IN-2: an out-of-range value is an error, not a bound" },
+]
+disallowed-types = [
+    { path = "core::num::Saturating", reason = "RCA-INT-4: no saturation" },
+    { path = "core::num::Wrapping", reason = "RCA-INT-4: no wrapping" },
+]

@@ -235,8 +235,12 @@ async fn correctness(db: &Db, ctx: &Ctx, saw_429: bool) -> Result<Vec<Correctnes
         let holders = db.holders_per_slot(&ctx.fx.hot_slots).await?;
         let doubled: Vec<_> = holders.iter().filter(|(_, n)| *n > 1).collect();
         let won_twice = wins.values().filter(|v| v.len() > 1).count();
-        let held: i64 = holders.iter().map(|(_, n)| n).sum();
-        let won: usize = wins.values().map(Vec::len).sum();
+        let held: i64 = holders.iter().fold(0_i64, |total, (_, n)| {
+            total.checked_add(*n).unwrap_or(i64::MAX)
+        });
+        let won: usize = wins.values().fold(0_usize, |total, v| {
+            total.checked_add(v.len()).unwrap_or(usize::MAX)
+        });
         out.push(Correctness {
             name: "each contended slot went to one caller",
             passed: doubled.is_empty() && won_twice == 0 && held == i64::try_from(won)?,

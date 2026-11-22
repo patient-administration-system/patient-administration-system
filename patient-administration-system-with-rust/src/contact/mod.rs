@@ -497,7 +497,7 @@ impl ContactService {
                  WHERE mobile_e164 IS NULL OR mobile_verified_at IS NULL OR mobile_verified_at < now() - ($1 || ' days')::interval \
                  ORDER BY mobile_verified_at ASC NULLS FIRST, person_id LIMIT $2 OFFSET $3"
             ),
-            [older_than_days.to_string().into(), rows.fetch().into(), rows.offset().into()],
+            [older_than_days.to_string().into(), rows.fetch()?.into(), rows.offset()?.into()],
         )).await?;
         let now = Timestamp::now();
         Ok(rows

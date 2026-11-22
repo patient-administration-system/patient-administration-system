@@ -344,8 +344,8 @@ impl AdjustmentService {
                 [
                     person_id.into(),
                     include_ended.into(),
-                    rows.fetch().into(),
-                    rows.offset().into(),
+                    rows.fetch()?.into(),
+                    rows.offset()?.into(),
                 ],
             ))
             .await?;

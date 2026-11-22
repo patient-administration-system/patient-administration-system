@@ -162,7 +162,11 @@ async fn a_cell_under_k_is_withheld_not_zero_and_the_totals_reconcile() {
     // The grand total is the true count of every appointment in the range, shown or not.
     assert_eq!(r.total, w.count_in_window().await);
     assert_eq!(r.total, 12 + 3 + 2 + 15);
-    let shown: i64 = r.cells.iter().filter_map(|c| c.count).sum();
+    let shown: i64 = r
+        .cells
+        .iter()
+        .filter_map(|c| c.count)
+        .fold(0, |total, n| total + n);
     assert_eq!(shown, 27);
 }
 
