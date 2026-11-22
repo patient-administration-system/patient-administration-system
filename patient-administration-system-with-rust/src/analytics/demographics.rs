@@ -184,7 +184,9 @@ impl AnalyticsService {
                         [pc.into()],
                     ))
                     .await?
-                    .map(|r| (r.col("quintile").ok(), r.col("dataset").ok()))
+                    // Both columns are nullable: NULL is `None`; an unreadable column is an error.
+                    .map(|r| Ok::<_, Error>((r.col("quintile")?, r.col("dataset")?)))
+                    .transpose()?
                     .unwrap_or((None, None)),
                 None => (None, None),
             };

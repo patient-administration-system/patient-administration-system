@@ -520,7 +520,10 @@ pub async fn trusted_mobile<C: Conn>(conn: &C, person_id: Uuid) -> Result<Option
             [person_id.into(), DEFAULT_STALE_DAYS.to_string().into()],
         ))
         .await?;
-    Ok(row.and_then(|r| r.col("mobile_e164").ok()))
+    // The column is nullable: no number is `None`; an unreadable column is an error.
+    row.map(|r| r.col::<Option<String>>("mobile_e164"))
+        .transpose()
+        .map(Option::flatten)
 }
 
 /// The patient's preferred channel, if they set one.

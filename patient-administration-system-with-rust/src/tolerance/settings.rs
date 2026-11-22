@@ -30,9 +30,10 @@ impl ToleranceService {
                     tolerance: r.col("tolerance")?,
                     escalate_beyond: r.col("escalate_beyond")?,
                 },
-                set_by: r.col("set_by").ok(),
-                note: r.col("note").ok(),
-                updated_at: r.col("updated_at").ok(),
+                // All three are nullable columns: NULL is `None`, and an unreadable column is an error.
+                set_by: r.col("set_by")?,
+                note: r.col("note")?,
+                updated_at: r.col("updated_at")?,
             });
         }
         Ok(out)

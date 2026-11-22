@@ -49,8 +49,8 @@ impl ToleranceService {
                     .to_string(),
             ))
             .await?
-            .and_then(|r| r.col::<i64>("n").ok())
-            .unwrap_or(0);
+            .ok_or_else(|| Error::internal("a count returned no row"))?
+            .col::<i64>("n")?;
         Ok(Evaluation {
             checked: readings.len(),
             raised,

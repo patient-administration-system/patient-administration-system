@@ -36,8 +36,8 @@ impl AnalyticsService {
                 [who.clone().into()],
             ))
             .await?
-            .and_then(|r| r.col::<i64>("n").ok())
-            .unwrap_or(0);
+            .ok_or_else(|| Error::internal("a count returned no row"))?
+            .col::<i64>("n")?;
         if used >= Self::query_budget() {
             return Err(Error::forbidden(
                 "the day's analytics query budget has been used; it renews 24 hours after each query",
