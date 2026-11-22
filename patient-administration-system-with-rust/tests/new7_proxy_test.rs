@@ -185,3 +185,194 @@ async fn an_expired_or_revoked_proxy_can_do_nothing_and_bad_grants_are_refused()
             .is_err()
     );
 }
+
+/// The same authority over HTTP: grant, list, the proxy reading, cancelling and rebooking, and what is refused.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_http_surface_grants_lists_acts_and_revokes() {
+    use axum::{
+        body::{Body, to_bytes},
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let sys = UserContext::system();
+    let schedule = common::new_schedule(&state.db).await.id;
+    let (patient, proxy, stranger) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+    let appt = state
+        .scheduling
+        .book_slot(
+            common::free_slot(&state.db, schedule, 5).await.id,
+            patient,
+            &sys,
+        )
+        .await
+        .unwrap();
+    let other_slot = common::free_slot(&state.db, schedule, 6).await.id;
+    let app = patient_administration_system::api::rest::router(state);
+    let call = |method: &'static str, uri: String, body: Option<serde_json::Value>| {
+        let app = app.clone();
+        async move {
+            let mut b = Request::builder().method(method).uri(uri);
+            let body = match body {
+                Some(v) => {
+                    b = b.header("content-type", "application/json");
+                    Body::from(v.to_string())
+                }
+                None => Body::empty(),
+            };
+            let r = app.oneshot(b.body(body).unwrap()).await.unwrap();
+            let st = r.status();
+            let bytes = to_bytes(r.into_body(), 1 << 20).await.unwrap();
+            (
+                st,
+                serde_json::from_slice::<serde_json::Value>(&bytes).unwrap_or_default(),
+            )
+        }
+    };
+    let grant = |who: Uuid, scopes: &[&str]| {
+        serde_json::json!({
+            "proxy_person_id": who,
+            "relationship": "daughter",
+            "basis": "patient_consent",
+            "scopes": scopes,
+            "expires_at": Timestamp::now() + patient_administration_system::time::days(30),
+            "recorded_by": "Receptionist",
+        })
+    };
+
+    // Grants: a bad scope is refused, a good one is recorded and listed.
+    let (st, _) = call(
+        "POST",
+        format!("/api/patients/{patient}/proxies"),
+        Some(grant(proxy, &["teleport"])),
+    )
+    .await;
+    assert!(st.is_client_error(), "an unknown scope");
+    let (st, v) = call(
+        "POST",
+        format!("/api/patients/{patient}/proxies"),
+        Some(grant(proxy, &["receive", "cancel", "rebook"])),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let authority = v["data"]["id"].as_str().unwrap().to_string();
+    let (st, v) = call("GET", format!("/api/patients/{patient}/proxies"), None).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert!(v.to_string().contains(&authority));
+    let (st, _) = call(
+        "GET",
+        format!("/api/patients/{patient}/proxies?limit=lots"),
+        None,
+    )
+    .await;
+    assert!(st.is_client_error());
+    let (st, _) = call(
+        "GET",
+        format!("/api/patients/{patient}/proxies?include_inactive=true"),
+        None,
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+
+    // Reading: the proxy may, a stranger may not.
+    let (st, v) = call(
+        "GET",
+        format!("/api/proxy/patients/{patient}/appointments?proxy_person_id={proxy}"),
+        None,
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert!(v.to_string().contains(&appt.id.to_string()));
+    let (st, _) = call(
+        "GET",
+        format!("/api/proxy/patients/{patient}/appointments?proxy_person_id={stranger}"),
+        None,
+    )
+    .await;
+    assert!(st.is_client_error());
+
+    // Rebooking needs a slot, a known appointment and the scope; then cancelling does too.
+    let (st, _) = call(
+        "POST",
+        format!("/api/proxy/appointments/{}/rebook", appt.id),
+        Some(serde_json::json!({ "proxy_person_id": proxy })),
+    )
+    .await;
+    assert!(st.is_client_error(), "no slot_id");
+    let (st, _) = call(
+        "POST",
+        format!("/api/proxy/appointments/{}/rebook", Uuid::new_v4()),
+        Some(serde_json::json!({ "proxy_person_id": proxy, "slot_id": other_slot })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    let (st, _) = call(
+        "POST",
+        format!("/api/proxy/appointments/{}/rebook", appt.id),
+        Some(serde_json::json!({ "proxy_person_id": stranger, "slot_id": other_slot })),
+    )
+    .await;
+    assert!(st.is_client_error(), "a stranger cannot rebook");
+    let (st, v) = call(
+        "POST",
+        format!("/api/proxy/appointments/{}/rebook", appt.id),
+        Some(serde_json::json!({ "proxy_person_id": proxy, "slot_id": other_slot })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let moved = v["data"]["id"].as_str().unwrap().to_string();
+    let (st, _) = call(
+        "POST",
+        format!("/api/proxy/appointments/{moved}/cancel"),
+        Some(serde_json::json!({ "proxy_person_id": stranger })),
+    )
+    .await;
+    assert!(st.is_client_error(), "a stranger cannot cancel");
+    let (st, _) = call(
+        "POST",
+        format!("/api/proxy/appointments/{}/cancel", Uuid::new_v4()),
+        Some(serde_json::json!({ "proxy_person_id": proxy })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    let (st, v) = call(
+        "POST",
+        format!("/api/proxy/appointments/{moved}/cancel"),
+        Some(serde_json::json!({ "proxy_person_id": proxy })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+
+    // Revoking: a named person, once; after it the proxy can do nothing.
+    let (st, _) = call(
+        "POST",
+        format!("/api/proxies/{authority}/revoke"),
+        Some(serde_json::json!({ "revoked_by": " " })),
+    )
+    .await;
+    assert!(st.is_client_error(), "a blank name");
+    let (st, v) = call(
+        "POST",
+        format!("/api/proxies/{authority}/revoke"),
+        Some(serde_json::json!({ "revoked_by": "Receptionist" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert_eq!(v["data"]["status"], "revoked");
+    let (st, _) = call(
+        "POST",
+        format!("/api/proxies/{authority}/revoke"),
+        Some(serde_json::json!({ "revoked_by": "Receptionist" })),
+    )
+    .await;
+    assert!(st.is_client_error(), "only once");
+    let (st, _) = call(
+        "GET",
+        format!("/api/proxy/patients/{patient}/appointments?proxy_person_id={proxy}"),
+        None,
+    )
+    .await;
+    assert!(st.is_client_error(), "a revoked proxy has nothing");
+}
