@@ -607,3 +607,204 @@ pub async fn delete_slot(
     .map_err(error_to_response)?;
     Ok(StatusCode::NO_CONTENT)
 }
+
+#[cfg(test)]
+mod parser_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn id() -> Uuid {
+        Uuid::new_v4()
+    }
+
+    #[test]
+    fn a_schedule_owner_comes_from_an_actor_reference_or_a_native_owner() {
+        let u = id();
+        for (kind, want) in [
+            ("Practitioner", "practitioner"),
+            ("Location", "bed"),
+            ("Bed", "bed"),
+            ("Room", "room"),
+            ("Device", "equipment"),
+            ("Equipment", "equipment"),
+        ] {
+            let body = json!({ "actor": [{ "reference": format!("{kind}/{u}") }] });
+            let owner = parse_schedule_owner(&body).unwrap();
+            let got = match owner {
+                ScheduleOwner::Practitioner(_) => "practitioner",
+                ScheduleOwner::Bed(_) => "bed",
+                ScheduleOwner::Room(_) => "room",
+                ScheduleOwner::Equipment(_) => "equipment",
+            };
+            assert_eq!(got, want, "{kind}");
+        }
+        for kind in ["Practitioner", "Bed", "Room"] {
+            let body = json!({ "owner": { "kind": kind, "id": u.to_string() } });
+            assert!(parse_schedule_owner(&body).is_ok(), "{kind}");
+        }
+        for bad in [
+            json!({}),
+            json!({ "actor": [] }),
+            json!({ "actor": [{}] }),
+            json!({ "actor": [{ "reference": "no-slash" }] }),
+            json!({ "actor": [{ "reference": "Practitioner/not-a-uuid" }] }),
+            json!({ "actor": [{ "reference": format!("Patient/{u}") }] }),
+            json!({ "owner": { "kind": "Patient", "id": u.to_string() } }),
+            json!({ "owner": { "kind": "Bed", "id": "nope" } }),
+        ] {
+            assert!(parse_schedule_owner(&bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_service_type_is_native_fhir_or_general() {
+        assert_eq!(
+            parse_service_type(&json!({ "service_type": "cardiology" })),
+            "cardiology"
+        );
+        let fhir =
+            json!({ "serviceType": [{ "concept": { "coding": [{ "code": "394579002" }] } }] });
+        assert_eq!(parse_service_type(&fhir), "394579002");
+        assert_eq!(parse_service_type(&json!({})), "general");
+        assert_eq!(parse_service_type(&json!({ "serviceType": [] })), "general");
+        assert_eq!(
+            parse_service_type(&json!({ "serviceType": [{ "concept": {} }] })),
+            "general"
+        );
+    }
+
+    #[test]
+    fn a_slot_needs_a_schedule_two_times_in_order_and_a_known_status() {
+        let sched = id();
+        let ok = json!({
+            "schedule": { "reference": format!("Schedule/{sched}") },
+            "start": "2027-01-01T09:00:00Z", "end": "2027-01-01T09:30:00Z", "status": "busy-unavailable",
+        });
+        let slot = slot_from(&ok).unwrap();
+        assert_eq!(slot.schedule_id, sched);
+        assert_eq!(slot.status, SlotStatus::BlockedOut);
+        let native = json!({
+            "schedule_id": sched.to_string(),
+            "start": "2027-01-01T09:00:00Z", "end": "2027-01-01T09:30:00Z",
+        });
+        assert!(slot_from(&native).is_ok());
+        let mut backwards = ok.clone();
+        backwards["end"] = json!("2027-01-01T08:00:00Z");
+        assert!(slot_from(&backwards).is_err());
+        let mut no_start = ok.clone();
+        no_start.as_object_mut().unwrap().remove("start");
+        assert!(slot_from(&no_start).is_err());
+        let mut bad_time = ok.clone();
+        bad_time["start"] = json!("tomorrow");
+        assert!(slot_from(&bad_time).is_err());
+        let mut bad_status = ok.clone();
+        bad_status["status"] = json!("maybe");
+        assert!(slot_from(&bad_status).is_err());
+        for (s, want) in [
+            ("FREE", SlotStatus::Free),
+            ("busy", SlotStatus::Busy),
+            ("blocked_out", SlotStatus::BlockedOut),
+        ] {
+            assert_eq!(
+                parse_slot_status(&json!({ "status": s })).unwrap(),
+                Some(want),
+                "{s}"
+            );
+        }
+        assert_eq!(parse_slot_status(&json!({})).unwrap(), None);
+        for bad in [
+            json!({}),
+            json!({ "schedule": {} }),
+            json!({ "schedule": { "reference": "Slot/x" } }),
+            json!({ "schedule": { "reference": "Schedule/not-a-uuid" } }),
+            json!({ "schedule_id": "not-a-uuid" }),
+        ] {
+            assert!(parse_schedule_ref(&bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_booking_and_an_admission_name_exactly_one_slot_or_bed_and_a_patient() {
+        let (slot, patient, bed) = (id(), id(), id());
+        let booking = json!({
+            "status": "booked",
+            "slot": [{ "reference": format!("Slot/{slot}") }],
+            "subject": { "reference": format!("Patient/{patient}") },
+        });
+        assert_eq!(booking_from(&booking).unwrap(), (slot, patient));
+        for bad in [
+            json!({ "status": "proposed" }),
+            json!({ "status": "booked", "slot": [] }),
+            json!({ "status": "booked", "slot": [{ "reference": format!("Slot/{slot}") }] }),
+            json!({ "status": "booked", "slot": [{ "reference": "Patient/x" }], "subject": { "reference": format!("Patient/{patient}") } }),
+        ] {
+            assert!(booking_from(&bad).is_err(), "{bad}");
+        }
+        let admission = json!({
+            "status": "in-progress",
+            "subject": { "reference": format!("Patient/{patient}") },
+            "location": [{ "location": { "reference": format!("Location/{bed}") } }],
+        });
+        assert_eq!(admission_from(&admission).unwrap(), (patient, bed));
+        for bad in [
+            json!({ "status": "planned" }),
+            json!({ "status": "in-progress" }),
+            json!({ "status": "in-progress", "location": [] }),
+        ] {
+            assert!(admission_from(&bad).is_err(), "{bad}");
+        }
+        assert!(is_inpatient(
+            &json!({ "class": [{ "coding": [{ "code": "IMP" }] }] })
+        ));
+        assert!(!is_inpatient(
+            &json!({ "class": [{ "coding": [{ "code": "AMB" }] }] })
+        ));
+        assert!(!is_inpatient(&json!({})));
+    }
+
+    #[test]
+    fn a_coverage_needs_a_patient_status_kind_and_a_payer_unless_self_pay() {
+        let patient = id();
+        let base = json!({
+            "beneficiary": { "reference": format!("Patient/{patient}") },
+            "status": "active", "kind": "insurance",
+            "insurer": { "display": "Payer" },
+            "identifier": [{ "value": "POL-1" }],
+            "period": { "start": "2026-01-01", "end": "2026-12-31T00:00:00Z" },
+        });
+        let c = coverage_from(&base).unwrap();
+        assert_eq!((c.person_id, c.policy_number.as_str()), (patient, "POL-1"));
+        for (status, want) in [
+            ("cancelled", CoverageStatus::Cancelled),
+            ("draft", CoverageStatus::Draft),
+            ("entered-in-error", CoverageStatus::EnteredInError),
+        ] {
+            let mut b = base.clone();
+            b["status"] = json!(status);
+            assert_eq!(coverage_from(&b).unwrap().status, want);
+        }
+        let mut self_pay = base.clone();
+        self_pay["kind"] = json!("self-pay");
+        self_pay.as_object_mut().unwrap().remove("insurer");
+        assert_eq!(coverage_from(&self_pay).unwrap().payor_name, "Self-pay");
+        let mut other = base.clone();
+        other["kind"] = json!("other");
+        assert!(coverage_from(&other).is_ok());
+        let mut no_payer = base.clone();
+        no_payer.as_object_mut().unwrap().remove("insurer");
+        assert!(coverage_from(&no_payer).is_err());
+        let mut bad_kind = base.clone();
+        bad_kind["kind"] = json!("barter");
+        assert!(coverage_from(&bad_kind).is_err());
+        let mut bad_status = base.clone();
+        bad_status["status"] = json!("lapsed");
+        assert!(coverage_from(&bad_status).is_err());
+        let mut ends_first = base.clone();
+        ends_first["period"] = json!({ "start": "2026-06-01", "end": "2026-01-01" });
+        assert!(coverage_from(&ends_first).is_err());
+        let mut bad_date = base.clone();
+        bad_date["period"] = json!({ "start": "soon" });
+        assert!(coverage_from(&bad_date).is_err());
+        assert!(coverage_from(&json!({})).is_err());
+    }
+}
