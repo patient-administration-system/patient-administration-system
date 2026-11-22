@@ -4,6 +4,7 @@ use super::*;
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt};
 use crate::paging::PageMeta;
+use patient_administration_system_domain::arith::checked_sum;
 
 /// Keep the `limit` worst rows, in the order they came. A list cut in that order alone could drop the one red
 /// row and leave a page that says red overall with nothing red on it.
@@ -47,8 +48,11 @@ impl ToleranceService {
             .reports
             .clinic_activity(Some(from), Some(to), GroupBy::Day)
             .await?;
-        let attended: i64 = report.rows.iter().map(|r| r.attended).sum();
-        let missed: i64 = report.rows.iter().map(|r| r.did_not_attend).sum();
+        let too_large = || crate::Error::internal("a total is too large to hold");
+        let attended: i64 =
+            checked_sum(report.rows.iter().map(|r| r.attended)).ok_or_else(too_large)?;
+        let missed: i64 =
+            checked_sum(report.rows.iter().map(|r| r.did_not_attend)).ok_or_else(too_large)?;
         let (beds, occupied) = self.bed_counts().await?;
         let (invoiced, collected, invoices) = self.money(from, to).await?;
 

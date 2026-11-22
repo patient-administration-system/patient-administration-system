@@ -18,6 +18,7 @@
 
 use crate::db::sql::{Conn, Pool, Stmt};
 use jiff::Timestamp;
+use patient_administration_system_domain::arith::checked_sum;
 use serde::Serialize;
 
 use crate::db::row::RowExt;
@@ -116,8 +117,11 @@ pub async fn capacity_report(
             })
         })
         .collect::<Result<Vec<_>>>()?;
-    let available_slots: i64 = by_type.iter().map(|t| t.slots).sum();
-    let ring_fenced_slots: i64 = by_type.iter().map(|t| t.ring_fenced).sum();
+    let too_large = || Error::internal("a report total is too large to hold");
+    let available_slots: i64 =
+        checked_sum(by_type.iter().map(|t| t.slots)).ok_or_else(too_large)?;
+    let ring_fenced_slots: i64 =
+        checked_sum(by_type.iter().map(|t| t.ring_fenced)).ok_or_else(too_large)?;
 
     let referrals: i64 = db
         .one(Stmt::new(

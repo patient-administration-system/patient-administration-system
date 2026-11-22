@@ -122,8 +122,8 @@ impl IvrService {
                     .act(token, LinkAction::Reschedule, false, ctx)
                     .await?;
                 let idx = d.to_digit(10).unwrap_or(0) as usize;
-                match o.options.get(idx.wrapping_sub(1)) {
-                    Some(opt) if idx >= 1 => {
+                match idx.checked_sub(1).and_then(|i| o.options.get(i)) {
+                    Some(opt) => {
                         let done = self.links.choose(token, opt.slot_id, ctx).await?;
                         Ok(Self::finish(done.message))
                     }

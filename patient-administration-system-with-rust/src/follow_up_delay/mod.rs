@@ -15,6 +15,7 @@
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use jiff::{Timestamp, civil::Date};
+use patient_administration_system_domain::arith::checked_sum;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -144,7 +145,8 @@ impl FollowUpDelayService {
             let pct = delay_percent(added.to_zoned_datetime(tz.clone()).date(), target, today);
             *counts.entry((status == "booked", band(pct))).or_insert(0) += 1;
         }
-        let total = counts.values().sum();
+        let total = checked_sum(counts.values().copied())
+            .ok_or_else(|| Error::internal("a report total is too large to hold"))?;
         let cells = suppress(
             counts
                 .into_iter()

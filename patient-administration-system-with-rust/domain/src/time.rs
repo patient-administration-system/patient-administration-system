@@ -15,7 +15,15 @@ use jiff::{SignedDuration, Timestamp};
 
 /// `n` days of 24 hours.
 pub fn days(n: i64) -> SignedDuration {
-    SignedDuration::from_hours(n.saturating_mul(24))
+    // Days beyond what a duration can hold are the longest duration, in the direction of the sign.
+    let longest = if n < 0 {
+        SignedDuration::MIN
+    } else {
+        SignedDuration::MAX
+    };
+    n.checked_mul(24)
+        .and_then(|hours| hours.checked_mul(3600))
+        .map_or(longest, SignedDuration::from_secs)
 }
 
 /// The whole days in `d`, truncated towards zero (as `chrono::Duration::num_days` was).

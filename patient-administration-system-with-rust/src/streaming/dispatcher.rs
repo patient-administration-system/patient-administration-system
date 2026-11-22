@@ -66,11 +66,13 @@ pub fn backoff(failures: i32, retry_after_secs: Option<u64>) -> Duration {
     if let Some(secs) = retry_after_secs {
         return Duration::from_secs(secs).min(BACKOFF_CAP);
     }
-    let doublings = u32::try_from(failures.saturating_sub(1).max(0))
+    let doublings = u32::try_from(failures.checked_sub(1).unwrap_or(0).max(0))
         .unwrap_or(0)
         .min(16);
-    BACKOFF_START
-        .saturating_mul(2u32.saturating_pow(doublings))
+    // An overflow means the delay is past the cap, so it is the cap.
+    2u32.checked_pow(doublings)
+        .and_then(|factor| BACKOFF_START.checked_mul(factor))
+        .unwrap_or(BACKOFF_CAP)
         .min(BACKOFF_CAP)
 }
 
@@ -133,7 +135,11 @@ pub async fn tick_with_limit(
                     _ => None,
                 };
                 let err_str = e.to_string();
-                let wait = backoff(row.retry_count.saturating_add(1), retry_after);
+                let wait = backoff(
+                    // A count at the maximum stays there: the back-off is capped long before it.
+                    row.retry_count.checked_add(1).unwrap_or(i32::MAX),
+                    retry_after,
+                );
                 let next = jiff::Timestamp::now()
                     + jiff::SignedDuration::try_from(wait)
                         .unwrap_or(jiff::SignedDuration::from_mins(15));

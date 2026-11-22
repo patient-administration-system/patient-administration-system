@@ -115,7 +115,8 @@ impl OutboxRepository {
             Some(m) => m,
             None => return Ok(0),
         };
-        let new_count = m.retry_count.saturating_add(1);
+        // A count at the maximum stays there.
+        let new_count = m.retry_count.checked_add(1).unwrap_or(i32::MAX);
         let mut am = m.patch();
         am.set("retry_count", new_count);
         am.set("last_attempted_at", Some(jiff::Timestamp::now()));

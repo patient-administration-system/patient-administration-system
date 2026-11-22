@@ -13,6 +13,7 @@
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Param, Pool, Stmt};
 use jiff::Timestamp;
+use patient_administration_system_domain::arith::checked_sum;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -190,9 +191,11 @@ impl ReportService {
         let (from, to) = check_range(from, to)?;
         let by_day = group == GroupBy::Day;
         let rows = self.activity_rows(from, to, group).await?;
-        let total_appointments = rows.iter().map(|r| r.total).sum();
-        let total_slots: i64 = rows.iter().map(|r| r.slots).sum();
-        let busy_slots: i64 = rows.iter().map(|r| r.busy_slots).sum();
+        let too_large = || Error::internal("a report total is too large to hold");
+        let total_appointments = checked_sum(rows.iter().map(|r| r.total)).ok_or_else(too_large)?;
+        let total_slots: i64 = checked_sum(rows.iter().map(|r| r.slots)).ok_or_else(too_large)?;
+        let busy_slots: i64 =
+            checked_sum(rows.iter().map(|r| r.busy_slots)).ok_or_else(too_large)?;
         let lead_days = self.lead_days(from, to).await?;
         let (weeks, by_service, breaching) = self.open_pathways().await?;
         Ok(Report {

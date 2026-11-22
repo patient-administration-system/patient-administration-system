@@ -132,7 +132,9 @@ pub fn job_health_at(name: &str, now: i64) -> JobHealth {
     let Some(every) = s.every_secs else {
         return JobHealth::Off;
     };
-    let window = i64::try_from(every.saturating_mul(3))
+    let window = every
+        .checked_mul(3)
+        .and_then(|w| i64::try_from(w).ok())
         .unwrap_or(i64::MAX)
         .max(30);
     drop(jobs);

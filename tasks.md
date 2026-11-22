@@ -85,6 +85,10 @@ The live work queue for the monorepo. [`plan.md`](plan.md) holds the research an
 
 ## Open
 
+### RCA (checked arithmetic, `spec/rust-checked-arithmetic/index.md`)
+
+- [ ] **RCA-1 (XL), bring production arithmetic to the spec, one module at a time (RCA-ENF-3).** **Done 2026-11-22:** no `saturating_*`, `wrapping_*` or `overflowing_*` in production code (14 sites, each now `checked_*` with a stated fallback or an error); no `Iterator::sum` on integer figures (`domain::arith::checked_sum`); `overflow-checks = true` in the release profile (RCA-ENF-4); panic, indexing and string-slice lints denied in production code (see the panic work, `bfdef8b`). **Not done, measured with the spec's own lints on 2026-11-22 (593 warnings in production code):** `arithmetic_side_effects` 245, `as_conversions` 111 (plus about 100 `cast_*`), `default_numeric_fallback` 60, `float_arithmetic` 56, `integer_division` 12, and the `#[allow]` attributes that should be `#[expect]` 13. **Plan:** turn each lint on per module as the module is converted, newest and smallest first; a module is done when it denies the lints and its tests cover the `None` arms. **Open decision for the owner:** the spec's `disallowed-methods` example bans `Option::unwrap_or_default` everywhere (112 uses, most on strings): this task applies RCA-NONE-1 to checked results only, and leaves `unwrap_or`, `unwrap_or_else`, `map_or` and `unwrap_or_default` allowed elsewhere. The figure declarations (RCA-DECL-1) are not yet written for any figure, so the fallbacks above are cited in comments, not in the spec.
+
 ### DTAC (from the self-assessment)
 
 - [ ] **DTAC-1 (L), Clinical Safety Officer and DCB0129.** Name a CSO; run the risk management process; write the hazard log and Clinical Safety Case Report. Needs a registered clinician. **Acceptance:** a named CSO and the two documents exist under `governance/`, reviewed by the CSO.

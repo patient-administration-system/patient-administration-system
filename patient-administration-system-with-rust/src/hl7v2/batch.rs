@@ -206,10 +206,11 @@ pub fn encode_batch_ack(inbound: &BatchInbound, per_message_acks: &[String]) -> 
         &inbound.receiving_app
     };
     let mut out = String::with_capacity(
-        256 + per_message_acks
+        // A capacity hint only: if the acknowledgements were too large to add up, start small and grow.
+        per_message_acks
             .iter()
-            .map(std::string::String::len)
-            .sum::<usize>(),
+            .try_fold(256_usize, |total, ack| total.checked_add(ack.len()))
+            .unwrap_or(256),
     );
     out.push_str(&format!(
         "BHS|^~\\&|{us}|{}|{}|{}|{now}||||{own_id}|{}\r",

@@ -107,7 +107,10 @@ impl AnalyticsService {
             .lines()
             .next()
             .is_some_and(|l| l.to_lowercase().contains("postcode"));
-        rejected += total.saturating_sub(loaded + u64::from(header));
+        // More lines parsed than were read leaves none rejected.
+        rejected += total
+            .checked_sub(loaded.checked_add(u64::from(header)).unwrap_or(u64::MAX))
+            .unwrap_or(0);
         AuditLogRepository::log(
             &self.db,
             "deprivation_lookup",

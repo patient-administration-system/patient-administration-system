@@ -27,7 +27,7 @@
 | 19 | [Schema map](19-schema-map.md) (generated) |
 | 20 | [Suspected conditions](20-suspected-conditions.md): tracking suspicion during referrals |
 | 21 | [Licenses](licenses/index.md): the licence options and the SPDX expression |
-| 22 | [Arithmetic](arithmetic/index.md): maths must not panic; `checked_*` returns `None` |
+| 22 | [Rust checked arithmetic](rust-checked-arithmetic/index.md): maths must not panic, wrap or invent a number; `checked_*`, `try_from`, declared fallbacks (`RCA-*`) |
 | — | [Deviations from the standards](deviations.md): where the PAS knowingly differs from HL7 v2, FHIR or IHE, with a decision for the owner (HUB-10) |
 
 Cross-cutting chapters: [Locales](locales.md). Safety: [Hazards, who may remove one and on what evidence](hazard/index.md).

@@ -312,7 +312,8 @@ where
                     while left > 0 {
                         match rd.read(&mut sink).await {
                             Ok(0) | Err(_) => break,
-                            Ok(n) => left = left.saturating_sub(n),
+                            // Reading more than the budget leaves none of it.
+                            Ok(n) => left = left.checked_sub(n).unwrap_or(0),
                         }
                     }
                 })

@@ -551,7 +551,13 @@ impl InboundService {
                         "cancel" => Intent::Cancel,
                         _ => Intent::Reschedule,
                     };
-                    Target::Act(a, ids.get((n as usize).saturating_sub(1)).copied())
+                    Target::Act(
+                        a,
+                        usize::from(n)
+                            .checked_sub(1)
+                            .and_then(|i| ids.get(i))
+                            .copied(),
+                    )
                 }
                 _ => Target::Act(Intent::Unknown, None),
             },

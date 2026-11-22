@@ -83,7 +83,11 @@ pub fn validate_lines(lines: &[Line]) -> Result<()> {
         if l.slots < 1 {
             return Err(Error::validation("each line needs at least one slot"));
         }
-        total = total.saturating_add(l.slots);
+        total = total.checked_add(l.slots).ok_or_else(|| {
+            Error::validation(format!(
+                "a session holds at most {MAX_SLOTS_PER_SESSION} slots"
+            ))
+        })?;
     }
     if total > MAX_SLOTS_PER_SESSION {
         return Err(Error::validation(format!(

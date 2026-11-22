@@ -21,6 +21,8 @@ split-debuginfo = "unpacked"
 debug = false
 
 [profile.release]
+# RCA-ENF-4: an operator the lints miss panics, which is detectable, instead of wrapping, which is not.
+overflow-checks = true
 lto = true
 codegen-units = 1
 strip = true
@@ -43,3 +45,6 @@ dbg_macro = "deny"
 allow_attributes_without_reason = "deny"
 # Functions longer than 150 code lines (clippy.toml) are refused: split them (QUAL-10).
 too_many_lines = "deny"
+# `checked_sub(x).unwrap_or(0)` is how spec/rust-checked-arithmetic writes a declared fallback (RCA-NONE-2, RCA-INT-4:
+# no `saturating_*`), so this lint, which asks for the saturating form, is turned off.
+manual_saturating_arithmetic = "allow"

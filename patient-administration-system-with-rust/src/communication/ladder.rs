@@ -133,7 +133,12 @@ pub fn parse_steps(spec: &str) -> Result<Vec<StepSpec>> {
         let step = Step::parse(name.trim())
             .ok_or_else(|| bad(format!("unknown step {name:?} (main, second, call, final)")))?;
         let dur = dur.trim();
-        let (num, unit) = dur.split_at(dur.len().saturating_sub(1));
+        // The last character is the unit; an empty value has none and fails to parse just below.
+        let (num, unit) = dur
+            .char_indices()
+            .next_back()
+            .and_then(|(i, _)| dur.split_at_checked(i))
+            .unwrap_or(("", ""));
         let n: i64 = num
             .parse()
             .map_err(|_| bad(format!("{dur:?} is not like 7d or 24h")))?;

@@ -300,7 +300,8 @@ pub(super) fn export_records(format: &str, body: &[u8]) -> Option<usize> {
                 text.lines()
                     .filter(|l| !l.trim().is_empty())
                     .count()
-                    .saturating_sub(1),
+                    .checked_sub(1)
+                    .unwrap_or(0),
             )
         }
         _ => None,

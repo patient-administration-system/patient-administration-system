@@ -78,7 +78,7 @@ impl NoShowService {
         let mut ps: Vec<f64> = scored.iter().map(|x| x.0).collect();
         ps.sort_by(|a, b| b.total_cmp(a));
         let cutoff = ps
-            .get(ps.len().div_ceil(10).saturating_sub(1))
+            .get(ps.len().div_ceil(10).checked_sub(1).unwrap_or(0))
             .copied()
             .unwrap_or(1.0);
         // Pass 2: accumulate by group.

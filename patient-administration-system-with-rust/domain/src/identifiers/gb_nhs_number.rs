@@ -26,16 +26,20 @@ pub fn check(raw: &str) -> Result<String> {
         return Err(Error::validation("an NHS number is ten digits"));
     }
     let d: Vec<u32> = digits.chars().filter_map(|c| c.to_digit(10)).collect();
-    let sum: u32 = d
+    // Weights 10 down to 2 over the first nine digits; the digits are at most 9, so nothing here can overflow,
+    // and if it somehow did the number is not valid.
+    let remainder = d
         .iter()
         .take(9)
-        .zip((2..=10).rev())
-        .map(|(x, w)| x * w)
-        .sum();
-    let check = match 11 - (sum % 11) {
-        11 => 0,
-        10 => return Err(Error::validation("that is not a valid NHS number")),
-        c => c,
+        .zip((2..=10_u32).rev())
+        .try_fold(0_u32, |acc, (x, w)| {
+            x.checked_mul(w).and_then(|p| acc.checked_add(p))
+        })
+        .and_then(|sum| sum.checked_rem(11));
+    let check = match remainder.and_then(|r| 11_u32.checked_sub(r)) {
+        Some(11) => 0,
+        Some(c) if c < 10 => c,
+        _ => return Err(Error::validation("that is not a valid NHS number")),
     };
     if d.get(9) != Some(&check) {
         return Err(Error::validation(
