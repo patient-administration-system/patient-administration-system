@@ -79,7 +79,11 @@ impl Args {
 }
 
 fn run() -> Result<(), String> {
-    let mut argv: Vec<String> = std::env::args().skip(1).collect();
+    run_with(std::env::args().skip(1).collect())
+}
+
+/// The command in `argv` (the arguments after the program name).
+fn run_with(mut argv: Vec<String>) -> Result<(), String> {
     if argv.is_empty() {
         return Err(
             "usage: pas-token-issuer keygen|mint|serve (see the header of src/bin/token_issuer.rs)"
@@ -169,4 +173,179 @@ fn serve(args: &Args) -> Result<(), String> {
         );
         axum::serve(listener, app).await.map_err(|e| e.to_string())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    fn scratch() -> PathBuf {
+        let d = std::env::temp_dir().join(format!("pas-ti-{}", uuid::Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn arguments_are_read_by_name_and_a_missing_one_is_named() {
+        let a = Args(args(&["--kid", "k1", "--attr", "a=1", "--attr", "b=2"]));
+        assert_eq!(a.one("--kid").as_deref(), Some("k1"));
+        assert_eq!(a.one("--sub"), None);
+        assert_eq!(a.many("--attr"), ["a=1", "b=2"]);
+        assert_eq!(a.need("--sub").unwrap_err(), "--sub is required");
+    }
+
+    #[test]
+    fn a_spec_takes_every_option_and_refuses_a_bad_attribute_or_ttl() {
+        let full = Args(args(&[
+            "--kid",
+            "k1",
+            "--sub",
+            "svc",
+            "--attr",
+            "access=admin",
+            "--ttl",
+            "60",
+            "--iss",
+            "i",
+            "--aud",
+            "a",
+            "--name",
+            "N",
+            "--email",
+            "e@x.test",
+        ]));
+        let spec = full.spec().unwrap();
+        assert_eq!((spec.kid.as_str(), spec.ttl_secs), ("k1", 60));
+        assert_eq!((spec.issuer.as_str(), spec.audience.as_str()), ("i", "a"));
+        assert_eq!((spec.name.as_str(), spec.email.as_str()), ("N", "e@x.test"));
+        assert!(
+            spec.attrs
+                .iter()
+                .any(|(k, v)| k == "access" && v == "admin")
+        );
+        let bare = Args(args(&["--kid", "k1", "--sub", "svc"])).spec().unwrap();
+        assert_eq!(bare.kid, "k1");
+        for bad in [
+            &["--sub", "s"][..],
+            &["--kid", "k"][..],
+            &["--kid", "k", "--sub", "s", "--attr", "nope"][..],
+            &["--kid", "k", "--sub", "s", "--ttl", "soon"][..],
+        ] {
+            assert!(Args(args(bad)).spec().is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn keygen_then_mint_writes_the_keys_and_prints_a_token() {
+        let dir = scratch();
+        let d = dir.to_str().unwrap();
+        run_with(args(&["keygen", "--dir", d])).unwrap();
+        assert!(dir.join("private.key").exists() && dir.join("keys.json").exists());
+        run_with(args(&["keygen", "--dir", d, "--kid", "key-2"])).unwrap();
+        let key = dir.join("private.key");
+        run_with(args(&[
+            "mint",
+            "--key",
+            key.to_str().unwrap(),
+            "--kid",
+            "key-2",
+            "--sub",
+            "svc",
+        ]))
+        .unwrap();
+        assert!(
+            run_with(args(&["mint", "--kid", "k", "--sub", "s"])).is_err(),
+            "no --key"
+        );
+        assert!(
+            run_with(args(&[
+                "mint",
+                "--key",
+                "/no/such/key",
+                "--kid",
+                "k",
+                "--sub",
+                "s"
+            ]))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn a_command_must_be_given_and_known() {
+        assert!(run_with(vec![]).unwrap_err().starts_with("usage:"));
+        assert!(
+            run_with(args(&["frobnicate"]))
+                .unwrap_err()
+                .contains("unknown command")
+        );
+        assert!(run_with(args(&["keygen"])).is_err(), "--dir is required");
+        assert!(run_with(args(&["serve"])).is_err(), "--key is required");
+    }
+
+    #[test]
+    fn serve_publishes_the_keys_and_writes_the_token_file() {
+        use std::io::{Read, Write};
+        let dir = scratch();
+        run_with(args(&[
+            "keygen",
+            "--dir",
+            dir.to_str().unwrap(),
+            "--kid",
+            "k1",
+        ]))
+        .unwrap();
+        let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let bind = probe.local_addr().unwrap().to_string();
+        drop(probe);
+        let token_file = dir.join("token");
+        let argv = args(&[
+            "serve",
+            "--key",
+            dir.join("private.key").to_str().unwrap(),
+            "--kid",
+            "k1",
+            "--sub",
+            "svc",
+            "--token-file",
+            token_file.to_str().unwrap(),
+            "--bind",
+            &bind,
+            "--ttl",
+            "2",
+        ]);
+        std::thread::spawn(move || {
+            let _ = run_with(argv);
+        });
+        let mut body = String::new();
+        for _ in 0..50 {
+            std::thread::sleep(Duration::from_millis(100));
+            if let Ok(mut s) = std::net::TcpStream::connect(&bind) {
+                s.write_all(b"GET /keys.json HTTP/1.0\r\nHost: x\r\n\r\n")
+                    .unwrap();
+                let mut out = String::new();
+                if s.read_to_string(&mut out).is_ok() && out.contains("200") {
+                    body = out;
+                    break;
+                }
+            }
+        }
+        assert!(
+            body.contains("application/json") && body.contains("k1"),
+            "{body}"
+        );
+        let first = std::fs::read_to_string(&token_file).unwrap();
+        assert!(first.starts_with("v4.public."), "{first}");
+        // The file is rewritten every half-TTL (one second here).
+        std::thread::sleep(Duration::from_millis(1500));
+        assert!(
+            std::fs::read_to_string(&token_file)
+                .unwrap()
+                .starts_with("v4.public.")
+        );
+    }
 }
