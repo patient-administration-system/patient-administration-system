@@ -96,7 +96,7 @@ pub async fn set_status(
             id,
             "set_status",
             None,
-            Some(serde_json::to_value(&e).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&e)),
             &ctx,
         )
         .await?;
@@ -149,7 +149,7 @@ pub async fn cancel_encounter(
             id,
             "cancel",
             None,
-            Some(serde_json::to_value(&e).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&e)),
             &ctx,
         )
         .await?;

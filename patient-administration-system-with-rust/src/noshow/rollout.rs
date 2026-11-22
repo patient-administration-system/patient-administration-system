@@ -225,16 +225,20 @@ impl NoShowService {
         let clinics: Vec<ClinicEffect> = clinic_rows
             .iter()
             .map(|r| {
-                let g = |c: &str| r.col::<i64>(c).unwrap_or(0);
-                ClinicEffect {
-                    service_type: r.col::<String>("svc").unwrap_or_default(),
-                    live_since: r.col::<Timestamp>("live_since").ok(),
-                    before: window(g("before_missed"), g("before_n")),
-                    after: window(g("after_missed"), g("after_n")),
-                    same_period_clinics_still_in_shadow: window(g("shadow_missed"), g("shadow_n")),
-                }
+                // Every count is a `count(*)`, so none is NULL; a column that cannot be read is an error.
+                let g = |c: &str| r.col::<i64>(c);
+                Ok(ClinicEffect {
+                    service_type: r.col::<String>("svc")?,
+                    live_since: Some(r.col::<Timestamp>("live_since")?),
+                    before: window(g("before_missed")?, g("before_n")?),
+                    after: window(g("after_missed")?, g("after_n")?),
+                    same_period_clinics_still_in_shadow: window(
+                        g("shadow_missed")?,
+                        g("shadow_n")?,
+                    ),
+                })
             })
-            .collect();
+            .collect::<Result<_>>()?;
         Ok(Evaluation {
             model_version: MODEL_VERSION.into(),
             days: i64::from(days),

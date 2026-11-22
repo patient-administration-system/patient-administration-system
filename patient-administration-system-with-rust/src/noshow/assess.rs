@@ -77,7 +77,7 @@ impl NoShowService {
                 [
                     appointment_id.into(),
                     a.probability.into(),
-                    serde_json::to_value(&a.factors).unwrap_or_default().into(),
+                    patient_administration_system_domain::jsonx::snapshot(&a.factors).into(),
                     (a.sample_size as i32).into(),
                     MODEL_VERSION.into(),
                     now.into(),
@@ -112,7 +112,9 @@ impl NoShowService {
                     } else {
                         band(p, medium)
                     },
-                    factors: serde_json::from_value(factors).unwrap_or_default(),
+                    // A stored factor list that does not read back is corrupt data: an error, not an empty list (RCA-IN-6).
+                    factors: serde_json::from_value(factors)
+                        .map_err(|e| Error::internal(format!("stored no-show factors do not read back: {e}")))?,
                     sample_size: i64::from(r.col::<i32>("sample_size")?),
                     model_version: r.col("model_version")?,
                     computed_at: r.col("computed_at")?,

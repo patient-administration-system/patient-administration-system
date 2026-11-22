@@ -50,7 +50,7 @@ impl WaitlistService {
                         e.id,
                         "add",
                         None,
-                        Some(serde_json::to_value(&e).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&e)),
                         &ctx_clone,
                     )
                     .await?;
@@ -158,7 +158,7 @@ impl RttService {
                         p.id,
                         "start",
                         None,
-                        Some(serde_json::to_value(&p).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&p)),
                         &ctx_clone,
                     )
                     .await?;
@@ -270,7 +270,7 @@ impl RttService {
                         pathway_id,
                         action,
                         None,
-                        Some(serde_json::to_value(&e).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&e)),
                         &ctx_clone,
                     )
                     .await?;

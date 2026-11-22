@@ -45,6 +45,7 @@ fn problem(status: StatusCode, detail: &str) -> Response {
     crate::api::rest::handlers::error_to_response(match status {
         StatusCode::CONFLICT => crate::Error::conflict(detail.to_string()),
         StatusCode::BAD_REQUEST => crate::Error::validation(detail.to_string()),
+        StatusCode::INTERNAL_SERVER_ERROR => crate::Error::internal(detail.to_string()),
         _ => crate::Error::Unprocessable(detail.to_string()),
     })
 }
@@ -138,7 +139,16 @@ pub async fn idempotency_middleware(
         .await;
     let status = resp.status();
     let (resp_parts, resp_body) = resp.into_parts();
-    let body = to_bytes(resp_body, MAX_BODY).await.unwrap_or_default();
+    let Ok(body) = to_bytes(resp_body, MAX_BODY).await else {
+        // The answer could not be read back to be kept, so it is not kept and the claim is released.
+        if let Err(e) = release(db, &caller, &key_hash).await {
+            tracing::error!(target: "pas::idempotency", "could not release the key: {e}");
+        }
+        return problem(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "the response could not be read",
+        );
+    };
     let text = std::str::from_utf8(&body).ok().map(str::to_string);
     let keep = !status.is_server_error() && body.len() <= MAX_KEPT && text.is_some();
     let content_type = resp_parts

@@ -205,7 +205,7 @@ impl StandbyService {
                         entry.id,
                         "add",
                         None,
-                        Some(serde_json::to_value(&entry).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&entry)),
                         &ctx,
                     )
                     .await?;

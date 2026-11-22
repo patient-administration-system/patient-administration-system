@@ -318,7 +318,9 @@ async fn apply_location_item(
                 created.id,
                 "mad_via_hl7v2_mfn_m05",
                 None,
-                Some(serde_json::to_value(&created).unwrap_or_default()),
+                Some(patient_administration_system_domain::jsonx::snapshot(
+                    &created,
+                )),
                 audit,
             )
             .await?;
@@ -338,7 +340,9 @@ async fn apply_location_item(
                 updated.id,
                 "mup_via_hl7v2_mfn_m05",
                 None,
-                Some(serde_json::to_value(&updated).unwrap_or_default()),
+                Some(patient_administration_system_domain::jsonx::snapshot(
+                    &updated,
+                )),
                 audit,
             )
             .await?;

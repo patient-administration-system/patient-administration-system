@@ -77,7 +77,7 @@ impl AdtService {
             enc.id,
             "admit",
             None,
-            Some(serde_json::to_value(&enc).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&enc)),
             ctx,
         )
         .await?;
@@ -187,7 +187,7 @@ impl AdtService {
                         enc.id,
                         "pre_admit",
                         None,
-                        Some(serde_json::to_value(&enc).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&enc)),
                         &ctx_clone,
                     )
                     .await?;
@@ -395,7 +395,7 @@ impl AdtService {
                         admission_id,
                         "cancel_admit",
                         None,
-                        Some(serde_json::to_value(&adm).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&adm)),
                         &ctx_clone,
                     )
                     .await?;

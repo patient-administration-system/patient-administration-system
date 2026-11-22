@@ -448,11 +448,12 @@ impl TransportService {
             .await?
             .ok_or_else(|| Error::internal("booking vanished"))?
             .col("person_id")?;
-        match self
-            .client
-            .cancel(b.provider_ref.as_deref().unwrap_or_default())
-            .await
-        {
+        // A booking the provider never confirmed has no reference to cancel there, so nothing is sent.
+        let cancelled = match b.provider_ref.as_deref() {
+            Some(reference) => self.client.cancel(reference).await,
+            None => Ok(()),
+        };
+        match cancelled {
             Ok(()) => {
                 self.set_status(b.id, BookingStatus::Cancelled, None)
                     .await?;

@@ -103,7 +103,7 @@ pub async fn create_template(
             t.id,
             "create",
             None,
-            Some(serde_json::to_value(&t).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&t)),
             &ctx,
         )
         .await?;
@@ -177,7 +177,7 @@ pub async fn update_template(
                 .ok()
                 .flatten()
                 .and_then(|b| serde_json::to_value(b).ok()),
-            Some(serde_json::to_value(&t).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&t)),
             &ctx,
         )
         .await?;
@@ -392,7 +392,7 @@ pub async fn mark_sent(
             id,
             "mark_sent",
             None,
-            Some(serde_json::to_value(&l).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&l)),
             &ctx,
         )
         .await?;
@@ -432,7 +432,7 @@ pub async fn mark_failed(
             id,
             "mark_failed",
             None,
-            Some(serde_json::to_value(&l).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&l)),
             &ctx,
         )
         .await?;
@@ -553,7 +553,7 @@ pub async fn create_group(
                         s.id,
                         "create",
                         None,
-                        Some(serde_json::to_value(&s).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&s)),
                         &ctx,
                     )
                     .await?;

@@ -48,7 +48,9 @@ pub async fn dft(
                                 saved.id,
                                 "open_via_hl7v2_p03",
                                 None,
-                                Some(serde_json::to_value(&saved).unwrap_or_default()),
+                                Some(patient_administration_system_domain::jsonx::snapshot(
+                                    &saved,
+                                )),
                                 &audit_clone,
                             )
                             .await?;
@@ -75,7 +77,9 @@ pub async fn dft(
                         saved.id,
                         "post_via_hl7v2_p03",
                         None,
-                        Some(serde_json::to_value(&saved).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(
+                            &saved,
+                        )),
                         &audit_clone,
                     )
                     .await?;

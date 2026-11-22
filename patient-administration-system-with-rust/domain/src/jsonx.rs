@@ -19,6 +19,22 @@ pub fn set(v: &mut Value, key: &str, val: Value) {
     }
 }
 
+/// The JSON of `value`, for an audit record or an outbox event. A type that derives `Serialize` cannot fail
+/// here; if one ever does, the snapshot is JSON null ("not recorded", never an empty object or a zero), and the
+/// failure is logged with the type's name so the defect is found, not hidden.
+pub fn snapshot<T: serde::Serialize>(value: &T) -> Value {
+    match serde_json::to_value(value) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::error!(
+                kind = std::any::type_name::<T>(),
+                "snapshot not recorded: {e}"
+            );
+            Value::Null
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -41,5 +57,14 @@ mod tests {
         assert_eq!(at(at(&v, "a"), "b"), &json!(1));
         assert!(at(at(&v, "x"), "y").is_null());
         assert!(at(&json!([1]), "k").is_null());
+    }
+
+    #[test]
+    fn a_snapshot_is_the_value_or_null_when_it_cannot_be_serialised() {
+        assert_eq!(snapshot(&json!({ "a": 1 })), json!({ "a": 1 }));
+        assert_eq!(snapshot(&vec![1, 2]), json!([1, 2]));
+        // A map with a non-string key cannot become a JSON object.
+        let bad: std::collections::BTreeMap<(i32, i32), i32> = [((1, 2), 3)].into();
+        assert_eq!(snapshot(&bad), Value::Null);
     }
 }

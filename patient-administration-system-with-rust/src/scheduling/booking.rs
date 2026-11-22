@@ -146,7 +146,7 @@ impl SchedulingService {
             appt.id,
             "book",
             None,
-            Some(serde_json::to_value(&appt).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&appt)),
             ctx,
         )
         .await?;

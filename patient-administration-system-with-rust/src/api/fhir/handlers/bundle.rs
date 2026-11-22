@@ -277,7 +277,9 @@ async fn save(txn: &Txn, plan: &Plan, ctx: &UserContext) -> Result<(String, Afte
                 saved.id,
                 "create",
                 None,
-                Some(serde_json::to_value(&saved).unwrap_or_default()),
+                Some(patient_administration_system_domain::jsonx::snapshot(
+                    &saved,
+                )),
                 ctx,
             )
             .await?;

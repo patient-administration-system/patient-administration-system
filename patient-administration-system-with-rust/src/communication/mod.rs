@@ -134,7 +134,7 @@ impl CommunicationService {
             user_agent: ctx.user_agent.clone(),
         };
         let person = person_client.get(person_id, &upstream_ctx).await?;
-        let value = serde_json::to_value(&person).unwrap_or_default();
+        let value = patient_administration_system_domain::jsonx::snapshot(&person);
         self.resolve_recipient(channel, person_id, &value).await
     }
 
@@ -301,7 +301,7 @@ impl CommunicationService {
         let person = person_client.get(person_id, &upstream_ctx).await?;
 
         // 1a to 1c. May this message be sent to this person on this channel at all? Every send passes here.
-        let person_json = serde_json::to_value(&person).unwrap_or_default();
+        let person_json = patient_administration_system_domain::jsonx::snapshot(&person);
         self.check_may_send(channel, person_id, template_id, &person_json)
             .await?;
 
@@ -404,7 +404,7 @@ impl CommunicationService {
                         l.id,
                         "generate",
                         None,
-                        Some(serde_json::to_value(&l).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&l)),
                         &ctx_clone,
                     )
                     .await?;

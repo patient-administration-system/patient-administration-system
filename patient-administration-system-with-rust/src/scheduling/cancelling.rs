@@ -50,7 +50,7 @@ impl SchedulingService {
             appt.id,
             "cancel",
             None,
-            Some(serde_json::to_value(&appt).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&appt)),
             Some(&reason),
             Some(serde_json::json!({
                 "cancelled_by": details.cancelled_by,

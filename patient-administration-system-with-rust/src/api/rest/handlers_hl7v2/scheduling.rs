@@ -58,7 +58,9 @@ pub async fn schedule_book(
                     saved.id,
                     "book_via_hl7v2_s12",
                     None,
-                    Some(serde_json::to_value(&saved).unwrap_or_default()),
+                    Some(patient_administration_system_domain::jsonx::snapshot(
+                        &saved,
+                    )),
                     &audit_clone,
                 )
                 .await?;
@@ -165,8 +167,12 @@ pub async fn schedule_reschedule(
             "appointment",
             saved.id,
             "reschedule_via_hl7v2_s13",
-            Some(serde_json::to_value(&existing).unwrap_or_default()),
-            Some(serde_json::to_value(&saved).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(
+                &existing,
+            )),
+            Some(patient_administration_system_domain::jsonx::snapshot(
+                &saved,
+            )),
             &r.audit,
         )
         .await?;
@@ -242,8 +248,12 @@ pub async fn schedule_modify(
             "appointment",
             saved.id,
             "modify_via_hl7v2_s14",
-            Some(serde_json::to_value(&existing).unwrap_or_default()),
-            Some(serde_json::to_value(&saved).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(
+                &existing,
+            )),
+            Some(patient_administration_system_domain::jsonx::snapshot(
+                &saved,
+            )),
             &r.audit,
         )
         .await?;

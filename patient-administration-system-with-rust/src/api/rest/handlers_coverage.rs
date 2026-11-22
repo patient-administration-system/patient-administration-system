@@ -51,7 +51,7 @@ pub async fn create_coverage(
             c.id,
             "create",
             None,
-            Some(serde_json::to_value(&c).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&c)),
             &ctx,
         )
         .await?;
@@ -127,7 +127,7 @@ pub async fn update_coverage(
             c.id,
             "update",
             None,
-            Some(serde_json::to_value(&c).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&c)),
             &ctx,
         )
         .await?;
@@ -173,7 +173,7 @@ pub async fn delete_coverage(
             id,
             "cancel",
             None,
-            Some(serde_json::to_value(&c).unwrap_or_default()),
+            Some(patient_administration_system_domain::jsonx::snapshot(&c)),
             &ctx,
         )
         .await?;

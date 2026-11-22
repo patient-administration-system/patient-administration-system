@@ -109,7 +109,7 @@ impl AdtService {
                         admission_id,
                         "cancel_discharge",
                         None,
-                        Some(serde_json::to_value(&adm).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&adm)),
                         &ctx_clone,
                     )
                     .await?;
@@ -196,7 +196,7 @@ impl AdtService {
                         admission_id,
                         "discharge",
                         None,
-                        Some(serde_json::to_value(&d).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&d)),
                         &ctx_clone,
                     )
                     .await?;

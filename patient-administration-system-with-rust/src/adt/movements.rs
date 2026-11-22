@@ -75,7 +75,7 @@ impl AdtService {
                         admission_id,
                         "transfer",
                         None,
-                        Some(serde_json::to_value(&t).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&t)),
                         &ctx_clone,
                     )
                     .await?;

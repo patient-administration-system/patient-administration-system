@@ -389,9 +389,12 @@ impl InboundService {
         }
         let cands: Option<serde_json::Value> = r.col("candidates")?;
         let pending: Option<String> = r.col("pending_intent")?;
-        let ids: Vec<Uuid> = cands
-            .and_then(|v| serde_json::from_value(v).ok())
-            .unwrap_or_default();
+        // No candidates stored means none were offered; stored candidates that do not read back are corrupt (RCA-IN-6).
+        let ids: Vec<Uuid> = match cands {
+            Some(v) => serde_json::from_value(v)
+                .map_err(|e| Error::internal(format!("stored candidates do not read back: {e}")))?,
+            None => Vec::new(),
+        };
         Ok(pending.map(|p| (ids, p)))
     }
 

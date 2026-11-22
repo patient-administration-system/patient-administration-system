@@ -190,7 +190,7 @@ pub async fn create_facility(
             &txn,
             "facility",
             f.id,
-            serde_json::to_value(&f).unwrap_or_default(),
+            patient_administration_system_domain::jsonx::snapshot(&f),
             &ctx,
         )
         .await?;
@@ -271,7 +271,7 @@ pub async fn create_ward(
             &txn,
             "ward",
             w.id,
-            serde_json::to_value(&w).unwrap_or_default(),
+            patient_administration_system_domain::jsonx::snapshot(&w),
             &ctx,
         )
         .await?;
@@ -356,7 +356,7 @@ pub async fn create_room(
             &txn,
             "room",
             r.id,
-            serde_json::to_value(&r).unwrap_or_default(),
+            patient_administration_system_domain::jsonx::snapshot(&r),
             &ctx,
         )
         .await?;
@@ -441,7 +441,7 @@ pub async fn create_bed(
             &txn,
             "bed",
             b.id,
-            serde_json::to_value(&b).unwrap_or_default(),
+            patient_administration_system_domain::jsonx::snapshot(&b),
             &ctx,
         )
         .await?;

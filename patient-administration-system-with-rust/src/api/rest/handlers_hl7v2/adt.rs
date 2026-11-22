@@ -293,7 +293,7 @@ pub async fn register(
                     e.id,
                     "register_via_hl7v2_a04",
                     None,
-                    Some(serde_json::to_value(&e).unwrap_or_default()),
+                    Some(patient_administration_system_domain::jsonx::snapshot(&e)),
                     &audit_clone,
                 )
                 .await?;

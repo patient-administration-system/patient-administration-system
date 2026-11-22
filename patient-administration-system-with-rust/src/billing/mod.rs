@@ -64,7 +64,7 @@ impl BillingService {
                         a.id,
                         "open",
                         None,
-                        Some(serde_json::to_value(&a).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&a)),
                         &ctx_clone,
                     )
                     .await?;
@@ -138,7 +138,7 @@ impl BillingService {
                         c.id,
                         "post",
                         None,
-                        Some(serde_json::to_value(&c).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&c)),
                         &ctx_clone,
                     )
                     .await?;
@@ -193,7 +193,7 @@ impl BillingService {
                         i.id,
                         "finalize",
                         None,
-                        Some(serde_json::to_value(&i).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&i)),
                         &ctx_clone,
                     )
                     .await?;
@@ -250,7 +250,7 @@ impl BillingService {
                         p.id,
                         "post",
                         None,
-                        Some(serde_json::to_value(&p).unwrap_or_default()),
+                        Some(patient_administration_system_domain::jsonx::snapshot(&p)),
                         &ctx_clone,
                     )
                     .await?;
