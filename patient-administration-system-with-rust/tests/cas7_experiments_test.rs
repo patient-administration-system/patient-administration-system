@@ -172,6 +172,16 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
     ))
     .await
     .unwrap();
+    // The reminder's default wording is made on first use. This test needs it in every required language
+    // before it starts the experiment, so it makes it here rather than relying on an earlier test having
+    // sent a reminder against this database (it failed on a fresh database depending on the order).
+    patient_administration_system::communication::reminders::ReminderService::new(
+        s.db.clone(),
+        s.communication.clone(),
+    )
+    .ensure_default_templates()
+    .await
+    .unwrap();
     let (b_name,) = (uniq("reminder-b"),);
     group(&s, &b_name, "VARIANT-B").await;
 
