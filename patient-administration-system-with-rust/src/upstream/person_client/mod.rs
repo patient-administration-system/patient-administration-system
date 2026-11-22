@@ -431,4 +431,251 @@ mod tests {
             "user ip header missing: {req}"
         );
     }
+
+    /// A person-service that answers each route with a success envelope of the right shape, and bulk exports
+    /// in each format with its own content type. Deleting the all-zero id is a 409 with an envelope; exporting
+    /// as `csv` is a 500.
+    async fn envelope_server() -> SocketAddr {
+        use axum::{
+            Json, Router,
+            extract::Path,
+            http::StatusCode,
+            routing::{get, post},
+        };
+        use serde_json::{Value, json};
+        fn ok(data: Value) -> Json<Value> {
+            Json(json!({ "success": true, "data": data, "error": null }))
+        }
+        fn person(id: Uuid) -> Value {
+            json!({ "id": id, "active": true })
+        }
+        let app = Router::new()
+            .route("/api/health", get(|| async { "ok" }))
+            .route(
+                "/api/persons",
+                post(|Json(_): Json<Value>| async { ok(person(Uuid::new_v4())) }),
+            )
+            .route(
+                "/api/persons/search",
+                get(|| async { ok(json!([person(Uuid::new_v4())])) }),
+            )
+            .route(
+                "/api/persons/match",
+                post(|Json(_): Json<Value>| async {
+                    ok(json!([{ "person": person(Uuid::new_v4()), "score": 0.8 }]))
+                }),
+            )
+            .route(
+                "/api/persons/check-duplicates",
+                post(|Json(_): Json<Value>| async { ok(json!([])) }),
+            )
+            .route(
+                "/api/persons/merge",
+                post(|Json(b): Json<Value>| async move { ok(b) }),
+            )
+            .route(
+                "/api/persons/import",
+                post(|body: String| async move { ok(json!({ "received": body.len() })) }),
+            )
+            .route(
+                "/api/persons/export.json",
+                get(|| async { ([("content-type", "application/json")], "[]") }),
+            )
+            .route(
+                "/api/persons/export.xml",
+                get(|| async { "<persons/>" }),
+            )
+            .route(
+                "/api/persons/export.tsv",
+                get(|| async { ([("content-type", "text/tab-separated-values")], "id\n") }),
+            )
+            .route(
+                "/api/persons/export.csv",
+                get(|| async { (StatusCode::INTERNAL_SERVER_ERROR, "no") }),
+            )
+            .route(
+                "/api/persons/{id}/masked",
+                get(|Path(id): Path<Uuid>| async move { ok(person(id)) }),
+            )
+            .route(
+                "/api/persons/{id}/export",
+                get(|Path(id): Path<Uuid>| async move { ok(json!({ "id": id })) }),
+            )
+            .route(
+                "/api/persons/{id}/audit",
+                get(|| async {
+                    ok(json!([{ "id": Uuid::new_v4(), "at": "2026-01-01T00:00:00Z", "action": "read", "user_id": null }]))
+                }),
+            )
+            .route(
+                "/api/persons/{id}",
+                get(|Path(id): Path<Uuid>| async move { ok(person(id)) })
+                    .put(|Path(id): Path<Uuid>, Json(_): Json<Value>| async move { ok(person(id)) })
+                    .delete(|Path(id): Path<Uuid>| async move {
+                        if id.is_nil() {
+                            (
+                                StatusCode::CONFLICT,
+                                Json(json!({ "success": false, "data": null, "error": { "code": "CONFLICT", "message": "in use" } })),
+                            )
+                        } else {
+                            (StatusCode::OK, Json(Value::Null))
+                        }
+                    }),
+            );
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        addr
+    }
+
+    #[tokio::test]
+    async fn every_http_call_reaches_its_route_and_reads_the_answer() {
+        let addr = envelope_server().await;
+        let client = HttpPersonClient::new(
+            format!("http://{addr}/"),
+            Duration::from_secs(2),
+            Some("secret".into()),
+        )
+        .unwrap();
+        client.ping().await.unwrap();
+        let p = client.create(make_person_create(), &ctx()).await.unwrap();
+        let id = p.id;
+        assert_eq!(client.get(id, &ctx()).await.unwrap().id, id);
+        assert_eq!(
+            client
+                .update(id, make_person_create(), &ctx())
+                .await
+                .unwrap()
+                .id,
+            id
+        );
+        assert_eq!(client.search("jane", 5, &ctx()).await.unwrap().len(), 1);
+        let matches = client
+            .match_persons(make_person_create(), &ctx())
+            .await
+            .unwrap();
+        assert!((matches[0].score - 0.8).abs() < 1e-9);
+        assert!(
+            client
+                .check_duplicates(make_person_create(), &ctx())
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
+        let merged = client.merge(a, b, &ctx()).await.unwrap();
+        assert_eq!((merged.source_id, merged.target_id), (a, b));
+        assert_eq!(client.masked(id, &ctx()).await.unwrap().id, id);
+        assert_eq!(
+            client.export(id, &ctx()).await.unwrap()["id"],
+            id.to_string()
+        );
+        assert_eq!(client.audit(id, 3, &ctx()).await.unwrap().len(), 1);
+        client.delete(id, &ctx()).await.unwrap();
+        let err = client.delete(Uuid::nil(), &ctx()).await.unwrap_err();
+        assert!(matches!(err, Error::Conflict(_)), "{err:?}");
+    }
+
+    #[tokio::test]
+    async fn bulk_export_returns_each_format_with_its_content_type_and_refuses_the_rest() {
+        let addr = envelope_server().await;
+        let client =
+            HttpPersonClient::new(format!("http://{addr}"), Duration::from_secs(2), None).unwrap();
+        let (ct, body) = client.bulk_export("json", &ctx()).await.unwrap();
+        assert_eq!(
+            (ct.as_str(), body.as_slice()),
+            ("application/json", &b"[]"[..])
+        );
+        let (ct, _) = client.bulk_export("tsv", &ctx()).await.unwrap();
+        assert_eq!(ct, "text/tab-separated-values");
+        let (ct, _) = client.bulk_export("xml", &ctx()).await.unwrap();
+        assert!(
+            ct.starts_with("text/plain"),
+            "the default when the service names none: {ct}"
+        );
+        assert!(matches!(
+            client.bulk_export("csv", &ctx()).await.unwrap_err(),
+            Error::Upstream(_)
+        ));
+        assert!(matches!(
+            client.bulk_export("yaml", &ctx()).await.unwrap_err(),
+            Error::Validation(_)
+        ));
+        let imported = client
+            .bulk_import("text/csv", b"a,b\n".to_vec(), &ctx())
+            .await
+            .unwrap();
+        assert_eq!(imported["received"], 4);
+    }
+
+    #[tokio::test]
+    async fn an_error_status_is_translated_and_an_odd_envelope_is_an_upstream_error() {
+        for (status, want) in [
+            ("400 Bad Request", "validation"),
+            ("409 Conflict", "conflict"),
+            ("500 Internal Server Error", "upstream"),
+        ] {
+            let body = r#"{"success":false,"data":null,"error":{"code":"X","message":"m"}}"#;
+            let resp = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let addr = one_shot(resp).await;
+            let client =
+                HttpPersonClient::new(format!("http://{addr}"), Duration::from_secs(2), None)
+                    .unwrap();
+            let kind = match client.get(Uuid::new_v4(), &ctx()).await.unwrap_err() {
+                Error::Validation(_) => "validation",
+                Error::Conflict(_) => "conflict",
+                Error::Upstream(_) => "upstream",
+                other => panic!("{status}: {other:?}"),
+            };
+            assert_eq!(kind, want, "{status}");
+        }
+        for body in [r#"{"success":true,"data":null,"error":null}"#, "not json"] {
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let addr = one_shot(resp).await;
+            let client =
+                HttpPersonClient::new(format!("http://{addr}"), Duration::from_secs(2), None)
+                    .unwrap();
+            assert!(matches!(
+                client.get(Uuid::new_v4(), &ctx()).await.unwrap_err(),
+                Error::Upstream(_)
+            ));
+        }
+        // A delete refused without an envelope, and a service that cannot be reached.
+        let resp = "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 4\r\nConnection: close\r\n\r\ndown".to_string();
+        let addr = one_shot(resp).await;
+        let client =
+            HttpPersonClient::new(format!("http://{addr}"), Duration::from_secs(2), None).unwrap();
+        assert!(matches!(
+            client.delete(Uuid::new_v4(), &ctx()).await.unwrap_err(),
+            Error::Upstream(_)
+        ));
+        let gone = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = gone.local_addr().unwrap();
+        drop(gone);
+        let client =
+            HttpPersonClient::new(format!("http://{addr}"), Duration::from_millis(300), None)
+                .unwrap();
+        assert!(client.ping().await.is_err());
+    }
+
+    /// One answer to one connection.
+    async fn one_shot(response: String) -> SocketAddr {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            if let Ok((mut sock, _)) = listener.accept().await {
+                let mut buf = [0u8; 4096];
+                let _ = sock.read(&mut buf).await;
+                let _ = sock.write_all(response.as_bytes()).await;
+                let _ = sock.shutdown().await;
+            }
+        });
+        addr
+    }
 }
