@@ -481,3 +481,69 @@ impl TransportService {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod default_client_tests {
+    use super::*;
+    use crate::upstream::Person;
+    use serde_json::json;
+
+    fn person(addresses: serde_json::Value) -> Person {
+        let mut data = serde_json::Map::new();
+        data.insert("addresses".into(), addresses);
+        Person {
+            id: Uuid::new_v4(),
+            data,
+        }
+    }
+
+    #[tokio::test]
+    async fn the_default_client_names_a_made_up_ride_in_a_window_before_the_appointment() {
+        let start = crate::time::utc(2027, 3, 1, 10, 0, 0);
+        let req = TransportRequest {
+            reference: Uuid::new_v4(),
+            pickup_address: "1 High St".into(),
+            destination: "The clinic".into(),
+            appointment_start: start,
+            appointment_end: start + SignedDuration::from_mins(30),
+        };
+        let c = LoggingTransportClient;
+        let got = c.book(&req).await.unwrap();
+        assert_eq!(got.provider_ref, format!("stub-{}", req.reference));
+        assert_eq!(got.window_start, start - SignedDuration::from_mins(90));
+        assert_eq!(got.window_end, start - SignedDuration::from_mins(60));
+        c.cancel(&got.provider_ref).await.unwrap();
+    }
+
+    #[test]
+    fn a_pickup_address_is_text_or_its_parts_in_order_or_nothing() {
+        let text = person(json!([{ "text": "  Flat 2, 1 High St  ", "city": "ignored" }]));
+        assert_eq!(pickup_address(&text).as_deref(), Some("Flat 2, 1 High St"));
+        let parts = person(
+            json!([{ "line": ["1 High St", "Flat 2"], "city": "Leeds", "postalCode": "LS1 1AA" }]),
+        );
+        assert_eq!(
+            pickup_address(&parts).as_deref(),
+            Some("1 High St, Flat 2, Leeds, LS1 1AA")
+        );
+        let one_line =
+            person(json!([{ "line": "1 High St", "postal_code": "LS1 1AA", "district": "North" }]));
+        assert_eq!(
+            pickup_address(&one_line).as_deref(),
+            Some("1 High St, North, LS1 1AA")
+        );
+        for none in [
+            person(json!([])),
+            person(json!([{}])),
+            person(json!([{ "text": "   ", "line": ["  "] }])),
+            person(json!("not a list")),
+        ] {
+            assert_eq!(pickup_address(&none), None);
+        }
+        let no_addresses = Person {
+            id: Uuid::new_v4(),
+            data: serde_json::Map::new(),
+        };
+        assert_eq!(pickup_address(&no_addresses), None);
+    }
+}
