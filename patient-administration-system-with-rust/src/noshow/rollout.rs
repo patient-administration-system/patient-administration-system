@@ -144,8 +144,8 @@ impl NoShowService {
         let r3 = |x: f64| (x * 1000.0).round() / 1000.0;
         let rows = self
             .db
-            .all(Stmt::new("SELECT floor(n.probability * 10)::int AS tenth, count(*)::bigint AS n, avg(n.probability) AS predicted, \
-                   avg((a.status = 'no_show')::int) AS observed \
+            .all(Stmt::new("SELECT floor(n.probability * 10)::int AS tenth, count(*)::bigint AS n, avg(n.probability)::float8 AS predicted, \
+                   avg((a.status = 'no_show')::int)::float8 AS observed \
                  FROM noshow_assessments n JOIN appointments a ON a.id = n.appointment_id \
                  WHERE a.status IN ('fulfilled','arrived','no_show') AND a.start_datetime > now() - make_interval(days => $1) \
                  GROUP BY 1 ORDER BY 1",
@@ -155,8 +155,9 @@ impl NoShowService {
         let counts: Vec<(Vec<(String, String)>, i64)> = rows
             .iter()
             .map(|r| {
-                let t: i32 = r.col("tenth").unwrap_or(0);
+                let t: i32 = r.col("tenth")?;
                 Ok((
+                    // A probability of exactly 1 falls in the tenth above 9 and is shown with the top tenth.
                     vec![("tenth".to_string(), t.min(9).to_string())],
                     r.col::<i64>("n")?,
                 ))
@@ -167,8 +168,12 @@ impl NoShowService {
             .iter()
             .zip(cells)
             .map(|(r, c)| {
-                let t = c.dims.first().map(|d| d.1.clone()).unwrap_or_default();
-                if c.suppressed {
+                let t = c
+                    .dims
+                    .first()
+                    .map(|d| d.1.clone())
+                    .ok_or_else(|| Error::internal("a calibration cell has no tenth"))?;
+                Ok(if c.suppressed {
                     CalibrationCell {
                         predicted_tenth: t,
                         appointments: None,
@@ -178,10 +183,8 @@ impl NoShowService {
                         suppressed: true,
                     }
                 } else {
-                    let (p, o): (f64, f64) = (
-                        r.col("predicted").unwrap_or(0.0),
-                        r.col("observed").unwrap_or(0.0),
-                    );
+                    // Each tenth listed has at least one appointment, so both averages exist.
+                    let (p, o): (f64, f64) = (r.col("predicted")?, r.col("observed")?);
                     CalibrationCell {
                         predicted_tenth: t,
                         appointments: c.count,
@@ -190,9 +193,9 @@ impl NoShowService {
                         gap: Some(r3(p - o)),
                         suppressed: false,
                     }
-                }
+                })
             })
-            .collect();
+            .collect::<Result<_>>()?;
 
         // Per clinic: before and after the go-live moment, and the same after-period at clinics still in shadow.
         let clinic_rows = self

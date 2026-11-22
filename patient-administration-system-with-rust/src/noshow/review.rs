@@ -33,11 +33,15 @@ impl NoShowService {
                 [kind.as_str().into(), MODEL_VERSION.into(), (valid_days as i32).into()],
             ))
 .await?
-            .and_then(|r| {
-                let outcome: String = r.col("outcome").ok()?;
-                let fresh: bool = r.col("fresh").ok()?;
-                (outcome == ReviewOutcome::Approved.as_str() && fresh).then_some(outcome)
-            }))
+            .map(|r| {
+                let outcome: String = r.col("outcome")?;
+                let fresh: bool = r.col("fresh")?;
+                Ok::<_, Error>(
+                    (outcome == ReviewOutcome::Approved.as_str() && fresh).then_some(outcome),
+                )
+            })
+            .transpose()?
+            .flatten())
     }
 
     pub async fn status(&self) -> Result<Status> {

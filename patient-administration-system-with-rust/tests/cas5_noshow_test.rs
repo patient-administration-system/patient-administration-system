@@ -899,6 +899,13 @@ async fn the_evaluation_reports_calibration_and_before_after_against_clinics_sti
         "{c}"
     );
     assert!((c["mean_predicted"].as_f64().unwrap() - 0.30).abs() < 0.01);
+    // Some of this tenth did not attend, so the observed rate is a real figure above zero, not a failed read
+    // shown as 0; the gap is the predicted rate less the observed one.
+    let observed = c["observed_no_show_rate"].as_f64().unwrap();
+    assert!(observed > 0.0 && observed < 1.0, "{c}");
+    let gap = c["gap"].as_f64().unwrap();
+    let predicted = c["mean_predicted"].as_f64().unwrap();
+    assert!((gap - (predicted - observed)).abs() < 0.002, "{c}");
     let clinic = v["clinics"]
         .as_array()
         .unwrap()
