@@ -246,3 +246,181 @@ async fn test_worker_merged_webhook_happy_path() {
         std::env::remove_var("WORKER_SERVICE_WEBHOOK_SECRET");
     }
 }
+
+async fn post_webhook(
+    app: &axum::Router,
+    path: &str,
+    body: &[u8],
+    signature: Option<&str>,
+    event_header: Option<&str>,
+) -> (StatusCode, Value) {
+    let mut b = Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("content-type", "application/json");
+    if let Some(s) = signature {
+        b = b.header("x-upstream-signature", s);
+    }
+    if let Some(e) = event_header {
+        b = b.header("x-upstream-event-id", e);
+    }
+    let resp = app
+        .clone()
+        .oneshot(b.body(Body::from(body.to_vec())).unwrap())
+        .await
+        .unwrap();
+    let st = resp.status();
+    (st, body_json(resp).await)
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_worker_webhook_refuses_what_it_cannot_trust_and_ignores_a_replay() {
+    let _env_guard = ENV_LOCK.lock().await;
+    let url = common::database_url().unwrap();
+    let app = patient_administration_system::api::rest::router(common::build_state(&url).await);
+    let path = "/api/upstream/worker-merged";
+    let body = serde_json::to_vec(&serde_json::json!({
+        "source_id": Uuid::new_v4(), "target_id": Uuid::new_v4()
+    }))
+    .unwrap();
+
+    // No secret configured: refused outright.
+    unsafe { std::env::remove_var("WORKER_SERVICE_WEBHOOK_SECRET") };
+    let (st, _) = post_webhook(&app, path, &body, Some(&sign(b"s", &body)), None).await;
+    assert!(st.is_server_error(), "{st}");
+
+    unsafe { std::env::set_var("WORKER_SERVICE_WEBHOOK_SECRET", "wsecret") };
+    // Every way a signature can be wrong is a 401.
+    for bad in [
+        None,
+        Some("deadbeef"),
+        Some("sha256=zz"),
+        Some("sha256=abc"),
+        Some("sha256=00"),
+    ] {
+        let (st, _) = post_webhook(&app, path, &body, bad, None).await;
+        assert_eq!(st, StatusCode::UNAUTHORIZED, "{bad:?}");
+    }
+    let wrong = sign(b"other", &body);
+    let (st, _) = post_webhook(&app, path, &body, Some(&wrong), None).await;
+    assert_eq!(st, StatusCode::UNAUTHORIZED);
+
+    // Signed, but not a merge: malformed, and a merge of a record into itself.
+    let junk = b"not json".to_vec();
+    let (st, _) = post_webhook(&app, path, &junk, Some(&sign(b"wsecret", &junk)), None).await;
+    assert!(st.is_client_error());
+    let same = Uuid::new_v4();
+    let selfmerge =
+        serde_json::to_vec(&serde_json::json!({"source_id": same, "target_id": same})).unwrap();
+    let (st, _) = post_webhook(
+        &app,
+        path,
+        &selfmerge,
+        Some(&sign(b"wsecret", &selfmerge)),
+        None,
+    )
+    .await;
+    assert!(st.is_client_error());
+
+    // Without an event id the pair makes one, so the same message twice is applied once; an id in the header
+    // wins over the pair's, so the same pair under a new header is a new event.
+    let good = sign(b"wsecret", &body);
+    let (st, v) = post_webhook(&app, path, &body, Some(&good), None).await;
+    assert_eq!(
+        (st, &v["data"]["applied"]),
+        (StatusCode::OK, &Value::Bool(true))
+    );
+    let (_, v) = post_webhook(&app, path, &body, Some(&good), None).await;
+    assert_eq!(v["data"]["applied"], Value::Bool(false));
+    assert_eq!(v["data"]["reason"], "duplicate");
+    let header_id = Uuid::new_v4().to_string();
+    let (_, v) = post_webhook(&app, path, &body, Some(&good), Some(&header_id)).await;
+    assert_eq!(v["data"]["applied"], Value::Bool(true));
+    let (_, v) = post_webhook(&app, path, &body, Some(&good), Some(&header_id)).await;
+    assert_eq!(v["data"]["applied"], Value::Bool(false));
+    let (_, v) = post_webhook(&app, path, &body, Some(&good), Some("not-a-uuid")).await;
+    assert_eq!(
+        v["data"]["applied"],
+        Value::Bool(false),
+        "an unreadable header falls back to the pair"
+    );
+
+    unsafe { std::env::remove_var("WORKER_SERVICE_WEBHOOK_SECRET") };
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_merge_moves_the_rows_of_the_old_record_to_the_new_one_and_audits_it() {
+    use patient_administration_system::db::row::RowExt;
+    use patient_administration_system::db::sql::{Conn, Stmt};
+    let _env_guard = ENV_LOCK.lock().await;
+    let url = common::database_url().unwrap();
+    let state = common::build_state(&url).await;
+    let db = state.db.clone();
+    let app = patient_administration_system::api::rest::router(state);
+    unsafe {
+        std::env::set_var("PERSON_SERVICE_WEBHOOK_SECRET", "psecret");
+        std::env::set_var("WORKER_SERVICE_WEBHOOK_SECRET", "wsecret");
+    }
+    let (old_person, new_person) = (Uuid::new_v4(), Uuid::new_v4());
+    let (old_worker, new_worker) = (Uuid::new_v4(), Uuid::new_v4());
+    let appt = Uuid::new_v4();
+    db.run(Stmt::new(
+        "INSERT INTO appointments (id, person_id, worker_id, start_datetime, end_datetime, status, created_at, updated_at) \
+         VALUES ($1,$2,$3, now() + interval '30 days', now() + interval '30 days 30 minutes', 'booked', now(), now())",
+        [appt.into(), old_person.into(), old_worker.into()],
+    ))
+    .await
+    .unwrap();
+
+    let send = |path: &'static str, secret: &'static [u8], src: Uuid, dst: Uuid| {
+        let app = app.clone();
+        async move {
+            let body = serde_json::to_vec(&serde_json::json!({"source_id": src, "target_id": dst}))
+                .unwrap();
+            post_webhook(&app, path, &body, Some(&sign(secret, &body)), None).await
+        }
+    };
+    let (st, _) = send(
+        "/api/upstream/person-merged",
+        b"psecret",
+        old_person,
+        new_person,
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    let (st, _) = send(
+        "/api/upstream/worker-merged",
+        b"wsecret",
+        old_worker,
+        new_worker,
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+
+    let row = db
+        .one(Stmt::new(
+            "SELECT person_id, worker_id FROM appointments WHERE id = $1",
+            [appt.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.col::<Uuid>("person_id").unwrap(), new_person);
+    assert_eq!(row.col::<Uuid>("worker_id").unwrap(), new_worker);
+    for action in ["upstream_person_merged", "upstream_worker_merged"] {
+        let n = db
+            .count(Stmt::new(
+                "SELECT count(*) AS n FROM audit_log WHERE action = $1 AND entity_id = ANY($2)",
+                [action.into(), vec![old_person, old_worker].into()],
+            ))
+            .await
+            .unwrap();
+        assert!(n >= 1, "{action} is audited");
+    }
+    unsafe {
+        std::env::remove_var("PERSON_SERVICE_WEBHOOK_SECRET");
+        std::env::remove_var("WORKER_SERVICE_WEBHOOK_SECRET");
+    }
+}
