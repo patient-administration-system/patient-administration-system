@@ -364,3 +364,45 @@ mod tests {
         assert_eq!(back.charge_ids.len(), 2);
     }
 }
+
+#[cfg(test)]
+mod conversion_tests {
+    use super::*;
+
+    #[test]
+    fn every_status_and_method_round_trips_through_its_text_and_an_unknown_text_is_an_error() {
+        for s in [AccountStatus::Open, AccountStatus::Closed] {
+            assert_eq!(
+                account_status_from_str(account_status_to_str(s)).unwrap(),
+                s
+            );
+        }
+        for s in [
+            InvoiceStatus::Draft,
+            InvoiceStatus::Finalized,
+            InvoiceStatus::Paid,
+            InvoiceStatus::PartiallyPaid,
+            InvoiceStatus::Void,
+        ] {
+            assert_eq!(
+                invoice_status_from_str(invoice_status_to_str(s)).unwrap(),
+                s
+            );
+        }
+        for m in [
+            PaymentMethod::Cash,
+            PaymentMethod::Card,
+            PaymentMethod::BankTransfer,
+            PaymentMethod::Insurance,
+            PaymentMethod::Other,
+        ] {
+            assert_eq!(
+                payment_method_from_str(payment_method_to_str(m)).unwrap(),
+                m
+            );
+        }
+        assert!(account_status_from_str("frozen").is_err());
+        assert!(invoice_status_from_str("lost").is_err());
+        assert!(payment_method_from_str("barter").is_err());
+    }
+}

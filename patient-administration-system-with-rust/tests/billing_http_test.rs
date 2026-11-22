@@ -164,3 +164,52 @@ async fn an_account_is_charged_invoiced_paid_and_closed() {
     .await;
     assert_eq!(st, StatusCode::NOT_FOUND);
 }
+
+/// The repository's by-id reads (used to chain a charge to its account and patient).
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_charge_and_an_account_are_found_by_id_and_unknown_ids_are_none() {
+    use patient_administration_system::db::repositories::billing::BillingRepository;
+    let s = common::build_state(&common::database_url().unwrap()).await;
+    let db = s.db.clone();
+    let app = patient_administration_system::api::rest::router(s);
+    let (_, v) = call(
+        &app,
+        "POST",
+        "/api/accounts",
+        Some(json!({ "person_id": Uuid::new_v4(), "currency": "GBP" })),
+    )
+    .await;
+    let account: Uuid = v["data"]["id"].as_str().unwrap().parse().unwrap();
+    let (_, v) = call(
+        &app,
+        "POST",
+        "/api/charges",
+        Some(charge(&account.to_string(), "C9", "1.00")),
+    )
+    .await;
+    let charge_id: Uuid = v["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    let found = BillingRepository::find_charge_by_id(&db, charge_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!((found.id, found.account_id), (charge_id, account));
+    let acct = BillingRepository::find_account_by_id(&db, account)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(acct.id, account);
+    assert!(
+        BillingRepository::find_charge_by_id(&db, Uuid::new_v4())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        BillingRepository::find_account_by_id(&db, Uuid::new_v4())
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
