@@ -12,9 +12,15 @@ for a system that reads numbers from the outside world, so each is handled and n
    decides what `None` means (a refusal, a validation error, a default that is safe) and says so where it
    decides. The operators `+`, `-`, `*`, `/`, `%` and `-x` panic on overflow in a debug build and **wrap
    silently in a release build**, which gives a wrong answer with no error. Neither is acceptable.
-3. **Convert with `try_from`, not `as`.** `u8::try_from(n)` returns an error when `n` does not fit; `n as u8`
+3. **You must not unwrap the result of a `checked_*` call.** `x.checked_add(y).unwrap()` and
+   `.expect("...")` turn the `None` back into the panic the check was there to prevent, so they are no better
+   than `x + y`; `unwrap_unchecked` is worse (undefined behaviour). Handle the `None`: return it (`?` in a
+   function that returns `Option`), turn it into an error (`.ok_or_else(|| Error::validation(..))?`), or match
+   on it. `unwrap_or(default)` is allowed only where that default is safe for the caller, and a comment says
+   why. A reason that the check "cannot fail" is not a reason: write the `None` arm.
+4. **Convert with `try_from`, not `as`.** `u8::try_from(n)` returns an error when `n` does not fit; `n as u8`
    truncates without a sign.
-4. **Do not index or slice** with a computed position: use `.get(i)` or `.get(a..b)`, which return `None` when
+5. **Do not index or slice** with a computed position: use `.get(i)` or `.get(a..b)`, which return `None` when
    the position is out of range. This is the same rule for the same reason, and is enforced by the
    `clippy::indexing_slicing` and `clippy::string_slice` lints.
 
@@ -26,6 +32,19 @@ assert_eq!(250_u8.checked_add(5), Some(255));
 assert_eq!(1_i32.checked_div(0), None);       // division by zero: None
 assert_eq!(i32::MIN.checked_abs(), None);     // |i32::MIN| does not fit
 assert!(u8::try_from(256_i32).is_err());      // `256 as u8` would be 0
+```
+
+Handling the `None`, not unwrapping it:
+
+```rust
+fn add_charge(total: i64, charge: i64) -> Result<i64, Error> {
+    total
+        .checked_add(charge)
+        .ok_or_else(|| Error::validation("the total is too large to hold"))
+}
+
+// Wrong: the panic is back, only later.
+// total.checked_add(charge).unwrap()
 ```
 
 `Option<T>` is the type of every checked result: `255_u8.checked_add(1)` is `None`.
@@ -41,7 +60,7 @@ assert!(u8::try_from(256_i32).is_err());      // `256 as u8` would be 0
 ## How it is checked
 
 `clippy::panic`, `unreachable`, `todo`, `unimplemented`, `indexing_slicing`, `string_slice`, `unwrap_used` and
-`expect_used` are denied in production code by each crate root, so `CI` fails on a new panic path
+`expect_used` are denied (`unwrap_used` and `expect_used` are what stop an unwrapped `checked_*` result) in production code by each crate root, so `CI` fails on a new panic path
 ([`patient-administration-system-with-rust/src/lib.rs`](../../patient-administration-system-with-rust/src/lib.rs)).
 Money is a decimal that rejects overflow (`Money::try_add`), not a float.
 
