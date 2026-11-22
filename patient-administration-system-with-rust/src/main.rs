@@ -701,3 +701,59 @@ async fn serve(cfg: &Config, app: axum::Router) -> Result<()> {
     .map_err(|e| Error::internal(format!("serve: {e}")))?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A configuration made from the environment's defaults. Only `DATABASE_URL` is needed; every test here
+    /// then sets the fields it cares about, so none depends on what else the process has set.
+    fn config() -> Config {
+        static SET: std::sync::Once = std::sync::Once::new();
+        // SAFETY: test-only, and set once before any test reads it.
+        SET.call_once(|| unsafe {
+            std::env::set_var("DATABASE_URL", "postgres://u:p@localhost/db");
+        });
+        Config::from_env().unwrap()
+    }
+
+    #[test]
+    fn cors_is_permissive_without_origins_and_restricted_with_them() {
+        let mut cfg = config();
+        cfg.cors_origins = vec![];
+        let _ = cors_layer(&cfg);
+        cfg.cors_origins = vec![
+            "https://portal.example".into(),
+            "not a header value\n".into(),
+        ];
+        let _ = cors_layer(&cfg);
+    }
+
+    #[test]
+    fn the_sms_provider_follows_the_name_and_unknown_names_send_nothing() {
+        let mut cfg = config();
+        for name in ["log", "none", "", "twilio"] {
+            cfg.pas_sms_provider = name.into();
+            let _ = sms_provider(&cfg);
+        }
+    }
+
+    #[test]
+    fn upstream_clients_are_built_only_for_the_urls_given() {
+        let mut cfg = config();
+        cfg.person_service_url = None;
+        cfg.worker_service_url = None;
+        let (p, w) = upstream_clients(&cfg).unwrap();
+        assert!(p.is_none() && w.is_none());
+        cfg.person_service_url = Some("http://127.0.0.1:1".into());
+        cfg.person_service_token = Some("t".into());
+        cfg.worker_service_url = Some("http://127.0.0.1:2".into());
+        let (p, w) = upstream_clients(&cfg).unwrap();
+        assert!(p.is_some() && w.is_some());
+    }
+
+    #[test]
+    fn a_missing_cursor_key_is_not_an_error() {
+        cursor_key().unwrap();
+    }
+}
