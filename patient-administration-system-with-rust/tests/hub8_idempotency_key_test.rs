@@ -134,3 +134,63 @@ async fn a_key_still_running_is_a_409_and_an_old_one_is_forgotten() {
     assert!(fresh.0.is_success(), "{fresh:?}");
     assert_eq!(bookings(&s, slot.id).await, 1);
 }
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn a_key_that_is_not_ascii_or_a_body_that_is_too_large_is_refused_before_anything_runs() {
+    let s = common::build_state(&common::database_url().unwrap()).await;
+    let schedule = common::new_schedule(&s.db).await;
+    let slot = common::free_slot(&s.db, schedule.id, 403).await;
+    let path = format!("/api/slots/{}/book", slot.id);
+    let body = format!(r#"{{"person_id":"{}"}}"#, Uuid::new_v4());
+    // A header value with a byte outside visible ASCII.
+    let resp = patient_administration_system::api::rest::router(s.clone())
+        .oneshot(
+            Request::post(&path)
+                .header("content-type", "application/json")
+                .header(
+                    "idempotency-key",
+                    axum::http::HeaderValue::from_bytes(b"caf\xe9").unwrap(),
+                )
+                .body(Body::from(body.clone()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    // A body past the limit the layer will hold to fingerprint it.
+    let huge = format!(
+        r#"{{"person_id":"{}","pad":"{}"}}"#,
+        Uuid::new_v4(),
+        "x".repeat(4 * 1024 * 1024 + 1)
+    );
+    let key = Uuid::new_v4().to_string();
+    let too_big = post(&s, &path, "hub8-d", Some(&key), &huge).await;
+    assert_eq!(
+        too_big.0,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "{:?}",
+        too_big.0
+    );
+    assert_eq!(bookings(&s, slot.id).await, 0);
+}
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn an_answer_that_is_a_server_error_is_not_kept_so_the_retry_runs_again() {
+    // No person service is configured here, so creating a patient answers 503 whatever the body.
+    let s = common::build_state(&common::database_url().unwrap()).await;
+    let key = Uuid::new_v4().to_string();
+    for _ in 0..2 {
+        let r = post(&s, "/api/patients", "hub8-e", Some(&key), "{}").await;
+        assert_eq!(r.0, StatusCode::SERVICE_UNAVAILABLE, "{r:?}");
+        assert!(!r.1, "a server error is never replayed");
+    }
+    let kept =
+        s.db.count(Stmt::text(
+            "SELECT count(*) AS n FROM idempotency_keys WHERE caller = 'hub8-e'".to_string(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(kept, 0, "the claim was released, not kept");
+}
