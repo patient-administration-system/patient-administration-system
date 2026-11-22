@@ -79,6 +79,12 @@ In specification-driven development, the specification declares each figure befo
 
 - **RCA-DECL-5.** A failure that signals invalid, corrupt or inconsistent data is not recoverable. Its declaration
   MUST NOT name a fallback for it. Such a failure MUST become an error or an "unknown".
+- **RCA-DECL-6.** A declaration MUST NOT name a fallback, default or bound for an input value that is out of range or
+  malformed. An input outside its valid range is invalid data, so it is an error (RCA-DECL-5). A declaration that
+  names one is a defect, and the implementer MUST raise it (RCA-DECL-3) rather than implement it. A fallback is
+  allowed only for a *computed* result that cannot be represented when every input was valid, such as
+  `base * 2^attempt` overflowing for valid arguments (RCA-DECL-4). A bound on the input itself is a refusal: the range
+  check that rejects the input is the bound, and the declaration states the range, not a substitute value.
 
 ## Integer operations
 

@@ -424,3 +424,69 @@ async fn staff_can_record_list_and_lift_an_opt_out_over_the_api() {
         StatusCode::BAD_REQUEST
     );
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn stop_and_start_from_a_number_one_patient_holds_follow_that_patient_too() {
+    use patient_administration_system::contact::ProfileInput;
+    let phone = e164(&number());
+    let (s, person, _log) = world(&phone, &format!("{}@example.test", Uuid::new_v4())).await;
+    s.contact
+        .put(
+            person,
+            ProfileInput {
+                mobile: Some(phone.clone()),
+                ..Default::default()
+            },
+            &ctx(),
+        )
+        .await
+        .unwrap();
+    let opted_out = |channel| {
+        let db = s.db.clone();
+        let phone = phone.clone();
+        async move {
+            consent::is_opted_out(&db, person, channel, Some(&phone))
+                .await
+                .unwrap()
+        }
+    };
+    assert!(!opted_out(DeliveryChannel::Sms).await);
+    s.inbound
+        .handle(text(&phone, "STOP"), &ctx())
+        .await
+        .unwrap();
+    // The number and the patient behind it, on every text channel; email is not a text channel.
+    for ch in [
+        DeliveryChannel::Sms,
+        DeliveryChannel::WhatsApp,
+        DeliveryChannel::AppleMessages,
+    ] {
+        assert!(opted_out(ch).await, "{ch:?} after STOP");
+    }
+    assert!(
+        consent::is_opted_out(&s.db, person, DeliveryChannel::Email, None)
+            .await
+            .is_ok()
+    );
+    assert!(
+        !consent::is_opted_out(&s.db, person, DeliveryChannel::Email, None)
+            .await
+            .unwrap()
+    );
+    s.inbound
+        .handle(text(&phone, "START"), &ctx())
+        .await
+        .unwrap();
+    for ch in [DeliveryChannel::Sms, DeliveryChannel::WhatsApp] {
+        assert!(!opted_out(ch).await, "{ch:?} after START");
+    }
+    // HELP changes nothing and is answered.
+    let help = s
+        .inbound
+        .handle(text(&phone, "HELP"), &ctx())
+        .await
+        .unwrap();
+    assert_eq!(help.outcome, "help");
+    assert!(!opted_out(DeliveryChannel::Sms).await);
+}
