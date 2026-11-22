@@ -740,4 +740,88 @@ mod tests {
         let p = serde_json::json!({ "name": { "family": "Doe" } });
         assert!(phone_from_upstream(&p).is_none());
     }
+
+    #[test]
+    fn every_channel_has_its_own_label() {
+        let labels: Vec<&str> = [
+            DeliveryChannel::Print,
+            DeliveryChannel::Email,
+            DeliveryChannel::Sms,
+            DeliveryChannel::AppleMessages,
+            DeliveryChannel::WhatsApp,
+            DeliveryChannel::Portal,
+        ]
+        .into_iter()
+        .map(channel_label)
+        .collect();
+        assert_eq!(
+            labels,
+            [
+                "print",
+                "email",
+                "sms",
+                "apple_messages",
+                "whatsapp",
+                "portal"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_recipient_is_found_by_channel_or_there_is_none() {
+        let both = serde_json::json!({ "telecom": [
+            { "system": "EMAIL", "value": "a@b.io" },
+            { "system": "sms", "value": "555-0100" },
+        ] });
+        let email_only =
+            serde_json::json!({ "telecom": [{ "system": "email", "value": "a@b.io" }] });
+        let phone_only =
+            serde_json::json!({ "telecom": [{ "system": "phone", "value": "555-0101" }] });
+        let nothing = serde_json::json!({ "telecom": [{ "system": "url", "value": "x" }, {}] });
+        let no_telecom = serde_json::json!({});
+        use DeliveryChannel as C;
+        assert_eq!(recipient_for(C::Email, &both).as_deref(), Some("a@b.io"));
+        assert_eq!(recipient_for(C::Sms, &both).as_deref(), Some("555-0100"));
+        assert_eq!(
+            recipient_for(C::WhatsApp, &phone_only).as_deref(),
+            Some("555-0101")
+        );
+        // Apple Messages prefers a phone and falls back to an email.
+        assert_eq!(
+            recipient_for(C::AppleMessages, &both).as_deref(),
+            Some("555-0100")
+        );
+        assert_eq!(
+            recipient_for(C::AppleMessages, &email_only).as_deref(),
+            Some("a@b.io")
+        );
+        assert_eq!(recipient_for(C::Email, &phone_only), None);
+        assert_eq!(recipient_for(C::Sms, &email_only), None);
+        for c in [C::Print, C::Portal] {
+            assert_eq!(
+                recipient_for(c, &both),
+                None,
+                "{c:?} has no remote recipient"
+            );
+        }
+        for c in [C::Email, C::Sms, C::AppleMessages] {
+            assert_eq!(recipient_for(c, &nothing), None);
+            assert_eq!(recipient_for(c, &no_telecom), None);
+        }
+    }
+
+    #[test]
+    fn a_template_that_is_not_tera_is_refused_naming_the_field() {
+        assert!(
+            validate_template_syntax("Hello {{ name }}", "Body {% if x %}y{% endif %}").is_ok()
+        );
+        let e = validate_template_syntax("{{ oops", "fine")
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("subject"), "{e}");
+        let e = validate_template_syntax("fine", "{% if %}")
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("body_tera"), "{e}");
+    }
 }
