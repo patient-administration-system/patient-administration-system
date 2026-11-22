@@ -222,3 +222,145 @@ async fn a_patient_export_is_audited_with_its_count() {
     assert_eq!(rows[1]["route"], "/api/patients/export.xml");
     assert!(rows[1]["returned"].is_null(), "{rows:?}");
 }
+
+async fn call(
+    app: &axum::Router,
+    method: &str,
+    uri: &str,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
+    let mut b = Request::builder().method(method).uri(uri);
+    let body = match body {
+        Some(v) => {
+            b = b.header("content-type", "application/json");
+            Body::from(v.to_string())
+        }
+        None => Body::empty(),
+    };
+    let resp = app.clone().oneshot(b.body(body).unwrap()).await.unwrap();
+    (resp.status(), body_json(resp).await)
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn update_search_masked_export_audit_and_import_go_through_the_client() {
+    let url = common::database_url().unwrap();
+    let stub = Arc::new(StubPersonClient::new());
+    let id = Uuid::new_v4();
+    stub.insert(person_with_id(id, "Doe"));
+    let state = common::build_state(&url).await.with_person_client(stub);
+    let app = patient_administration_system::api::rest::router(state);
+
+    let (st, v) = call(
+        &app,
+        "PUT",
+        &format!("/api/patients/{id}"),
+        Some(serde_json::json!({ "name": { "family": "Roe" }, "active": true })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert_eq!(v["data"]["name"]["family"], "Roe");
+    // Only an object can update a person; a bad identifier is refused before the upstream hears of it.
+    let (st, _) = call(
+        &app,
+        "PUT",
+        &format!("/api/patients/{id}"),
+        Some(serde_json::json!([1])),
+    )
+    .await;
+    assert!(st.is_client_error());
+    let (st, _) = call(
+        &app,
+        "PUT",
+        &format!("/api/patients/{id}"),
+        Some(serde_json::json!({ "identifiers": [{ "system": "https://fhir.nhs.uk/Id/nhs-number", "value": "1234567890" }] })),
+    )
+    .await;
+    assert!(st.is_client_error(), "an NHS number that fails its check");
+    let (st, _) = call(
+        &app,
+        "PUT",
+        &format!("/api/patients/{}", Uuid::new_v4()),
+        Some(serde_json::json!({})),
+    )
+    .await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+
+    let (st, v) = call(&app, "GET", "/api/patients?q=Roe&limit=5", None).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert!(v["data"].is_array());
+    let (st, _) = call(&app, "GET", "/api/patients", None).await;
+    assert_eq!(st, StatusCode::OK, "search with no query");
+
+    let (st, v) = call(&app, "GET", &format!("/api/patients/{id}/masked"), None).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let (st, v) = call(&app, "GET", &format!("/api/patients/{id}/export"), None).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let (st, v) = call(
+        &app,
+        "GET",
+        &format!("/api/patients/{id}/audit?limit=5"),
+        None,
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    for tail in ["masked", "export", "audit"] {
+        let (st, _) = call(
+            &app,
+            "GET",
+            &format!("/api/patients/{}/{tail}", Uuid::new_v4()),
+            None,
+        )
+        .await;
+        assert!(st.is_client_error() || tail == "audit", "{tail}: {st}");
+    }
+
+    for format in ["tsv", "csv", "json", "xml"] {
+        let (st, _) = call(&app, "GET", &format!("/api/patients/export.{format}"), None).await;
+        assert_eq!(st, StatusCode::OK, "{format}");
+    }
+    let (st, v) = call(
+        &app,
+        "POST",
+        "/api/patients/import",
+        Some(serde_json::json!([])),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn every_patient_route_says_so_when_there_is_no_person_service() {
+    let url = common::database_url().unwrap();
+    let state = common::build_state(&url).await;
+    let app = patient_administration_system::api::rest::router(state);
+    let id = Uuid::new_v4();
+    for (method, uri, body) in [
+        (
+            "POST",
+            "/api/patients".to_string(),
+            Some(serde_json::json!({})),
+        ),
+        (
+            "PUT",
+            format!("/api/patients/{id}"),
+            Some(serde_json::json!({})),
+        ),
+        ("DELETE", format!("/api/patients/{id}"), None),
+        ("GET", "/api/patients?q=x".to_string(), None),
+        ("GET", format!("/api/patients/{id}/masked"), None),
+        ("GET", format!("/api/patients/{id}/export"), None),
+        ("GET", format!("/api/patients/{id}/audit"), None),
+        ("GET", "/api/patients/export.json".to_string(), None),
+        ("GET", "/api/patients/export.csv".to_string(), None),
+        (
+            "POST",
+            "/api/patients/import".to_string(),
+            Some(serde_json::json!([])),
+        ),
+    ] {
+        let (st, _) = call(&app, method, &uri, body).await;
+        assert_eq!(st, StatusCode::SERVICE_UNAVAILABLE, "{method} {uri}");
+    }
+}
