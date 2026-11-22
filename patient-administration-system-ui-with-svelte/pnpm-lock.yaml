@@ -10,22 +10,22 @@ importers:
     dependencies:
       '@lilydesignsystem/svelte-calendar':
         specifier: 0.7.2
-        version: 0.7.2(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+        version: 0.7.2(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       '@lilydesignsystem/svelte-data-grid':
         specifier: 0.11.2
-        version: 0.11.2(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+        version: 0.11.2(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       '@lilydesignsystem/svelte-gantt-chart':
         specifier: 0.8.2
-        version: 0.8.2(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+        version: 0.8.2(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       '@lilydesignsystem/svelte-headless':
-        specifier: 0.9.0
-        version: 0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+        specifier: 0.11.0
+        version: 0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       '@lilydesignsystem/svelte-kanban-board':
         specifier: 0.8.3
-        version: 0.8.3(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+        version: 0.8.3(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       '@lilydesignsystem/svelte-theme-picker':
         specifier: 0.4.0
-        version: 0.4.0(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+        version: 0.4.0(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       '@sveltia/i18n':
         specifier: ^1.5.0
         version: 1.5.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
@@ -55,8 +55,8 @@ importers:
         specifier: ^26.6.6
         version: 26.6.6
       '@vitest/coverage-v8':
-        specifier: 5.1.0
-        version: 5.1.0(vitest@5.1.1)
+        specifier: 5.1.1
+        version: 5.1.1(vitest@5.1.1)
       eslint:
         specifier: ^10.15.0
         version: 10.15.0(supports-color@10.2.2)
@@ -98,7 +98,7 @@ importers:
         version: 8.3.8(@types/node@26.6.6)
       vitest:
         specifier: ^5.1.1
-        version: 5.1.1(@types/node@26.6.6)(@vitest/coverage-v8@5.1.0)(jsdom@31.0.1)(vite@8.3.8(@types/node@26.6.6))
+        version: 5.1.1(@types/node@26.6.6)(@vitest/coverage-v8@5.1.1)(jsdom@31.0.1)(vite@8.3.8(@types/node@26.6.6))
 
 packages:
 
@@ -276,8 +276,8 @@ packages:
       '@lilydesignsystem/svelte-headless': '>=0.4.0 <1.0.0'
       svelte: ^5.0.0
 
-  '@lilydesignsystem/svelte-headless@0.9.0':
-    resolution: {integrity: sha512-ThbNRnAsWbWDCLilCnTmmm05jm7nBJEl6AJodLfYUxagaCyps20P6xznft7fZrQWJC01KvKHSs06Xe6y3r90ZA==}
+  '@lilydesignsystem/svelte-headless@0.11.0':
+    resolution: {integrity: sha512-7CXWeVNLPa43rULv8YVtmaXBHIKuMX5IITUlUbSKZDiy7Iv7ZXzQdr8MimyBgfAz4rD80XmJSbqjozsC0qupBg==}
     engines: {node: '>=26'}
     peerDependencies:
       svelte: ^5.0.0
@@ -588,11 +588,11 @@ packages:
     resolution: {integrity: sha512-k4lsFVpRZICbltkIEEH4hZRkwXkqDF1GHBpClKQOHQY+RkoZAAuyc1ci3I6p+CB6v3U4jaHIUshc4RzzQXZWLg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@vitest/coverage-v8@5.1.0':
-    resolution: {integrity: sha512-OY9aShBQG5KOIw2zCo9fDoCHI9RHliNHJ//nM7m6jGg41Hyke9JOGWmeMlK74xYErsxMoK8mIB3gAeEyFVA7LA==}
+  '@vitest/coverage-v8@5.1.1':
+    resolution: {integrity: sha512-xL4NkbVx/UqqDHaXSOyvB8qsSoLQ+dVNGR9H2Bh/4ggQtmaPFNPUC9gZQwKZePLOQ6WDcgwXVnPulFW9eCHt0w==}
     peerDependencies:
-      '@vitest/browser': 5.1.0
-      vitest: 5.1.0
+      '@vitest/browser': 5.1.1
+      vitest: 5.1.1
     peerDependenciesMeta:
       '@vitest/browser':
         optional: true
@@ -1748,41 +1748,41 @@ snapshots:
 
   '@keyv/serialize@1.1.1': {}
 
-  '@lilydesignsystem/svelte-calendar@0.7.2(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
+  '@lilydesignsystem/svelte-calendar@0.7.2(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
     dependencies:
-      '@lilydesignsystem/svelte-date-time-picker': 0.2.2(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
-      '@lilydesignsystem/svelte-headless': 0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+      '@lilydesignsystem/svelte-date-time-picker': 0.2.2(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+      '@lilydesignsystem/svelte-headless': 0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       svelte: 5.58.0(@typescript-eslint/types@8.73.0)
 
-  '@lilydesignsystem/svelte-data-grid@0.11.2(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
+  '@lilydesignsystem/svelte-data-grid@0.11.2(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
     dependencies:
-      '@lilydesignsystem/svelte-headless': 0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+      '@lilydesignsystem/svelte-headless': 0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       svelte: 5.58.0(@typescript-eslint/types@8.73.0)
 
-  '@lilydesignsystem/svelte-date-time-picker@0.2.2(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
+  '@lilydesignsystem/svelte-date-time-picker@0.2.2(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
     dependencies:
-      '@lilydesignsystem/svelte-headless': 0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+      '@lilydesignsystem/svelte-headless': 0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       svelte: 5.58.0(@typescript-eslint/types@8.73.0)
 
-  '@lilydesignsystem/svelte-gantt-chart@0.8.2(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
+  '@lilydesignsystem/svelte-gantt-chart@0.8.2(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
     dependencies:
-      '@lilydesignsystem/svelte-date-time-picker': 0.2.2(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
-      '@lilydesignsystem/svelte-headless': 0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+      '@lilydesignsystem/svelte-date-time-picker': 0.2.2(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+      '@lilydesignsystem/svelte-headless': 0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       svelte: 5.58.0(@typescript-eslint/types@8.73.0)
 
-  '@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
+  '@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
     dependencies:
       aria-query: 5.3.2
       svelte: 5.58.0(@typescript-eslint/types@8.73.0)
 
-  '@lilydesignsystem/svelte-kanban-board@0.8.3(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
+  '@lilydesignsystem/svelte-kanban-board@0.8.3(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
     dependencies:
-      '@lilydesignsystem/svelte-headless': 0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+      '@lilydesignsystem/svelte-headless': 0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       svelte: 5.58.0(@typescript-eslint/types@8.73.0)
 
-  '@lilydesignsystem/svelte-theme-picker@0.4.0(@lilydesignsystem/svelte-headless@0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
+  '@lilydesignsystem/svelte-theme-picker@0.4.0(@lilydesignsystem/svelte-headless@0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0)))(svelte@5.58.0(@typescript-eslint/types@8.73.0))':
     dependencies:
-      '@lilydesignsystem/svelte-headless': 0.9.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+      '@lilydesignsystem/svelte-headless': 0.11.0(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       svelte: 5.58.0(@typescript-eslint/types@8.73.0)
 
   '@napi-rs/wasm-runtime@1.2.6(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)':
@@ -1949,7 +1949,7 @@ snapshots:
       svelte: 5.58.0(@typescript-eslint/types@8.73.0)
     optionalDependencies:
       vite: 8.3.8(@types/node@26.6.6)
-      vitest: 5.1.1(@types/node@26.6.6)(@vitest/coverage-v8@5.1.0)(jsdom@31.0.1)(vite@8.3.8(@types/node@26.6.6))
+      vitest: 5.1.1(@types/node@26.6.6)(@vitest/coverage-v8@5.1.1)(jsdom@31.0.1)(vite@8.3.8(@types/node@26.6.6))
 
   '@tybys/wasm-util@0.10.5':
     dependencies:
@@ -2070,7 +2070,7 @@ snapshots:
       '@typescript-eslint/types': 8.73.0
       eslint-visitor-keys: 5.0.1
 
-  '@vitest/coverage-v8@5.1.0(vitest@5.1.1)':
+  '@vitest/coverage-v8@5.1.1(vitest@5.1.1)':
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@vitest/istanbul-lib-coverage': 2.1.0
@@ -2080,7 +2080,7 @@ snapshots:
       obug: 3.0.0
       std-env: 4.3.0
       tinyrainbow: 3.2.0
-      vitest: 5.1.1(@types/node@26.6.6)(@vitest/coverage-v8@5.1.0)(jsdom@31.0.1)(vite@8.3.8(@types/node@26.6.6))
+      vitest: 5.1.1(@types/node@26.6.6)(@vitest/coverage-v8@5.1.1)(jsdom@31.0.1)(vite@8.3.8(@types/node@26.6.6))
 
   '@vitest/istanbul-lib-coverage@2.1.0': {}
 
@@ -2892,7 +2892,7 @@ snapshots:
     optionalDependencies:
       vite: 8.3.8(@types/node@26.6.6)
 
-  vitest@5.1.1(@types/node@26.6.6)(@vitest/coverage-v8@5.1.0)(jsdom@31.0.1)(vite@8.3.8(@types/node@26.6.6)):
+  vitest@5.1.1(@types/node@26.6.6)(@vitest/coverage-v8@5.1.1)(jsdom@31.0.1)(vite@8.3.8(@types/node@26.6.6)):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/mocker': 5.1.1(vite@8.3.8(@types/node@26.6.6))
@@ -2910,7 +2910,7 @@ snapshots:
       why-is-node-running: 3.2.1
     optionalDependencies:
       '@types/node': 26.6.6
-      '@vitest/coverage-v8': 5.1.0(vitest@5.1.1)
+      '@vitest/coverage-v8': 5.1.1(vitest@5.1.1)
       jsdom: 31.0.1
     transitivePeerDependencies:
       - msw
