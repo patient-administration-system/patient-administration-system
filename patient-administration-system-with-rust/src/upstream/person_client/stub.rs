@@ -204,7 +204,9 @@ impl PersonClient for StubPersonClient {
             "xml" => Ok(("application/xml".into(), b"<persons/>".to_vec())),
             "tsv" => Ok(("text/tab-separated-values".into(), Vec::new())),
             "csv" => Ok(("text/csv".into(), Vec::new())),
-            _ => unreachable!(),
+            other => Err(Error::validation(format!(
+                "bulk_export: unsupported format {other:?}"
+            ))),
         }
     }
 

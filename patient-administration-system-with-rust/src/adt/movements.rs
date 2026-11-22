@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::db::sql::Transact;
+use patient_administration_system_domain::jsonx::set as json_set;
 
 impl AdtService {
     /// Transfer an admitted patient to a new bed.
@@ -190,7 +191,11 @@ impl AdtService {
                         "admission_id": adm.id,
                     });
                     if let Some(s) = source_for_txn.as_deref() {
-                        payload["source"] = serde_json::Value::String(s.to_string());
+                        json_set(
+                            &mut payload,
+                            "source",
+                            serde_json::Value::String(s.to_string()),
+                        );
                     }
                     OutboxRepository::publish(txn, "EncounterPromotedToInpatient", &payload)
                         .await?;
@@ -209,7 +214,11 @@ impl AdtService {
             "bed_id": bed_id,
         });
         if let Some(s) = source_owned.as_deref() {
-            in_mem["source"] = serde_json::Value::String(s.to_string());
+            json_set(
+                &mut in_mem,
+                "source",
+                serde_json::Value::String(s.to_string()),
+            );
         }
         self.publisher
             .publish(DomainEvent::new("EncounterPromotedToInpatient", in_mem))
@@ -298,7 +307,11 @@ impl AdtService {
                         "released_bed_id": ba.bed_id,
                     });
                     if let Some(s) = source_for_txn.as_deref() {
-                        payload["source"] = serde_json::Value::String(s.to_string());
+                        json_set(
+                            &mut payload,
+                            "source",
+                            serde_json::Value::String(s.to_string()),
+                        );
                     }
                     OutboxRepository::publish(txn, "EncounterDemotedToOutpatient", &payload)
                         .await?;
@@ -312,7 +325,11 @@ impl AdtService {
             "admission_id": admission_id,
         });
         if let Some(s) = source_owned.as_deref() {
-            in_mem["source"] = serde_json::Value::String(s.to_string());
+            json_set(
+                &mut in_mem,
+                "source",
+                serde_json::Value::String(s.to_string()),
+            );
         }
         self.publisher
             .publish(DomainEvent::new("EncounterDemotedToOutpatient", in_mem))
@@ -451,7 +468,7 @@ impl AdtService {
                         "to_bed_id": to_bed_id,
                     });
                     if let Some(s) = source_for_txn.as_deref() {
-                        payload["source"] = serde_json::Value::String(s.to_string());
+                        json_set(&mut payload, "source", serde_json::Value::String(s.to_string()));
                     }
                     OutboxRepository::publish(txn, "EncounterTransferCancelled", &payload)
                         .await?;
@@ -466,7 +483,11 @@ impl AdtService {
             "encounter_id": res.encounter_id,
         });
         if let Some(s) = source_owned.as_deref() {
-            in_mem["source"] = serde_json::Value::String(s.to_string());
+            json_set(
+                &mut in_mem,
+                "source",
+                serde_json::Value::String(s.to_string()),
+            );
         }
         self.publisher
             .publish(DomainEvent::new("EncounterTransferCancelled", in_mem))

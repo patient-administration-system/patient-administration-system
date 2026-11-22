@@ -38,10 +38,10 @@ pub(super) fn hex_decode(s: &str) -> Option<Vec<u8>> {
         return None;
     }
     let mut out = Vec::with_capacity(s.len() / 2);
-    let bytes = s.as_bytes();
-    for i in (0..bytes.len()).step_by(2) {
-        let hi = (bytes[i] as char).to_digit(16)? as u8;
-        let lo = (bytes[i + 1] as char).to_digit(16)? as u8;
+    let (pairs, _) = s.as_bytes().as_chunks::<2>();
+    for &[hi, lo] in pairs {
+        let hi = (hi as char).to_digit(16)? as u8;
+        let lo = (lo as char).to_digit(16)? as u8;
         out.push((hi << 4) | lo);
     }
     Some(out)

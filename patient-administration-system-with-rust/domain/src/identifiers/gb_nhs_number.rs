@@ -26,13 +26,18 @@ pub fn check(raw: &str) -> Result<String> {
         return Err(Error::validation("an NHS number is ten digits"));
     }
     let d: Vec<u32> = digits.chars().filter_map(|c| c.to_digit(10)).collect();
-    let sum: u32 = d[..9].iter().zip((2..=10).rev()).map(|(x, w)| x * w).sum();
+    let sum: u32 = d
+        .iter()
+        .take(9)
+        .zip((2..=10).rev())
+        .map(|(x, w)| x * w)
+        .sum();
     let check = match 11 - (sum % 11) {
         11 => 0,
         10 => return Err(Error::validation("that is not a valid NHS number")),
         c => c,
     };
-    if check != d[9] {
+    if d.get(9) != Some(&check) {
         return Err(Error::validation(
             "that is not a valid NHS number (the check digit does not match)",
         ));
@@ -42,7 +47,8 @@ pub fn check(raw: &str) -> Result<String> {
 
 /// The NHS number written the usual way, `943 476 5919`. The input must already be valid.
 pub fn format(valid: &str) -> String {
-    format!("{} {} {}", &valid[..3], &valid[3..6], &valid[6..])
+    let part = |from: usize, to: usize| valid.get(from..to).unwrap_or_default();
+    format!("{} {} {}", part(0, 3), part(3, 6), part(6, valid.len()))
 }
 
 #[cfg(test)]

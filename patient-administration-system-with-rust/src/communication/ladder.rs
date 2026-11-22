@@ -28,6 +28,7 @@
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
 use jiff::{SignedDuration, Timestamp};
+use patient_administration_system_domain::jsonx::set as json_set;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -420,7 +421,11 @@ impl LadderService {
             if !link_minted && let Some(base) = &self.link_base {
                 let token =
                     crate::reply_links::mint(&self.db, a.id, a.person_id, a.start_datetime).await?;
-                extra["reply_url"] = serde_json::json!(format!("{base}/r/{token}"));
+                json_set(
+                    &mut extra,
+                    "reply_url",
+                    serde_json::json!(format!("{base}/r/{token}")),
+                );
                 link_minted = true;
             }
             match self
@@ -493,11 +498,11 @@ impl LadderService {
                 .into_iter()
                 .filter(|(s, _)| !done(*s))
                 .collect();
-            let Some(&(step, planned)) = due.last() else {
+            let Some((&(step, planned), earlier)) = due.split_last() else {
                 continue;
             };
             // Earlier steps that were never run because the appointment was booked late.
-            for (s, at) in &due[..due.len() - 1] {
+            for (s, at) in earlier {
                 self.log(a.id, *s, *at, None, None, StepOutcome::SkippedLate, None)
                     .await?;
                 report.skipped_late += 1;

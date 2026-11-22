@@ -192,10 +192,13 @@ pub struct SuspicionReport {
 /// The median of sorted whole days, or none for an empty list.
 pub fn median(sorted: &[i64]) -> Option<f64> {
     let n = sorted.len();
-    match n {
-        0 => None,
-        _ if n % 2 == 1 => Some(sorted[n / 2] as f64),
-        _ => Some((sorted[n / 2 - 1] + sorted[n / 2]) as f64 / 2.0),
+    let at = |i: usize| sorted.get(i).copied();
+    if n == 0 {
+        None
+    } else if n % 2 == 1 {
+        at(n / 2).map(|m| m as f64)
+    } else {
+        Some((at(n / 2 - 1)? + at(n / 2)?) as f64 / 2.0)
     }
 }
 

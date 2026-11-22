@@ -11,6 +11,7 @@
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
 use jiff::{Timestamp, civil::Date};
+use patient_administration_system_domain::jsonx::set as json_set;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -131,12 +132,12 @@ pub struct Adjustment {
 pub fn to_flag(a: &Adjustment) -> Value {
     let mut period = json!({ "start": a.recorded_at.to_string() });
     if let Some(end) = a.ended_at {
-        period["end"] = json!(end.to_string());
+        json_set(&mut period, "end", json!(end.to_string()));
     }
     let mut code =
         json!({ "coding": [{ "system": CODE_SYSTEM, "code": a.code, "display": a.display }] });
     if let Some(note) = &a.note {
-        code["text"] = json!(note);
+        json_set(&mut code, "text", json!(note));
     }
     json!({
         "resourceType": "Flag",

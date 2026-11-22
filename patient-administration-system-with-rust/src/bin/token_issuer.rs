@@ -10,7 +10,21 @@
 //! `--iss` and `--aud` default to the API's defaults. `serve` publishes `GET /keys.json` (default bind
 //! 127.0.0.1:8195) and rewrites the token file every half-TTL, so `PAS_API_TOKEN_FILE` always holds a
 //! live token.
-#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::indexing_slicing,
+        clippy::string_slice,
+        clippy::panic_in_result_fn,
+        clippy::unwrap_in_result
+    )
+)]
 #![cfg_attr(not(test), forbid(unsafe_code))]
 
 use std::path::PathBuf;
@@ -30,18 +44,21 @@ struct Args(Vec<String>);
 impl Args {
     fn one(&self, name: &str) -> Option<String> {
         self.0
-            .windows(2)
-            .find(|w| w[0] == name)
-            .map(|w| w[1].clone())
+            .iter()
+            .position(|a| a == name)
+            .and_then(|i| self.0.get(i + 1))
+            .cloned()
     }
     fn need(&self, name: &str) -> Result<String, String> {
         self.one(name).ok_or_else(|| format!("{name} is required"))
     }
     fn many(&self, name: &str) -> Vec<String> {
         self.0
-            .windows(2)
-            .filter(|w| w[0] == name)
-            .map(|w| w[1].clone())
+            .iter()
+            .enumerate()
+            .filter(|(_, a)| *a == name)
+            .filter_map(|(i, _)| self.0.get(i + 1))
+            .cloned()
             .collect()
     }
     fn spec(&self) -> Result<TokenSpec, String> {

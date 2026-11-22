@@ -358,7 +358,10 @@ async fn run_transaction(
         match plan_of(write, &refs) {
             Ok(plan) => {
                 if let (Some(url), Some(reference)) = (
-                    entries[*index].get("fullUrl").and_then(Value::as_str),
+                    entries
+                        .get(*index)
+                        .and_then(|e| e.get("fullUrl"))
+                        .and_then(Value::as_str),
                     plan.reference(),
                 ) && refs.insert(url.to_string(), reference).is_some()
                 {
@@ -381,7 +384,9 @@ async fn run_transaction(
     for (index, plan) in &plans {
         match save(&txn, plan, ctx).await {
             Ok((location, after)) => {
-                responses[*index] = created(location);
+                if let Some(slot) = responses.get_mut(*index) {
+                    *slot = created(location);
+                }
                 afters.push(after);
             }
             // Dropping `txn` rolls back whatever came before.

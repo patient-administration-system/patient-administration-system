@@ -166,12 +166,12 @@ impl BillingService {
             .into_iter()
             .filter(|c| charge_ids.contains(&c.id))
             .collect();
-        if selected.is_empty() {
+        let Some(first) = selected.first() else {
             return Err(Error::validation(
                 "no matching charges found for invoice finalization",
             ));
-        }
-        let currency = selected[0].amount.currency.clone();
+        };
+        let currency = first.amount.currency.clone();
         let mut total = Money::zero(currency.clone());
         for c in &selected {
             total = total.try_add(c.amount.clone())?;

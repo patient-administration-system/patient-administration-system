@@ -16,6 +16,8 @@
 //! validator (6.10.4, with `ihe.iti.balp#1.1.4`) found that the first version had the client and server
 //! codes the wrong way round, and `scripts/validate-fhir.sh` now runs it over real exports.
 
+use patient_administration_system_domain::jsonx::at as json_at;
+use patient_administration_system_domain::jsonx::set as json_set;
 use serde_json::{Value, json};
 
 use crate::db::entities::audit_log;
@@ -138,10 +140,18 @@ pub fn to_audit_event(row: &audit_log::Model, server_address: Option<&str>) -> V
         .filter(|a| !a.trim().is_empty())
         .or(ip);
     if let Some(who) = who {
-        client["who"] = json!({ "identifier": { "value": who } });
+        json_set(
+            &mut client,
+            "who",
+            json!({ "identifier": { "value": who } }),
+        );
     }
     if let Some(ip) = ip {
-        client["network"] = json!({ "address": ip, "type": "2" });
+        json_set(
+            &mut client,
+            "network",
+            json!({ "address": ip, "type": "2" }),
+        );
     }
     let mut server = json!({
         "type": { "coding": [coding(server_system, server_code)] },
@@ -149,7 +159,11 @@ pub fn to_audit_event(row: &audit_log::Model, server_address: Option<&str>) -> V
         "requestor": false,
     });
     if let Some(addr) = server_address.filter(|a| !a.trim().is_empty()) {
-        server["network"] = json!({ "address": addr, "type": "1" });
+        json_set(
+            &mut server,
+            "network",
+            json!({ "address": addr, "type": "1" }),
+        );
     }
     let mut agents = vec![client, server];
     if let Some(user) = row.user_id.as_deref().filter(|u| !u.trim().is_empty()) {
@@ -185,13 +199,17 @@ pub fn to_audit_event(row: &audit_log::Model, server_address: Option<&str>) -> V
         "entity": entities,
     });
     if let Some(i) = kind.interaction() {
-        event["subtype"] = json!([coding(INTERACTION, i)]);
+        json_set(&mut event, "subtype", json!([coding(INTERACTION, i)]));
     }
     if let Some(name) = kind.profile_name() {
         let prefix = if is_patient { "Patient" } else { "" };
         let profile = format!("{PROFILE_BASE}IHE.BasicAudit.{prefix}{name}");
         let mut candidate = event.clone();
-        candidate["meta"] = json!({ "profile": [profile.clone()] });
+        json_set(
+            &mut candidate,
+            "meta",
+            json!({ "profile": [profile.clone()] }),
+        );
         if violations(&candidate).is_empty() {
             event = candidate;
         }
@@ -265,7 +283,10 @@ pub fn violations(e: &Value) -> Vec<String> {
         need(u["requestor"] == true, "user agent requestor true");
     }
 
-    need(present(&e["source"]["observer"]), "source.observer");
+    need(
+        present(json_at(json_at(e, "source"), "observer")),
+        "source.observer",
+    );
 
     let entities = e["entity"].as_array().cloned().unwrap_or_default();
     let data: Vec<_> = entities
@@ -291,7 +312,7 @@ pub fn violations(e: &Value) -> Vec<String> {
     need(patients.len() <= 1, "at most one patient entity");
     for p in patients {
         need(
-            p["what"]["reference"]
+            json_at(json_at(p, "what"), "reference")
                 .as_str()
                 .is_some_and(|r| r.starts_with("Patient/")),
             "patient entity what is a Patient",

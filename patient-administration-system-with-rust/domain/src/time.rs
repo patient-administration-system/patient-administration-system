@@ -90,7 +90,10 @@ pub fn monday_index(w: Weekday) -> usize {
 
 /// The three-letter English name a weekday is stored and sent as (`Mon` to `Sun`), the form `chrono` used.
 pub fn weekday_name(w: Weekday) -> &'static str {
-    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][monday_index(w)]
+    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        .get(monday_index(w))
+        .copied()
+        .unwrap_or("Mon")
 }
 
 /// The weekday for a three-letter English name, or a full one, in any case.

@@ -35,7 +35,7 @@ fn index(category: &str) -> Option<usize> {
 
 /// The SNOMED CT concept id for a category.
 pub fn snomed_code(category: &str) -> Option<&'static str> {
-    index(category).map(|i| ACUITY[i].0)
+    index(category).and_then(|i| ACUITY.get(i)).map(|a| a.0)
 }
 
 /// The category for a SNOMED CT concept id from the acuity set.
@@ -43,21 +43,21 @@ pub fn category_of_snomed(code: &str) -> Option<&'static str> {
     ACUITY
         .iter()
         .position(|(c, _)| *c == code)
-        .map(|i| CATEGORIES[i])
+        .and_then(|i| CATEGORIES.get(i).copied())
 }
 
 /// The NHS Wales EDDS *Triage Category* code (`01` to `05`) for a category.
 pub fn wales_triage_category(category: &str) -> Option<&'static str> {
-    index(category).map(|i| ["01", "02", "03", "04", "05"][i])
+    index(category).and_then(|i| ["01", "02", "03", "04", "05"].get(i).copied())
 }
 
 /// An assessment as a FHIR R5 `Observation` for the patient `person_id`.
 pub fn to_observation(a: &TriageAssessment, person_id: uuid::Uuid) -> Value {
     let mut codings = Vec::new();
     let mut text = a.category.clone();
-    if let Some(i) = index(&a.category) {
-        codings.push(json!({ "system": SNOMED, "code": ACUITY[i].0, "display": ACUITY[i].1 }));
-        text = ACUITY[i].1.to_string();
+    if let Some(&(code, display)) = index(&a.category).and_then(|i| ACUITY.get(i)) {
+        codings.push(json!({ "system": SNOMED, "code": code, "display": display }));
+        text = display.to_string();
     }
     codings.push(json!({ "system": CATEGORY_SYSTEM, "code": a.category }));
     let mut o = json!({
@@ -79,9 +79,14 @@ pub fn to_observation(a: &TriageAssessment, person_id: uuid::Uuid) -> Value {
         Some(v) => format!("Manchester Triage System {v}"),
         None => "Manchester Triage System".to_string(),
     };
-    o["method"] = json!({ "text": method });
-    if let Some(f) = &a.flowchart {
-        o["note"] = json!([{ "text": format!("Flowchart: {f}") }]);
+    if let Value::Object(map) = &mut o {
+        map.insert("method".into(), json!({ "text": method }));
+        if let Some(f) = &a.flowchart {
+            map.insert(
+                "note".into(),
+                json!([{ "text": format!("Flowchart: {f}") }]),
+            );
+        }
     }
     o
 }
@@ -89,7 +94,8 @@ pub fn to_observation(a: &TriageAssessment, person_id: uuid::Uuid) -> Value {
 /// The category carried by an `Observation` made by [`to_observation`] (or by anyone using the SNOMED acuity
 /// concepts or the PAS code system).
 pub fn category_of_observation(o: &Value) -> Option<&'static str> {
-    o["valueCodeableConcept"]["coding"]
+    o.get("valueCodeableConcept")?
+        .get("coding")?
         .as_array()?
         .iter()
         .find_map(|c| {

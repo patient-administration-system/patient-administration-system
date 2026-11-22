@@ -142,14 +142,18 @@ pub fn stats(mut v: Vec<f64>) -> Stats {
     }
     v.sort_by(f64::total_cmp);
     let n = v.len();
-    let at = |p: f64| v[(((p * n as f64).ceil() as usize).max(1) - 1).min(n - 1)];
+    let at = |p: f64| {
+        v.get((((p * n as f64).ceil() as usize).max(1) - 1).min(n - 1))
+            .copied()
+            .unwrap_or_default()
+    };
     let round = |x: f64| (x * 100.0).round() / 100.0;
     Stats {
         n: n as i64,
         mean: round(v.iter().sum::<f64>() / n as f64),
         median: round(at(0.5)),
         p90: round(at(0.9)),
-        max: round(v[n - 1]),
+        max: round(v.last().copied().unwrap_or_default()),
     }
 }
 

@@ -405,10 +405,9 @@ impl InboundService {
         ctx: &UserContext,
     ) -> Result<Decision> {
         let persons = self.persons_with_number(from).await?;
-        let single = if persons.len() == 1 {
-            Some(persons[0])
-        } else {
-            None
+        let single = match persons.as_slice() {
+            [only] => Some(*only),
+            _ => None,
         };
         let lang = match single {
             Some(p) => Some(Lang::from_preference(
@@ -552,7 +551,7 @@ impl InboundService {
                         "cancel" => Intent::Cancel,
                         _ => Intent::Reschedule,
                     };
-                    Target::Act(a, Some(ids[n as usize - 1]))
+                    Target::Act(a, ids.get((n as usize).saturating_sub(1)).copied())
                 }
                 _ => Target::Act(Intent::Unknown, None),
             },
@@ -566,7 +565,7 @@ impl InboundService {
                         Some(messages::text(who.lang, Kind::NoOpenReminder, "", help)),
                         Some(who.lang),
                     )),
-                    1 => Target::Act(intent, Some(open[0].0)),
+                    1 => Target::Act(intent, open.first().map(|o| o.0)),
                     _ => {
                         let times: Vec<String> = open
                             .iter()

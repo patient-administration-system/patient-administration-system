@@ -108,7 +108,12 @@ impl WorkingCalendar {
 
     /// Whether `date` is a working day.
     pub fn is_working_day(&self, date: Date) -> bool {
-        !self.days_off[crate::time::monday_index(date.weekday())] && !self.holidays.contains(&date)
+        !self
+            .days_off
+            .get(crate::time::monday_index(date.weekday()))
+            .copied()
+            .unwrap_or(false)
+            && !self.holidays.contains(&date)
     }
 
     /// The working day `n` working days after `date`. With `n = 0`, `date` itself if it is a working day,
@@ -176,7 +181,9 @@ impl WorkingCalendar {
 fn off(days: impl IntoIterator<Item = Weekday>) -> [bool; 7] {
     let mut mask = [false; 7];
     for d in days {
-        mask[crate::time::monday_index(d)] = true;
+        if let Some(slot) = mask.get_mut(crate::time::monday_index(d)) {
+            *slot = true;
+        }
     }
     mask
 }

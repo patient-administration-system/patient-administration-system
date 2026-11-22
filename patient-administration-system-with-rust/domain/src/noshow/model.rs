@@ -119,12 +119,16 @@ pub fn compute(i: &Inputs, w: &Weights) -> Assessment {
         .and_then(|b| w.age.get(b))
         .copied()
         .unwrap_or(0.0);
-    let weekday = w.weekday[i.weekday.min(6)];
-    let period = w.period[match i.hour {
-        0..=11 => 0,
-        12..=16 => 1,
-        _ => 2,
-    }];
+    let weekday = w.weekday.get(i.weekday.min(6)).copied().unwrap_or(0.0);
+    let period = w
+        .period
+        .get(match i.hour {
+            0..=11 => 0,
+            12..=16 => 1,
+            _ => 2,
+        })
+        .copied()
+        .unwrap_or(0.0);
     let points = |x: f64| (x * 1000.0).round() / 10.0;
     let probability = (w.base + history + lead + age + weekday + period).clamp(0.01, 0.95);
     let factors = vec![

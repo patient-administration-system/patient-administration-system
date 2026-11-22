@@ -54,9 +54,14 @@ pub fn when(at: Timestamp, lang: Lang, tz: TimeZone) -> String {
     };
     format!(
         "{} {} {} {:02}:{:02}",
-        days[crate::time::monday_index(l.weekday())],
+        days.get(crate::time::monday_index(l.weekday()))
+            .copied()
+            .unwrap_or_default(),
         l.day(),
-        months[usize::try_from(l.month() - 1).unwrap_or(0)],
+        months
+            .get(usize::try_from(l.month() - 1).unwrap_or(0))
+            .copied()
+            .unwrap_or_default(),
         l.hour(),
         l.minute()
     )

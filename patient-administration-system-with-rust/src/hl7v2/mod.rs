@@ -89,10 +89,10 @@ impl SegmentRead for Segment {
 pub fn segment(name: &str, fields: Vec<String>) -> Segment {
     let separators = Separators::default();
     let mut text = name.to_string();
-    if name == "MSH" && fields.len() >= 2 {
-        text.push_str(&fields[0]);
-        text.push_str(&fields[1]);
-        for f in &fields[2..] {
+    if let (true, [separator, encoding, rest @ ..]) = (name == "MSH", fields.as_slice()) {
+        text.push_str(separator);
+        text.push_str(encoding);
+        for f in rest {
             text.push('|');
             text.push_str(f);
         }

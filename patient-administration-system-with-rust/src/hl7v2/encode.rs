@@ -102,9 +102,10 @@ pub fn pid3_identifiers(identifiers: Option<&serde_json::Value>) -> String {
                 .unwrap_or_default();
             let assigner = match (field(i, "assigner"), system) {
                 (Some(a), _) => super::escape_value(a),
-                (None, Some(sys)) if sys.starts_with("urn:oid:") => {
-                    format!("&{}&ISO", super::escape_value(&sys["urn:oid:".len()..]))
-                }
+                (None, Some(sys)) => match sys.strip_prefix("urn:oid:") {
+                    Some(oid) => format!("&{}&ISO", super::escape_value(oid)),
+                    None => String::new(),
+                },
                 _ => String::new(),
             };
             Some(format!(

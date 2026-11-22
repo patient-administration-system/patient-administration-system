@@ -20,6 +20,7 @@
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
 use jiff::Timestamp;
+use patient_administration_system_domain::jsonx::set as json_set;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -219,20 +220,28 @@ pub fn fhir_fragment(p: &ProfileRow) -> serde_json::Value {
     if let Some(m) = &p.mobile_e164 {
         let mut t = serde_json::json!({ "system": "phone", "value": m, "use": "mobile" });
         if let Some(at) = p.mobile_verified_at {
-            t["extension"] = serde_json::json!([{
-                "url": "https://patient-administration-system.example/fhir/StructureDefinition/telecom-verified-at",
-                "valueDateTime": at,
-            }]);
+            json_set(
+                &mut t,
+                "extension",
+                serde_json::json!([{
+                    "url": "https://patient-administration-system.example/fhir/StructureDefinition/telecom-verified-at",
+                    "valueDateTime": at,
+                }]),
+            );
         }
         telecom.push(t);
     }
     let mut out =
         serde_json::json!({ "resourceType": "Patient", "id": p.person_id, "telecom": telecom });
     if let Some(lang) = &p.preferred_language {
-        out["communication"] = serde_json::json!([{
-            "language": { "coding": [{ "system": "urn:ietf:bcp:47", "code": bcp47(lang) }] },
-            "preferred": true,
-        }]);
+        json_set(
+            &mut out,
+            "communication",
+            serde_json::json!([{
+                "language": { "coding": [{ "system": "urn:ietf:bcp:47", "code": bcp47(lang) }] },
+                "preferred": true,
+            }]),
+        );
     }
     if p.alternate_name.is_some() || p.alternate_phone_e164.is_some() || p.alternate_email.is_some()
     {
@@ -253,13 +262,21 @@ pub fn fhir_fragment(p: &ProfileRow) -> serde_json::Value {
         if let Some(e) = &p.alternate_email {
             tel.push(serde_json::json!({ "system": "email", "value": e }));
         }
-        out["contact"] = serde_json::json!([{ "relationship": rel, "name": { "text": p.alternate_name }, "telecom": tel }]);
+        json_set(
+            &mut out,
+            "contact",
+            serde_json::json!([{ "relationship": rel, "name": { "text": p.alternate_name }, "telecom": tel }]),
+        );
     }
     if !p.accessibility_needs.is_empty() {
-        out["extension"] = serde_json::json!([{
-            "url": "https://patient-administration-system.example/fhir/StructureDefinition/accessibility-needs",
-            "valueCodeableConcept": { "coding": p.accessibility_needs.iter().map(|n| serde_json::json!({ "code": n })).collect::<Vec<_>>() },
-        }]);
+        json_set(
+            &mut out,
+            "extension",
+            serde_json::json!([{
+                "url": "https://patient-administration-system.example/fhir/StructureDefinition/accessibility-needs",
+                "valueCodeableConcept": { "coding": p.accessibility_needs.iter().map(|n| serde_json::json!({ "code": n })).collect::<Vec<_>>() },
+            }]),
+        );
     }
     out
 }

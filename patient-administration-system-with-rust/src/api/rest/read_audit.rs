@@ -26,6 +26,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use patient_administration_system_domain::jsonx::at as json_at;
 use uuid::Uuid;
 
 use crate::Error;
@@ -47,7 +48,7 @@ pub fn patient_read_target(method: &Method, path: &str) -> Option<(Uuid, String)
         None => (rest, None),
     };
     let id = Uuid::parse_str(id).ok()?;
-    let prefix = &path[..path.len() - rest.len()];
+    let prefix = path.strip_suffix(rest)?;
     Some((
         id,
         match tail {
@@ -74,14 +75,14 @@ pub fn people_in(rows: &serde_json::Value) -> Option<usize> {
 /// `entry`, or a bare array. `None` when the body is none of these.
 pub fn records_in(body: &[u8]) -> Option<usize> {
     let v: serde_json::Value = serde_json::from_slice(body).ok()?;
-    if let Some(n) = v["meta"]["returned"].as_u64() {
+    if let Some(n) = json_at(json_at(&v, "meta"), "returned").as_u64() {
         return usize::try_from(n).ok();
     }
-    if let Some(rows) = v["data"].as_array() {
+    if let Some(rows) = json_at(&v, "data").as_array() {
         return Some(rows.len());
     }
-    if v["resourceType"] == "Bundle" {
-        return Some(v["entry"].as_array().map_or(0, Vec::len));
+    if json_at(&v, "resourceType") == "Bundle" {
+        return Some(json_at(&v, "entry").as_array().map_or(0, Vec::len));
     }
     v.as_array().map(Vec::len)
 }

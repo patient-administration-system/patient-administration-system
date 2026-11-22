@@ -16,6 +16,7 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
+use patient_administration_system_domain::jsonx::set as json_set;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -96,10 +97,14 @@ pub fn appointment(a: &Appointment) -> Value {
         "participant": participants,
     });
     if let Some(slot) = a.slot_id {
-        r["slot"] = json!([{ "reference": format!("Slot/{slot}") }]);
+        json_set(
+            &mut r,
+            "slot",
+            json!([{ "reference": format!("Slot/{slot}") }]),
+        );
     }
     if let Some(reason) = a.reason.as_deref().filter(|t| !t.trim().is_empty()) {
-        r["description"] = json!(reason);
+        json_set(&mut r, "description", json!(reason));
     }
     if a.status == AppointmentStatus::Cancelled
         && let Some(why) = a
@@ -108,7 +113,7 @@ pub fn appointment(a: &Appointment) -> Value {
             .and_then(|c| serde_json::to_value(c).ok())
             .and_then(|v| v.as_str().map(str::to_string))
     {
-        r["cancelationReason"] = json!({ "text": why });
+        json_set(&mut r, "cancelationReason", json!({ "text": why }));
     }
     r
 }
@@ -141,7 +146,7 @@ pub fn encounter(e: &Encounter) -> Value {
     let (code, display) = encounter_class(e.class);
     let mut period = json!({ "start": e.period_start });
     if let Some(end) = e.period_end {
-        period["end"] = json!(end);
+        json_set(&mut period, "end", json!(end));
     }
     let mut r = json!({
         "resourceType": "Encounter",
@@ -153,10 +158,14 @@ pub fn encounter(e: &Encounter) -> Value {
         "period": period,
     });
     if let Some(w) = e.worker_id {
-        r["participant"] = json!([{ "individual": { "reference": format!("Practitioner/{w}") } }]);
+        json_set(
+            &mut r,
+            "participant",
+            json!([{ "individual": { "reference": format!("Practitioner/{w}") } }]),
+        );
     }
     if let Some(reason) = e.reason.as_deref().filter(|t| !t.trim().is_empty()) {
-        r["reasonCode"] = json!([{ "text": reason }]);
+        json_set(&mut r, "reasonCode", json!([{ "text": reason }]));
     }
     r
 }
@@ -182,13 +191,21 @@ pub fn service_request(r: &Referral) -> Value {
         "code": { "text": r.target_service },
     });
     if let Some(reference) = r.external_ref.as_deref().filter(|t| !t.trim().is_empty()) {
-        out["identifier"] = json!([{ "system": REFERENCE_SYSTEM, "value": reference }]);
+        json_set(
+            &mut out,
+            "identifier",
+            json!([{ "system": REFERENCE_SYSTEM, "value": reference }]),
+        );
     }
     if let Some(w) = r.referring_worker_id {
-        out["requester"] = json!({ "reference": format!("Practitioner/{w}") });
+        json_set(
+            &mut out,
+            "requester",
+            json!({ "reference": format!("Practitioner/{w}") }),
+        );
     }
     if let Some(reason) = r.reason.as_deref().filter(|t| !t.trim().is_empty()) {
-        out["reasonCode"] = json!([{ "text": reason }]);
+        json_set(&mut out, "reasonCode", json!([{ "text": reason }]));
     }
     out
 }

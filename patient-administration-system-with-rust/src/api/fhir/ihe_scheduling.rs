@@ -19,6 +19,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use jiff::{SignedDuration, Timestamp};
+use patient_administration_system_domain::jsonx::at as json_at;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -94,7 +95,7 @@ impl Params {
         let list = body["parameter"].as_array().cloned().unwrap_or_default();
         Ok(Self(
             list.into_iter()
-                .filter_map(|p| Some((p["name"].as_str()?.to_string(), p)))
+                .filter_map(|p| Some((json_at(&p, "name").as_str()?.to_string(), p)))
                 .collect(),
         ))
     }
@@ -153,7 +154,7 @@ impl Params {
         let Some(v) = self.one(name)? else {
             return Ok(None);
         };
-        v["valueReference"]["reference"]
+        json_at(json_at(v, "valueReference"), "reference")
             .as_str()
             .map(|r| r.strip_prefix(&format!("{kind}/")).unwrap_or(r))
             .and_then(|r| Uuid::parse_str(r).ok())
@@ -232,7 +233,7 @@ fn bundle(appointments: &[Proposal], base: &str, operation: &str) -> Value {
         "entry": appointments.iter().map(|p| {
             let resource = to_appointment(p);
             json!({
-                "fullUrl": format!("{base}/Appointment/{}", resource["id"].as_str().unwrap_or_default()),
+                "fullUrl": format!("{base}/Appointment/{}", json_at(&resource, "id").as_str().unwrap_or_default()),
                 "resource": resource,
                 "search": { "mode": "match" },
             })

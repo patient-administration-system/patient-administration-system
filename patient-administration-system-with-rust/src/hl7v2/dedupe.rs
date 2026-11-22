@@ -49,7 +49,9 @@ impl Key {
 
     /// A short form for logs: the first 12 hex digits of the hash, never the control id.
     pub fn short(&self) -> &str {
-        &self.control_id_sha256[..12]
+        self.control_id_sha256
+            .get(..12)
+            .unwrap_or(&self.control_id_sha256)
     }
 }
 

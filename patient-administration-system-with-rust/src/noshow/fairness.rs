@@ -90,16 +90,15 @@ impl NoShowService {
                 acc.missed += i64::from(missed);
             }
         }
-        let keys: Vec<(String, String)> = cells.keys().cloned().collect();
-        let counts: Vec<(Vec<(String, String)>, i64)> = keys
+        let counts: Vec<(Vec<(String, String)>, i64)> = cells
             .iter()
-            .map(|(q, l)| {
+            .map(|((q, l), cell)| {
                 (
                     vec![
                         ("deprivation_quintile".to_string(), q.clone()),
                         ("language".to_string(), l.clone()),
                     ],
-                    cells[&(q.clone(), l.clone())].n,
+                    cell.n,
                 )
             })
             .collect();
@@ -107,9 +106,9 @@ impl NoShowService {
         let r3 = |x: f64| (x * 1000.0).round() / 1000.0;
         let out: Vec<FairnessCell> = shown
             .into_iter()
-            .zip(keys)
-            .map(|(c, key)| {
-                let a = &cells[&key];
+            .zip(cells.iter())
+            .map(|(c, (key, a))| {
+                let key = key.clone();
                 if c.suppressed {
                     FairnessCell {
                         deprivation_quintile: key.0,

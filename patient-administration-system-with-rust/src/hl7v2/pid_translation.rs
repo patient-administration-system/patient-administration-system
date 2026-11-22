@@ -104,17 +104,16 @@ pub fn pid_to_person_create(pid: &Segment) -> PersonCreate {
     // PID-7: birth_date (YYYYMMDD → YYYY-MM-DD).
     let bd_text = pid.raw(7);
     let bd = bd_text.trim();
-    if bd.len() >= 8 && bd.is_ascii() {
-        let (y, m, d) = (&bd[0..4], &bd[4..6], &bd[6..8]);
-        if y.chars().all(|c| c.is_ascii_digit())
-            && m.chars().all(|c| c.is_ascii_digit())
-            && d.chars().all(|c| c.is_ascii_digit())
-        {
-            fields.insert(
-                "birth_date".to_string(),
-                Value::String(format!("{y}-{m}-{d}")),
-            );
-        }
+    if let (true, Some(y), Some(m), Some(d)) =
+        (bd.is_ascii(), bd.get(0..4), bd.get(4..6), bd.get(6..8))
+        && y.chars().all(|c| c.is_ascii_digit())
+        && m.chars().all(|c| c.is_ascii_digit())
+        && d.chars().all(|c| c.is_ascii_digit())
+    {
+        fields.insert(
+            "birth_date".to_string(),
+            Value::String(format!("{y}-{m}-{d}")),
+        );
     }
 
     // PID-8: sex.
@@ -430,8 +429,9 @@ pub fn parse_mfe_stf(mfe: &Segment, stf: &Segment) -> crate::Result<StaffItem> {
     let birth_date = {
         let raw_text = stf.raw(6);
         let raw = raw_text.trim();
-        if raw.len() >= 8 && raw.is_ascii() {
-            let (y, m, d) = (&raw[0..4], &raw[4..6], &raw[6..8]);
+        if let (true, Some(y), Some(m), Some(d)) =
+            (raw.is_ascii(), raw.get(0..4), raw.get(4..6), raw.get(6..8))
+        {
             if y.chars().all(|c| c.is_ascii_digit())
                 && m.chars().all(|c| c.is_ascii_digit())
                 && d.chars().all(|c| c.is_ascii_digit())

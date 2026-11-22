@@ -144,7 +144,17 @@ impl Profile {
     /// The profile the setting names, or the default. The setting was checked at start-up.
     pub fn from_env() -> Self {
         let name = crate::config::env::text(SETTING).unwrap_or_else(|| DEFAULT.to_string());
-        Self::load(&name).unwrap_or_else(|e| panic!("{e}"))
+        Self::load(&name).unwrap_or_else(|e| {
+            // Not reachable once the setting has been checked at start-up; if it is, run with the default
+            // profile and say so rather than stopping the server.
+            tracing::error!("{e}; using the {DEFAULT} profile");
+            Self::load(DEFAULT).unwrap_or_else(|_| Self {
+                name: DEFAULT.to_string(),
+                title: DEFAULT.to_string(),
+                notes: None,
+                conditions: Vec::new(),
+            })
+        })
     }
 
     fn check(&self) -> Result<()> {

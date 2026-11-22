@@ -101,9 +101,11 @@ fn unhex(s: &str) -> Result<[u8; 32], String> {
         return Err("a key file holds 64 hex characters (a 32-byte seed)".into());
     }
     let mut out = [0u8; 32];
-    for (i, o) in out.iter_mut().enumerate() {
-        *o = u8::from_str_radix(&s[2 * i..2 * i + 2], 16)
-            .map_err(|_| "key file is not hexadecimal".to_string())?;
+    for (o, pair) in out.iter_mut().zip(s.as_bytes().chunks(2)) {
+        *o = std::str::from_utf8(pair)
+            .ok()
+            .and_then(|t| u8::from_str_radix(t, 16).ok())
+            .ok_or_else(|| "key file is not hexadecimal".to_string())?;
     }
     Ok(out)
 }

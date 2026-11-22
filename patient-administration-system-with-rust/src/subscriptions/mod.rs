@@ -22,6 +22,7 @@
 //! An event the global publisher dead-lettered before this pass ran is not delivered.
 
 use crate::db::sql::{Conn, Pool, Row, Stmt, Transact};
+use patient_administration_system_domain::jsonx::set as json_set;
 use std::time::Duration;
 
 use jiff::Timestamp;
@@ -158,7 +159,7 @@ pub fn notification(
         .map(|id| format!("Appointment/{id}"));
     let mut event = json!({ "eventNumber": number.to_string(), "timestamp": event_at });
     if let Some(f) = &focus {
-        event["focus"] = json!({ "reference": f });
+        json_set(&mut event, "focus", json!({ "reference": f }));
     }
     let status = json!({
         "resourceType": "SubscriptionStatus",

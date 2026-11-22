@@ -156,11 +156,11 @@ impl From<u64> for Rows {
 static KEY: OnceLock<CursorKey> = OnceLock::new();
 
 /// A key for this process alone, for when `PAS_CURSOR_KEY` is not set: 244 random bits from two v4 UUIDs.
-fn process_key() -> CursorKey {
+fn process_key() -> Result<CursorKey> {
     let mut secret = [0u8; 32];
     secret[..16].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
     secret[16..].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
-    CursorKey::new(&secret).unwrap_or_else(|_| unreachable!("32 bytes is at least MIN_KEY_LEN"))
+    CursorKey::new(&secret).map_err(|_| Error::internal("a cursor key of 32 bytes was refused"))
 }
 
 /// Set the key that signs cursors, from `PAS_CURSOR_KEY`. `main` calls this once at start-up; without it, or
@@ -176,14 +176,18 @@ pub fn init_cursor_key(secret: Option<&str>) -> Result<bool> {
                 "PAS_CURSOR_KEY must be at least {MIN_KEY_LEN} bytes"
             ))
         })?,
-        None => process_key(),
+        None => process_key()?,
     };
     let _ = KEY.set(key);
     Ok(secret.is_some())
 }
 
-fn key() -> &'static CursorKey {
-    KEY.get_or_init(process_key)
+fn key() -> Result<&'static CursorKey> {
+    if let Some(k) = KEY.get() {
+        return Ok(k);
+    }
+    let made = process_key()?;
+    Ok(KEY.get_or_init(|| made))
 }
 
 /// One page of a list, read from the request's URI: its limit, and where its signed cursor starts.
@@ -204,7 +208,7 @@ impl Page {
             default_limit: u64::try_from(default_limit.clamp(1, MAX_LIMIT)).unwrap_or(1),
             max_limit: u64::try_from(MAX_LIMIT).unwrap_or(1),
         };
-        CursorPage::new(key(), limits, uri)
+        CursorPage::new(key()?, limits, uri)
             .map(|inner| Self { inner })
             .map_err(|e| match e {
                 axa_cursor_pagination::PageError::BadLimit { .. } => bad_limit(),
@@ -236,9 +240,9 @@ impl Page {
             .flatten()
             .and_then(|v| v.to_str().ok().map(str::to_string))
             .and_then(|link| {
-                let start = link.find('<')? + 1;
-                let end = link.find('>')?;
-                Some(link[start..end].to_string())
+                let (_, after) = link.split_once('<')?;
+                let (url, _) = after.split_once('>')?;
+                Some(url.to_string())
             });
         let meta = PageMeta {
             limit: self.limit(),

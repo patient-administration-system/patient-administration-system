@@ -29,9 +29,11 @@ pub fn mask_value(value: &str, keep_tail: usize) -> String {
 pub fn mask_contact_point(c: &ContactPoint) -> ContactPoint {
     let masked = match c.system {
         ContactPointSystem::Email => {
-            if let Some(at) = c.value.find('@') {
-                let local = &c.value[..at];
-                let rest = &c.value[at..];
+            if let Some((local, rest)) = c
+                .value
+                .find('@')
+                .and_then(|at| c.value.split_at_checked(at))
+            {
                 format!("{}{rest}", mask_value(local, 1))
             } else {
                 mask_value(&c.value, 0)

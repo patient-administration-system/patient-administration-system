@@ -103,9 +103,12 @@ pub fn build_report(
             excluded += 1;
             continue;
         };
-        let target = by_category[i].target_minutes;
+        let Some(row) = by_category.get_mut(i) else {
+            excluded += 1;
+            continue;
+        };
+        let target = row.target_minutes;
         let s = standing(a.arrived_at, a.first_contact_at, now, target);
-        let row = &mut by_category[i];
         row.attended += 1;
         match s {
             Standing::SeenWithin => row.seen_within += 1,

@@ -1,14 +1,17 @@
-//! FHIR `OperationOutcome` error envelope, built with the `fhir` crate's typed R5 resource.
+//! FHIR `OperationOutcome` error envelope.
 //!
 //! Used by FHIR handlers to report errors in a way clinical clients expect: one issue with a severity, a
-//! code and a free-text `diagnostics`. The value is a [`fhir::r5::resources::Resource`], so it serialises with its
-//! `resourceType` like any other resource.
+//! code and a free-text `diagnostics`. It is built as JSON and only ever written out, so it cannot fail to
+//! build (the `fhir` crate's typed resource could, and had no value to fall back to).
 
-use fhir::r5::resources::Resource;
+use patient_administration_system_domain::jsonx::set as json_set;
+use serde::Serialize;
 use serde_json::json;
 
 /// What a handler returns for an error: an `OperationOutcome` resource.
-pub type OperationOutcome = Resource;
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct OperationOutcome(serde_json::Value);
 
 /// Build an error-severity `OperationOutcome` with one issue.
 pub fn error(code: &str, diagnostics: impl Into<String>) -> OperationOutcome {
@@ -28,18 +31,9 @@ pub fn exception(diagnostics: impl Into<String>) -> OperationOutcome {
 fn outcome(code: &str, diagnostics: Option<String>) -> OperationOutcome {
     let mut issue = json!({ "severity": "error", "code": code });
     if let Some(d) = diagnostics {
-        issue["diagnostics"] = json!(d);
+        json_set(&mut issue, "diagnostics", json!(d));
     }
-    let shape = json!({ "resourceType": "OperationOutcome", "issue": [issue] });
-    // Codes outside the FHIR value set are kept as written, so this shape always reads back; the fallback is
-    // the same shape with a code that is certainly in the set.
-    serde_json::from_value(shape).unwrap_or_else(|_| {
-        serde_json::from_value(json!({
-            "resourceType": "OperationOutcome",
-            "issue": [{ "severity": "error", "code": "exception" }]
-        }))
-        .unwrap_or_else(|_| unreachable!("a constant OperationOutcome reads as a Resource"))
-    })
+    OperationOutcome(json!({ "resourceType": "OperationOutcome", "issue": [issue] }))
 }
 
 #[cfg(test)]

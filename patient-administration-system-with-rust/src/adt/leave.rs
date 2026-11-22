@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::db::sql::Transact;
+use patient_administration_system_domain::jsonx::set as json_set;
 
 /// What a leave-of-absence movement does: the encounter status it moves to, and the names of its audit row and
 /// outbox event.
@@ -126,7 +127,11 @@ impl AdtService {
                         "encounter_id": enc.id,
                     });
                     if let Some(s) = source_for_txn.as_deref() {
-                        payload["source"] = serde_json::Value::String(s.to_string());
+                        json_set(
+                            &mut payload,
+                            "source",
+                            serde_json::Value::String(s.to_string()),
+                        );
                     }
                     OutboxRepository::publish(txn, event_type, &payload).await?;
                     Ok(enc)
@@ -138,7 +143,11 @@ impl AdtService {
             "encounter_id": res.id,
         });
         if let Some(s) = source_owned.as_deref() {
-            in_mem["source"] = serde_json::Value::String(s.to_string());
+            json_set(
+                &mut in_mem,
+                "source",
+                serde_json::Value::String(s.to_string()),
+            );
         }
         self.publisher
             .publish(DomainEvent::new(event_type, in_mem))

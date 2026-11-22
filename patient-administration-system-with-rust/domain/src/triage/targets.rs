@@ -50,7 +50,9 @@ impl Targets {
                         "PAS_TRIAGE_TARGETS: {key} must be whole minutes between 0 and {MAX_MINUTES}"
                     ))
                 })?;
-            minutes[i] = m;
+            if let Some(slot) = minutes.get_mut(i) {
+                *slot = m;
+            }
         }
         Ok(Self(minutes))
     }
@@ -68,7 +70,7 @@ impl Targets {
         CATEGORIES
             .iter()
             .position(|c| *c == category)
-            .map(|i| self.0[i])
+            .and_then(|i| self.0.get(i).copied())
     }
 }
 

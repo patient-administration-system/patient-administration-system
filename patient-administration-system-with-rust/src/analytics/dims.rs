@@ -134,9 +134,10 @@ pub fn suppress(rows: Vec<(Vec<(String, String)>, i64)>, k: i64) -> Vec<Cell> {
             .filter(|(_, c)| !c.suppressed)
             .min_by_key(|(_, c)| c.count)
             .map(|(i, _)| i)
+        && let Some(cell) = cells.get_mut(i)
     {
-        cells[i].count = None;
-        cells[i].suppressed = true;
+        cell.count = None;
+        cell.suppressed = true;
     }
     cells
 }

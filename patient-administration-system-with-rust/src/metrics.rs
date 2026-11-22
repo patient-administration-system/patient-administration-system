@@ -185,7 +185,9 @@ pub fn job_finished(name: &str, outcome: Outcome) {
 pub fn http_finished(status: u16, micros: u64) {
     let r = registry();
     let class = usize::from(status / 100).clamp(1, 5) - 1;
-    r.http[class].fetch_add(1, Ordering::Relaxed);
+    if let Some(counter) = r.http.get(class) {
+        counter.fetch_add(1, Ordering::Relaxed);
+    }
     r.http_micros.fetch_add(micros, Ordering::Relaxed);
 }
 

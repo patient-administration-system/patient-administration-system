@@ -5,7 +5,21 @@
 //! It runs only in development or test, as axa's `Task::development_only` does, so that a made-up ward cannot
 //! land among real ones. The environment is `APP_ENV`; with none set, a debug build is development and a
 //! release build is production.
-#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::indexing_slicing,
+        clippy::string_slice,
+        clippy::panic_in_result_fn,
+        clippy::unwrap_in_result
+    )
+)]
 #![cfg_attr(not(test), forbid(unsafe_code))]
 
 use axa_environment::Environment;

@@ -17,6 +17,8 @@
 //! carry a coded service for those.
 
 use axum::http::{HeaderMap, header};
+use patient_administration_system_domain::jsonx::at as json_at;
+use patient_administration_system_domain::jsonx::set as json_set;
 use serde_json::{Map, Value, json};
 
 use crate::models::appointment::{Appointment, AppointmentStatus};
@@ -60,10 +62,14 @@ pub fn appointment(a: &Appointment) -> Value {
         "participant": participants,
     });
     if let Some(slot) = a.slot_id {
-        r["slot"] = json!([{ "reference": format!("Slot/{slot}") }]);
+        json_set(
+            &mut r,
+            "slot",
+            json!([{ "reference": format!("Slot/{slot}") }]),
+        );
     }
     if let Some(reason) = a.reason.as_deref().filter(|t| !t.trim().is_empty()) {
-        r["reason"] = json!([{ "concept": { "text": reason } }]);
+        json_set(&mut r, "reason", json!([{ "concept": { "text": reason } }]));
     }
     if a.status == AppointmentStatus::Cancelled
         && let Some(why) = a
@@ -72,7 +78,7 @@ pub fn appointment(a: &Appointment) -> Value {
             .and_then(|c| serde_json::to_value(c).ok())
             .and_then(|v| v.as_str().map(str::to_string))
     {
-        r["cancellationReason"] = json!({ "text": why });
+        json_set(&mut r, "cancellationReason", json!({ "text": why }));
     }
     r
 }
@@ -106,7 +112,7 @@ pub fn encounter(e: &Encounter) -> Value {
     let (status, subject_status) = encounter_status(e.status);
     let mut period = json!({ "start": e.period_start });
     if let Some(end) = e.period_end {
-        period["end"] = json!(end);
+        json_set(&mut period, "end", json!(end));
     }
     let mut r = json!({
         "resourceType": "Encounter",
@@ -117,13 +123,25 @@ pub fn encounter(e: &Encounter) -> Value {
         "actualPeriod": period,
     });
     if let Some(code) = subject_status {
-        r["subjectStatus"] = json!({ "coding": [{ "system": SUBJECT_STATUS, "code": code }] });
+        json_set(
+            &mut r,
+            "subjectStatus",
+            json!({ "coding": [{ "system": SUBJECT_STATUS, "code": code }] }),
+        );
     }
     if let Some(w) = e.worker_id {
-        r["participant"] = json!([{ "actor": { "reference": format!("Practitioner/{w}") } }]);
+        json_set(
+            &mut r,
+            "participant",
+            json!([{ "actor": { "reference": format!("Practitioner/{w}") } }]),
+        );
     }
     if let Some(reason) = e.reason.as_deref().filter(|t| !t.trim().is_empty()) {
-        r["reason"] = json!([{ "value": [{ "concept": { "text": reason } }] }]);
+        json_set(
+            &mut r,
+            "reason",
+            json!([{ "value": [{ "concept": { "text": reason } }] }]),
+        );
     }
     r
 }
@@ -159,7 +177,11 @@ pub fn schedule(s: &Schedule) -> Value {
         "actor": [{ "reference": actor }],
     });
     if !s.service_type.trim().is_empty() {
-        r["serviceType"] = json!([{ "concept": { "text": s.service_type } }]);
+        json_set(
+            &mut r,
+            "serviceType",
+            json!([{ "concept": { "text": s.service_type } }]),
+        );
     }
     r
 }
@@ -195,7 +217,7 @@ pub fn searchset(base: &str, self_url: &str, resources: Vec<Value>) -> Value {
         "total": resources.len(),
         "link": [{ "relation": "self", "url": format!("{base}{self_url}") }],
         "entry": resources.into_iter().map(|r| json!({
-            "fullUrl": format!("{base}/{}/{}", r["resourceType"].as_str().unwrap_or_default(), r["id"].as_str().unwrap_or_default()),
+            "fullUrl": format!("{base}/{}/{}", json_at(&r, "resourceType").as_str().unwrap_or_default(), json_at(&r, "id").as_str().unwrap_or_default()),
             "resource": r,
             "search": { "mode": "match" },
         })).collect::<Vec<_>>(),
@@ -240,11 +262,11 @@ pub fn coverage(c: &Coverage) -> Value {
         .as_deref()
         .filter(|t| !t.trim().is_empty())
     {
-        insurer["identifier"] = json!({ "value": id });
+        json_set(&mut insurer, "identifier", json!({ "value": id }));
     }
     let mut period = json!({ "start": c.start_date });
     if let Some(end) = c.end_date {
-        period["end"] = json!(end);
+        json_set(&mut period, "end", json!(end));
     }
     let mut r = json!({
         "resourceType": "Coverage",
@@ -265,27 +287,40 @@ pub fn coverage(c: &Coverage) -> Value {
         "period": period,
     });
     if !c.policy_number.trim().is_empty() {
-        r["identifier"] = json!([{
-            "type": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "MB" }] },
-            "value": c.policy_number,
-        }]);
+        json_set(
+            &mut r,
+            "identifier",
+            json!([{
+                "type": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "MB" }] },
+                "value": c.policy_number,
+            }]),
+        );
     }
     if let Some(sub) = c.subscriber_id {
-        r["subscriber"] = json!({ "reference": format!("Patient/{sub}") });
+        json_set(
+            &mut r,
+            "subscriber",
+            json!({ "reference": format!("Patient/{sub}") }),
+        );
     }
     if let Some(g) = c.group_number.as_deref().filter(|t| !t.trim().is_empty()) {
-        r["class"] = json!([{
-            "type": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/coverage-class", "code": "group" }] },
-            "value": { "value": g },
-        }]);
+        json_set(
+            &mut r,
+            "class",
+            json!([{
+                "type": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/coverage-class", "code": "group" }] },
+                "value": { "value": g },
+            }]),
+        );
     }
     let rel = c.relationship.trim().to_lowercase();
     if !rel.is_empty() {
-        r["relationship"] = if RELATIONSHIPS.contains(&rel.as_str()) {
+        let relationship = if RELATIONSHIPS.contains(&rel.as_str()) {
             json!({ "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/subscriber-relationship", "code": rel }] })
         } else {
             json!({ "text": c.relationship })
         };
+        json_set(&mut r, "relationship", relationship);
     }
     r
 }
@@ -358,14 +393,14 @@ pub fn person(resource_type: &str, id: uuid::Uuid, data: &Map<String, Value>) ->
     let v = Value::Object(data.clone());
     let mut r = json!({ "resourceType": resource_type, "id": id });
     if let Some(a) = v.get("active").and_then(Value::as_bool) {
-        r["active"] = json!(a);
+        json_set(&mut r, "active", json!(a));
     }
     let names: Vec<Value> = list(&v, "name")
         .into_iter()
         .filter_map(human_name)
         .collect();
     if !names.is_empty() {
-        r["name"] = json!(names);
+        json_set(&mut r, "name", json!(names));
     }
     if let Some(g) = coded(
         &v,
@@ -373,7 +408,7 @@ pub fn person(resource_type: &str, id: uuid::Uuid, data: &Map<String, Value>) ->
         &["male", "female", "other", "unknown"],
         "other",
     ) {
-        r["gender"] = g;
+        json_set(&mut r, "gender", g);
     }
     if let Some(d) = text(&v, "birth_date").filter(|d| {
         let parts: Vec<&str> = d.split('-').collect();
@@ -382,7 +417,7 @@ pub fn person(resource_type: &str, id: uuid::Uuid, data: &Map<String, Value>) ->
                 p.len() == if i == 0 { 4 } else { 2 } && p.bytes().all(|b| b.is_ascii_digit())
             })
     }) {
-        r["birthDate"] = json!(d);
+        json_set(&mut r, "birthDate", json!(d));
     }
     let identifiers: Vec<Value> = list(&v, "identifiers")
         .into_iter()
@@ -391,19 +426,19 @@ pub fn person(resource_type: &str, id: uuid::Uuid, data: &Map<String, Value>) ->
             let mut o = json!({ "value": value });
             // An identifier's system is a URI; anything else the upstream calls it is its type, as text.
             if let Some(sys) = text(i, "system").filter(|s| s.contains(':')) {
-                o["system"] = json!(sys);
+                json_set(&mut o, "system", json!(sys));
             } else if let Some(t) = text(i, "system").or_else(|| text(i, "type")) {
-                o["type"] = json!({ "text": t });
+                json_set(&mut o, "type", json!({ "text": t }));
             }
             // Who assigned it, only when the upstream says (PCC-5); never filled in.
             if let Some(a) = text(i, "assigner") {
-                o["assigner"] = json!({ "display": a });
+                json_set(&mut o, "assigner", json!({ "display": a }));
             }
             Some(o)
         })
         .collect();
     if !identifiers.is_empty() {
-        r["identifier"] = json!(identifiers);
+        json_set(&mut r, "identifier", json!(identifiers));
     }
     let telecom: Vec<Value> = list(&v, "telecom")
         .into_iter()
@@ -416,18 +451,18 @@ pub fn person(resource_type: &str, id: uuid::Uuid, data: &Map<String, Value>) ->
                 &["phone", "fax", "email", "pager", "url", "sms", "other"],
                 "other",
             ) {
-                o["system"] = s;
+                json_set(&mut o, "system", s);
             }
             if let Some(u) =
                 coded(t, "use", &["home", "work", "temp", "old", "mobile"], "").filter(|u| u != "")
             {
-                o["use"] = u;
+                json_set(&mut o, "use", u);
             }
             Some(o)
         })
         .collect();
     if !telecom.is_empty() {
-        r["telecom"] = json!(telecom);
+        json_set(&mut r, "telecom", json!(telecom));
     }
     let addresses: Vec<Value> = list(&v, "addresses")
         .into_iter()
@@ -464,7 +499,7 @@ pub fn person(resource_type: &str, id: uuid::Uuid, data: &Map<String, Value>) ->
         })
         .collect();
     if !addresses.is_empty() {
-        r["address"] = json!(addresses);
+        json_set(&mut r, "address", json!(addresses));
     }
     r
 }

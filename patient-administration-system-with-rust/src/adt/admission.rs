@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::db::sql::Transact;
+use patient_administration_system_domain::jsonx::set as json_set;
 
 impl AdtService {
     /// Admit a patient to a bed.
@@ -196,7 +197,11 @@ impl AdtService {
                         "bed_id": bed_id,
                     });
                     if let Some(s) = source_for_txn.as_deref() {
-                        payload["source"] = serde_json::Value::String(s.to_string());
+                        json_set(
+                            &mut payload,
+                            "source",
+                            serde_json::Value::String(s.to_string()),
+                        );
                     }
                     OutboxRepository::publish(txn, "EncounterPreAdmitted", &payload).await?;
                     Ok(enc)
@@ -290,7 +295,7 @@ impl AdtService {
                         "bed_id": bed_id,
                     });
                     if let Some(s) = source_for_txn.as_deref() {
-                        payload["source"] = serde_json::Value::String(s.to_string());
+                        json_set(&mut payload, "source", serde_json::Value::String(s.to_string()));
                     }
                     OutboxRepository::publish(txn, "EncounterPreAdmitCancelled", &payload).await?;
                     Ok(enc)
@@ -304,7 +309,11 @@ impl AdtService {
             "bed_id": bed_id,
         });
         if let Some(s) = source_owned.as_deref() {
-            in_mem["source"] = serde_json::Value::String(s.to_string());
+            json_set(
+                &mut in_mem,
+                "source",
+                serde_json::Value::String(s.to_string()),
+            );
         }
         self.publisher
             .publish(DomainEvent::new("EncounterPreAdmitCancelled", in_mem))
@@ -396,7 +405,11 @@ impl AdtService {
                         "bed_id": freed_bed_id,
                     });
                     if let Some(r) = reason_for_txn.as_deref() {
-                        payload["reason"] = serde_json::Value::String(r.to_string());
+                        json_set(
+                            &mut payload,
+                            "reason",
+                            serde_json::Value::String(r.to_string()),
+                        );
                     }
                     OutboxRepository::publish(txn, "EncounterCancelled", &payload).await?;
 
@@ -410,7 +423,11 @@ impl AdtService {
             "encounter_id": res.encounter_id,
         });
         if let Some(r) = reason_owned.as_deref() {
-            in_mem["reason"] = serde_json::Value::String(r.to_string());
+            json_set(
+                &mut in_mem,
+                "reason",
+                serde_json::Value::String(r.to_string()),
+            );
         }
         self.publisher
             .publish(DomainEvent::new("EncounterCancelled", in_mem))

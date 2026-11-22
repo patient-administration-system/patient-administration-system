@@ -146,10 +146,10 @@ pub async fn schedule_reschedule(
         Ok(c) => c,
         Err(e) => return ae(&r.inbound, &client_text(&e)),
     };
-    if !conflicts.is_empty() {
+    if let Some(first) = conflicts.first() {
         return ae(
             &r.inbound,
-            &format!("overlap with appointment {}", conflicts[0].id),
+            &format!("overlap with appointment {}", first.id),
         );
     }
     let mut updated = existing.clone();

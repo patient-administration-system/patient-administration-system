@@ -33,7 +33,11 @@ pub fn pick(experiment: Uuid, appointment: Uuid, variants: usize) -> usize {
     h.update(experiment.as_bytes());
     h.update(appointment.as_bytes());
     let d = h.finalize();
-    let n = u64::from_be_bytes([d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]]);
+    // The first eight bytes, big-endian.
+    let n = d
+        .iter()
+        .take(8)
+        .fold(0u64, |acc, b| (acc << 8) | u64::from(*b));
     (n % variants.max(1) as u64) as usize
 }
 
@@ -70,10 +74,9 @@ pub async fn resolve_name<C: Conn>(
             [exp_id.into()],
         ))
 .await?;
-    if variants.is_empty() {
+    let Some(chosen) = variants.get(pick(exp_id, appointment_id, variants.len())) else {
         return Ok(template_name.to_string());
-    }
-    let chosen = &variants[pick(exp_id, appointment_id, variants.len())];
+    };
     let variant: String = chosen.col("variant")?;
     let name: String = chosen.col("template_name")?;
     conn.run(Stmt::new("INSERT INTO message_experiment_assignments (experiment_id, appointment_id, variant) VALUES ($1,$2,$3) \

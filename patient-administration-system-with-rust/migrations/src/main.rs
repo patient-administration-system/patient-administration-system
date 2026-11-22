@@ -6,7 +6,21 @@
 //! - `down`   — revert every migration that can be reverted (the first six are forward-only)
 //! - `fresh`  — drop everything and re-apply; this destroys all data
 //! - `status` — print each migration and whether it has run
-#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::indexing_slicing,
+        clippy::string_slice,
+        clippy::panic_in_result_fn,
+        clippy::unwrap_in_result
+    )
+)]
 #![cfg_attr(not(test), forbid(unsafe_code))]
 use axa_postgres_sqlx::{PoolConfig, connect};
 

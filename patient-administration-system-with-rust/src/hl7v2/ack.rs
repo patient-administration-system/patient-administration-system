@@ -101,7 +101,12 @@ impl Inbound {
 
 /// A new control id for an ACK's MSH-10: 20 hex digits.
 fn new_control_id() -> String {
-    uuid::Uuid::new_v4().simple().to_string()[..20].to_string()
+    uuid::Uuid::new_v4()
+        .simple()
+        .to_string()
+        .chars()
+        .take(20)
+        .collect()
 }
 
 /// MSA-3 text: one line, at most [`MSA3_MAX`] characters, escaped.

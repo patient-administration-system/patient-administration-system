@@ -100,7 +100,9 @@ impl WebhookEventPublisher {
         // any non-empty secret. (Constant-time verification on the receive
         // side is the receiver's responsibility.)
         let Ok(mut mac) = HmacSha256::new_from_slice(secret) else {
-            unreachable!("HMAC-SHA256 accepts a key of any length")
+            // Not reachable (HMAC-SHA256 takes a key of any length). An empty signature fails every receiver's
+            // check, which is the safe way to be wrong.
+            return String::new();
         };
         mac.update(body);
         let result = mac.finalize().into_bytes();

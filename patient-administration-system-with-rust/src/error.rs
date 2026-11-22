@@ -183,7 +183,12 @@ impl Error {
             Error::Upstream(_) => "Upstream service error",
             Error::Internal(_) => "Internal error",
         };
-        let reference = uuid::Uuid::new_v4().simple().to_string()[..8].to_string();
+        let reference: String = uuid::Uuid::new_v4()
+            .simple()
+            .to_string()
+            .chars()
+            .take(8)
+            .collect();
         tracing::error!(%reference, error = %self, "error text withheld from the caller");
         format!("{what} (reference {reference})")
     }

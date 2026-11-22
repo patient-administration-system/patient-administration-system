@@ -165,7 +165,7 @@ impl NoShowService {
             .iter()
             .zip(cells)
             .map(|(r, c)| {
-                let t = c.dims[0].1.clone();
+                let t = c.dims.first().map(|d| d.1.clone()).unwrap_or_default();
                 if c.suppressed {
                     CalibrationCell {
                         predicted_tenth: t,

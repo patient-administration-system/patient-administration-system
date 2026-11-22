@@ -1,5 +1,19 @@
 #![cfg_attr(not(test), forbid(unsafe_code))]
-#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::indexing_slicing,
+        clippy::string_slice,
+        clippy::panic_in_result_fn,
+        clippy::unwrap_in_result
+    )
+)]
 
 //! patient-administration-system-frontend binary entry point.
 //!
