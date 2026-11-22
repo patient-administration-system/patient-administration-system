@@ -102,3 +102,135 @@ async fn stored_rows_read_back_as_r4_and_unknown_ids_are_404() {
         assert_eq!(v["issue"][0]["code"], "not-found", "{kind}");
     }
 }
+
+async fn raw(
+    app: &axum::Router,
+    method: &str,
+    uri: &str,
+    headers: &[(&str, &str)],
+    body: &str,
+) -> (StatusCode, serde_json::Value) {
+    let mut b = Request::builder().method(method).uri(uri);
+    for (k, v) in headers {
+        b = b.header(*k, *v);
+    }
+    let r = app
+        .clone()
+        .oneshot(b.body(Body::from(body.to_string())).unwrap())
+        .await
+        .unwrap();
+    let st = r.status();
+    let bytes = to_bytes(r.into_body(), 1 << 20).await.unwrap();
+    (st, serde_json::from_slice(&bytes).unwrap_or_default())
+}
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn the_r4_capability_statement_names_the_server_and_what_it_does() {
+    let s = common::build_state(&common::database_url().unwrap()).await;
+    let app = patient_administration_system::api::fhir::fhir_router(s);
+    let (st, v) = raw(
+        &app,
+        "GET",
+        "/fhir/r4/metadata",
+        &[("host", "pas.example"), ("x-forwarded-proto", "https")],
+        "",
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert_eq!(v["resourceType"], "CapabilityStatement");
+    assert_eq!(v["fhirVersion"], "4.0.1");
+    if std::env::var("PAS_FHIR_BASE_URL").is_err() {
+        assert_eq!(v["implementation"]["url"], "https://pas.example/fhir/r4");
+    }
+    let ops: Vec<&str> = v["rest"][0]["resource"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|r| r["operation"].as_array().into_iter().flatten())
+        .filter_map(|o| o["name"].as_str())
+        .collect();
+    assert_eq!(ops, ["find", "hold", "book"]);
+    // No Host header: the address falls back to localhost over http.
+    let (_, v) = raw(&app, "GET", "/fhir/r4/metadata", &[], "").await;
+    if std::env::var("PAS_FHIR_BASE_URL").is_err() {
+        assert_eq!(v["implementation"]["url"], "http://localhost/fhir/r4");
+    }
+}
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn the_scheduling_operations_refuse_what_they_cannot_read_with_an_operation_outcome() {
+    let s = common::build_state(&common::database_url().unwrap()).await;
+    let app = patient_administration_system::api::fhir::fhir_router(s);
+    let json = [("content-type", "application/fhir+json")];
+    let patient = Uuid::new_v4();
+    let param = |name: &str, value: serde_json::Value| {
+        let mut p = serde_json::json!({ "name": name });
+        p.as_object_mut()
+            .unwrap()
+            .extend(value.as_object().unwrap().clone());
+        p
+    };
+    let patient_ref = param(
+        "patient-reference",
+        serde_json::json!({ "valueReference": { "reference": format!("Patient/{patient}") } }),
+    );
+    let body = |params: Vec<serde_json::Value>| {
+        serde_json::json!({ "resourceType": "Parameters", "parameter": params }).to_string()
+    };
+    let find = "/fhir/r4/Appointment/$find";
+    let cases: Vec<(String, String)> = vec![
+        (find.into(), "not json".into()),
+        (find.into(), body(vec![])),
+        (
+            find.into(),
+            body(vec![patient_ref.clone(), patient_ref.clone()]),
+        ),
+        (
+            find.into(),
+            body(vec![
+                patient_ref.clone(),
+                param(
+                    "start",
+                    serde_json::json!({ "valueDateTime": "next tuesday" }),
+                ),
+            ]),
+        ),
+        (
+            find.into(),
+            body(vec![param(
+                "patient-reference",
+                serde_json::json!({ "valueReference": { "reference": "Practitioner/x" } }),
+            )]),
+        ),
+        (format!("{find}?_count=0"), body(vec![patient_ref.clone()])),
+        (format!("{find}?_count=many"), body(vec![patient_ref])),
+        ("/fhir/r4/Appointment/$hold".into(), body(vec![])),
+        ("/fhir/r4/Appointment/$book".into(), body(vec![])),
+    ];
+    for (uri, b) in cases {
+        let (st, v) = raw(&app, "POST", &uri, &json, &b).await;
+        assert!(st.is_client_error(), "{uri} {b}: {st}");
+        if b != "not json" {
+            // (A body that is not JSON never reaches the operation: the extractor answers it.)
+            assert_eq!(v["resourceType"], "OperationOutcome", "{uri} {b}: {v}");
+        }
+    }
+    // A proposal nobody made.
+    let unknown = body(vec![param(
+        "appointment-reference",
+        serde_json::json!({ "valueReference": { "reference": format!("Appointment/{}", Uuid::new_v4()) } }),
+    )]);
+    for op in ["$hold", "$book"] {
+        let (st, v) = raw(
+            &app,
+            "POST",
+            &format!("/fhir/r4/Appointment/{op}"),
+            &json,
+            &unknown,
+        )
+        .await;
+        assert!(st.is_client_error(), "{op}: {st} {v}");
+    }
+}
