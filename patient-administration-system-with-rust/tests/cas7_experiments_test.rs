@@ -66,6 +66,19 @@ async fn group(s: &AppState, name: &str, marker: &str) {
     }
 }
 
+/// The reminder's default wording is made on first use. A test that starts an experiment on it needs the
+/// wording in every required language first, so it makes it here rather than relying on an earlier test
+/// having sent a reminder against this database (it failed on a fresh database, depending on the order).
+async fn ensure_reminder_templates(s: &AppState) {
+    patient_administration_system::communication::reminders::ReminderService::new(
+        s.db.clone(),
+        s.communication.clone(),
+    )
+    .ensure_default_templates()
+    .await
+    .unwrap();
+}
+
 fn uniq(p: &str) -> String {
     format!("{p}-{}", &Uuid::new_v4().simple().to_string()[..10])
 }
@@ -172,16 +185,7 @@ async fn each_appointment_gets_one_recorded_variant_in_its_own_language_and_keep
     ))
     .await
     .unwrap();
-    // The reminder's default wording is made on first use. This test needs it in every required language
-    // before it starts the experiment, so it makes it here rather than relying on an earlier test having
-    // sent a reminder against this database (it failed on a fresh database depending on the order).
-    patient_administration_system::communication::reminders::ReminderService::new(
-        s.db.clone(),
-        s.communication.clone(),
-    )
-    .ensure_default_templates()
-    .await
-    .unwrap();
+    ensure_reminder_templates(&s).await;
     let (b_name,) = (uniq("reminder-b"),);
     group(&s, &b_name, "VARIANT-B").await;
 
