@@ -205,7 +205,9 @@ pub fn extract_mrn_from_mrg(mrg: &Segment) -> Option<String> {
 /// handler can iterate and insert charges without re-parsing.
 #[derive(Debug, Clone)]
 pub struct Ft1 {
-    pub set_id: u32,
+    /// FT1-1; `None` when the sender left it blank (it is optional in HL7). A value that is not a whole
+    /// number is refused, not read as 0.
+    pub set_id: Option<u32>,
     pub posted_at: Option<jiff::Timestamp>,
     pub transaction_type: String,
     pub code: String,
@@ -214,12 +216,27 @@ pub struct Ft1 {
     pub currency: String,
 }
 
+impl Ft1 {
+    /// The set id for a message, or `?` when the sender left it blank.
+    pub fn label(&self) -> String {
+        self.set_id
+            .map_or_else(|| "?".to_string(), |n| n.to_string())
+    }
+}
+
 /// Parse one FT1 segment. The 1-based `set_id` is the FT1-1 set-id field
 /// (mostly for diagnostics — "FT1\[2\]-11.1 ..."). Returns
 /// `Err(Error::Validation)` when a required field is missing.
 pub fn parse_ft1(ft1: &Segment) -> crate::Result<Ft1> {
     let set_id_text = ft1.raw(1);
-    let set_id = set_id_text.trim().parse::<u32>().unwrap_or(0);
+    let set_id = match set_id_text.trim() {
+        "" => None,
+        n => Some(
+            n.parse::<u32>()
+                .map_err(|_| crate::Error::validation("FT1-1 (set id) is not a whole number"))?,
+        ),
+    };
+    let label = set_id.map_or_else(|| "?".to_string(), |n| n.to_string());
     let posted_at = parse_hl7_datetime(ft1.raw(4).trim());
     let transaction_type_text = ft1.raw(6);
     let transaction_type = transaction_type_text.trim().to_string();
@@ -233,14 +250,14 @@ pub fn parse_ft1(ft1: &Segment) -> crate::Result<Ft1> {
         .to_string();
     if code.is_empty() {
         return Err(crate::Error::validation(format!(
-            "FT1[{set_id}]-7.1 (transaction code) is required"
+            "FT1[{label}]-7.1 (transaction code) is required"
         )));
     }
     let description_text = ft1.raw(8);
     let description = description_text.trim().to_string();
     if description.is_empty() {
         return Err(crate::Error::validation(format!(
-            "FT1[{set_id}]-8 (description) is required"
+            "FT1[{label}]-8 (description) is required"
         )));
     }
     let amount_field = ft1.raw(11);
@@ -249,12 +266,12 @@ pub fn parse_ft1(ft1: &Segment) -> crate::Result<Ft1> {
     let currency = amt_parts.next().unwrap_or("").trim().to_string();
     if amount.is_empty() {
         return Err(crate::Error::validation(format!(
-            "FT1[{set_id}]-11.1 (amount) is required"
+            "FT1[{label}]-11.1 (amount) is required"
         )));
     }
     if currency.is_empty() {
         return Err(crate::Error::validation(format!(
-            "FT1[{set_id}]-11.2 (currency) is required"
+            "FT1[{label}]-11.2 (currency) is required"
         )));
     }
     Ok(Ft1 {
@@ -339,11 +356,13 @@ pub fn parse_sch(sch: &Segment) -> Sch {
         let value: Option<u32> = value_text.trim().parse().ok();
         let units_text = sch.raw(10);
         let units = units_text.trim();
-        value.map(|v| match units.to_ascii_lowercase().as_str() {
-            "h" | "hr" | "hours" => v * 60,
-            "d" | "day" | "days" => v * 60 * 24,
-            _ => v, // default minutes
-        })
+        let per_unit: u32 = match units.to_ascii_lowercase().as_str() {
+            "h" | "hr" | "hours" => 60,
+            "d" | "day" | "days" => 60 * 24,
+            _ => 1, // default minutes
+        };
+        // A duration too long to hold is unknown, not wrapped or cut short (RCA-INT-1, RCA-IN-6).
+        value.and_then(|v| v.checked_mul(per_unit))
     };
     // SCH-11 is a TQ (timing/quantity) in v2.5, whose fourth component is the start: `^^^20261201093000`.
     // Until 2026-11-17 only a bare date-time in the whole field was read, so a standard SCH-11 gave no start
@@ -567,6 +586,58 @@ mod tests {
     }
 
     use super::*;
+
+    fn ft1_with_set_id(set_id: &str) -> Segment {
+        seg(
+            "FT1",
+            &[
+                set_id,
+                "",
+                "",
+                "",
+                "",
+                "CG",
+                "CODE1",
+                "a charge",
+                "",
+                "",
+                "10.00^GBP",
+            ],
+        )
+    }
+
+    #[test]
+    fn ft1_set_id_is_absent_when_blank_a_number_when_numeric_and_refused_otherwise() {
+        assert_eq!(parse_ft1(&ft1_with_set_id("")).unwrap().set_id, None);
+        assert_eq!(parse_ft1(&ft1_with_set_id(" 7 ")).unwrap().set_id, Some(7));
+        assert_eq!(parse_ft1(&ft1_with_set_id("7")).unwrap().label(), "7");
+        assert_eq!(parse_ft1(&ft1_with_set_id("")).unwrap().label(), "?");
+        for bad in ["x", "-1", "1.5", "4294967296"] {
+            let e = parse_ft1(&ft1_with_set_id(bad)).unwrap_err().to_string();
+            assert!(
+                e.contains("FT1-1") && e.contains("whole number"),
+                "{bad}: {e}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_visit_duration_too_long_to_hold_is_unknown_not_wrapped() {
+        let duration = |value: &str, unit: &str| {
+            let m = crate::hl7v2::parse_message(&format!(
+                "MSH|^~\\&|S|F|R|F|20261117||SIU^S12|X|P|2.5\rSCH|P1||||||why||{value}|{unit}\r"
+            ))
+            .unwrap();
+            parse_sch(m.segment("SCH").unwrap()).duration_minutes
+        };
+        assert_eq!(duration("90", "min"), Some(90));
+        assert_eq!(duration("90", "h"), Some(5400));
+        assert_eq!(duration("2", "days"), Some(2880));
+        // 4_294_967_295 hours does not fit in minutes; it is not wrapped into a small number.
+        assert_eq!(duration("4294967295", "h"), None);
+        assert_eq!(duration("4294967295", "min"), Some(u32::MAX));
+        assert_eq!(duration("lots", "min"), None);
+    }
 
     fn seg(name: &str, fields: &[&str]) -> Segment {
         crate::hl7v2::segment(name, fields.iter().map(|f| (*f).to_string()).collect())

@@ -5,6 +5,7 @@ use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt};
 use crate::paging::PageMeta;
 use patient_administration_system_domain::arith::checked_sum;
+use patient_administration_system_domain::arith::in_range;
 
 /// Keep the `limit` worst rows, in the order they came. A list cut in that order alone could drop the one red
 /// row and leave a page that says red overall with nothing red on it.
@@ -41,7 +42,7 @@ impl ToleranceService {
     /// Read every measure over the last `days` days (waits are as of now), for the whole service and then for
     /// each service and ward, and put each in its tier.
     pub async fn status(&self, days: i64) -> Result<Status> {
-        let days = days.clamp(1, 365);
+        let days = in_range("days", days, 1, 365)?;
         let to = Timestamp::now();
         let from = to - SignedDuration::from_hours(24 * (days));
         let report = self

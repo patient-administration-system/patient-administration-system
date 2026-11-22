@@ -14,6 +14,7 @@
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt};
 use jiff::{SignedDuration, Timestamp};
+use patient_administration_system_domain::arith::in_range;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -157,6 +158,8 @@ impl ReceiptService {
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<ContactProblem>> {
         let rows = rows.into();
+        let since_days = i32::try_from(in_range("since_days", since_days, 1, 3650)?)
+            .map_err(|_| Error::validation("since_days must be from 1 to 3650"))?;
         let rows = self
             .db
             .all(Stmt::new("SELECT g.person_id, count(*)::bigint AS bounces, max(r.occurred_at) AS last_at, \
@@ -167,7 +170,7 @@ impl ReceiptService {
                    AND NOT EXISTS (SELECT 1 FROM contact_problem_resolutions c \
                                    WHERE c.person_id = g.person_id AND c.resolved_at >= r.occurred_at) \
                  GROUP BY g.person_id ORDER BY max(r.occurred_at) DESC, g.person_id LIMIT $2 OFFSET $3",
-                [(since_days.clamp(1, 3650) as i32).into(), rows.fetch().into(), rows.offset().into()],
+                [since_days.into(), rows.fetch().into(), rows.offset().into()],
             ))
 .await?;
         rows.iter()

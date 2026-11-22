@@ -3,6 +3,7 @@
 use super::*;
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt};
+use patient_administration_system_domain::arith::in_range;
 
 /// The most appointments one fairness audit reads. It holds them in memory, so it stops here and says so.
 const AUDIT_APPOINTMENTS: i64 = 50_000;
@@ -24,6 +25,9 @@ impl NoShowService {
         most: i64,
     ) -> Result<FairnessAudit> {
         let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
+        let days = in_range("days", days, 1, 1825)?;
+        let days_bound =
+            i32::try_from(days).map_err(|_| Error::validation("days must be from 1 to 1825"))?;
         let tz = crate::inbound::messages::timezone();
         let rows = self
             .db
@@ -38,7 +42,7 @@ impl NoShowService {
                  WHERE a.deleted_at IS NULL AND a.status IN ('fulfilled','arrived','no_show') \
                    AND a.start_datetime > now() - make_interval(days => $1::int) AND a.start_datetime < now() \
                  ORDER BY a.start_datetime DESC LIMIT $2",
-                [(days.clamp(1, 1825) as i32).into(), (most + 1).into()],
+                [days_bound.into(), (most + 1).into()],
             ))
 .await?;
         let (rows, cut) = crate::paging::cut(rows, most);

@@ -210,9 +210,14 @@ async fn claim(db: &Pool, caller: &str, key: &str, request: &str) -> crate::Resu
     if state != "done" {
         return Ok(Claimed::Running);
     }
-    let status: Option<i32> = row.col("status")?;
+    // A finished key always has the status it was answered with; anything else is a corrupt record, which is
+    // reported, not replayed as a made-up 200 (RCA-IN-6).
+    let status = row
+        .col::<Option<i32>>("status")?
+        .and_then(|s| u16::try_from(s).ok())
+        .ok_or_else(|| crate::Error::internal("a finished idempotency key has no valid status"))?;
     Ok(Claimed::Replay {
-        status: status.and_then(|s| u16::try_from(s).ok()).unwrap_or(200),
+        status,
         content_type: row.col("content_type")?,
         body: row.col::<Option<String>>("body")?.unwrap_or_default(),
     })

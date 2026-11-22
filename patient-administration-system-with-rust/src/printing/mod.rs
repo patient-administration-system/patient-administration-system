@@ -14,6 +14,7 @@
 
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Pool, Stmt, Transact};
+use patient_administration_system_domain::arith::in_range;
 use std::sync::Arc;
 
 use jiff::Timestamp;
@@ -121,6 +122,7 @@ impl PrintService {
 
     /// Queued letters: print, pending, in no batch, oldest first.
     pub async fn queue(&self, limit: i64) -> Result<(i64, Vec<QueuedLetter>)> {
+        let limit = in_range("limit", limit, 1, 500)?;
         let total = self
             .db
             .one(Stmt::text("SELECT count(*) AS n FROM generated_letters g WHERE g.channel = 'print' AND g.status = 'pending' \
@@ -137,7 +139,7 @@ impl PrintService {
                  WHERE g.channel = 'print' AND g.status = 'pending' \
                    AND NOT EXISTS (SELECT 1 FROM print_batch_letters b WHERE b.letter_id = g.id) \
                  ORDER BY g.created_at LIMIT $1",
-                [limit.clamp(1, 500).into()],
+                [limit.into()],
             ))
             .await?;
         let items = rows
@@ -165,7 +167,7 @@ impl PrintService {
         let people = self.person_client.as_ref().ok_or_else(|| {
             Error::upstream("print export needs person-service for postal addresses")
         })?;
-        let limit = limit.clamp(1, MAX_BATCH);
+        let limit = in_range("limit", limit, 1, MAX_BATCH)?;
         let upstream = UpstreamUserContext {
             user_id: ctx.user_id.clone(),
             user_ip: ctx.user_ip.clone(),

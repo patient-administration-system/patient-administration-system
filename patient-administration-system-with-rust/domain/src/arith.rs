@@ -28,6 +28,24 @@ pub fn checked_sum<T: CheckedInt>(items: impl IntoIterator<Item = T>) -> Option<
         .try_fold(T::ZERO, |total, item| total.add_checked(item))
 }
 
+/// `value`, when it is within `lo ..= hi`; otherwise a validation error naming the figure and its range
+/// (RCA-IN-1, RCA-IN-2). An input outside its range is rejected: it is never moved to the nearest bound.
+/// The error does not carry the value (RCA-ERR-2).
+pub fn in_range<T: PartialOrd + std::fmt::Display>(
+    figure: &str,
+    value: T,
+    lo: T,
+    hi: T,
+) -> crate::Result<T> {
+    if value >= lo && value <= hi {
+        Ok(value)
+    } else {
+        Err(crate::Error::validation(format!(
+            "{figure} must be from {lo} to {hi}"
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -45,5 +63,19 @@ mod tests {
 
     fn u8_max_as_u32() -> u32 {
         u32::from(u8::MAX)
+    }
+
+    #[test]
+    fn a_value_outside_its_range_is_refused_naming_the_figure_and_the_range() {
+        assert_eq!(in_range("days", 1, 1, 365).unwrap(), 1);
+        assert_eq!(in_range("days", 365, 1, 365).unwrap(), 365);
+        for bad in [0, 366, -1, i64::MIN, i64::MAX] {
+            let e = in_range("days", bad, 1, 365).unwrap_err().to_string();
+            assert!(e.contains("days") && e.contains("1 to 365"), "{e}");
+            assert!(
+                !e.contains(&bad.to_string()) || bad == 1,
+                "no operand in {e}"
+            );
+        }
     }
 }

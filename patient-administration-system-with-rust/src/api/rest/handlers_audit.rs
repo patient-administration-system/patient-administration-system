@@ -3,6 +3,7 @@
 use crate::db::sql::Conn;
 use axa::extract::{Path, Query};
 use axum::extract::State;
+use patient_administration_system_domain::arith::in_range;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -156,7 +157,10 @@ pub async fn export_balp(
         ))
         .into_response();
     }
-    let limit = q.limit.unwrap_or(100).clamp(1, 500);
+    let limit = match in_range("limit", q.limit.unwrap_or(100), 1, 500) {
+        Ok(n) => n,
+        Err(e) => return error_to_response(e).into_response(),
+    };
     let mut sql = "SELECT * FROM audit_log WHERE at >= $1 AND at < $2".to_string();
     let mut params: Vec<crate::db::sql::Param> = vec![from.into(), to.into()];
     if let Some(t) = &q.entity_type {

@@ -59,7 +59,7 @@ pub async fn dft(
                     let amount = ft1.amount.parse::<rust_decimal::Decimal>().map_err(|_| {
                         crate::Error::validation(format!(
                             "FT1[{}]-11.1 amount is not a number",
-                            ft1.set_id
+                            ft1.label()
                         ))
                     })?;
                     let money = Money::new(amount, currency.clone());
@@ -128,7 +128,7 @@ fn parse_charges(
                 &r.inbound,
                 &format!(
                     "FT1[{}]-6 transaction type not supported (CG only)",
-                    ft1.set_id
+                    ft1.label()
                 ),
             ));
         }
@@ -140,7 +140,7 @@ fn parse_charges(
                     &r.inbound,
                     &format!(
                         "FT1[{}]-11.2 currency differs from an earlier FT1",
-                        ft1.set_id
+                        ft1.label()
                     ),
                 ));
             }

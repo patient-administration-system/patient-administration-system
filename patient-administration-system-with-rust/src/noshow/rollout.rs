@@ -3,6 +3,7 @@
 use super::*;
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt};
+use patient_administration_system_domain::arith::in_range;
 
 crate::string_enum! {
     /// Where a clinic is in the no-show rollout, as `noshow_rollout.stage` stores it (QUAL-28): recording in
@@ -138,7 +139,8 @@ impl NoShowService {
     ///   clinics and not in the others is the evidence the score raises attendance; a drift in both is not.
     pub async fn evaluation(&self, days: i64, k: Option<i64>) -> Result<Evaluation> {
         let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
-        let days = days.clamp(7, 1825) as i32;
+        let days = i32::try_from(in_range("days", days, 7, 1825)?)
+            .map_err(|_| Error::validation("days must be from 7 to 1825"))?;
         let r3 = |x: f64| (x * 1000.0).round() / 1000.0;
         let rows = self
             .db

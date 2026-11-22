@@ -12,6 +12,7 @@
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Row, Stmt, Transact};
 use jiff::SignedDuration;
+use patient_administration_system_domain::arith::in_range;
 
 use super::*;
 
@@ -95,6 +96,7 @@ impl SchedulingService {
         if q.end - q.start > crate::time::days(90) {
             return Err(Error::validation("the period can be at most 90 days"));
         }
+        let count = in_range("count", q.count, 1, 50)?;
         let from = q.start.max(now);
         let txn = self.db.begin_txn().await?;
         let rows = txn
@@ -116,7 +118,7 @@ impl SchedulingService {
                     q.location.into(),
                     q.patient.into(),
                     now.into(),
-                    q.count.clamp(1, 50).into(),
+                    count.into(),
                 ],
             ))
 .await?;

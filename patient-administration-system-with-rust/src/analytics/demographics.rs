@@ -3,6 +3,7 @@
 use super::*;
 use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Param, Stmt};
+use patient_administration_system_domain::arith::in_range;
 
 impl AnalyticsService {
     /// Record an upstream person's coarse bands. Nothing else about them is taken.
@@ -136,13 +137,14 @@ impl AnalyticsService {
         upstream_ctx: &crate::upstream::UserContext,
         ctx: &UserContext,
     ) -> Result<u64> {
+        let limit = in_range("limit", limit, 1, 5000)?;
         let ids = self
             .db
             .all(Stmt::new("SELECT a.person_id FROM appointments a \
                  LEFT JOIN person_demographics d ON d.person_id = a.person_id \
                  WHERE a.deleted_at IS NULL AND (d.person_id IS NULL OR d.updated_at < now() - interval '90 days') \
                  GROUP BY a.person_id ORDER BY max(a.updated_at) DESC LIMIT $1",
-                [limit.clamp(1, 5000).into()],
+                [limit.into()],
             ))
 .await?;
         let mut n = 0;
