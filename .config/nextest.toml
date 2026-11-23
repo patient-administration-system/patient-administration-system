@@ -1,0 +1,27 @@
+# cargo-nextest: each test runs in its own process, so the tests that set environment variables cannot race, and
+# tests with no database run in parallel across every core. `cargo test` is still the reference (it runs the
+# doctests, and `rust-db-coverage` runs under cargo-tarpaulin); nextest runs the same tests faster, none skipped.
+#
+#   just test      the tests with no database, in parallel, then the doctests
+#   just rust-db   the tests marked #[ignore] (they fail, not skip, without a database), one at a time
+
+[profile.default]
+# Report every failure, not just the first.
+fail-fast = false
+slow-timeout = { period = "60s", terminate-after = 5 }
+
+# The database tests share one database (and some clear shared tables), so they run one at a time, as
+# `--test-threads=1` did. Making them independent (a schema or a database per test) is what would let them run in
+# parallel; until then this keeps the old guarantee.
+[test-groups]
+database = { max-threads = 1 }
+
+[profile.db]
+inherits = "default"
+fail-fast = false
+# Some database suites take over a minute a test on a database that has collected rows over many runs.
+slow-timeout = { period = "120s", terminate-after = 10 }
+
+[[profile.db.overrides]]
+filter = "all()"
+test-group = "database"

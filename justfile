@@ -45,8 +45,11 @@ clippy:
 rca:
     python3 scripts/check-checked-arithmetic.py
 
+# The tests with no database, in parallel (cargo-nextest, `.config/nextest.toml`), then the doctests, which
+# nextest does not run. The same tests as `cargo test --workspace`, none skipped.
 test:
-    cargo test --workspace
+    cargo nextest run --workspace
+    cargo test --workspace --doc
 
 [private]
 need-database:
@@ -56,8 +59,16 @@ migrate: need-database
     cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
 
 # The `rust-db` job without coverage: the tests marked #[ignore], which fail (not skip) without a database.
+# One test at a time (the `db` profile in `.config/nextest.toml`), each in its own process.
 rust-db: migrate
-    DB_URL="${DB_URL:-$DATABASE_URL}" cargo test --workspace -- --ignored --test-threads=1
+    DB_URL="${DB_URL:-$DATABASE_URL}" cargo nextest run --workspace --profile db --run-ignored only
+
+# `rust-db` on a freshly created empty database, `pas_fresh` beside the one DATABASE_URL names, as CI does. Use this to
+# time or trust the suite: several tests scan whole tables, so on a long-lived dev database they slow with every
+# run (cas5_noshow_test: 16 seconds fresh, 235 to 583 on a dev database with 355 000 appointments).
+rust-db-fresh:
+    podman exec "${PG_CONTAINER:-podman-postgres-1}" psql -U "${PGUSER:-pas}" -d postgres -c "DROP DATABASE IF EXISTS pas_fresh" -c "CREATE DATABASE pas_fresh"
+    DATABASE_URL="${DATABASE_URL%/*}/pas_fresh" just rust-db
 
 # The `rust-db` job as CI runs it: the database and unit tests in one run under coverage (cargo-tarpaulin, its
 # LLVM engine), written to lcov.info (QUAL-17). One thread, because the database tests share one database; up to

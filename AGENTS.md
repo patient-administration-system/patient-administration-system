@@ -45,13 +45,16 @@ A behavioural change is one change: **spec edit + code edit + test edit** ([`age
 cargo fmt --all -- --check                      # from the ROOT: the migrations crate is formatted too
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace                          # unit tests; the DB tests are #[ignore]d
+just test                                       # the same tests with cargo-nextest, in parallel (about 25 s), then the doctests
 
 # Database tests (need PostgreSQL; run one at a time, they set environment variables)
 podman compose -f podman/compose.yml up -d postgres    # PAS_PG_PORT=5442 if 5432 is busy
 export DATABASE_URL=postgres://pas:pas_dev_password@localhost:5442/pas
 cargo run -p patient-administration-system-migrations --bin pas-migrate -- up
-cargo test --workspace -- --ignored --test-threads=1
+cargo test --workspace -- --ignored --test-threads=1   # or `just rust-db` (cargo-nextest, one at a time)
 # Also run them on a freshly created empty database: migrations must build the schema from nothing.
+just rust-db-fresh                              # creates `pas_fresh`, migrates it and runs the DB tests: about 4 minutes, against
+                                                # 15 or more on a long-lived dev database, whose tables the tests scan
 
 # UI (patient-administration-system-ui-with-svelte)
 pnpm install && pnpm run check && pnpm run lint && pnpm test   # svelte-check, Prettier + ESLint, Vitest
