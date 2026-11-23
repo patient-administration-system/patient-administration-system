@@ -746,4 +746,75 @@ mod tests {
         assert_eq!(class_to_pv1_2(EncounterClass::HomeCare), "H");
         assert_eq!(class_to_pv1_2(EncounterClass::Virtual), "V");
     }
+
+    #[test]
+    fn names_come_from_an_object_or_the_first_of_a_list_with_given_names_in_order() {
+        use serde_json::json;
+        let n = |v: serde_json::Value| name_components(Some(&v));
+        assert_eq!(name_components(None), (None, None, None));
+        assert_eq!(
+            n(json!({ "family": "Lovelace", "given": ["Ada", "Augusta"] })),
+            (
+                Some("Lovelace".into()),
+                Some("Ada".into()),
+                Some("Augusta".into())
+            )
+        );
+        assert_eq!(
+            n(json!([{ "family": "Babbage", "given": "Charles" }, { "family": "Other" }])),
+            (Some("Babbage".into()), Some("Charles".into()), None)
+        );
+        // Not an object, an empty list, or a number: no name at all.
+        for none in [json!("text"), json!([]), json!(7)] {
+            assert_eq!(n(none), (None, None, None));
+        }
+        assert_eq!(n(json!({})), (None, None, None));
+    }
+
+    #[test]
+    fn addresses_and_numbers_are_taken_from_the_first_usable_entry() {
+        use serde_json::json;
+        assert_eq!(address_xad(None), "");
+        assert_eq!(address_xad(Some(&json!("text"))), "");
+        assert_eq!(address_xad(Some(&json!([]))), "");
+        assert_eq!(
+            address_xad(Some(
+                &json!({ "line": ["1 High St", "Flat 2"], "city": "Leeds", "state": "WY", "postalCode": "LS1", "country": "GB" })
+            )),
+            "1 High St^^Leeds^WY^LS1^GB"
+        );
+        assert_eq!(
+            address_xad(Some(&json!([{ "line": "2 Low Rd", "zip": "90210" }]))),
+            "2 Low Rd^^^^90210^"
+        );
+        assert_eq!(telecom_xtn(None), "");
+        assert_eq!(telecom_xtn(Some(&json!("0113 496 0000"))), "0113 496 0000");
+        assert_eq!(
+            telecom_xtn(Some(
+                &json!([{ "system": "email" }, { "value": "+441134960000" }])
+            )),
+            "+441134960000"
+        );
+        assert_eq!(telecom_xtn(Some(&json!([]))), "");
+        assert_eq!(telecom_xtn(Some(&json!(5))), "");
+    }
+
+    #[test]
+    fn every_appointment_status_has_its_hl7_word() {
+        use AppointmentStatus::*;
+        let words: Vec<_> = [Proposed, Booked, Arrived, Fulfilled, Cancelled, NoShow]
+            .map(appt_status_to_str)
+            .to_vec();
+        assert_eq!(
+            words,
+            [
+                "Proposed",
+                "Booked",
+                "Arrived",
+                "Fulfilled",
+                "Cancelled",
+                "NoShow"
+            ]
+        );
+    }
 }
