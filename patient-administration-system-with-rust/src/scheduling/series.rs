@@ -145,8 +145,10 @@ impl SeriesService {
                     AppointmentSeriesRepository::create(txn, &series_clone).await?;
                     let mut appointments = Vec::with_capacity(occurrences_at.len());
                     for start in occurrences_at {
-                        let end =
-                            start + jiff::SignedDuration::from_mins(i64::from(duration_minutes));
+                        let end = crate::time::plus(
+                            start,
+                            jiff::SignedDuration::from_mins(i64::from(duration_minutes)),
+                        )?;
                         // Atomic overlap reject: any conflict on any
                         // occurrence aborts the series. The diagnostic
                         // names the conflicting appointment + datetime

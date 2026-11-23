@@ -31,7 +31,10 @@ pub async fn schedule_book(
         return ae(&r.inbound, "SCH-11 (start datetime) is required");
     };
     let duration = sch.duration_minutes.unwrap_or(30);
-    let end = start + jiff::SignedDuration::from_mins(i64::from(duration));
+    let Ok(end) = crate::time::plus(start, jiff::SignedDuration::from_mins(i64::from(duration)))
+    else {
+        return ae(&r.inbound, "SCH-11 and SCH-9 end after the last date held");
+    };
 
     let person_id = r.person_id;
     let audit_clone = r.audit.clone();
@@ -118,7 +121,10 @@ pub async fn schedule_reschedule(
         return ae(&r.inbound, "SCH-11 (start datetime) is required");
     };
     let duration = sch.duration_minutes.unwrap_or(30);
-    let end = start + jiff::SignedDuration::from_mins(i64::from(duration));
+    let Ok(end) = crate::time::plus(start, jiff::SignedDuration::from_mins(i64::from(duration)))
+    else {
+        return ae(&r.inbound, "SCH-11 and SCH-9 end after the last date held");
+    };
     use crate::db::repositories::appointment::AppointmentRepository;
     let existing = match AppointmentRepository::find_by_id(&state.db, filler).await {
         Ok(Some(a)) => a,

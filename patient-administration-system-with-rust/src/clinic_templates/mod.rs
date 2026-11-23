@@ -117,7 +117,10 @@ pub fn plan_session(
     let mut at = first;
     for l in lines {
         for _ in 0..l.slots {
-            let end = at + SignedDuration::from_mins(i64::from(slot_minutes));
+            // A session that would run past the last date a timestamp holds is no session.
+            let end = at
+                .checked_add(SignedDuration::from_mins(i64::from(slot_minutes)))
+                .ok()?;
             out.push(Planned {
                 start: at,
                 end,
@@ -680,5 +683,15 @@ mod tests {
             .is_err()
         );
         assert!(validate_lines(&lines()).is_ok());
+    }
+
+    #[test]
+    fn a_session_that_would_run_past_the_last_date_held_is_no_session() {
+        // The last day a timestamp holds, late in the evening: the slots cannot all fit before the calendar ends.
+        let last = jiff::civil::date(9999, 12, 31);
+        assert!(plan_session(last, jiff::civil::time(23, 0, 0, 0), 600, &lines()).is_none());
+        // The same session a day earlier is fine.
+        let day = jiff::civil::date(9999, 12, 30);
+        assert!(plan_session(day, jiff::civil::time(9, 0, 0, 0), 20, &lines()).is_some());
     }
 }

@@ -340,3 +340,18 @@ async fn master_file_location_rows_add_change_and_retire_beds() {
     .await;
     assert_eq!(code(&wrong_file), "AE", "{wrong_file:?}");
 }
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn a_booking_that_ends_after_the_last_date_held_is_refused_not_a_panic() {
+    let w = world().await;
+    // Thirty minutes after 21:50 on the last day but one of 9999 is past the last instant a timestamp holds.
+    let book = post(
+        &w,
+        "/api/hl7/v2/schedule-book",
+        &siu(&w, "S12", None, Some("99991230215000")),
+    )
+    .await;
+    assert_eq!(code(&book), "AE", "{book:?}");
+    assert!(book.contains("last date"), "{book:?}");
+}
