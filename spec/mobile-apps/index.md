@@ -1,6 +1,6 @@
 # Mobile apps
 
-The patient's appointments on a phone: an iOS and iPadOS app in Swift and SwiftUI, and an Android app in Kotlin and Jetpack Compose, both drawn with Lily Design System. Requirements FR-227 to FR-229 and NFR-35 to NFR-36; tasks `MOB-*` in [`../../tasks.md`](../../tasks.md).
+The patient's appointments on a phone: an iOS and iPadOS app in Swift and SwiftUI, and an Android app in Kotlin and Jetpack Compose, both drawn with Lily Design System. Requirements FR-227 to FR-229 and NFR-35 to NFR-37; tasks `MOB-*` in [`../../tasks.md`](../../tasks.md).
 
 | Subproject | Stack | Lily | Tests |
 |---|---|---|---|
@@ -16,6 +16,22 @@ One screen, **My appointments**, the same as the web UI's `/my/appointments`:
 - A failed load shows the app's own words for one of five problems (unreachable, signed out, forbidden, unavailable; a person the PAS does not hold has no appointments) and a retry. Nothing the server says reaches the screen (FR-228), as on the web (AGENTS.md).
 - English and Welsh. Keys and wording are the web UI's where the meaning is the same (`status.*`, `error.*`, `myAppointments.*`); app-only keys start `mobile.`. The Welsh is a first draft awaiting fluent review, like the web UI's. The other eight web locales are not yet in the apps.
 - Light and dark follow the device (`LilyTokens.light` and `.dark`).
+
+## Managed and personal devices, phones and tablets
+
+The apps MUST run on all four of these, from one build (NFR-37):
+
+| | Managed (the organisation's device) | BYOD (the person's own device) |
+|---|---|---|
+| **Phone** | iPhone under an MDM; Android with a work profile or a fully managed device | iPhone or Android phone with no management at all |
+| **Tablet** | iPad under an MDM (Shared iPad is out of scope); Android tablet, managed | the person's own iPad or Android tablet |
+
+- **Managed.** The organisation sets the server address and default language through the platform's app configuration (Apple Managed App Configuration, read from `UserDefaults` key `com.apple.configuration.managed`; Android Enterprise `RestrictionsManager`), and may block backup, copy-out and screenshots. The app reads the configuration at every launch and when it changes, ignores a value outside what it accepts (and says so, in its own words), and obeys the blocks: no iCloud or Android backup of its data, no `UIPasteboard` or `ClipboardManager` writes of record text when copy-out is blocked, `FLAG_SECURE` and the iOS screen-capture check when screenshots are blocked. Its data lives only in its own sandbox, so removing the app or wiping the work profile leaves nothing behind.
+- **BYOD.** Nothing is required of the device: no enrolment, no management agent, no device-administrator rights. The app reads nothing outside itself: no other apps, no device inventory, no advertising, hardware or serial identifier. Its sign-in is held only in the Keychain or the Android Keystore, and signing out removes it. A person on a BYOD device gets the same app and the same screens as a managed one, without the organisation's settings.
+- **Phones and tablets.** Every screen is laid out for the smallest phone width and for a tablet, in portrait and landscape, in split view, slide over and multi-window, at the largest text size. On a wide screen the list uses a readable column (or list and detail side by side once there is a detail), never a stretched phone layout. The iOS app already targets iPhone and iPad; the Android manifest sets no phone-only restriction, but no tablet layout has been tried.
+- **Not decided here:** which MDM products to certify, and whether a managed device may sign in with the organisation's identity rather than a patient credential (MOB-3's open question 20).
+
+**Not built yet.** None of this is implemented or tested (MOB-9); the apps read no managed configuration, and their layouts have been checked on a phone only.
 
 ## Why the apps show example data only
 
@@ -36,4 +52,5 @@ Neither Lily library is published yet (no Swift export repository, nothing on Ma
 | FR-229 | `demoAlwaysHasUpcomingAndPast`; the UI test checks the notice | `demoAlwaysHasUpcomingAndPast`, `demoShowsUpcomingAndPastInEnglish` |
 | Catalogues | `CatalogueTests.swift`: every locale has the English keys, every code key exists, shared keys match the web UI | `CatalogueTest`: the same, and Android matches iOS word for word |
 | NFR-35 | Read: `PASMobileApp.swift` builds only `DemoAppointmentSource` (no automated test) | `ManifestTest.theAppAsksForNoNetworkPermission` |
+| NFR-37 | **Not yet tested** (MOB-9): an iPad simulator and an Android tablet emulator, in portrait, landscape and split view; managed-configuration tests with a stub `RestrictionsManager` and `UserDefaults` | as Swift |
 | NFR-36 | `App/PASMobileUITests/AccessibilityAuditTests.swift`: `performAccessibilityAudit` with no ignored issue, at the default and the largest accessibility text size, and in Welsh | **Not yet tested**: no on-device Compose accessibility check (MOB-6) |
