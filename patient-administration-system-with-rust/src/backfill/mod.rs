@@ -624,3 +624,43 @@ impl BackfillService {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod label_tests {
+    use super::*;
+
+    #[test]
+    fn an_offers_state_and_status_are_written_as_their_snake_case_words() {
+        let states = [
+            OfferState::Open,
+            OfferState::Used,
+            OfferState::Expired,
+            OfferState::Gone,
+        ];
+        assert_eq!(
+            states.map(OfferState::as_str),
+            ["open", "used", "expired", "gone"]
+        );
+        let statuses = [
+            OfferStatus::Accepted,
+            OfferStatus::Declined,
+            OfferStatus::Gone,
+        ];
+        assert_eq!(
+            statuses.map(OfferStatus::as_str),
+            ["accepted", "declined", "gone"]
+        );
+        // The words are also what the JSON carries, and what a test may compare with.
+        assert_eq!(
+            serde_json::to_value(OfferState::Expired).unwrap(),
+            "expired"
+        );
+        assert_eq!(
+            serde_json::to_value(OfferStatus::Declined).unwrap(),
+            "declined"
+        );
+        assert!(OfferState::Gone == "gone");
+        assert!(OfferStatus::Accepted == "accepted");
+        assert!(OfferStatus::Accepted != "declined");
+    }
+}
