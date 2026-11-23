@@ -34,6 +34,8 @@ ALLOWED = {
     "NFR-8": "the compiler: #![cfg_attr(not(test), forbid(unsafe_code))] in lib.rs",
     "NFR-9": "the CI job `deny` (cargo deny check)",
     "NFR-17": "NOT YET BUILT, stated in its row: there is one unversioned /api, so no header to test yet",
+    "NFR-37": "NOT YET BUILT, stated in its row: managed configuration and tablet layouts are MOB-9",
+    "NFR-38": "NOT YET BUILT, stated in its row: memory-only record text and its marker test are MOB-9",
 }
 
 
