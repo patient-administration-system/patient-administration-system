@@ -1,6 +1,6 @@
 # Mobile apps
 
-The patient's appointments on a phone: an iOS and iPadOS app in Swift and SwiftUI, and an Android app in Kotlin and Jetpack Compose, both drawn with Lily Design System. Requirements FR-227 to FR-229 and NFR-35 to NFR-38; tasks `MOB-*` in [`../../tasks.md`](../../tasks.md).
+The patient's appointments on a phone: an iOS and iPadOS app in Swift and SwiftUI, and an Android app in Kotlin and Jetpack Compose, both drawn with Lily Design System. Requirements FR-227 to FR-229 (built, on demo data) and FR-230 to FR-238 (planned), and NFR-35 to NFR-38; tasks `MOB-*` in [`../../tasks.md`](../../tasks.md).
 
 | Subproject | Stack | Lily | Tests |
 |---|---|---|---|
@@ -16,6 +16,23 @@ One screen, **My appointments**, the same as the web UI's `/my/appointments`:
 - A failed load shows the app's own words for one of five problems (unreachable, signed out, forbidden, unavailable; a person the PAS does not hold has no appointments) and a retry. Nothing the server says reaches the screen (FR-228), as on the web (AGENTS.md).
 - English and Welsh. Keys and wording are the web UI's where the meaning is the same (`status.*`, `error.*`, `myAppointments.*`); app-only keys start `mobile.`. The Welsh is a first draft awaiting fluent review, like the web UI's. The other eight web locales are not yet in the apps.
 - Light and dark follow the device (`LilyTokens.light` and `.dark`).
+
+## Planned features
+
+The apps are to cover what a patient expects of an NHS app. Only appointments are built, and only on example data (FR-227). Each feature below is a requirement, not a promise that it is built, and **each says where its data comes from, because most of it is not the PAS's** (spec/02-scope.md: clinical records, orders, results and prescribing are out of scope).
+
+| Feature | Requirement | Source | Task |
+|---|---|---|---|
+| **Appointments:** view, book, cancel; hospital and GP | FR-227, FR-230 | PAS (hospital); GP system (GP) | MOB-8, MOB-10 |
+| **Referrals and waiting lists:** stage, place, time waited | FR-231 | PAS | MOB-10 |
+| **Messages** from GP practices and hospitals | FR-232 | PAS portal | MOB-8 |
+| **Prescriptions:** see and order repeats | FR-233 | GP system | MOB-11 |
+| **Health record:** test results, allergies, medicines | FR-234 | GP system | MOB-12 |
+| **NHS 111 guidance** | FR-235 | NHS 111 (Wales), handed over | MOB-13 |
+| **Organ donation decision** | FR-236 | national register | MOB-13 |
+| **Register to give blood** | FR-237 | Welsh Blood Service, handed over | MOB-13 |
+
+Rules for all of them (FR-238): a feature whose source is not connected says it is not available; one that acts for the patient asks for confirmation, is one POST, and shows its outcome in the app's own words; the app never gives clinical advice and says to call 999 in an emergency; and every piece of record text is held under NFR-38 (memory only, never copied out). A medicine, an allergy or a test result is among the most sensitive text the app can show, so these features also wait for NFR-35 and MOB-3 (a patient credential reads only its own record), and for the clinical safety case (MOB-7). Open question 21 decides where the non-PAS data comes from.
 
 ## Managed and personal devices, phones and tablets
 
@@ -61,3 +78,4 @@ Neither Lily library is published yet (no Swift export repository, nothing on Ma
 | NFR-38 | **Not yet tested** (MOB-9): a test that every Compose or SwiftUI text carrying record text is not selectable; a manifest and Info.plist test for backup and `FLAG_SECURE`; a test that a marker record text appears in no file, preference, log or pasteboard after a run (as NFR-33 does for server logs) | as Swift |
 | NFR-37 | **Not yet tested** (MOB-9): an iPad simulator and an Android tablet emulator, in portrait, landscape and split view; managed-configuration tests with a stub `RestrictionsManager` and `UserDefaults` | as Swift |
 | NFR-36 | `App/PASMobileUITests/AccessibilityAuditTests.swift`: `performAccessibilityAudit` with no ignored issue, at the default and the largest accessibility text size, and in Welsh | **Not yet tested**: no on-device Compose accessibility check (MOB-6) |
+| FR-230 to FR-238 | **Not yet built.** Each feature gets a decode test against a recorded fixture of its source, a confirm-then-act test for each write, a "not available" test with the source unconnected, and the NFR-38 marker test | as Swift |
