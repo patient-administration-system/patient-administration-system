@@ -219,7 +219,7 @@ impl InterpreterService {
                  ORDER BY a.start_datetime, r.id LIMIT $3 OFFSET $4",
                 [
                     now.into(),
-                    (now + within).into(),
+                    crate::time::plus(now, within)?.into(),
                     rows.fetch()?.into(),
                     rows.offset()?.into(),
                 ],

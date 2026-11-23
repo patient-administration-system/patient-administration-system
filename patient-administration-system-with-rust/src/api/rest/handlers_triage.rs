@@ -167,7 +167,13 @@ pub struct WindowQuery {
 pub async fn waits(State(state): State<AppState>, Query(q): Query<WindowQuery>) -> HandlerResult {
     let now = state.clock.now();
     let to = q.to.unwrap_or(now);
-    let from = q.from.unwrap_or(to - jiff::SignedDuration::from_hours(24));
+    let from = match q.from {
+        Some(from) => from,
+        None => match crate::time::minus(to, jiff::SignedDuration::from_hours(24)) {
+            Ok(from) => from,
+            Err(e) => return error_to_response(crate::Error::from(e)),
+        },
+    };
     json(
         TriageService::new(state.db.clone())
             .waits_report(from, to, &Targets::from_env(), now)

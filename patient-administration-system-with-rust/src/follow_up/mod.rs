@@ -75,7 +75,7 @@ pub(crate) async fn on_no_show<C: Conn>(
     };
     let service: String = row.col("service_type")?;
     let id = Uuid::new_v4();
-    let due = Timestamp::now() + due_after();
+    let due = crate::time::plus(Timestamp::now(), due_after())?;
     let made = conn
         .run(Stmt::new(
             "INSERT INTO follow_up_tasks (id, appointment_id, person_id, service_type, due_at) \

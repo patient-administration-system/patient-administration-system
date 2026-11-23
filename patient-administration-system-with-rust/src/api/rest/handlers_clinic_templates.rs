@@ -319,7 +319,13 @@ pub struct ReportQuery {
 )]
 pub async fn report(State(state): State<AppState>, Query(q): Query<ReportQuery>) -> HandlerResult {
     let from = q.from.unwrap_or_else(|| state.clock.now());
-    let to = q.to.unwrap_or(from + crate::time::days(28));
+    let to = match q.to {
+        Some(to) => to,
+        None => match crate::time::plus(from, crate::time::days(28)) {
+            Ok(to) => to,
+            Err(e) => return error_to_response(crate::Error::from(e)),
+        },
+    };
     match capacity_report(
         &state.db,
         &q.service_type,

@@ -144,7 +144,9 @@ impl ProxyService {
                 SCOPES.join(", ")
             )));
         }
-        if new.expires_at <= now || new.expires_at > now + crate::time::days(MAX_DAYS) {
+        if new.expires_at <= now
+            || new.expires_at > crate::time::plus(now, crate::time::days(MAX_DAYS))?
+        {
             return Err(Error::validation(format!(
                 "expires_at must be in the future and within {MAX_DAYS} days"
             )));

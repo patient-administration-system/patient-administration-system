@@ -26,6 +26,19 @@ pub fn days(n: i64) -> SignedDuration {
         .map_or(longest, SignedDuration::from_secs)
 }
 
+/// `at` plus `by`, or a validation error when the result is outside the dates a timestamp can hold. The `+`
+/// operator on a timestamp panics there (RCA-TIME-3).
+pub fn plus(at: Timestamp, by: SignedDuration) -> crate::Result<Timestamp> {
+    at.checked_add(by)
+        .map_err(|_| crate::Error::validation("the date is out of range"))
+}
+
+/// `at` less `by`, or a validation error when the result is outside the dates a timestamp can hold.
+pub fn minus(at: Timestamp, by: SignedDuration) -> crate::Result<Timestamp> {
+    at.checked_sub(by)
+        .map_err(|_| crate::Error::validation("the date is out of range"))
+}
+
 /// The whole days in `d`, truncated towards zero (as `chrono::Duration::num_days` was).
 pub fn whole_days(d: SignedDuration) -> i64 {
     d.as_hours() / 24
@@ -286,5 +299,18 @@ mod tests {
         assert_eq!(serde_json::from_str::<Days>(&json).unwrap(), none);
         assert!(serde_json::from_str::<Days>(r#"{"all":["Funday"]}"#).is_err());
         assert!(serde_json::from_str::<Days>(r#"{"all":[],"some":["Funday"]}"#).is_err());
+    }
+
+    #[test]
+    fn adding_or_taking_away_time_past_the_ends_of_the_calendar_is_an_error_not_a_panic() {
+        let t = utc(2026, 11, 22, 12, 0, 0);
+        assert_eq!(plus(t, days(1)).unwrap(), utc(2026, 11, 23, 12, 0, 0));
+        assert_eq!(minus(t, days(1)).unwrap(), utc(2026, 11, 21, 12, 0, 0));
+        assert!(plus(Timestamp::MAX, days(1)).is_err());
+        assert!(minus(Timestamp::MIN, days(1)).is_err());
+        assert!(plus(t, SignedDuration::MAX).is_err());
+        assert!(minus(t, SignedDuration::MAX).is_err());
+        let e = plus(Timestamp::MAX, days(1)).unwrap_err().to_string();
+        assert!(e.contains("out of range"), "{e}");
     }
 }

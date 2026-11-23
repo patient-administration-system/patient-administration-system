@@ -505,7 +505,7 @@ fn check_window(now: Timestamp, until: Timestamp) -> Result<()> {
     if until <= now {
         return Err(Error::validation("the window must end in the future"));
     }
-    if until > now + crate::time::days(MAX_WINDOW_DAYS) {
+    if until > crate::time::plus(now, crate::time::days(MAX_WINDOW_DAYS))? {
         return Err(Error::validation(format!(
             "the window may be at most {MAX_WINDOW_DAYS} days"
         )));

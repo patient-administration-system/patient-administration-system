@@ -3,7 +3,6 @@
 use jiff::Timestamp;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use std::ops::Add;
 
 use crate::{Error, Result};
 
@@ -139,25 +138,15 @@ impl Money {
                 self.currency.0, other.currency.0
             )));
         }
+        // `Decimal`'s `+` panics on overflow; the checked sum is an error naming the figure (RCA-MON-4).
+        let amount = self
+            .amount
+            .checked_add(other.amount)
+            .ok_or_else(|| Error::validation("a money total is too large to hold"))?;
         Ok(Money {
-            amount: self.amount + other.amount,
+            amount,
             currency: self.currency,
         })
-    }
-}
-
-impl Add for Money {
-    type Output = Money;
-
-    fn add(self, rhs: Money) -> Money {
-        assert_eq!(
-            self.currency, rhs.currency,
-            "Cannot add Money with different currencies"
-        );
-        Money {
-            amount: self.amount + rhs.amount,
-            currency: self.currency,
-        }
     }
 }
 
@@ -297,5 +286,23 @@ mod tests {
             serde_json::to_string(&Gender::Female).unwrap(),
             "\"female\""
         );
+    }
+
+    #[test]
+    fn money_adds_in_one_currency_and_refuses_a_mismatch_or_an_overflow() {
+        let gbp = Iso4217::new("GBP").unwrap();
+        let usd = Iso4217::new("USD").unwrap();
+        let a = Money::new(Decimal::new(150, 2), gbp.clone());
+        let b = Money::new(Decimal::new(275, 2), gbp.clone());
+        assert_eq!(a.clone().try_add(b).unwrap().amount, Decimal::new(425, 2));
+        let e = a
+            .clone()
+            .try_add(Money::new(Decimal::new(1, 0), usd))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("different currencies"), "{e}");
+        let huge = Money::new(Decimal::MAX, gbp);
+        let e = huge.clone().try_add(huge).unwrap_err().to_string();
+        assert!(e.contains("too large"), "{e}");
     }
 }

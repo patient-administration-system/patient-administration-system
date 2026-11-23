@@ -270,7 +270,10 @@ pub async fn find(
         ])?;
         let now = state.clock.now();
         let start = p.time("start")?.unwrap_or(now);
-        let end = p.time("end")?.unwrap_or(start + crate::time::days(14));
+        let end = match p.time("end")? {
+            Some(end) => end,
+            None => crate::time::plus(start, crate::time::days(14))?,
+        };
         let patient = p
             .reference("patient-reference", "Patient")?
             .ok_or_else(|| Error::validation("patient-reference is required: Patient/<id>"))?;
