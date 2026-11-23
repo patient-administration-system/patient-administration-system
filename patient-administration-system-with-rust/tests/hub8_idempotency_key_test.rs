@@ -194,3 +194,29 @@ async fn an_answer_that_is_a_server_error_is_not_kept_so_the_retry_runs_again() 
         .unwrap();
     assert_eq!(kept, 0, "the claim was released, not kept");
 }
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn a_caller_header_that_cannot_be_read_is_refused_not_merged_into_the_anonymous_caller() {
+    let s = common::build_state(&common::database_url().unwrap()).await;
+    let schedule = common::new_schedule(&s.db).await;
+    let slot = common::free_slot(&s.db, schedule.id, 404).await;
+    let path = format!("/api/slots/{}/book", slot.id);
+    let body = format!(r#"{{"person_id":"{}"}}"#, Uuid::new_v4());
+    let resp = patient_administration_system::api::rest::router(s.clone())
+        .oneshot(
+            Request::post(&path)
+                .header("content-type", "application/json")
+                .header("idempotency-key", Uuid::new_v4().to_string())
+                .header(
+                    "x-user-id",
+                    axum::http::HeaderValue::from_bytes(b"caf\xe9").unwrap(),
+                )
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(bookings(&s, slot.id).await, 0);
+}

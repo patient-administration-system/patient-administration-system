@@ -82,12 +82,16 @@ pub async fn idempotency_middleware(
             "Idempotency-Key must be 1 to 255 visible ASCII characters",
         );
     }
-    let caller = req
-        .headers()
-        .get("x-user-id")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
+    // No caller header is the anonymous caller; one that cannot be read is refused, not merged into it.
+    let caller = match req.headers().get("x-user-id") {
+        None => String::new(),
+        Some(v) => match v.to_str() {
+            Ok(text) => text.to_string(),
+            Err(_) => {
+                return problem(StatusCode::BAD_REQUEST, "x-user-id must be visible ASCII");
+            }
+        },
+    };
     let (parts, body) = req.into_parts();
     let Ok(bytes) = to_bytes(body, MAX_BODY).await else {
         return problem(

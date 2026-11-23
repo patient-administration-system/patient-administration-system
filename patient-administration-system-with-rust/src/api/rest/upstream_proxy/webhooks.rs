@@ -47,6 +47,19 @@ pub(super) fn hex_decode(s: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 
+/// The event id the sender put in its header. An absent header means the id derived from the body is used; a
+/// header that is present and not an id is refused, never replaced by the derived one (RCA-IN-3, RCA-IN-5).
+fn event_id_header(headers: &HeaderMap, derived: Uuid) -> Result<Uuid, Error> {
+    let Some(value) = headers.get(EVENT_ID_HEADER) else {
+        return Ok(derived);
+    };
+    value
+        .to_str()
+        .ok()
+        .and_then(|s| Uuid::parse_str(s).ok())
+        .ok_or_else(|| Error::validation(format!("{EVENT_ID_HEADER} is not an id")))
+}
+
 /// Check + record an inbound webhook event id. Returns
 /// - `Ok(true)` — new event, side-effects should run
 /// - `Ok(false)` — duplicate event, side-effects should be skipped
@@ -219,11 +232,10 @@ pub async fn person_merged_webhook(
             format!("{}|{}", body.source_id, body.target_id).as_bytes(),
         )
     });
-    let event_id = headers
-        .get(EVENT_ID_HEADER)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| Uuid::parse_str(s).ok())
-        .unwrap_or(event_id);
+    let event_id = match event_id_header(&headers, event_id) {
+        Ok(id) => id,
+        Err(e) => return error_to_response(e),
+    };
     let is_new = match record_inbox(&state.db, event_id, "person_service").await {
         Ok(b) => b,
         Err(e) => return error_to_response(e),
@@ -306,11 +318,10 @@ pub async fn worker_merged_webhook(
             format!("{}|{}", body.source_id, body.target_id).as_bytes(),
         )
     });
-    let event_id = headers
-        .get(EVENT_ID_HEADER)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| Uuid::parse_str(s).ok())
-        .unwrap_or(event_id);
+    let event_id = match event_id_header(&headers, event_id) {
+        Ok(id) => id,
+        Err(e) => return error_to_response(e),
+    };
     let is_new = match record_inbox(&state.db, event_id, "worker_service").await {
         Ok(b) => b,
         Err(e) => return error_to_response(e),

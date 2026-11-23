@@ -339,12 +339,11 @@ async fn the_worker_webhook_refuses_what_it_cannot_trust_and_ignores_a_replay() 
     assert_eq!(v["data"]["applied"], Value::Bool(true));
     let (_, v) = post_webhook(&app, path, &body, Some(&good), Some(&header_id)).await;
     assert_eq!(v["data"]["applied"], Value::Bool(false));
-    let (_, v) = post_webhook(&app, path, &body, Some(&good), Some("not-a-uuid")).await;
-    assert_eq!(
-        v["data"]["applied"],
-        Value::Bool(false),
-        "an unreadable header falls back to the pair"
-    );
+    // A header that is there and is not an id is refused; it is not replaced by the pair's id (RCA-IN-2).
+    let (st, v) = post_webhook(&app, path, &body, Some(&good), Some("not-a-uuid")).await;
+    assert!(st.is_client_error(), "{st} {v}");
+    assert!(v.to_string().contains("x-upstream-event-id"), "{v}");
+    assert!(v["data"]["applied"].is_null(), "nothing was applied: {v}");
 
     unsafe { std::env::remove_var("WORKER_SERVICE_WEBHOOK_SECRET") };
 }
@@ -418,6 +417,57 @@ async fn a_merge_moves_the_rows_of_the_old_record_to_the_new_one_and_audits_it()
             .await
             .unwrap();
         assert!(n >= 1, "{action} is audited");
+    }
+    unsafe {
+        std::env::remove_var("PERSON_SERVICE_WEBHOOK_SECRET");
+        std::env::remove_var("WORKER_SERVICE_WEBHOOK_SECRET");
+    }
+}
+
+/// RCA-IN-2: an event-id header that is present and not an id is refused; it is not replaced by an id made up
+/// from the body, which would let a bad header pass as a fresh event.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_webhook_event_id_header_that_is_not_an_id_is_refused() {
+    let _env_guard = ENV_LOCK.lock().await;
+    let Some(url) = common::database_url() else {
+        return;
+    };
+    unsafe {
+        std::env::set_var("PERSON_SERVICE_WEBHOOK_SECRET", "shared");
+        std::env::set_var("WORKER_SERVICE_WEBHOOK_SECRET", "wsecret");
+    }
+    let state = common::build_state(&url).await;
+    let body_bytes = serde_json::to_vec(&serde_json::json!({
+        "source_id": Uuid::new_v4(),
+        "target_id": Uuid::new_v4(),
+    }))
+    .unwrap();
+    for (path, secret) in [
+        ("/api/upstream/person-merged", &b"shared"[..]),
+        ("/api/upstream/worker-merged", &b"wsecret"[..]),
+    ] {
+        let sig = sign(secret, &body_bytes);
+        let resp = patient_administration_system::api::rest::router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(path)
+                    .header("content-type", "application/json")
+                    .header("x-upstream-signature", &sig)
+                    .header("x-upstream-event-id", "not-an-id")
+                    .body(Body::from(body_bytes.clone()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let text = body_json(resp).await.to_string();
+        assert!(
+            status.is_client_error() && status != StatusCode::UNAUTHORIZED,
+            "{path}: {status} {text}"
+        );
+        assert!(text.contains("x-upstream-event-id"), "{path}: {text}");
     }
     unsafe {
         std::env::remove_var("PERSON_SERVICE_WEBHOOK_SECRET");
