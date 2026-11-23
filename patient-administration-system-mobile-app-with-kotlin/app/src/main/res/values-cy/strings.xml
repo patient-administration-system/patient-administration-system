@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cymraeg. FIRST DRAFT awaiting fluent review (governance/translation-review.md). Names without "mobile_" reuse the web UI Welsh (cy-001.json); the "mobile_" names, status_other and modality_* are new drafts. -->
+<resources>
+    <string name="app_name">System Weinyddu Cleifion</string>
+    <string name="myAppointments_title">Fy apwyntiadau</string>
+    <string name="myAppointments_empty">Nid oes gennych unrhyw apwyntiadau.</string>
+    <string name="mobile_upcoming">I ddod</string>
+    <string name="mobile_past">Blaenorol</string>
+    <string name="mobile_when">Pryd</string>
+    <string name="mobile_how">Sut</string>
+    <string name="mobile_status">Statws</string>
+    <string name="mobile_loading">Wrthi\'n llwytho eich apwyntiadau</string>
+    <string name="mobile_retry">Rhowch gynnig arall arni</string>
+    <string name="mobile_demoNotice">Apwyntiadau enghreifftiol yw\'r rhain, nid eich rhai chi. Nid yw\'r fersiwn hon o\'r ap wedi\'i chysylltu â\'r GIG eto.</string>
+    <string name="mobile_error_title">Mae problem wedi codi</string>
+    <string name="mobile_error_unreachable">Nid oedd modd cyrraedd y gwasanaeth apwyntiadau. Gwiriwch eich cysylltiad a rhowch gynnig arall arni.</string>
+    <string name="error_401">Mewngofnodwch i barhau.</string>
+    <string name="error_403">Nid oes gennych fynediad i\'r dudalen hon.</string>
+    <string name="error_502">Nid yw gwasanaeth y mae\'r dudalen hon yn dibynnu arno ar gael.</string>
+    <string name="status_proposed">Arfaethedig</string>
+    <string name="status_booked">Wedi\'i archebu</string>
+    <string name="status_arrived">Wedi cyrraedd</string>
+    <string name="status_fulfilled">Wedi\'i gwblhau</string>
+    <string name="status_cancelled">Wedi\'i ganslo</string>
+    <string name="status_no_show">Heb fynychu</string>
+    <string name="status_other">Arall</string>
+    <string name="modality_in_person">Wyneb yn wyneb</string>
+    <string name="modality_video">Fideo</string>
+    <string name="modality_phone">Ffôn</string>
+    <string name="modality_other">Arall</string>
+</resources>

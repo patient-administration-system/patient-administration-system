@@ -4,7 +4,7 @@
 An NFR in `spec/07-non-functional-requirements.md` passes when there is evidence of a test for it:
 
 1. a test or source file names it (`NFR-12`, not `NFR-120`), under the Rust crate's `tests/`, `src/` and
-   `load/`, the UI's `tests/`, or the operator front-end's `tests/`; or
+   `load/`, the UI's `tests/`, the operator front-end's `tests/`, or the mobile apps' test folders; or
 2. its row's last column names a test file that exists (`tests/x_test.rs`, `ui/tests/...`, `*.spec.ts`,
    `*.test.ts`), as most rows do.
 
@@ -23,8 +23,11 @@ SPEC = ROOT / "spec" / "07-non-functional-requirements.md"
 RUST = ROOT / "patient-administration-system-with-rust"
 UI = ROOT / "patient-administration-system-ui-with-svelte"
 FRONTEND = ROOT / "patient-administration-system-frontend"
-SEARCH = [RUST / "tests", RUST / "src", RUST / "load", UI / "tests", FRONTEND / "tests"]
-SUFFIXES = {".rs", ".ts", ".js", ".mjs", ".py", ".sh"}
+SWIFT = ROOT / "patient-administration-system-mobile-app-with-swift"
+KOTLIN = ROOT / "patient-administration-system-mobile-app-with-kotlin"
+SEARCH = [RUST / "tests", RUST / "src", RUST / "load", UI / "tests", FRONTEND / "tests",
+          SWIFT / "Tests", SWIFT / "App" / "PASMobileUITests", KOTLIN / "core" / "src" / "test", KOTLIN / "app" / "src" / "test"]
+SUFFIXES = {".rs", ".ts", ".js", ".mjs", ".py", ".sh", ".swift", ".kt"}
 
 # NFRs a test cannot check, and what checks them instead.
 ALLOWED = {
