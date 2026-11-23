@@ -40,8 +40,8 @@ pub(super) fn hex_decode(s: &str) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(s.len() / 2);
     let (pairs, _) = s.as_bytes().as_chunks::<2>();
     for &[hi, lo] in pairs {
-        let hi = (hi as char).to_digit(16)? as u8;
-        let lo = (lo as char).to_digit(16)? as u8;
+        let hi = u8::try_from(char::from(hi).to_digit(16)?).ok()?;
+        let lo = u8::try_from(char::from(lo).to_digit(16)?).ok()?;
         out.push((hi << 4) | lo);
     }
     Some(out)

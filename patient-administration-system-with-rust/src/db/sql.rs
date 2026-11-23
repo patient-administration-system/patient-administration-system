@@ -201,7 +201,8 @@ pub trait Conn: Sync {
         async move {
             let row = self.one(stmt).await?.ok_or_else(no_row)?;
             let n: i64 = row.col("n")?;
-            Ok(n.max(0) as u64)
+            // A count below zero cannot happen from `count(*)`; if it did it is an error, not zero.
+            u64::try_from(n).map_err(|_| Error::internal("a count came back negative"))
         }
     }
     /// Run text as it stands, which may hold several statements. It binds nothing, so it must hold no outside value.

@@ -121,7 +121,11 @@ impl IvrService {
                     .links
                     .act(token, LinkAction::Reschedule, false, ctx)
                     .await?;
-                let idx = d.to_digit(10).unwrap_or(0) as usize;
+                // `d` is a digit (the guard above), so this reads it; a failure would read as the 0 key.
+                let idx = d
+                    .to_digit(10)
+                    .and_then(|n| usize::try_from(n).ok())
+                    .unwrap_or(0);
                 match idx.checked_sub(1).and_then(|i| o.options.get(i)) {
                     Some(opt) => {
                         let done = self.links.choose(token, opt.slot_id, ctx).await?;

@@ -172,8 +172,9 @@ pub fn parse(text: &str) -> Intent {
     if s.len() == 1
         && let Some(d) = s.chars().next().and_then(|c| c.to_digit(10))
         && (1..=9).contains(&d)
+        && let Ok(n) = u8::try_from(d)
     {
-        return Intent::Choice(d as u8);
+        return Intent::Choice(n);
     }
     Intent::Unknown
 }

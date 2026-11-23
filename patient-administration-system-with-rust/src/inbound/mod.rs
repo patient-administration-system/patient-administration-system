@@ -539,7 +539,7 @@ impl InboundService {
                     self.take_rebook_choice(
                         who.person,
                         &ids,
-                        n as usize,
+                        usize::from(n),
                         intent,
                         who.lang,
                         who.tz.clone(),
@@ -548,7 +548,7 @@ impl InboundService {
                     )
                     .await?,
                 ),
-                Some((ids, pending)) if (1..=ids.len()).contains(&(n as usize)) => {
+                Some((ids, pending)) if (1..=ids.len()).contains(&(usize::from(n))) => {
                     let a = match pending.as_str() {
                         "confirm" => Intent::Confirm,
                         "cancel" => Intent::Cancel,
