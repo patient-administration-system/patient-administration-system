@@ -59,13 +59,9 @@ pub fn when(at: Timestamp, lang: Lang, tz: TimeZone) -> String {
             // RCA-DECL-1: `monday_index` is 0 to 6, so a name always exists; blank otherwise.
             .unwrap_or(""),
         l.day(),
-        months
-            .get(
-                l.month()
-                    .checked_sub(1)
-                    .and_then(|m| usize::try_from(m).ok())
-                    .unwrap_or(0)
-            )
+        usize::from(l.month().unsigned_abs())
+            .checked_sub(1)
+            .and_then(|m| months.get(m))
             .copied()
             // RCA-DECL-1: a month number is 1 to 12, so a name always exists; blank otherwise.
             .unwrap_or(""),
