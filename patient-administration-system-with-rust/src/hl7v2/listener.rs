@@ -723,4 +723,68 @@ mod tests {
         drop(client2);
         handle_one_frame(&mut server2, router).await.unwrap();
     }
+
+    fn written(name: &str, bytes: &[u8]) -> String {
+        let path = std::env::temp_dir().join(format!("pas-mllp-{}-{name}", uuid::Uuid::new_v4()));
+        std::fs::write(&path, bytes).unwrap();
+        path.to_string_lossy().into_owned()
+    }
+
+    #[test]
+    fn mllp_options_from_the_environment_listen_in_plain_text_when_no_tls_is_set() {
+        let o = MllpOptions::from_env().expect("nothing set is plain text");
+        assert!(o.tls.is_none());
+        assert_eq!(o.idle, Duration::from_secs(30));
+        assert_eq!(o.max_connections, 64);
+    }
+
+    #[test]
+    fn mllp_tls_settings_must_come_as_a_pair_and_point_at_real_files() {
+        let idle = Duration::from_secs(5);
+        let settings = |cert: Option<&str>, key: Option<&str>, ca: Option<&str>| {
+            MllpOptions::from_settings(
+                cert.map(String::from),
+                key.map(String::from),
+                ca.map(String::from),
+                idle,
+                4,
+            )
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+        };
+        let a_file = written("x.pem", b"not a pem");
+        // One without the other, and a client CA without a certificate, refuse to start.
+        for (cert, key, ca) in [
+            (Some(a_file.as_str()), None, None),
+            (None, Some(a_file.as_str()), None),
+            (None, None, Some(a_file.as_str())),
+        ] {
+            let e = settings(cert, key, ca).unwrap_err();
+            assert!(e.contains("PAS_HL7_TLS"), "{e}");
+        }
+        // A path that does not exist names the setting.
+        let e = settings(Some("/no/such/cert.pem"), Some(a_file.as_str()), None).unwrap_err();
+        assert!(e.contains("PAS_HL7_TLS_CERT_FILE"), "{e}");
+        let e = settings(Some(a_file.as_str()), Some("/no/such/key.pem"), None).unwrap_err();
+        assert!(e.contains("PAS_HL7_TLS_KEY_FILE"), "{e}");
+        let e = settings(
+            Some(a_file.as_str()),
+            Some(a_file.as_str()),
+            Some("/no/such/ca.pem"),
+        )
+        .unwrap_err();
+        assert!(e.contains("PAS_HL7_TLS_CLIENT_CA_FILE"), "{e}");
+        // A file with no certificate in it, or no key, is refused with what was wrong.
+        let e = settings(Some(a_file.as_str()), Some(a_file.as_str()), None).unwrap_err();
+        assert!(e.contains("no certificate in the file"), "{e}");
+        let e = tls_server_config(
+            b"-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n",
+            b"nothing",
+            None,
+        )
+        .map(|_| ())
+        .unwrap_err()
+        .to_string();
+        assert!(e.contains("MLLP TLS"), "{e}");
+    }
 }
