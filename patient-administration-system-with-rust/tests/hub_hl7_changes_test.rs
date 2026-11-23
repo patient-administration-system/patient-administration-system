@@ -472,3 +472,35 @@ async fn a_batch_routes_every_supported_type_and_refuses_the_rest() {
     // A batch that is not one is refused as a whole.
     assert!(!post(&w, "/api/hl7/v2/batch", "not hl7").await.is_empty());
 }
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn every_change_endpoint_refuses_a_patient_it_has_nothing_to_change_for() {
+    let w = world().await;
+    // A known person with no admission, no pre-admission and no leave.
+    let created = post(&w, "/api/hl7/v2/patient", &message(&w, "A28", true, false)).await;
+    assert_eq!(code(&created), "AA", "{created:?}");
+    for (path, event) in [
+        ("cancel-pre-admit", "A38"),
+        ("change-to-outpatient", "A07"),
+        ("cancel-admit", "A11"),
+        ("cancel-transfer", "A12"),
+        ("cancel-discharge", "A13"),
+        ("leave-start", "A21"),
+        ("leave-end", "A22"),
+    ] {
+        let url = format!("/api/hl7/v2/{path}");
+        let ack = post(&w, &url, &message(&w, event, true, true)).await;
+        assert_eq!(code(&ack), "AE", "{path}: {ack:?}");
+        // The refusal says why, in words fit for the sender.
+        assert!(ack.contains("MSA|AE|"), "{path}: {ack:?}");
+    }
+    // A merge names a source number in MRG-1; with none it is refused before anything is read.
+    let no_mrg = post(
+        &w,
+        "/api/hl7/v2/merge",
+        &message(&w, "A40", true, false).replace("MRG|", "XXX|"),
+    )
+    .await;
+    assert_eq!(code(&no_mrg), "AE", "{no_mrg:?}");
+}
