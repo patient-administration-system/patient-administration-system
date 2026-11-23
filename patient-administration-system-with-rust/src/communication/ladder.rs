@@ -142,9 +142,13 @@ pub fn parse_steps(spec: &str) -> Result<Vec<StepSpec>> {
         let n: i64 = num
             .parse()
             .map_err(|_| bad(format!("{dur:?} is not like 7d or 24h")))?;
+        // `SignedDuration::from_hours` panics when the hours do not fit; a count too large is an error.
         let before = match unit {
             "d" => crate::time::days(n),
-            "h" => SignedDuration::from_hours(n),
+            "h" => n
+                .checked_mul(3_600)
+                .map(SignedDuration::from_secs)
+                .ok_or_else(|| bad(format!("{dur:?} is too long; the most is 60 days")))?,
             _ => return Err(bad(format!("{dur:?} must end in d or h"))),
         };
         if before <= SignedDuration::ZERO || before > crate::time::days(60) {
@@ -715,6 +719,11 @@ mod tests {
             "wibble=7d",
             "main",
             "main=7d,second=7d",
+            // Counts too large for a duration are refused, not a panic inside the duration type.
+            "main=9223372036854775807h",
+            "main=9223372036854775807d",
+            "main=2562047788015216h",
+            "main=-1d",
         ] {
             assert!(parse_steps(bad).is_err(), "{bad:?}");
         }
