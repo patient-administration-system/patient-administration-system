@@ -66,8 +66,8 @@ pub enum Claim {
     Unfinished,
 }
 
-fn days() -> i64 {
-    crate::config::env::int("PAS_HL7_DEDUPE_DAYS")
+fn days() -> Result<i64> {
+    Ok(crate::config::env::int("PAS_HL7_DEDUPE_DAYS")?)
 }
 
 /// Claim `key` for a message about to be processed.
@@ -87,7 +87,7 @@ pub async fn claim(db: &Pool, key: &Key) -> Result<Claim> {
             key.sending_app.clone().into(),
             key.sending_facility.clone().into(),
             key.control_id_sha256.clone().into(),
-            days().into(),
+            days()?.into(),
         ],
     ))
     .await?;
@@ -159,7 +159,7 @@ pub async fn purge(db: &Pool) -> Result<u64> {
     let done = db
         .run(Stmt::new(
             "DELETE FROM hl7_inbound_messages WHERE received_at < now() - make_interval(days => $1::int)",
-            [days().into()],
+            [days()?.into()],
         ))
         .await?;
     Ok(done.rows_affected())

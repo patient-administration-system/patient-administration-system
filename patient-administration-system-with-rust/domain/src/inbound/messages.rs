@@ -56,12 +56,14 @@ pub fn when(at: Timestamp, lang: Lang, tz: TimeZone) -> String {
         "{} {} {} {:02}:{:02}",
         days.get(crate::time::monday_index(l.weekday()))
             .copied()
-            .unwrap_or_default(),
+            // RCA-DECL-1: `monday_index` is 0 to 6, so a name always exists; blank otherwise.
+            .unwrap_or(""),
         l.day(),
         months
             .get(usize::try_from(l.month() - 1).unwrap_or(0))
             .copied()
-            .unwrap_or_default(),
+            // RCA-DECL-1: a month number is 1 to 12, so a name always exists; blank otherwise.
+            .unwrap_or(""),
         l.hour(),
         l.minute()
     )

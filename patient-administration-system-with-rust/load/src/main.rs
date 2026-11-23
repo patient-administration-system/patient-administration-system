@@ -63,7 +63,8 @@ fn parse_args(mut it: impl Iterator<Item = String>) -> Result<Args, String> {
     let env = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
     let mut a = Args {
         url: env("PAS_LOAD_URL").unwrap_or_else(|| "http://127.0.0.1:8080".into()),
-        database_url: env("DATABASE_URL").unwrap_or_default(),
+        // RCA-DECL-1: absent DATABASE_URL is blank, and the profiles that need a database refuse it.
+        database_url: env("DATABASE_URL").unwrap_or(String::new()),
         profile: "smoke".into(),
         scenarios: Scenario::ALL.to_vec(),
         overrides: Overrides::default(),
@@ -230,7 +231,7 @@ async fn correctness(db: &Db, ctx: &Ctx, saw_429: bool) -> Result<Vec<Correctnes
         .contention_wins
         .lock()
         .map(|w| w.clone())
-        .unwrap_or_default();
+        .unwrap_or_else(|poisoned| poisoned.into_inner().clone());
     if !wins.is_empty() {
         let holders = db.holders_per_slot(&ctx.fx.hot_slots).await?;
         let doubled: Vec<_> = holders.iter().filter(|(_, n)| *n > 1).collect();
@@ -251,7 +252,11 @@ async fn correctness(db: &Db, ctx: &Ctx, saw_429: bool) -> Result<Vec<Correctnes
             ),
         });
     }
-    let booked = ctx.booked.lock().map(|b| b.clone()).unwrap_or_default();
+    let booked = ctx
+        .booked
+        .lock()
+        .map(|b| b.clone())
+        .unwrap_or_else(|poisoned| poisoned.into_inner().clone());
     if !booked.is_empty() {
         let (audit, outbox) = db.audit_and_outbox(&booked).await?;
         let n = i64::try_from(booked.len())?;

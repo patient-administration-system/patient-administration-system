@@ -45,7 +45,7 @@ impl NoShowService {
     }
 
     pub async fn status(&self) -> Result<Status> {
-        let switched_on = Self::switched_on();
+        let switched_on = Self::switched_on()?;
         let fairness = self
             .latest_review(ReviewKind::Fairness, FAIRNESS_VALID_DAYS)
             .await?
@@ -79,11 +79,11 @@ impl NoShowService {
             clinical_safety_approved: safety,
             active,
             reason,
-            medium_threshold: medium_threshold(),
-            call_capacity: call_capacity(),
-            call_horizon_days: call_horizon_days(),
-            percentage_shown: percent_shown(),
-            age_in_use: Weights::from_env().age.values().any(|v| *v != 0.0),
+            medium_threshold: medium_threshold()?,
+            call_capacity: call_capacity()?,
+            call_horizon_days: call_horizon_days()?,
+            percentage_shown: percent_shown()?,
+            age_in_use: Weights::from_env()?.age.values().any(|v| *v != 0.0),
         })
     }
 
@@ -94,7 +94,7 @@ impl NoShowService {
         } else {
             Err(Error::conflict(format!(
                 "the no-show probability is switched off: {}",
-                s.reason.unwrap_or_default()
+                s.reason.unwrap_or_else(|| "no reason recorded".to_string())
             )))
         }
     }
@@ -127,7 +127,7 @@ impl NoShowService {
         }
         if approved
             && kind == ReviewKind::Fairness
-            && Weights::from_env().age.values().any(|v| *v != 0.0)
+            && Weights::from_env()?.age.values().any(|v| *v != 0.0)
             && !notes
                 .to_lowercase()
                 .split(|c: char| !c.is_alphanumeric())

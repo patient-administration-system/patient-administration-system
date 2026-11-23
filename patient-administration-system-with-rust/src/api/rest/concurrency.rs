@@ -169,8 +169,11 @@ pub async fn etag_middleware(req: Request, next: Next) -> Response {
     let Ok(bytes) = to_bytes(body, 4 * 1024 * 1024).await else {
         return Response::from_parts(parts, Body::empty());
     };
-    if let Some(tag) = version_of(&bytes, named.as_deref().unwrap_or_default())
-        .and_then(|t| HeaderValue::from_str(&etag(t)).ok())
+    if let Some(tag) = version_of(
+        &bytes,
+        named.as_deref().unwrap_or(""), /* RCA-DECL-1: no name matches no resource */
+    )
+    .and_then(|t| HeaderValue::from_str(&etag(t)).ok())
     {
         parts.headers.insert(header::ETAG, tag);
     }

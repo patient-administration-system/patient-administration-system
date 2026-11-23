@@ -75,7 +75,8 @@ pub fn verify_token(jar: &CookieJar, form_token: &str) -> Result<()> {
     let cookie_value = jar
         .get(COOKIE_NAME)
         .map(|c| c.value().to_string())
-        .unwrap_or_default();
+        // RCA-DECL-1: no cookie is blank, which the check below refuses.
+        .unwrap_or(String::new());
     if cookie_value.is_empty() || !constant_time_eq(cookie_value.as_bytes(), form_token.as_bytes())
     {
         return Err(Error::BadRequest("CSRF token mismatch".into()));

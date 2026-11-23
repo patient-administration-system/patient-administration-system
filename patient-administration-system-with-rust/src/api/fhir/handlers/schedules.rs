@@ -137,7 +137,11 @@ async fn record(
         (Some(_), Some(_)) => ("update", "Updated"),
         (Some(_), None) => ("delete", "Deleted"),
     };
-    let event = after.clone().or_else(|| before.clone()).unwrap_or_default();
+    // RCA-DECL-1: a change with neither a before nor an after (cannot happen: one is always present) publishes null.
+    let event = after
+        .clone()
+        .or_else(|| before.clone())
+        .unwrap_or(serde_json::Value::Null);
     AuditLogRepository::log(txn, &kind.to_lowercase(), id, action, before, after, ctx).await?;
     OutboxRepository::publish(txn, &format!("{kind}{happened}"), &event).await
 }

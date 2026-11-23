@@ -311,7 +311,11 @@ pub struct UptakeQuery {
     )
 )]
 pub async fn uptake(State(state): State<AppState>, Query(q): Query<UptakeQuery>) -> HandlerResult {
-    let k = q.k.unwrap_or(0).max(AnalyticsService::minimum_k());
+    let min_k = match AnalyticsService::minimum_k() {
+        Ok(k) => k,
+        Err(e) => return error_to_response(e),
+    };
+    let k = q.k.unwrap_or(0).max(min_k);
     match PifuService::new(state.db.clone()).uptake(k).await {
         Ok(r) => ok_json(r),
         Err(e) => error_to_response(e),

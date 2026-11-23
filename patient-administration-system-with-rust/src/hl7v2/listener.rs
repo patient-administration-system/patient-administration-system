@@ -86,8 +86,8 @@ impl MllpOptions {
             env::text("PAS_HL7_TLS_CERT_FILE"),
             env::text("PAS_HL7_TLS_KEY_FILE"),
             env::text("PAS_HL7_TLS_CLIENT_CA_FILE"),
-            Duration::from_secs(u64::try_from(env::int("PAS_HL7_IDLE_SECONDS")).unwrap_or(30)),
-            usize::try_from(env::int("PAS_HL7_MAX_CONNECTIONS")).unwrap_or(64),
+            Duration::from_secs(env::count::<u64>("PAS_HL7_IDLE_SECONDS")?),
+            env::count::<usize>("PAS_HL7_MAX_CONNECTIONS")?,
         )
     }
 

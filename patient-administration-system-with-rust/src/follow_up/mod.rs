@@ -34,8 +34,8 @@ crate::string_enum! {
     }
 }
 
-fn due_after() -> SignedDuration {
-    SignedDuration::from_hours(env::int("PAS_FOLLOW_UP_HOURS"))
+fn due_after() -> Result<SignedDuration> {
+    Ok(SignedDuration::from_hours(env::int("PAS_FOLLOW_UP_HOURS")?))
 }
 
 /// Is the appointment's service one a clinician has listed for human follow-up?
@@ -75,7 +75,7 @@ pub(crate) async fn on_no_show<C: Conn>(
     };
     let service: String = row.col("service_type")?;
     let id = Uuid::new_v4();
-    let due = crate::time::plus(Timestamp::now(), due_after())?;
+    let due = crate::time::plus(Timestamp::now(), due_after()?)?;
     let made = conn
         .run(Stmt::new(
             "INSERT INTO follow_up_tasks (id, appointment_id, person_id, service_type, due_at) \

@@ -934,7 +934,7 @@ async fn the_refresh_picks_up_keys_the_service_publishes_later() {
 
 #[test]
 fn the_config_reads_its_defaults_from_the_environment() {
-    let c = UserAuthConfig::from_env(Some("legacy".into()));
+    let c = UserAuthConfig::from_env(Some("legacy".into())).unwrap();
     assert_eq!(c.legacy_token.as_deref(), Some("legacy"));
     if std::env::var("PAS_PASETO_ISSUER").is_err() {
         assert_eq!(c.issuer, "authentication-service");

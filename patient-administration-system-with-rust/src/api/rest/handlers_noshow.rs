@@ -40,7 +40,10 @@ pub async fn status(State(state): State<AppState>) -> HandlerResult {
     )
 )]
 pub async fn model_card() -> HandlerResult {
-    ok_json(crate::noshow::NoShowService::model_card())
+    match crate::noshow::NoShowService::model_card() {
+        Ok(card) => ok_json(card),
+        Err(e) => error_to_response(e),
+    }
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]

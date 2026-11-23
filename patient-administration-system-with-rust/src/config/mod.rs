@@ -189,7 +189,7 @@ impl Config {
         let database_url =
             env::text("DATABASE_URL").ok_or_else(|| Error::config("DATABASE_URL is required"))?;
         let server_host = env::text("SERVER_HOST").unwrap_or_else(|| "0.0.0.0".to_string());
-        let server_port = u16::try_from(env::int("SERVER_PORT")).unwrap_or(8080);
+        let server_port = env::count::<u16>("SERVER_PORT")?;
         let rust_log = env::text("RUST_LOG").unwrap_or_else(|| "info".to_string());
         let otlp_endpoint = env::text("OTLP_ENDPOINT");
         let otel_service_name =
@@ -202,31 +202,30 @@ impl Config {
                     .filter(|x| !x.is_empty())
                     .collect::<Vec<_>>()
             })
-            .unwrap_or_default();
+            // RCA-DECL-1: unset CORS_ORIGINS allows no origin.
+            .unwrap_or(Vec::new());
         let hl7v2_mllp_bind = env::text("HL7V2_MLLP_BIND");
         let hl7v2_outbound_peer = env::text("HL7V2_OUTBOUND_PEER");
-        let pas_outbox_max_retries = u32::try_from(env::int("PAS_OUTBOX_MAX_RETRIES"))
-            .unwrap_or(crate::streaming::dispatcher::DEFAULT_MAX_RETRIES);
+        let pas_outbox_max_retries = env::count::<u32>("PAS_OUTBOX_MAX_RETRIES")?;
         let pas_sms_provider = env::text("PAS_SMS_PROVIDER")
             .map(|s| s.trim().to_lowercase())
             .unwrap_or_else(|| "none".to_string());
-        let pas_rate_limit_rpm = u32::try_from(env::int("PAS_RATE_LIMIT_RPM")).unwrap_or(600);
+        let pas_rate_limit_rpm = env::count::<u32>("PAS_RATE_LIMIT_RPM")?;
         let lockout_var =
             if env::text(LOCKOUT_VAR).is_none() && env::text(OLD_LOCKOUT_VAR).is_some() {
                 OLD_LOCKOUT_VAR
             } else {
                 LOCKOUT_VAR
             };
-        let lockout_client_address_after_count = u32::try_from(env::int(lockout_var)).unwrap_or(0);
+        let lockout_client_address_after_count = env::count::<u32>(lockout_var)?;
         let pas_webhook_url = env::text("PAS_WEBHOOK_URL");
         let pas_webhook_secret = env::text("PAS_WEBHOOK_SECRET");
-        let pas_webhook_timeout_secs = u64::try_from(env::int("PAS_WEBHOOK_TIMEOUT_SECS"))
-            .unwrap_or(crate::streaming::webhook::DEFAULT_TIMEOUT_SECS);
+        let pas_webhook_timeout_secs = env::count::<u64>("PAS_WEBHOOK_TIMEOUT_SECS")?;
         let person_service_url = env::text("PERSON_SERVICE_URL");
         let person_service_token = env::text("PERSON_SERVICE_TOKEN");
         let worker_service_url = env::text("WORKER_SERVICE_URL");
         let worker_service_token = env::text("WORKER_SERVICE_TOKEN");
-        let upstream_timeout_secs = u64::try_from(env::int("UPSTREAM_TIMEOUT_SECS")).unwrap_or(10);
+        let upstream_timeout_secs = env::count::<u64>("UPSTREAM_TIMEOUT_SECS")?;
         Ok(Self {
             database_url,
             server_host,

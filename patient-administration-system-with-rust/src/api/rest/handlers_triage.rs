@@ -174,9 +174,13 @@ pub async fn waits(State(state): State<AppState>, Query(q): Query<WindowQuery>) 
             Err(e) => return error_to_response(crate::Error::from(e)),
         },
     };
+    let targets = match Targets::from_env() {
+        Ok(t) => t,
+        Err(e) => return error_to_response(crate::Error::from(e)),
+    };
     json(
         TriageService::new(state.db.clone())
-            .waits_report(from, to, &Targets::from_env(), now)
+            .waits_report(from, to, &targets, now)
             .await,
     )
 }
@@ -194,9 +198,13 @@ pub async fn waits(State(state): State<AppState>, Query(q): Query<WindowQuery>) 
     )
 )]
 pub async fn queue(State(state): State<AppState>) -> HandlerResult {
+    let targets = match Targets::from_env() {
+        Ok(t) => t,
+        Err(e) => return error_to_response(crate::Error::from(e)),
+    };
     json(
         TriageService::new(state.db.clone())
-            .queue(&Targets::from_env(), state.clock.now())
+            .queue(&targets, state.clock.now())
             .await,
     )
 }

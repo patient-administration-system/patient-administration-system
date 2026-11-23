@@ -44,7 +44,7 @@ impl AdtService {
                 ));
             }
             Some(m) => m,
-            None => crate::config::env::int("PAS_BED_HOLD_MINUTES"),
+            None => crate::config::env::int("PAS_BED_HOLD_MINUTES")?,
         };
         Ok((minutes > 0).then(|| SignedDuration::from_mins(minutes)))
     }

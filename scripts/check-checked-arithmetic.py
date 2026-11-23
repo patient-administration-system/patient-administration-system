@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Review greps from spec/rust-checked-arithmetic (RCA-ENF-5, RCA-ENF-7), over production code only.
 
+* RCA-ENF-2: no `unwrap_or_default`. Any hit fails.
 * RCA-ENF-5: no `saturating_*`, `wrapping_*` or `overflowing_*`, and no checked result that is unwrapped or
   defaulted. Any hit fails.
 * RCA-ENF-7: a parse or lookup whose error is discarded and replaced. Each hit must carry
@@ -23,6 +24,8 @@ ENF5_WORD = re.compile(r"\b(saturating|wrapping|overflowing)_\w+")
 ENF5_CHECKED = re.compile(
     r"checked_\w+\([^;]*?\)\s*\.(unwrap|expect|unwrap_unchecked|unwrap_or_default)\b", re.S
 )
+# RCA-ENF-2: `unwrap_or_default` is banned; a declared fallback is `unwrap_or(<value>)` with an RCA-DECL-1 comment.
+ENF2 = re.compile(r"\.unwrap_or_default\b")
 ENF7 = [
     re.compile(r"\.parse(::<[^>]+>)?\(\)[^;]*?\.(ok\(\)|unwrap_or|unwrap_or_default|unwrap_or_else)\b", re.S),
     re.compile(r"(env::var|var_os|get|get_param|query)\([^;]*?\.ok\(\)[^;]*?\.(unwrap_or|unwrap_or_default|unwrap_or_else)\b", re.S),
@@ -51,6 +54,8 @@ def main():
         lines = text.splitlines()
         for m in ENF5_WORD.finditer(text):
             failures.append(f"{rel}:{line_of(text, m.start())}: RCA-ENF-5: {m.group(0)}")
+        for m in ENF2.finditer(text):
+            failures.append(f"{rel}:{line_of(text, m.start())}: RCA-ENF-2: unwrap_or_default is banned; write the fallback")
         for m in ENF5_CHECKED.finditer(text):
             failures.append(f"{rel}:{line_of(text, m.start())}: RCA-ENF-5: a checked result is unwrapped or defaulted")
         seen = set()

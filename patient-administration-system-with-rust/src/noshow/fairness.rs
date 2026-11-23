@@ -24,7 +24,7 @@ impl NoShowService {
         k: Option<i64>,
         most: i64,
     ) -> Result<FairnessAudit> {
-        let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
+        let k = k.unwrap_or(0).max(AnalyticsService::minimum_k()?);
         let days = in_range("days", days, 1, 1825)?;
         let days_bound =
             i32::try_from(days).map_err(|_| Error::validation("days must be from 1 to 1825"))?;
@@ -46,7 +46,7 @@ impl NoShowService {
             ))
 .await?;
         let (rows, cut) = crate::paging::cut(rows, most);
-        let w = Weights::from_env();
+        let w = Weights::from_env()?;
         #[derive(Default)]
         struct Acc {
             n: i64,
@@ -158,15 +158,15 @@ impl NoShowService {
     }
 
     /// A plain description of the model for a reviewer, with the live weights.
-    pub fn model_card() -> ModelCard {
-        let medium = medium_threshold();
+    pub fn model_card() -> Result<ModelCard> {
+        let medium = medium_threshold()?;
         let words = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
-        ModelCard {
+        Ok(ModelCard {
             model_version: MODEL_VERSION.into(),
             kind: "transparent weighted sum (not trained, not a black box)".into(),
             purpose: "to tell staff which upcoming appointments may need a supportive phone call; it never changes a booking".into(),
             factors: words(&["past completed visits missed (shrunk towards the base rate)", "lead time", "age band (zero by default: not an input unless a fairness reviewer justifies it)", "day of week and part of day (zero by default)"]),
-            weights: Weights::from_env_for_card(),
+            weights: Weights::from_env_for_card()?,
             bands: ModelBands {
                 medium_above: medium,
                 high: "on today's call list: the top few by probability, as many as the clinic can phone (PAS_NOSHOW_CALL_CAPACITY, default 10) among appointments in the next PAS_NOSHOW_CALL_HORIZON_DAYS (7); not a probability cut-off".into(),
@@ -176,7 +176,7 @@ impl NoShowService {
             gate: "off unless PAS_NOSHOW_SCORE=true and a named person has approved a fairness review and a clinical safety review of this version".into(),
             not_built: words(&["distance from the clinic", "clinic type", "weather or travel forecast"]),
             limits: "built from rules, not trained on this population: its numbers are estimates to prompt a conversation, not predictions to rely on".into(),
-        }
+        })
     }
 }
 

@@ -131,7 +131,8 @@ impl ReminderService {
         let channels = templates
             .first()
             .map(|t| t.channels.clone())
-            .unwrap_or_default();
+            // RCA-DECL-1: no default template means no channels, so nothing is sent.
+            .unwrap_or(Vec::new());
         let appointments =
             AppointmentRepository::list_booked_starting_between(&self.db, now, now + lead).await?;
         self.remind(&templates, &channels, appointments, now).await

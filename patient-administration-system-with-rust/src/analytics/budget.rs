@@ -13,8 +13,8 @@ impl AnalyticsService {
     /// visible**: every query is recorded in the audit log with its shape, and a caller who has used the
     /// day's budget is refused until tomorrow. The rest of the defence is people: who is given the
     /// feed, and the data-sharing terms they sign (`governance/analytics-differencing.md`).
-    pub fn query_budget() -> i64 {
-        env::int("PAS_ANALYTICS_QUERY_BUDGET")
+    pub fn query_budget() -> Result<i64> {
+        Ok(env::int("PAS_ANALYTICS_QUERY_BUDGET")?)
     }
 
     /// Record one query against the caller's daily budget, or refuse it. Anonymous callers share one budget.
@@ -38,7 +38,7 @@ impl AnalyticsService {
             .await?
             .ok_or_else(|| Error::internal("a count returned no row"))?
             .col::<i64>("n")?;
-        if used >= Self::query_budget() {
+        if used >= Self::query_budget()? {
             return Err(Error::forbidden(
                 "the day's analytics query budget has been used; it renews 24 hours after each query",
             ));
@@ -56,7 +56,7 @@ impl AnalyticsService {
     }
 
     /// The smallest cell the feed will ever show: `PAS_ANALYTICS_K`, default 10, never below 5.
-    pub fn minimum_k() -> i64 {
-        env::int("PAS_ANALYTICS_K")
+    pub fn minimum_k() -> Result<i64> {
+        Ok(env::int("PAS_ANALYTICS_K")?)
     }
 }

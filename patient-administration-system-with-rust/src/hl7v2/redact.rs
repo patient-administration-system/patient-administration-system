@@ -40,7 +40,8 @@ pub fn redact(message: &str) -> String {
 
 fn redact_segment(segment: &str, sep: char) -> String {
     let mut fields = segment.split(sep);
-    let name = fields.next().unwrap_or_default();
+    // RCA-DECL-1: `split` always yields a first item; an empty segment is named blank, which is not kept.
+    let name = fields.next().unwrap_or("");
     // A segment name is three letters or digits; anything else is not kept either.
     let name_ok = name.len() == 3 && name.chars().all(|c| c.is_ascii_alphanumeric());
     let mut out = String::from(if name_ok { name } else { "***" });

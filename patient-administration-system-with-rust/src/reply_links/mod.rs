@@ -266,7 +266,8 @@ impl ReplyLinks {
         let starts_at = appt.as_ref().map(|a| a.start_datetime);
         let when = appt
             .map(|a| messages::when(a.start_datetime, lang, messages::timezone()))
-            .unwrap_or_default();
+            // RCA-DECL-1: an appointment that no longer exists has no time to show.
+            .unwrap_or(String::new());
         let state = if row.consumed {
             LinkState::Used
         } else if row.expires_at <= Timestamp::now() {
@@ -357,7 +358,8 @@ impl ReplyLinks {
         let appt = AppointmentRepository::find_by_id(&self.db, row.appointment_id).await?;
         let when = appt
             .map(|a| messages::when(a.start_datetime, view.lang, view.tz.clone()))
-            .unwrap_or_default();
+            // RCA-DECL-1: an appointment that no longer exists has no time to show.
+            .unwrap_or(String::new());
         let result = if action == LinkAction::Reschedule {
             self.request_reschedule(&row, &view, &when).await
         } else {

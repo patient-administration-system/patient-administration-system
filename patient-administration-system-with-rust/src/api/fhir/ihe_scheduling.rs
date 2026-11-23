@@ -92,7 +92,8 @@ impl Params {
         if body["resourceType"] != "Parameters" {
             return Err(Error::validation("the body must be a Parameters resource"));
         }
-        let list = body["parameter"].as_array().cloned().unwrap_or_default();
+        // RCA-DECL-1: no `parameter` array is no parameters, which the caller then reports as missing.
+        let list = body["parameter"].as_array().cloned().unwrap_or(Vec::new());
         Ok(Self(
             list.into_iter()
                 .filter_map(|p| Some((json_at(&p, "name").as_str()?.to_string(), p)))
@@ -233,7 +234,7 @@ fn bundle(appointments: &[Proposal], base: &str, operation: &str) -> Value {
         "entry": appointments.iter().map(|p| {
             let resource = to_appointment(p);
             json!({
-                "fullUrl": format!("{base}/Appointment/{}", json_at(&resource, "id").as_str().unwrap_or_default()),
+                "fullUrl": format!("{base}/Appointment/{}", json_at(&resource, "id").as_str().unwrap_or("")),
                 "resource": resource,
                 "search": { "mode": "match" },
             })
@@ -330,7 +331,7 @@ pub async fn hold(
         let p = Params::parse(&body)?;
         p.only(&["appointment-reference"])?;
         let id = proposal_id(&p)?;
-        let ttl = SignedDuration::from_mins(env::int("PAS_HOLD_MINUTES"));
+        let ttl = SignedDuration::from_mins(env::int("PAS_HOLD_MINUTES")?);
         state
             .scheduling
             .hold_proposal(id, state.clock.now(), ttl, &request_audit_ctx(&headers))

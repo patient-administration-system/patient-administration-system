@@ -146,7 +146,7 @@ pub fn stats(mut v: Vec<f64>) -> Stats {
     let at = |p: f64| {
         v.get((((p * n as f64).ceil() as usize).max(1) - 1).min(n - 1))
             .copied()
-            .unwrap_or_default()
+            .unwrap_or(0.0) // RCA-DECL-1: `n` is at least 1 here, so a value exists
     };
     let round = |x: f64| (x * 100.0).round() / 100.0;
     Stats {
@@ -154,7 +154,7 @@ pub fn stats(mut v: Vec<f64>) -> Stats {
         mean: round(v.iter().fold(0.0, |total, x| total + x) / n as f64),
         median: round(at(0.5)),
         p90: round(at(0.9)),
-        max: round(v.last().copied().unwrap_or_default()),
+        max: round(v.last().copied().unwrap_or(0.0)),
     }
 }
 

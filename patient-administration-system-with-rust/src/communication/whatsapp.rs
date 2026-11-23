@@ -16,14 +16,14 @@ use crate::{Error, Result};
 
 pub const SOURCES: [&str; 4] = ["patient_reply", "portal", "in_person", "paper"];
 
-pub fn required() -> bool {
-    env::flag("PAS_WHATSAPP_REQUIRE_OPTIN")
+pub fn required() -> Result<bool> {
+    Ok(env::flag("PAS_WHATSAPP_REQUIRE_OPTIN")?)
 }
 
 /// Refuse (as a conflict, so the ladder tries the next channel) unless the patient has opted in on WhatsApp
 /// and the template is approved. Does nothing unless the rule is switched on.
 pub async fn check<C: Conn>(conn: &C, person_id: Uuid, template_id: Uuid) -> Result<()> {
-    if !required() {
+    if !required()? {
         return Ok(());
     }
     let opted = conn

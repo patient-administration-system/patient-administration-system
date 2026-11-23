@@ -4,8 +4,8 @@
 //! default is written once and a typo in a number or a switch is found at start-up, not after the first
 //! request that needs it. The server's `config::env::validate` checks every one that is set (with [`problem`])
 //! and reports all the problems together; `main` calls it before anything else. The accessors ([`flag`], [`int`], [`float`], [`text`]) are what the
-//! rest of the server calls; at run time an unusable value falls back to the default (the server is already
-//! up, and `validate` has already said so once).
+//! rest of the server calls. An unset or blank variable is its declared default; one that is set to a value
+//! that cannot be used is an error, never the default (RCA-IN-2, RCA-IN-3).
 //!
 //! A switch accepts `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`, in any case. Before QUAL-6 most switches
 //! accepted only the exact text `true`, so `TRUE` or `1` silently left them off.
@@ -158,47 +158,80 @@ pub fn parse_flag(raw: &str) -> Option<bool> {
     }
 }
 
-/// Look a registered name up, or say so loudly (a programming error `tests/qual6_settings_test.rs` also checks).
-fn registered(name: &str) -> Option<&'static Var> {
-    let v = var(name);
-    if v.is_none() {
-        tracing::error!(name, "environment variable is not in config::env::VARS");
-    }
-    v
+/// Look a registered name up. An unregistered name is a programming error
+/// (`tests/qual6_settings_test.rs` also checks), reported, not answered with a made-up value.
+fn registered(name: &str) -> Result<&'static Var, crate::error::Error> {
+    var(name).ok_or_else(|| {
+        crate::error::Error::config(format!(
+            "{name} is not in config::env::VARS, so it has no declared kind or default"
+        ))
+    })
 }
 
-/// A switch. Unset, blank or unreadable is the default (off).
-pub fn flag(name: &str) -> bool {
-    let default = match registered(name).map(|v| v.kind) {
-        Some(Kind::Flag { default }) => default,
-        _ => false,
+/// The error for a supplied value that is not usable (RCA-IN-2): names the variable and the rule, not the value.
+fn bad(v: &Var, raw: &str) -> crate::error::Error {
+    crate::error::Error::config(format!(
+        "{} {}",
+        v.name,
+        problem(v, raw).unwrap_or_else(|| "is not usable".to_string())
+    ))
+}
+
+/// A switch. Unset or blank is the registered default; a value that is set and not a switch is an error.
+pub fn flag(name: &str) -> Result<bool, crate::error::Error> {
+    let v = registered(name)?;
+    let Kind::Flag { default } = v.kind else {
+        return Err(crate::error::Error::config(format!(
+            "{name} is not a switch"
+        )));
     };
     match text(name) {
-        None => default,
-        Some(raw) => parse_flag(&raw).unwrap_or(default),
+        None => Ok(default),
+        Some(raw) => parse_flag(&raw).ok_or_else(|| bad(v, &raw)),
     }
 }
 
-/// A whole number within its bounds; unset, unreadable or out of range is the default.
-pub fn int(name: &str) -> i64 {
-    let Some(Kind::Int { default, min, max }) = registered(name).map(|v| v.kind) else {
-        return 0;
+/// A whole number within its bounds. Unset or blank is the registered default (RCA-IN-3); one that is set
+/// and unreadable or out of range is an error (RCA-IN-2), never replaced by the default.
+pub fn int(name: &str) -> Result<i64, crate::error::Error> {
+    let v = registered(name)?;
+    let Kind::Int { default, min, max } = v.kind else {
+        return Err(crate::error::Error::config(format!(
+            "{name} is not a whole number"
+        )));
     };
-    text(name)
-        .and_then(|raw| raw.trim().parse::<i64>().ok())
-        .filter(|n| (min..=max).contains(n))
-        .unwrap_or(default)
+    match text(name) {
+        None => Ok(default),
+        Some(raw) => match raw.trim().parse::<i64>() {
+            Ok(n) if (min..=max).contains(&n) => Ok(n),
+            _ => Err(bad(v, &raw)),
+        },
+    }
 }
 
-/// A number within its bounds; unset, unreadable or out of range is the default.
-pub fn float(name: &str) -> f64 {
-    let Some(Kind::Float { default, min, max }) = registered(name).map(|v| v.kind) else {
-        return 0.0;
+/// A whole number as the integer type the caller needs (`u64`, `u32`, `usize`...): [`int`], and an error if
+/// the registered range does not fit that type, never a clamp or a substitute (RCA-CONV-2).
+pub fn count<T: TryFrom<i64>>(name: &str) -> Result<T, crate::error::Error> {
+    T::try_from(int(name)?).map_err(|_| {
+        crate::error::Error::config(format!("{name} does not fit the type it is read as"))
+    })
+}
+
+/// A number within its bounds, with the same rules as [`int`].
+pub fn float(name: &str) -> Result<f64, crate::error::Error> {
+    let v = registered(name)?;
+    let Kind::Float { default, min, max } = v.kind else {
+        return Err(crate::error::Error::config(format!(
+            "{name} is not a number"
+        )));
     };
-    text(name)
-        .and_then(|raw| raw.trim().parse::<f64>().ok())
-        .filter(|n| (min..=max).contains(n))
-        .unwrap_or(default)
+    match text(name) {
+        None => Ok(default),
+        Some(raw) => match raw.trim().parse::<f64>() {
+            Ok(n) if (min..=max).contains(&n) => Ok(n),
+            _ => Err(bad(v, &raw)),
+        },
+    }
 }
 
 /// What is wrong with one variable's value, if anything.
@@ -352,39 +385,58 @@ mod tests {
     }
 
     #[test]
-    fn flag_reads_the_value_or_falls_back_to_the_default() {
+    fn flag_reads_the_value_and_refuses_a_bad_one() {
         let f = |v| with_var("PAS_NOSHOW_SCORE", v, || flag("PAS_NOSHOW_SCORE"));
-        assert!(!f(None));
-        assert!(f(Some("yes")));
-        assert!(!f(Some("off")));
-        assert!(!f(Some("garbage")));
-        // Not registered: always off.
-        assert!(!flag("PAS_NOT_A_REAL_SETTING"));
+        assert!(!f(None).unwrap(), "unset is the default");
+        assert!(!f(Some("  ")).unwrap(), "blank is unset");
+        assert!(f(Some("yes")).unwrap());
+        assert!(!f(Some("off")).unwrap());
+        // Set but not a switch: an error that names the variable, never the default (RCA-IN-2).
+        let e = f(Some("garbage")).unwrap_err().to_string();
+        assert!(e.contains("PAS_NOSHOW_SCORE"), "{e}");
+        assert!(!e.contains("garbage"), "the value is not echoed: {e}");
+        // Not registered, or not a switch: an error, not a made-up answer.
+        assert!(flag("PAS_NOT_A_REAL_SETTING").is_err());
+        assert!(flag("PAS_TIMEZONE").is_err());
     }
 
     #[test]
-    fn int_reads_within_bounds_or_falls_back_to_the_default() {
+    fn int_reads_within_bounds_and_refuses_the_rest() {
         let f = |v| with_var("PAS_HL7_DEDUPE_DAYS", v, || int("PAS_HL7_DEDUPE_DAYS"));
-        assert_eq!(f(None), 7);
-        assert_eq!(f(Some(" 30 ")), 30);
-        assert_eq!(f(Some("0")), 7, "below the minimum");
-        assert_eq!(f(Some("99999")), 7, "above the maximum");
-        assert_eq!(f(Some("many")), 7);
-        assert_eq!(int("PAS_NOT_A_REAL_SETTING"), 0);
+        assert_eq!(f(None).unwrap(), 7);
+        assert_eq!(f(Some(" 30 ")).unwrap(), 30);
+        assert!(f(Some("0")).is_err(), "below the minimum");
+        assert!(f(Some("99999")).is_err(), "above the maximum");
+        assert!(f(Some("many")).is_err());
+        assert!(int("PAS_NOT_A_REAL_SETTING").is_err());
         // A registered variable of another kind is not an int.
-        assert_eq!(int("PAS_TIMEZONE"), 0);
+        assert!(int("PAS_TIMEZONE").is_err());
         let v = var("PAS_HL7_DEDUPE_DAYS").unwrap();
         assert!(problem(v, "99999").unwrap().contains("between 1 and 3650"));
     }
 
     #[test]
-    fn float_reads_within_bounds_or_falls_back_to_the_default() {
+    fn count_reads_an_int_as_the_type_asked_for() {
+        let f = |v| {
+            with_var("PAS_HL7_DEDUPE_DAYS", v, || {
+                count::<u8>("PAS_HL7_DEDUPE_DAYS")
+            })
+        };
+        assert_eq!(f(None).unwrap(), 7);
+        // 3650 is a valid setting but does not fit a u8: an error, not a clamp.
+        assert!(f(Some("3650")).is_err());
+        assert!(count::<u64>("PAS_NOT_A_REAL_SETTING").is_err());
+    }
+
+    #[test]
+    fn float_reads_within_bounds_and_refuses_the_rest() {
         let f = |v| with_var("PAS_NOSHOW_MEDIUM", v, || float("PAS_NOSHOW_MEDIUM"));
-        assert!((f(None) - 0.40).abs() < 1e-9);
-        assert!((f(Some("0.75")) - 0.75).abs() < 1e-9);
-        assert!((f(Some("1.5")) - 0.40).abs() < 1e-9);
-        assert!((f(Some("high")) - 0.40).abs() < 1e-9);
-        assert_eq!(float("PAS_NOT_A_REAL_SETTING"), 0.0);
+        assert!((f(None).unwrap() - 0.40).abs() < 1e-9);
+        assert!((f(Some("0.75")).unwrap() - 0.75).abs() < 1e-9);
+        assert!(f(Some("1.5")).is_err());
+        assert!(f(Some("high")).is_err());
+        assert!(float("PAS_NOT_A_REAL_SETTING").is_err());
+        assert!(float("PAS_TIMEZONE").is_err());
     }
 
     /// RCA-TEST-8 for every registered setting: the declared minimum and maximum are accepted, one outside

@@ -84,7 +84,8 @@ pub fn build_report(
         .map(|c| CategoryWaits {
             category: c,
             colour: colour(c),
-            target_minutes: targets.minutes(c).unwrap_or_default(),
+            // RCA-DECL-1: every listed category has a target; a category without one has target 0, shown as none.
+            target_minutes: targets.minutes(c).unwrap_or(0),
             attended: 0,
             seen_within: 0,
             seen_past: 0,

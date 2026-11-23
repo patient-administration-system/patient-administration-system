@@ -41,7 +41,8 @@ pub async fn list_active_templates(db: &PgPool) -> Result<Vec<TemplateRow>, sqlx
                         .filter_map(|v| v.as_str().map(String::from))
                         .collect()
                 })
-                .unwrap_or_default(),
+                // RCA-DECL-1: no list of values is no values.
+                .unwrap_or(Vec::new()),
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));

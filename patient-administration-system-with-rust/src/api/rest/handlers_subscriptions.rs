@@ -56,7 +56,8 @@ pub async fn create(
         .user_id
         .clone()
         .or(b.created_by.clone())
-        .unwrap_or_default();
+        // RCA-DECL-1: no named creator is blank, which `create` refuses (a named person is required).
+        .unwrap_or(String::new());
     json(
         SubscriptionService::new(state.db.clone())
             .create(&b.topic, &b.endpoint, b.secret_env.as_deref(), &by, &ctx)

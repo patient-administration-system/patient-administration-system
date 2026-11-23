@@ -83,7 +83,7 @@ async fn main() -> Result<()> {
 
 /// The clients for `person-service` and `worker-service`, each optional.
 fn upstream_clients(cfg: &Config) -> Result<(Option<PersonClient>, Option<WorkerClient>)> {
-    if patient_administration_system::config::env::flag("PAS_REQUIRE_UPSTREAMS")
+    if patient_administration_system::config::env::flag("PAS_REQUIRE_UPSTREAMS")?
         && let Some(refusal) = patient_administration_system::upstream::missing_upstream_urls(
             cfg.person_service_url.as_deref(),
             cfg.worker_service_url.as_deref(),
@@ -280,9 +280,9 @@ fn spawn_jobs(
 ) -> Result<()> {
     spawn_outbox(jobs, cfg, db, publisher);
     spawn_subscriptions(jobs, db);
-    spawn_tolerance(jobs, state);
-    spawn_noshow(jobs, state);
-    spawn_backfill(jobs, state);
+    spawn_tolerance(jobs, state)?;
+    spawn_noshow(jobs, state)?;
+    spawn_backfill(jobs, state)?;
     spawn_work_queue(jobs, state);
     spawn_bed_holds(jobs, state);
     spawn_hl7_dedupe_purge(jobs, db);
@@ -335,13 +335,11 @@ fn spawn_subscriptions(jobs: &mut Jobs, db: &patient_administration_system::db::
     );
 }
 
-fn spawn_tolerance(jobs: &mut Jobs, state: &AppState) {
+fn spawn_tolerance(jobs: &mut Jobs, state: &AppState) -> Result<()> {
     // Tolerance alerts: every PAS_TOLERANCE_CHECK_MINUTES (default 60; 0 turns it off) check each measure and
     // open an alert for any that is red. It reads only; nothing here acts on a patient.
-    let tolerance_minutes: u64 = u64::try_from(patient_administration_system::config::env::int(
-        "PAS_TOLERANCE_CHECK_MINUTES",
-    ))
-    .unwrap_or(60);
+    let tolerance_minutes: u64 =
+        patient_administration_system::config::env::count("PAS_TOLERANCE_CHECK_MINUTES")?;
     if tolerance_minutes > 0 {
         let tolerance = state.tolerance.clone();
         jobs.spawn(
@@ -366,13 +364,14 @@ fn spawn_tolerance(jobs: &mut Jobs, state: &AppState) {
             },
         );
     }
+    Ok(())
 }
 
-fn spawn_noshow(jobs: &mut Jobs, state: &AppState) {
+fn spawn_noshow(jobs: &mut Jobs, state: &AppState) -> Result<()> {
     // The no-show probability (CAP-12): an hourly pass that scores booked appointments still to come. A no-op
     // unless PAS_NOSHOW_SCORE=true AND a fairness and a clinical safety review are approved; idempotent within a
     // day. It only adds tasks for people to ring.
-    if patient_administration_system::noshow::NoShowService::switched_on() {
+    if patient_administration_system::noshow::NoShowService::switched_on()? {
         let noshow = state.noshow.clone();
         jobs.spawn("noshow", std::time::Duration::from_secs(3600), move || {
             let noshow = noshow.clone();
@@ -386,6 +385,7 @@ fn spawn_noshow(jobs: &mut Jobs, state: &AppState) {
             }
         });
     }
+    Ok(())
 }
 
 fn spawn_bed_holds(jobs: &mut Jobs, state: &AppState) {
@@ -459,10 +459,10 @@ fn spawn_work_queue(jobs: &mut Jobs, state: &AppState) {
     );
 }
 
-fn spawn_backfill(jobs: &mut Jobs, state: &AppState) {
+fn spawn_backfill(jobs: &mut Jobs, state: &AppState) -> Result<()> {
     // Backfill offers (PILOT-8): PAS_BACKFILL_OFFERS=true offers a released slot to the next patient on
     // standby, and every minute expires offers that ran out and moves on to the next patient.
-    if patient_administration_system::backfill::enabled() {
+    if patient_administration_system::backfill::enabled()? {
         let backfill = state.backfill.clone();
         let clock = state.clock.clone();
         jobs.spawn("backfill", std::time::Duration::from_secs(60), move || {
@@ -479,6 +479,7 @@ fn spawn_backfill(jobs: &mut Jobs, state: &AppState) {
             }
         });
     }
+    Ok(())
 }
 
 /// The reminder ladder (CAP-13) or, without it, the single reminder (opt in with PAS_REMINDERS_ENABLED=true,
@@ -490,7 +491,7 @@ fn spawn_reminders(
 ) -> Result<()> {
     // The reminder ladder (CAP-13) replaces the single reminder: PAS_REMINDER_LADDER=true. Steps via
     // PAS_REMINDER_STEPS (default main=7d,second=4d,call=3d,final=24h).
-    if patient_administration_system::config::env::flag("PAS_REMINDER_LADDER") {
+    if patient_administration_system::config::env::flag("PAS_REMINDER_LADDER")? {
         let ladder = patient_administration_system::communication::ladder::LadderService::from_env(
             db.clone(),
             state.communication.clone(),
@@ -507,7 +508,7 @@ fn spawn_reminders(
                 }
             }
         });
-    } else if patient_administration_system::config::env::flag("PAS_REMINDERS_ENABLED") {
+    } else if patient_administration_system::config::env::flag("PAS_REMINDERS_ENABLED")? {
         let lead = patient_administration_system::communication::reminders::lead_from_hours(
             patient_administration_system::config::env::text("PAS_REMINDER_LEAD_HOURS").as_deref(),
         )?;
@@ -594,17 +595,16 @@ async fn build_app(cfg: &Config, state: AppState) -> Result<axum::Router> {
     // trusts its callers. PAS_REQUIRE_AUTH=true refuses to start without per-user auth.
     let auth_cfg = patient_administration_system::api::rest::user_auth::UserAuthConfig::from_env(
         cfg.api_token.clone(),
-    );
+    )?;
     match patient_administration_system::api::rest::user_auth::UserAuth::build(auth_cfg).await {
         Ok(Some(auth)) => {
             if auth.is_per_user() {
                 tracing::info!(
                     "per-user authentication enabled (PASETO v4.public, verified offline)"
                 );
-                let every = u64::try_from(patient_administration_system::config::env::int(
+                let every: u64 = patient_administration_system::config::env::count(
                     "PAS_PASETO_KEYS_REFRESH_SECS",
-                ))
-                .unwrap_or(300);
+                )?;
                 patient_administration_system::api::rest::user_auth::spawn_key_refresh(
                     auth.clone(),
                     std::time::Duration::from_secs(every),

@@ -138,8 +138,14 @@ impl WaitsService {
         weeks: Option<i64>,
         repeat_days: Option<i64>,
     ) -> Result<Vec<(Uuid, PathwayWait)>> {
-        let weeks = weeks.unwrap_or_else(|| env::int("PAS_CHECK_WEEKS"));
-        let repeat = repeat_days.unwrap_or_else(|| env::int("PAS_CHECK_REPEAT_DAYS"));
+        let weeks = match weeks {
+            Some(w) => w,
+            None => env::int("PAS_CHECK_WEEKS")?,
+        };
+        let repeat = match repeat_days {
+            Some(d) => d,
+            None => env::int("PAS_CHECK_REPEAT_DAYS")?,
+        };
         let rows = self
             .db
             .all(Stmt::new("SELECT p.id, p.person_id, p.target_service, \

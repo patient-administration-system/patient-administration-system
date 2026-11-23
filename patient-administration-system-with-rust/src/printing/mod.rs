@@ -217,7 +217,8 @@ impl PrintService {
 .await?;
                         rows.push(ExportRow {
                             reference: id,
-                            name: person.as_ref().map(display_name).unwrap_or_default(),
+                            // RCA-DECL-1: a person who cannot be found is printed with a blank name; the address is still the recipient.
+                            name: person.as_ref().map(display_name).unwrap_or(String::new()),
                             address,
                             subject: l.col("rendered_subject")?,
                             body: l.col("rendered_body")?,

@@ -155,7 +155,8 @@ pub async fn search_practitioners(
         Err(e) => return error_to_response(e),
     };
     let ctx = user_context_from_headers(&headers);
-    let query = q.q.unwrap_or_default();
+    // RCA-DECL-1: an absent search text is blank.
+    let query = q.q.unwrap_or(String::new());
     match client.search(&query, q.limit, &ctx).await {
         Ok(workers) => ok_json(workers),
         Err(e) => error_to_response(e),

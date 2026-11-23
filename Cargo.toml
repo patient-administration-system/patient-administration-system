@@ -51,3 +51,7 @@ manual_saturating_arithmetic = "allow"
 # `fold(0, |a, b| a + b)` is how a sum is written where `Iterator::sum` is disallowed (RCA-AGG-1, clippy.toml), so
 # this lint, which asks for `sum`, is turned off.
 unnecessary_fold = "allow"
+# `unwrap_or(String::new())` with a cited RCA-DECL-1 comment is how a declared fallback is written (RCA-ENF-2:
+# `unwrap_or_default` is banned, by the review grep in scripts/check-checked-arithmetic.py), so this lint, which
+# asks for `unwrap_or_default`, is turned off.
+unwrap_or_default = "allow"

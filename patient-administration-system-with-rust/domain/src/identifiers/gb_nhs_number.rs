@@ -51,7 +51,7 @@ pub fn check(raw: &str) -> Result<String> {
 
 /// The NHS number written the usual way, `943 476 5919`. The input must already be valid.
 pub fn format(valid: &str) -> String {
-    let part = |from: usize, to: usize| valid.get(from..to).unwrap_or_default();
+    let part = |from: usize, to: usize| valid.get(from..to).unwrap_or(""); // RCA-DECL-1: the input is already valid; a short one prints blank groups
     format!("{} {} {}", part(0, 3), part(3, 6), part(6, valid.len()))
 }
 

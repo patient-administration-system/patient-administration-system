@@ -237,7 +237,8 @@ pub fn violations(e: &Value) -> Vec<String> {
     };
     need(e["resourceType"] == "AuditEvent", "resourceType AuditEvent");
     need(has_coding(&e["type"], AUDIT_TYPE, "rest"), "type rest");
-    let action = e["action"].as_str().unwrap_or_default();
+    // RCA-DECL-1: an absent action is checked as blank, which the next check refuses.
+    let action = e["action"].as_str().unwrap_or("");
     need(
         ["R", "C", "U", "D"].contains(&action),
         "action R, C, U or D",
@@ -258,7 +259,7 @@ pub fn violations(e: &Value) -> Vec<String> {
     need(e["outcome"] == "0", "outcome 0");
     need(e["recorded"].as_str().is_some(), "recorded");
 
-    let agents = e["agent"].as_array().cloned().unwrap_or_default();
+    let agents = e["agent"].as_array().cloned().unwrap_or(Vec::new()); // RCA-DECL-1: absent agents are none, which the check below refuses
     let of_type = |system: &str, code: &str| -> Vec<&Value> {
         agents
             .iter()
@@ -288,7 +289,7 @@ pub fn violations(e: &Value) -> Vec<String> {
         "source.observer",
     );
 
-    let entities = e["entity"].as_array().cloned().unwrap_or_default();
+    let entities = e["entity"].as_array().cloned().unwrap_or(Vec::new()); // RCA-DECL-1: absent entities are none, which the check below refuses
     let data: Vec<_> = entities
         .iter()
         .filter(|x| has_coding(&x["type"], ENTITY_TYPE, "2"))

@@ -23,7 +23,7 @@ pub async fn connect(url: &str) -> Result<Pool> {
     let options = PgConnectOptions::from_str(url)
         .map_err(Error::Database)?
         .disable_statement_logging();
-    let max = u32::try_from(crate::config::env::int("PAS_DB_MAX_CONNECTIONS")).unwrap_or(10);
+    let max = crate::config::env::count::<u32>("PAS_DB_MAX_CONNECTIONS")?;
     PgPoolOptions::new()
         .max_connections(max)
         .min_connections(max.min(2))

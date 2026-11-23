@@ -11,9 +11,12 @@ impl SchedulingService {
     pub(crate) async fn publish_booked(&self, appt: &Appointment) {
         // A new booking gets its no-show probability, if the score is switched on and approved (CAP-12). It
         // only adds a task for a person; the booking is already made and nothing here can change it.
-        if crate::noshow::NoShowService::switched_on()
-            && let Some(n) = self.noshow()
-        {
+        // A switch that is set but unreadable is reported, and the assessment is not run.
+        let switched_on = crate::noshow::NoShowService::switched_on().unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "the no-show switch is unreadable, so no assessment was made");
+            false
+        });
+        if switched_on && let Some(n) = self.noshow() {
             n.assess(appt.id).await.log_warn("no-show assessment");
         }
         self.publisher

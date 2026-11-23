@@ -261,7 +261,12 @@ mod log_err_tests {
             .with_ansi(false)
             .finish();
         tracing::subscriber::with_default(sub, f);
-        let bytes = cap.0.lock().map(|v| v.clone()).unwrap_or_default();
+        // RCA-DECL-1: test-only log capture; a poisoned buffer is captured as no text.
+        let bytes = cap
+            .0
+            .lock()
+            .map(|v| v.clone())
+            .unwrap_or_else(|_| Vec::new());
         String::from_utf8_lossy(&bytes).to_string()
     }
 

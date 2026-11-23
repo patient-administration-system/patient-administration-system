@@ -11,27 +11,27 @@ pub fn band(p: f64, medium: f64) -> Band {
 }
 
 /// How many people the clinic can phone in a day (`PAS_NOSHOW_CALL_CAPACITY`, default 10, at most 500).
-pub fn call_capacity() -> i64 {
+pub fn call_capacity() -> Result<i64, crate::error::Error> {
     env::int("PAS_NOSHOW_CALL_CAPACITY")
 }
 
 /// Days of shadow data a clinic needs before it may go live (`PAS_NOSHOW_SHADOW_MIN_DAYS`, default 28).
-pub fn shadow_min_days() -> i64 {
+pub fn shadow_min_days() -> Result<i64, crate::error::Error> {
     env::int("PAS_NOSHOW_SHADOW_MIN_DAYS")
 }
 
 /// How far ahead the call list looks (`PAS_NOSHOW_CALL_HORIZON_DAYS`, default 7).
-pub fn call_horizon_days() -> i64 {
+pub fn call_horizon_days() -> Result<i64, crate::error::Error> {
     env::int("PAS_NOSHOW_CALL_HORIZON_DAYS")
 }
 
 /// The percentage is hidden until someone sets this after calibrating the weights on real outcomes
 /// (`PAS_NOSHOW_SHOW_PERCENT=true`). Until then staff see the band word and the reasons only.
-pub fn percent_shown() -> bool {
+pub fn percent_shown() -> Result<bool, crate::error::Error> {
     env::flag("PAS_NOSHOW_SHOW_PERCENT")
 }
 
-pub fn medium_threshold() -> f64 {
+pub fn medium_threshold() -> Result<f64, crate::error::Error> {
     env::float("PAS_NOSHOW_MEDIUM")
 }
 
@@ -70,11 +70,17 @@ impl Default for Weights {
 }
 
 impl Weights {
-    /// `PAS_NOSHOW_WEIGHTS` as JSON overriding any of the defaults; an unreadable value keeps the defaults.
-    pub fn from_env() -> Self {
-        env::text("PAS_NOSHOW_WEIGHTS")
-            .and_then(|v| serde_json::from_str(&v).ok())
-            .unwrap_or_default()
+    /// `PAS_NOSHOW_WEIGHTS` as JSON overriding any of the defaults. Unset is the defaults (RCA-IN-3); a value
+    /// that is set and not readable is an error, never the defaults (RCA-IN-2).
+    pub fn from_env() -> Result<Self, crate::error::Error> {
+        match env::text("PAS_NOSHOW_WEIGHTS") {
+            None => Ok(Self::default()),
+            Some(v) => serde_json::from_str(&v).map_err(|e| {
+                crate::error::Error::config(format!(
+                    "PAS_NOSHOW_WEIGHTS must be valid weights JSON: {e}"
+                ))
+            }),
+        }
     }
 }
 
@@ -173,9 +179,9 @@ pub fn compute(i: &Inputs, w: &Weights) -> Assessment {
 }
 
 impl Weights {
-    pub fn from_env_for_card() -> WeightsCard {
-        let w = Weights::from_env();
-        WeightsCard {
+    pub fn from_env_for_card() -> Result<WeightsCard, crate::error::Error> {
+        let w = Weights::from_env()?;
+        Ok(WeightsCard {
             base: w.base,
             history: w.history,
             prior_visits: w.prior_visits,
@@ -183,7 +189,7 @@ impl Weights {
             age: w.age,
             weekday: w.weekday,
             period: w.period,
-        }
+        })
     }
 }
 
@@ -231,38 +237,28 @@ mod env_tests {
 
     #[test]
     fn the_settings_have_their_documented_defaults() {
-        assert_eq!(
-            with_var("PAS_NOSHOW_CALL_CAPACITY", None, call_capacity),
-            10
-        );
-        assert_eq!(
-            with_var("PAS_NOSHOW_SHADOW_MIN_DAYS", None, shadow_min_days),
-            28
-        );
-        assert_eq!(
-            with_var("PAS_NOSHOW_CALL_HORIZON_DAYS", None, call_horizon_days),
-            7
-        );
-        assert!(!with_var("PAS_NOSHOW_SHOW_PERCENT", None, percent_shown));
-        assert!((0.0..=1.0).contains(&medium_threshold()));
+        let ok = |name: &str, f: fn() -> Result<i64, crate::error::Error>| {
+            with_var(name, None, f).unwrap()
+        };
+        assert_eq!(ok("PAS_NOSHOW_CALL_CAPACITY", call_capacity), 10);
+        assert_eq!(ok("PAS_NOSHOW_SHADOW_MIN_DAYS", shadow_min_days), 28);
+        assert_eq!(ok("PAS_NOSHOW_CALL_HORIZON_DAYS", call_horizon_days), 7);
+        assert!(!with_var("PAS_NOSHOW_SHOW_PERCENT", None, percent_shown).unwrap());
+        assert!((0.0..=1.0).contains(&medium_threshold().unwrap()));
     }
 
     #[test]
-    fn the_settings_read_their_variables() {
+    fn the_settings_read_their_variables_and_refuse_a_bad_one() {
         assert_eq!(
-            with_var("PAS_NOSHOW_CALL_CAPACITY", Some("25"), call_capacity),
+            with_var("PAS_NOSHOW_CALL_CAPACITY", Some("25"), call_capacity).unwrap(),
             25
         );
-        assert_eq!(
-            with_var("PAS_NOSHOW_CALL_CAPACITY", Some("501"), call_capacity),
-            10,
-            "above the maximum of 500"
+        assert!(
+            with_var("PAS_NOSHOW_CALL_CAPACITY", Some("501"), call_capacity).is_err(),
+            "above the maximum of 500 is refused, not replaced by the default"
         );
-        assert!(with_var(
-            "PAS_NOSHOW_SHOW_PERCENT",
-            Some("true"),
-            percent_shown
-        ));
+        assert!(with_var("PAS_NOSHOW_SHOW_PERCENT", Some("true"), percent_shown).unwrap());
+        assert!(with_var("PAS_NOSHOW_SHOW_PERCENT", Some("maybe"), percent_shown).is_err());
     }
 
     #[test]
@@ -271,7 +267,8 @@ mod env_tests {
             "PAS_NOSHOW_WEIGHTS",
             Some(r#"{"base":0.2,"weekday":[0.1,0,0,0,0,0,0]}"#),
             Weights::from_env,
-        );
+        )
+        .unwrap();
         assert!((w.base - 0.2).abs() < 1e-9);
         assert!((w.weekday[0] - 0.1).abs() < 1e-9);
         assert!(
@@ -279,15 +276,18 @@ mod env_tests {
             "unnamed fields keep defaults"
         );
         let d = Weights::default();
-        for bad in [None, Some("not json")] {
-            let w = with_var("PAS_NOSHOW_WEIGHTS", bad, Weights::from_env);
-            assert!((w.base - d.base).abs() < 1e-9);
-        }
+        let w = with_var("PAS_NOSHOW_WEIGHTS", None, Weights::from_env).unwrap();
+        assert!((w.base - d.base).abs() < 1e-9, "unset is the defaults");
+        assert!(
+            with_var("PAS_NOSHOW_WEIGHTS", Some("not json"), Weights::from_env).is_err(),
+            "unreadable is refused, not replaced by the defaults"
+        );
         let card = with_var(
             "PAS_NOSHOW_WEIGHTS",
             Some(r#"{"lead":0.5}"#),
             Weights::from_env_for_card,
-        );
+        )
+        .unwrap();
         assert!((card.lead - 0.5).abs() < 1e-9);
         assert!((card.base - d.base).abs() < 1e-9);
         assert_eq!(card.period, d.period);

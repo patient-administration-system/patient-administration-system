@@ -37,7 +37,12 @@ impl NoShowService {
                  ORDER BY n.probability DESC, a.start_datetime \
                  LIMIT GREATEST(0, $2::bigint - (SELECT count(*) FROM staff_call_tasks WHERE reason = 'high_risk' AND handled_at IS NULL)) \
                  ON CONFLICT (appointment_id, reason) DO NOTHING",
-                [(call_horizon_days() as i32).into(), call_capacity().into()],
+                [
+                    i32::try_from(call_horizon_days()?)
+                        .map_err(|_| Error::internal("PAS_NOSHOW_CALL_HORIZON_DAYS does not fit"))?
+                        .into(),
+                    call_capacity()?.into(),
+                ],
             ))
 .await?;
         Ok(r.rows_affected())
@@ -50,6 +55,7 @@ impl NoShowService {
     ) -> Result<Vec<CallItem>> {
         let rows = rows.into();
         self.require_active().await?;
+        let show_percent = percent_shown()?;
         let rows = self
             .db
             .all(Stmt::new("SELECT n.appointment_id, n.probability, n.factors, n.sample_size, a.start_datetime, t.id AS task_id \
@@ -66,7 +72,7 @@ impl NoShowService {
                 Ok(CallItem {
                     appointment_id: r.col::<Uuid>("appointment_id")?,
                     task_id: r.col::<Uuid>("task_id")?,
-                    probability_percent: percent_shown().then(|| (p * 1000.0).round() / 10.0),
+                    probability_percent: show_percent.then(|| (p * 1000.0).round() / 10.0),
                     starts_at: r.col::<Timestamp>("start_datetime")?,
                     sample_size: r.col::<i32>("sample_size")?,
                     factors: serde_json::from_value(r.col::<serde_json::Value>("factors")?)

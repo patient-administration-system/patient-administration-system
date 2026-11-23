@@ -85,7 +85,11 @@ pub async fn delay_report(
     State(state): State<AppState>,
     Query(q): Query<DelayQuery>,
 ) -> HandlerResult {
-    let k = q.k.unwrap_or(0).max(AnalyticsService::minimum_k());
+    let min_k = match AnalyticsService::minimum_k() {
+        Ok(k) => k,
+        Err(e) => return error_to_response(e),
+    };
+    let k = q.k.unwrap_or(0).max(min_k);
     let today = state
         .clock
         .now()

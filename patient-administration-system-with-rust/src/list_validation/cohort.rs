@@ -36,9 +36,10 @@ impl ListValidationService {
                 "reply_in_days must be 0 to 365 and final_wait_days 1 to 90",
             ));
         }
-        let min_weeks = n
-            .min_weeks
-            .unwrap_or_else(|| crate::config::env::int("PAS_CHECK_WEEKS"));
+        let min_weeks = match n.min_weeks {
+            Some(w) => w,
+            None => crate::config::env::int("PAS_CHECK_WEEKS")?,
+        };
         if !(1..=520).contains(&min_weeks) {
             return Err(Error::validation("min_weeks must be between 1 and 520"));
         }

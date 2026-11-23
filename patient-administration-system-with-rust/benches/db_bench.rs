@@ -204,7 +204,10 @@ fn bench_router(c: &mut Criterion) {
         ),
         (
             "get_slot",
-            format!("/api/slots/{}", booked.slot_id.unwrap_or_default()),
+            format!(
+                "/api/slots/{}",
+                booked.slot_id.unwrap_or(Default::default()) /* RCA-DECL-1: bench data */
+            ),
         ),
     ] {
         group.bench_function(name, |b| {

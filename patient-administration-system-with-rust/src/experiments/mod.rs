@@ -296,7 +296,7 @@ impl ExperimentService {
         if exists.is_none() {
             return Err(Error::not_found(format!("experiment {id}")));
         }
-        let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
+        let k = k.unwrap_or(0).max(AnalyticsService::minimum_k()?);
         let rows = self
             .db
             .all(Stmt::new("SELECT x.variant, COALESCE(d.deprivation_quintile::text, 'unknown') AS q, \
@@ -344,7 +344,8 @@ impl ExperimentService {
                         .iter()
                         .find(|(n, _)| n == d)
                         .map(|(_, v)| v.clone())
-                        .unwrap_or_default()
+                        // RCA-DECL-1: a dimension a cell does not carry is shown blank.
+                        .unwrap_or(String::new())
                 };
                 let resolved = attended + dna;
                 match c.count {

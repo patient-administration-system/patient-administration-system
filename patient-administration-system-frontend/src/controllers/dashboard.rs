@@ -64,11 +64,12 @@ pub async fn index(
             "rendered_at": jiff::Timestamp::now().strftime("%Y-%m-%d %H:%M:%S UTC").to_string(),
             "refresh_seconds": REFRESH_SECONDS,
             "wards_unreachable": wards.is_none(),
-            "wards": wards.unwrap_or_default(),
+            // RCA-DECL-1: an unreachable source is shown as empty, and `*_unreachable` says so on the page.
+            "wards": wards.unwrap_or(Vec::new()),
             "outbox_unreachable": unpublished.is_none(),
             "unpublished_count": unpublished.unwrap_or(0),
             "audit_unreachable": audit.is_none(),
-            "audit": audit.unwrap_or_default(),
+            "audit": audit.unwrap_or(Vec::new()),
         }),
     )
 }
@@ -81,7 +82,7 @@ pub async fn wards_fragment(
     let wards = load_wards(&ctx).await;
     v.render(
         "dashboard/_wards.html",
-        json!({ "wards_unreachable": wards.is_none(), "wards": wards.unwrap_or_default() }),
+        json!({ "wards_unreachable": wards.is_none(), "wards": wards.unwrap_or(Vec::new()) }),
     )
 }
 
@@ -108,7 +109,7 @@ pub async fn audit_fragment(
     let audit = load_audit(&ctx).await;
     v.render(
         "dashboard/_audit.html",
-        json!({ "audit_unreachable": audit.is_none(), "audit": audit.unwrap_or_default() }),
+        json!({ "audit_unreachable": audit.is_none(), "audit": audit.unwrap_or(Vec::new()) }),
     )
 }
 

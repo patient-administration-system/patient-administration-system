@@ -681,7 +681,8 @@ impl InboundService {
             .appointment
             .as_ref()
             .map(|a| messages::when(a.start_datetime, who.lang, who.tz.clone()))
-            .unwrap_or_default();
+            // RCA-DECL-1: a result with no appointment has no time to show.
+            .unwrap_or(String::new());
         let (outcome, text) =
             if result.reject_reason.as_deref() == Some(crate::writeback::HELD_FOR_STAFF) {
                 (

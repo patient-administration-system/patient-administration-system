@@ -246,7 +246,8 @@ fn enum_str<T: serde::Serialize>(v: &T) -> String {
     serde_json::to_value(v)
         .ok()
         .and_then(|j| j.as_str().map(String::from))
-        .unwrap_or_default()
+        // RCA-DECL-1: only called on unit-variant enums, which always serialise to a string.
+        .unwrap_or(String::new())
 }
 
 fn from_enum_str<T: serde::de::DeserializeOwned>(s: &str) -> Result<T> {

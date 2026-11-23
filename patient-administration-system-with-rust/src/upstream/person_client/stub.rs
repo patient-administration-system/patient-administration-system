@@ -198,7 +198,8 @@ impl PersonClient for StubPersonClient {
                     .collect::<std::result::Result<Vec<_>, _>>()
                     .map_err(|e| Error::internal(format!("export could not be serialized: {e}")))?;
                 let arr = serde_json::Value::Array(items);
-                let body = serde_json::to_vec(&arr).unwrap_or_default();
+                let body = serde_json::to_vec(&arr)
+                    .map_err(|e| Error::internal(format!("export could not be serialized: {e}")))?;
                 Ok(("application/json".into(), body))
             }
             "xml" => Ok(("application/xml".into(), b"<persons/>".to_vec())),

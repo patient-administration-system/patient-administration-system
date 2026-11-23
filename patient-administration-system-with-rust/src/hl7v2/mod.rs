@@ -81,7 +81,8 @@ impl SegmentRead for Segment {
         let separators = Separators::default();
         self.component(n, c)
             .map(|x| x.to_er7(&separators))
-            .unwrap_or_default()
+            // RCA-DECL-1: an absent component reads as blank text (HL7 v2 empty field).
+            .unwrap_or(String::new())
     }
 }
 

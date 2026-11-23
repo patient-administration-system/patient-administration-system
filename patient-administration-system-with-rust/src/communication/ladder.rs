@@ -286,8 +286,7 @@ impl LadderService {
                 .as_deref()
                 .unwrap_or(DEFAULT_STEPS),
         )?;
-        let max =
-            usize::try_from(env::int("PAS_REMINDER_MAX_TOUCHES")).unwrap_or(DEFAULT_MAX_TOUCHES);
+        let max: usize = env::count("PAS_REMINDER_MAX_TOUCHES")?;
         Ok(Self::new(db, communication)
             .with_steps(steps)
             .with_max_touches(max)

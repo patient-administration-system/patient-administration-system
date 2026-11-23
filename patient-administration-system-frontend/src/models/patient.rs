@@ -99,7 +99,7 @@ fn person_to_card(p: UpstreamPerson) -> PatientCard {
         id: p.id,
         family,
         given,
-        gender: p.gender.unwrap_or_default(),
+        gender: p.gender.unwrap_or(String::new()), // RCA-DECL-1: an absent gender shows blank
         birth_date: p.birth_date,
         active: p.active.unwrap_or(true),
     }
@@ -115,7 +115,7 @@ fn person_to_detail(p: UpstreamPerson) -> PatientDetail {
         id: p.id,
         family,
         given,
-        gender: p.gender.unwrap_or_default(),
+        gender: p.gender.unwrap_or(String::new()), // RCA-DECL-1: an absent gender shows blank
         birth_date: p.birth_date,
         active: p.active.unwrap_or(true),
         deceased: p.deceased.unwrap_or(false),
@@ -153,7 +153,8 @@ fn name_parts(v: Option<&serde_json::Value>) -> (String, String) {
                 .collect::<Vec<_>>()
                 .join(" ")
         })
-        .unwrap_or_default();
+        // RCA-DECL-1: an absent given-name list shows blank.
+        .unwrap_or(String::new());
     (family, given)
 }
 
@@ -184,7 +185,8 @@ fn first_address_line(v: Option<&serde_json::Value>) -> Option<String> {
     let city = addr
         .get("city")
         .and_then(|x| x.as_str())
-        .unwrap_or_default();
+        // RCA-DECL-1: an absent city is blank, and the address is then the line alone.
+        .unwrap_or("");
     if city.is_empty() {
         Some(line.to_string())
     } else {

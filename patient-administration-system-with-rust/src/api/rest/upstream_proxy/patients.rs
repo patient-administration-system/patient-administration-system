@@ -162,7 +162,8 @@ pub async fn search_patients(
         Err(e) => return error_to_response(e),
     };
     let ctx = user_context_from_headers(&headers);
-    let query = q.q.unwrap_or_default();
+    // RCA-DECL-1: an absent search text is blank, which the search refuses or answers with no match.
+    let query = q.q.unwrap_or(String::new());
     match client.search(&query, q.limit, &ctx).await {
         Ok(persons) => ok_json(persons),
         Err(e) => error_to_response(e),

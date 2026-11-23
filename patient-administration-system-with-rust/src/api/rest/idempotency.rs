@@ -167,7 +167,8 @@ pub async fn idempotency_middleware(
             &key_hash,
             status.as_u16(),
             content_type,
-            text.unwrap_or_default(),
+            // `keep` is true only when the text is present.
+            text.unwrap_or(String::new()),
         )
         .await
     } else {
@@ -233,7 +234,8 @@ async fn claim(db: &Pool, caller: &str, key: &str, request: &str) -> crate::Resu
     Ok(Claimed::Replay {
         status,
         content_type: row.col("content_type")?,
-        body: row.col::<Option<String>>("body")?.unwrap_or_default(),
+        // RCA-DECL-1: a kept answer with no body (an empty one) is replayed empty.
+        body: row.col::<Option<String>>("body")?.unwrap_or(String::new()),
     })
 }
 

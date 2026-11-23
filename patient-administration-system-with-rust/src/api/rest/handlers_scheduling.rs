@@ -216,7 +216,8 @@ pub async fn cancel_appointment(
     OptionalJson(body): OptionalJson<CancelBody>,
 ) -> HandlerResult {
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    let body = body.unwrap_or_default();
+    // RCA-DECL-1: an absent body is the empty request (every field is optional).
+    let body = body.unwrap_or(Default::default());
     let details = crate::scheduling::CancelDetails {
         cancelled_by: body
             .cancelled_by

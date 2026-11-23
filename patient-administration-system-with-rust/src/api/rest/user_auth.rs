@@ -70,19 +70,19 @@ pub struct UserAuthConfig {
 }
 
 impl UserAuthConfig {
-    pub fn from_env(legacy_token: Option<String>) -> Self {
+    pub fn from_env(legacy_token: Option<String>) -> crate::Result<Self> {
         let get = crate::config::env::text;
-        Self {
+        Ok(Self {
             keys_url: get("PAS_PASETO_KEYS_URL"),
             keys_json: get("PAS_PASETO_KEYS_JSON"),
             issuer: get("PAS_PASETO_ISSUER").unwrap_or_else(|| "authentication-service".into()),
             audience: get("PAS_PASETO_AUDIENCE")
                 .unwrap_or_else(|| "patient-administration-system".into()),
             legacy_token,
-            allow_legacy: crate::config::env::flag("PAS_ALLOW_LEGACY_API_TOKEN"),
-            require_auth: crate::config::env::flag("PAS_REQUIRE_AUTH"),
+            allow_legacy: crate::config::env::flag("PAS_ALLOW_LEGACY_API_TOKEN")?,
+            require_auth: crate::config::env::flag("PAS_REQUIRE_AUTH")?,
             carrier_secrets: get("PAS_CARRIER_SECRETS"),
-        }
+        })
     }
 
     fn paseto_configured(&self) -> bool {

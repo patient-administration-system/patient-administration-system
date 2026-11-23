@@ -100,18 +100,22 @@ impl RebookService {
     }
 
     /// `PAS_REBOOK_HORIZON_DAYS` (default 42), how far ahead alternatives are looked for.
-    fn horizon() -> SignedDuration {
-        crate::time::days(env::int("PAS_REBOOK_HORIZON_DAYS"))
+    fn horizon() -> Result<SignedDuration> {
+        Ok(crate::time::days(env::int("PAS_REBOOK_HORIZON_DAYS")?))
     }
 
     /// `PAS_REBOOK_MIN_NOTICE_HOURS` (default 24): a slot sooner than this is not offered.
-    fn min_notice() -> SignedDuration {
-        SignedDuration::from_hours(env::int("PAS_REBOOK_MIN_NOTICE_HOURS"))
+    fn min_notice() -> Result<SignedDuration> {
+        Ok(SignedDuration::from_hours(env::int(
+            "PAS_REBOOK_MIN_NOTICE_HOURS",
+        )?))
     }
 
     /// `PAS_REBOOK_OFFER_MINUTES` (default 120): how long a patient has to choose.
-    fn offer_ttl() -> SignedDuration {
-        SignedDuration::from_mins(env::int("PAS_REBOOK_OFFER_MINUTES"))
+    fn offer_ttl() -> Result<SignedDuration> {
+        Ok(SignedDuration::from_mins(env::int(
+            "PAS_REBOOK_OFFER_MINUTES",
+        )?))
     }
 
     async fn movable(&self, appointment_id: Uuid) -> Result<Appointment> {
@@ -151,8 +155,8 @@ impl RebookService {
                  ORDER BY s.start_datetime LIMIT 300", // Enough to pick OFFER_SIZE from; nothing is reported.
                 [
                     slot_id.into(),
-                    (now + Self::min_notice()).into(),
-                    (now + Self::horizon()).into(),
+                    crate::time::plus(now, Self::min_notice()?)?.into(),
+                    crate::time::plus(now, Self::horizon()?)?.into(),
                     appt.end_datetime.into(),
                     appt.start_datetime.into(),
                     appt.person_id.into(),
@@ -217,7 +221,7 @@ impl RebookService {
 
         let options = spread(&candidates, &tz, OFFER_SIZE);
         let offer_id = Uuid::new_v4();
-        let expires_at = (now + Self::offer_ttl()).min(appt.start_datetime);
+        let expires_at = crate::time::plus(now, Self::offer_ttl()?)?.min(appt.start_datetime);
         let ids: Vec<String> = options.iter().map(|o| o.slot_id.to_string()).collect();
         self.db
             .run(Stmt::new(
@@ -340,13 +344,17 @@ impl RebookService {
 
 fn stored_ids(row: &Row) -> Result<Vec<Uuid>> {
     let v: serde_json::Value = row.col("slot_ids")?;
-    Ok(v.as_array()
-        .map(|a| {
-            a.iter()
-                .filter_map(|s| s.as_str().and_then(|s| Uuid::parse_str(s).ok()))
-                .collect()
+    // Stored offer options that are not a list of ids are corrupt data: an error, not an empty list (RCA-IN-6).
+    let list = v
+        .as_array()
+        .ok_or_else(|| Error::internal("stored offer slot ids are not a list"))?;
+    list.iter()
+        .map(|s| {
+            s.as_str()
+                .and_then(|s| Uuid::parse_str(s).ok())
+                .ok_or_else(|| Error::internal("a stored offer slot id is not an id"))
         })
-        .unwrap_or_default())
+        .collect()
 }
 
 #[cfg(test)]

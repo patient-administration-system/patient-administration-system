@@ -99,7 +99,8 @@ pub fn pid3_identifiers(identifiers: Option<&serde_json::Value>) -> String {
             let kind = field(i, "type")
                 .or(system)
                 .filter(|t| is_type_code(t))
-                .unwrap_or_default();
+                // RCA-DECL-1: an absent or unrecognised identifier type is written blank (PID-3.5).
+                .unwrap_or("");
             let assigner = match (field(i, "assigner"), system) {
                 (Some(a), _) => super::escape_value(a),
                 (None, Some(sys)) => match sys.strip_prefix("urn:oid:") {
@@ -128,12 +129,14 @@ pub fn build_pid(person: &crate::upstream::Person) -> Segment {
         .get("birth_date")
         .and_then(|v| v.as_str())
         .map(|s| s.replace('-', ""))
-        .unwrap_or_default();
+        // RCA-DECL-1: an absent birth date is written blank (PID-7).
+        .unwrap_or(String::new());
     let gender = data
         .get("gender")
         .and_then(|v| v.as_str())
         .map(gender_to_pid8)
-        .unwrap_or_default();
+        // RCA-DECL-1: an absent gender is written blank (PID-8).
+        .unwrap_or(String::new());
     let address = address_xad(data.get("addresses").or_else(|| data.get("address")));
     let phone = telecom_xtn(data.get("telecom").or_else(|| data.get("phone")));
     let pid3 = pid3_identifiers(data.get("identifiers"));
@@ -171,7 +174,10 @@ pub fn build_pid(person: &crate::upstream::Person) -> Segment {
 /// PV1-19 is the visit id, set to the encounter id stringified.
 pub fn build_pv1(enc: &Encounter, bed: Option<&Bed>) -> Segment {
     let class = class_to_pv1_2(enc.class);
-    let location = bed.map(|b| format!("^^{}", b.code)).unwrap_or_default();
+    // RCA-DECL-1: no bed is written as no location (PV1-3).
+    let location = bed
+        .map(|b| format!("^^{}", b.code))
+        .unwrap_or(String::new());
     let mut fields = vec![
         "1".into(),
         class.into(),
@@ -238,7 +244,8 @@ pub fn build_sch_for_referral(
     referral: Option<&ReferralRef>,
 ) -> Segment {
     let appt_id = appt.id.to_string();
-    let reason = appt.reason.clone().unwrap_or_default();
+    // RCA-DECL-1: no reason is written blank.
+    let reason = appt.reason.clone().unwrap_or(String::new());
     let timing = format!(
         "{}^{}^^{}",
         fmt_ts(appt.start_datetime),
@@ -277,8 +284,9 @@ pub fn build_sch_for_referral(
             referral
                 .and_then(|r| r.external_ref.as_deref())
                 .map(super::escape_value)
-                .unwrap_or_default(),
-            referral.map(|r| r.id.to_string()).unwrap_or_default(),
+                // RCA-DECL-1: no referral, or one without an external reference, is written blank.
+                .unwrap_or(String::new()),
+            referral.map(|r| r.id.to_string()).unwrap_or(String::new()),
         ],
     )
 }
@@ -300,14 +308,16 @@ pub fn build_ais(appt: &crate::models::appointment::Appointment) -> Segment {
 /// AIL segment — appointment location. Populates AIL-3 with the bed
 /// code if a bed is supplied (rare for appointments) else leaves blank.
 pub fn build_ail(bed: Option<&Bed>) -> Segment {
-    let loc = bed.map(|b| b.code.clone()).unwrap_or_default();
+    // RCA-DECL-1: no bed is written blank.
+    let loc = bed.map(|b| b.code.clone()).unwrap_or(String::new());
     segment("AIL", vec!["1".into(), "A".into(), loc])
 }
 
 /// AIP segment — appointment personnel. Carries the worker uuid in
 /// AIP-3 when known.
 pub fn build_aip(worker_id: Option<Uuid>) -> Segment {
-    let id = worker_id.map(|i| i.to_string()).unwrap_or_default();
+    // RCA-DECL-1: no worker is written blank.
+    let id = worker_id.map(|i| i.to_string()).unwrap_or(String::new());
     segment("AIP", vec!["1".into(), "A".into(), id])
 }
 
@@ -426,7 +436,8 @@ fn address_xad(v: Option<&serde_json::Value>) -> String {
             serde_json::Value::String(s) => Some(s.clone()),
             _ => None,
         })
-        .unwrap_or_default();
+        // RCA-DECL-1: an address without lines is written blank (XAD-1).
+        .unwrap_or(String::new());
     let city = obj.get("city").and_then(|v| v.as_str()).unwrap_or("");
     let state = obj.get("state").and_then(|v| v.as_str()).unwrap_or("");
     let postal = obj
@@ -447,7 +458,8 @@ fn telecom_xtn(v: Option<&serde_json::Value>) -> String {
         serde_json::Value::Array(a) => a
             .iter()
             .find_map(|t| t.get("value").and_then(|x| x.as_str()).map(String::from))
-            .unwrap_or_default(),
+            // RCA-DECL-1: no telecom value is written blank.
+            .unwrap_or(String::new()),
         serde_json::Value::String(s) => s.clone(),
         _ => String::new(),
     }

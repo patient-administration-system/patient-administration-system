@@ -16,16 +16,15 @@ pub const DEFAULT_REQUIRED_LOCALES: &str = "en-001,cy-001";
 
 /// The locales every active template group must have.
 pub fn required_locales() -> Vec<String> {
-    let raw = env::text("PAS_REQUIRED_LOCALES").unwrap_or_default();
-    let list: Vec<String> = if raw.trim().is_empty() {
-        DEFAULT_REQUIRED_LOCALES
-    } else {
-        raw.as_str()
-    }
-    .split(',')
-    .map(|s| s.trim().to_string())
-    .filter(|s| !s.is_empty())
-    .collect();
+    // Unset (or blank) is the declared default (RCA-IN-3).
+    let raw = env::text("PAS_REQUIRED_LOCALES");
+    let list: Vec<String> = raw
+        .as_deref()
+        .unwrap_or(DEFAULT_REQUIRED_LOCALES)
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
     list
 }
 

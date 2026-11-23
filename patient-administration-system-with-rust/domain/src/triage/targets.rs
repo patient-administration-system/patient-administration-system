@@ -57,12 +57,13 @@ impl Targets {
         Ok(Self(minutes))
     }
 
-    /// From `PAS_TRIAGE_TARGETS`, or the defaults when it is unset or invalid (`config::env::validate`
-    /// reports an invalid value at start-up).
-    pub fn from_env() -> Self {
-        crate::config::env::text("PAS_TRIAGE_TARGETS")
-            .and_then(|raw| Self::from_json(&raw).ok())
-            .unwrap_or_default()
+    /// From `PAS_TRIAGE_TARGETS`: the defaults when it is unset (RCA-IN-3), an error when it is set and
+    /// invalid (RCA-IN-2).
+    pub fn from_env() -> Result<Self> {
+        match crate::config::env::text("PAS_TRIAGE_TARGETS") {
+            None => Ok(Self::default()),
+            Some(raw) => Self::from_json(&raw),
+        }
     }
 
     /// The target for a category, or `None` for a name that is not one.

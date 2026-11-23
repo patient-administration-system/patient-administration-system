@@ -29,10 +29,18 @@ pub(super) async fn dispatch_inner_to_ack_body(
                     .await
                     .into_response();
                 let (_, body_box) = resp.into_parts();
-                let bytes = axum::body::to_bytes(body_box, 1024 * 1024)
-                    .await
-                    .unwrap_or_default();
-                String::from_utf8(bytes.to_vec()).unwrap_or_default()
+                // An answer that cannot be read is logged and is a blank ACK for that message (RCA-IN-6).
+                let bytes = match axum::body::to_bytes(body_box, 1024 * 1024).await {
+                    Ok(b) => b,
+                    Err(e) => {
+                        tracing::error!("a batch message's ACK could not be read: {e}");
+                        return String::new();
+                    }
+                };
+                String::from_utf8(bytes.to_vec()).unwrap_or_else(|e| {
+                    tracing::error!("a batch message's ACK is not UTF-8: {e}");
+                    String::new()
+                })
             })
             .await
         }};

@@ -73,7 +73,7 @@ impl NoShowService {
             .inputs_for(appointment_id)
             .await?
             .ok_or_else(|| Error::not_found(format!("appointment {appointment_id}")))?;
-        let a = compute(&inputs, &Weights::from_env());
+        let a = compute(&inputs, &Weights::from_env()?);
         self.db
             .run(Stmt::new("INSERT INTO noshow_assessments (appointment_id, probability, factors, sample_size, model_version, computed_at, computed_on) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (appointment_id) DO UPDATE SET probability = $2, factors = $3, \
@@ -96,7 +96,8 @@ impl NoShowService {
     }
 
     pub(super) async fn stored(&self, appointment_id: Uuid) -> Result<Option<Shown>> {
-        let medium = medium_threshold();
+        let medium = medium_threshold()?;
+        let show_percent = percent_shown()?;
         self.db
             .one(Stmt::new("SELECT probability, factors, sample_size, model_version, computed_at, \
                    EXISTS (SELECT 1 FROM staff_call_tasks t WHERE t.appointment_id = noshow_assessments.appointment_id AND t.reason = 'high_risk') AS listed \
@@ -110,7 +111,7 @@ impl NoShowService {
                 Ok(Shown {
                     appointment_id,
                     probability: p,
-                    probability_percent: percent_shown().then(|| (p * 1000.0).round() / 10.0),
+                    probability_percent: show_percent.then(|| (p * 1000.0).round() / 10.0),
                     band: if r.col::<bool>("listed")? {
                         Band::High
                     } else {

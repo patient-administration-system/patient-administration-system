@@ -141,7 +141,10 @@ pub async fn list_by_ward_detailed(db: &PgPool, ward_id: Uuid) -> Result<Vec<Bed
             name: b.name,
             code: b.code,
             status: b.status,
-            room_code: room_code_by_id.get(&b.room_id).cloned().unwrap_or_default(),
+            room_code: room_code_by_id
+                .get(&b.room_id)
+                .cloned()
+                .unwrap_or(String::new()), // RCA-DECL-1: a bed whose room is unknown shows no room code
         })
         .collect();
     rows.sort_by(|a, b| {

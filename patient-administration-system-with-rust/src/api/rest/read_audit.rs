@@ -118,7 +118,8 @@ pub fn search_read_target(
 /// The sorted, de-duplicated names of a query's parameters, never their values.
 fn query_names(query: Option<&str>) -> Vec<String> {
     let mut names: Vec<String> = query
-        .unwrap_or_default()
+        // RCA-DECL-1: no query string has no parameter names.
+        .unwrap_or("")
         .split('&')
         .filter_map(|pair| pair.split('=').next())
         .filter(|n| !n.is_empty())

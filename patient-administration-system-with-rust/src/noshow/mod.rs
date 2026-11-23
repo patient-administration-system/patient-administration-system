@@ -62,7 +62,7 @@ impl NoShowService {
     }
 
     /// The cheap check before any work: is the switch on? (It is not enough on its own; see [`Self::status`].)
-    pub fn switched_on() -> bool {
-        env::flag("PAS_NOSHOW_SCORE")
+    pub fn switched_on() -> Result<bool> {
+        Ok(env::flag("PAS_NOSHOW_SCORE")?)
     }
 }

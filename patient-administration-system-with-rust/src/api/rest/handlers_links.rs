@@ -81,7 +81,8 @@ pub async fn post_link_action(
         user_ip: uc.user_ip,
         user_agent: uc.user_agent,
     };
-    let body = body.unwrap_or_default();
+    // RCA-DECL-1: an absent body is the empty request (every field is optional).
+    let body = body.unwrap_or(Default::default());
     match state
         .reply_links
         .act_with(&token, action, body.confirmed, body.barrier_code, &ctx)

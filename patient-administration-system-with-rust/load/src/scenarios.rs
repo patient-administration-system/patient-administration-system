@@ -341,7 +341,8 @@ fn proposal_ids(body: &[u8]) -> Vec<String> {
                     .collect()
             })
         })
-        .unwrap_or_default()
+        // RCA-DECL-1: a body that does not list proposals has none; the scenario then books nothing.
+        .unwrap_or(Vec::new())
 }
 
 /// The appointment's `ETag`, then the cancel that sends it back in `If-Match` (NFR-27).

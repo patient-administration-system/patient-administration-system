@@ -214,7 +214,11 @@ async fn outbox_health(state: &AppState, db_ok: bool) -> OutboxHealth {
     use crate::db::row::RowExt;
     use crate::db::sql::{Conn, Stmt};
     let dispatcher = crate::metrics::job_health("outbox");
+    // A staleness limit that is set and unusable is reported, and the outbox then counts as degraded (RCA-IN-2).
     let stale = crate::config::env::int("PAS_OUTBOX_STALE_SECONDS");
+    if let Err(e) = &stale {
+        tracing::error!(error = %e, "the outbox staleness setting is unusable");
+    }
     let (oldest_seconds, held, dead_letters) = if db_ok {
         let oldest = state
             .db
@@ -237,7 +241,11 @@ async fn outbox_health(state: &AppState, db_ok: bool) -> OutboxHealth {
     // that does not deliver is not to blame for events it never meant to send); it is reported either way.
     let delivers_here = dispatcher != crate::metrics::JobHealth::Off;
     let degraded = dispatcher == crate::metrics::JobHealth::Stalled
-        || (delivers_here && oldest_seconds.is_some_and(|s| s > stale));
+        || stale.is_err()
+        || (delivers_here
+            && stale
+                .as_ref()
+                .is_ok_and(|limit| oldest_seconds.is_some_and(|s| s > *limit)));
     OutboxHealth {
         dispatcher: dispatcher.as_str(),
         oldest_seconds,

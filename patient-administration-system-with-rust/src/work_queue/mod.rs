@@ -131,7 +131,9 @@ struct Open {
 
 pub struct WorkQueueService {
     db: Pool,
-    calendar: WorkingCalendar,
+    /// The working calendar, or why the setting for it cannot be used (start-up refuses it; a service built
+    /// anyway reports it on first use instead of using a made-up calendar, RCA-IN-2).
+    calendar: std::result::Result<WorkingCalendar, String>,
     tz: TimeZone,
 }
 
@@ -139,11 +141,14 @@ const SELECT: &str = "SELECT id, kind, source_id, person_id, subject_kind, subje
      status, owner, opened_at, claimed_at, closed_at FROM work_items";
 
 impl WorkQueueService {
+    fn calendar(&self) -> Result<&WorkingCalendar> {
+        self.calendar.as_ref().map_err(|e| Error::config(e.clone()))
+    }
+
     pub fn new(db: Pool) -> Self {
         Self {
             db,
-            // A bad calendar setting is refused at start-up; here the default stands in.
-            calendar: WorkingCalendar::from_env().unwrap_or_default(),
+            calendar: WorkingCalendar::from_env().map_err(|e| e.to_string()),
             tz: crate::inbound::messages::timezone(),
         }
     }
@@ -305,7 +310,7 @@ impl WorkQueueService {
         for o in open {
             let due = match o.due {
                 Some(d) => d,
-                None => due_after(o.since, kind.working_days(), &self.calendar, &self.tz)?,
+                None => due_after(o.since, kind.working_days(), self.calendar()?, &self.tz)?,
             };
             match known
                 .get(&o.source_id)
@@ -419,10 +424,10 @@ impl WorkQueueService {
     pub async fn reminders(&self, owner: &str, now: Timestamp) -> Result<Reminders> {
         let owner = crate::validation::named_person(owner, "reminders are for a signed-in person")?;
         let today = crate::time::date_in(now, &self.tz);
-        let mut due_by = end_of(self.calendar.add_working_days(today, 0)?, &self.tz)?;
+        let mut due_by = end_of(self.calendar()?.add_working_days(today, 0)?, &self.tz)?;
         if due_by <= now {
             // After 17:00: the next working day's end.
-            due_by = due_after(now, 1, &self.calendar, &self.tz)?;
+            due_by = due_after(now, 1, self.calendar()?, &self.tz)?;
         }
         let items = self
             .db

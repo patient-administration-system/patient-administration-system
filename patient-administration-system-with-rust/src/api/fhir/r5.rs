@@ -217,7 +217,7 @@ pub fn searchset(base: &str, self_url: &str, resources: Vec<Value>) -> Value {
         "total": resources.len(),
         "link": [{ "relation": "self", "url": format!("{base}{self_url}") }],
         "entry": resources.into_iter().map(|r| json!({
-            "fullUrl": format!("{base}/{}/{}", json_at(&r, "resourceType").as_str().unwrap_or_default(), json_at(&r, "id").as_str().unwrap_or_default()),
+            "fullUrl": format!("{base}/{}/{}", json_at(&r, "resourceType").as_str().unwrap_or(""), json_at(&r, "id").as_str().unwrap_or("")),
             "resource": r,
             "search": { "mode": "match" },
         })).collect::<Vec<_>>(),

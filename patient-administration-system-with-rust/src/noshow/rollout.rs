@@ -41,7 +41,7 @@ impl NoShowService {
                     .to_string(),
             ))
 .await?;
-        let min = shadow_min_days();
+        let min = shadow_min_days()?;
         rows.iter()
             .map(|r| {
                 let first: Timestamp = r.col("first_at")?;
@@ -103,10 +103,11 @@ impl NoShowService {
             let days = first.map_or(0, |f| {
                 crate::time::whole_days(Timestamp::now().duration_since(f))
             });
-            if days < shadow_min_days() {
+            let needed = shadow_min_days()?;
+            if days < needed {
                 return Err(Error::conflict(format!(
                     "{svc} has {days} days of shadow data; at least {} are needed before it goes live",
-                    shadow_min_days()
+                    needed
                 )));
             }
         }
@@ -142,7 +143,7 @@ impl NoShowService {
     ///   comparison, so nobody is held back from support to make one. A difference that shows in the live
     ///   clinics and not in the others is the evidence the score raises attendance; a drift in both is not.
     pub async fn evaluation(&self, days: i64, k: Option<i64>) -> Result<Evaluation> {
-        let k = k.unwrap_or(0).max(AnalyticsService::minimum_k());
+        let k = k.unwrap_or(0).max(AnalyticsService::minimum_k()?);
         let days = i32::try_from(in_range("days", days, 7, 1825)?)
             .map_err(|_| Error::validation("days must be from 7 to 1825"))?;
         let r3 = |x: f64| (x * 1000.0).round() / 1000.0;

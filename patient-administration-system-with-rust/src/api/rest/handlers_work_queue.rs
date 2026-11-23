@@ -155,7 +155,8 @@ pub async fn claim(
     Path(id): Path<Uuid>,
 ) -> HandlerResult {
     let ctx = request_audit_ctx(&headers);
-    let who = me(&headers).unwrap_or_default();
+    // RCA-DECL-1: no caller is blank, which the service refuses (a named person is required).
+    let who = me(&headers).unwrap_or(String::new());
     match WorkQueueService::new(state.db.clone())
         .claim(id, &who, &ctx)
         .await
@@ -183,7 +184,8 @@ pub async fn release(
     Path(id): Path<Uuid>,
 ) -> HandlerResult {
     let ctx = request_audit_ctx(&headers);
-    let who = me(&headers).unwrap_or_default();
+    // RCA-DECL-1: no caller is blank, which the service refuses (a named person is required).
+    let who = me(&headers).unwrap_or(String::new());
     match WorkQueueService::new(state.db.clone())
         .release(id, &who, &ctx)
         .await
@@ -240,7 +242,8 @@ pub async fn take_next(
     Path(queue): Path<String>,
 ) -> HandlerResult {
     let ctx = request_audit_ctx(&headers);
-    let who = me(&headers).unwrap_or_default();
+    // RCA-DECL-1: no caller is blank, which the service refuses (a named person is required).
+    let who = me(&headers).unwrap_or(String::new());
     match WorkQueueService::new(state.db.clone())
         .take_next(&queue, &who, &ctx)
         .await

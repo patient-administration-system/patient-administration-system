@@ -46,10 +46,19 @@ pub async fn hl7_dedupe_middleware(
         let resp = next
             .run(Request::from_parts(parts, Body::from(bytes)))
             .await;
-        let body = to_bytes(resp.into_body(), 4 * MAX_BODY)
-            .await
-            .unwrap_or_default();
-        String::from_utf8(body.to_vec()).unwrap_or_default()
+        // The answer could not be read back, so there is no ACK to keep; the error is logged and the sender gets
+        // an empty answer, which is no acknowledgement, so it sends again (RCA-IN-6).
+        let body = match to_bytes(resp.into_body(), 4 * MAX_BODY).await {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::error!(target: "pas::hl7v2::dedupe", "the ACK could not be read: {e}");
+                return String::new();
+            }
+        };
+        String::from_utf8(body.to_vec()).unwrap_or_else(|e| {
+            tracing::error!(target: "pas::hl7v2::dedupe", "the ACK is not UTF-8: {e}");
+            String::new()
+        })
     };
     let ack = crate::hl7v2::dedupe::guarded(&state.db, &inbound, process).await;
     (StatusCode::OK, [(CONTENT_TYPE, "text/plain")], ack).into_response()

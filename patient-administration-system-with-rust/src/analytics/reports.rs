@@ -26,7 +26,7 @@ impl AnalyticsService {
             }
             seen.push(*d);
         }
-        let k = k.unwrap_or(0).max(Self::minimum_k());
+        let k = k.unwrap_or(0).max(Self::minimum_k()?);
         // Release times are stamped by the database's clock, which can be a little ahead of this server's, so
         // the default end is a few minutes ahead of now rather than exactly now.
         let to = to.unwrap_or_else(|| Timestamp::now() + jiff::SignedDuration::from_mins(5));
@@ -124,7 +124,7 @@ impl AnalyticsService {
             }
             seen.push(*d);
         }
-        let k = k.unwrap_or(0).max(Self::minimum_k());
+        let k = k.unwrap_or(0).max(Self::minimum_k()?);
         let to = to.unwrap_or_else(|| Timestamp::now() + jiff::SignedDuration::from_mins(5));
         let from = from.unwrap_or_else(|| to - crate::time::days(90));
         let tz = crate::time::zone_name(&crate::inbound::messages::timezone());

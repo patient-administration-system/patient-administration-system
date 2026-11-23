@@ -34,12 +34,12 @@ use crate::{Error, Result};
 
 pub const TEMPLATE_NAME: &str = "slot_offer";
 
-fn ttl() -> SignedDuration {
-    SignedDuration::from_mins(env::int("PAS_OFFER_MINUTES"))
+fn ttl() -> Result<SignedDuration> {
+    Ok(SignedDuration::from_mins(env::int("PAS_OFFER_MINUTES")?))
 }
 
-pub fn enabled() -> bool {
-    env::flag("PAS_BACKFILL_OFFERS")
+pub fn enabled() -> Result<bool> {
+    Ok(env::flag("PAS_BACKFILL_OFFERS")?)
 }
 
 use crate::config::env;
@@ -291,7 +291,7 @@ impl BackfillService {
         };
         let token = new_token();
         let id = Uuid::new_v4();
-        let expires_at = (now + ttl()).min(start);
+        let expires_at = crate::time::plus(now, ttl()?)?.min(start);
         let made = self
             .db
             .run(Stmt::new("INSERT INTO slot_offers (id, release_id, slot_id, standby_entry_id, person_id, token_hash, expires_at) \
@@ -431,7 +431,7 @@ impl BackfillService {
 
     /// A cancellation freed a slot: if offers are switched on, offer it.
     pub async fn on_cancelled(&self, appointment_id: Uuid) -> Result<()> {
-        if !enabled() {
+        if !enabled()? {
             return Ok(());
         }
         let rel = self

@@ -233,17 +233,22 @@ const LIST_SQL: &str = "SELECT s.id, s.topic, s.endpoint, s.secret_env, s.status
 
 impl SubscriptionService {
     pub fn new(db: Pool) -> Self {
-        let timeout =
-            Duration::from_secs(u64::try_from(env::int("PAS_WEBHOOK_TIMEOUT_SECS")).unwrap_or(10));
         crate::tls::ensure_provider();
-        let client = reqwest::Client::builder()
-            .timeout(timeout)
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .map_err(|e| {
-                tracing::error!("the subscription delivery client could not be built: {e}")
-            })
-            .ok();
+        // A timeout setting that is set and unusable leaves no client, so a delivery fails with a reason; the
+        // server refuses to start on it before this is reached (RCA-IN-2, RCA-IN-4).
+        let client = env::count::<u64>("PAS_WEBHOOK_TIMEOUT_SECS")
+            .map_err(|e| tracing::error!("the subscription delivery timeout is unusable: {e}"))
+            .ok()
+            .and_then(|secs| {
+                reqwest::Client::builder()
+                    .timeout(Duration::from_secs(secs))
+                    .redirect(reqwest::redirect::Policy::none())
+                    .build()
+                    .map_err(|e| {
+                        tracing::error!("the subscription delivery client could not be built: {e}")
+                    })
+                    .ok()
+            });
         Self { db, client }
     }
 
@@ -384,7 +389,7 @@ impl SubscriptionService {
                 [now.into(), PER_SUBSCRIPTION.into()],
             ))
 .await?;
-        let max = i32::try_from(env::int("PAS_OUTBOX_MAX_RETRIES")).unwrap_or(10);
+        let max: i32 = env::count("PAS_OUTBOX_MAX_RETRIES")?;
         let mut delivered = 0;
         for r in &due {
             let id: Uuid = r.col("id")?;
