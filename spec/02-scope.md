@@ -17,7 +17,7 @@
 ## Out of scope
 
 - Patient and worker demographics and their master index (`person-service`, `worker-service`).
-- Clinical records, orders, results, prescribing. The mobile apps (FR-230 to FR-238) *show* a patient their prescriptions, test results, allergies and medicines, and *hand over* to NHS 111, organ donation and blood donation, but the PAS does not hold or decide any of it: each comes from the system that owns it, through a service the apps call (open question 21).
+- Clinical records, orders, results, prescribing. The mobile apps do not offer them either: no prescriptions, GP record, test results, allergies or medicines, no NHS 111, organ donation or blood donation, and no GP appointments (spec/mobile-apps).
 - Deciding a triage category: the Manchester Triage System flowcharts and discriminators are licensed content and a clinical decision, and are not in this repository (NEW-25).
 - Running the identity provider in production (the repository ships a development Keycloak realm only).
 - Operating a hosted service. The maintainers publish software, not a service.
