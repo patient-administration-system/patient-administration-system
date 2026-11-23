@@ -100,7 +100,8 @@ test.describe("a person's choice", () => {
     const list = page.getByRole("listbox", { name: "Theme" });
     await expect(list).toBeVisible();
     await expect(list.getByRole("option", { name: "Follow this device" })).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("End");
+    // The picker lists the device choice first, then the schemes by name: Dark comes next, Light last.
+    await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await expect(list).toBeHidden();
     await expect(button).toBeFocused();
