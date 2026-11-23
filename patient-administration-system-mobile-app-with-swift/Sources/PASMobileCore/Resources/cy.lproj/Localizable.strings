@@ -1,0 +1,29 @@
+/* Cymraeg. FIRST DRAFT awaiting fluent review (governance/translation-review.md). Keys without "mobile." reuse the web UI's
+   Welsh (src/lib/messages/cy-001.json); the "mobile." keys and "status.other" and "modality.*" are new drafts. */
+"app.name" = "System Weinyddu Cleifion";
+"myAppointments.title" = "Fy apwyntiadau";
+"myAppointments.empty" = "Nid oes gennych unrhyw apwyntiadau.";
+"mobile.upcoming" = "I ddod";
+"mobile.past" = "Blaenorol";
+"mobile.when" = "Pryd";
+"mobile.how" = "Sut";
+"mobile.status" = "Statws";
+"mobile.loading" = "Wrthi'n llwytho eich apwyntiadau";
+"mobile.retry" = "Rhowch gynnig arall arni";
+"mobile.demoNotice" = "Apwyntiadau enghreifftiol yw'r rhain, nid eich rhai chi. Nid yw'r fersiwn hon o'r ap wedi'i chysylltu â'r GIG eto.";
+"mobile.error.title" = "Mae problem wedi codi";
+"mobile.error.unreachable" = "Nid oedd modd cyrraedd y gwasanaeth apwyntiadau. Gwiriwch eich cysylltiad a rhowch gynnig arall arni.";
+"error.401" = "Mewngofnodwch i barhau.";
+"error.403" = "Nid oes gennych fynediad i'r dudalen hon.";
+"error.502" = "Nid yw gwasanaeth y mae'r dudalen hon yn dibynnu arno ar gael.";
+"status.proposed" = "Arfaethedig";
+"status.booked" = "Wedi'i archebu";
+"status.arrived" = "Wedi cyrraedd";
+"status.fulfilled" = "Wedi'i gwblhau";
+"status.cancelled" = "Wedi'i ganslo";
+"status.no_show" = "Heb fynychu";
+"status.other" = "Arall";
+"modality.in_person" = "Wyneb yn wyneb";
+"modality.video" = "Fideo";
+"modality.phone" = "Ffôn";
+"modality.other" = "Arall";

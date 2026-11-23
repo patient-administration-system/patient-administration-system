@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English, the source catalogue. A name is the web UI key with "." as "_"; names without "mobile_" keep the web UI wording (src/lib/messages/en-001.json). The iOS app has the same words. -->
+<resources>
+    <string name="app_name">Patient Administration System</string>
+    <string name="myAppointments_title">My appointments</string>
+    <string name="myAppointments_empty">You have no appointments.</string>
+    <string name="mobile_upcoming">Upcoming</string>
+    <string name="mobile_past">Past</string>
+    <string name="mobile_when">When</string>
+    <string name="mobile_how">How</string>
+    <string name="mobile_status">Status</string>
+    <string name="mobile_loading">Loading your appointments</string>
+    <string name="mobile_retry">Try again</string>
+    <string name="mobile_demoNotice">These are example appointments, not your own. This version of the app is not connected to the NHS yet.</string>
+    <string name="mobile_error_title">There is a problem</string>
+    <string name="mobile_error_unreachable">We could not reach the appointments service. Check your connection and try again.</string>
+    <string name="error_401">Please sign in to continue.</string>
+    <string name="error_403">You do not have access to this page.</string>
+    <string name="error_502">A service this page depends on is not available.</string>
+    <string name="status_proposed">Proposed</string>
+    <string name="status_booked">Booked</string>
+    <string name="status_arrived">Arrived</string>
+    <string name="status_fulfilled">Completed</string>
+    <string name="status_cancelled">Cancelled</string>
+    <string name="status_no_show">Did not attend</string>
+    <string name="status_other">Other</string>
+    <string name="modality_in_person">In person</string>
+    <string name="modality_video">Video</string>
+    <string name="modality_phone">Phone</string>
+    <string name="modality_other">Other</string>
+</resources>

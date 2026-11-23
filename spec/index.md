@@ -28,6 +28,7 @@
 | 20 | [Suspected conditions](20-suspected-conditions.md): tracking suspicion during referrals |
 | 21 | [Licenses](licenses/index.md): the licence options and the SPDX expression |
 | 22 | [Rust checked arithmetic](rust-checked-arithmetic/index.md): maths must not panic, wrap or invent a number; `checked_*`, `try_from`, declared fallbacks (`RCA-*`) |
+| 23 | [Mobile apps](mobile-apps/index.md): the iOS (Swift, SwiftUI) and Android (Kotlin, Compose) patient apps, drawn with Lily; demo data until NFR-35 holds |
 | — | [Deviations from the standards](deviations.md): where the PAS knowingly differs from HL7 v2, FHIR or IHE, with a decision for the owner (HUB-10) |
 
 Cross-cutting chapters: [Locales](locales.md). Safety: [Hazards, who may remove one and on what evidence](hazard/index.md).

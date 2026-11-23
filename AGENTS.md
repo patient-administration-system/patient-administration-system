@@ -21,8 +21,10 @@ Current state is generated, not written: [`spec/14-implementation-status.md`](sp
 |---|---|
 | `patient-administration-system-with-rust/` | The API (Axum, sqlx through `src/db/sql.rs`, `src/`, `tests/`, `benches/`, the `domain/` crate of business rules with no web or database (QUAL-52), the `migrations/` crate). Has its own `AGENTS.md` and `AGENTS/` |
 | `patient-administration-system-ui-with-svelte/` | The UI: SvelteKit 3, Svelte 5, Lily Design System, Keycloak sign-in, 10 locales, Playwright + Vitest |
+| `patient-administration-system-mobile-app-with-swift/` | The iOS and iPadOS patient app: Swift 6, SwiftUI, Lily for Swift. A Swift package (`swift test`) and a thin Xcode app (`App/`). Demo data only until NFR-35 holds ([`spec/mobile-apps/index.md`](spec/mobile-apps/index.md)) |
+| `patient-administration-system-mobile-app-with-kotlin/` | The Android patient app: Kotlin, Jetpack Compose, Lily for Kotlin. A JVM `core` module and an Android `app` (`./gradlew test`). Demo data only until NFR-35 holds |
 | `patient-administration-system-frontend/` | An Axum and axa server-rendered ops dashboard that runs in parallel to the SvelteKit UI. Has its own `AGENTS.md` |
-| `spec/` | The specification (20 chapters). **Single source of truth** for behaviour. FRs are in `06`, NFRs in `07` |
+| `spec/` | The specification (numbered chapters plus `licenses/`, `rust-checked-arithmetic/`, `mobile-apps/`). **Single source of truth** for behaviour. FRs are in `06`, NFRs in `07` |
 | `tasks.md`, `plan.md` | Work queue and research. `tasks.md` is current; update it with every change |
 | `governance/` | Clinical safety, DPIA, data inventory (`personal-data-inventory.csv`), model cards, chaos testing, data routes |
 | `operations/` | Deployment, runbook, backup. Every switch an operator must know is in `runbook.md` |
@@ -54,6 +56,11 @@ cargo test --workspace -- --ignored --test-threads=1
 # UI (patient-administration-system-ui-with-svelte)
 pnpm install && pnpm run check && pnpm run lint && pnpm test   # svelte-check, Prettier + ESLint, Vitest
 MOCK_PORT=4191 KEYCLOAK_URL=http://localhost:8190 npx playwright test   # needs Keycloak up (PAS_KEYCLOAK_PORT=8190)
+
+# Mobile apps (need a local checkout of the Lily monorepo at ~/git/lilydesignsystem/lily-design-system, or LILY_SWIFT_PATH / LILY_KOTLIN_PATH)
+(cd patient-administration-system-mobile-app-with-swift && swift test)
+(cd patient-administration-system-mobile-app-with-swift/App && xcodebuild -project PASMobile.xcodeproj -scheme PASMobile -destination 'platform=iOS Simulator,name=iPhone 17' test)
+(cd patient-administration-system-mobile-app-with-kotlin && ./gradlew test assembleDebug lintDebug)
 
 # Docs (after ANY docs, spec or test-file change; CI fails if generated files are stale)
 scripts/generate-status.sh && scripts/generate-status.sh --check
