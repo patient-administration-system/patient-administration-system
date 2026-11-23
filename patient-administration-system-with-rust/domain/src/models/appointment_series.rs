@@ -199,7 +199,7 @@ pub fn compute_occurrences(rule: &RecurrenceRule, start: Timestamp) -> Result<Ve
 
     let target = |n: usize| -> bool {
         match &rule.end {
-            RecurrenceEnd::Count { count } => n < *count as usize,
+            RecurrenceEnd::Count { count } => usize::try_from(*count).is_ok_and(|count| n < count),
             RecurrenceEnd::Until { .. } => true,
         }
     };
@@ -210,16 +210,23 @@ pub fn compute_occurrences(rule: &RecurrenceRule, start: Timestamp) -> Result<Ve
         }
     };
 
+    // More occurrences than MAX_OCCURRENCES is an error, however the count is held.
+    let too_many = |n: usize| !u32::try_from(n).is_ok_and(|n| n <= MAX_OCCURRENCES);
+
     match rule.frequency {
         Frequency::Daily => {
             while target(out.len()) && within_until(cursor) {
                 out.push(cursor);
-                if out.len() as u32 > MAX_OCCURRENCES {
+                if too_many(out.len()) {
                     return Err(Error::validation(format!(
                         "expanded recurrence exceeds MAX_OCCURRENCES ({MAX_OCCURRENCES})"
                     )));
                 }
-                cursor += crate::time::days(i64::from(interval));
+                // The calendar ends: a step past the last date a timestamp holds ends the series there.
+                match crate::time::plus(cursor, crate::time::days(i64::from(interval))) {
+                    Ok(next) => cursor = next,
+                    Err(_) => break,
+                }
             }
         }
         Frequency::Weekly => {
@@ -231,26 +238,36 @@ pub fn compute_occurrences(rule: &RecurrenceRule, start: Timestamp) -> Result<Ve
             let start_week_offset: i64 = week_index(start); // monotonic week index proxy
             while target(out.len()) && within_until(day_cursor) {
                 let this_week_offset: i64 = week_index(day_cursor);
-                let weeks_since_start = this_week_offset - start_week_offset;
+                // Week indexes are about 53 times a year, so their difference cannot overflow; if it ever did the
+                // series would stop here.
+                let Some(weeks_since_start) = this_week_offset.checked_sub(start_week_offset)
+                else {
+                    break;
+                };
                 if weeks_since_start >= 0
-                    && weeks_since_start % i64::from(interval) == 0
+                    && weeks_since_start.checked_rem(i64::from(interval)) == Some(0)
                     && weekly_days.contains(&crate::time::utc_date(day_cursor).weekday())
                     && day_cursor >= start
                 {
                     out.push(day_cursor);
-                    if out.len() as u32 > MAX_OCCURRENCES {
+                    if too_many(out.len()) {
                         return Err(Error::validation(format!(
                             "expanded recurrence exceeds MAX_OCCURRENCES ({MAX_OCCURRENCES})"
                         )));
                     }
                 }
-                day_cursor += crate::time::days(1);
+                match crate::time::plus(day_cursor, crate::time::days(1)) {
+                    Ok(next) => day_cursor = next,
+                    Err(_) => break, // the calendar ends
+                }
                 // Safety brake — bounded by MAX_OCCURRENCES * 7 *
                 // interval at worst. For interval=1, daily-by-week, this
-                // is 1400 iterations; tiny.
-                if crate::time::whole_days(day_cursor.duration_since(start))
-                    > i64::from(MAX_OCCURRENCES) * 7 * i64::from(interval)
-                {
+                // is 1400 iterations; tiny. A bound too large for an i64 is no bound.
+                let brake = i64::from(MAX_OCCURRENCES)
+                    .checked_mul(7)
+                    .and_then(|n| n.checked_mul(i64::from(interval)))
+                    .unwrap_or(i64::MAX);
+                if crate::time::whole_days(day_cursor.duration_since(start)) > brake {
                     break;
                 }
             }
@@ -258,7 +275,7 @@ pub fn compute_occurrences(rule: &RecurrenceRule, start: Timestamp) -> Result<Ve
         Frequency::Monthly => {
             while target(out.len()) && within_until(cursor) {
                 out.push(cursor);
-                if out.len() as u32 > MAX_OCCURRENCES {
+                if too_many(out.len()) {
                     return Err(Error::validation(format!(
                         "expanded recurrence exceeds MAX_OCCURRENCES ({MAX_OCCURRENCES})"
                     )));
@@ -281,7 +298,12 @@ pub fn compute_occurrences(rule: &RecurrenceRule, start: Timestamp) -> Result<Ve
 /// rule has always used).
 fn week_index(at: Timestamp) -> i64 {
     let d = crate::time::utc_date(at);
-    i64::from(d.iso_week_date().week()) + i64::from(d.year()) * 53
+    // A week number is at most 53 and a year at most 9999, so this is at most about 530,000 and the checked
+    // steps never fail; the fallback only keeps the index monotonic if they somehow did.
+    i64::from(d.year())
+        .checked_mul(53)
+        .and_then(|years| years.checked_add(i64::from(d.iso_week_date().week())))
+        .unwrap_or(i64::MAX)
 }
 
 #[cfg(test)]
@@ -488,5 +510,24 @@ mod tests {
         assert_eq!(s.status, SeriesStatus::Active);
         assert_eq!(s.duration_minutes, 30);
         assert!(s.worker_id.is_none());
+    }
+
+    #[test]
+    fn a_step_past_the_end_of_the_calendar_ends_the_series_instead_of_panicking() {
+        let last = Timestamp::MAX - crate::time::days(1);
+        for frequency in [Frequency::Daily, Frequency::Weekly, Frequency::Monthly] {
+            let rule = RecurrenceRule {
+                frequency,
+                interval: u32::MAX,
+                by_weekday: None,
+                end: RecurrenceEnd::Count { count: 5 },
+            };
+            let out = compute_occurrences(&rule, last).expect("expands");
+            assert_eq!(out.first().copied(), Some(last));
+            assert!(
+                out.len() < 5,
+                "{frequency:?}: the series stops at the end of the calendar"
+            );
+        }
     }
 }

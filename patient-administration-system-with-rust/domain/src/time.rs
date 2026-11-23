@@ -88,8 +88,10 @@ pub fn years_between(born: Date, on: Date) -> Option<i64> {
 
 /// `at` minus `months` calendar months in UTC, clamped like [`add_months_utc`].
 pub fn sub_months_utc(at: Timestamp, months: u32) -> Option<Timestamp> {
+    // `Span::months` panics past its bound (about 20,000 years); `try_months` says so, and so does `None`.
+    let span = jiff::Span::new().try_months(i64::from(months)).ok()?;
     at.to_zoned_datetime(TimeZone::UTC)
-        .checked_sub(jiff::Span::new().months(i64::from(months)))
+        .checked_sub(span)
         .ok()
         .map(|z| z.timestamp())
 }
@@ -135,8 +137,9 @@ pub fn weekday_from_name(s: &str) -> Option<Weekday> {
 /// `at` plus `months` calendar months in UTC, clamped to the end of a shorter month (31 January plus one month
 /// is the last day of February), as `chrono`'s `Months` was; `None` past the end of the supported range.
 pub fn add_months_utc(at: Timestamp, months: u32) -> Option<Timestamp> {
+    let span = jiff::Span::new().try_months(i64::from(months)).ok()?;
     at.to_zoned_datetime(TimeZone::UTC)
-        .checked_add(jiff::Span::new().months(i64::from(months)))
+        .checked_add(span)
         .ok()
         .map(|z| z.timestamp())
 }
@@ -312,5 +315,16 @@ mod tests {
         assert!(minus(t, SignedDuration::MAX).is_err());
         let e = plus(Timestamp::MAX, days(1)).unwrap_err().to_string();
         assert!(e.contains("out of range"), "{e}");
+    }
+
+    #[test]
+    fn a_number_of_months_too_large_for_a_span_is_none_not_a_panic() {
+        let t = utc(2026, 1, 31, 12, 0, 0);
+        assert_eq!(add_months_utc(t, 1), Some(utc(2026, 2, 28, 12, 0, 0)));
+        assert_eq!(sub_months_utc(t, 1), Some(utc(2025, 12, 31, 12, 0, 0)));
+        for months in [239_977, u32::MAX] {
+            assert_eq!(add_months_utc(t, months), None, "{months}");
+            assert_eq!(sub_months_utc(t, months), None, "{months}");
+        }
     }
 }
