@@ -3,9 +3,8 @@
 1 patient-administration-system-with-rust/load/src/fixtures.rs
 1 patient-administration-system-with-rust/src/api/fhir/ihe_scheduling.rs
 1 patient-administration-system-with-rust/src/api/fhir/r5.rs
-1 patient-administration-system-with-rust/src/api/rest/idempotency.rs
 1 patient-administration-system-with-rust/src/api/rest/upstream_proxy/patients.rs
-4 patient-administration-system-with-rust/src/api/rest/upstream_proxy/webhooks.rs
+2 patient-administration-system-with-rust/src/api/rest/upstream_proxy/webhooks.rs
 1 patient-administration-system-with-rust/src/db/repositories/appointment.rs
 1 patient-administration-system-with-rust/src/paging.rs
 1 patient-administration-system-with-rust/src/upstream/person_client/http.rs
