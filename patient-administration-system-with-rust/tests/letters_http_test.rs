@@ -230,3 +230,64 @@ async fn a_letter_is_previewed_generated_read_listed_and_marked() {
         assert_eq!(st, StatusCode::NOT_FOUND, "{tail}");
     }
 }
+
+struct Quiet(std::sync::Mutex<u32>);
+
+#[async_trait::async_trait]
+impl patient_administration_system::communication::MessageSender for Quiet {
+    fn is_enabled(&self) -> bool {
+        true
+    }
+    async fn send(
+        &self,
+        _to: &str,
+        _subject: &str,
+        _body: &str,
+    ) -> patient_administration_system::Result<()> {
+        *self.0.lock().unwrap() += 1;
+        Ok(())
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_letter_for_a_person_with_no_number_stays_pending_and_nothing_is_sent() {
+    use patient_administration_system::models::communication::DeliveryChannel;
+    // The person has an email address and no phone, so a text has nowhere to go.
+    let people = Arc::new(StubPersonClient::new());
+    let person = Uuid::new_v4();
+    let mut data = serde_json::Map::new();
+    data.insert(
+        "name".into(),
+        serde_json::json!({ "given": "Ada", "family": "Lovelace" }),
+    );
+    data.insert(
+        "telecom".into(),
+        serde_json::json!([{ "system": "email", "value": "ada@example.test" }]),
+    );
+    people.insert(Person { id: person, data });
+    let sender = Arc::new(Quiet(std::sync::Mutex::new(0)));
+    let state = common::build_state(&common::database_url().unwrap())
+        .await
+        .with_person_client(people)
+        .with_sender(DeliveryChannel::Sms, sender.clone());
+    let app = patient_administration_system::api::rest::router(state);
+    let (_, v) = call(
+        &app,
+        "POST",
+        "/api/letter-templates",
+        Some(template_body(&format!("quiet-{}", Uuid::new_v4().simple()))),
+    )
+    .await;
+    let tid = v["data"]["id"].as_str().unwrap().to_string();
+    let (st, v) = call(
+        &app,
+        "POST",
+        "/api/letters/generate",
+        Some(serde_json::json!({ "template_id": tid, "person_id": person, "channel": "sms" })),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert_eq!(v["data"]["status"], "pending", "{v}");
+    assert_eq!(*sender.0.lock().unwrap(), 0, "nothing was sent");
+}
