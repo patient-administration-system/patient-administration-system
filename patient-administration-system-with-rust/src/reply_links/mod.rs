@@ -558,3 +558,48 @@ impl ReplyLinks {
         }
     }
 }
+
+#[cfg(test)]
+mod word_tests {
+    use super::*;
+
+    #[test]
+    fn a_link_action_is_read_from_its_word_and_written_back_the_same() {
+        for (word, action) in [
+            ("confirm", LinkAction::Confirm),
+            ("cancel", LinkAction::Cancel),
+            ("reschedule", LinkAction::Reschedule),
+            ("help", LinkAction::Help),
+        ] {
+            assert_eq!(LinkAction::parse(word), Some(action), "{word}");
+            assert_eq!(action.as_str(), word);
+        }
+        // Anything else, in any case or with spaces, is not an action.
+        for bad in ["", "Confirm", " confirm", "delete", "stop"] {
+            assert_eq!(LinkAction::parse(bad), None, "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn every_link_status_has_its_own_word() {
+        let all = [
+            (LinkStatus::Confirmed, "confirmed"),
+            (LinkStatus::Cancelled, "cancelled"),
+            (LinkStatus::RebookOptions, "rebook_options"),
+            (LinkStatus::Rebooked, "rebooked"),
+            (LinkStatus::HeldForCall, "held_for_call"),
+            (LinkStatus::RescheduleRequested, "reschedule_requested"),
+            (LinkStatus::NeedsConfirmation, "needs_confirmation"),
+            (LinkStatus::Help, "help"),
+            (LinkStatus::Rejected, "rejected"),
+        ];
+        for (status, word) in all {
+            assert_eq!(status.as_str(), word);
+            assert!(status == word);
+        }
+        let mut words: Vec<_> = all.iter().map(|(_, w)| *w).collect();
+        words.sort_unstable();
+        words.dedup();
+        assert_eq!(words.len(), all.len(), "no two statuses share a word");
+    }
+}
