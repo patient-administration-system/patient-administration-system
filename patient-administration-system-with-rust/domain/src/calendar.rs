@@ -129,6 +129,10 @@ impl WorkingCalendar {
     }
 
     /// How many working days lie after `from` up to and including `to` (zero when `to` is not after `from`).
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: `count` counts days between two dates, at most 9999 years of 366 days, which is under u32::MAX"
+    )]
     pub fn working_days_between(&self, from: Date, to: Date) -> u32 {
         let mut count = 0;
         let mut day = from;
@@ -144,6 +148,10 @@ impl WorkingCalendar {
         count
     }
 
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: `steps` is checked against MAX_STEPS each time it grows, so it never exceeds MAX_STEPS plus one; `left` is decremented only while it is above zero"
+    )]
     fn walk(&self, date: Date, n: u32, forward: bool) -> Result<Date> {
         let step = |d: Date| {
             if forward {

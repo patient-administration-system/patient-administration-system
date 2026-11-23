@@ -14,6 +14,10 @@ use crate::models::{ContactPoint, ContactPointSystem};
 /// If `keep_tail >= value.chars().count()`, the entire string is masked.
 /// Operates on Unicode scalar values, not bytes, so multi-byte characters
 /// count as one.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `chars.len() - keep_tail` runs only after the early return for `chars.len() <= keep_tail`"
+)]
 pub fn mask_value(value: &str, keep_tail: usize) -> String {
     let chars: Vec<char> = value.chars().collect();
     if chars.len() <= keep_tail {

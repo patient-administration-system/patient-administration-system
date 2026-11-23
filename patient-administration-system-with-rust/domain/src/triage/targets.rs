@@ -104,9 +104,9 @@ pub fn standing(
 ) -> Standing {
     let limit = SignedDuration::from_mins(target_minutes);
     match first_contact {
-        Some(seen) if seen - arrival <= limit => Standing::SeenWithin,
+        Some(seen) if seen.duration_since(arrival) <= limit => Standing::SeenWithin,
         Some(_) => Standing::SeenPast,
-        None if now - arrival <= limit => Standing::WaitingWithin,
+        None if now.duration_since(arrival) <= limit => Standing::WaitingWithin,
         None => Standing::WaitingPast,
     }
 }

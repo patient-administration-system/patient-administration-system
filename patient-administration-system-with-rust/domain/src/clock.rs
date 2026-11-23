@@ -44,9 +44,11 @@ impl FixedClock {
         *self.0.lock().unwrap_or_else(|p| p.into_inner()) = t;
     }
 
-    pub fn advance(&self, by: SignedDuration) {
+    /// Move the clock on. A step past the end of the calendar is an error and leaves the clock where it was.
+    pub fn advance(&self, by: SignedDuration) -> Result<(), crate::error::Error> {
         let mut t = self.0.lock().unwrap_or_else(|p| p.into_inner());
-        *t += by;
+        *t = crate::time::plus(*t, by)?;
+        Ok(())
     }
 }
 
@@ -65,7 +67,7 @@ mod tests {
         let t = crate::time::utc(2030, 1, 1, 22, 0, 0);
         let c = FixedClock::at(t);
         assert_eq!(c.now(), t);
-        c.advance(SignedDuration::from_hours(12));
+        c.advance(SignedDuration::from_hours(12)).unwrap();
         assert_eq!(c.now(), t + SignedDuration::from_hours(12));
         c.set(t);
         assert_eq!(c.now(), t);

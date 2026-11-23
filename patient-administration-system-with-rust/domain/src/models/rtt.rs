@@ -131,7 +131,14 @@ pub fn compute_active_weeks(events: &[RTTClockEvent], now: Timestamp) -> u32 {
         return 0;
     }
 
+    // Seconds waited, summed with checked adds. A total too large for an i64 is far more weeks than a u32 holds,
+    // so it is shown as the largest count (RCA-DECL-1: the figure is derived, not an input).
     let mut total_active_seconds: i64 = 0;
+    let mut overflowed = false;
+    let mut add = |total: &mut i64, seconds: i64| match total.checked_add(seconds) {
+        Some(t) => *total = t,
+        None => overflowed = true,
+    };
     let mut active_since: Option<Timestamp> = None;
 
     for event in events {
@@ -141,16 +148,25 @@ pub fn compute_active_weeks(events: &[RTTClockEvent], now: Timestamp) -> u32 {
             }
             RTTEventKind::Paused | RTTEventKind::Stopped => {
                 if let Some(start) = active_since.take() {
-                    total_active_seconds += (event.event_at - start).as_secs();
+                    add(
+                        &mut total_active_seconds,
+                        event.event_at.duration_since(start).as_secs(),
+                    );
                 }
             }
         }
     }
 
     if let Some(start) = active_since {
-        total_active_seconds += (now - start).as_secs();
+        add(
+            &mut total_active_seconds,
+            now.duration_since(start).as_secs(),
+        );
     }
 
+    if overflowed {
+        return u32::MAX;
+    }
     const SECONDS_PER_WEEK: i64 = 7 * 24 * 3600;
     // Events out of order can make the total negative: that is no time waited, not a huge one.
     u32::try_from(total_active_seconds / SECONDS_PER_WEEK).unwrap_or(0)

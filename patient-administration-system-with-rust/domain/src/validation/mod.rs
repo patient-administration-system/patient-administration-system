@@ -132,7 +132,7 @@ pub fn named_person<'a>(name: &'a str, message: &str) -> Result<&'a str> {
 }
 
 pub fn normalize_phone(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 1);
+    let mut out = String::with_capacity(s.len());
     if s.trim_start().starts_with('+') {
         out.push('+');
     }

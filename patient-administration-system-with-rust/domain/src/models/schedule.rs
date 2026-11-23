@@ -99,7 +99,7 @@ impl Slot {
     }
 
     pub fn duration(&self) -> SignedDuration {
-        self.end_datetime - self.start_datetime
+        self.end_datetime.duration_since(self.start_datetime)
     }
 }
 

@@ -114,6 +114,10 @@ pub struct Assessment {
 }
 
 /// The model: a pure function of the inputs and the weights.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: the two inputs are counts of one person's past appointments, each at most the number of rows in the table, so their sum is far below i64::MAX"
+)]
 pub fn compute(i: &Inputs, w: &Weights) -> Assessment {
     let n = i.past_missed + i.past_attended;
     let shrunk = (i.past_missed as f64 + w.prior_visits * w.base) / (n as f64 + w.prior_visits);

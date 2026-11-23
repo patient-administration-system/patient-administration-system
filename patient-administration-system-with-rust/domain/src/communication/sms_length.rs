@@ -45,6 +45,10 @@ fn gsm_units(c: char) -> Option<usize> {
     }
 }
 
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `septets` adds at most two for each character of one in-memory string, so it is at most twice its length, far below usize::MAX"
+)]
 pub fn analyze(text: &str) -> SmsLength {
     let mut septets = 0usize;
     let mut forced_by = None;

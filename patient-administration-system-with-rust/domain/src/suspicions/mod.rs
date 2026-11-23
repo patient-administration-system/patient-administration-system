@@ -60,7 +60,13 @@ pub fn wait(
     let status = match target {
         None => TargetStatus::NoTarget,
         Some(t) if days > t => TargetStatus::Past,
-        Some(t) if stopped_on.is_none() && days > t - NEAR_TARGET_DAYS => TargetStatus::Near,
+        Some(t)
+            if stopped_on.is_none()
+                && t.checked_sub(NEAR_TARGET_DAYS)
+                    .is_some_and(|near| days > near) =>
+        {
+            TargetStatus::Near
+        }
         Some(_) => TargetStatus::Within,
     };
     (days, status)
@@ -198,7 +204,8 @@ pub fn median(sorted: &[i64]) -> Option<f64> {
     } else if n % 2 == 1 {
         at(n / 2).map(|m| m as f64)
     } else {
-        Some((at(n / 2 - 1)? + at(n / 2)?) as f64 / 2.0)
+        // Each half as a float first, so two large days cannot overflow an i64 sum.
+        Some((at((n / 2).checked_sub(1)?)? as f64 + at(n / 2)? as f64) / 2.0)
     }
 }
 

@@ -60,7 +60,12 @@ pub fn when(at: Timestamp, lang: Lang, tz: TimeZone) -> String {
             .unwrap_or(""),
         l.day(),
         months
-            .get(usize::try_from(l.month() - 1).unwrap_or(0))
+            .get(
+                l.month()
+                    .checked_sub(1)
+                    .and_then(|m| usize::try_from(m).ok())
+                    .unwrap_or(0)
+            )
             .copied()
             // RCA-DECL-1: a month number is 1 to 12, so a name always exists; blank otherwise.
             .unwrap_or(""),
@@ -193,6 +198,10 @@ pub fn ivr_retry(lang: Lang) -> String {
 }
 
 /// "Press 1 for ..., 2 for ..., or 0 to go back" over the offered times.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `i` indexes a slice, so it is below the slice's length, which is at most isize::MAX, and `i + 1` cannot overflow"
+)]
 pub fn ivr_times(lang: Lang, whens: &[String]) -> String {
     let list: Vec<String> = whens
         .iter()
@@ -229,6 +238,10 @@ pub fn ivr_kept(lang: Lang) -> String {
 }
 
 /// The times a "different time" reply is offered. The appointment stays until one is chosen.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `i` indexes a slice, so `i + 1` cannot overflow"
+)]
 pub fn rebook_options(lang: Lang, whens: &[String]) -> String {
     let (head, tail) = match lang {
         Lang::En => (
@@ -249,6 +262,10 @@ pub fn rebook_options(lang: Lang, whens: &[String]) -> String {
 }
 
 /// "Which appointment? Reply 1, 2 ..." with one line per candidate.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `i` indexes a slice, so `i + 1` cannot overflow"
+)]
 pub fn ask(lang: Lang, times: &[String]) -> String {
     let head = match lang {
         Lang::En => "Which appointment? Reply with a number:",

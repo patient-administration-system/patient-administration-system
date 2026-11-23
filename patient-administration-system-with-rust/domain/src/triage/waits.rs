@@ -68,10 +68,14 @@ pub struct Attendance {
 }
 
 pub fn minutes_between(a: Timestamp, b: Timestamp) -> i64 {
-    (b - a).as_mins()
+    b.duration_since(a).as_mins()
 }
 
 /// Pure: build the report from attendances.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: each counter counts attendances of one in-memory slice, so it is at most the slice's length, which is at most isize::MAX, below i64::MAX"
+)]
 pub fn build_report(
     attendances: &[Attendance],
     targets: &Targets,
