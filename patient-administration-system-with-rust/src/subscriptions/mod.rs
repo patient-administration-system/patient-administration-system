@@ -203,7 +203,9 @@ const PER_SUBSCRIPTION: i64 = 16;
 
 pub struct SubscriptionService {
     db: Pool,
-    client: reqwest::Client,
+    /// `None` when the client with the timeout and no redirects could not be built: a delivery then fails with
+    /// that reason, and is never sent through a client without them.
+    client: Option<reqwest::Client>,
 }
 
 fn subscription_of(r: &Row) -> Result<Subscription> {
@@ -238,7 +240,10 @@ impl SubscriptionService {
             .timeout(timeout)
             .redirect(reqwest::redirect::Policy::none())
             .build()
-            .unwrap_or_default();
+            .map_err(|e| {
+                tracing::error!("the subscription delivery client could not be built: {e}")
+            })
+            .ok();
         Self { db, client }
     }
 
@@ -445,8 +450,11 @@ impl SubscriptionService {
         check_endpoint(endpoint).map_err(|e| e.to_string())?;
         let bytes = serde_json::to_vec(body)
             .map_err(|_| "could not encode the notification".to_string())?;
-        let mut req = self
+        let client = self
             .client
+            .as_ref()
+            .ok_or_else(|| "the delivery client could not be built; nothing is sent".to_string())?;
+        let mut req = client
             .post(endpoint)
             .header("content-type", "application/fhir+json; fhirVersion=5.0")
             .header("x-pas-event-id", id.to_string())
