@@ -55,3 +55,38 @@ async fn the_print_queue_refuses_a_limit_outside_its_range() {
     assert!(s.printing.queue(1).await.is_ok());
     assert!(s.printing.queue(500).await.is_ok());
 }
+
+#[tokio::test]
+#[ignore = "needs PostgreSQL"]
+async fn a_ward_capacity_or_series_duration_too_large_to_store_is_refused_and_a_negative_stored_one_is_an_error()
+ {
+    use patient_administration_system::db::repositories::facility::WardRepository;
+    use patient_administration_system::db::sql::{Conn, Stmt};
+    use patient_administration_system::models::Address;
+    use patient_administration_system::models::facility::{Facility, Ward};
+    let s = common::build_state(&common::database_url().unwrap()).await;
+    let unique = uuid::Uuid::new_v4().simple().to_string();
+    let facility = Facility::new("F".into(), format!("F{unique}"), Address::default());
+    patient_administration_system::db::repositories::facility::FacilityRepository::create(
+        &s.db, &facility,
+    )
+    .await
+    .unwrap();
+    let mut ward = Ward::new(facility.id, "W".into(), format!("W{unique}"), 4);
+    ward.capacity = u32::MAX;
+    let e = WardRepository::create(&s.db, &ward).await.unwrap_err();
+    assert!(e.to_string().contains("capacity"), "{e}");
+    ward.capacity = 4;
+    WardRepository::create(&s.db, &ward).await.unwrap();
+    // A stored capacity below zero is corrupt: reading it is an error, not zero.
+    s.db.run(Stmt::new(
+        "UPDATE wards SET capacity = -1 WHERE id = $1",
+        [ward.id.into()],
+    ))
+    .await
+    .unwrap();
+    let e = WardRepository::find_by_id(&s.db, ward.id)
+        .await
+        .unwrap_err();
+    assert!(e.to_string().contains("capacity"), "{e}");
+}

@@ -106,7 +106,8 @@ fn to_row(s: &AppointmentSeries) -> Result<appointment_series::Model> {
         worker_id: s.worker_id,
         service_type: s.service_type.clone(),
         start_datetime: s.start_datetime,
-        duration_minutes: s.duration_minutes as i32,
+        duration_minutes: i32::try_from(s.duration_minutes)
+            .map_err(|_| Error::validation("duration_minutes is too large"))?,
         rule: serde_json::to_value(&s.rule)
             .map_err(|e| Error::internal(format!("serialize rule: {e}")))?,
         status: series_status_to_str(s.status).to_string(),
@@ -123,7 +124,9 @@ fn from_model(m: appointment_series::Model) -> Result<AppointmentSeries> {
         worker_id: m.worker_id,
         service_type: m.service_type,
         start_datetime: m.start_datetime,
-        duration_minutes: Ord::max(m.duration_minutes, 0) as u32,
+        // A stored duration below zero is corrupt data: an error, not zero (RCA-IN-6).
+        duration_minutes: u32::try_from(m.duration_minutes)
+            .map_err(|_| Error::internal("a stored series duration is negative"))?,
         rule: serde_json::from_value(m.rule)
             .map_err(|e| Error::internal(format!("deserialize rule: {e}")))?,
         status: series_status_from_str(&m.status)?,

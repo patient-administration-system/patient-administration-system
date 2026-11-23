@@ -4,12 +4,12 @@
 use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
-use crate::Result;
 use crate::db::entities::{facility, room, ward};
 use crate::models::{
     Address,
     facility::{Facility, Room, Ward},
 };
+use crate::{Error, Result};
 
 // ─── Facility ───────────────────────────────────────────────────────────
 
@@ -77,12 +77,14 @@ pub struct WardRepository;
 
 impl WardRepository {
     pub async fn create<C: Conn>(conn: &C, w: &Ward) -> Result<Ward> {
+        let capacity = i32::try_from(w.capacity)
+            .map_err(|_| Error::validation("a ward's capacity is too large"))?;
         let am = ward::Model {
             id: w.id,
             facility_id: w.facility_id,
             name: w.name.clone(),
             code: w.code.clone(),
-            capacity: w.capacity as i32,
+            capacity,
             active: w.active,
             created_at: w.created_at,
             updated_at: w.updated_at,
@@ -98,7 +100,7 @@ impl WardRepository {
                 [id.into()],
             ))
             .await?;
-        Ok(m.map(ward_from_model))
+        m.map(ward_from_model).transpose()
     }
 
     pub async fn list_by_facility<C: Conn>(conn: &C, facility_id: Uuid) -> Result<Vec<Ward>> {
@@ -108,21 +110,24 @@ impl WardRepository {
                 [facility_id.into(), true.into()],
             ))
             .await?;
-        Ok(rows.into_iter().map(ward_from_model).collect())
+        rows.into_iter().map(ward_from_model).collect()
     }
 }
 
-fn ward_from_model(m: ward::Model) -> Ward {
-    Ward {
+fn ward_from_model(m: ward::Model) -> Result<Ward> {
+    // A stored capacity below zero is corrupt data: an error, not zero (RCA-IN-6).
+    let capacity = u32::try_from(m.capacity)
+        .map_err(|_| Error::internal("a stored ward capacity is negative"))?;
+    Ok(Ward {
         id: m.id,
         facility_id: m.facility_id,
         name: m.name,
         code: m.code,
-        capacity: Ord::max(m.capacity, 0) as u32,
+        capacity,
         active: m.active,
         created_at: m.created_at,
         updated_at: m.updated_at,
-    }
+    })
 }
 
 // ─── Room ───────────────────────────────────────────────────────────────
