@@ -120,6 +120,11 @@ pub struct Assessment {
 )]
 pub fn compute(i: &Inputs, w: &Weights) -> Assessment {
     let n = i.past_missed + i.past_attended;
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "RCA-CONV-4: the counts are of one person's past appointments, far below 2^53"
+    )]
     let shrunk = (i.past_missed as f64 + w.prior_visits * w.base) / (n as f64 + w.prior_visits);
     let history = w.history * (shrunk - w.base);
     let lead = w.lead * (i.lead_days.clamp(0.0, 90.0) / 90.0);

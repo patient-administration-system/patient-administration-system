@@ -210,6 +210,11 @@ pub fn http_finished(status: u16, micros: u64) {
     clippy::arithmetic_side_effects,
     reason = "RCA-EXC-2: `i` indexes the five status classes, so `i + 1` is at most 5"
 )]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "RCA-CONV-4: the microseconds counter would need 285 years to pass 2^53"
+)]
 fn render_process() -> String {
     let r = registry();
     let mut out = String::new();
@@ -296,6 +301,11 @@ async fn one_row(db: &Pool, sql: &str) -> Result<Row> {
 }
 
 /// Everything, as Prometheus text: the process counters and the database gauges.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "RCA-CONV-4: each figure is a count of queued rows, far below 2^53"
+)]
 pub async fn render(db: &Pool) -> Result<String> {
     let mut out = render_process();
     let outbox = one_row(

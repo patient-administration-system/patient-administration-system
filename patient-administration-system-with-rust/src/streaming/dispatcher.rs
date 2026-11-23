@@ -151,7 +151,7 @@ pub async fn tick_with_limit(
                 )?;
                 let new_count =
                     OutboxRepository::record_failure(db, row.id, &err_str, next).await?;
-                if max_retries > 0 && new_count >= max_retries as i32 {
+                if max_retries > 0 && i32::try_from(max_retries).map_or(true, |m| new_count >= m) {
                     tracing::warn!(
                         "outbox row id={} hit retry budget {} after {} attempts; \
                          moving to dead-letter queue. last error: {err_str}",

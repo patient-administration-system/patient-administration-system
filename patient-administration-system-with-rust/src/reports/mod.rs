@@ -129,17 +129,22 @@ fn csv_field(v: &str) -> String {
 }
 
 fn ratio(n: i64, of: i64) -> f64 {
-    if of == 0 {
-        0.0
-    } else {
-        ((n as f64 / of as f64) * 1000.0).round() / 1000.0
-    }
+    // RCA-DECL-1: no figures to compare reads as 0 here (RCA-P-3 backlog: an absent rate should be `None`).
+    crate::arith::ratio(n, of).map_or(0.0, |r| (r * 1000.0).round() / 1000.0)
 }
 
 /// Mean, median, 90th percentile (nearest rank) and maximum. All zero for no values.
 #[expect(
     clippy::arithmetic_side_effects,
     reason = "RCA-EXC-2: the early return leaves `n` at least 1, so `max(1) - 1` and `n - 1` cannot underflow"
+)]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    reason = "RCA-CONV-4: `n` is the number of samples held in memory, far below 2^53 and i64::MAX, and the rank is a non-negative value at most n"
 )]
 pub fn stats(mut v: Vec<f64>) -> Stats {
     if v.is_empty() {

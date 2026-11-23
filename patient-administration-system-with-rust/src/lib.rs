@@ -37,7 +37,9 @@
         clippy::panic_in_result_fn,
         clippy::unwrap_in_result,
         // RCA-ENF-3: an arithmetic operation that can overflow is checked, or carries a written proof (RCA-EXC-2).
-        clippy::arithmetic_side_effects
+        clippy::arithmetic_side_effects,
+        // RCA-CONV-1, RCA-CONV-2: a numeric conversion is lossless (`From`), checked (`TryFrom`), or carries a written proof.
+        clippy::as_conversions
     )
 )]
 // Module declarations

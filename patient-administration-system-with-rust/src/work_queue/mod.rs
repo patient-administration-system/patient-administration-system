@@ -387,7 +387,9 @@ impl WorkQueueService {
                     [kind.as_str().into(), gone.into(), now.into()],
                 ))
                 .await?
-                .rows_affected() as usize;
+                .rows_affected()
+                .try_into()
+                .map_err(|_| Error::internal("closed count is out of range"))?;
         }
         txn.commit().await.map_err(Error::Database)?;
         Ok(report)

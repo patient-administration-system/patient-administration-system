@@ -10,6 +10,11 @@ use crate::db::sql::{Conn, Stmt};
 const DAILY_ASSESSMENTS: i64 = 20_000;
 
 impl NoShowService {
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "RCA-CONV-4: the lead time is a span of seconds between two dates, under 6.4e11, far below 2^53"
+    )]
     pub(super) async fn inputs_for(
         &self,
         appointment_id: Uuid,
@@ -41,7 +46,8 @@ impl NoShowService {
                 past_attended: r.col("attended")?,
                 lead_days: (start.duration_since(created).as_secs() as f64 / 86_400.0).max(0.0),
                 age_band: r.col("age_band")?,
-                weekday: local.weekday().to_monday_zero_offset() as usize,
+                weekday: usize::try_from(local.weekday().to_monday_zero_offset())
+                    .map_err(|_| Error::internal("weekday is out of range"))?,
                 hour: u32::try_from(local.hour()).unwrap_or(0),
             },
             updated,
@@ -82,7 +88,7 @@ impl NoShowService {
                     appointment_id.into(),
                     a.probability.into(),
                     patient_administration_system_domain::jsonx::snapshot(&a.factors).into(),
-                    (a.sample_size as i32).into(),
+                    crate::arith::narrow::<i32, _>("sample size", a.sample_size)?.into(),
                     MODEL_VERSION.into(),
                     now.into(),
                     now.to_zoned_datetime(jiff::tz::TimeZone::UTC).date().into(),
@@ -200,7 +206,7 @@ impl NoShowService {
                 [DAILY_ASSESSMENTS.into()],
             ))
 .await?;
-        if ids.len() as i64 == DAILY_ASSESSMENTS {
+        if i64::try_from(ids.len()).is_ok_and(|n| n == DAILY_ASSESSMENTS) {
             tracing::warn!(
                 limit = DAILY_ASSESSMENTS,
                 "no-show assessment stopped at its limit: later appointments wait for a later run"

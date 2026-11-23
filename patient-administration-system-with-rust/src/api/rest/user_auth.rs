@@ -464,16 +464,10 @@ async fn carrier_request(auth: &UserAuth, req: Request, next: Next) -> Response 
             "request body too large",
         );
     };
-    if let Err(e) = auth.carriers.verify(
-        &id,
-        &ts,
-        &sig,
-        &bytes,
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0),
-    ) {
+    if let Err(e) = auth
+        .carriers
+        .verify(&id, &ts, &sig, &bytes, jiff::Timestamp::now().as_second())
+    {
         // The reason is for the operator's log; the caller learns nothing about which part failed.
         tracing::warn!(target: "pas::auth", "carrier {id:?} refused: {e:?}");
         return refuse(

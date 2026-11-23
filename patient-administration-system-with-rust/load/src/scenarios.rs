@@ -124,7 +124,8 @@ impl Rng {
         self.0 ^= self.0 >> 7;
         self.0 ^= self.0 << 17;
         // RCA-DECL-1: the divisor is at least 1, so the remainder always exists.
-        self.0.checked_rem(n.max(1) as u64).unwrap_or(0) as usize
+        let divisor = u64::try_from(n.max(1)).unwrap_or(u64::MAX);
+        usize::try_from(self.0.checked_rem(divisor).unwrap_or(0)).unwrap_or(0)
     }
 }
 

@@ -97,6 +97,7 @@ impl ListValidationService {
         )?
         .to_string();
         let ctx = ctx.clone();
+        let reinstate_days = crate::arith::narrow::<i32, _>("reinstate days", REINSTATE_DAYS)?;
         self.db
             .in_txn::<_, ()>(|txn| {
                 Box::pin(async move {
@@ -104,7 +105,7 @@ impl ListValidationService {
                         .one(Stmt::new("SELECT state, pathway_id, rtt_stop_event_at, removed_waitlist_ids, \
                                     removed_at > now() - make_interval(days => $3::int) AS in_time \
                              FROM validation_items WHERE id = $1 AND campaign_id = $2 FOR UPDATE",
-                            [item.into(), campaign.into(), (REINSTATE_DAYS as i32).into()],
+                            [item.into(), campaign.into(), reinstate_days.into()],
                         ))
 .await?
                         .ok_or_else(|| Error::not_found(format!("item {item} in campaign {campaign}")))?;

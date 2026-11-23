@@ -188,7 +188,8 @@ async fn collect_breaches(state: &AppState) -> Vec<BreachRow> {
             Err(_) => continue,
         };
         let weeks = compute_active_weeks(&events, now);
-        let threshold = p.breach_weeks.max(0) as u32;
+        // RCA-DECL-1: a negative threshold is read as none; `max(0)` leaves no other failure.
+        let threshold = u32::try_from(p.breach_weeks.max(0)).unwrap_or(0);
         if weeks > threshold {
             out.push(BreachRow {
                 target_service: p.target_service,

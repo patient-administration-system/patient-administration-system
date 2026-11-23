@@ -202,10 +202,14 @@ pub fn median(sorted: &[i64]) -> Option<f64> {
     if n == 0 {
         None
     } else if n % 2 == 1 {
-        at(n / 2).map(|m| m as f64)
+        at(n / 2).and_then(crate::arith::to_f64)
     } else {
         // Each half as a float first, so two large days cannot overflow an i64 sum.
-        Some((at((n / 2).checked_sub(1)?)? as f64 + at(n / 2)? as f64) / 2.0)
+        Some(
+            (crate::arith::to_f64(at((n / 2).checked_sub(1)?)?)?
+                + crate::arith::to_f64(at(n / 2)?)?)
+                / 2.0,
+        )
     }
 }
 

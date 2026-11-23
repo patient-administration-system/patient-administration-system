@@ -22,6 +22,11 @@ impl NoShowService {
         clippy::arithmetic_side_effects,
         reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
     )]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "RCA-CONV-4: every figure here counts appointments among at most AUDIT_APPOINTMENTS rows held in memory, and the lead time is a span of seconds under 6.4e11, all far below 2^53"
+    )]
     pub async fn fairness_audit_of(
         &self,
         days: i64,
@@ -72,7 +77,8 @@ impl NoShowService {
                     past_attended: r.col("attended")?,
                     lead_days: (start.duration_since(created).as_secs() as f64 / 86_400.0).max(0.0),
                     age_band: r.col("age_band")?,
-                    weekday: local.weekday().to_monday_zero_offset() as usize,
+                    weekday: usize::try_from(local.weekday().to_monday_zero_offset())
+                        .map_err(|_| Error::internal("weekday is out of range"))?,
                     hour: u32::try_from(local.hour()).unwrap_or(0),
                 },
                 &w,

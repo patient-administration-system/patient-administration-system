@@ -227,7 +227,7 @@ pub fn rounded(v: f64) -> f64 {
 }
 
 pub fn share(part: i64, of: i64) -> Option<f64> {
-    (of > 0).then(|| part as f64 / of as f64)
+    crate::arith::ratio(part, of)
 }
 
 #[cfg(test)]

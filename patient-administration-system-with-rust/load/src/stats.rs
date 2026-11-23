@@ -117,6 +117,11 @@ pub struct OpSummary {
 }
 
 impl OpSummary {
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "RCA-CONV-4: the figures are request counts and latencies in microseconds of one run, far below 2^53"
+    )]
     fn of(s: &OpStats, wall: Duration) -> Self {
         let mut l = s.latencies.clone();
         l.sort_unstable();
@@ -152,6 +157,13 @@ impl OpSummary {
 }
 
 /// The nearest-rank percentile of sorted values: the smallest value with at least `p` percent at or below it.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "RCA-CONV-4: `p` is a percentage from 0 to 100 and the length is a count of samples held in memory, so the rank is a non-negative value at most the length"
+)]
 pub fn percentile(sorted: &[u64], p: f64) -> u64 {
     if sorted.is_empty() {
         return 0;

@@ -227,7 +227,9 @@ impl NoShowService {
         let window = |m: i64, n: i64| RateWindow {
             // A rate is shown only if every count behind it is at least k, so a hidden figure cannot be
             // recovered from a published one.
-            no_show_rate: (n >= k && n > 0).then(|| r3(m as f64 / n as f64)),
+            no_show_rate: (n >= k)
+                .then(|| crate::arith::ratio(m, n).map(r3))
+                .flatten(),
             appointments: (n >= k).then_some(n),
         };
         let clinics: Vec<ClinicEffect> = clinic_rows

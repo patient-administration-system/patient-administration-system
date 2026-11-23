@@ -267,6 +267,9 @@ impl SuspicionService {
         let profile_name = self.profile.name.clone();
         let code = condition.code.clone();
         let target = condition.target_days();
+        let target_sql = target
+            .map(|t| crate::arith::narrow::<i32, _>("target days", t))
+            .transpose()?;
         let hold = condition.hold_patient_cancel;
         let priority = condition.booking_priority;
         self.db
@@ -309,7 +312,7 @@ impl SuspicionService {
                             n.suspected_on.into(),
                             suspected_by.clone().into(),
                             recorded_by.clone().into(),
-                            target.map(|t| t as i32).into(),
+                            target_sql.into(),
                             hold.into(),
                             priority.map(|p| priority_to_str(p).to_string()).into(),
                         ],
@@ -680,8 +683,15 @@ impl SuspicionService {
         for ((profile, condition, scheme, subtype, target), (mut days, withdrawn)) in groups {
             let target = target.map(i64::from);
             days.sort_unstable();
-            let n = days.len() as i64;
-            let within = target.map(|t| days.iter().filter(|d| **d <= t).count() as i64);
+            let n = crate::arith::narrow::<i64, _>("cases", days.len())?;
+            let within = target
+                .map(|t| {
+                    crate::arith::narrow::<i64, _>(
+                        "cases",
+                        days.iter().filter(|d| **d <= t).count(),
+                    )
+                })
+                .transpose()?;
             let condition_name = (profile == self.profile.name)
                 .then(|| self.profile.condition(&condition).map(|c| c.name.clone()))
                 .flatten();
@@ -695,7 +705,7 @@ impl SuspicionService {
                 stopped: crate::arith::add("stopped cases", n, withdrawn)?,
                 withdrawn,
                 within_target: within,
-                share_within_target: within.filter(|_| n > 0).map(|w| w as f64 / n as f64),
+                share_within_target: within.and_then(|w| crate::arith::ratio(w, n)),
                 median_days: median(&days),
             });
         }

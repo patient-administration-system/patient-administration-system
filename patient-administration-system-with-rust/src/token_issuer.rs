@@ -56,10 +56,7 @@ impl TokenSpec {
 }
 
 fn now() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
+    jiff::Timestamp::now().as_second()
 }
 
 /// 32 random bytes from the operating system.

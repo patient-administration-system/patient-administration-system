@@ -133,10 +133,16 @@ pub fn build_report(
         }
     }
     past_target.sort_by_key(|p| (p.arrived_at, p.encounter_id));
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "RCA-CONV-3: the list holds the attendances of a window of at most 31 days, far below u32::MAX"
+    )]
+    let attended = attendances.len() as u32;
     WaitsReport {
         from,
         to,
-        attendances: attendances.len() as u32,
+        attendances: attended,
         excluded_without_category: excluded,
         by_category,
         past_target,

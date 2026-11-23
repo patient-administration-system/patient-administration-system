@@ -23,7 +23,8 @@
     deny(
         clippy::unwrap_used,
         clippy::expect_used,
-        clippy::arithmetic_side_effects
+        clippy::arithmetic_side_effects,
+        clippy::as_conversions
     )
 )]
 #![cfg_attr(not(test), forbid(unsafe_code))]

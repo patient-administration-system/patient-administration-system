@@ -19,7 +19,9 @@
         clippy::panic_in_result_fn,
         clippy::unwrap_in_result,
         // RCA-ENF-3: an arithmetic operation that can overflow is checked, or carries a written proof (RCA-EXC-2).
-        clippy::arithmetic_side_effects
+        clippy::arithmetic_side_effects,
+        // RCA-CONV-1, RCA-CONV-2: a numeric conversion is lossless (`From`), checked (`TryFrom`), or carries a written proof.
+        clippy::as_conversions
     )
 )]
 // The entry point stays a short list of steps (QUAL-30).
@@ -95,6 +97,10 @@ fn upstream_clients(cfg: &Config) -> Result<(Option<PersonClient>, Option<Worker
     }
     // Both clients are optional: without a URL the proxy handlers answer 503 and the rest of the PAS runs.
     let upstream_timeout = std::time::Duration::from_secs(cfg.upstream_timeout_secs);
+    #[expect(
+        clippy::as_conversions,
+        reason = "not a numeric conversion: the client is coerced to its trait object"
+    )]
     let person_client = match cfg.person_service_url.clone() {
         Some(url) => {
             tracing::info!(
@@ -117,6 +123,10 @@ fn upstream_clients(cfg: &Config) -> Result<(Option<PersonClient>, Option<Worker
             None
         }
     };
+    #[expect(
+        clippy::as_conversions,
+        reason = "not a numeric conversion: the client is coerced to its trait object"
+    )]
     let worker_client = match cfg.worker_service_url.clone() {
         Some(url) => {
             tracing::info!(

@@ -24,7 +24,9 @@
         clippy::panic_in_result_fn,
         clippy::unwrap_in_result,
         // RCA-ENF-3: an arithmetic operation that can overflow is checked, or carries a written proof (RCA-EXC-2).
-        clippy::arithmetic_side_effects
+        clippy::arithmetic_side_effects,
+        // RCA-CONV-1, RCA-CONV-2: a numeric conversion is lossless (`From`), checked (`TryFrom`), or carries a written proof.
+        clippy::as_conversions
     )
 )]
 #![cfg_attr(not(test), forbid(unsafe_code))]
@@ -146,7 +148,9 @@ fn serve(args: &Args) -> Result<(), String> {
     let key = ti::load_key(&key_path)?;
     let keys_doc = serde_json::to_string(&ti::public_keys(&[(spec.kid.as_str(), &key)]))
         .map_err(|e| e.to_string())?;
-    let every = Duration::from_secs((spec.ttl_secs.max(2) / 2) as u64);
+    let every = Duration::from_secs(
+        u64::try_from(spec.ttl_secs.max(2) / 2).map_err(|_| "ttl_secs is out of range")?,
+    );
 
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()

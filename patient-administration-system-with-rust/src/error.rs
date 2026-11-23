@@ -221,7 +221,12 @@ impl<T, E: std::fmt::Display> LogErr for std::result::Result<T, E> {
 /// `crate::Error` is sanitised, any other error (such as an HL7 parse
 /// error, which only describes the caller's own message) is shown as is.
 pub fn client_text<E: std::fmt::Display + 'static>(e: &E) -> String {
-    match (e as &dyn std::any::Any).downcast_ref::<Error>() {
+    #[expect(
+        clippy::as_conversions,
+        reason = "not a numeric conversion: the coercion of `e` to `&dyn Any` for the downcast"
+    )]
+    let any = e as &dyn std::any::Any;
+    match any.downcast_ref::<Error>() {
         Some(err) => err.client_message(),
         None => e.to_string(),
     }

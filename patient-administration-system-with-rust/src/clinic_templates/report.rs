@@ -73,6 +73,11 @@ pub struct CapacityReport {
     pub not_computed: &'static str,
 }
 
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "RCA-CONV-4: `lookback_days` is at most MAX_DAYS, the span is seconds between two dates (under 6.4e11), and the referral and slot figures are counts of rows, all far below 2^53"
+)]
 pub async fn capacity_report(
     db: &Pool,
     service_type: &str,
@@ -147,7 +152,7 @@ pub async fn capacity_report(
     let attended: i64 = outcomes.col("attended")?;
     let missed: i64 = outcomes.col("missed")?;
     let seen = crate::arith::add("appointments counted", attended, missed)?;
-    let rate = (seen > 0).then(|| missed as f64 / seen as f64);
+    let rate = crate::arith::ratio(missed, seen);
 
     let lookback_weeks = lookback_days as f64 / 7.0;
     let forward_weeks = to.duration_since(from).as_secs() as f64 / (7.0 * 86_400.0);

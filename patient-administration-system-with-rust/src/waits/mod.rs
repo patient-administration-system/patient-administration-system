@@ -154,7 +154,7 @@ impl WaitsService {
                    AND NOT EXISTS (SELECT 1 FROM still_needed_checks c WHERE c.pathway_id = p.id \
                                    AND c.asked_at > now() - make_interval(days => $1::int)) \
                  ORDER BY p.started_at",
-                [(repeat as i32).into()],
+                [crate::arith::narrow::<i32, _>("repeat days", repeat)?.into()],
             ))
 .await?;
         let ids = rows

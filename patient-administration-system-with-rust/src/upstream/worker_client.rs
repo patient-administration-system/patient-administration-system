@@ -427,7 +427,11 @@ impl WorkerClient for StubWorkerClient {
             .rows
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        Ok(rows.values().take(limit as usize).cloned().collect())
+        Ok(rows
+            .values()
+            .take(usize::try_from(limit).unwrap_or(usize::MAX))
+            .cloned()
+            .collect())
     }
 
     async fn match_workers(

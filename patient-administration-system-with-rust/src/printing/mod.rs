@@ -293,7 +293,9 @@ impl PrintService {
                             [batch_id.into()],
                         ))
 .await?
-                        .rows_affected() as usize;
+                        .rows_affected()
+                        .try_into()
+                        .map_err(|_| Error::internal("sent count is out of range"))?;
                     AuditLogRepository::log(
                         txn,
                         "print_batch",

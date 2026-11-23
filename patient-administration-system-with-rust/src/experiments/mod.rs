@@ -28,6 +28,11 @@ use crate::{Error, Result};
 
 /// The variant for an appointment: the first eight bytes of SHA-256 over the two ids, modulo the number of
 /// variants. A function of the ids and nothing else.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "RCA-CONV-1: `variants` is the number of variants of one experiment, a handful, so it fits a u64, and the remainder is below it, so it fits a usize"
+)]
 pub fn pick(experiment: Uuid, appointment: Uuid, variants: usize) -> usize {
     let mut h = Sha256::new();
     h.update(experiment.as_bytes());
@@ -358,9 +363,8 @@ impl ExperimentService {
                         confirmed: Some(confirmed),
                         attended: Some(attended),
                         did_not_attend: Some(dna),
-                        attendance_rate: (resolved > 0).then(|| {
-                            ((attended as f64 / resolved as f64) * 1000.0).round() / 1000.0
-                        }),
+                        attendance_rate: crate::arith::ratio(attended, resolved)
+                            .map(|r| (r * 1000.0).round() / 1000.0),
                         suppressed: false,
                     },
                     None => ReadoutCell {

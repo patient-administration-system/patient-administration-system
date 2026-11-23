@@ -358,7 +358,7 @@ impl InboundService {
                                AND l.channel IN ('sms','whatsapp','apple_messages') \
                                AND l.created_at > now() - ($2 || ' days')::interval) \
                  ORDER BY a.start_datetime LIMIT $3",
-                [person.into(), REMINDER_WINDOW_DAYS.to_string().into(), (MAX_CANDIDATES as i64).into()],
+                [person.into(), REMINDER_WINDOW_DAYS.to_string().into(), crate::arith::narrow::<i64, _>("candidate limit", MAX_CANDIDATES)?.into()],
             ))
 .await?;
         rows.iter()

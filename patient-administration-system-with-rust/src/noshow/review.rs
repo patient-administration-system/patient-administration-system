@@ -30,7 +30,7 @@ impl NoShowService {
             .db
             .one(Stmt::new("SELECT outcome, reviewed_at > now() - make_interval(days => $3::int) AS fresh FROM noshow_reviews \
                  WHERE kind = $1 AND model_version = $2 ORDER BY reviewed_at DESC LIMIT 1",
-                [kind.as_str().into(), MODEL_VERSION.into(), (valid_days as i32).into()],
+                [kind.as_str().into(), MODEL_VERSION.into(), crate::arith::narrow::<i32, _>("valid_days", valid_days)?.into()],
             ))
 .await?
             .map(|r| {

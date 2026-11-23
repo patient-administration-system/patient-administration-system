@@ -247,5 +247,5 @@ impl RefillReport {
 }
 
 pub(super) fn rate(n: i64, of: i64) -> Option<f64> {
-    (of > 0).then(|| ((n as f64 / of as f64) * 1000.0).round() / 1000.0)
+    crate::arith::ratio(n, of).map(|r| (r * 1000.0).round() / 1000.0)
 }

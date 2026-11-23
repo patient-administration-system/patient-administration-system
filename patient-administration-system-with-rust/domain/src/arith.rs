@@ -35,6 +35,37 @@ pub fn add<T: CheckedInt>(figure: &str, a: T, b: T) -> crate::Result<T> {
         .ok_or_else(|| crate::Error::unprocessable(format!("{figure} is too large to count")))
 }
 
+/// `n` as a float, or `None` when its magnitude is above 2^53 and the float would be rounded (RCA-CONV-4).
+pub fn to_f64(n: i64) -> Option<f64> {
+    const LIMIT: i64 = 1 << 53;
+    if !(-LIMIT..=LIMIT).contains(&n) {
+        return None;
+    }
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "RCA-CONV-4: the magnitude is checked to be at most 2^53 above, so the float is exact"
+    )]
+    let x = n as f64;
+    Some(x)
+}
+
+/// `part / of` as a float, or `None` when `of` is not above zero or either figure does not convert exactly
+/// (RCA-CONV-4, RCA-NONE-2). Accepts any count type that fits an `i64`.
+pub fn ratio<A: TryInto<i64>, B: TryInto<i64>>(part: A, of: B) -> Option<f64> {
+    let (part, of) = (part.try_into().ok()?, of.try_into().ok()?);
+    if of <= 0 {
+        return None;
+    }
+    Some(to_f64(part)? / to_f64(of)?)
+}
+
+/// `value` as another integer type, or a validation error naming `figure` when it does not fit (RCA-CONV-1).
+/// The error does not carry the value (RCA-ERR-2).
+pub fn narrow<T: TryFrom<S>, S>(figure: &str, value: S) -> crate::Result<T> {
+    T::try_from(value).map_err(|_| crate::Error::unprocessable(format!("{figure} is out of range")))
+}
+
 /// `value`, when it is within `lo ..= hi`; otherwise a validation error naming the figure and its range
 /// (RCA-IN-1, RCA-IN-2). An input outside its range is rejected: it is never moved to the nearest bound.
 /// The error does not carry the value (RCA-ERR-2).

@@ -61,7 +61,9 @@ impl ListValidationService {
             ));
         }
         let id = Uuid::new_v4();
-        let (reply_in, final_wait) = (n.reply_in_days as i32, n.final_wait_days as i32);
+        let reply_in = crate::arith::narrow::<i32, _>("reply_in_days", n.reply_in_days)?;
+        let final_wait = crate::arith::narrow::<i32, _>("final_wait_days", n.final_wait_days)?;
+        let min_weeks_sql = crate::arith::narrow::<i32, _>("min_weeks", min_weeks)?;
         let ctx = ctx.clone();
         let (name2, by2, service2) = (name.clone(), started_by.clone(), service.clone());
         self.db
@@ -73,7 +75,7 @@ impl ListValidationService {
                             id.into(),
                             name2.into(),
                             service2.into(),
-                            (min_weeks as i32).into(),
+                            min_weeks_sql.into(),
                             by2.clone().into(),
                             reply_in.into(),
                             final_wait.into(),

@@ -75,7 +75,8 @@ pub async fn list_active_pathways(db: &PgPool) -> Result<Vec<PathwayRow>, sqlx::
         .fetch_all(db)
         .await?;
         let weeks = compute_active_weeks_from_models(&events, now);
-        let breach_weeks = p.breach_weeks.max(0) as u32;
+        // RCA-DECL-1: a negative threshold is read as none; `max(0)` leaves no other failure.
+        let breach_weeks = u32::try_from(p.breach_weeks.max(0)).unwrap_or(0);
         let (family, given) = names
             .get(&p.person_id)
             .cloned()
@@ -137,5 +138,11 @@ fn compute_active_weeks_from_models(events: &[EventRecord], now: Timestamp) -> u
     if total_seconds < 0 {
         return 0;
     }
-    (total_seconds / SECONDS_PER_WEEK) as u32
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "RCA-CONV-3: the events are in chronological order, so the spans are disjoint and lie inside the calendar's 3.2e11 seconds, which is under 5.3e5 weeks"
+    )]
+    let weeks = (total_seconds / SECONDS_PER_WEEK) as u32;
+    weeks
 }

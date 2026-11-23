@@ -41,7 +41,11 @@ impl ToleranceService {
                         ))
 .await?
                         .rows_affected();
-                    cleared = crate::arith::add("alerts cleared", cleared, n as usize)?;
+                    cleared = crate::arith::add(
+                        "alerts cleared",
+                        cleared,
+                        crate::arith::narrow::<usize, _>("alerts cleared", n)?,
+                    )?;
                 }
                 _ => {}
             }

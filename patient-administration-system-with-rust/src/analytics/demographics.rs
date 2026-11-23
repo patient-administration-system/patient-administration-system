@@ -85,7 +85,10 @@ impl AnalyticsService {
                 ((1..=5).contains(&q) && is_postcode(&pc)).then_some((pc, q))
             })
             .collect();
-        let total = csv.lines().filter(|l| !l.trim().is_empty()).count() as u64;
+        let total = crate::arith::narrow::<u64, _>(
+            "rows in the file",
+            csv.lines().filter(|l| !l.trim().is_empty()).count(),
+        )?;
         for chunk in rows.chunks(1000) {
             let mut sql = String::from(
                 "INSERT INTO deprivation_lookup (postcode, quintile, dataset, loaded_by) VALUES ",
@@ -105,7 +108,11 @@ impl AnalyticsService {
             }
             sql.push_str(" ON CONFLICT (postcode) DO UPDATE SET quintile = EXCLUDED.quintile, dataset = EXCLUDED.dataset, loaded_by = EXCLUDED.loaded_by, loaded_at = now()");
             self.db.run(Stmt::new(sql, values)).await?;
-            loaded = crate::arith::add("rows loaded", loaded, chunk.len() as u64)?;
+            loaded = crate::arith::add(
+                "rows loaded",
+                loaded,
+                crate::arith::narrow::<u64, _>("rows loaded", chunk.len())?,
+            )?;
         }
         // A header line is not a rejection; anything else that did not parse is.
         let header = csv

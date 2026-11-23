@@ -173,7 +173,7 @@ impl IvrService {
                 messages::ivr_times(lang, &whens)
             ),
             accepts: (1..=options.len())
-                .filter_map(|n| char::from_digit(n as u32, 10))
+                .filter_map(|n| u32::try_from(n).ok().and_then(|d| char::from_digit(d, 10)))
                 .chain(['0'])
                 .collect(),
             state: "times",
@@ -195,7 +195,7 @@ impl IvrService {
         Ok(IvrReply {
             say: messages::ivr_times(lang, &whens),
             accepts: (1..=o.options.len())
-                .filter_map(|n| char::from_digit(n as u32, 10))
+                .filter_map(|n| u32::try_from(n).ok().and_then(|d| char::from_digit(d, 10)))
                 .chain(['0'])
                 .collect(),
             state: "times",
