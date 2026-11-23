@@ -59,6 +59,16 @@ async fn with_the_score_off_the_reads_answer_and_the_scoring_calls_are_refused()
         None,
     )
     .await;
+    // An entry that is not an id is refused, naming the list; nothing is read for the others.
+    assert!(st.is_client_error(), "{st} {v}");
+    assert!(v.to_string().contains("ids"), "{v}");
+    let (st, v) = call(
+        &app,
+        "GET",
+        &format!("/api/noshow/for-appointments?ids={id}"),
+        None,
+    )
+    .await;
     assert_eq!(st, StatusCode::OK, "{v}");
     assert_eq!(v["data"]["active"], false);
     assert_eq!(v["data"]["items"].as_array().map(Vec::len), Some(0));

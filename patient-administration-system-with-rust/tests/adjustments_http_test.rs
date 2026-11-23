@@ -58,12 +58,25 @@ async fn an_adjustment_is_recorded_listed_ended_and_the_bad_requests_are_refused
     let (st, _) = call(&app, "GET", &format!("{url}?limit=lots"), None).await;
     assert!(st.is_client_error());
 
-    // The view for a list of appointments reads the ones it can and ignores what is not an id.
+    // The view for a list of appointments refuses a list with an entry that is not an id, naming the entry.
     let (st, v) = call(
         &app,
         "GET",
         &format!(
             "/api/reasonable-adjustments/for-appointments?ids={},not-an-id,{}",
+            Uuid::new_v4(),
+            Uuid::new_v4()
+        ),
+        None,
+    )
+    .await;
+    assert!(st.is_client_error(), "{st} {v}");
+    assert!(v.to_string().contains("entry 2"), "{v}");
+    let (st, v) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/reasonable-adjustments/for-appointments?ids={},{}",
             Uuid::new_v4(),
             Uuid::new_v4()
         ),

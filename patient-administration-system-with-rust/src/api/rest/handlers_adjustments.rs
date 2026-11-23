@@ -159,11 +159,10 @@ pub async fn for_appointments(
     State(state): State<AppState>,
     Query(q): Query<IdsQuery>,
 ) -> HandlerResult {
-    let ids: Vec<Uuid> = q
-        .ids
-        .split(',')
-        .filter_map(|s| s.trim().parse().ok())
-        .collect();
+    let ids = match patient_administration_system_domain::validation::uuid_list("ids", &q.ids) {
+        Ok(ids) => ids,
+        Err(e) => return error_to_response(crate::Error::from(e)),
+    };
     match AdjustmentService::new(state.db.clone())
         .live_for_appointments(&ids)
         .await

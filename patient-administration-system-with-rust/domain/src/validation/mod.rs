@@ -79,6 +79,35 @@ pub fn validate_charge(c: &Charge) -> Result<()> {
 /// The longest name or role we accept for "who did this" fields.
 pub const MAX_PERSON_NAME: usize = 120;
 
+/// The most ids one `?ids=` list may carry.
+pub const MAX_ID_LIST: usize = 500;
+
+/// A comma-separated list of ids (`?ids=a,b`) as the ids themselves. Every entry must be an id: one that is not
+/// is refused, naming the list and its place, never skipped (RCA-IN-2). The list may not be empty or longer than
+/// [`MAX_ID_LIST`].
+pub fn uuid_list(figure: &str, text: &str) -> Result<Vec<uuid::Uuid>> {
+    let entries: Vec<&str> = text.split(',').map(str::trim).collect();
+    if entries.len() > MAX_ID_LIST {
+        return Err(Error::validation(format!(
+            "{figure} may carry at most {MAX_ID_LIST} ids"
+        )));
+    }
+    let mut ids = Vec::with_capacity(entries.len());
+    for (i, entry) in entries.iter().enumerate() {
+        // The list is at most MAX_ID_LIST long, so the place always fits.
+        let place = i.checked_add(1).unwrap_or(MAX_ID_LIST);
+        match entry.parse::<uuid::Uuid>() {
+            Ok(id) => ids.push(id),
+            Err(_) => {
+                return Err(Error::validation(format!(
+                    "{figure}: entry {place} is not an id"
+                )));
+            }
+        }
+    }
+    Ok(ids)
+}
+
 /// The name of the person who did or approved something (`approved_by`, `closed_by`, ...).
 ///
 /// Returns the trimmed name (borrowed from the input). 1 to [`MAX_PERSON_NAME`] characters, no control characters. `message` is the error text for an
@@ -235,5 +264,38 @@ mod rule_tests {
         assert!(validate_charge(&charge("0")).is_ok());
         assert!(validate_charge(&charge("12.50")).is_ok());
         assert!(validate_charge(&charge("-0.01")).is_err());
+    }
+
+    #[test]
+    fn an_id_list_is_every_entry_an_id_or_an_error_naming_the_entry() {
+        let (a, b) = (uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
+        assert_eq!(uuid_list("ids", &format!("{a}, {b}")).unwrap(), vec![a, b]);
+        assert_eq!(uuid_list("ids", &a.to_string()).unwrap(), vec![a]);
+        for bad in ["", ",", "x", &format!("{a},x,{b}"), &format!("{a},")] {
+            let e = uuid_list("ids", bad).unwrap_err().to_string();
+            assert!(
+                e.contains("ids") && e.contains("is not an id"),
+                "{bad:?}: {e}"
+            );
+        }
+        assert!(
+            uuid_list("ids", &format!("{a},x"))
+                .unwrap_err()
+                .to_string()
+                .contains("entry 2")
+        );
+        let many = vec![a.to_string(); MAX_ID_LIST + 1].join(",");
+        assert!(
+            uuid_list("ids", &many)
+                .unwrap_err()
+                .to_string()
+                .contains("at most")
+        );
+        assert_eq!(
+            uuid_list("ids", &vec![a.to_string(); MAX_ID_LIST].join(","))
+                .unwrap()
+                .len(),
+            MAX_ID_LIST
+        );
     }
 }
