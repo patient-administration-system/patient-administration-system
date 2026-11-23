@@ -28,6 +28,10 @@ use crate::{Error, Result};
 pub const BANDS: [&str; 4] = ["on_time", "under_50", "50_to_99", "100_or_more"];
 
 /// How far past its target an entry is, in whole percent of the target interval (0 when not past it).
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `past` is a count of days between two calendar dates, under 3.7 million, so times 100 fits an i64; `interval` is at least 1, so the division is defined"
+)]
 pub fn delay_percent(added: Date, target: Date, today: Date) -> i64 {
     let past = crate::time::day_count(target, today);
     if past <= 0 {
@@ -143,7 +147,8 @@ impl FollowUpDelayService {
             let added: Timestamp = r.col("created_at")?;
             let target: Date = r.col("follow_up_target")?;
             let pct = delay_percent(added.to_zoned_datetime(tz.clone()).date(), target, today);
-            *counts.entry((status == "booked", band(pct))).or_insert(0) += 1;
+            let count = counts.entry((status == "booked", band(pct))).or_insert(0);
+            *count = crate::arith::add("delay count", *count, 1)?;
         }
         let total = checked_sum(counts.values().copied())
             .ok_or_else(|| Error::internal("a report total is too large to hold"))?;

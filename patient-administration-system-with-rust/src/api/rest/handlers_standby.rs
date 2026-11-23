@@ -182,9 +182,20 @@ pub async fn list_releases(
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<ReleasesQuery>,
 ) -> HandlerResult {
-    let to =
-        q.to.unwrap_or_else(|| Timestamp::now() + SignedDuration::from_mins(1));
-    let from = q.from.unwrap_or(to - crate::time::days(30));
+    let to = match q.to {
+        Some(t) => t,
+        None => match crate::time::plus(Timestamp::now(), SignedDuration::from_mins(1)) {
+            Ok(t) => t,
+            Err(e) => return error_to_response(e),
+        },
+    };
+    let from = match q.from {
+        Some(f) => f,
+        None => match crate::time::minus(to, crate::time::days(30)) {
+            Ok(f) => f,
+            Err(e) => return error_to_response(e),
+        },
+    };
     let page = match crate::paging::Page::new(&uri, 100) {
         Ok(p) => p,
         Err(e) => return error_to_response(e),

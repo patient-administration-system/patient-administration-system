@@ -60,7 +60,7 @@ pub async fn list_appointments(
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<RangeQuery>,
 ) -> HandlerResult {
-    if q.to <= q.from || q.to - q.from > crate::time::days(366) {
+    if q.to <= q.from || q.to.duration_since(q.from) > crate::time::days(366) {
         return error_to_response(crate::Error::validation(
             "`from` must precede `to` by at most 366 days",
         ));

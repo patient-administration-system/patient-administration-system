@@ -146,12 +146,18 @@ pub async fn export_balp(
 
     let now = state.clock.now();
     let to = q.to.unwrap_or(now);
-    let from = q.from.unwrap_or(to - jiff::SignedDuration::from_hours(24));
+    let from = match q.from {
+        Some(f) => f,
+        None => match crate::time::minus(to, jiff::SignedDuration::from_hours(24)) {
+            Ok(f) => f,
+            Err(e) => return error_to_response(e).into_response(),
+        },
+    };
     if to <= from {
         return error_to_response(crate::Error::validation("to must be after from"))
             .into_response();
     }
-    if to - from > crate::time::days(31) {
+    if to.duration_since(from) > crate::time::days(31) {
         return error_to_response(crate::Error::validation(
             "the window can be at most 31 days",
         ))

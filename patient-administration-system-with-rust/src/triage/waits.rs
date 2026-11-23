@@ -126,7 +126,7 @@ impl TriageService {
         if to <= from {
             return Err(Error::validation("to must be after from"));
         }
-        if to - from > crate::time::days(31) {
+        if to.duration_since(from) > crate::time::days(31) {
             return Err(Error::validation("the window can be at most 31 days"));
         }
         let sql = format!(

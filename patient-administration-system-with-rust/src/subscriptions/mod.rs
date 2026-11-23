@@ -374,6 +374,10 @@ impl SubscriptionService {
         Ok(())
     }
 
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     async fn deliver_due(&self, now: Timestamp) -> Result<usize> {
         let due = self
             .db
@@ -390,7 +394,7 @@ impl SubscriptionService {
             ))
 .await?;
         let max: i32 = env::count("PAS_OUTBOX_MAX_RETRIES")?;
-        let mut delivered = 0;
+        let mut delivered: usize = 0;
         for r in &due {
             let id: Uuid = r.col("id")?;
             let attempts: i32 = r.col("attempts")?;
@@ -422,7 +426,7 @@ impl SubscriptionService {
                     delivered += 1;
                 }
                 Err(why) => {
-                    let n = attempts + 1;
+                    let n = crate::arith::add("delivery attempts", attempts, 1)?;
                     let give_up = max > 0 && n >= max;
                     self.db
                         .run(Stmt::new("UPDATE subscription_deliveries SET attempts = $2, last_error = $3, status = $4, \
@@ -432,7 +436,7 @@ impl SubscriptionService {
                                 n.into(),
                                 why.chars().take(300).collect::<String>().into(),
                                 (if give_up { "failed" } else { "pending" }).into(),
-                                (now + jiff::SignedDuration::from_secs(backoff_seconds(n))).into(),
+                                crate::time::plus(now, jiff::SignedDuration::from_secs(backoff_seconds(n)))?.into(),
                             ],
                         ))
 .await?;

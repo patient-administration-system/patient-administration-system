@@ -156,6 +156,10 @@ impl PrintService {
     }
 
     /// Make a batch of up to `limit` queued letters that have a postal address, and return the export.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     pub async fn export_batch(
         &self,
         limit: i64,

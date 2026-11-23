@@ -17,7 +17,9 @@
         clippy::indexing_slicing,
         clippy::string_slice,
         clippy::panic_in_result_fn,
-        clippy::unwrap_in_result
+        clippy::unwrap_in_result,
+        // RCA-ENF-3: an arithmetic operation that can overflow is checked, or carries a written proof (RCA-EXC-2).
+        clippy::arithmetic_side_effects
     )
 )]
 // The entry point stays a short list of steps (QUAL-30).
@@ -344,7 +346,9 @@ fn spawn_tolerance(jobs: &mut Jobs, state: &AppState) -> Result<()> {
         let tolerance = state.tolerance.clone();
         jobs.spawn(
             "tolerance",
-            std::time::Duration::from_secs(tolerance_minutes * 60),
+            std::time::Duration::from_secs(tolerance_minutes.checked_mul(60).ok_or_else(|| {
+                Error::config("PAS_TOLERANCE_CHECK_MINUTES is too large".to_string())
+            })?),
             move || {
                 let tolerance = tolerance.clone();
                 async move {
@@ -446,7 +450,7 @@ fn spawn_work_queue(jobs: &mut Jobs, state: &AppState) {
                     .sync(clock.now())
                     .await
                 {
-                    Ok(r) if r.opened + r.reopened + r.closed > 0 => {
+                    Ok(r) if r.opened > 0 || r.reopened > 0 || r.closed > 0 => {
                         tracing::info!(target: "pas::work_queue", ?r, "work queue synced");
                     }
                     Ok(_) => {}

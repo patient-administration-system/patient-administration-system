@@ -84,7 +84,9 @@ impl AdtService {
         actor: Option<&str>,
     ) -> Result<()> {
         let id = Uuid::new_v4();
-        let expires_at = expires_in.map(|d| Timestamp::now() + d);
+        let expires_at = expires_in
+            .map(|d| crate::time::plus(Timestamp::now(), d))
+            .transpose()?;
         txn.run(Stmt::new("INSERT INTO bed_reservations (id, bed_id, person_id, encounter_id, held_by, expires_at) \
              VALUES ($1, $2, $3, $4, $5, $6)",
             [
@@ -127,6 +129,10 @@ impl AdtService {
     /// event and an outbox event are written, each hold in its own transaction. At most `SWEEP_BATCH` (100) a
     /// pass. Returns how many were released. A hold whose bed is no longer `Reserved` is closed without
     /// touching the bed.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     pub async fn release_expired_holds(&self, now: Timestamp) -> Result<u64> {
         let due = self
             .db
@@ -137,7 +143,7 @@ impl AdtService {
                 [now.into(), SWEEP_BATCH.into()],
             ))
             .await?;
-        let mut released = 0;
+        let mut released: u64 = 0;
         for row in due {
             let (id, bed_id): (Uuid, Uuid) = (row.col("id")?, row.col("bed_id")?);
             if self.release_one(id, bed_id, now).await? {

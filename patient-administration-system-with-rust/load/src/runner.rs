@@ -120,7 +120,10 @@ pub async fn run_phase(ctx: &Arc<Ctx>, scenario: Scenario, phase: &Phase) -> (Re
 }
 
 async fn closed(ctx: &Arc<Ctx>, scenario: Scenario, phase: &Phase) -> Recorder {
-    let deadline = Instant::now() + phase.duration;
+    // A duration past the end of the clock sends nothing: the empty recorder shows zero requests.
+    let Some(deadline) = Instant::now().checked_add(phase.duration) else {
+        return Recorder::default();
+    };
     let mut set = JoinSet::new();
     for w in 0..phase.workers {
         let ctx = Arc::clone(ctx);
@@ -136,8 +139,14 @@ async fn closed(ctx: &Arc<Ctx>, scenario: Scenario, phase: &Phase) -> Recorder {
     collect(set).await
 }
 
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `shed` and `n` each rise by one per tick of a run bounded by its duration, so they stay far below usize::MAX"
+)]
 async fn open(ctx: &Arc<Ctx>, scenario: Scenario, phase: &Phase, rate: f64) -> Recorder {
-    let deadline = Instant::now() + phase.duration;
+    let Some(deadline) = Instant::now().checked_add(phase.duration) else {
+        return Recorder::default();
+    };
     let limit = Arc::new(Semaphore::new(phase.workers.max(1)));
     // A rate that is not a positive finite number sends nothing: the empty recorder shows zero requests.
     let Ok(period) = Duration::try_from_secs_f64(1.0 / rate) else {

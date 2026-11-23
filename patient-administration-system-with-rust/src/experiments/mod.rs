@@ -38,7 +38,8 @@ pub fn pick(experiment: Uuid, appointment: Uuid, variants: usize) -> usize {
         .iter()
         .take(8)
         .fold(0u64, |acc, b| (acc << 8) | u64::from(*b));
-    (n % variants.max(1) as u64) as usize
+    // RCA-DECL-1: the divisor is at least 1, so the remainder always exists.
+    n.checked_rem(variants.max(1) as u64).unwrap_or(0) as usize
 }
 
 /// The template group to send for this appointment: the assigned variant's, if a live experiment covers
@@ -313,13 +314,13 @@ impl ExperimentService {
 .await?;
         let mut data = Vec::new();
         let mut extra = Vec::new();
-        let mut total = 0;
+        let mut total: i64 = 0;
         for r in &rows {
             let variant: String = r.col("variant")?;
             let q: String = r.col("q")?;
             let lang: String = r.col("lang")?;
             let n: i64 = r.col("n")?;
-            total += n;
+            total = crate::arith::add("readout total", total, n)?;
             data.push((
                 vec![
                     ("variant".to_string(), variant.clone()),
@@ -335,10 +336,10 @@ impl ExperimentService {
             ));
         }
         let flags = suppress(data, k);
-        let cells: Vec<ReadoutCell> = flags
+        let cells = flags
             .into_iter()
             .zip(extra)
-            .map(|(c, (confirmed, attended, dna))| {
+            .map(|(c, (confirmed, attended, dna))| -> Result<ReadoutCell> {
                 let g = |d: &str| {
                     c.dims
                         .iter()
@@ -347,8 +348,8 @@ impl ExperimentService {
                         // RCA-DECL-1: a dimension a cell does not carry is shown blank.
                         .unwrap_or(String::new())
                 };
-                let resolved = attended + dna;
-                match c.count {
+                let resolved = crate::arith::add("readout cells", attended, dna)?;
+                Ok(match c.count {
                     Some(n) => ReadoutCell {
                         variant: g("variant"),
                         deprivation_quintile: g("deprivation_quintile"),
@@ -373,9 +374,9 @@ impl ExperimentService {
                         attendance_rate: None,
                         suppressed: true,
                     },
-                }
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
         Ok(Readout {
             experiment_id: id,
             k,

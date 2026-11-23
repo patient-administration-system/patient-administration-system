@@ -403,6 +403,10 @@ impl TemplateService {
     /// Make the slots for every day in `[from, to]`, from the approved version in force on that day (the
     /// highest approved version whose `effective_from` is on or before it). Days that are not that version's
     /// weekday make nothing. Reproducible and idempotent. Not before today, and at most 92 days at once.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     pub async fn generate(
         &self,
         template_id: Uuid,
@@ -419,7 +423,7 @@ impl TemplateService {
         if to < from {
             return Err(Error::validation("to cannot be before from"));
         }
-        if crate::time::day_count(from, to) + 1 > MAX_GENERATE_DAYS {
+        if crate::time::day_count(from, to) >= MAX_GENERATE_DAYS {
             return Err(Error::validation(format!(
                 "generate at most {MAX_GENERATE_DAYS} days at a time"
             )));
@@ -479,10 +483,19 @@ impl TemplateService {
         while day <= to {
             // The latest-effective approved version on or before the day.
             match versions.iter().rfind(|v| v.effective_from <= day) {
-                None => out.days_without_approved_version += 1,
+                None => {
+                    out.days_without_approved_version =
+                        crate::arith::add("days counted", out.days_without_approved_version, 1)?;
+                }
                 Some(v) if i16::from(day.weekday().to_monday_one_offset()) == v.weekday => {
                     match plan_session(day, v.start_time, v.slot_minutes, &v.lines) {
-                        None => out.days_skipped_clock_change += 1,
+                        None => {
+                            out.days_skipped_clock_change = crate::arith::add(
+                                "days counted",
+                                out.days_skipped_clock_change,
+                                1,
+                            )?;
+                        }
                         Some(plan) => {
                             for p in plan {
                                 let n = txn
@@ -516,7 +529,11 @@ impl TemplateService {
                 }
                 Some(_) => {}
             }
-            day += crate::time::days(1);
+            // The end of the calendar ends the range.
+            let Ok(next) = day.checked_add(crate::time::days(1)) else {
+                break;
+            };
+            day = next;
         }
         AuditLogRepository::log(
             &txn,

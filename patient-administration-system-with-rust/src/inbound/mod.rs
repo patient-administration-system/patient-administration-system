@@ -383,7 +383,7 @@ impl InboundService {
         let outcome: TextOutcome = r.col::<String>("outcome")?.parse()?;
         let at: Timestamp = r.col("received_at")?;
         if outcome != TextOutcome::Asked
-            || now - at > SignedDuration::from_mins(QUESTION_TTL_MINUTES)
+            || now.duration_since(at) > SignedDuration::from_mins(QUESTION_TTL_MINUTES)
         {
             return Ok(None);
         }

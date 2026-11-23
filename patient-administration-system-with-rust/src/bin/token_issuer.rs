@@ -22,7 +22,9 @@
         clippy::indexing_slicing,
         clippy::string_slice,
         clippy::panic_in_result_fn,
-        clippy::unwrap_in_result
+        clippy::unwrap_in_result,
+        // RCA-ENF-3: an arithmetic operation that can overflow is checked, or carries a written proof (RCA-EXC-2).
+        clippy::arithmetic_side_effects
     )
 )]
 #![cfg_attr(not(test), forbid(unsafe_code))]
@@ -43,21 +45,16 @@ struct Args(Vec<String>);
 
 impl Args {
     fn one(&self, name: &str) -> Option<String> {
-        self.0
-            .iter()
-            .position(|a| a == name)
-            .and_then(|i| self.0.get(i + 1))
-            .cloned()
+        self.0.iter().skip_while(|a| *a != name).nth(1).cloned()
     }
     fn need(&self, name: &str) -> Result<String, String> {
         self.one(name).ok_or_else(|| format!("{name} is required"))
     }
     fn many(&self, name: &str) -> Vec<String> {
         self.0
-            .iter()
-            .enumerate()
-            .filter(|(_, a)| *a == name)
-            .filter_map(|(i, _)| self.0.get(i + 1))
+            .windows(2)
+            .filter(|pair| pair.first().is_some_and(|a| a == name))
+            .filter_map(|pair| pair.get(1))
             .cloned()
             .collect()
     }

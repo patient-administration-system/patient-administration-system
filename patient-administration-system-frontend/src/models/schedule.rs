@@ -46,7 +46,10 @@ pub async fn list_free_slots(
     days: i64,
 ) -> Result<Vec<FreeSlotRow>, sqlx::Error> {
     let now = Timestamp::now();
-    let horizon = now + SignedDuration::from_hours(days * 24);
+    let horizon = days
+        .checked_mul(24)
+        .and_then(|hours| now.checked_add(SignedDuration::from_hours(hours)).ok())
+        .ok_or_else(|| sqlx::Error::Protocol("days is out of range".into()))?;
     let rows: Vec<SlotRecord> = sqlx::query_as(
         "SELECT id, schedule_id, start_datetime, end_datetime FROM slots \
          WHERE schedule_id = $1 AND status = 'free' \

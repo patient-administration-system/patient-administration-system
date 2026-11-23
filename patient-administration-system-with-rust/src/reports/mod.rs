@@ -137,6 +137,10 @@ fn ratio(n: i64, of: i64) -> f64 {
 }
 
 /// Mean, median, 90th percentile (nearest rank) and maximum. All zero for no values.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: the early return leaves `n` at least 1, so `max(1) - 1` and `n - 1` cannot underflow"
+)]
 pub fn stats(mut v: Vec<f64>) -> Stats {
     if v.is_empty() {
         return Stats::default();
@@ -161,11 +165,14 @@ pub fn stats(mut v: Vec<f64>) -> Stats {
 /// The report's range: `to` defaults to now, `from` to 30 days earlier; at most [`MAX_RANGE_DAYS`].
 fn check_range(from: Option<Timestamp>, to: Option<Timestamp>) -> Result<(Timestamp, Timestamp)> {
     let to = to.unwrap_or_else(jiff::Timestamp::now);
-    let from = from.unwrap_or_else(|| to - crate::time::days(30));
+    let from = match from {
+        Some(f) => f,
+        None => crate::time::minus(to, crate::time::days(30))?,
+    };
     if to < from {
         return Err(Error::validation("to must not be before from"));
     }
-    if to - from > crate::time::days(MAX_RANGE_DAYS) {
+    if to.duration_since(from) > crate::time::days(MAX_RANGE_DAYS) {
         return Err(Error::validation(format!(
             "the range may be at most {MAX_RANGE_DAYS} days"
         )));
@@ -337,6 +344,10 @@ impl ReportService {
     }
 
     /// Open pathways: weeks waited on each (from the clock's own figure), by service, and how many breach.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     async fn open_pathways(&self) -> Result<(Vec<f64>, Vec<(String, f64)>, i64)> {
         let paths = RttRepository::open_pathways(&self.db).await?;
         let ids: Vec<uuid::Uuid> = paths.iter().map(|p| p.id).collect();
@@ -344,7 +355,7 @@ impl ReportService {
         let now = Timestamp::now();
         let mut weeks = Vec::with_capacity(paths.len());
         let mut by_service = Vec::with_capacity(paths.len());
-        let mut breaching = 0;
+        let mut breaching: i64 = 0;
         for p in paths {
             let events = events.get(&p.id).map_or(&[][..], Vec::as_slice);
             let w = compute_active_weeks(events, now);

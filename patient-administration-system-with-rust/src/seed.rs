@@ -32,6 +32,10 @@ pub struct Seeded {
 }
 
 /// Create the demo facility, ward, room and beds that do not exist yet, in one transaction.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+)]
 pub async fn run(db: &Pool) -> Result<Seeded> {
     db.in_txn::<_, Seeded>(|txn| {
         Box::pin(async move {
@@ -95,9 +99,17 @@ pub async fn run(db: &Pool) -> Result<Seeded> {
                 let bed = match BedRepository::find_by_code(txn, code).await? {
                     Some(b) => b,
                     None => {
+                        #[expect(
+                            clippy::arithmetic_side_effects,
+                            reason = "RCA-EXC-2: `i` indexes the beds of one room in the seed list, a handful, so `i + 1` cannot overflow"
+                        )]
                         let b = BedRepository::create(
                             txn,
-                            &Bed::new(room.id, format!("Bed {}", i + 1), (*code).into()),
+                            &Bed::new(
+                                room.id,
+                                format!("Bed {}", i + 1),
+                                (*code).into(),
+                            ),
                         )
                         .await?;
                         AuditLogRepository::log(txn, "bed", b.id, "seed", None, None, &ctx).await?;

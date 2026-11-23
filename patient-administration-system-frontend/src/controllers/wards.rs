@@ -34,6 +34,10 @@ pub fn routes() -> Routes {
 }
 
 /// `GET /wards/:id` — ward detail page.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `total` and `occupied` rise by one per bed already read into memory, so they stay below usize::MAX"
+)]
 pub async fn show(
     Extension(v): Extension<Views>,
     State(ctx): State<AppContext>,

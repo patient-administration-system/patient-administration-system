@@ -17,7 +17,15 @@
 //! Exit status: 0 when every check passed, 1 when a budget or a correctness check failed, 2 when the run
 //! could not start.
 
-#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+// RCA-ENF-3: an arithmetic operation that can overflow is checked, or carries a written proof (RCA-EXC-2).
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::arithmetic_side_effects
+    )
+)]
 #![cfg_attr(not(test), forbid(unsafe_code))]
 
 mod budgets;
@@ -53,8 +61,8 @@ fn duration(s: &str) -> Option<Duration> {
     let n: u64 = n.parse().ok()?;
     Some(Duration::from_secs(match unit {
         "" | "s" => n,
-        "m" => n * 60,
-        "h" => n * 3600,
+        "m" => n.checked_mul(60)?,
+        "h" => n.checked_mul(3600)?,
         _ => return None,
     }))
 }

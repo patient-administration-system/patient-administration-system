@@ -97,6 +97,10 @@ pub async fn tick(
 }
 
 /// [`tick`] over at most `limit` due events (the tests use it to settle only their own).
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+)]
 pub async fn tick_with_limit(
     db: &Pool,
     publisher: &Arc<dyn EventPublisher>,
@@ -140,9 +144,11 @@ pub async fn tick_with_limit(
                     row.retry_count.checked_add(1).unwrap_or(i32::MAX),
                     retry_after,
                 );
-                let next = jiff::Timestamp::now()
-                    + jiff::SignedDuration::try_from(wait)
-                        .unwrap_or(jiff::SignedDuration::from_mins(15));
+                let next = crate::time::plus(
+                    jiff::Timestamp::now(),
+                    jiff::SignedDuration::try_from(wait)
+                        .unwrap_or(jiff::SignedDuration::from_mins(15)),
+                )?;
                 let new_count =
                     OutboxRepository::record_failure(db, row.id, &err_str, next).await?;
                 if max_retries > 0 && new_count >= max_retries as i32 {

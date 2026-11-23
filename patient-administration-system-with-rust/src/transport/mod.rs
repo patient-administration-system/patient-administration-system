@@ -67,8 +67,8 @@ impl TransportClient for LoggingTransportClient {
         tracing::info!(target: "pas::transport", reference = %req.reference, "transport would be requested (no provider configured)");
         Ok(TransportConfirmation {
             provider_ref: format!("stub-{}", req.reference),
-            window_start: req.appointment_start - SignedDuration::from_mins(90),
-            window_end: req.appointment_start - SignedDuration::from_mins(60),
+            window_start: crate::time::minus(req.appointment_start, SignedDuration::from_mins(90))?,
+            window_end: crate::time::minus(req.appointment_start, SignedDuration::from_mins(60))?,
         })
     }
     async fn cancel(&self, provider_ref: &str) -> Result<()> {

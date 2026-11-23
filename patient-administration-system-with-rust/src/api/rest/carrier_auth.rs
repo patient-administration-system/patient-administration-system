@@ -58,7 +58,9 @@ impl Carriers {
             .filter(|s| !s.is_empty())
             .enumerate()
         {
-            let n = n + 1;
+            let n = n
+                .checked_add(1)
+                .ok_or("too many PAS_CARRIER_SECRETS entries")?;
             let (id, secrets) = item
                 .split_once('=')
                 .ok_or_else(|| format!("PAS_CARRIER_SECRETS entry {n} is not id=secret"))?;
@@ -103,7 +105,7 @@ impl Carriers {
             .trim()
             .parse()
             .map_err(|_| CarrierError::BadTimestamp)?;
-        if (now - ts).abs() > REPLAY_WINDOW_SECS {
+        if now.abs_diff(ts) > REPLAY_WINDOW_SECS.unsigned_abs() {
             return Err(CarrierError::OutsideWindow);
         }
         let want = signature

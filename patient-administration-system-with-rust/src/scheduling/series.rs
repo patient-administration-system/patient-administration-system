@@ -226,6 +226,10 @@ impl SeriesService {
     ///
     /// Runs in one transaction: series row flipped, each occurrence
     /// flipped, audit + outbox written.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     pub async fn cancel(
         &self,
         series_id: Uuid,

@@ -12,7 +12,9 @@
         clippy::indexing_slicing,
         clippy::string_slice,
         clippy::panic_in_result_fn,
-        clippy::unwrap_in_result
+        clippy::unwrap_in_result,
+        // RCA-ENF-3: an arithmetic operation that can overflow is checked, or carries a written proof (RCA-EXC-2).
+        clippy::arithmetic_side_effects
     )
 )]
 

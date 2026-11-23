@@ -364,7 +364,7 @@ impl BackfillService {
         let extra = serde_json::json!({
             "offer": {
                 "when": messages::when(start, lang, messages::timezone()),
-                "minutes": (offer.expires_at - self.now()).as_mins().max(1),
+                "minutes": offer.expires_at.duration_since(self.now()).as_mins().max(1),
             },
             "offer_url": format!("{base}/o/{token}"),
         });
@@ -450,6 +450,10 @@ impl BackfillService {
     }
 
     /// Expire offers past their time and move each release on to the next patient.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     pub async fn tick(&self, now: Timestamp) -> Result<TickReport> {
         let rows = self
             .db

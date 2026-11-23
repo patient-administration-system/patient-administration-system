@@ -28,6 +28,13 @@ pub fn checked_sum<T: CheckedInt>(items: impl IntoIterator<Item = T>) -> Option<
         .try_fold(T::ZERO, |total, item| total.add_checked(item))
 }
 
+/// `a + b`, or an internal error naming `figure` when the sum does not fit its type (RCA-ENF-3). The error does
+/// not carry the values (RCA-ERR-2).
+pub fn add<T: CheckedInt>(figure: &str, a: T, b: T) -> crate::Result<T> {
+    a.add_checked(b)
+        .ok_or_else(|| crate::Error::unprocessable(format!("{figure} is too large to count")))
+}
+
 /// `value`, when it is within `lo ..= hi`; otherwise a validation error naming the figure and its range
 /// (RCA-IN-1, RCA-IN-2). An input outside its range is rejected: it is never moved to the nearest bound.
 /// The error does not carry the value (RCA-ERR-2).

@@ -48,6 +48,10 @@ fn redact_segment(segment: &str, sep: char) -> String {
     let is_header = matches!(name, "MSH" | "BHS" | "FHS");
     // For MSH, the field separator itself is MSH-1, so the first field after the name is MSH-2.
     for (offset, field) in fields.enumerate() {
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "RCA-EXC-2: `offset` indexes the fields of one message already in memory, so adding 2 cannot overflow usize"
+        )]
         let number = offset + 2;
         out.push(sep);
         let keep =

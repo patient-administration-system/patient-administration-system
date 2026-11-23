@@ -160,10 +160,10 @@ impl WorkQueueService {
         for kind in WorkKind::ALL {
             let open = self.open_of(*kind, now).await?;
             let r = self.apply(*kind, &open, now).await?;
-            report.opened += r.opened;
-            report.reopened += r.reopened;
-            report.closed += r.closed;
-            report.open_now += open.len();
+            report.opened = crate::arith::add("opened items", report.opened, r.opened)?;
+            report.reopened = crate::arith::add("reopened items", report.reopened, r.reopened)?;
+            report.closed = crate::arith::add("closed items", report.closed, r.closed)?;
+            report.open_now = crate::arith::add("open items", report.open_now, open.len())?;
         }
         Ok(report)
     }
@@ -281,6 +281,10 @@ impl WorkQueueService {
         })
     }
 
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     async fn apply(&self, kind: WorkKind, open: &[Open], now: Timestamp) -> Result<SyncReport> {
         let mut report = SyncReport::default();
         // Read once and compare here, so a sync where nothing changed sends no write at all (PERF-3 found the

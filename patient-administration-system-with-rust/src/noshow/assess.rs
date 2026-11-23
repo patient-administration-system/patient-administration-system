@@ -39,7 +39,7 @@ impl NoShowService {
             Inputs {
                 past_missed: r.col("missed")?,
                 past_attended: r.col("attended")?,
-                lead_days: ((start - created).as_secs() as f64 / 86_400.0).max(0.0),
+                lead_days: (start.duration_since(created).as_secs() as f64 / 86_400.0).max(0.0),
                 age_band: r.col("age_band")?,
                 weekday: local.weekday().to_monday_zero_offset() as usize,
                 hour: u32::try_from(local.hour()).unwrap_or(0),
@@ -187,6 +187,10 @@ impl NoShowService {
 
     /// The daily job: assess the booked appointments still to come, soonest first and up to
     /// [`DAILY_ASSESSMENTS`]. Idempotent within a day.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     pub async fn recalculate_all(&self) -> Result<usize> {
         self.require_active().await?;
         let ids = self
@@ -202,7 +206,7 @@ impl NoShowService {
                 "no-show assessment stopped at its limit: later appointments wait for a later run"
             );
         }
-        let mut n = 0;
+        let mut n: usize = 0;
         for r in ids {
             let id: Uuid = r.col("id")?;
             self.assess(id).await?;

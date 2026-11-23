@@ -131,6 +131,10 @@ async fn load_unpublished(ctx: &AppContext) -> Option<usize> {
     unreachable("outbox", count_unpublished(&ctx.db).await)
 }
 
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: each ward count rises by one per bed of a ward already read into memory, so it stays below usize::MAX"
+)]
 async fn load_wards(ctx: &AppContext) -> Option<Vec<WardRow>> {
     let mut rows = Vec::new();
     let wards = unreachable("wards", list_active_wards(&ctx.db).await)?;

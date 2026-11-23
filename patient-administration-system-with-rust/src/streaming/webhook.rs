@@ -106,7 +106,7 @@ impl WebhookEventPublisher {
         };
         mac.update(body);
         let result = mac.finalize().into_bytes();
-        let mut out = String::with_capacity(7 + result.len() * 2);
+        let mut out = String::new();
         out.push_str("sha256=");
         for byte in result {
             out.push_str(&format!("{byte:02x}"));

@@ -139,14 +139,23 @@ async fn collect_wards(state: &AppState) -> Vec<WardRow> {
     let mut rows: Vec<WardRow> = Vec::with_capacity(wards.len());
     for w in &wards {
         match state.resources.ward_occupancy(w.id).await {
-            Ok(occ) => rows.push(WardRow {
-                name: w.name.clone(),
-                code: w.code.clone(),
-                total_beds: occ.total_beds,
-                occupied: occ.occupied,
-                available: occ.available,
-                other: occ.cleaning + occ.reserved + occ.out_of_service,
-            }),
+            Ok(occ) => {
+                // A ward whose figures do not fit is left off, like one that could not be read.
+                let Some(other) =
+                    crate::arith::checked_sum([occ.cleaning, occ.reserved, occ.out_of_service])
+                else {
+                    tracing::warn!(target: "pas::dashboard", "ward {} occupancy is too large to add up", w.id);
+                    continue;
+                };
+                rows.push(WardRow {
+                    name: w.name.clone(),
+                    code: w.code.clone(),
+                    total_beds: occ.total_beds,
+                    occupied: occ.occupied,
+                    available: occ.available,
+                    other,
+                });
+            }
             Err(e) => {
                 tracing::warn!(target: "pas::dashboard", "ward {} occupancy lookup: {e}", w.id);
             }

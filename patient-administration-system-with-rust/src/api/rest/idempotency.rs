@@ -99,7 +99,7 @@ pub async fn idempotency_middleware(
             "the request body is too large",
         );
     };
-    let mut fingerprint = Vec::with_capacity(bytes.len() + 64);
+    let mut fingerprint = Vec::with_capacity(bytes.len());
     fingerprint.extend_from_slice(parts.method.as_str().as_bytes());
     fingerprint.push(b' ');
     fingerprint.extend_from_slice(parts.uri.to_string().as_bytes());

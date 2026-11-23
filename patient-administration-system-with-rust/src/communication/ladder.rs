@@ -174,9 +174,14 @@ pub fn parse_steps(spec: &str) -> Result<Vec<StepSpec>> {
 
 /// Steps whose time has come for an appointment starting at `start`, in time order.
 pub fn due_steps(steps: &[StepSpec], start: Timestamp, now: Timestamp) -> Vec<(Step, Timestamp)> {
+    // A step whose time falls outside the calendar is not due: it cannot be placed.
     let mut v: Vec<(Step, Timestamp)> = steps
         .iter()
-        .map(|s| (s.step, start - s.before))
+        .filter_map(|s| {
+            crate::time::minus(start, s.before)
+                .ok()
+                .map(|at| (s.step, at))
+        })
         .filter(|(_, at)| *at <= now)
         .collect();
     v.sort_by_key(|(_, at)| *at);
@@ -374,9 +379,11 @@ impl LadderService {
         else {
             return Ok(Delivery::NoChannel);
         };
-        let mut failed = 0;
+        let mut failed: i64 = 0;
         for t in &templates {
-            failed += LetterRepository::count_failed_for_appointment(&self.db, a.id, t.id).await?;
+            // Saturating: the total is only compared with MAX_FAILED_ATTEMPTS.
+            let n = LetterRepository::count_failed_for_appointment(&self.db, a.id, t.id).await?;
+            failed = crate::arith::add("failed letters", failed, n)?;
         }
         if failed >= MAX_FAILED_ATTEMPTS {
             return Ok(Delivery::Failed);
@@ -485,14 +492,22 @@ impl LadderService {
             .map(|s| s.before)
             .max()
             .unwrap_or_else(|| crate::time::days(7));
-        let appointments =
-            AppointmentRepository::list_booked_starting_between(&self.db, now, now + reach).await?;
+        let appointments = AppointmentRepository::list_booked_starting_between(
+            &self.db,
+            now,
+            crate::time::plus(now, reach)?,
+        )
+        .await?;
         self.run_for(appointments, now).await
     }
 
     /// Run the next due step of each of `appointments`, as one scan found them. Each is checked again just
     /// before its step acts, so one cancelled or moved since the scan gets no message and no call task, and the
     /// step is logged as `skipped_not_booked` (TSC-2). Public so a test can hand it a stale list.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each report counter rises by one per appointment in a list already held in memory, so it stays below usize::MAX"
+    )]
     pub async fn run_for(
         &self,
         appointments: Vec<Appointment>,

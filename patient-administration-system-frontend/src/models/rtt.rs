@@ -45,6 +45,10 @@ pub struct PathwayRow {
 /// Load every non-stopped pathway, compute weeks-waiting per pathway, and
 /// return rows sorted worst-breach-first. The page renders the result
 /// straight to a Lily `data-table`.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: the sort compares the difference of two u32 values widened to i64, which always fits"
+)]
 pub async fn list_active_pathways(db: &PgPool) -> Result<Vec<PathwayRow>, sqlx::Error> {
     let pathways: Vec<PathwayRecord> = sqlx::query_as(
         "SELECT id, person_id, target_service, breach_weeks, status FROM rtt_pathways \
@@ -105,6 +109,10 @@ pub async fn list_active_pathways(db: &PgPool) -> Result<Vec<PathwayRow>, sqlx::
 /// Sum unpaused intervals from `started`/`resumed` events to either the
 /// next `paused`/`stopped` event or `now`, then floor-divide by a week.
 /// Mirrors `compute_active_weeks` from the PAS Axum lib.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: each term is the span between two timestamps, under 6.4e11 seconds, and there is one per event already held in memory, so the sum stays far below i64::MAX"
+)]
 fn compute_active_weeks_from_models(events: &[EventRecord], now: Timestamp) -> u32 {
     if events.is_empty() {
         return 0;

@@ -33,6 +33,10 @@ fn run_offset(run_id: &str) -> i64 {
     )
 }
 
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `owners` is non-zero after the early return; with one owner `per_owner` is `total` and the extra is 0, and with two or more `per_owner` is at most half of `total`, so adding 1 fits"
+)]
 fn cycle_owner_sizes(total: usize) -> Vec<usize> {
     let owners = total.min(CYCLE_OWNERS);
     if owners == 0 {
@@ -95,8 +99,13 @@ impl Db {
     async fn slots(&self, schedule: Uuid, start: Timestamp, n: usize) -> Result<Vec<Slot>, Fail> {
         let mut out = Vec::with_capacity(n);
         for i in 0..n {
-            let at = start + SignedDuration::from_mins(15 * i64::try_from(i)?);
-            let slot = Slot::new(schedule, at, at + SignedDuration::from_mins(15));
+            let minutes = i64::try_from(i)?.checked_mul(15).ok_or("too many slots")?;
+            let at = patient_administration_system::time::plus(
+                start,
+                SignedDuration::from_mins(minutes),
+            )?;
+            let end = patient_administration_system::time::plus(at, SignedDuration::from_mins(15))?;
+            let slot = Slot::new(schedule, at, end);
             out.push(SlotRepository::create(&self.state.db, &slot).await?);
         }
         Ok(out)
@@ -105,13 +114,19 @@ impl Db {
     pub async fn make(&self, run_id: &str, sizes: Sizes) -> Result<Fixtures, Fail> {
         // A start far ahead and different for each run, on a whole hour, so the read day is predictable.
         let offset = run_offset(run_id);
-        let base = (Timestamp::now() + patient_administration_system::time::days(600 + offset))
-            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
-            .date()
-            .at(8, 0, 0, 0)
-            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
-            .map(|z| z.timestamp())
-            .map_err(|_| "no 08:00 on the base day")?;
+        let ahead = 600i64
+            .checked_add(offset)
+            .ok_or("the run offset is too large")?;
+        let base = patient_administration_system::time::plus(
+            Timestamp::now(),
+            patient_administration_system::time::days(ahead),
+        )?
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .date()
+        .at(8, 0, 0, 0)
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+        .map(|z| z.timestamp())
+        .map_err(|_| "no 08:00 on the base day")?;
 
         let read = self.schedule(run_id, "read", Uuid::new_v4()).await?;
         let read_slots = self.slots(read.id, base, sizes.read).await?;
@@ -133,7 +148,10 @@ impl Db {
             cycle_slots.extend(
                 self.slots(
                     cycle.id,
-                    base + patient_administration_system::time::days(30),
+                    patient_administration_system::time::plus(
+                        base,
+                        patient_administration_system::time::days(30),
+                    )?,
                     slot_count,
                 )
                 .await?,
@@ -143,17 +161,27 @@ impl Db {
         let hot_slots = self
             .slots(
                 hot.id,
-                base + patient_administration_system::time::days(60),
+                patient_administration_system::time::plus(
+                    base,
+                    patient_administration_system::time::days(60),
+                )?,
                 sizes.hot,
             )
             .await?;
         let practitioner = Uuid::new_v4();
         let ihe = self.schedule(run_id, "ihe", practitioner).await?;
-        let ihe_start = base + patient_administration_system::time::days(90);
+        let ihe_start = patient_administration_system::time::plus(
+            base,
+            patient_administration_system::time::days(90),
+        )?;
         let ihe_slots = self.slots(ihe.id, ihe_start, sizes.ihe).await?;
-        let ihe_end = ihe_slots
-            .last()
-            .map_or(ihe_start, |s| s.end_datetime + SignedDuration::from_mins(1));
+        let ihe_end = match ihe_slots.last() {
+            Some(s) => patient_administration_system::time::plus(
+                s.end_datetime,
+                SignedDuration::from_mins(1),
+            )?,
+            None => ihe_start,
+        };
 
         Ok(Fixtures {
             read_slots: read_slots.iter().map(|s| s.id).collect(),

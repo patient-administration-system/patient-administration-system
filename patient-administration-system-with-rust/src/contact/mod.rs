@@ -109,7 +109,7 @@ pub fn is_stale(
     match (mobile, verified_at) {
         (None, _) => true,
         (Some(_), None) => true,
-        (Some(_), Some(at)) => now - at > crate::time::days(max_age_days),
+        (Some(_), Some(at)) => now.duration_since(at) > crate::time::days(max_age_days),
     }
 }
 

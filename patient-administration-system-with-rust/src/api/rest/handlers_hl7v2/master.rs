@@ -18,6 +18,10 @@ pub(super) fn need_worker_client(state: &AppState) -> Option<&dyn WorkerClient> 
         (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
     )
 )]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+)]
 pub async fn mfn_staff(
     State(state): State<AppState>,
     headers: HeaderMap,

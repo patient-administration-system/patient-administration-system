@@ -403,10 +403,21 @@ pub async fn removals_report(
     State(state): State<AppState>,
     Query(q): Query<ReportQuery>,
 ) -> HandlerResult {
-    let to =
-        q.to.unwrap_or_else(|| Timestamp::now() + crate::time::days(1));
-    let from = q.from.unwrap_or_else(|| to - crate::time::days(90));
-    if from >= to || to - from > crate::time::days(366) {
+    let to = match q.to {
+        Some(t) => t,
+        None => match crate::time::plus(Timestamp::now(), crate::time::days(1)) {
+            Ok(t) => t,
+            Err(e) => return error_to_response(e),
+        },
+    };
+    let from = match q.from {
+        Some(f) => f,
+        None => match crate::time::minus(to, crate::time::days(90)) {
+            Ok(f) => f,
+            Err(e) => return error_to_response(e),
+        },
+    };
+    if from >= to || to.duration_since(from) > crate::time::days(366) {
         return error_to_response(crate::Error::validation(
             "from must be before to, and the range at most a year",
         ));

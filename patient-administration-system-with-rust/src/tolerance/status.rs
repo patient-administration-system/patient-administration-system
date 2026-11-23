@@ -23,6 +23,10 @@ fn keep_worst<T>(rows: Vec<T>, limit: usize, rank: impl Fn(&T) -> u8) -> Vec<T> 
 /// Cut `by_service` and `by_ward` to at most `limit` readings each, keeping the worst, and say whether either
 /// lost any (QUAL-47). The whole-service `readings` are one per measure, and `overall` was read from everything
 /// before the cut. (A free function: `Status` is a domain type and `PageMeta` a server one.)
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: the sum is of the lengths of two vectors held in memory, which together cannot exceed usize::MAX"
+)]
 pub fn page(mut status: Status, limit: i64) -> (Status, PageMeta) {
     let keep = usize::try_from(limit).unwrap_or(0);
     let before = status.by_service.len() + status.by_ward.len();
@@ -44,7 +48,13 @@ impl ToleranceService {
     pub async fn status(&self, days: i64) -> Result<Status> {
         let days = in_range("days", days, 1, 365)?;
         let to = Timestamp::now();
-        let from = to - SignedDuration::from_hours(24 * (days));
+        let from = crate::time::minus(
+            to,
+            SignedDuration::from_hours(
+                days.checked_mul(24)
+                    .ok_or_else(|| crate::Error::validation("days is too large"))?,
+            ),
+        )?;
         let report = self
             .reports
             .clinic_activity(Some(from), Some(to), GroupBy::Day)
@@ -54,6 +64,7 @@ impl ToleranceService {
             checked_sum(report.rows.iter().map(|r| r.attended)).ok_or_else(too_large)?;
         let missed: i64 =
             checked_sum(report.rows.iter().map(|r| r.did_not_attend)).ok_or_else(too_large)?;
+        let seen = crate::arith::add("appointments counted", attended, missed)?;
         let (beds, occupied) = self.bed_counts().await?;
         let (invoiced, collected, invoices) = self.money(from, to).await?;
 
@@ -78,11 +89,7 @@ impl ToleranceService {
             (report.lead_time_days.n > 0).then_some(report.lead_time_days.median),
             report.lead_time_days.n,
         );
-        whole(
-            "did_not_attend_rate",
-            share(missed, attended + missed),
-            attended + missed,
-        );
+        whole("did_not_attend_rate", share(missed, seen), seen);
         whole(
             "slot_utilisation",
             (report.total_slots > 0).then_some(report.utilization),
@@ -234,15 +241,12 @@ impl ToleranceService {
                     });
                 }
             };
+            let seen = crate::arith::add("appointments counted", acc.attended, acc.missed)?;
             let waits = crate::reports::stats(acc.waits);
             add("wait_p90_weeks", Some(waits.p90), waits.n);
             let leads = crate::reports::stats(acc.leads);
             add("lead_time_median_days", Some(leads.median), leads.n);
-            add(
-                "did_not_attend_rate",
-                share(acc.missed, acc.attended + acc.missed),
-                acc.attended + acc.missed,
-            );
+            add("did_not_attend_rate", share(acc.missed, seen), seen);
             add("slot_utilisation", share(acc.busy, acc.slots), acc.slots);
         }
         Ok(out)

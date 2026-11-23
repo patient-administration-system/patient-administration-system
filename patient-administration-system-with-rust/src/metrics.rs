@@ -96,7 +96,12 @@ pub fn outbox_delivered() {
 /// Seconds since an HL7 v2 message last arrived, and since the outbox last delivered, at `now`; `None` when it
 /// has not happened since this process started.
 pub fn silence_at(now: i64) -> (Option<i64>, Option<i64>) {
-    let ago = |t: i64| (t > 0).then(|| (now - t).max(0));
+    let ago = |t: i64| {
+        (t > 0)
+            .then(|| now.checked_sub(t))
+            .flatten()
+            .map(|d| d.max(0))
+    };
     (
         ago(HL7_LAST_RECEIVED.load(Ordering::Relaxed)),
         ago(OUTBOX_LAST_DELIVERED.load(Ordering::Relaxed)),
@@ -139,7 +144,7 @@ pub fn job_health_at(name: &str, now: i64) -> JobHealth {
         .max(30);
     drop(jobs);
     match s.last_seen {
-        Some(t) if now - t <= window => JobHealth::Ok,
+        Some(t) if now.checked_sub(t).is_some_and(|d| d <= window) => JobHealth::Ok,
         Some(_) => JobHealth::Stalled,
         None => {
             let started = registry()
@@ -149,7 +154,7 @@ pub fn job_health_at(name: &str, now: i64) -> JobHealth {
                 .get(name)
                 .copied();
             match started {
-                Some(t) if now - t > window => JobHealth::Stalled,
+                Some(t) if now.checked_sub(t).is_some_and(|d| d > window) => JobHealth::Stalled,
                 _ => JobHealth::Unknown,
             }
         }
@@ -162,6 +167,10 @@ pub fn job_health(name: &str) -> JobHealth {
 }
 
 /// A background job's tick ended.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+)]
 pub fn job_finished(name: &str, outcome: Outcome) {
     // A poisoned lock only means another thread panicked while counting; the counts are still usable.
     let mut jobs = registry()
@@ -197,6 +206,10 @@ pub fn http_finished(status: u16, micros: u64) {
 }
 
 /// The process-side numbers as Prometheus text.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `i` indexes the five status classes, so `i + 1` is at most 5"
+)]
 fn render_process() -> String {
     let r = registry();
     let mut out = String::new();

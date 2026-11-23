@@ -100,6 +100,10 @@ pub fn parse_csv(body: &[u8]) -> Result<Vec<ReplyRequest>, Error> {
                 "a batch may carry at most {MAX_BATCH} replies"
             )));
         }
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "RCA-EXC-2: `i` indexes a row already read, and the row count was checked against MAX_BATCH just above, so `i + 1` cannot overflow"
+        )]
         out.push(row.map_err(|e| Error::validation(format!("CSV row {}: {e}", i + 1)))?);
     }
     Ok(out)

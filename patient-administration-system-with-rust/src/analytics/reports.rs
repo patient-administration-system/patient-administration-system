@@ -29,8 +29,14 @@ impl AnalyticsService {
         let k = k.unwrap_or(0).max(Self::minimum_k()?);
         // Release times are stamped by the database's clock, which can be a little ahead of this server's, so
         // the default end is a few minutes ahead of now rather than exactly now.
-        let to = to.unwrap_or_else(|| Timestamp::now() + jiff::SignedDuration::from_mins(5));
-        let from = from.unwrap_or_else(|| to - crate::time::days(90));
+        let to = match to {
+            Some(t) => t,
+            None => crate::time::plus(Timestamp::now(), jiff::SignedDuration::from_mins(5))?,
+        };
+        let from = match from {
+            Some(t) => t,
+            None => crate::time::minus(to, crate::time::days(90))?,
+        };
         let select: Vec<String> = group_by
             .iter()
             .enumerate()
@@ -57,7 +63,7 @@ impl AnalyticsService {
             .await?;
         let mut data = Vec::new();
         let mut extra = Vec::new();
-        let (mut total, mut total_refilled) = (0, 0);
+        let (mut total, mut total_refilled): (i64, i64) = (0, 0);
         for r in &rows {
             let dims = group_by
                 .iter()
@@ -67,8 +73,8 @@ impl AnalyticsService {
             let n: i64 = r.col("n")?;
             let refilled: i64 = r.col("refilled")?;
             let early: i64 = r.col("early")?;
-            total += n;
-            total_refilled += refilled;
+            total = crate::arith::add("refill total", total, n)?;
+            total_refilled = crate::arith::add("refilled total", total_refilled, refilled)?;
             data.push((dims, n));
             extra.push((refilled, early));
         }
@@ -125,8 +131,14 @@ impl AnalyticsService {
             seen.push(*d);
         }
         let k = k.unwrap_or(0).max(Self::minimum_k()?);
-        let to = to.unwrap_or_else(|| Timestamp::now() + jiff::SignedDuration::from_mins(5));
-        let from = from.unwrap_or_else(|| to - crate::time::days(90));
+        let to = match to {
+            Some(t) => t,
+            None => crate::time::plus(Timestamp::now(), jiff::SignedDuration::from_mins(5))?,
+        };
+        let from = match from {
+            Some(t) => t,
+            None => crate::time::minus(to, crate::time::days(90))?,
+        };
         let tz = crate::time::zone_name(&crate::inbound::messages::timezone());
 
         let select: Vec<String> = group_by
@@ -154,7 +166,7 @@ impl AnalyticsService {
         }
         let rows = self.db.all(Stmt::new(sql, values)).await?;
         let mut data = Vec::new();
-        let mut total = 0;
+        let mut total: i64 = 0;
         for r in &rows {
             let dims = group_by
                 .iter()
@@ -162,7 +174,7 @@ impl AnalyticsService {
                 .map(|(i, d)| Ok((d.name().to_string(), r.col::<String>(&format!("d{i}"))?)))
                 .collect::<Result<Vec<_>>>()?;
             let n: i64 = r.col("n")?;
-            total += n;
+            total = crate::arith::add("report total", total, n)?;
             data.push((dims, n));
         }
         let cells = suppress(data, k);

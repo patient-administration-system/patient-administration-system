@@ -35,7 +35,9 @@
         clippy::indexing_slicing,
         clippy::string_slice,
         clippy::panic_in_result_fn,
-        clippy::unwrap_in_result
+        clippy::unwrap_in_result,
+        // RCA-ENF-3: an arithmetic operation that can overflow is checked, or carries a written proof (RCA-EXC-2).
+        clippy::arithmetic_side_effects
     )
 )]
 // Module declarations
@@ -108,7 +110,7 @@ pub use error::{Error, Result};
 // their own crate so that an edit to a route or a query does not rebuild them, and they cannot reach the web or
 // the database. Re-exported at their old paths, so `crate::models::...` still works.
 pub use patient_administration_system_domain::{
-    calendar, clock, identifiers, models, string_enum, time, validation,
+    arith, calendar, clock, identifiers, models, string_enum, time, validation,
 };
 
 #[cfg(test)]

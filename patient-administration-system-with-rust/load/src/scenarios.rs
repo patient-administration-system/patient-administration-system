@@ -123,7 +123,8 @@ impl Rng {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;
         self.0 ^= self.0 << 17;
-        (self.0 % n.max(1) as u64) as usize
+        // RCA-DECL-1: the divisor is at least 1, so the remainder always exists.
+        self.0.checked_rem(n.max(1) as u64).unwrap_or(0) as usize
     }
 }
 
@@ -182,6 +183,10 @@ fn appointment_id(body: &[u8]) -> Option<Uuid> {
     v["data"]["id"].as_str()?.parse().ok()
 }
 
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `read_day` is a fixture date a little over 600 days ahead, so adding 1 or 31 days stays far inside the calendar"
+)]
 pub async fn read_once(ctx: &Ctx, rng: &mut Rng, rec: &mut Recorder) {
     let fx = &ctx.fx;
     let pick = rng.below(100);
@@ -241,7 +246,15 @@ pub async fn read_once(ctx: &Ctx, rng: &mut Rng, rec: &mut Recorder) {
 /// round) make one of them see 409, which is counted as contention, not an error.
 pub async fn cycle_once(ctx: &Ctx, rec: &mut Recorder) {
     let slots = &ctx.fx.cycle_slots;
-    let slot = slots[ctx.next_cycle.fetch_add(1, Ordering::Relaxed) % slots.len()];
+    let Some(slot) = ctx
+        .next_cycle
+        .fetch_add(1, Ordering::Relaxed)
+        .checked_rem(slots.len())
+        .and_then(|i| slots.get(i))
+        .copied()
+    else {
+        return;
+    };
     let book = ctx
         .request(Method::POST, &format!("/api/slots/{slot}/book"))
         .json(&json!({"person_id": Uuid::new_v4()}));

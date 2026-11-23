@@ -193,6 +193,10 @@ impl ResourcesService {
     }
 }
 
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+)]
 fn tally_occupancy(ward_id: Uuid, beds: &[Bed]) -> WardOccupancy {
     let mut occ = WardOccupancy {
         ward_id,

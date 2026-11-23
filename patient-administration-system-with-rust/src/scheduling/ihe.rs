@@ -93,7 +93,7 @@ impl SchedulingService {
         if q.end <= q.start {
             return Err(Error::validation("end must be after start"));
         }
-        if q.end - q.start > crate::time::days(90) {
+        if q.end.duration_since(q.start) > crate::time::days(90) {
             return Err(Error::validation("the period can be at most 90 days"));
         }
         let count = in_range("count", q.count, 1, 50)?;
@@ -132,7 +132,7 @@ impl SchedulingService {
                     id.into(),
                     slot_id.into(),
                     q.patient.into(),
-                    (now + SignedDuration::from_mins(PROPOSAL_MINUTES)).into(),
+                    crate::time::plus(now, SignedDuration::from_mins(PROPOSAL_MINUTES))?.into(),
                     q.start.into(),
                     q.end.into(),
                 ],
@@ -234,7 +234,7 @@ impl SchedulingService {
                             "patient already has an overlapping appointment",
                         ));
                     }
-                    let until = now + ttl;
+                    let until = crate::time::plus(now, ttl)?;
                     txn.run(Stmt::new(
                         "UPDATE slot_proposals SET status = 'held', held_at = $2, expires_at = $3 \
                          WHERE id = $1",

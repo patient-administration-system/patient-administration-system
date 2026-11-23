@@ -119,7 +119,8 @@ impl SchedulingService {
             ));
         }
         // A one-to-one slot is busy once booked; a group session only once its last place is taken.
-        if booked + 1 >= capacity {
+        // A count that cannot be raised by one is certainly at capacity.
+        if booked.checked_add(1).is_none_or(|next| next >= capacity) {
             SlotRepository::update_status(txn, slot_id, SlotStatus::Busy).await?;
         }
         let mut appt = Appointment::new(person_id, slot.start_datetime, slot.end_datetime);

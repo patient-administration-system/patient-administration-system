@@ -157,15 +157,19 @@ pub fn mint(key: &SigningKey, spec: &TokenSpec) -> Result<String, String> {
         attrs.entry(k.clone()).or_default().push(v.clone());
     }
     let t = now();
+    let exp = t
+        .checked_add(spec.ttl_secs)
+        .ok_or("ttl_secs is too large")?;
+    let nbf = t.checked_sub(5).ok_or("the clock is out of range")?;
     let claims = Claims {
         sub: spec.sub.clone(),
         email: spec.email.clone(),
         name: spec.name.clone(),
         iss: spec.issuer.clone(),
         aud: spec.audience.clone(),
-        exp: t + spec.ttl_secs,
+        exp,
         iat: t,
-        nbf: Some(t - 5),
+        nbf: Some(nbf),
         sid: uuid::Uuid::new_v4().to_string(),
         scope: vec![],
         roles: vec![],

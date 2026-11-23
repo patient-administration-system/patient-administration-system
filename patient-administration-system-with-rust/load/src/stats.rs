@@ -48,6 +48,10 @@ pub struct Recorder {
 }
 
 impl Recorder {
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each count rises by one per request this run sent, so it stays far below the maximum of its type"
+    )]
     pub fn record(&mut self, s: Sample) {
         let e = self.ops.entry(s.op).or_default();
         e.latencies
@@ -63,6 +67,10 @@ impl Recorder {
         }
     }
 
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each total adds the counts of runs that each sent a bounded number of requests, so it stays far below the maximum of its type"
+    )]
     pub fn merge(&mut self, other: Recorder) {
         self.shed += other.shed;
         for (op, o) in other.ops {

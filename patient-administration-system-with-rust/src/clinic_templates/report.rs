@@ -93,7 +93,7 @@ pub async fn capacity_report(
             "lookback_days must be between 7 and {MAX_DAYS}"
         )));
     }
-    let lookback_from = from - crate::time::days(lookback_days);
+    let lookback_from = crate::time::minus(from, crate::time::days(lookback_days))?;
     let rows = db
         .all(Stmt::new(
             "SELECT coalesce(s.slot_type, 'untyped') AS slot_type, count(*) AS slots, \
@@ -146,10 +146,11 @@ pub async fn capacity_report(
         .ok_or_else(|| Error::internal("no row from count"))?;
     let attended: i64 = outcomes.col("attended")?;
     let missed: i64 = outcomes.col("missed")?;
-    let rate = (attended + missed > 0).then(|| missed as f64 / (attended + missed) as f64);
+    let seen = crate::arith::add("appointments counted", attended, missed)?;
+    let rate = (seen > 0).then(|| missed as f64 / seen as f64);
 
     let lookback_weeks = lookback_days as f64 / 7.0;
-    let forward_weeks = (to - from).as_secs() as f64 / (7.0 * 86_400.0);
+    let forward_weeks = to.duration_since(from).as_secs() as f64 / (7.0 * 86_400.0);
     let demand_per_week = referrals as f64 / lookback_weeks;
     let required = required_per_week(demand_per_week, rate);
     let available_per_week = available_slots as f64 / forward_weeks;

@@ -74,6 +74,10 @@ pub fn limit(requested: Option<&str>, default: i64) -> Result<i64> {
 
 /// What a service should be asked for, given the request's limit: one more row, to learn whether there is more.
 /// Services use [`fetch`] on whatever they are given so that a caller passing `limit + 1` is not cut back.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "RCA-EXC-2: `limit` is a page limit, checked to be at most MAX_LIMIT before it is used, so one more cannot overflow an i64"
+)]
 pub fn ask_for(limit: i64) -> i64 {
     limit + 1
 }

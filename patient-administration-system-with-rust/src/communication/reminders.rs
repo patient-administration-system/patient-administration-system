@@ -133,14 +133,22 @@ impl ReminderService {
             .map(|t| t.channels.clone())
             // RCA-DECL-1: no default template means no channels, so nothing is sent.
             .unwrap_or(Vec::new());
-        let appointments =
-            AppointmentRepository::list_booked_starting_between(&self.db, now, now + lead).await?;
+        let appointments = AppointmentRepository::list_booked_starting_between(
+            &self.db,
+            now,
+            crate::time::plus(now, lead)?,
+        )
+        .await?;
         self.remind(&templates, &channels, appointments, now).await
     }
 
     /// Remind each of `appointments`, as one scan found them. Each is checked again just before its
     /// reminder goes, so one cancelled or moved since the scan is skipped, with the reason counted (TSC-2).
     /// Public so a test can hand it a stale list.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each report counter rises by one per appointment in a list already held in memory, so it stays below usize::MAX"
+    )]
     pub async fn remind(
         &self,
         templates: &[LetterTemplate],
@@ -205,10 +213,12 @@ impl ReminderService {
     ) -> Result<Option<Skip>> {
         // Any language variant counts: the patient was reminded either way.
         let mut already = false;
-        let mut failed = 0;
+        let mut failed: i64 = 0;
         for id in template_ids {
             already |= LetterRepository::exists_for_appointment(&self.db, a.id, *id).await?;
-            failed += LetterRepository::count_failed_for_appointment(&self.db, a.id, *id).await?;
+            // Saturating: the total is only compared with MAX_FAILED_ATTEMPTS.
+            let n = LetterRepository::count_failed_for_appointment(&self.db, a.id, *id).await?;
+            failed = crate::arith::add("failed letters", failed, n)?;
         }
         if already {
             return Ok(Some(Skip::AlreadyReminded));
@@ -231,7 +241,8 @@ impl ReminderService {
                 .transpose()?
                 .flatten();
             if let Some(last) = last
-                && now < last + crate::receipts::retry_delay(failed)
+                && crate::time::plus(last, crate::receipts::retry_delay(failed))
+                    .map_or(true, |due| now < due)
             {
                 return Ok(Some(Skip::BackingOff));
             }

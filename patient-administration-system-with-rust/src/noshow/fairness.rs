@@ -18,6 +18,10 @@ impl NoShowService {
     }
 
     /// The audit over at most the newest `most` appointments of the period, saying when there were more.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     pub async fn fairness_audit_of(
         &self,
         days: i64,
@@ -42,7 +46,7 @@ impl NoShowService {
                  WHERE a.deleted_at IS NULL AND a.status IN ('fulfilled','arrived','no_show') \
                    AND a.start_datetime > now() - make_interval(days => $1::int) AND a.start_datetime < now() \
                  ORDER BY a.start_datetime DESC LIMIT $2",
-                [days_bound.into(), (most + 1).into()],
+                [days_bound.into(), crate::paging::ask_for(most).into()],
             ))
 .await?;
         let (rows, cut) = crate::paging::cut(rows, most);
@@ -66,7 +70,7 @@ impl NoShowService {
                 &Inputs {
                     past_missed: r.col("missed")?,
                     past_attended: r.col("attended")?,
-                    lead_days: ((start - created).as_secs() as f64 / 86_400.0).max(0.0),
+                    lead_days: (start.duration_since(created).as_secs() as f64 / 86_400.0).max(0.0),
                     age_band: r.col("age_band")?,
                     weekday: local.weekday().to_monday_zero_offset() as usize,
                     hour: u32::try_from(local.hour()).unwrap_or(0),

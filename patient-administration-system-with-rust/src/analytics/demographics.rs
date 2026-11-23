@@ -96,12 +96,16 @@ impl AnalyticsService {
                     sql.push(',');
                 }
                 let b = values.len();
+                #[expect(
+                    clippy::arithmetic_side_effects,
+                    reason = "RCA-EXC-2: `b` is the length of a parameter list built from one chunk of rows, four per row, far below usize::MAX"
+                )]
                 sql.push_str(&format!("(${},${},${},${})", b + 1, b + 2, b + 3, b + 4));
                 values.extend([pc.clone().into(), (*q).into(), dataset.into(), by.into()]);
             }
             sql.push_str(" ON CONFLICT (postcode) DO UPDATE SET quintile = EXCLUDED.quintile, dataset = EXCLUDED.dataset, loaded_by = EXCLUDED.loaded_by, loaded_at = now()");
             self.db.run(Stmt::new(sql, values)).await?;
-            loaded += chunk.len() as u64;
+            loaded = crate::arith::add("rows loaded", loaded, chunk.len() as u64)?;
         }
         // A header line is not a rejection; anything else that did not parse is.
         let header = csv
@@ -109,9 +113,13 @@ impl AnalyticsService {
             .next()
             .is_some_and(|l| l.to_lowercase().contains("postcode"));
         // More lines parsed than were read leaves none rejected.
-        rejected += total
-            .checked_sub(loaded.checked_add(u64::from(header)).unwrap_or(u64::MAX))
-            .unwrap_or(0);
+        rejected = crate::arith::add(
+            "rows rejected",
+            rejected,
+            total
+                .checked_sub(loaded.checked_add(u64::from(header)).unwrap_or(u64::MAX))
+                .unwrap_or(0),
+        )?;
         AuditLogRepository::log(
             &self.db,
             "deprivation_lookup",
@@ -130,6 +138,10 @@ impl AnalyticsService {
     /// Only the two coarse bands are kept; the date of birth and postcode are read, used and not stored.
     /// A person with no usable date or no matching postcode gets the part that is known. Returns how many
     /// people were updated.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     pub async fn refresh_demographics(
         &self,
         people: &dyn crate::upstream::PersonClient,
@@ -147,7 +159,7 @@ impl AnalyticsService {
                 [limit.into()],
             ))
 .await?;
-        let mut n = 0;
+        let mut n: u64 = 0;
         for r in ids {
             let id: uuid::Uuid = r.col("person_id")?;
             // A person the upstream cannot return is skipped, not an error for the whole run.

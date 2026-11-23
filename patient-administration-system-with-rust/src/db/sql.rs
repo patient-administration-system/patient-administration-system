@@ -370,6 +370,10 @@ impl<T: Table> Patch<T> {
 
     /// Write the named columns and return the stored row. A row that has gone is an error.
     pub async fn update<C: Conn>(self, conn: &C) -> Result<T> {
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "RCA-EXC-2: `n` indexes the columns of one update, a few dozen at most, so `n + 2` cannot overflow"
+        )]
         let assignments: Vec<String> = self
             .columns
             .iter()

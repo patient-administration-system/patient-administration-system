@@ -8,6 +8,10 @@ impl ToleranceService {
     /// Check every reading and keep the alerts true to it: a measure that is red has one open alert (and the
     /// `ToleranceAlertRaised` event is published once, when it opens); an alert closes when its measure is
     /// amber or green. A measure with no data leaves its alert as it is, because nothing says it recovered.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     pub async fn evaluate(&self, days: i64) -> Result<Evaluation> {
         let status = self.status(days).await?;
         let readings: Vec<&Reading> = status
@@ -16,7 +20,7 @@ impl ToleranceService {
             .chain(&status.by_service)
             .chain(&status.by_ward)
             .collect();
-        let (mut raised, mut cleared) = (0, 0);
+        let (mut raised, mut cleared): (usize, usize) = (0, 0);
         for r in &readings {
             match (r.rag, r.value) {
                 (Rag::Red, Some(value)) => {
@@ -37,7 +41,7 @@ impl ToleranceService {
                         ))
 .await?
                         .rows_affected();
-                    cleared += n as usize;
+                    cleared = crate::arith::add("alerts cleared", cleared, n as usize)?;
                 }
                 _ => {}
             }

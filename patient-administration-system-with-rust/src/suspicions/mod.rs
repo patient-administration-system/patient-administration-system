@@ -635,6 +635,10 @@ impl SuspicionService {
     /// The report (FR-213): suspicions whose clock stopped from `from` to `to` inclusive, each once, per
     /// profile, condition, subtype and recorded target. `entered_in_error` is left out; `withdrawn` is counted
     /// apart.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: each counter here rises by one per item of a collection already in memory, or per event handled, so it cannot reach the maximum of its type"
+    )]
     pub async fn report(&self, from: Date, to: Date) -> Result<SuspicionReport> {
         if to < from {
             return Err(Error::validation("`from` must not be after `to`"));
@@ -688,7 +692,7 @@ impl SuspicionService {
                 subtype,
                 subtype_scheme: scheme,
                 target_days: target,
-                stopped: n + withdrawn,
+                stopped: crate::arith::add("stopped cases", n, withdrawn)?,
                 withdrawn,
                 within_target: within,
                 share_within_target: within.filter(|_| n > 0).map(|w| w as f64 / n as f64),
