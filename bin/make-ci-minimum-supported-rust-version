@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Check and test on Rust N-2 (the MSRV) and N-1.
+# Check and test on Rust N-2 (the MSRV) and N-1, and check on N (the pinned toolchain).
 #
 # The MSRV is read from `rust-version` in the Cargo.toml files (they must agree).
 # N-1 is the next minor version up, so both ends of the supported range are
@@ -48,4 +48,12 @@ for toolchain in "${n2}" "${n1}"; do
       && RUSTUP_TOOLCHAIN="${toolchain}" cargo test) || failed=1
   done
 done
+# N is the channel pinned in rust-toolchain.toml; it is checked here and tested by the normal gate.
+n="$(sed -nE 's/^channel *= *"([^"]+)".*/\1/p' rust-toolchain.toml | head -1)"
+if [[ -n "${n}" ]] && rustup toolchain list | grep -q "^${n}"; then
+  for dir in "${roots[@]}"; do
+    echo "==> N: Rust ${n} in ${dir}"
+    (cd "${dir}" && RUSTUP_TOOLCHAIN="${n}" cargo check --all-targets) || failed=1
+  done
+fi
 exit "${failed}"

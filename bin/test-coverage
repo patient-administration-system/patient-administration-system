@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Measure test coverage with cargo-tarpaulin (LLVM engine): the unit and database tests in one run, written to lcov.info,
+# then the per-crate line coverage. Needs DATABASE_URL (the dev database or a fresh one). `make test-coverage` calls this.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+: "${DATABASE_URL:?DATABASE_URL must name the database the tests use}"
+just rust-db-coverage
+just coverage-summary

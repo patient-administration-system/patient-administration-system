@@ -20039,8 +20039,8 @@
     },
     "description": "Administrative (not clinical) API for appointments, waiting lists, reminders and replies, transport and virtual-visit requests, analytics and tolerances. Every REST response is an `ApiResponse` envelope. Identity and workforce are held by person-service and worker-service; /api/patients and /api/practitioners proxy them. Request bodies and query parameters of the REST routes are described (QUAL-34); typed responses are not yet.",
     "license": {
-      "identifier": "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only OR OGL-UK-3.0 OR CC-BY-NC-SA-4.0",
-      "name": "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only OR OGL-UK-3.0 OR CC-BY-NC-SA-4.0"
+      "identifier": "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only OR OGL-UK-3.0 OR CC-BY-SA-4.0",
+      "name": "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only OR OGL-UK-3.0 OR CC-BY-SA-4.0"
     },
     "title": "Patient Administration System",
     "version": "0.49.0"

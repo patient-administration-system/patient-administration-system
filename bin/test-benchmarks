@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Run the Criterion benchmarks: the ones that need no database, then those against PostgreSQL when DATABASE_URL is set.
+# Reports are written to target/criterion (PERF-1, PERF-3). `make test-benchmarks` calls this.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+just bench
+if [[ -n "${DATABASE_URL:-}" ]]; then
+  just bench-db
+else
+  echo "DATABASE_URL is not set: skipping the database benchmarks (db_bench)" >&2
+fi

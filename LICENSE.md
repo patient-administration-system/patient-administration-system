@@ -6,7 +6,7 @@ The copyright holder is Joel Parker Henderson.
 The SPDX expression used in the manifests of the server and the UI is:
 
 ```
-MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only OR OGL-UK-3.0 OR CC-BY-NC-SA-4.0
+MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only OR OGL-UK-3.0 OR CC-BY-SA-4.0
 ```
 
 The front-end crate declares the narrower `MIT OR Apache-2.0`.
@@ -19,9 +19,9 @@ The front-end crate declares the narrower `MIT OR Apache-2.0`.
 | GNU GPL v2.0 | `GPL-2.0-only` | [`LICENSES/gpl-2.0-only/index.md`](LICENSES/gpl-2.0-only/index.md) |
 | GNU GPL v3.0 | `GPL-3.0-only` | [`LICENSES/gpl-3.0-only/index.md`](LICENSES/gpl-3.0-only/index.md) |
 | UK Open Government Licence v3.0 | `OGL-UK-3.0` | [`LICENSES/ogl-uk-3.0/index.md`](LICENSES/ogl-uk-3.0/index.md) |
-| Creative Commons Attribution Non Commercial Share Alike 4.0 International | `CC-BY-NC-SA-4.0` | [`LICENSES/cc-by-nc-sa-4.0/index.md`](LICENSES/cc-by-nc-sa-4.0/index.md) |
+| Creative Commons Attribution Share Alike 4.0 International | `CC-BY-SA-4.0` | [`LICENSES/cc-by-sa-4.0/index.md`](LICENSES/cc-by-sa-4.0/index.md) |
 
-The permissive licences suit organizations that embed or adapt the code; Apache-2.0 adds an explicit patent grant. The GNU licences suit those who want copyleft. The UK Open Government Licence v3.0 suits public-sector reuse in the UK; CC BY-NC-SA 4.0 suits non-commercial reuse shared alike (it forbids commercial use, so it is not an open-source licence).
+The permissive licences suit organizations that embed or adapt the code; Apache-2.0 adds an explicit patent grant. The GNU licences suit those who want copyleft. The UK Open Government Licence v3.0 suits public-sector reuse in the UK; CC BY-SA 4.0 suits reuse of documentation and other non-software material, shared alike (Creative Commons advises against using it for software, so choose another licence for the code).
 
 A test (`patient-administration-system-with-rust/tests/licence_files.rs`) fails if a manifest names a licence that has no `LICENSES/<lowercase-spdx-id>/index.md`, if `LICENSE.md` does not link each text, or if a `LICENSE/` directory exists. All licence texts live in `LICENSES/`, one `index.md` per licence, and nowhere else.
 
@@ -37,4 +37,4 @@ The full text of each license is in its own directory:
 - [GPL-2.0-only](LICENSES/gpl-2.0-only/index.md)
 - [GPL-3.0-only](LICENSES/gpl-3.0-only/index.md)
 - [OGL-UK-3.0](LICENSES/ogl-uk-3.0/index.md)
-- [CC-BY-NC-SA-4.0](LICENSES/cc-by-nc-sa-4.0/index.md)
+- [CC-BY-SA-4.0](LICENSES/cc-by-sa-4.0/index.md)
