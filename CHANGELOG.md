@@ -9,6 +9,10 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
+## Release 0.50.0 (2026-11-24)
+
+Server crate 0.50.0 and the domain crate 0.50.0. Tag `v0.50.0`. **Licence:** `CC-BY-SA-4.0` replaces `CC-BY-NC-SA-4.0` in the choice of licences. 0.49.0 was prepared but never tagged, so this release carries its changes too.
+
 - **Changed, arithmetic and conversions (RCA-ENF-3, RCA-CONV-1 to CONV-4):** `clippy::arithmetic_side_effects` and `clippy::as_conversions` are denied in every crate root. A sum that can overflow is checked (`domain::arith::add`, `checked_sum`) or carries a written proof; a narrowing conversion is `arith::narrow` (an error naming the figure); a rate is `arith::ratio`. Timestamp arithmetic that could panic is `time::plus`/`time::minus` (an error). `time::days` takes an `i32` count and cannot overflow; `time::try_days` is an error for a count that does not fit (it used to give the longest duration). Settings that are set but unusable are now errors, not defaults (`env::int`, `env::float`, `env::flag`).
 - **New, mobile apps (MOB-1 to MOB-6):** an iOS app (Swift, SwiftUI) and an Android app (Kotlin, Compose) showing a patient's appointments on demo data, drawn with Lily; ten locales (English, Welsh and six first drafts: `ar`, `de`, `es`, `fr`, `hi`, `zh`), Arabic right to left; accessibility audits in light and dark.
 - **Changed, dependencies (AXA-16):** axa 0.23 and axa-test 0.14 (0.22 skipped). The front-end builds its service with `AppRoutes::into_app_with`, so its static files, views and request tracing sit inside axa's middleware in one call, and `db` and `task` commands read their configuration with `Config::for_task_from_lookup`, so a bad CORS origin does not stop an operator running them. `cookie` 0.18.3 (RUSTSEC-2026-0594).

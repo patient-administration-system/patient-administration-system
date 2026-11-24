@@ -20043,7 +20043,7 @@
       "name": "MIT OR Apache-2.0 OR BSD-3-Clause OR GPL-2.0-only OR GPL-3.0-only OR OGL-UK-3.0 OR CC-BY-SA-4.0"
     },
     "title": "Patient Administration System",
-    "version": "0.49.0"
+    "version": "0.50.0"
   },
   "openapi": "3.1.0",
   "paths": {

@@ -586,7 +586,7 @@ cargo fmt --check --all                                   # formatting clean
 
 ## Status
 
-**Version:** v0.49.0 — library + `patient-administration-system` binary + `pas-seed` binary + `pas-migrate` binary. See [`CHANGELOG.md`](CHANGELOG.md) for the per-release summary.
+**Version:** v0.50.0 — library + `patient-administration-system` binary + `pas-seed` binary + `pas-migrate` binary. See [`CHANGELOG.md`](CHANGELOG.md) for the per-release summary.
 
 What is built and what is not changes with every release, so it is generated rather than written here: see [`spec/14-implementation-status.md`](../spec/14-implementation-status.md), and [`tasks.md`](../tasks.md) for the open work.
 

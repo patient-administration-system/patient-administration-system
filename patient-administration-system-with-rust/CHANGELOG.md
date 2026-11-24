@@ -5,6 +5,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-24
+
+The licence choice is CC-BY-SA-4.0 in place of CC-BY-NC-SA-4.0; `time::days` takes an `i32` and cannot overflow; arithmetic and conversions are checked in every crate (see the workspace CHANGELOG); axa 0.23.
+
 ### Added
 - Silence signals (NFR-34): `pas_hl7_last_received_timestamp_seconds` and `pas_outbox_last_delivered_timestamp_seconds` in `/api/admin/metrics`, and `hl7_last_received_seconds_ago` and `outbox_last_delivered_seconds_ago` in `GET /api/health`, so an alert can fire when a feed goes quiet. The thresholds are the deployment's.
 - The MLLP listener can use TLS (`PAS_HL7_TLS_CERT_FILE` and `PAS_HL7_TLS_KEY_FILE`, both or neither, or the server refuses to start) and ask for client certificates (`PAS_HL7_TLS_CLIENT_CA_FILE`); it closes an idle connection (`PAS_HL7_IDLE_SECONDS`, 30) and caps open ones (`PAS_HL7_MAX_CONNECTIONS`, 64) (HUB-3, NFR-31).

@@ -2555,7 +2555,7 @@ dependencies = [
 
 [[package]]
 name = "patient-administration-system"
-version = "0.49.0"
+version = "0.50.0"
 dependencies = [
  "assertables",
  "async-trait",
@@ -2609,7 +2609,7 @@ dependencies = [
 
 [[package]]
 name = "patient-administration-system-domain"
-version = "0.49.0"
+version = "0.50.0"
 dependencies = [
  "jiff 1.0.2",
  "rust_decimal",
