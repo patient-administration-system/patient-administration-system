@@ -145,7 +145,7 @@ impl ProxyService {
             )));
         }
         if new.expires_at <= now
-            || new.expires_at > crate::time::plus(now, crate::time::days(MAX_DAYS))?
+            || new.expires_at > crate::time::plus(now, crate::time::try_days(MAX_DAYS)?)?
         {
             return Err(Error::validation(format!(
                 "expires_at must be in the future and within {MAX_DAYS} days"
@@ -292,7 +292,7 @@ impl ProxyService {
 mod tests {
     use super::*;
 
-    fn authority(scopes: &[&str], expires_in: i64, revoked: bool) -> Authority {
+    fn authority(scopes: &[&str], expires_in: i32, revoked: bool) -> Authority {
         let now = Timestamp::now();
         Authority {
             id: Uuid::new_v4(),

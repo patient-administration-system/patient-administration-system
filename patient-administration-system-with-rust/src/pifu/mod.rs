@@ -505,7 +505,7 @@ fn check_window(now: Timestamp, until: Timestamp) -> Result<()> {
     if until <= now {
         return Err(Error::validation("the window must end in the future"));
     }
-    if until > crate::time::plus(now, crate::time::days(MAX_WINDOW_DAYS))? {
+    if until > crate::time::plus(now, crate::time::try_days(MAX_WINDOW_DAYS)?)? {
         return Err(Error::validation(format!(
             "the window may be at most {MAX_WINDOW_DAYS} days"
         )));
@@ -533,7 +533,13 @@ mod tests {
     fn a_window_must_end_in_the_future_and_within_two_years() {
         let now = Timestamp::now();
         assert!(check_window(now, now - crate::time::days(1)).is_err());
-        assert!(check_window(now, now + crate::time::days(MAX_WINDOW_DAYS + 1)).is_err());
+        assert!(
+            check_window(
+                now,
+                now + crate::time::try_days(MAX_WINDOW_DAYS + 1).unwrap()
+            )
+            .is_err()
+        );
         assert!(check_window(now, now + crate::time::days(180)).is_ok());
     }
 }

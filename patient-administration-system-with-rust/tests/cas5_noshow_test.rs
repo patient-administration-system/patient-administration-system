@@ -100,7 +100,8 @@ async fn booked(s: &AppState, person: Uuid, days: i64) -> Appointment {
 /// `n` past appointments for the patient with the given status.
 async fn history(s: &AppState, person: Uuid, status: &str, n: i64) {
     for i in 0..n {
-        let start = Timestamp::now() - patient_administration_system::time::days(10 + i);
+        let start =
+            Timestamp::now() - patient_administration_system::time::try_days(10 + i).unwrap();
         let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(15));
         a.status = AppointmentStatus::Booked;
         let a = AppointmentRepository::create(&s.db, &a).await.unwrap();

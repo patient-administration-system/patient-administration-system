@@ -28,7 +28,7 @@ fn sys() -> UserContext {
 
 /// `days` ahead at `hour`:00 UTC.
 fn at(days: i64, hour: i8) -> Timestamp {
-    let d = (Timestamp::now() + patient_administration_system::time::days(days))
+    let d = (Timestamp::now() + patient_administration_system::time::try_days(days).unwrap())
         .to_zoned_datetime(jiff::tz::TimeZone::UTC)
         .date();
     patient_administration_system::time::utc(d.year(), d.month(), d.day(), hour, 0, 0)

@@ -98,7 +98,7 @@ pub async fn capacity_report(
             "lookback_days must be between 7 and {MAX_DAYS}"
         )));
     }
-    let lookback_from = crate::time::minus(from, crate::time::days(lookback_days))?;
+    let lookback_from = crate::time::minus(from, crate::time::try_days(lookback_days)?)?;
     let rows = db
         .all(Stmt::new(
             "SELECT coalesce(s.slot_type, 'untyped') AS slot_type, count(*) AS slots, \

@@ -223,7 +223,9 @@ pub fn compute_occurrences(rule: &RecurrenceRule, start: Timestamp) -> Result<Ve
                     )));
                 }
                 // The calendar ends: a step past the last date a timestamp holds ends the series there.
-                match crate::time::plus(cursor, crate::time::days(i64::from(interval))) {
+                match crate::time::try_days(i64::from(interval))
+                    .and_then(|by| crate::time::plus(cursor, by))
+                {
                     Ok(next) => cursor = next,
                     Err(_) => break,
                 }

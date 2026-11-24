@@ -109,7 +109,10 @@ pub fn is_stale(
     match (mobile, verified_at) {
         (None, _) => true,
         (Some(_), None) => true,
-        (Some(_), Some(at)) => now.duration_since(at) > crate::time::days(max_age_days),
+        // RCA-DECL-1: a maximum age too large for a duration is older than any verification, so nothing is stale.
+        (Some(_), Some(at)) => {
+            crate::time::try_days(max_age_days).is_ok_and(|max| now.duration_since(at) > max)
+        }
     }
 }
 

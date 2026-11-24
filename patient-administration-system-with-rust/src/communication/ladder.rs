@@ -144,7 +144,7 @@ pub fn parse_steps(spec: &str) -> Result<Vec<StepSpec>> {
             .map_err(|_| bad(format!("{dur:?} is not like 7d or 24h")))?;
         // `SignedDuration::from_hours` panics when the hours do not fit; a count too large is an error.
         let before = match unit {
-            "d" => crate::time::days(n),
+            "d" => crate::time::try_days(n)?,
             "h" => n
                 .checked_mul(3_600)
                 .map(SignedDuration::from_secs)
@@ -748,7 +748,7 @@ mod tests {
     #[test]
     fn test_steps_become_due_at_their_time_and_not_before() {
         let s = parse_steps(DEFAULT_STEPS).unwrap();
-        let at = |d: i64, h: i64| start() - crate::time::days(d) - SignedDuration::from_hours(h);
+        let at = |d: i32, h: i64| start() - crate::time::days(d) - SignedDuration::from_hours(h);
         assert!(due_steps(&s, start(), at(8, 0)).is_empty());
         assert_eq!(
             due_steps(&s, start(), at(7, 0))

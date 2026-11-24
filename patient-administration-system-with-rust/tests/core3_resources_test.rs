@@ -34,7 +34,10 @@ async fn slot(s: &AppState, schedule: Uuid, start: Timestamp, mins: i64) -> Uuid
 
 fn when() -> Timestamp {
     Timestamp::now()
-        + patient_administration_system::time::days(30 + (Uuid::new_v4().as_u128() % 3000) as i64)
+        + patient_administration_system::time::try_days(
+            30 + (Uuid::new_v4().as_u128() % 3000) as i64,
+        )
+        .unwrap()
 }
 
 async fn state() -> AppState {

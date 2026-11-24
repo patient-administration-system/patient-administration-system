@@ -18,7 +18,7 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 async fn booked(db: &patient_administration_system::db::sql::Pool, in_days: i64) -> Appointment {
-    let start = Timestamp::now() + patient_administration_system::time::days(in_days);
+    let start = Timestamp::now() + patient_administration_system::time::try_days(in_days).unwrap();
     let mut a = Appointment::new(Uuid::new_v4(), start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     AppointmentRepository::create(db, &a).await.unwrap()

@@ -180,7 +180,7 @@ impl FollowUpDelayService {
 mod tests {
     use super::*;
 
-    fn d(day: i64) -> Date {
+    fn d(day: i32) -> Date {
         jiff::civil::date(2030, 1, 1) + crate::time::days(day)
     }
 

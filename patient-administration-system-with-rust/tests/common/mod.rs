@@ -62,7 +62,8 @@ pub async fn free_slot(
 ) -> patient_administration_system::models::schedule::Slot {
     use patient_administration_system::db::repositories::slot::SlotRepository;
     use patient_administration_system::models::schedule::Slot;
-    let start = jiff::Timestamp::now() + patient_administration_system::time::days(in_days);
+    let start =
+        jiff::Timestamp::now() + patient_administration_system::time::try_days(in_days).unwrap();
     let slot = Slot::new(
         schedule_id,
         start,

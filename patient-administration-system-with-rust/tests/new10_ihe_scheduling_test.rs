@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 fn at(days: i64, hour: i8) -> Timestamp {
     let d = patient_administration_system::time::utc_date(
-        Timestamp::now() + patient_administration_system::time::days(days),
+        Timestamp::now() + patient_administration_system::time::try_days(days).unwrap(),
     );
     patient_administration_system::time::utc(d.year(), d.month(), d.day(), hour, 0, 0)
 }

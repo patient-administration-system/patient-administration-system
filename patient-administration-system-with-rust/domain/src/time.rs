@@ -13,17 +13,22 @@ use jiff::civil::{Date, Weekday};
 use jiff::tz::TimeZone;
 use jiff::{SignedDuration, Timestamp};
 
-/// `n` days of 24 hours.
-pub fn days(n: i64) -> SignedDuration {
-    // Days beyond what a duration can hold are the longest duration, in the direction of the sign.
-    let longest = if n < 0 {
-        SignedDuration::MIN
-    } else {
-        SignedDuration::MAX
-    };
-    n.checked_mul(24)
-        .and_then(|hours| hours.checked_mul(3600))
-        .map_or(longest, SignedDuration::from_secs)
+/// `n` days of 24 hours. An `i32` count of days is at most about 1.9e14 seconds, well inside what a duration
+/// holds, so this cannot overflow; a wider count goes through [`try_days`].
+pub fn days(n: i32) -> SignedDuration {
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "RCA-EXC-2: an i32 count times 86,400 is at most about 1.9e14, far below i64::MAX"
+    )]
+    let secs = i64::from(n) * 86_400;
+    SignedDuration::from_secs(secs)
+}
+
+/// `n` days of 24 hours, or a validation error when the count is too large for a duration (RCA-INT-1).
+pub fn try_days(n: i64) -> crate::Result<SignedDuration> {
+    n.checked_mul(86_400)
+        .map(SignedDuration::from_secs)
+        .ok_or_else(|| crate::Error::unprocessable("days is out of range"))
 }
 
 /// `at` plus `by`, or a validation error when the result is outside the dates a timestamp can hold. The `+`
@@ -203,6 +208,17 @@ mod tests {
         assert_eq!(days(2), SignedDuration::from_hours(48));
         assert_eq!(whole_days(SignedDuration::from_hours(47)), 1);
         assert_eq!(whole_days(SignedDuration::from_hours(-47)), -1);
+    }
+
+    #[test]
+    fn a_count_of_days_that_does_not_fit_is_an_error_not_the_longest_duration() {
+        assert_eq!(try_days(2).unwrap(), SignedDuration::from_hours(48));
+        assert_eq!(try_days(-2).unwrap(), SignedDuration::from_hours(-48));
+        assert!(try_days(i64::MAX).is_err());
+        assert!(try_days(i64::MIN).is_err());
+        // The widest `i32` count is exact, in both directions.
+        assert_eq!(days(i32::MAX).as_secs(), i64::from(i32::MAX) * 86_400);
+        assert_eq!(days(i32::MIN).as_secs(), i64::from(i32::MIN) * 86_400);
     }
 
     #[test]

@@ -119,7 +119,7 @@ impl Db {
             .ok_or("the run offset is too large")?;
         let base = patient_administration_system::time::plus(
             Timestamp::now(),
-            patient_administration_system::time::days(ahead),
+            patient_administration_system::time::try_days(ahead)?,
         )?
         .to_zoned_datetime(jiff::tz::TimeZone::UTC)
         .date()

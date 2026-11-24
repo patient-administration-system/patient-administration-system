@@ -36,7 +36,7 @@ async fn world() -> W {
     for _ in 0..200 {
         let d = 2000 + (Uuid::new_v4().as_u128() % 40_000) as i64;
         // Noon, so that the window (12 hours either side) is exactly one calendar day whatever the time now.
-        let centre = (Timestamp::now() + patient_administration_system::time::days(d))
+        let centre = (Timestamp::now() + patient_administration_system::time::try_days(d).unwrap())
             .to_zoned_datetime(jiff::tz::TimeZone::UTC)
             .date()
             .at(12, 0, 0, 0)

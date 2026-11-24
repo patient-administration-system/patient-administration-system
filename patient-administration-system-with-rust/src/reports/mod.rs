@@ -177,7 +177,7 @@ fn check_range(from: Option<Timestamp>, to: Option<Timestamp>) -> Result<(Timest
     if to < from {
         return Err(Error::validation("to must not be before from"));
     }
-    if to.duration_since(from) > crate::time::days(MAX_RANGE_DAYS) {
+    if to.duration_since(from) > crate::time::try_days(MAX_RANGE_DAYS)? {
         return Err(Error::validation(format!(
             "the range may be at most {MAX_RANGE_DAYS} days"
         )));

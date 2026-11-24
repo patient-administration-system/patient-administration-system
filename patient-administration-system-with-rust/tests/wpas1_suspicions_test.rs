@@ -65,7 +65,7 @@ fn new(condition: &str, subtype: Option<&str>, days_ago: i64) -> NewSuspicion {
         subtype: subtype.map(String::from),
         subtype_scheme: None,
         unique_pathway_identifier: None,
-        suspected_on: today() - patient_administration_system::time::days(days_ago),
+        suspected_on: today() - patient_administration_system::time::try_days(days_ago).unwrap(),
         suspected_by: "Dr Rhian Evans".into(),
         recorded_by: "Gareth Jones".into(),
     }
@@ -471,10 +471,10 @@ async fn the_report_counts_each_stopped_suspicion_once() {
     let wales = service(&s, "wales");
     // A day well in the past that no other test stops a clock on.
     let base = jiff::civil::date(2001, 1, 1)
-        + patient_administration_system::time::days(i64::from(
+        + patient_administration_system::time::days(i32::from(
             Uuid::new_v4().as_u128() as u16 % 3000,
         ));
-    let stop = |days: i64| base + patient_administration_system::time::days(days);
+    let stop = |days: i64| base + patient_administration_system::time::try_days(days).unwrap();
     let cell = |r: &patient_administration_system::suspicions::SuspicionReport| {
         r.rows
             .iter()
@@ -889,7 +889,7 @@ async fn a_withdrawn_suspicion_is_counted_apart_from_the_share() {
     let s = state().await;
     let wales = service(&s, "wales");
     let base = jiff::civil::date(1990, 1, 1)
-        + patient_administration_system::time::days(i64::from(
+        + patient_administration_system::time::days(i32::from(
             Uuid::new_v4().as_u128() as u16 % 3000,
         ));
     let stop = base + patient_administration_system::time::days(100);

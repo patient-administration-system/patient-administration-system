@@ -101,7 +101,7 @@ impl RebookService {
 
     /// `PAS_REBOOK_HORIZON_DAYS` (default 42), how far ahead alternatives are looked for.
     fn horizon() -> Result<SignedDuration> {
-        Ok(crate::time::days(env::int("PAS_REBOOK_HORIZON_DAYS")?))
+        Ok(crate::time::try_days(env::int("PAS_REBOOK_HORIZON_DAYS")?)?)
     }
 
     /// `PAS_REBOOK_MIN_NOTICE_HOURS` (default 24): a slot sooner than this is not offered.

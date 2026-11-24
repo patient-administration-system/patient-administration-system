@@ -49,7 +49,7 @@ async fn patient(s: &AppState, mobile: &str, language: Option<&str>) -> Uuid {
 
 /// A booked appointment `days` ahead; `reminded` also records a sent text reminder for it.
 async fn appointment(s: &AppState, person: Uuid, days: i64, reminded: bool) -> Appointment {
-    let start = Timestamp::now() + patient_administration_system::time::days(days);
+    let start = Timestamp::now() + patient_administration_system::time::try_days(days).unwrap();
     let mut a = Appointment::new(person, start, start + SignedDuration::from_mins(30));
     a.status = AppointmentStatus::Booked;
     let a = AppointmentRepository::create(&s.db, &a).await.unwrap();

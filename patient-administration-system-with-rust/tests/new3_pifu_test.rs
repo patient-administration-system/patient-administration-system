@@ -13,7 +13,7 @@ fn new<'a>(service: &'a str, days: i64) -> NewEpisode<'a> {
     NewEpisode {
         service_type: service,
         conditions: "Ring us if the pain returns or you cannot walk to the shops.",
-        expires_at: Timestamp::now() + patient_administration_system::time::days(days),
+        expires_at: Timestamp::now() + patient_administration_system::time::try_days(days).unwrap(),
         opened_by: "Dr Evans",
         urgent_override_by: None,
     }

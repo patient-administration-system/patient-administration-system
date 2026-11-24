@@ -176,7 +176,7 @@ pub fn compute_active_weeks(events: &[RTTClockEvent], now: Timestamp) -> u32 {
 mod tests {
     use super::*;
 
-    fn at(now: Timestamp, weeks_ago: i64) -> Timestamp {
+    fn at(now: Timestamp, weeks_ago: i32) -> Timestamp {
         now - crate::time::days(7 * weeks_ago)
     }
 

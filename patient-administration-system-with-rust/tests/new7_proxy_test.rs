@@ -21,7 +21,7 @@ fn new<'a>(proxy: Uuid, scopes: &'a [String], days: i64) -> NewAuthority<'a> {
         relationship: "daughter",
         basis: "patient_consent",
         scopes,
-        expires_at: Timestamp::now() + patient_administration_system::time::days(days),
+        expires_at: Timestamp::now() + patient_administration_system::time::try_days(days).unwrap(),
         recorded_by: "Receptionist",
     }
 }

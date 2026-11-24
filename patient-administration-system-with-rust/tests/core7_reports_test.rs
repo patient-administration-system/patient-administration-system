@@ -38,7 +38,7 @@ async fn world() -> W {
     // long-lived database two runs landing on the same day (likely after a few hundred) would see each other.
     let day = loop {
         let d = 4000 + (Uuid::new_v4().as_u128() % 20_000) as i64;
-        let day = (Timestamp::now() + patient_administration_system::time::days(d))
+        let day = (Timestamp::now() + patient_administration_system::time::try_days(d).unwrap())
             .to_zoned_datetime(jiff::tz::TimeZone::UTC)
             .date()
             .at(8, 0, 0, 0)
