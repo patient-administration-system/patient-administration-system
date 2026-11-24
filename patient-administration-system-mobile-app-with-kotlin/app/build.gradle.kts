@@ -15,8 +15,9 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-    androidResources { localeFilters += listOf("en", "cy") }
+    androidResources { localeFilters += listOf("en", "cy", "ar", "de", "es", "fr", "hi", "zh") }
     testOptions { unitTests { isIncludeAndroidResources = true } }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -39,6 +40,11 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.compose.ui.test.accessibility)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
     debugImplementation(platform(libs.compose.bom))
     debugImplementation(libs.compose.ui.test.manifest)
 }

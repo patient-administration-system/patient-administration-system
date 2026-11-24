@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Deutsch. FIRST DRAFT awaiting fluent review (governance/translation-review.md). Keys without "mobile." reuse the web UI's wording (de-001.json); the "mobile." keys, "status.other" and "modality.*" are new drafts. -->
+<resources>
+    <string name="app_name">Patientenverwaltungssystem</string>
+    <string name="myAppointments_title">Meine Termine</string>
+    <string name="myAppointments_empty">Sie haben keine Termine.</string>
+    <string name="mobile_upcoming">Bevorstehend</string>
+    <string name="mobile_past">Vergangen</string>
+    <string name="mobile_when">Wann</string>
+    <string name="mobile_how">Wie</string>
+    <string name="mobile_status">Status</string>
+    <string name="mobile_loading">Ihre Termine werden geladen</string>
+    <string name="mobile_retry">Erneut versuchen</string>
+    <string name="mobile_demoNotice">Dies sind Beispieltermine, nicht Ihre eigenen. Diese Version der App ist noch nicht mit dem NHS verbunden.</string>
+    <string name="mobile_error_title">Es ist ein Problem aufgetreten</string>
+    <string name="mobile_error_unreachable">Der Terminservice war nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.</string>
+    <string name="error_401">Bitte melden Sie sich an, um fortzufahren.</string>
+    <string name="error_403">Sie haben keinen Zugriff auf diese Seite.</string>
+    <string name="error_502">Ein Dienst, von dem diese Seite abhängt, ist nicht verfügbar.</string>
+    <string name="status_proposed">Vorgeschlagen</string>
+    <string name="status_booked">Gebucht</string>
+    <string name="status_arrived">Eingetroffen</string>
+    <string name="status_fulfilled">Abgeschlossen</string>
+    <string name="status_cancelled">Abgesagt</string>
+    <string name="status_no_show">Nicht erschienen</string>
+    <string name="status_other">Sonstiges</string>
+    <string name="modality_in_person">Vor Ort</string>
+    <string name="modality_video">Video</string>
+    <string name="modality_phone">Telefon</string>
+    <string name="modality_other">Sonstiges</string>
+</resources>

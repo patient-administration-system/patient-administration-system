@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 简体中文. FIRST DRAFT awaiting fluent review (governance/translation-review.md). Keys without "mobile." reuse the web UI's wording (zh-001.json); the "mobile." keys, "status.other" and "modality.*" are new drafts. -->
+<resources>
+    <string name="app_name">患者管理系统</string>
+    <string name="myAppointments_title">我的预约</string>
+    <string name="myAppointments_empty">您目前没有预约。</string>
+    <string name="mobile_upcoming">即将到来</string>
+    <string name="mobile_past">以往</string>
+    <string name="mobile_when">时间</string>
+    <string name="mobile_how">方式</string>
+    <string name="mobile_status">状态</string>
+    <string name="mobile_loading">正在加载您的预约</string>
+    <string name="mobile_retry">重试</string>
+    <string name="mobile_demoNotice">这些是示例预约，并非您本人的预约。此版本的应用尚未连接到 NHS。</string>
+    <string name="mobile_error_title">出现问题</string>
+    <string name="mobile_error_unreachable">无法连接到预约服务。请检查网络连接后重试。</string>
+    <string name="error_401">请登录后继续。</string>
+    <string name="error_403">您无权访问此页面。</string>
+    <string name="error_502">此页面所依赖的服务暂时不可用。</string>
+    <string name="status_proposed">待确认</string>
+    <string name="status_booked">已预约</string>
+    <string name="status_arrived">已到达</string>
+    <string name="status_fulfilled">已完成</string>
+    <string name="status_cancelled">已取消</string>
+    <string name="status_no_show">未到诊</string>
+    <string name="status_other">其他</string>
+    <string name="modality_in_person">到院就诊</string>
+    <string name="modality_video">视频</string>
+    <string name="modality_phone">电话</string>
+    <string name="modality_other">其他</string>
+</resources>

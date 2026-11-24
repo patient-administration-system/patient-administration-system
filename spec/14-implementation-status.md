@@ -15,7 +15,7 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | UI locale catalogues | 10 |
 | Functional requirements | 228 |
 | Non-functional requirements | 38 |
-| Requirements marked not yet tested or not yet built | 10 |
-| Tasks done | 213 |
-| Tasks open | 59 |
+| Requirements marked not yet tested or not yet built | 9 |
+| Tasks done | 215 |
+| Tasks open | 57 |
 <!-- status:end -->

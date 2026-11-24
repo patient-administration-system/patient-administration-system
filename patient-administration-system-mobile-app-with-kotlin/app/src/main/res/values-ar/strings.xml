@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- العربية. FIRST DRAFT awaiting fluent review (governance/translation-review.md). Keys without "mobile." reuse the web UI's wording (ar-001.json); the "mobile." keys, "status.other" and "modality.*" are new drafts. -->
+<resources>
+    <string name="app_name">نظام إدارة المرضى</string>
+    <string name="myAppointments_title">مواعيدي</string>
+    <string name="myAppointments_empty">ليس لديك أي مواعيد.</string>
+    <string name="mobile_upcoming">القادمة</string>
+    <string name="mobile_past">السابقة</string>
+    <string name="mobile_when">متى</string>
+    <string name="mobile_how">كيف</string>
+    <string name="mobile_status">الحالة</string>
+    <string name="mobile_loading">جارٍ تحميل مواعيدك</string>
+    <string name="mobile_retry">حاول مرة أخرى</string>
+    <string name="mobile_demoNotice">هذه مواعيد توضيحية وليست مواعيدك. هذه النسخة من التطبيق غير متصلة بهيئة الخدمات الصحية الوطنية (NHS) بعد.</string>
+    <string name="mobile_error_title">حدثت مشكلة</string>
+    <string name="mobile_error_unreachable">تعذّر الوصول إلى خدمة المواعيد. تحقق من اتصالك وحاول مرة أخرى.</string>
+    <string name="error_401">يرجى تسجيل الدخول للمتابعة.</string>
+    <string name="error_403">ليس لديك صلاحية الوصول إلى هذه الصفحة.</string>
+    <string name="error_502">خدمة تعتمد عليها هذه الصفحة غير متاحة.</string>
+    <string name="status_proposed">مقترح</string>
+    <string name="status_booked">محجوز</string>
+    <string name="status_arrived">وصل</string>
+    <string name="status_fulfilled">مكتمل</string>
+    <string name="status_cancelled">ملغى</string>
+    <string name="status_no_show">لم يحضر</string>
+    <string name="status_other">أخرى</string>
+    <string name="modality_in_person">حضوري</string>
+    <string name="modality_video">فيديو</string>
+    <string name="modality_phone">هاتف</string>
+    <string name="modality_other">أخرى</string>
+</resources>

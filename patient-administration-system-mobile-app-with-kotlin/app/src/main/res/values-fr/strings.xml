@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Français. FIRST DRAFT awaiting fluent review (governance/translation-review.md). Keys without "mobile." reuse the web UI's wording (fr-001.json); the "mobile." keys, "status.other" and "modality.*" are new drafts. -->
+<resources>
+    <string name="app_name">Système d’administration des patients</string>
+    <string name="myAppointments_title">Mes rendez-vous</string>
+    <string name="myAppointments_empty">Vous n’avez aucun rendez-vous.</string>
+    <string name="mobile_upcoming">À venir</string>
+    <string name="mobile_past">Passés</string>
+    <string name="mobile_when">Quand</string>
+    <string name="mobile_how">Comment</string>
+    <string name="mobile_status">Statut</string>
+    <string name="mobile_loading">Chargement de vos rendez-vous</string>
+    <string name="mobile_retry">Réessayer</string>
+    <string name="mobile_demoNotice">Ces rendez-vous sont des exemples, pas les vôtres. Cette version de l’application n’est pas encore connectée au NHS.</string>
+    <string name="mobile_error_title">Un problème est survenu</string>
+    <string name="mobile_error_unreachable">Le service de rendez-vous est inaccessible. Vérifiez votre connexion et réessayez.</string>
+    <string name="error_401">Veuillez vous connecter pour continuer.</string>
+    <string name="error_403">Vous n’avez pas accès à cette page.</string>
+    <string name="error_502">Un service dont dépend cette page n’est pas disponible.</string>
+    <string name="status_proposed">Proposé</string>
+    <string name="status_booked">Réservé</string>
+    <string name="status_arrived">Arrivé</string>
+    <string name="status_fulfilled">Terminé</string>
+    <string name="status_cancelled">Annulé</string>
+    <string name="status_no_show">Absent</string>
+    <string name="status_other">Autre</string>
+    <string name="modality_in_person">En personne</string>
+    <string name="modality_video">Vidéo</string>
+    <string name="modality_phone">Téléphone</string>
+    <string name="modality_other">Autre</string>
+</resources>

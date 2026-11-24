@@ -7,7 +7,7 @@ package uk.nhs.wales.pas.mobile.core
  */
 public object Messages {
     /** The locales with a catalogue. English is the source; the others are first drafts awaiting fluent review. */
-    public val locales: List<String> = listOf("en", "cy")
+    public val locales: List<String> = listOf("en", "cy", "ar", "de", "es", "fr", "hi", "zh")
 
     /** Every key the app names. */
     public val keys: List<String> =

@@ -30,7 +30,8 @@ import Testing
     let web = here.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent()
         .appending(path: "patient-administration-system-ui-with-svelte/src/lib/messages")
-    for (mine, theirs) in [("en", "en-001"), ("cy", "cy-001")] {
+    for (mine, theirs) in [("en", "en-001"), ("cy", "cy-001"), ("ar", "ar-001"), ("de", "de-001"), ("es", "es-001"),
+                          ("fr", "fr-001"), ("hi", "hi-001"), ("zh", "zh-001")] {
         let data = try Data(contentsOf: web.appending(path: "\(theirs).json"))
         let webCatalogue = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         let catalogue = try #require(Messages.catalogue(mine))
@@ -45,7 +46,18 @@ import Testing
 /// The catalogue language follows the person's preferences, and a language with no catalogue falls back to English.
 @Test func localeFollowsPreferences() {
     #expect(Messages.locale(for: ["cy-GB", "en-GB"]) == "cy")
-    #expect(Messages.locale(for: ["fr-FR", "cy"]) == "cy")
-    #expect(Messages.locale(for: ["fr-FR"]) == "en")
+    #expect(Messages.locale(for: ["pt-BR", "cy"]) == "cy")
+    #expect(Messages.locale(for: ["fr-FR", "cy"]) == "fr")
+    #expect(Messages.locale(for: ["de-AT"]) == "de")
+    #expect(Messages.locale(for: ["zh-Hans-CN"]) == "zh")
+    #expect(Messages.locale(for: ["pt-BR"]) == "en")
     #expect(Messages.locale(for: []) == "en")
+}
+
+/// Arabic is laid out right to left; the other nine are left to right (MOB-4).
+@Test func onlyArabicIsRightToLeft() {
+    for locale in Messages.locales {
+        let direction = Locale.Language(identifier: locale).characterDirection
+        #expect((direction == .rightToLeft) == (locale == "ar"), "\(locale)")
+    }
 }

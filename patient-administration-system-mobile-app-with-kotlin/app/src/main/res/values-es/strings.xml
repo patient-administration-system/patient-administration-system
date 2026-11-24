@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Español. FIRST DRAFT awaiting fluent review (governance/translation-review.md). Keys without "mobile." reuse the web UI's wording (es-001.json); the "mobile." keys, "status.other" and "modality.*" are new drafts. -->
+<resources>
+    <string name="app_name">Sistema de Administración de Pacientes</string>
+    <string name="myAppointments_title">Mis citas</string>
+    <string name="myAppointments_empty">No tiene citas.</string>
+    <string name="mobile_upcoming">Próximas</string>
+    <string name="mobile_past">Anteriores</string>
+    <string name="mobile_when">Cuándo</string>
+    <string name="mobile_how">Cómo</string>
+    <string name="mobile_status">Estado</string>
+    <string name="mobile_loading">Cargando sus citas</string>
+    <string name="mobile_retry">Intentar de nuevo</string>
+    <string name="mobile_demoNotice">Estas son citas de ejemplo, no las suyas. Esta versión de la aplicación aún no está conectada con el NHS.</string>
+    <string name="mobile_error_title">Hay un problema</string>
+    <string name="mobile_error_unreachable">No pudimos conectar con el servicio de citas. Compruebe su conexión e inténtelo de nuevo.</string>
+    <string name="error_401">Inicie sesión para continuar.</string>
+    <string name="error_403">No tiene acceso a esta página.</string>
+    <string name="error_502">Un servicio del que depende esta página no está disponible.</string>
+    <string name="status_proposed">Propuesta</string>
+    <string name="status_booked">Reservada</string>
+    <string name="status_arrived">Ha llegado</string>
+    <string name="status_fulfilled">Completada</string>
+    <string name="status_cancelled">Cancelada</string>
+    <string name="status_no_show">No asistió</string>
+    <string name="status_other">Otro</string>
+    <string name="modality_in_person">Presencial</string>
+    <string name="modality_video">Vídeo</string>
+    <string name="modality_phone">Teléfono</string>
+    <string name="modality_other">Otro</string>
+</resources>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- हिन्दी. FIRST DRAFT awaiting fluent review (governance/translation-review.md). Keys without "mobile." reuse the web UI's wording (hi-001.json); the "mobile." keys, "status.other" and "modality.*" are new drafts. -->
+<resources>
+    <string name="app_name">रोगी प्रशासन प्रणाली</string>
+    <string name="myAppointments_title">मेरे अपॉइंटमेंट</string>
+    <string name="myAppointments_empty">आपका कोई अपॉइंटमेंट नहीं है।</string>
+    <string name="mobile_upcoming">आगामी</string>
+    <string name="mobile_past">पिछले</string>
+    <string name="mobile_when">कब</string>
+    <string name="mobile_how">कैसे</string>
+    <string name="mobile_status">स्थिति</string>
+    <string name="mobile_loading">आपके अपॉइंटमेंट लोड हो रहे हैं</string>
+    <string name="mobile_retry">फिर से कोशिश करें</string>
+    <string name="mobile_demoNotice">ये उदाहरण के अपॉइंटमेंट हैं, आपके अपने नहीं। ऐप का यह संस्करण अभी NHS से जुड़ा नहीं है।</string>
+    <string name="mobile_error_title">एक समस्या आई है</string>
+    <string name="mobile_error_unreachable">अपॉइंटमेंट सेवा तक नहीं पहुँचा जा सका। अपना कनेक्शन जाँचें और फिर कोशिश करें।</string>
+    <string name="error_401">जारी रखने के लिए कृपया साइन इन करें।</string>
+    <string name="error_403">आपको इस पृष्ठ तक पहुँच की अनुमति नहीं है।</string>
+    <string name="error_502">इस पृष्ठ पर निर्भर एक सेवा उपलब्ध नहीं है।</string>
+    <string name="status_proposed">प्रस्तावित</string>
+    <string name="status_booked">बुक किया गया</string>
+    <string name="status_arrived">पहुँच गए</string>
+    <string name="status_fulfilled">पूर्ण</string>
+    <string name="status_cancelled">रद्द</string>
+    <string name="status_no_show">उपस्थित नहीं हुए</string>
+    <string name="status_other">अन्य</string>
+    <string name="modality_in_person">व्यक्तिगत रूप से</string>
+    <string name="modality_video">वीडियो</string>
+    <string name="modality_phone">फ़ोन</string>
+    <string name="modality_other">अन्य</string>
+</resources>
