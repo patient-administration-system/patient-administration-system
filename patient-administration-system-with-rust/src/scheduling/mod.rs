@@ -64,7 +64,7 @@ pub struct SchedulingService {
     /// The no-show probability (CAP-12), set the same way. Only ever added support, and off unless approved.
     noshow: std::sync::RwLock<Option<Arc<crate::noshow::NoShowService>>>,
     /// The backfill offers (PILOT-8), set the same way.
-    backfill: std::sync::RwLock<Option<Arc<crate::backfill::BackfillService>>>,
+    backfill: std::sync::RwLock<Option<std::sync::Weak<crate::backfill::BackfillService>>>,
 }
 
 impl SchedulingService {
@@ -100,18 +100,21 @@ impl SchedulingService {
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(n);
     }
 
+    /// Held weakly: the backfill service holds the standby service, which holds this one, so a strong
+    /// reference would be a cycle that keeps the database pool (and its connections) alive for ever.
     pub fn set_backfill(&self, b: Arc<crate::backfill::BackfillService>) {
         *self
             .backfill
             .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(b);
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(Arc::downgrade(&b));
     }
 
     fn backfill(&self) -> Option<Arc<crate::backfill::BackfillService>> {
         self.backfill
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clone()
+            .as_ref()
+            .and_then(std::sync::Weak::upgrade)
     }
 
     fn transport(&self) -> Option<Arc<crate::transport::TransportService>> {
