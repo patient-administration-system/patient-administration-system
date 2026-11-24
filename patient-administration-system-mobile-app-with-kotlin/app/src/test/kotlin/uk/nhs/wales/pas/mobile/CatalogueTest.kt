@@ -24,7 +24,7 @@ class CatalogueTest {
     fun everyLocaleHasExactlyTheEnglishKeys() {
         val english = strings("values")
         assertTrue(english.size > 20)
-        for (dir in listOf("values-cy")) {
+        for (dir in listOf("values-cy", "values-ar", "values-de", "values-es", "values-fr", "values-hi", "values-zh")) {
             val catalogue = strings(dir)
             assertEquals(dir, english.keys, catalogue.keys)
             assertTrue(dir, catalogue.values.all { it.isNotBlank() })
@@ -47,7 +47,8 @@ class CatalogueTest {
         val web = File(repo, "patient-administration-system-ui-with-svelte/src/lib/messages")
         val ios = File(repo, "patient-administration-system-mobile-app-with-swift/Sources/PASMobileCore/Resources")
         val line = Regex("^\"([^\"]+)\" = \"(.*)\";$")
-        for ((dir, webFile, lproj) in listOf(Triple("values", "en-001.json", "en"), Triple("values-cy", "cy-001.json", "cy"))) {
+        for ((dir, webFile, lproj) in listOf(Triple("values", "en-001.json", "en"), Triple("values-cy", "cy-001.json", "cy")) +
+            listOf("ar", "de", "es", "fr", "hi", "zh").map { Triple("values-$it", "$it-001.json", it) }) {
             val android = strings(dir)
             val iosStrings = File(ios, "$lproj.lproj/Localizable.strings").readLines()
                 .mapNotNull { line.matchEntire(it.trim())?.destructured }.associate { (k, v) -> k to v }

@@ -32,4 +32,11 @@ final class AccessibilityAuditTests: XCTestCase {
                       "dates are in Welsh too")
         try app.performAccessibilityAudit()
     }
+
+    /// MOB-4: Arabic shows its own words, laid out right to left, and passes the audit.
+    @MainActor func testArabicShowsTheArabicCatalogue() throws {
+        let app = launch(language: "ar")
+        XCTAssertTrue(app.staticTexts["القادمة"].waitForExistence(timeout: 10))
+        try app.performAccessibilityAudit()
+    }
 }

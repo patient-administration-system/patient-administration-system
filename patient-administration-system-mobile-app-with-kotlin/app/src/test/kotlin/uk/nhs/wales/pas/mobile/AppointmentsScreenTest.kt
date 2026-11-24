@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import io.github.lilydesignsystem.compose.themes.LilyTheme
 import io.github.lilydesignsystem.compose.themes.LilyTokens
 import java.time.Instant
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -53,6 +54,17 @@ class AppointmentsScreenTest {
         compose.onNodeWithText("Fy apwyntiadau").assertIsDisplayed()
         compose.onNodeWithText("I ddod").assertIsDisplayed()
         assertTrue(compose.onAllNodesWithText("Dydd", substring = true).fetchSemanticsNodes().isNotEmpty())
+    }
+
+    /** The Arabic catalogue (MOB-4): its words are shown, and the screen is laid out right to left. */
+    @Test
+    @Config(qualifiers = "ar")
+    fun demoShowsArabicRightToLeft() {
+        show(AppointmentsModel(DemoAppointmentSource { now }, isDemo = true) { now })
+        compose.onNodeWithText("مواعيدي").assertIsDisplayed()
+        compose.onNodeWithText("القادمة").assertIsDisplayed()
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        assertEquals(android.view.View.LAYOUT_DIRECTION_RTL, context.resources.configuration.layoutDirection)
     }
 
     /** FR-228: a failure shows the app's own words and a retry that loads again. */

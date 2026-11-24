@@ -4,7 +4,7 @@ import Foundation
 /// (`patient-administration-system-ui-with-svelte/src/lib/messages/`); app-only keys start `mobile.`.
 public enum Messages {
     /// The locales with a catalogue. English is the source; the others are first drafts awaiting fluent review.
-    public static let locales = ["en", "cy"]
+    public static let locales = ["en", "cy", "ar", "de", "es", "fr", "hi", "zh"]
 
     /// The text for `key` in the person's preferred language that has a catalogue, falling back to English, then to the key.
     /// The locale is chosen here, not by the app bundle, so a host app need not list the package's languages.

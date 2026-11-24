@@ -16,7 +16,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
     }
-    androidResources { localeFilters += listOf("en", "cy") }
+    androidResources { localeFilters += listOf("en", "cy", "ar", "de", "es", "fr", "hi", "zh") }
     testOptions { unitTests { isIncludeAndroidResources = true } }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
