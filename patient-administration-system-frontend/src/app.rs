@@ -7,7 +7,6 @@ use axa::{
     AppContext, Environment, Error, Result,
     cli::{self, Cli, Command, DbCommand},
     config::{Config, Defaults, MB},
-    middleware,
     routes::AppRoutes,
     server,
 };
@@ -106,13 +105,14 @@ impl App {
     ///
     /// Fails when a template does not load, or a CORS origin is invalid.
     pub fn router(ctx: &AppContext) -> Result<Router> {
-        let router = Self::routes()
-            .into_router(ctx.clone())
-            .nest_service("/static", ServeDir::new(STATIC_FOLDER).precompressed_gzip())
-            .layer(Extension(Views::load()?))
-            // Inside axa's middleware, which has already cleaned the id or made one (AXA-6).
-            .layer(from_fn(axa::tracing::track));
-        middleware::apply(router, &ctx.config.http)
+        // `into_app_with` puts these layers inside axa's middleware, which has already cleaned the request id or made
+        // one (AXA-6), and gives the static files its headers.
+        Self::routes().into_app_with(ctx.clone(), |router| {
+            Ok(router
+                .nest_service("/static", ServeDir::new(STATIC_FOLDER).precompressed_gzip())
+                .layer(Extension(Views::load()?))
+                .layer(from_fn(axa::tracing::track)))
+        })
     }
 
     async fn db(ctx: &AppContext, command: DbCommand) -> Result<()> {
@@ -153,7 +153,15 @@ impl App {
         if let Command::Health { ready, port } = cli.command {
             return cli::health(&environment, &defaults(), ready, port).await;
         }
-        let mut config = Self::config(&environment)?;
+        // A command that does not listen (`db`, `task`) leaves out the server-only settings, so a bad CORS origin does not
+        // stop an operator checking a restored database.
+        let mut config = if matches!(cli.command, Command::Start { .. }) {
+            Self::config(&environment)?
+        } else {
+            Config::for_task_from_lookup(&environment, &defaults(), |name| {
+                lookup(&environment, name)
+            })?
+        };
         if let Command::Start { binding, port, .. } = &cli.command {
             if let Some(binding) = binding {
                 config.server.binding.clone_from(binding);
@@ -221,6 +229,20 @@ mod tests {
             other => setting(&Environment::Production, other).map(String::from),
         };
         assert!(Config::from_lookup(&Environment::Production, &defaults(), settings).is_err());
+    }
+
+    /// A command that does not listen is not refused for a setting only the server reads (axa 0.23, `for_task`).
+    #[test]
+    fn a_task_is_not_refused_for_a_bad_cors_origin_but_a_start_is() {
+        let settings = |name: &str| match name {
+            "DB_URL" => Some("postgres://example/pas?sslmode=require".to_string()),
+            "CORS_ALLOWED_ORIGINS" => Some("*".to_string()),
+            other => setting(&Environment::Production, other).map(String::from),
+        };
+        assert!(Config::from_lookup(&Environment::Production, &defaults(), settings).is_err());
+        assert!(
+            Config::for_task_from_lookup(&Environment::Production, &defaults(), settings).is_ok()
+        );
     }
 
     #[test]
