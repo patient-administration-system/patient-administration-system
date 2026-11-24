@@ -3,8 +3,9 @@
 import XCTest
 
 final class AccessibilityAuditTests: XCTestCase {
-    @MainActor private func launch(textSize: String? = nil, language: String? = nil) -> XCUIApplication {
+    @MainActor private func launch(textSize: String? = nil, language: String? = nil, dark: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
+        if dark { app.launchArguments += ["-AppleInterfaceStyle", "Dark"] }
         if let textSize { app.launchArguments += ["-UIPreferredContentSizeCategoryName", textSize] }
         if let language { app.launchArguments += ["-AppleLanguages", "(\(language))", "-AppleLocale", "\(language)_GB"] }
         app.launch()
@@ -38,5 +39,15 @@ final class AccessibilityAuditTests: XCTestCase {
         let app = launch(language: "ar")
         XCTAssertTrue(app.staticTexts["القادمة"].waitForExistence(timeout: 10))
         try app.performAccessibilityAudit()
+    }
+
+    /// MOB-6: the same audit in dark mode (the contrast check is the point), also at the largest text size.
+    @MainActor func testAppointmentsScreenPassesTheAuditInDarkMode() throws {
+        let app = launch(dark: true)
+        XCTAssertTrue(app.staticTexts["Upcoming"].waitForExistence(timeout: 10))
+        try app.performAccessibilityAudit()
+        let large = launch(textSize: "UICTContentSizeCategoryAccessibilityXXXL", dark: true)
+        XCTAssertTrue(large.navigationBars.firstMatch.waitForExistence(timeout: 10))
+        try large.performAccessibilityAudit()
     }
 }
