@@ -199,6 +199,7 @@ docs-scripts:
 # Tests of the local gate and the hook; no database or build needed.
 script-tests:
     scripts/ci-local-test.sh
+    scripts/backup-test.sh
     python3 scripts/check-hazard-log.py --self-test
     python3 scripts/check-nfr-tests.py --self-test
     python3 scripts/criterion-summary.py --self-test

@@ -7,6 +7,8 @@ PG_CONTAINER=podman-postgres-1 scripts/backup.sh pas.dump      # container
 PGHOST=… PGUSER=pas PGPASSWORD=… scripts/backup.sh pas.dump    # remote
 ```
 
+The dump is written to a private temporary file beside the destination and renamed over it only once it is non-empty and `pg_restore --list` can read it, so a failed, empty or interrupted dump leaves the previous backup as it was and the script exits non-zero. Every new dump is mode 0600, whatever the mode of the file it replaces. `scripts/backup-test.sh` (in `just script-tests`) checks this with stand-in commands.
+
 The dump is PostgreSQL custom format. **It contains personal data**; encrypt it at rest and in transit, restrict access, and apply the retention schedule to backups too.
 
 Back up Keycloak's database as well; without it nobody can sign in. The upstream `person-service` and `worker-service` have their own backups, and a PAS restore is only consistent with them if all are restored to a close point in time.
