@@ -286,3 +286,73 @@ async fn only_a_booked_appointment_is_reminded() {
         );
     }
 }
+
+/// PA-15: a template group a person deactivated stays inactive. Seeding fills only a language that never had a
+/// template of the name, so restarts and every tick leave the group alone, and a set-up group is never doubled.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_deactivated_template_group_is_not_seeded_again() {
+    use patient_administration_system::db::row::RowExt;
+    const NAME: &str = "appointment_reminder_second";
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let svc = ReminderService::new(state.db.clone(), state.communication.clone());
+    let count = |active_only: bool| {
+        let db = state.db.clone();
+        async move {
+            db.one(Stmt::new(
+                "SELECT count(*)::bigint AS n FROM letter_templates WHERE name = $1 AND (active OR NOT $2)",
+                [NAME.into(), active_only.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .col::<i64>("n")
+            .unwrap()
+        }
+    };
+
+    // Set up (seeded here on a fresh database), and seeding twice adds nothing.
+    let first = svc.ensure_templates_named(NAME).await.unwrap();
+    let rows = count(false).await;
+    let again = svc.ensure_templates_named(NAME).await.unwrap();
+    assert_eq!(first.len(), again.len());
+    assert_eq!(
+        count(false).await,
+        rows,
+        "a set-up group is not seeded twice"
+    );
+
+    // A person deactivates the whole group; two ticks later it is still inactive and nothing was added.
+    let deactivated: Vec<Uuid> = state
+        .db
+        .all(Stmt::new(
+            "UPDATE letter_templates SET active = false WHERE name = $1 AND active RETURNING id",
+            [NAME.into()],
+        ))
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| r.col("id").unwrap())
+        .collect();
+    let tick1 = svc.ensure_templates_named(NAME).await.map(|t| t.len());
+    let tick2 = svc.ensure_templates_named(NAME).await.map(|t| t.len());
+    let (active, all) = (count(true).await, count(false).await);
+    // Put the group back before asserting, so other tests that send this message are not affected.
+    state
+        .db
+        .run(Stmt::new(
+            "UPDATE letter_templates SET active = true WHERE id = ANY($1)",
+            [deactivated.clone().into()],
+        ))
+        .await
+        .unwrap();
+
+    assert!(!deactivated.is_empty(), "the group had active variants");
+    assert_eq!(
+        (tick1.unwrap(), tick2.unwrap()),
+        (0, 0),
+        "no active variant is offered"
+    );
+    assert_eq!(active, 0, "nothing was made active again");
+    assert_eq!(all, rows, "no replacement template was created");
+}

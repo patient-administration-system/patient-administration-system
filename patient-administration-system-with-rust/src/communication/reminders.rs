@@ -81,8 +81,9 @@ impl ReminderService {
     }
 
     /// Make sure the reminder has an active variant for every required language, adding the default
-    /// wording for any that is missing. Administrators edit them afterwards (`PUT
-    /// /api/letter-templates/{id}`); a variant they have written is never replaced.
+    /// wording for any that has never had one. Administrators edit them afterwards (`PUT
+    /// /api/letter-templates/{id}`); a variant they have written is never replaced, and one they have
+    /// deactivated is not put back (PA-15): a group with no active variant sends nothing.
     pub async fn ensure_default_templates(&self) -> Result<Vec<LetterTemplate>> {
         self.ensure_templates_named(REMINDER_TEMPLATE_NAME).await
     }
@@ -91,8 +92,10 @@ impl ReminderService {
     pub async fn ensure_templates_named(&self, name: &str) -> Result<Vec<LetterTemplate>> {
         let required = super::templates::required_locales();
         let mut present = LetterRepository::list_active_by_name(&self.db, name).await?;
+        let configured = LetterRepository::locales_with_any_template(&self.db, name).await?;
         for locale in &required {
-            if present.iter().any(|t| &t.locale == locale) {
+            // Active, or once set up and since deactivated by a person: either way, not seeded.
+            if present.iter().any(|t| &t.locale == locale) || configured.contains(locale) {
                 continue;
             }
             let Some((subject, body)) = default_wording(name, locale) else {

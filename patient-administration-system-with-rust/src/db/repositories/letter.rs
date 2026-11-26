@@ -1,5 +1,6 @@
 //! letter repository — LetterTemplate and GeneratedLetter
 
+use crate::db::row::RowExt;
 use crate::db::sql::{Conn, Stmt, Table};
 use uuid::Uuid;
 
@@ -53,6 +54,18 @@ impl LetterRepository {
             ))
             .await?;
         rows.into_iter().map(template_from_model).collect()
+    }
+
+    /// The locales that have a template of this name, active or not: a locale here was set up once, so a
+    /// missing active variant for it was deactivated on purpose and is not seeded again (audit PA-15).
+    pub async fn locales_with_any_template<C: Conn>(conn: &C, name: &str) -> Result<Vec<String>> {
+        let rows = conn
+            .all(Stmt::new(
+                "SELECT DISTINCT locale FROM letter_templates WHERE name = $1 ORDER BY locale",
+                [name.into()],
+            ))
+            .await?;
+        rows.iter().map(|r| r.col("locale")).collect()
     }
 
     /// Lock a template's row for the rest of the transaction and check it is the version the caller read
