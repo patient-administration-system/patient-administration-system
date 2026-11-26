@@ -475,3 +475,103 @@ async fn the_http_endpoints_offer_and_rebook() {
     .await;
     assert_eq!(st, StatusCode::CONFLICT, "used once");
 }
+
+/// Make the link look as if it was claimed `minutes` ago for `action` and the process stopped before the
+/// change was made (PA-03).
+async fn cut_off_claim(w: &W, action: &str, minutes: i64) {
+    w.s.db
+        .run(Stmt::new(
+            "UPDATE reply_tokens SET consumed_at = now() - make_interval(mins => $2::int), consumed_action = $3 \
+             WHERE appointment_id = $1",
+            [w.appt.id.into(), i32::try_from(minutes).unwrap().into(), action.into()],
+        ))
+        .await
+        .unwrap();
+}
+
+async fn replies_by_link(w: &W) -> i64 {
+    use patient_administration_system::db::row::RowExt;
+    w.s.db
+        .one(Stmt::new(
+            "SELECT count(*)::bigint AS n FROM inbound_replies WHERE appointment_id = $1 AND channel = 'link'",
+            [w.appt.id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .col("n")
+        .unwrap()
+}
+
+/// PA-03: a claim cut off before its change was made does not use the patient's link up. A recent claim is
+/// still in flight and is refused; once it is old the link reads as open, the action can be made once, and
+/// after that the link is used.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_claim_cut_off_before_its_change_leaves_the_link_usable_once() {
+    let w = world().await;
+    let t = link(&w).await;
+
+    cut_off_claim(&w, "confirm", 0).await;
+    assert!(
+        w.s.reply_links
+            .act(&t, LinkAction::Confirm, false, &sys())
+            .await
+            .is_err(),
+        "a claim made a moment ago may still be running"
+    );
+    assert_eq!(w.s.reply_links.info(&t).await.unwrap().state, "used");
+
+    cut_off_claim(&w, "confirm", 5).await;
+    assert_eq!(w.s.reply_links.info(&t).await.unwrap().state, "open");
+    let done =
+        w.s.reply_links
+            .act(&t, LinkAction::Confirm, false, &sys())
+            .await
+            .unwrap();
+    assert_eq!(done.status, "confirmed");
+    let confirmed = AppointmentRepository::find_by_id(&w.s.db, w.appt.id)
+        .await
+        .unwrap()
+        .unwrap()
+        .confirmed_at;
+    assert!(confirmed.is_some(), "the appointment is confirmed");
+    assert_eq!(w.s.reply_links.info(&t).await.unwrap().state, "used");
+    assert!(
+        w.s.reply_links
+            .act(&t, LinkAction::Confirm, false, &sys())
+            .await
+            .is_err(),
+        "a finished action uses the link up"
+    );
+    assert_eq!(replies_by_link(&w).await, 1, "one change");
+}
+
+/// PA-03: two retries of a cut-off cancel at once have one effect; a reschedule request cut off is made once.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn retries_of_a_cut_off_claim_have_one_effect() {
+    let w = world().await;
+    let t = link(&w).await;
+    cut_off_claim(&w, "cancel", 5).await;
+    let ctx = sys();
+    let (a, b) = tokio::join!(
+        w.s.reply_links.act(&t, LinkAction::Cancel, true, &ctx),
+        w.s.reply_links.act(&t, LinkAction::Cancel, true, &ctx),
+    );
+    assert!(a.is_ok() != b.is_ok(), "one retry wins: {a:?} {b:?}");
+    assert_eq!(w.status(w.appt.id).await, AppointmentStatus::Cancelled);
+    assert_eq!(replies_by_link(&w).await, 1);
+
+    // A reschedule request with nothing to offer goes to a person, once.
+    let w = world().await;
+    let t = link(&w).await;
+    cut_off_claim(&w, "reschedule", 5).await;
+    let o =
+        w.s.reply_links
+            .act(&t, LinkAction::Reschedule, false, &sys())
+            .await
+            .unwrap();
+    assert_eq!(o.status, "reschedule_requested");
+    assert_eq!(w.s.reply_links.info(&t).await.unwrap().state, "used");
+}

@@ -212,6 +212,20 @@ impl View {
     }
 }
 
+/// A link is used up when it was claimed and the claim either finished or is still recent (audit PA-03). A
+/// claim older than two minutes whose outcome was never recorded was cut off (a crash or a database error
+/// between the claim and the change), so the link counts as unused and may be claimed again. Running the
+/// action again is safe: a confirm or a cancel goes through the write-back under the link's own message id
+/// (`link-<hash>`), which applies at most once, and a reschedule request adds its staff task only once. A
+/// rebooking choice is not recovered this way (its claim stays used; see `choose`).
+const USED_UP: &str = "consumed_at IS NOT NULL AND NOT ( \
+     consumed_at < now() - interval '2 minutes' \
+     AND ((consumed_action IN ('confirm', 'cancel') \
+           AND NOT EXISTS (SELECT 1 FROM inbound_replies i WHERE i.message_id = 'link-' || reply_tokens.token_hash)) \
+       OR (consumed_action = 'reschedule' \
+           AND NOT EXISTS (SELECT 1 FROM staff_call_tasks t WHERE t.appointment_id = reply_tokens.appointment_id \
+                           AND t.reason = 'reschedule_request'))))";
+
 struct Row {
     appointment_id: Uuid,
     person_id: Uuid,
@@ -237,7 +251,8 @@ impl ReplyLinks {
         }
         let r = self
             .db
-            .one(Stmt::new("SELECT appointment_id, person_id, expires_at, consumed_at IS NOT NULL AS consumed FROM reply_tokens WHERE token_hash = $1",
+            .one(Stmt::new(
+                format!("SELECT appointment_id, person_id, expires_at, ({USED_UP}) AS consumed FROM reply_tokens WHERE token_hash = $1"),
                 [hash(token).into()],
             ))
 .await?
@@ -351,11 +366,12 @@ impl ReplyLinks {
             return Ok(offered);
         }
 
+        // Read what can fail before the link is claimed, so a failed read leaves the link as it was (PA-03).
+        let appt = AppointmentRepository::find_by_id(&self.db, row.appointment_id).await?;
         // Claim the link atomically; whoever fails to claim it was too late.
         let hash = hash(token);
         self.claim(&hash, action).await?;
 
-        let appt = AppointmentRepository::find_by_id(&self.db, row.appointment_id).await?;
         let when = appt
             .map(|a| messages::when(a.start_datetime, view.lang, view.tz.clone()))
             // RCA-DECL-1: an appointment that no longer exists has no time to show.
@@ -396,8 +412,10 @@ impl ReplyLinks {
         let claimed = self
             .db
             .run(Stmt::new(
-                "UPDATE reply_tokens SET consumed_at = now(), consumed_action = $2 \
-                 WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()",
+                format!(
+                    "UPDATE reply_tokens SET consumed_at = now(), consumed_action = $2 \
+                     WHERE token_hash = $1 AND NOT ({USED_UP}) AND expires_at > now()"
+                ),
                 [hash.to_string().into(), action.as_str().into()],
             ))
             .await?;
@@ -520,8 +538,10 @@ impl ReplyLinks {
         let claimed = self
             .db
             .run(Stmt::new(
-                "UPDATE reply_tokens SET consumed_at = now(), consumed_action = 'rebook' \
-                 WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()",
+                format!(
+                    "UPDATE reply_tokens SET consumed_at = now(), consumed_action = 'rebook' \
+                     WHERE token_hash = $1 AND NOT ({USED_UP}) AND expires_at > now()"
+                ),
                 [hash.clone().into()],
             ))
             .await?;
