@@ -211,12 +211,7 @@ pub async fn update(
     };
     // A08 overwrites the upstream person from the new PID. Use
     // `PersonClient::update` against the resolved person id.
-    let Some(client) = need_person_client(&state) else {
-        return ae(
-            &r.inbound,
-            "PERSON_SERVICE_URL unset; PAS cannot push update",
-        );
-    };
+    let client = r.client.as_ref();
     let create = pid_to_person_create(&r.pid);
     match client.update(r.person_id, create, &r.upstream).await {
         Ok(_) => aa(&r.inbound, Some(&format!("updated person={}", r.person_id))),
@@ -471,12 +466,7 @@ pub async fn delete_patient(
         Ok(r) => r,
         Err(ack_resp) => return ack_resp,
     };
-    let Some(client) = need_person_client(&state) else {
-        return ae(
-            &r.inbound,
-            "PERSON_SERVICE_URL unset; cannot delete upstream person",
-        );
-    };
+    let client = r.client.as_ref();
     match client.delete(r.person_id, &r.upstream).await {
         Ok(()) => aa(&r.inbound, Some(&format!("deleted person={}", r.person_id))),
         Err(e) => ae(&r.inbound, &client_text(&e)),
@@ -514,12 +504,7 @@ pub async fn merge(
         Some(s) => s,
         None => return ae(&r.inbound, "MRG-1.1 (source MRN) is required"),
     };
-    let Some(client) = need_person_client(&state) else {
-        return ae(
-            &r.inbound,
-            "PERSON_SERVICE_URL unset; cannot resolve MRG source",
-        );
-    };
+    let client = r.client.as_ref();
     // Look up the source by MRN. We do NOT dedup-or-create the source —
     // it must already exist or the merge is rejected (no person to merge
     // from).

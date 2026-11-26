@@ -398,7 +398,15 @@ async fn without_a_person_service_the_endpoints_say_so() {
             w.bed_code
         )
     };
-    for (path, event) in [("patient", "A28"), ("admit", "A01"), ("update", "A08")] {
+    // Every endpoint that resolves a PID, the movements and each change.
+    let movements = [
+        ("patient", "A28"),
+        ("admit", "A01"),
+        ("transfer", "A02"),
+        ("discharge", "A03"),
+        ("register", "A04"),
+    ];
+    for (path, event) in movements.iter().chain(CHANGES.iter()) {
         let ack = post(&w, &format!("/api/hl7/v2/{path}"), &msg(event)).await;
         assert_eq!(code(&ack), "AE", "{path}: {ack:?}");
         assert!(

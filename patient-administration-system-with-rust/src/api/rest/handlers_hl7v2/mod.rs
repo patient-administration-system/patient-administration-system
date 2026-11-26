@@ -217,7 +217,7 @@ async fn resolve_person_or_ack(
         .segment("PID")
         .ok_or_else(|| ae(&h.inbound, "PID segment missing"))?
         .clone();
-    let client = need_person_client(state).ok_or_else(|| {
+    let client = state.person_client.clone().ok_or_else(|| {
         ae(
             &h.inbound,
             "PERSON_SERVICE_URL unset; PAS cannot resolve PID",
@@ -225,7 +225,7 @@ async fn resolve_person_or_ack(
     })?;
     let audit = request_audit_ctx(headers);
     let up = upstream_ctx(&audit);
-    let (person_id, _created) = dedup_or_create_person(client, &pid, &up)
+    let (person_id, _created) = dedup_or_create_person(client.as_ref(), &pid, &up)
         .await
         .map_err(|e| ae(&h.inbound, &client_text(&e)))?;
     Ok(ResolvedHeader {
@@ -235,9 +235,12 @@ async fn resolve_person_or_ack(
         person_id,
         audit,
         upstream: up,
+        client,
     })
 }
 
+/// A message whose PID has been resolved to a person, with the client that resolved it: a handler that needs
+/// person-service again uses this one, so it cannot find the service missing after it was used.
 struct ResolvedHeader {
     message: crate::hl7v2::Message,
     inbound: Inbound,
@@ -245,6 +248,7 @@ struct ResolvedHeader {
     person_id: uuid::Uuid,
     audit: RepoUserContext,
     upstream: UpstreamUserContext,
+    client: std::sync::Arc<dyn PersonClient>,
 }
 
 // ─── /api/hl7/v2/register (ADT^A04 register outpatient) ────────────────

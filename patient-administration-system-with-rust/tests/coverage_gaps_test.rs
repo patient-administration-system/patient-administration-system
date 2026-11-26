@@ -242,3 +242,96 @@ async fn the_schedule_sees_each_appointments_adjustments_and_the_bands_refresh_f
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 }
+
+/// A bed with its facility, ward and room, all with fresh codes.
+async fn a_bed(db: &patient_administration_system::db::sql::Pool) -> Uuid {
+    let tag = Uuid::new_v4().simple().to_string()[..10].to_string();
+    let (facility, ward, room, bed) = (
+        Uuid::new_v4(),
+        Uuid::new_v4(),
+        Uuid::new_v4(),
+        Uuid::new_v4(),
+    );
+    for (sql, binds) in [
+        (
+            "INSERT INTO facilities (id, name, code, address, active, created_at, updated_at) VALUES ($1,$2,$2,'{}'::jsonb,true,now(),now())",
+            vec![facility.into(), format!("F{tag}").into()],
+        ),
+        (
+            "INSERT INTO wards (id, facility_id, name, code, capacity, active, created_at, updated_at) VALUES ($1,$2,$3,$3,2,true,now(),now())",
+            vec![ward.into(), facility.into(), format!("W{tag}").into()],
+        ),
+        (
+            "INSERT INTO rooms (id, ward_id, name, code, active, created_at, updated_at) VALUES ($1,$2,'r',$3,true,now(),now())",
+            vec![room.into(), ward.into(), format!("R{tag}").into()],
+        ),
+        (
+            "INSERT INTO beds (id, room_id, name, code, status, created_at, updated_at) VALUES ($1,$2,'b',$3,'available',now(),now())",
+            vec![bed.into(), room.into(), format!("B{tag}").into()],
+        ),
+    ] {
+        db.run(Stmt::new(sql, binds)).await.unwrap();
+    }
+    bed
+}
+
+/// A discharge is cancelled only while the bed is free and there is a discharge to cancel; each refusal
+/// changes nothing.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_discharge_is_cancelled_only_into_a_free_bed_and_only_when_there_is_one() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let ctx = UserContext::system();
+    let bed = a_bed(&state.db).await;
+    let first = state.adt.admit(Uuid::new_v4(), bed, &ctx).await.unwrap();
+
+    // Still in the bed: there is no discharge, and the bed is taken.
+    let e = state
+        .adt
+        .cancel_discharge(first.admission.id, &ctx)
+        .await
+        .unwrap_err();
+    assert!(e.to_string().contains("cannot reinstate"), "{e}");
+
+    // The bed is free but the admission was never discharged.
+    state
+        .db
+        .run(Stmt::new(
+            "UPDATE beds SET status = 'available' WHERE id = $1",
+            [bed.into()],
+        ))
+        .await
+        .unwrap();
+    let e = state
+        .adt
+        .cancel_discharge(first.admission.id, &ctx)
+        .await
+        .unwrap_err();
+    assert!(e.to_string().contains("no discharge to cancel"), "{e}");
+    state
+        .db
+        .run(Stmt::new(
+            "UPDATE beds SET status = 'occupied' WHERE id = $1",
+            [bed.into()],
+        ))
+        .await
+        .unwrap();
+
+    // Discharged, and someone else now has the bed.
+    state.adt.discharge(first.admission.id, &ctx).await.unwrap();
+    state
+        .db
+        .run(Stmt::new(
+            "UPDATE beds SET status = 'available' WHERE id = $1",
+            [bed.into()],
+        ))
+        .await
+        .unwrap();
+    state.adt.admit(Uuid::new_v4(), bed, &ctx).await.unwrap();
+    let e = state
+        .adt
+        .cancel_discharge(first.admission.id, &ctx)
+        .await
+        .unwrap_err();
+    assert!(e.to_string().contains("cannot reinstate"), "{e}");
+}
