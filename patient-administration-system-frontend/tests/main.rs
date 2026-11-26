@@ -2,5 +2,7 @@
 
 #[path = "main/dashboard_smoke.rs"]
 mod dashboard_smoke;
+#[path = "main/forms.rs"]
+mod forms;
 #[path = "main/request_id.rs"]
 mod request_id;

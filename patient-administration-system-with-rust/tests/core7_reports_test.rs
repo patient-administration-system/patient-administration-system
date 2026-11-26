@@ -47,7 +47,7 @@ async fn world() -> W {
             .timestamp();
         let used = s
             .db
-            .one(Stmt::new("SELECT 1 AS used FROM slots WHERE start_datetime >= $1 AND start_datetime < $2 LIMIT 1",
+            .one(Stmt::new("SELECT 1 AS used FROM (SELECT start_datetime FROM slots UNION ALL SELECT start_datetime FROM appointments) x WHERE start_datetime >= $1 AND start_datetime < $2 LIMIT 1",
                 [day.into(), (day + patient_administration_system::time::days(1)).into()],
             ))
             .await

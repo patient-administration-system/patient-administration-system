@@ -216,4 +216,24 @@ mod tests {
         assert_eq!(back.status, RTTStatus::Active);
         assert_eq!(back.target_service, "cardiology");
     }
+
+    #[test]
+    fn every_status_and_event_kind_round_trips_through_its_text_and_unknown_text_is_refused() {
+        for s in [RTTStatus::Active, RTTStatus::Paused, RTTStatus::Stopped] {
+            assert_eq!(rtt_status_from_str(rtt_status_to_str(s)).unwrap(), s);
+        }
+        for k in [
+            RTTEventKind::Started,
+            RTTEventKind::Paused,
+            RTTEventKind::Resumed,
+            RTTEventKind::Stopped,
+        ] {
+            assert_eq!(
+                rtt_event_kind_from_str(rtt_event_kind_to_str(k)).unwrap(),
+                k
+            );
+        }
+        assert!(rtt_status_from_str("waiting").is_err());
+        assert!(rtt_event_kind_from_str("rewound").is_err());
+    }
 }

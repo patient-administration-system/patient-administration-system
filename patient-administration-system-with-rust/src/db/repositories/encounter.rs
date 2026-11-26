@@ -270,4 +270,36 @@ mod tests {
         assert_eq!(back.class, EncounterClass::Inpatient);
         assert_eq!(back.status, EncounterStatus::Planned);
     }
+
+    #[test]
+    fn every_class_and_status_round_trips_through_its_text_and_unknown_text_is_refused() {
+        for c in [
+            EncounterClass::Outpatient,
+            EncounterClass::Inpatient,
+            EncounterClass::Emergency,
+            EncounterClass::DayCase,
+            EncounterClass::HomeCare,
+            EncounterClass::Virtual,
+        ] {
+            assert_eq!(
+                encounter_class_from_str(encounter_class_to_str(c)).unwrap(),
+                c
+            );
+        }
+        for s in [
+            EncounterStatus::Planned,
+            EncounterStatus::Arrived,
+            EncounterStatus::InProgress,
+            EncounterStatus::OnLeave,
+            EncounterStatus::Finished,
+            EncounterStatus::Cancelled,
+        ] {
+            assert_eq!(
+                encounter_status_from_str(encounter_status_to_str(s)).unwrap(),
+                s
+            );
+        }
+        assert!(encounter_class_from_str("teleport").is_err());
+        assert!(encounter_status_from_str("paused").is_err());
+    }
 }

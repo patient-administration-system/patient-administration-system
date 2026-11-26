@@ -100,6 +100,81 @@ async fn alert(db: &Pool) -> Uuid {
     id
 }
 
+/// A follow-up task and a validation item each get an item, and a call whose due time moves takes its item along.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn follow_ups_and_validation_items_are_queued_and_a_moved_due_time_follows() {
+    let db = db().await;
+    let svc = WorkQueueService::new(db.clone());
+    let person = Uuid::new_v4();
+
+    let follow_up = Uuid::new_v4();
+    db.run(Stmt::new(
+        "INSERT INTO follow_up_tasks (id, appointment_id, person_id, service_type, due_at) VALUES ($1, $2, $3, 'cardiology', now() + interval '2 days')",
+        [follow_up.into(), Uuid::new_v4().into(), person.into()],
+    ))
+    .await
+    .unwrap();
+
+    let (pathway, campaign, validation) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+    db.run(Stmt::new(
+        "INSERT INTO rtt_pathways (id, person_id, target_service, breach_weeks, status, started_at, created_at, updated_at) \
+         VALUES ($1, $2, 'cardiology', 18, 'active', now() - interval '20 weeks', now(), now())",
+        [pathway.into(), person.into()],
+    ))
+    .await
+    .unwrap();
+    db.run(Stmt::new(
+        "INSERT INTO validation_campaigns (id, name, min_weeks, started_by, reply_by, final_wait_days) \
+         VALUES ($1, 'queue test', 12, 'Validator', current_date + 14, 7)",
+        [campaign.into()],
+    ))
+    .await
+    .unwrap();
+    db.run(Stmt::new(
+        "INSERT INTO validation_items (id, campaign_id, pathway_id, person_id, target_service, state, final_by) \
+         VALUES ($1, $2, $3, $4, 'cardiology', 'asked', current_date + 21)",
+        [validation.into(), campaign.into(), pathway.into(), person.into()],
+    ))
+    .await
+    .unwrap();
+
+    let call = call_task(&db, "silent").await;
+    svc.sync(Timestamp::now()).await.unwrap();
+    assert_eq!(
+        item(&db, WorkKind::FollowUp, follow_up).await.unwrap().1,
+        "open"
+    );
+    assert_eq!(
+        item(&db, WorkKind::Validation, validation).await.unwrap().1,
+        "open"
+    );
+
+    let moved = Timestamp::now() + SignedDuration::from_hours(30);
+    db.run(Stmt::new(
+        "UPDATE staff_call_tasks SET due_at = $2 WHERE id = $1",
+        [call.into(), moved.into()],
+    ))
+    .await
+    .unwrap();
+    svc.sync(Timestamp::now()).await.unwrap();
+    let due: Timestamp = db
+        .one(Stmt::new(
+            "SELECT due_at FROM work_items WHERE kind = $1 AND source_id = $2",
+            [WorkKind::Call.as_str().into(), call.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .col("due_at")
+        .unwrap();
+    assert_eq!(
+        due.as_second(),
+        moved.as_second(),
+        "the item's due time moved with its call"
+    );
+}
+
 #[tokio::test]
 #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
 async fn each_open_source_item_appears_once_and_closes_when_its_source_closes() {

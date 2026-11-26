@@ -33,11 +33,12 @@ async fn get(app: &axum::Router, uri: &str) -> (StatusCode, Option<String>, serd
 async fn a_busy_window_has_signed_pages_whose_rows_make_the_whole_window() {
     let state = common::build_state(&common::database_url().unwrap()).await;
     let schedule = common::new_schedule(&state.db).await;
-    // Far beyond the development fixtures and inside a narrow, fresh interval, so a long-used shared database
-    // cannot add unrelated rows to the two-page window and make the assertion depend on previous test runs.
-    let random_seconds = i64::try_from(Uuid::new_v4().as_u128() % 1_000_000).unwrap();
+    // Far beyond the development fixtures (and past the 4 000 to 24 000 days the report tests use), at a random
+    // second of about 31 years, so a long-used shared database cannot add unrelated rows to the two-page window.
+    // A spread of 1 000 000 seconds (11 days) let runs collide after a few dozen.
+    let random_seconds = i64::try_from(Uuid::new_v4().as_u128() % 1_000_000_000).unwrap();
     let start = jiff::Timestamp::now()
-        + patient_administration_system::time::days(10_000)
+        + patient_administration_system::time::days(30_000)
         + jiff::SignedDuration::from_secs(random_seconds);
     let first_slot = SlotRepository::create(
         &state.db,

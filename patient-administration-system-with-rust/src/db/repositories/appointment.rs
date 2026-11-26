@@ -431,4 +431,22 @@ mod tests {
         assert_eq!(back.notice_days, Some(5));
         assert_eq!(back.release_class, Some(ReleaseClass::EarlyRelease));
     }
+
+    #[test]
+    fn every_cancellation_reason_round_trips_through_its_text_and_unknown_text_is_refused() {
+        for c in [
+            CancellationReason::PatientRequest,
+            CancellationReason::ProviderRequest,
+            CancellationReason::NoShow,
+            CancellationReason::Rescheduled,
+            CancellationReason::Other,
+        ] {
+            assert_eq!(
+                cancellation_reason_from_str(cancellation_reason_to_str(c)).unwrap(),
+                c
+            );
+        }
+        assert!(cancellation_reason_from_str("weather").is_err());
+        assert!(appointment_status_from_str("levitating").is_err());
+    }
 }

@@ -54,6 +54,15 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
     let cfg = Config::from_env()?;
     observability::init(&cfg)?;
+    run(&cfg, patient_administration_system::jobs::shutdown_signal()).await
+}
+
+/// Connect, start the background jobs and the listeners, and serve until `shutdown` resolves; then let the jobs
+/// finish. `main` passes the process's signals; a test passes a timer.
+async fn run(
+    cfg: &Config,
+    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+) -> Result<()> {
     cursor_key()?;
     tracing::info!(
         "PAS server starting on {}:{}",
@@ -62,12 +71,12 @@ async fn main() -> Result<()> {
     );
 
     let db = connect(&cfg.database_url).await?;
-    let (person_client, worker_client) = upstream_clients(&cfg)?;
-    let publisher = publisher_chain(&cfg, &db, person_client.as_ref(), worker_client.as_ref())?;
+    let (person_client, worker_client) = upstream_clients(cfg)?;
+    let publisher = publisher_chain(cfg, &db, person_client.as_ref(), worker_client.as_ref())?;
     let state = build_state(
         &db,
         publisher.clone(),
-        sms_provider(&cfg),
+        sms_provider(cfg),
         person_client,
         worker_client,
     );
@@ -75,11 +84,11 @@ async fn main() -> Result<()> {
     // Every timer loop runs under `jobs`: one at a time across replicas, a panic does not end it, and it
     // stops cleanly on SIGTERM (QUAL-2).
     let mut jobs = Jobs::new(db.clone());
-    spawn_jobs(&mut jobs, &cfg, &db, &publisher, &state)?;
+    spawn_jobs(&mut jobs, cfg, &db, &publisher, &state)?;
 
-    let app = build_app(&cfg, state).await?;
-    start_mllp(&cfg, &app)?;
-    serve(&cfg, app).await?;
+    let app = build_app(cfg, state).await?;
+    start_mllp(cfg, &app)?;
+    serve(cfg, app, shutdown).await?;
     // Let a job that is mid-run finish (a half-sent reminder step is the worst case) before the process exits.
     jobs.stop(std::time::Duration::from_secs(30)).await;
     Ok(())
@@ -708,8 +717,12 @@ fn cursor_key() -> Result<()> {
     Ok(())
 }
 
-/// Bind and serve until a shutdown signal.
-async fn serve(cfg: &Config, app: axum::Router) -> Result<()> {
+/// Bind and serve until `shutdown` resolves.
+async fn serve(
+    cfg: &Config,
+    app: axum::Router,
+    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+) -> Result<()> {
     let addr: SocketAddr = format!("{}:{}", cfg.server_host, cfg.server_port)
         .parse()
         .map_err(|e: std::net::AddrParseError| Error::config(format!("bad bind addr: {e}")))?;
@@ -724,7 +737,7 @@ async fn serve(cfg: &Config, app: axum::Router) -> Result<()> {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .with_graceful_shutdown(patient_administration_system::jobs::shutdown_signal())
+    .with_graceful_shutdown(shutdown)
     .await
     .map_err(|e| Error::internal(format!("serve: {e}")))?;
     Ok(())
@@ -738,9 +751,11 @@ mod tests {
     /// then sets the fields it cares about, so none depends on what else the process has set.
     fn config() -> Config {
         static SET: std::sync::Once = std::sync::Once::new();
-        // SAFETY: test-only, and set once before any test reads it.
-        SET.call_once(|| unsafe {
-            std::env::set_var("DATABASE_URL", "postgres://u:p@localhost/db");
+        SET.call_once(|| {
+            if std::env::var_os("DATABASE_URL").is_none() {
+                // SAFETY: test-only, and set once before any test reads it.
+                unsafe { std::env::set_var("DATABASE_URL", "postgres://u:p@localhost/db") };
+            }
         });
         Config::from_env().unwrap()
     }
@@ -783,5 +798,256 @@ mod tests {
     #[test]
     fn a_missing_cursor_key_is_not_an_error() {
         cursor_key().unwrap();
+    }
+    // The database tests below run the start-up steps against PostgreSQL: `cargo test -- --ignored`.
+    static ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Sets environment variables for one test and restores them; holds a lock so tests do not see each other's.
+    struct Env<'a> {
+        _lock: std::sync::MutexGuard<'a, ()>,
+        saved: Vec<(&'static str, Option<std::ffi::OsString>)>,
+    }
+
+    impl Env<'_> {
+        fn set(vars: &[(&'static str, &str)]) -> Self {
+            let _lock = ENV
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut saved = Vec::new();
+            for (key, value) in vars {
+                saved.push((*key, std::env::var_os(key)));
+                // SAFETY: test-only, and serialized by `ENV`.
+                unsafe { std::env::set_var(key, value) };
+            }
+            Self { _lock, saved }
+        }
+    }
+
+    impl Drop for Env<'_> {
+        fn drop(&mut self) {
+            for (key, old) in self.saved.drain(..) {
+                // SAFETY: test-only, and serialized by `ENV`.
+                unsafe {
+                    match old {
+                        Some(v) => std::env::set_var(key, v),
+                        None => std::env::remove_var(key),
+                    }
+                }
+            }
+        }
+    }
+
+    /// A pathway 30 weeks into an 18-week target, so the dashboard has a breach to show.
+    async fn breaching_pathway(db: &patient_administration_system::db::sql::Pool) {
+        use patient_administration_system::db::sql::{Conn, Stmt};
+        let pathway = uuid::Uuid::new_v4();
+        db.run(Stmt::new(
+            "INSERT INTO rtt_pathways (id, person_id, target_service, breach_weeks, status, started_at, created_at, updated_at) \
+             VALUES ($1, $2, 'cardiology', 18, 'active', now() - interval '30 weeks', now(), now())",
+            [pathway.into(), uuid::Uuid::new_v4().into()],
+        ))
+        .await
+        .unwrap();
+        db.run(Stmt::new(
+            "INSERT INTO rtt_clock_events (id, pathway_id, kind, event_at, created_at) \
+             VALUES ($1, $2, 'started', now() - interval '30 weeks', now())",
+            [uuid::Uuid::new_v4().into(), pathway.into()],
+        ))
+        .await
+        .unwrap();
+    }
+
+    async fn pool() -> patient_administration_system::db::sql::Pool {
+        let url = std::env::var("DB_URL")
+            .or_else(|_| std::env::var("DATABASE_URL"))
+            .unwrap();
+        connect(&url).await.unwrap()
+    }
+
+    #[tokio::test]
+    #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+    async fn the_publisher_chain_has_one_child_per_backend() {
+        let db = pool().await;
+        let mut cfg = config();
+        cfg.pas_webhook_url = None;
+        cfg.hl7v2_outbound_peer = None;
+        publisher_chain(&cfg, &db, None, None).unwrap();
+        cfg.pas_webhook_url = Some("http://127.0.0.1:1/hook".into());
+        cfg.pas_webhook_secret = Some("secret".into());
+        publisher_chain(&cfg, &db, None, None).unwrap();
+        cfg.hl7v2_outbound_peer = Some("127.0.0.1:1".into());
+        cfg.person_service_url = Some("http://127.0.0.1:1".into());
+        cfg.worker_service_url = Some("http://127.0.0.1:2".into());
+        let (person, worker) = upstream_clients(&cfg).unwrap();
+        publisher_chain(&cfg, &db, person.as_ref(), worker.as_ref()).unwrap();
+        cfg.pas_webhook_url = None;
+        publisher_chain(&cfg, &db, person.as_ref(), worker.as_ref()).unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+    async fn the_state_takes_each_provider_the_environment_names() {
+        let _env = Env::set(&[
+            ("PAS_PORTAL_URL", " https://portal.example "),
+            ("PAS_EMAIL_PROVIDER", "log"),
+            ("PAS_APPLE_MESSAGES_PROVIDER", "log"),
+            ("PAS_WHATSAPP_PROVIDER", "other"),
+        ]);
+        let db = pool().await;
+        let mut cfg = config();
+        cfg.person_service_url = Some("http://127.0.0.1:1".into());
+        cfg.worker_service_url = Some("http://127.0.0.1:2".into());
+        let (person, worker) = upstream_clients(&cfg).unwrap();
+        let publisher = publisher_chain(&cfg, &db, None, None).unwrap();
+        let _ = build_state(&db, publisher, sms_provider(&cfg), person, worker);
+    }
+
+    #[test]
+    fn cors_origins_are_split_trimmed_and_blanks_dropped() {
+        let _env = Env::set(&[("CORS_ORIGINS", " https://a.example , ,https://b.example")]);
+        assert_eq!(
+            config().cors_origins,
+            ["https://a.example", "https://b.example"]
+        );
+    }
+
+    #[test]
+    fn required_upstreams_are_refused() {
+        let mut cfg = config();
+        cfg.person_service_url = None;
+        cfg.worker_service_url = None;
+        let _env = Env::set(&[("PAS_REQUIRE_UPSTREAMS", "true")]);
+        assert!(upstream_clients(&cfg).is_err());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+    async fn every_job_switched_on_runs_once_and_stops() {
+        let db = pool().await;
+        let cfg = config();
+        let publisher: Publisher = Arc::new(InMemoryEventPublisher::new());
+        let state = build_state(&db, publisher.clone(), sms_provider(&cfg), None, None);
+        for vars in [
+            vec![
+                ("PAS_TOLERANCE_CHECK_MINUTES", "1"),
+                ("PAS_BACKFILL_OFFERS", "true"),
+                ("PAS_REMINDER_LADDER", "true"),
+            ],
+            vec![
+                ("PAS_TOLERANCE_CHECK_MINUTES", "1"),
+                ("PAS_REMINDERS_ENABLED", "true"),
+                ("PAS_REMINDER_LEAD_HOURS", "24"),
+            ],
+        ] {
+            let _env = Env::set(&vars);
+            let mut jobs = Jobs::new(db.clone());
+            spawn_jobs(&mut jobs, &cfg, &db, &publisher, &state).unwrap();
+            // Each job runs at once, then waits for its interval.
+            tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+            jobs.stop(std::time::Duration::from_secs(60)).await;
+        }
+        let _env = Env::set(&[("PAS_TOLERANCE_CHECK_MINUTES", "18446744073709551615")]);
+        let mut jobs = Jobs::new(db.clone());
+        assert!(spawn_tolerance(&mut jobs, &state).is_err());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+    async fn the_app_is_built_with_and_without_authentication() {
+        let db = pool().await;
+        let mut cfg = config();
+        let publisher: Publisher = Arc::new(InMemoryEventPublisher::new());
+        let sms = sms_provider(&cfg);
+        let state = || build_state(&db, publisher.clone(), sms.clone(), None, None);
+        {
+            let _env = Env::set(&[("PAS_RATE_LIMIT_BURST", "5")]);
+            cfg.api_token = None;
+            let _ = build_app(&cfg, state()).await.unwrap();
+        }
+        cfg.api_token = Some("shared-token".into());
+        let app = build_app(&cfg, state()).await.unwrap();
+        // The dashboard fragments read wards, pathways, the outbox and the audit log.
+        patient_administration_system::seed::run(&db).await.unwrap();
+        breaching_pathway(&db).await;
+        let app = app.layer(axum::extract::connect_info::MockConnectInfo(
+            "127.0.0.1:9".parse::<SocketAddr>().unwrap(),
+        ));
+        for path in [
+            "/dashboard",
+            "/dashboard/wards",
+            "/dashboard/breaches",
+            "/dashboard/outbox",
+            "/dashboard/audit",
+        ] {
+            use tower::ServiceExt;
+            let response = app
+                .clone()
+                .oneshot(
+                    axum::http::Request::builder()
+                        .uri(path)
+                        .header("authorization", "Bearer shared-token")
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), axum::http::StatusCode::OK, "{path}");
+        }
+        {
+            use patient_administration_system::config::{LOCKOUT_VAR, OLD_LOCKOUT_VAR};
+            let _env = Env::set(&[(OLD_LOCKOUT_VAR, "5")]);
+            let _ = build_app(&cfg, state()).await.unwrap();
+            drop(_env);
+            let _env = Env::set(&[(OLD_LOCKOUT_VAR, "5"), (LOCKOUT_VAR, "5")]);
+            let _ = build_app(&cfg, state()).await.unwrap();
+        }
+        cfg.api_token = None;
+        let _env = Env::set(&[("PAS_REQUIRE_AUTH", "true")]);
+        assert!(build_app(&cfg, state()).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn the_mllp_listener_starts_only_when_a_bind_is_named() {
+        let mut cfg = config();
+        let app = axum::Router::new();
+        cfg.hl7v2_mllp_bind = None;
+        start_mllp(&cfg, &app).unwrap();
+        cfg.hl7v2_mllp_bind = Some("127.0.0.1:0".into());
+        start_mllp(&cfg, &app).unwrap();
+    }
+
+    #[tokio::test]
+    async fn serving_refuses_a_bad_or_taken_address() {
+        let mut cfg = config();
+        cfg.server_host = "not an address".into();
+        assert!(serve(&cfg, axum::Router::new(), async {}).await.is_err());
+        let taken = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        cfg.server_host = "127.0.0.1".into();
+        cfg.server_port = taken.local_addr().unwrap().port();
+        assert!(serve(&cfg, axum::Router::new(), async {}).await.is_err());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+    async fn the_server_starts_serves_and_stops_when_asked() {
+        let mut cfg = config();
+        cfg.database_url = std::env::var("DB_URL")
+            .or_else(|_| std::env::var("DATABASE_URL"))
+            .unwrap();
+        cfg.server_host = "127.0.0.1".into();
+        cfg.server_port = 0;
+        cfg.hl7v2_mllp_bind = None;
+        let _env = Env::set(&[("PAS_TOLERANCE_CHECK_MINUTES", "0")]);
+        run(
+            &cfg,
+            tokio::time::sleep(std::time::Duration::from_millis(500)),
+        )
+        .await
+        .unwrap();
+        cfg.database_url = "postgres://pas:pas@127.0.0.1:1/pas".into();
+        assert!(
+            run(&cfg, async {}).await.is_err(),
+            "a database that is not there"
+        );
     }
 }

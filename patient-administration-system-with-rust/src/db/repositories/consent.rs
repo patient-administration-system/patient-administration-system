@@ -167,4 +167,29 @@ mod tests {
         assert_eq!(back.status, ConsentStatus::Active);
         assert_eq!(back.granted_date, granted);
     }
+
+    #[test]
+    fn every_type_and_status_round_trips_through_its_text_and_unknown_text_is_refused() {
+        for t in [
+            ConsentType::DataProcessing,
+            ConsentType::DataSharing,
+            ConsentType::Marketing,
+            ConsentType::Research,
+            ConsentType::EmergencyAccess,
+        ] {
+            assert_eq!(consent_type_from_str(consent_type_to_str(t)).unwrap(), t);
+        }
+        for s in [
+            ConsentStatus::Active,
+            ConsentStatus::Revoked,
+            ConsentStatus::Expired,
+        ] {
+            assert_eq!(
+                consent_status_from_str(consent_status_to_str(s)).unwrap(),
+                s
+            );
+        }
+        assert!(consent_type_from_str("gossip").is_err());
+        assert!(consent_status_from_str("maybe").is_err());
+    }
 }

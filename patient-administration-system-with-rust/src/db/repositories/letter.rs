@@ -357,4 +357,30 @@ mod tests {
         assert_eq!(back.channels.len(), 2);
         assert!(back.active);
     }
+
+    #[test]
+    fn every_channel_and_status_round_trips_through_its_text_and_unknown_text_is_refused() {
+        for c in [
+            DeliveryChannel::Print,
+            DeliveryChannel::Email,
+            DeliveryChannel::Sms,
+            DeliveryChannel::AppleMessages,
+            DeliveryChannel::WhatsApp,
+            DeliveryChannel::Portal,
+        ] {
+            assert_eq!(
+                delivery_channel_from_str(delivery_channel_to_str(c)).unwrap(),
+                c
+            );
+        }
+        for s in [
+            LetterStatus::Pending,
+            LetterStatus::Sent,
+            LetterStatus::Failed,
+        ] {
+            assert_eq!(letter_status_from_str(letter_status_to_str(s)).unwrap(), s);
+        }
+        assert!(delivery_channel_from_str("pigeon").is_err());
+        assert!(letter_status_from_str("lost").is_err());
+    }
 }

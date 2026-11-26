@@ -330,4 +330,46 @@ mod serialization_tests {
             .unwrap();
         String::from_utf8(bytes.to_vec()).unwrap()
     }
+
+    /// Each kind of error has its own status, and a server-side one never shows its detail to the caller.
+    #[tokio::test]
+    async fn every_kind_of_error_has_its_status_and_server_faults_hide_their_detail() {
+        let text = || "the secret detail".to_string();
+        for (err, status) in [
+            (
+                Error::PreconditionRequired(text()),
+                StatusCode::PRECONDITION_REQUIRED,
+            ),
+            (Error::Forbidden(text()), StatusCode::FORBIDDEN),
+            (
+                Error::Database(sqlx::Error::RowNotFound),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ),
+            (Error::Search(text()), StatusCode::INTERNAL_SERVER_ERROR),
+            (Error::Streaming(text()), StatusCode::INTERNAL_SERVER_ERROR),
+            (
+                Error::DeliveryRejected(text()),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ),
+            (
+                Error::DeliveryDeferred {
+                    message: text(),
+                    retry_after_secs: Some(5),
+                },
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ),
+            (Error::Fhir(text()), StatusCode::BAD_REQUEST),
+            (Error::Render(text()), StatusCode::INTERNAL_SERVER_ERROR),
+            (Error::Config(text()), StatusCode::INTERNAL_SERVER_ERROR),
+            (Error::Upstream(text()), StatusCode::SERVICE_UNAVAILABLE),
+            (Error::Internal(text()), StatusCode::INTERNAL_SERVER_ERROR),
+        ] {
+            let response = error_to_response(err);
+            assert_eq!(response.status(), status);
+            if status.is_server_error() && status != StatusCode::SERVICE_UNAVAILABLE {
+                let body = body_text(response).await;
+                assert!(!body.contains("secret detail"), "{body}");
+            }
+        }
+    }
 }

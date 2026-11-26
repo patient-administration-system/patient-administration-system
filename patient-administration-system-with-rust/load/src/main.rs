@@ -414,7 +414,12 @@ fn print_verdict(r: &Report) {
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
-    let args = match parse_args(std::env::args().skip(1)) {
+    outcome(std::env::args().skip(1)).await
+}
+
+/// The exit status for a command line: 0 passed, 1 a budget failed, 2 the run could not be made.
+async fn outcome(arguments: impl Iterator<Item = String>) -> std::process::ExitCode {
+    let args = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => {
             eprintln!("{e}");
@@ -434,6 +439,19 @@ async fn main() -> std::process::ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn a_bad_command_line_or_a_missing_budget_file_exits_with_two() {
+        let words = |list: &[&str]| list.iter().map(|w| (*w).to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            outcome(words(&["--workers", "many"]).into_iter()).await,
+            std::process::ExitCode::from(2)
+        );
+        assert_eq!(
+            outcome(words(&["--budgets", "/nonexistent/budgets.toml"]).into_iter()).await,
+            std::process::ExitCode::from(2)
+        );
+    }
     use crate::fixtures::Fixtures;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;

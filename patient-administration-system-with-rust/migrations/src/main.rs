@@ -51,9 +51,14 @@ fn status_line(applied: bool, version: i64, description: &str) -> String {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
     let url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL is required")?;
-    let pool = connect(&PoolConfig::new(url)).await?;
-    let arg = std::env::args().nth(1);
-    match command(arg.as_deref())? {
+    run(&url, std::env::args().nth(1).as_deref()).await
+}
+
+/// Run one command against the database at `url`; `None` is `up`.
+async fn run(url: &str, arg: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
+    let command = command(arg)?;
+    let pool = connect(&PoolConfig::new(url.to_string())).await?;
+    match command {
         Command::Up => migration::up(&pool).await?,
         Command::Down => migration::down(&pool, u32::MAX).await?,
         Command::Fresh => {
@@ -87,5 +92,15 @@ mod tests {
     fn status_lines_align_both_states() {
         assert_eq!(status_line(true, 12, "add slots"), "applied 12 add slots");
         assert_eq!(status_line(false, 13, "add beds"), "pending 13 add beds");
+    }
+
+    #[tokio::test]
+    #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+    async fn up_and_status_run_against_the_database_and_a_bad_command_does_not_connect() {
+        let url = std::env::var("DATABASE_URL").unwrap();
+        run(&url, Some("up")).await.unwrap();
+        run(&url, None).await.unwrap();
+        run(&url, Some("status")).await.unwrap();
+        assert!(run(&url, Some("sideways")).await.is_err());
     }
 }

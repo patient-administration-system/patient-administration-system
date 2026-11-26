@@ -249,3 +249,35 @@ impl RefillReport {
 pub(super) fn rate(n: i64, of: i64) -> Option<f64> {
     crate::arith::ratio(n, of).map(|r| (r * 1000.0).round() / 1000.0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_dimension_round_trips_through_its_name_and_an_unknown_name_is_none() {
+        for d in [
+            Dim::Specialty,
+            Dim::Language,
+            Dim::AgeBand,
+            Dim::DeprivationQuintile,
+            Dim::TimeOfDay,
+            Dim::Outcome,
+            Dim::Notice,
+        ] {
+            assert_eq!(Dim::parse(d.name()), Some(d));
+        }
+        for d in [
+            RefillDim::NoticeBand,
+            RefillDim::ReleaseClass,
+            RefillDim::Specialty,
+            RefillDim::Language,
+            RefillDim::AgeBand,
+            RefillDim::DeprivationQuintile,
+        ] {
+            assert_eq!(RefillDim::parse(d.name()), Some(d));
+        }
+        assert_eq!(Dim::parse("shoe_size"), None);
+        assert_eq!(RefillDim::parse("shoe_size"), None);
+    }
+}

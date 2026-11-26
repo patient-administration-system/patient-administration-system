@@ -198,4 +198,17 @@ mod tests {
         assert_eq!(back.status, WaitlistStatus::Waiting);
         assert_eq!(back.target_service, "cardiology");
     }
+
+    #[test]
+    fn every_priority_round_trips_through_its_text_and_unknown_text_is_refused() {
+        for p in [
+            Priority::Routine,
+            Priority::Urgent,
+            Priority::TwoWeekWait,
+            Priority::Emergency,
+        ] {
+            assert_eq!(priority_from_str(priority_to_str(p)).unwrap(), p);
+        }
+        assert!(priority_from_str("whenever").is_err());
+    }
 }

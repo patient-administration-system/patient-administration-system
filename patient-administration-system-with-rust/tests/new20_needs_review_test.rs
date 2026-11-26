@@ -3,11 +3,16 @@
 
 mod common;
 
+use axum::{
+    body::{Body, to_bytes},
+    http::{Request, StatusCode},
+};
 use jiff::Timestamp;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
 use patient_administration_system::needs_review::NeedsReviewService;
+use tower::ServiceExt;
 use uuid::Uuid;
 
 async fn profile(db: &patient_administration_system::db::sql::Pool, needs: &[&str]) -> Uuid {
@@ -111,4 +116,80 @@ async fn a_review_needs_a_profile_and_a_sensible_period() {
     );
     assert!(svc.due(Timestamp::now(), 0, 10).await.is_err());
     assert!(svc.due(Timestamp::now(), 121, 10).await.is_err());
+}
+
+async fn http(
+    app: &axum::Router,
+    method: &str,
+    uri: &str,
+    body: Option<serde_json::Value>,
+) -> (StatusCode, serde_json::Value) {
+    let mut request = Request::builder().method(method).uri(uri);
+    let body = match body {
+        Some(v) => {
+            request = request.header("content-type", "application/json");
+            Body::from(v.to_string())
+        }
+        None => Body::empty(),
+    };
+    let response = app
+        .clone()
+        .oneshot(request.body(body).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    (status, serde_json::from_slice(&bytes).unwrap_or_default())
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_endpoints_list_the_patients_due_and_record_a_review() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let person = profile(&state.db, &["large_print"]).await;
+    let app = patient_administration_system::api::rest::router(state);
+    let review = format!("/api/patients/{person}/communication-needs/review");
+
+    let (status, body) = http(
+        &app,
+        "GET",
+        "/api/communication-needs/due-review?limit=100",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) = http(
+        &app,
+        "GET",
+        "/api/communication-needs/due-review?months=0",
+        None,
+    )
+    .await;
+    assert!(status.is_client_error(), "{body}");
+    let (status, _) = http(
+        &app,
+        "GET",
+        "/api/communication-needs/due-review?limit=lots",
+        None,
+    )
+    .await;
+    assert!(status.is_client_error());
+
+    let (status, _) = http(
+        &app,
+        "POST",
+        &review,
+        Some(serde_json::json!({ "reviewed_by": " " })),
+    )
+    .await;
+    assert!(status.is_client_error(), "a named person is required");
+    let (status, body) = http(
+        &app,
+        "POST",
+        &review,
+        Some(serde_json::json!({ "reviewed_by": "Outpatient nurse" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["person_id"], person.to_string());
 }

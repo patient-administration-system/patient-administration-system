@@ -163,4 +163,19 @@ mod tests {
         assert_eq!(back.service_type, "general");
         assert!(back.active);
     }
+
+    #[test]
+    fn every_owner_round_trips_through_its_kind_and_an_unknown_kind_is_refused() {
+        let id = Uuid::new_v4();
+        for owner in [
+            ScheduleOwner::Practitioner(id),
+            ScheduleOwner::Bed(id),
+            ScheduleOwner::Room(id),
+            ScheduleOwner::Equipment(id),
+        ] {
+            let (kind, back_id) = owner_to_kind_and_id(&owner);
+            assert_eq!(owner_from_kind_and_id(kind, back_id).unwrap(), owner);
+        }
+        assert!(owner_from_kind_and_id("spaceship", id).is_err());
+    }
 }

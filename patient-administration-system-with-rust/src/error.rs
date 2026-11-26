@@ -349,4 +349,20 @@ mod client_message_tests {
         assert!(!client_text(&e).contains("relation"));
         assert_eq!(client_text(&"bad segment"), "bad segment".to_string());
     }
+
+    #[test]
+    fn search_streaming_and_render_text_is_withheld() {
+        for e in [
+            Error::Search("index /var/pas/tantivy is locked".into()),
+            Error::Streaming("broker 10.0.0.1 refused".into()),
+            Error::DeliveryRejected("broker 10.0.0.1 refused".into()),
+            Error::Render("template /srv/x.tera".into()),
+        ] {
+            let text = e.client_message();
+            assert!(
+                !text.contains("/var") && !text.contains("10.0.0.1") && !text.contains("/srv"),
+                "{text}"
+            );
+        }
+    }
 }
