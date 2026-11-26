@@ -12,7 +12,7 @@
 //!   offered anything (NFR-11).
 
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Pool, Stmt};
+use crate::db::sql::{Conn, Pool, Stmt, Transact};
 use jiff::{SignedDuration, Timestamp};
 use patient_administration_system_domain::arith::in_range;
 use serde::Serialize;
@@ -94,17 +94,19 @@ impl ReceiptService {
                 "detail is a short reason code of at most 200 characters",
             ));
         }
-        let known = self
-            .db
+        // The receipt, the letter's change and the audit row are one transaction (audit PA-07): if any of them
+        // fails nothing is kept, so the carrier's retry of the same receipt finds no row and applies it again.
+        // The letter row is locked first, so two copies of one report arriving together are applied once.
+        let txn = self.db.begin_txn().await?;
+        let known = txn
             .one(Stmt::new(
-                "SELECT status FROM generated_letters WHERE id = $1",
+                "SELECT status FROM generated_letters WHERE id = $1 FOR UPDATE",
                 [letter_id.into()],
             ))
             .await?
             .ok_or_else(|| Error::not_found(format!("letter {letter_id}")))?;
         let status: String = known.col("status")?;
-        let made = self
-            .db
+        let made = txn
             .run(Stmt::new("INSERT INTO message_receipts (id, letter_id, event, carrier, receipt_id, detail, occurred_at) \
                  VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (carrier, receipt_id) DO NOTHING",
                 [
@@ -117,8 +119,9 @@ impl ReceiptService {
                     occurred_at.unwrap_or_else(jiff::Timestamp::now).into(),
                 ],
             ))
-.await?;
+            .await?;
         if made.rows_affected() == 0 {
+            txn.rollback().await.map_err(Error::Database)?;
             return Ok(Receipt {
                 letter_id,
                 event: event.into(),
@@ -126,14 +129,13 @@ impl ReceiptService {
             });
         }
         if event == "bounced" && status == "sent" {
-            self.db
-                .run(Stmt::new("UPDATE generated_letters SET status = 'failed', updated_at = now() WHERE id = $1 AND status = 'sent'",
-                    [letter_id.into()],
-                ))
-.await?;
+            txn.run(Stmt::new("UPDATE generated_letters SET status = 'failed', updated_at = now() WHERE id = $1 AND status = 'sent'",
+                [letter_id.into()],
+            ))
+            .await?;
         }
         AuditLogRepository::log_with(
-            &self.db,
+            &txn,
             "generated_letter",
             letter_id,
             &format!("receipt_{event}"),
@@ -144,6 +146,7 @@ impl ReceiptService {
             ctx,
         )
         .await?;
+        txn.commit().await.map_err(Error::Database)?;
         Ok(Receipt {
             letter_id,
             event: event.into(),
@@ -201,20 +204,22 @@ impl ReceiptService {
         if note.is_some_and(|n| n.len() > 200) {
             return Err(Error::validation("note must be at most 200 characters"));
         }
-        self.db
-            .run(Stmt::new("INSERT INTO contact_problem_resolutions (id, person_id, resolved_by, note, resolved_at) VALUES ($1,$2,$3,$4,$5)",
-                [
-                    Uuid::new_v4().into(),
-                    person_id.into(),
-                    by.into(),
-                    note.map(String::from).into(),
-                    // The server's clock, like `occurred_at`, so the two are compared on one clock.
-                    Timestamp::now().into(),
-                ],
-            ))
-.await?;
+        // The resolution and its audit row together: a resolution nobody can account for is not kept, and the
+        // patient stays on the list (audit PA-07).
+        let txn = self.db.begin_txn().await?;
+        txn.run(Stmt::new("INSERT INTO contact_problem_resolutions (id, person_id, resolved_by, note, resolved_at) VALUES ($1,$2,$3,$4,$5)",
+            [
+                Uuid::new_v4().into(),
+                person_id.into(),
+                by.into(),
+                note.map(String::from).into(),
+                // The server's clock, like `occurred_at`, so the two are compared on one clock.
+                Timestamp::now().into(),
+            ],
+        ))
+        .await?;
         AuditLogRepository::log(
-            &self.db,
+            &txn,
             "patient",
             person_id,
             "contact_problem_resolved",
@@ -222,7 +227,8 @@ impl ReceiptService {
             Some(serde_json::json!({ "resolved_by": by })),
             ctx,
         )
-        .await
+        .await?;
+        txn.commit().await.map_err(Error::Database)
     }
 
     /// The receipts for one letter, oldest first.
