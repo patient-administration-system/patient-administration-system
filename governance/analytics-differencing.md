@@ -6,7 +6,7 @@ Each answer from the analytics feed hides cells under k (10, never below 5) and,
 
 ## What the PAS does about it
 
-- **Bounded:** each caller has a daily query budget (`PAS_ANALYTICS_QUERY_BUDGET`, default 100). After that the feed refuses until their oldest query is 24 hours old.
+- **Bounded:** each caller has a daily query budget (`PAS_ANALYTICS_QUERY_BUDGET`, default 100). After that the feed refuses until their oldest query is 24 hours old. The count and the charge are made under a lock for that caller, so queries sent at the same moment, to one server or several, cannot overspend it.
 - **Visible:** every query is recorded in the audit log (`analytics_query`) with its shape (dimensions, window, k), so unusual probing, such as the same report with the window shifted day by day, can be seen and asked about.
 
 ## What only people can do

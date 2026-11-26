@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Stmt};
+use crate::db::sql::{Conn, Stmt, Transact};
 
 impl AnalyticsService {
     /// Per-caller query budget for a day (`PAS_ANALYTICS_QUERY_BUDGET`, default 100).
@@ -28,8 +28,15 @@ impl AnalyticsService {
             .user_id
             .clone()
             .unwrap_or_else(|| "anonymous".to_string());
-        let used = self
-            .db
+        // Count and charge under a lock held for this caller alone, in one transaction, so two queries at the last
+        // unit of the budget cannot both see room for themselves, on one replica or several (audit PA-06).
+        let txn = self.db.begin_txn().await?;
+        txn.one(Stmt::new(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+            [format!("pas.analytics_budget.{who}").into()],
+        ))
+        .await?;
+        let used = txn
             .one(Stmt::new(
                 "SELECT count(*)::bigint AS n FROM audit_log WHERE action = 'analytics_query' \
                  AND COALESCE(user_id, 'anonymous') = $1 AND at > now() - interval '24 hours'",
@@ -44,7 +51,7 @@ impl AnalyticsService {
             ));
         }
         AuditLogRepository::log(
-            &self.db,
+            &txn,
             "analytics",
             uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, report.as_bytes()),
             "analytics_query",
@@ -52,7 +59,8 @@ impl AnalyticsService {
             Some(shape),
             ctx,
         )
-        .await
+        .await?;
+        txn.commit().await.map_err(Error::Database)
     }
 
     /// The smallest cell the feed will ever show: `PAS_ANALYTICS_K`, default 10, never below 5.

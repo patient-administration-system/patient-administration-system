@@ -10,7 +10,7 @@ use axum::{
 use jiff::Timestamp;
 use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::row::RowExt;
-use patient_administration_system::db::sql::{Conn, Stmt};
+use patient_administration_system::db::sql::{Conn, Stmt, Transact};
 use patient_administration_system::upstream::{Person, StubPersonClient};
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -283,4 +283,62 @@ async fn a_caller_has_a_daily_query_budget_so_differencing_across_queries_is_bou
         .unwrap();
     assert_eq!(row.col::<i64>("n").unwrap(), 3);
     unsafe { std::env::remove_var("PAS_ANALYTICS_QUERY_BUDGET") };
+}
+
+/// PA-06: two queries at the last unit of a caller's budget, at the same moment: exactly one is answered and one
+/// charge is recorded.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored --test-threads=1`"]
+async fn two_queries_at_the_last_unit_of_the_budget_are_not_both_answered() {
+    let s = common::build_state(&common::database_url().unwrap()).await;
+    let budget =
+        patient_administration_system::analytics::AnalyticsService::query_budget().unwrap();
+    let caller = UserContext {
+        user_id: Some(format!("racer-{}", Uuid::new_v4())),
+        ..UserContext::system()
+    };
+    for i in 0..budget - 1 {
+        s.analytics
+            .charge_query("refill-rates", serde_json::json!({ "i": i }), &caller)
+            .await
+            .unwrap();
+    }
+    // Make the two queries overlap every time: another transaction holds a lock that lets each count the
+    // caller's charges but stops its insert, so both have counted before either has charged. Without a lock of
+    // the charge's own both would then be answered.
+    let blocker = s.db.begin_txn().await.unwrap();
+    blocker
+        .run(Stmt::text(
+            "LOCK TABLE audit_log IN SHARE ROW EXCLUSIVE MODE",
+        ))
+        .await
+        .unwrap();
+    let charge = |last: &'static str| {
+        let (s, caller) = (s.clone(), caller.clone());
+        tokio::spawn(async move {
+            s.analytics
+                .charge_query("refill-rates", serde_json::json!({ "last": last }), &caller)
+                .await
+        })
+    };
+    let (a, b) = (charge("a"), charge("b"));
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    blocker.rollback().await.unwrap();
+    let (a, b) = (a.await.unwrap(), b.await.unwrap());
+    assert!(
+        a.is_ok() != b.is_ok(),
+        "exactly one is answered: {a:?} {b:?}"
+    );
+    let charged: i64 = s
+        .db
+        .one(Stmt::new(
+            "SELECT count(*)::bigint AS n FROM audit_log WHERE action = 'analytics_query' AND user_id = $1",
+            [caller.user_id.clone().into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .col("n")
+        .unwrap();
+    assert_eq!(charged, budget, "one charge for the last unit");
 }
