@@ -925,11 +925,7 @@ async fn two_scans_at_once_send_each_step_once() {
     let ladder = Arc::new(w.ladder());
     let now = w.at(D7());
     let job = format!("ladder-{}", Uuid::new_v4());
-    let scan = |l: Arc<LadderService>| {
-        move || async move {
-            l.run_once(now).await.unwrap();
-        }
-    };
+    let scan = |l: Arc<LadderService>| move || async move { l.run_once(now).await.map(|_| ()) };
     let (a, b) = tokio::join!(
         run_exclusive(&w.s.db, &job, scan(ladder.clone())),
         run_exclusive(&w.s.db, &job, scan(ladder.clone())),

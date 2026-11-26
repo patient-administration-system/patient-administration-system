@@ -1559,7 +1559,8 @@ export interface paths {
      * `GET /api/health` — the database, the upstream services, and the workers that move messages (NFR-28, NFR-34).
      * @description `status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,
      *     so a probe does not pull a replica out of rotation for a fault every replica shares. It is also `degraded`
-     *     when the outbox dispatcher has stalled (no finished tick for three intervals), when the oldest undelivered
+     *     when the outbox dispatcher has stalled (no finished tick for three intervals) or is failing (its last three
+     *     ticks or more ended in an error, a panic or no database connection), when the oldest undelivered
      *     event is older than `PAS_OUTBOX_STALE_SECONDS`, or when an MLLP listener this process started has stopped:
      *     a health check that stays green while nothing is delivered is the failure this guards against. A worker
      *     with no data yet says `unknown`, never `ok`.

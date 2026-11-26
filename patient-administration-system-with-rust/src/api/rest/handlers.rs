@@ -150,7 +150,8 @@ pub fn audit_ctx(uc: &crate::upstream::UserContext) -> crate::db::repositories::
 ///
 /// `status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,
 /// so a probe does not pull a replica out of rotation for a fault every replica shares. It is also `degraded`
-/// when the outbox dispatcher has stalled (no finished tick for three intervals), when the oldest undelivered
+/// when the outbox dispatcher has stalled (no finished tick for three intervals) or is failing (its last three
+/// ticks or more ended in an error, a panic or no database connection), when the oldest undelivered
 /// event is older than `PAS_OUTBOX_STALE_SECONDS`, or when an MLLP listener this process started has stopped:
 /// a health check that stays green while nothing is delivered is the failure this guards against. A worker
 /// with no data yet says `unknown`, never `ok`.
@@ -240,8 +241,10 @@ async fn outbox_health(state: &AppState, db_ok: bool) -> OutboxHealth {
     // The age of the backlog counts against this process only when it runs the dispatcher (a test or a tool
     // that does not deliver is not to blame for events it never meant to send); it is reported either way.
     let delivers_here = dispatcher != crate::metrics::JobHealth::Off;
-    let degraded = dispatcher == crate::metrics::JobHealth::Stalled
-        || stale.is_err()
+    let degraded = matches!(
+        dispatcher,
+        crate::metrics::JobHealth::Stalled | crate::metrics::JobHealth::Failing
+    ) || stale.is_err()
         || (delivers_here
             && stale
                 .as_ref()

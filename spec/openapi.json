@@ -24257,7 +24257,7 @@
     },
     "/api/health": {
       "get": {
-        "description": "`status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,\nso a probe does not pull a replica out of rotation for a fault every replica shares. It is also `degraded`\nwhen the outbox dispatcher has stalled (no finished tick for three intervals), when the oldest undelivered\nevent is older than `PAS_OUTBOX_STALE_SECONDS`, or when an MLLP listener this process started has stopped:\na health check that stays green while nothing is delivered is the failure this guards against. A worker\nwith no data yet says `unknown`, never `ok`.",
+        "description": "`status` is `degraded` when the database or a configured service is not answering, still with HTTP 200,\nso a probe does not pull a replica out of rotation for a fault every replica shares. It is also `degraded`\nwhen the outbox dispatcher has stalled (no finished tick for three intervals) or is failing (its last three\nticks or more ended in an error, a panic or no database connection), when the oldest undelivered\nevent is older than `PAS_OUTBOX_STALE_SECONDS`, or when an MLLP listener this process started has stopped:\na health check that stays green while nothing is delivered is the failure this guards against. A worker\nwith no data yet says `unknown`, never `ok`.",
         "operationId": "get_api_health",
         "responses": {
           "200": {

@@ -30,6 +30,7 @@ async fn two_replicas_cannot_run_the_same_job_at_once() {
         move || async move {
             runs.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(400)).await;
+            Ok(())
         }
     };
     let (a, b) = tokio::join!(
@@ -54,10 +55,12 @@ async fn different_jobs_do_not_block_each_other() {
     let (one, two) = (name(), name());
     let (a, b) = tokio::join!(
         run_exclusive(&db, &one, || async {
-            tokio::time::sleep(Duration::from_millis(200)).await
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            Ok(())
         }),
         run_exclusive(&db, &two, || async {
-            tokio::time::sleep(Duration::from_millis(200)).await
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            Ok(())
         }),
     );
     assert_eq!((a, b), (Outcome::Ran, Outcome::Ran));
@@ -70,7 +73,7 @@ async fn a_panic_is_reported_and_the_next_tick_still_runs() {
     let job = name();
     let first = run_exclusive(&db, &job, || async { panic!("boom") }).await;
     assert_eq!(first, Outcome::Panicked);
-    let next = run_exclusive(&db, &job, || async {}).await;
+    let next = run_exclusive(&db, &job, || async { Ok(()) }).await;
     assert_eq!(next, Outcome::Ran, "the lock was released after the panic");
 }
 
@@ -91,6 +94,7 @@ async fn a_panicking_job_keeps_ticking_and_stop_finishes_the_current_run() {
             }
             tokio::time::sleep(Duration::from_millis(300)).await;
             f.fetch_add(1, Ordering::SeqCst);
+            Ok(())
         }
     });
     tokio::time::sleep(Duration::from_millis(400)).await;
@@ -109,4 +113,40 @@ async fn a_panicking_job_keeps_ticking_and_stop_finishes_the_current_run() {
         ticks.load(Ordering::SeqCst) <= started + 1,
         "no new runs after stop"
     );
+}
+
+/// PA-10: work that returns an error is `Failed`, not `Ran`, and a database that cannot be reached is
+/// `Unavailable`, not `Skipped` (which means a peer holds the lock and ran it).
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn an_error_is_a_failure_and_no_connection_is_not_a_peer_running_it() {
+    let db = db().await;
+    let job = name();
+    let failed = run_exclusive(&db, &job, || async {
+        Err(patient_administration_system::Error::internal(
+            "the work failed",
+        ))
+    })
+    .await;
+    assert_eq!(failed, Outcome::Failed);
+    let next = run_exclusive(&db, &job, || async { Ok(()) }).await;
+    assert_eq!(
+        next,
+        Outcome::Ran,
+        "the lock was released after the failure"
+    );
+
+    let nowhere = sqlx::postgres::PgPoolOptions::new()
+        .acquire_timeout(Duration::from_millis(200))
+        .connect_lazy("postgres://pas:pas@127.0.0.1:1/pas")
+        .unwrap();
+    let ran = Arc::new(AtomicUsize::new(0));
+    let r = ran.clone();
+    let outcome = run_exclusive(&nowhere, &job, move || async move {
+        r.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    })
+    .await;
+    assert_eq!(outcome, Outcome::Unavailable);
+    assert_eq!(ran.load(Ordering::SeqCst), 0, "the work did not run");
 }

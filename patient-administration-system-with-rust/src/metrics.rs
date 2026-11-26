@@ -2,8 +2,8 @@
 //! asked, in the Prometheus text format.
 //!
 //! In process, since the server started: requests by status class and their total time, and for each
-//! background job how many runs happened, were skipped (another replica had the lock), panicked, and when it
-//! last ran to completion. From the database at the moment of the request: how many outbox events wait to
+//! background job how many ticks ran, were skipped (another replica had the lock), found no connection, failed or
+//! panicked, how many failed in a row, and when its work last succeeded. From the database at the moment of the request: how many outbox events wait to
 //! be published and how long the oldest has waited, how many are dead-lettered, and how many staff call tasks
 //! are open. No identifiers and no personal data. Served at `GET /api/admin/metrics` (administrators only).
 
@@ -23,8 +23,12 @@ use crate::{Error, Result};
 struct JobStats {
     ran: u64,
     skipped: u64,
+    unavailable: u64,
+    failed: u64,
     panicked: u64,
-    /// Unix seconds of the last run that finished without a panic.
+    /// Ticks in a row that ended unavailable, failed or panicked; a success sets it back to 0.
+    failures_in_a_row: u32,
+    /// Unix seconds of the last run that succeeded.
     last_success: Option<i64>,
     /// Unix seconds of the last tick that finished at all, including one skipped because another replica held
     /// the job's lock (that replica ran it).
@@ -45,7 +49,12 @@ pub enum JobHealth {
     /// It runs here and has not finished a tick for three intervals (and at least 30 seconds): stopped or
     /// stuck in one tick.
     Stalled,
+    /// Its last [`FAILING_AFTER`] ticks or more all failed: they ended, but did not do the work.
+    Failing,
 }
+
+/// Ticks in a row that must fail before a job's health is `failing`: one failure is often a passing fault.
+pub const FAILING_AFTER: u32 = 3;
 
 impl JobHealth {
     pub fn as_str(self) -> &'static str {
@@ -54,6 +63,7 @@ impl JobHealth {
             JobHealth::Unknown => "unknown",
             JobHealth::Ok => "ok",
             JobHealth::Stalled => "stalled",
+            JobHealth::Failing => "failing",
         }
     }
 }
@@ -143,6 +153,9 @@ pub fn job_health_at(name: &str, now: i64) -> JobHealth {
         .unwrap_or(i64::MAX)
         .max(30);
     drop(jobs);
+    if s.failures_in_a_row >= FAILING_AFTER {
+        return JobHealth::Failing;
+    }
     match s.last_seen {
         Some(t) if now.checked_sub(t).is_some_and(|d| d <= window) => JobHealth::Ok,
         Some(_) => JobHealth::Stalled,
@@ -178,17 +191,26 @@ pub fn job_finished(name: &str, outcome: Outcome) {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let s = jobs.entry(name.to_string()).or_default();
+    let now = Timestamp::now().as_second();
+    // Every tick that ended moves `last_seen`, so a failing job is not also reported stalled; only a success
+    // moves `last_success`.
+    s.last_seen = Some(now);
     match outcome {
         Outcome::Ran => {
             s.ran += 1;
-            s.last_success = Some(Timestamp::now().as_second());
-            s.last_seen = s.last_success;
+            s.last_success = Some(now);
+            s.failures_in_a_row = 0;
         }
-        Outcome::Skipped => {
-            s.skipped += 1;
-            s.last_seen = Some(Timestamp::now().as_second());
+        // The replica that held the lock ran it; this one has nothing to report either way.
+        Outcome::Skipped => s.skipped += 1,
+        Outcome::Unavailable | Outcome::Failed | Outcome::Panicked => {
+            match outcome {
+                Outcome::Unavailable => s.unavailable += 1,
+                Outcome::Failed => s.failed += 1,
+                _ => s.panicked += 1,
+            }
+            s.failures_in_a_row = s.failures_in_a_row.saturating_add(1);
         }
-        Outcome::Panicked => s.panicked += 1,
     }
 }
 
@@ -252,6 +274,8 @@ fn render_process() -> String {
         for (outcome, n) in [
             ("ran", s.ran),
             ("skipped", s.skipped),
+            ("unavailable", s.unavailable),
+            ("failed", s.failed),
             ("panicked", s.panicked),
         ] {
             let _ = writeln!(
@@ -261,7 +285,7 @@ fn render_process() -> String {
         }
     }
     out.push_str(
-        "# HELP pas_job_last_success_timestamp_seconds When the job last finished without a panic (Unix seconds).\n",
+        "# HELP pas_job_last_success_timestamp_seconds When the job's work last succeeded (Unix seconds).\n",
     );
     out.push_str("# TYPE pas_job_last_success_timestamp_seconds gauge\n");
     for (name, s) in &jobs {
@@ -271,6 +295,17 @@ fn render_process() -> String {
                 "pas_job_last_success_timestamp_seconds{{job=\"{name}\"}} {t}"
             );
         }
+    }
+    out.push_str(
+        "# HELP pas_job_failures_in_a_row Ticks in a row that were unavailable, failed or panicked; 0 after a success.\n",
+    );
+    out.push_str("# TYPE pas_job_failures_in_a_row gauge\n");
+    for (name, s) in &jobs {
+        let _ = writeln!(
+            out,
+            "pas_job_failures_in_a_row{{job=\"{name}\"}} {}",
+            s.failures_in_a_row
+        );
     }
     for (name, help, cell) in [
         (
@@ -444,5 +479,51 @@ mod tests {
     fn a_status_outside_the_classes_is_counted_in_none_and_does_not_panic() {
         http_finished(0, 0);
         http_finished(999, 0);
+    }
+
+    /// PA-10: errors are not successes. A job whose ticks fail keeps its last success where it was, is failing
+    /// after `FAILING_AFTER` in a row, and is well again after one success; a tick another replica ran is
+    /// neither, and a missing connection is counted apart from an error.
+    #[test]
+    fn failed_ticks_do_not_count_as_success_and_enough_in_a_row_are_failing() {
+        let name = "pa10-job";
+        let now = Timestamp::now().as_second();
+        job_registered(name, std::time::Duration::from_secs(60));
+        let last_success = || {
+            render_process()
+                .lines()
+                .find(|l| {
+                    l.starts_with(&format!(
+                        "pas_job_last_success_timestamp_seconds{{job=\"{name}\"}}"
+                    ))
+                })
+                .map(String::from)
+        };
+        job_finished(name, Outcome::Failed);
+        job_finished(name, Outcome::Unavailable);
+        assert_eq!(
+            job_health_at(name, now),
+            JobHealth::Ok,
+            "two failures may pass"
+        );
+        assert_eq!(last_success(), None, "no success yet");
+        job_finished(name, Outcome::Skipped);
+        job_finished(name, Outcome::Failed);
+        assert_eq!(job_health_at(name, now), JobHealth::Failing);
+        let text = render_process();
+        for line in [
+            format!("pas_job_runs_total{{job=\"{name}\",outcome=\"failed\"}} 2"),
+            format!("pas_job_runs_total{{job=\"{name}\",outcome=\"unavailable\"}} 1"),
+            format!("pas_job_runs_total{{job=\"{name}\",outcome=\"skipped\"}} 1"),
+            format!("pas_job_failures_in_a_row{{job=\"{name}\"}} 3"),
+        ] {
+            assert!(text.contains(&line), "{line} in {text}");
+        }
+        job_finished(name, Outcome::Ran);
+        assert_eq!(job_health_at(name, now), JobHealth::Ok);
+        assert!(last_success().is_some());
+        assert!(
+            render_process().contains(&format!("pas_job_failures_in_a_row{{job=\"{name}\"}} 0"))
+        );
     }
 }

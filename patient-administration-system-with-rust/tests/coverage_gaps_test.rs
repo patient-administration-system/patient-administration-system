@@ -65,7 +65,7 @@ async fn a_job_held_elsewhere_is_skipped_and_one_that_panics_is_reported() {
     let name = format!("coverage-{}", Uuid::new_v4());
 
     assert!(matches!(
-        run_exclusive(&state.db, &name, || async {}).await,
+        run_exclusive(&state.db, &name, || async { Ok(()) }).await,
         Outcome::Ran
     ));
     assert!(matches!(
@@ -83,7 +83,7 @@ async fn a_job_held_elsewhere_is_skipped_and_one_that_panics_is_reported() {
         .await
         .unwrap();
     assert!(matches!(
-        run_exclusive(&state.db, &name, || async {}).await,
+        run_exclusive(&state.db, &name, || async { Ok(()) }).await,
         Outcome::Skipped
     ));
     holder.rollback().await.unwrap();

@@ -323,15 +323,13 @@ fn spawn_outbox(
     jobs.spawn("outbox", std::time::Duration::from_secs(2), move || {
         let (db, publisher) = (dispatcher_db.clone(), dispatcher_pub.clone());
         async move {
-            if let Err(e) = patient_administration_system::streaming::dispatcher::tick(
+            patient_administration_system::streaming::dispatcher::tick(
                 &db,
                 &publisher,
                 dispatcher_max_retries,
             )
             .await
-            {
-                tracing::warn!("outbox dispatcher tick failed: {e}");
-            }
+            .map(|_| ())
         }
     });
 }
@@ -347,11 +345,7 @@ fn spawn_subscriptions(jobs: &mut Jobs, db: &patient_administration_system::db::
         std::time::Duration::from_secs(5),
         move || {
             let svc = svc.clone();
-            async move {
-                if let Err(e) = svc.tick(jiff::Timestamp::now()).await {
-                    tracing::warn!("subscription pass failed: {e}");
-                }
-            }
+            async move { svc.tick(jiff::Timestamp::now()).await.map(|_| ()) }
         },
     );
 }
@@ -371,18 +365,15 @@ fn spawn_tolerance(jobs: &mut Jobs, state: &AppState) -> Result<()> {
             move || {
                 let tolerance = tolerance.clone();
                 async move {
-                    match tolerance.evaluate(30).await {
-                        Ok(e) => tracing::info!(
-                            target: "pas::tolerance",
-                            raised = e.raised,
-                            cleared = e.cleared,
-                            open = e.open,
-                            "tolerance check complete"
-                        ),
-                        Err(e) => {
-                            tracing::warn!(target: "pas::tolerance", "tolerance check failed: {e}")
-                        }
-                    }
+                    let e = tolerance.evaluate(30).await?;
+                    tracing::info!(
+                        target: "pas::tolerance",
+                        raised = e.raised,
+                        cleared = e.cleared,
+                        open = e.open,
+                        "tolerance check complete"
+                    );
+                    Ok(())
                 }
             },
         );
@@ -399,12 +390,15 @@ fn spawn_noshow(jobs: &mut Jobs, state: &AppState) -> Result<()> {
         jobs.spawn("noshow", std::time::Duration::from_secs(3600), move || {
             let noshow = noshow.clone();
             async move {
+                // A refusal here is the gate working (no approved reviews, or the clinic is not live), not a
+                // fault, so it is not counted as a failed tick.
                 match noshow.recalculate_all().await {
                     Ok(n) => {
                         tracing::info!(target: "pas::noshow", assessed = n, "no-show pass complete");
                     }
                     Err(e) => tracing::info!(target: "pas::noshow", "no-show pass skipped: {e}"),
                 }
+                Ok(())
             }
         });
     }
@@ -421,13 +415,11 @@ fn spawn_bed_holds(jobs: &mut Jobs, state: &AppState) {
         let adt = adt.clone();
         let clock = clock.clone();
         async move {
-            match adt.release_expired_holds(clock.now()).await {
-                Ok(n) if n > 0 => {
-                    tracing::info!(target: "pas::adt", released = n, "bed holds lapsed");
-                }
-                Ok(_) => {}
-                Err(e) => tracing::warn!(target: "pas::adt", "bed hold sweep failed: {e}"),
+            let n = adt.release_expired_holds(clock.now()).await?;
+            if n > 0 {
+                tracing::info!(target: "pas::adt", released = n, "bed holds lapsed");
             }
+            Ok(())
         }
     });
 }
@@ -439,16 +431,16 @@ fn spawn_hl7_dedupe_purge(jobs: &mut Jobs, db: &patient_administration_system::d
     jobs.spawn("hl7-dedupe-purge", std::time::Duration::from_secs(3600), move || {
         let db = db.clone();
         async move {
-            match patient_administration_system::hl7v2::dedupe::purge(&db).await {
-                Ok(n) if n > 0 => tracing::info!(target: "pas::hl7v2::dedupe", removed = n, "old duplicate keys removed"),
-                Ok(_) => {}
-                Err(e) => tracing::warn!(target: "pas::hl7v2::dedupe", "duplicate key purge failed: {e}"),
+            // Both purges run each tick; the first error is the tick's.
+            let keys = patient_administration_system::hl7v2::dedupe::purge(&db).await;
+            if let Ok(n) = &keys && *n > 0 {
+                tracing::info!(target: "pas::hl7v2::dedupe", removed = n, "old duplicate keys removed");
             }
-            match patient_administration_system::api::rest::idempotency::purge(&db).await {
-                Ok(n) if n > 0 => tracing::info!(target: "pas::idempotency", removed = n, "old idempotency keys removed"),
-                Ok(_) => {}
-                Err(e) => tracing::warn!(target: "pas::idempotency", "idempotency key purge failed: {e}"),
+            let answers = patient_administration_system::api::rest::idempotency::purge(&db).await;
+            if let Ok(n) = &answers && *n > 0 {
+                tracing::info!(target: "pas::idempotency", removed = n, "old idempotency keys removed");
             }
+            keys.and(answers).map(|_| ())
         }
     });
 }
@@ -465,18 +457,13 @@ fn spawn_work_queue(jobs: &mut Jobs, state: &AppState) {
             let db = db.clone();
             let clock = clock.clone();
             async move {
-                match patient_administration_system::work_queue::WorkQueueService::new(db)
+                let r = patient_administration_system::work_queue::WorkQueueService::new(db)
                     .sync(clock.now())
-                    .await
-                {
-                    Ok(r) if r.opened > 0 || r.reopened > 0 || r.closed > 0 => {
-                        tracing::info!(target: "pas::work_queue", ?r, "work queue synced");
-                    }
-                    Ok(_) => {}
-                    Err(e) => {
-                        tracing::warn!(target: "pas::work_queue", "work queue sync failed: {e}")
-                    }
+                    .await?;
+                if r.opened > 0 || r.reopened > 0 || r.closed > 0 {
+                    tracing::info!(target: "pas::work_queue", ?r, "work queue synced");
                 }
+                Ok(())
             }
         },
     );
@@ -492,13 +479,11 @@ fn spawn_backfill(jobs: &mut Jobs, state: &AppState) -> Result<()> {
             let backfill = backfill.clone();
             let clock = clock.clone();
             async move {
-                match backfill.tick(clock.now()).await {
-                    Ok(r) if r.expired > 0 => {
-                        tracing::info!(target: "pas::backfill", ?r, "offers moved on");
-                    }
-                    Ok(_) => {}
-                    Err(e) => tracing::warn!(target: "pas::backfill", "offer scan failed: {e}"),
+                let r = backfill.tick(clock.now()).await?;
+                if r.expired > 0 {
+                    tracing::info!(target: "pas::backfill", ?r, "offers moved on");
                 }
+                Ok(())
             }
         });
     }
@@ -525,10 +510,9 @@ fn spawn_reminders(
             let ladder = ladder.clone();
             let clock = clock.clone();
             async move {
-                match ladder.run_once(clock.now()).await {
-                    Ok(r) => tracing::info!(target: "pas::ladder", ?r, "ladder scan complete"),
-                    Err(e) => tracing::warn!(target: "pas::ladder", "ladder scan failed: {e}"),
-                }
+                let r = ladder.run_once(clock.now()).await?;
+                tracing::info!(target: "pas::ladder", ?r, "ladder scan complete");
+                Ok(())
             }
         });
     } else if patient_administration_system::config::env::flag("PAS_REMINDERS_ENABLED")? {
@@ -552,14 +536,9 @@ fn spawn_reminders(
                 let reminders = reminders.clone();
                 let clock = clock.clone();
                 async move {
-                    match reminders.run_once(clock.now(), lead).await {
-                        Ok(r) => {
-                            tracing::info!(target: "pas::reminders", ?r, "reminder scan complete")
-                        }
-                        Err(e) => {
-                            tracing::warn!(target: "pas::reminders", "reminder scan failed: {e}")
-                        }
-                    }
+                    let r = reminders.run_once(clock.now(), lead).await?;
+                    tracing::info!(target: "pas::reminders", ?r, "reminder scan complete");
+                    Ok(())
                 }
             },
         );

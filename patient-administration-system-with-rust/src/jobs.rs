@@ -6,6 +6,9 @@
 //!   the transaction, so a crashed process cannot keep it.
 //! - **A panic does not end the job.** Each run is its own task; a panic is
 //!   logged and the next tick runs.
+//! - **A failure is not a success.** The work returns a `Result`; an error is
+//!   logged and counted as `Failed`, a missing connection as `Unavailable`,
+//!   and neither moves the job's last success (PA-10, see `metrics`).
 //! - **Clean shutdown.** `Jobs::stop` tells every loop to finish the run it
 //!   is in and stop, and waits for them for a grace period.
 
@@ -17,13 +20,19 @@ use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
-/// What happened to one tick of a job.
+/// What happened to one tick of a job. Only `Ran` is a success; `Skipped` is the normal answer on a
+/// replica that did not get the lock; the other three are failures, counted apart so an operator can tell a
+/// job that errs from one that cannot reach the database (audit PA-10).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
-    /// This process held the lock and ran the work.
+    /// This process held the lock and the work succeeded.
     Ran,
-    /// Another replica holds the lock (or the lock could not be asked for).
+    /// Another replica holds the lock: it runs the work this tick.
     Skipped,
+    /// No connection, or the lock could not be asked for: nobody knows whether the work ran.
+    Unavailable,
+    /// The work ran and returned an error; the error was logged.
+    Failed,
     /// The work panicked; the panic was logged.
     Panicked,
 }
@@ -32,32 +41,41 @@ pub enum Outcome {
 pub async fn run_exclusive<F, Fut>(db: &Pool, name: &str, work: F) -> Outcome
 where
     F: FnOnce() -> Fut,
-    Fut: Future<Output = ()> + Send + 'static,
+    Fut: Future<Output = crate::Result<()>> + Send + 'static,
 {
     let txn = match db.begin_txn().await {
         Ok(t) => t,
         Err(e) => {
-            tracing::warn!(target: "pas::jobs", job = name, "job skipped, no connection: {e}");
-            return Outcome::Skipped;
+            tracing::warn!(target: "pas::jobs", job = name, "job not run, no connection: {e}");
+            return Outcome::Unavailable;
         }
     };
-    let got = txn
-        .one(Stmt::new("SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS got",
+    let asked = txn
+        .one(Stmt::new(
+            "SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS got",
             [format!("pas.job.{name}").into()],
         ))
         .await
-        .map_err(|e| tracing::warn!(target: "pas::jobs", job = name, "job lock could not be asked for: {e}"))
-        .ok()
-        .flatten()
-        .and_then(|r| r.col::<bool>("got").ok())
-        .unwrap_or(false);
-    if !got {
-        tracing::debug!(target: "pas::jobs", job = name, "job is running elsewhere; skipped");
-        let _ = txn.rollback().await;
-        return Outcome::Skipped;
+        .map(|row| row.and_then(|r| r.col::<bool>("got").ok()));
+    match asked {
+        Ok(Some(true)) => {}
+        Ok(_) => {
+            tracing::debug!(target: "pas::jobs", job = name, "job is running elsewhere; skipped");
+            let _ = txn.rollback().await;
+            return Outcome::Skipped;
+        }
+        Err(e) => {
+            tracing::warn!(target: "pas::jobs", job = name, "job lock could not be asked for: {e}");
+            let _ = txn.rollback().await;
+            return Outcome::Unavailable;
+        }
     }
     let outcome = match tokio::spawn(work()).await {
-        Ok(()) => Outcome::Ran,
+        Ok(Ok(())) => Outcome::Ran,
+        Ok(Err(e)) => {
+            tracing::warn!(target: "pas::jobs", job = name, "job failed: {e}");
+            Outcome::Failed
+        }
         Err(e) => {
             tracing::error!(target: "pas::jobs", job = name, "job panicked or was cancelled: {e}");
             Outcome::Panicked
@@ -87,7 +105,7 @@ impl Jobs {
     pub fn spawn<F, Fut>(&mut self, name: &'static str, every: Duration, work: F)
     where
         F: Fn() -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = ()> + Send + 'static,
+        Fut: Future<Output = crate::Result<()>> + Send + 'static,
     {
         let db = self.db.clone();
         let mut stop = self.stop.subscribe();

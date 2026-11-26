@@ -70,7 +70,10 @@ async fn every_response_carries_a_request_id_made_or_echoed() {
 async fn the_metrics_show_requests_jobs_the_outbox_and_the_call_list() {
     let (app, db) = app().await;
     let job = format!("qual16-{}", Uuid::new_v4());
-    assert_eq!(run_exclusive(&db, &job, || async {}).await, Outcome::Ran);
+    assert_eq!(
+        run_exclusive(&db, &job, || async { Ok(()) }).await,
+        Outcome::Ran
+    );
     patient_administration_system::metrics::job_finished(&job, Outcome::Ran);
     // A 404 so the 4xx counter has something.
     let _ = app
