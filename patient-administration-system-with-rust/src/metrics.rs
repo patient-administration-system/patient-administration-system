@@ -209,7 +209,8 @@ pub fn job_finished(name: &str, outcome: Outcome) {
                 Outcome::Failed => s.failed += 1,
                 _ => s.panicked += 1,
             }
-            s.failures_in_a_row = s.failures_in_a_row.saturating_add(1);
+            // A count at the maximum stays there: it is only compared with FAILING_AFTER.
+            s.failures_in_a_row = s.failures_in_a_row.checked_add(1).unwrap_or(u32::MAX);
         }
     }
 }
