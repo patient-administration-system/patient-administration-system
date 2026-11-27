@@ -22,4 +22,7 @@
       </li>
     {/each}
   </ul>
+  {#if data.olderCursor}
+    <p><a href="?older={encodeURIComponent(data.olderCursor)}">{t("myMessages.older")}</a></p>
+  {/if}
 {/if}

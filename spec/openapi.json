@@ -27018,6 +27018,37 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "`upcoming` (not yet started, soonest first), `past` (most recent first), or omit for all, earliest first.",
+            "in": "path",
+            "name": "when",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -27043,7 +27074,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/patients/{id}/appointments` — every appointment for one patient.",
+        "summary": "`GET /api/patients/{id}/appointments`: one page of a patient's appointments (default 100), with\n`meta.next` for the rest (NFR-23, audit PA-14). `when=upcoming` lists the visits still to come, so a\nlong history cannot push them off the first page.",
         "tags": [
           "Patients"
         ]
@@ -27884,6 +27915,25 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -27909,7 +27959,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/patients/{id}/letters?channel=portal` — a patient's letters,\nnewest first. The patient portal reads `channel=portal`.",
+        "summary": "`GET /api/patients/{id}/letters?channel=portal` — one page of a patient's letters (default 50),\nnewest first, with `meta.next` for older ones (NFR-23, audit PA-14). The patient portal reads `channel=portal`.",
         "tags": [
           "Patients"
         ]
@@ -29510,6 +29560,25 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -29535,7 +29604,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/proxy/patients/{id}/appointments?proxy_person_id=`: the patient's appointments, for a proxy\nwith the `receive` scope.",
+        "summary": "`GET /api/proxy/patients/{id}/appointments?proxy_person_id=`: one page of the patient's appointments\n(default 100, earliest first, `meta.next` for the rest), for a proxy with the `receive` scope (audit PA-14).",
         "tags": [
           "Patients"
         ]

@@ -372,15 +372,53 @@ http
       return res.end(envelope(linkOutcome(status, signpost ? { signpost } : {})));
     }
     if (url.pathname === `/api/patients/${PATIENT}/appointments`) {
-      return res.end(
-        envelope([
-          appointment({
-            id: "11111111-1111-1111-1111-111111111111",
-            start_datetime: "2026-11-03T09:30:00Z",
-            end_datetime: "2026-11-03T10:00:00Z",
-            reason: "Knee review",
+      // PA-14: the visits to come on their own; the history a page at a time, with a second, older page.
+      if (url.searchParams.get("when") === "upcoming") {
+        return res.end(
+          envelope([
+            appointment({
+              id: "11111111-1111-1111-1111-111111111115",
+              start_datetime: "2030-01-15T10:00:00Z",
+              end_datetime: "2030-01-15T10:30:00Z",
+              reason: "Eye clinic",
+            }),
+          ]),
+        );
+      }
+      if (url.searchParams.get("cursor") === "older-1") {
+        return res.end(
+          JSON.stringify({
+            success: true,
+            data: [
+              appointment({
+                id: "11111111-1111-1111-1111-111111111116",
+                start_datetime: "2026-09-01T09:00:00Z",
+                end_datetime: "2026-09-01T09:30:00Z",
+                reason: "Hip review",
+              }),
+            ],
+            meta: { limit: 1, returned: 1, truncated: false },
           }),
-        ]),
+        );
+      }
+      return res.end(
+        JSON.stringify({
+          success: true,
+          data: [
+            appointment({
+              id: "11111111-1111-1111-1111-111111111111",
+              start_datetime: "2026-11-03T09:30:00Z",
+              end_datetime: "2026-11-03T10:00:00Z",
+              reason: "Knee review",
+            }),
+          ],
+          meta: {
+            limit: 1,
+            returned: 1,
+            truncated: true,
+            next: `/api/patients/${PATIENT}/appointments?when=past&cursor=older-1`,
+          },
+        }),
       );
     }
     if (url.pathname === `/api/patients/${PATIENT}/letters`) {

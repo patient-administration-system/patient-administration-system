@@ -186,8 +186,12 @@ export async function pasAllPages<T>(fetchFn: FetchFn, path: string): Promise<T[
 
 export type Appointment = Schemas["Appointment"];
 
-export const patientAppointments = (f: FetchFn, personId: string) =>
-  pasArray<Appointment>(f, `/api/patients/${encodeURIComponent(personId)}/appointments`);
+/**
+ * One page of a patient's appointments (PA-14): `upcoming` (soonest first) or `past` (most recent first), and the
+ * cursor to the next page. Upcoming visits are read on their own, so a long history cannot hide them.
+ */
+export const patientAppointments = (f: FetchFn, personId: string, when: "upcoming" | "past", cursor?: string | null) =>
+  pasPage<Appointment>(f, `/api/patients/${encodeURIComponent(personId)}/appointments?when=${when}`, cursor);
 
 export const appointmentsBetween = (f: FetchFn, from: string, to: string) =>
   pasAllPages<Appointment>(
@@ -211,9 +215,9 @@ export const waitlist = (f: FetchFn) => pasArray<WaitlistEntry>(f, "/api/waitlis
 
 export type PortalMessage = Schemas["GeneratedLetter"];
 
-/** Messages delivered to one patient's secure portal inbox, newest first. */
-export const portalMessages = (f: FetchFn, personId: string) =>
-  pasArray<PortalMessage>(f, `/api/patients/${encodeURIComponent(personId)}/letters?channel=portal`);
+/** One page of the messages in a patient's secure portal inbox, newest first, and the cursor to older ones (PA-14). */
+export const portalMessages = (f: FetchFn, personId: string, cursor?: string | null) =>
+  pasPage<PortalMessage>(f, `/api/patients/${encodeURIComponent(personId)}/letters?channel=portal`, cursor);
 
 // ---- No-show probability (CAP-12): support only, and off until people approve it --------------
 

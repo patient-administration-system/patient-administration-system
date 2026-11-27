@@ -176,13 +176,13 @@ async fn appointment(state: &AppState, id: Uuid) -> crate::Result<Appointment> {
         .ok_or_else(|| crate::Error::not_found(format!("appointment {id}")))
 }
 
-/// `GET /api/proxy/patients/{id}/appointments?proxy_person_id=`: the patient's appointments, for a proxy
-/// with the `receive` scope.
+/// `GET /api/proxy/patients/{id}/appointments?proxy_person_id=`: one page of the patient's appointments
+/// (default 100, earliest first, `meta.next` for the rest), for a proxy with the `receive` scope (audit PA-14).
 #[utoipa::path(
     get,
     path = "/api/proxy/patients/{id}/appointments",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`"), ActingQuery),
+    params(("id" = String, Path, description = "Path parameter `id`"), ActingQuery, crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<Appointment>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -192,20 +192,30 @@ async fn appointment(state: &AppState, id: Uuid) -> crate::Result<Appointment> {
 pub async fn appointments(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<ActingQuery>,
 ) -> HandlerResult {
+    use crate::db::repositories::appointment::{AppointmentRepository, PatientWindow};
     if let Err(e) = ProxyService::new(state.db.clone())
         .authorise(id, q.proxy_person_id, "receive", state.clock.now())
         .await
     {
         return error_to_response(e);
     }
-    match crate::db::repositories::appointment::AppointmentRepository::list_by_patient(
-        &state.db, id,
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
+        Err(e) => return error_to_response(e),
+    };
+    match AppointmentRepository::list_for_patient(
+        &state.db,
+        id,
+        PatientWindow::All,
+        state.clock.now(),
+        page.rows(),
     )
     .await
     {
-        Ok(rows) => ok_json(rows),
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

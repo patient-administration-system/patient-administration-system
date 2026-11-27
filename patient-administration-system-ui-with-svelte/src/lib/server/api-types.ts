@@ -2803,7 +2803,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** `GET /api/patients/{id}/appointments` — every appointment for one patient. */
+    /**
+     * `GET /api/patients/{id}/appointments`: one page of a patient's appointments (default 100), with
+     *     `meta.next` for the rest (NFR-23, audit PA-14). `when=upcoming` lists the visits still to come, so a
+     *     long history cannot push them off the first page.
+     */
     get: operations["get_api_patients__id__appointments"];
     put?: never;
     post?: never;
@@ -3089,8 +3093,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * `GET /api/patients/{id}/letters?channel=portal` — a patient's letters,
-     *     newest first. The patient portal reads `channel=portal`.
+     * `GET /api/patients/{id}/letters?channel=portal` — one page of a patient's letters (default 50),
+     *     newest first, with `meta.next` for older ones (NFR-23, audit PA-14). The patient portal reads `channel=portal`.
      */
     get: operations["get_api_patients__id__letters"];
     put?: never;
@@ -3589,8 +3593,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * `GET /api/proxy/patients/{id}/appointments?proxy_person_id=`: the patient's appointments, for a proxy
-     *     with the `receive` scope.
+     * `GET /api/proxy/patients/{id}/appointments?proxy_person_id=`: one page of the patient's appointments
+     *     (default 100, earliest first, `meta.next` for the rest), for a proxy with the `receive` scope (audit PA-14).
      */
     get: operations["get_api_proxy_patients__id__appointments"];
     put?: never;
@@ -18967,11 +18971,21 @@ export interface operations {
   };
   get_api_patients__id__appointments: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description Path parameter `id` */
         id: string;
+        /** @description `upcoming` (not yet started, soonest first), `past` (most recent first), or omit for all, earliest first. */
+        when: string | null;
       };
       cookie?: never;
     };
@@ -19669,7 +19683,15 @@ export interface operations {
   };
   get_api_patients__id__letters: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description Path parameter `id` */
@@ -21024,7 +21046,15 @@ export interface operations {
   };
   get_api_proxy_patients__id__appointments: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
         /** @description Path parameter `id` */

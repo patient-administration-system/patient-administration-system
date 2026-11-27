@@ -234,13 +234,13 @@ pub struct PatientLettersQuery {
     pub channel: Option<String>,
 }
 
-/// `GET /api/patients/{id}/letters?channel=portal` — a patient's letters,
-/// newest first. The patient portal reads `channel=portal`.
+/// `GET /api/patients/{id}/letters?channel=portal` — one page of a patient's letters (default 50),
+/// newest first, with `meta.next` for older ones (NFR-23, audit PA-14). The patient portal reads `channel=portal`.
 #[utoipa::path(
     get,
     path = "/api/patients/{id}/letters",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`"), PatientLettersQuery),
+    params(("id" = String, Path, description = "Path parameter `id`"), PatientLettersQuery, crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::models::communication::GeneratedLetter>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -250,8 +250,13 @@ pub struct PatientLettersQuery {
 pub async fn list_patient_letters(
     State(state): State<AppState>,
     Path(person_id): Path<Uuid>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     axum::extract::Query(q): axum::extract::Query<PatientLettersQuery>,
 ) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 50) {
+        Ok(p) => p,
+        Err(e) => return error_to_response(e),
+    };
     let channel = match q.channel.as_deref() {
         None | Some("") => None,
         Some(c) => match crate::db::repositories::letter::delivery_channel_from_str(c) {
@@ -261,8 +266,8 @@ pub async fn list_patient_letters(
             }
         },
     };
-    match LetterRepository::list_for_person(&state.db, person_id, channel).await {
-        Ok(rows) => ok_json(rows),
+    match LetterRepository::page_for_person(&state.db, person_id, channel, page.rows()).await {
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }

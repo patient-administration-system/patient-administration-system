@@ -15,17 +15,26 @@ test("a patient signs in and sees only their own appointments", async ({ page, r
   await expect(page).toHaveURL(/\/my\/appointments/);
   await expect(page.getByRole("heading", { name: "My appointments" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Knee review" })).toBeVisible();
+  // PA-14: the visit still to come is listed on its own; older history is one link away.
+  await expect(page.getByRole("heading", { name: "Coming up" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Eye clinic" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Hip review" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Older appointments" }).click();
+  await expect(page.getByRole("cell", { name: "Hip review" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Eye clinic" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Older appointments" })).toHaveCount(0);
 
   // The person id sent to the PAS came from the verified ID token, not from the browser.
   const asked: string[] = await (await request.get(`${MOCK_URL}/__requests`)).json();
-  expect(asked).toContain("/api/patients/00000000-0000-0000-0000-000000000000/appointments");
+  expect(asked).toContain("/api/patients/00000000-0000-0000-0000-000000000000/appointments?when=upcoming");
+  expect(asked).toContain("/api/patients/00000000-0000-0000-0000-000000000000/appointments?when=past&cursor=older-1");
 
   // The BFF presented a genuine token from the real issuer and named the signed-in person. The mock
   // API verified the PASETO signature, so a missing or forged token would have been a 401 here.
   const seen: { path: string; actor: string | null; sub: string | null; service: boolean }[] = await (
     await request.get(`${MOCK_URL}/__actors`)
   ).json();
-  const mine = seen.find((r) => r.path === "/api/patients/00000000-0000-0000-0000-000000000000/appointments");
+  const mine = seen.find((r) => r.path.startsWith("/api/patients/00000000-0000-0000-0000-000000000000/appointments"));
   expect(mine?.sub).toBe("pas-ui");
   expect(mine?.service).toBe(true);
   expect(mine?.actor).toMatch(/^[0-9a-f-]{36}$/);

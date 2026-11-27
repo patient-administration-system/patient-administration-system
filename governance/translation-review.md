@@ -28,6 +28,8 @@ All non-English catalogues in `patient-administration-system-ui-with-svelte/src/
 
 - **Theme menu (UI-4, 2026-11-15).** `app.theme.*`: the menu name and Follow this device, Light, Dark. German uses "Farbschema" and "Wie dieses Gerät"; Arabic uses المظهر (appearance) for the menu; Hindi थीम is transliterated. First drafts.
 
+- **Appointment and message pages (PA-14, 2026-11-27).** `myAppointments.upcoming`, `.past`, `.older`, `.noUpcoming` and `myMessages.older`: the headings for visits to come and earlier ones, and the links to older pages. First drafts.
+
 - **Clinic time zone note (PA-13, 2026-11-27).** `time.zoneNote`: "Times are shown on the clinic's clock ({zone})", with the zone's IANA name (for example `Europe/London`) untranslated. First drafts.
 
 - **Privacy page (UI-4, 2026-11-16).** `privacy.*` and `app.privacy`, in the UI and as a page on the public website in five languages. It names the cookies (`theme`, `locale`) and storage keys as code, untranslated. A reviewer should check that each translation says no more and no less than the English about what is kept and for how long. First drafts.

@@ -117,6 +117,24 @@ impl LetterRepository {
         Ok(n > 0)
     }
 
+    /// One page of a person's letters, newest first (ties by id), optionally only one channel (audit PA-14).
+    pub async fn page_for_person<C: Conn>(
+        conn: &C,
+        person_id: Uuid,
+        channel: Option<DeliveryChannel>,
+        rows: crate::paging::Rows,
+    ) -> Result<Vec<GeneratedLetter>> {
+        let channel = channel.map(delivery_channel_to_str);
+        let rows = conn
+            .all_as::<generated_letter::Model>(Stmt::new(
+                "SELECT * FROM generated_letters WHERE person_id = $1 AND ($2::text IS NULL OR channel = $2) \
+                 ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4",
+                [person_id.into(), channel.map(str::to_string).into(), rows.fetch()?.into(), rows.offset()?.into()],
+            ))
+            .await?;
+        rows.into_iter().map(letter_from_model).collect()
+    }
+
     /// A person's letters, newest first, optionally only one channel.
     pub async fn list_for_person<C: Conn>(
         conn: &C,

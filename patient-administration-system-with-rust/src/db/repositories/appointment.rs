@@ -12,6 +12,28 @@ use crate::{Error, Result};
 
 pub struct AppointmentRepository;
 
+/// Which of a patient's appointments a page lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PatientWindow {
+    All,
+    Upcoming,
+    Past,
+}
+
+impl PatientWindow {
+    /// `upcoming`, `past` or nothing (all).
+    pub fn parse(s: Option<&str>) -> Result<Self> {
+        match s.map(str::trim) {
+            None | Some("") => Ok(Self::All),
+            Some("upcoming") => Ok(Self::Upcoming),
+            Some("past") => Ok(Self::Past),
+            Some(other) => Err(Error::validation(format!(
+                "when must be upcoming or past, not {other:?}"
+            ))),
+        }
+    }
+}
+
 impl AppointmentRepository {
     pub async fn create<C: Conn>(conn: &C, a: &Appointment) -> Result<Appointment> {
         let am = to_row(a);
@@ -65,6 +87,32 @@ impl AppointmentRepository {
             .all_as::<appointment::Model>(Stmt::new(
                 "SELECT * FROM appointments WHERE person_id = $1 AND deleted_at IS NULL",
                 [person_id.into()],
+            ))
+            .await?;
+        rows.into_iter().map(from_model).collect()
+    }
+
+    /// One page of a patient's appointments (audit PA-14). `Upcoming` are those not yet started, soonest first;
+    /// `Past` the rest, most recent first; `All` every one, earliest first. Ties go by id, so pages are stable.
+    pub async fn list_for_patient<C: Conn>(
+        conn: &C,
+        person_id: Uuid,
+        when: PatientWindow,
+        now: Timestamp,
+        rows: crate::paging::Rows,
+    ) -> Result<Vec<Appointment>> {
+        let (filter, order) = match when {
+            PatientWindow::All => ("", "start_datetime, id"),
+            PatientWindow::Upcoming => (" AND start_datetime >= $2", "start_datetime, id"),
+            PatientWindow::Past => (" AND start_datetime < $2", "start_datetime DESC, id DESC"),
+        };
+        let rows = conn
+            .all_as::<appointment::Model>(Stmt::new(
+                format!(
+                    "SELECT * FROM appointments WHERE person_id = $1 AND deleted_at IS NULL{filter} \
+                     ORDER BY {order} LIMIT $3 OFFSET $4"
+                ),
+                [person_id.into(), now.into(), rows.fetch()?.into(), rows.offset()?.into()],
             ))
             .await?;
         rows.into_iter().map(from_model).collect()

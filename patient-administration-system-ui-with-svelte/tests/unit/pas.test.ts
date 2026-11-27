@@ -350,7 +350,7 @@ describe("facilitiesWithWards()", () => {
 describe("typed PAS route wrappers", () => {
   it("encode path and query values and use the declared action method", async () => {
     const { fetch, calls } = fake(200, JSON.stringify({ data: [] }));
-    await patientAppointments(fetch, "person/1");
+    await patientAppointments(fetch, "person/1", "past", "page_6");
     await letterTemplates(fetch);
     await waitlist(fetch);
     await portalMessages(fetch, "person/1");
@@ -373,7 +373,7 @@ describe("typed PAS route wrappers", () => {
     await wardOverview(fetch, "ward/1");
 
     expect(calls.map((c) => [c.init.method, c.url, c.init.body])).toEqual([
-      ["GET", "http://pas.test/api/patients/person%2F1/appointments", undefined],
+      ["GET", "http://pas.test/api/patients/person%2F1/appointments?when=past&cursor=page_6", undefined],
       ["GET", "http://pas.test/api/letter-templates", undefined],
       ["GET", "http://pas.test/api/waitlist", undefined],
       ["GET", "http://pas.test/api/patients/person%2F1/letters?channel=portal", undefined],

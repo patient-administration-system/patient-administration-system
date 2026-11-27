@@ -82,12 +82,20 @@ pub async fn list_appointments(
     }
 }
 
-/// `GET /api/patients/{id}/appointments` — every appointment for one patient.
+#[derive(Debug, serde::Deserialize, utoipa::IntoParams)]
+pub struct PatientAppointmentsQuery {
+    /// `upcoming` (not yet started, soonest first), `past` (most recent first), or omit for all, earliest first.
+    pub when: Option<String>,
+}
+
+/// `GET /api/patients/{id}/appointments`: one page of a patient's appointments (default 100), with
+/// `meta.next` for the rest (NFR-23, audit PA-14). `when=upcoming` lists the visits still to come, so a
+/// long history cannot push them off the first page.
 #[utoipa::path(
     get,
     path = "/api/patients/{id}/appointments",
     tag = "Patients",
-    params(("id" = String, Path, description = "Path parameter `id`")),
+    params(("id" = String, Path, description = "Path parameter `id`"), PatientAppointmentsQuery, crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::models::appointment::Appointment>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -97,16 +105,28 @@ pub async fn list_appointments(
 pub async fn list_patient_appointments(
     State(state): State<AppState>,
     Path(person_id): Path<Uuid>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+    axum::extract::Query(q): axum::extract::Query<PatientAppointmentsQuery>,
 ) -> HandlerResult {
-    match crate::db::repositories::appointment::AppointmentRepository::list_by_patient(
-        &state.db, person_id,
+    use crate::db::repositories::appointment::{AppointmentRepository, PatientWindow};
+    let when = match PatientWindow::parse(q.when.as_deref()) {
+        Ok(w) => w,
+        Err(e) => return error_to_response(e),
+    };
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
+        Err(e) => return error_to_response(e),
+    };
+    match AppointmentRepository::list_for_patient(
+        &state.db,
+        person_id,
+        when,
+        state.clock.now(),
+        page.rows(),
     )
     .await
     {
-        Ok(mut rows) => {
-            rows.sort_by_key(|a| a.start_datetime);
-            ok_json(rows)
-        }
+        Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }
 }
