@@ -26602,7 +26602,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/pathways/due-check?weeks=26&repeat_days=90`: long waiters nobody has asked recently whether\nthey still need this, longest first.",
+        "summary": "`GET /api/pathways/due-check?weeks=26&repeat_days=90`: long waiters nobody has asked recently whether\nthey still need this, earliest clock start first (ties by pathway). A page is filled from the open pathways\na window at a time, keeping those over the threshold, and reads at most ten pages' worth per request; a page\nthat spent that budget may be short, with a next page from where the reading stopped.",
         "tags": [
           "Pathways"
         ]

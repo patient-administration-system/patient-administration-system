@@ -309,3 +309,89 @@ async fn the_http_endpoints_work() {
     assert_eq!(st, StatusCode::NOT_FOUND);
     remove(&s, p).await;
 }
+
+/// axa-cursor-pagination `fill`: pathways whose clock started long ago but was paused come first in clock order
+/// and are under the threshold. The route reads past them to fill its page, and every pathway over the
+/// threshold is reached once across the pages.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn the_due_check_list_reads_past_pathways_under_the_threshold_to_fill_its_pages() {
+    use axum::body::{Body, to_bytes};
+    use axum::http::Request;
+    use tower::ServiceExt;
+    let s = state().await;
+    let mut paused = Vec::new();
+    let mut over = Vec::new();
+    // 40 started 300 weeks ago and paused after one; 3 started 60 weeks ago and still running.
+    for (n, started_weeks, paused_after) in [(40, 300, Some(1)), (3, 60, None)] {
+        for _ in 0..n {
+            let id = Uuid::new_v4();
+            s.db.run(Stmt::new(
+                "INSERT INTO rtt_pathways (id, person_id, target_service, breach_weeks, status, started_at, created_at, updated_at) \
+                 VALUES ($1, $2, 'fill-test', 18, 'active', now() - make_interval(weeks => $3), now(), now())",
+                [id.into(), Uuid::new_v4().into(), started_weeks.into()],
+            ))
+            .await
+            .unwrap();
+            s.db.run(Stmt::new(
+                "INSERT INTO rtt_clock_events (id, pathway_id, kind, event_at, created_at) \
+                 VALUES (gen_random_uuid(), $1, 'started', now() - make_interval(weeks => $2), now())",
+                [id.into(), started_weeks.into()],
+            ))
+            .await
+            .unwrap();
+            if let Some(after) = paused_after {
+                s.db.run(Stmt::new(
+                    "INSERT INTO rtt_clock_events (id, pathway_id, kind, event_at, created_at) \
+                     VALUES (gen_random_uuid(), $1, 'paused', now() - make_interval(weeks => $2), now())",
+                    [id.into(), (started_weeks - after).into()],
+                ))
+                .await
+                .unwrap();
+                paused.push(id);
+            } else {
+                over.push(id);
+            }
+        }
+    }
+    let app = patient_administration_system::api::rest::router(s.clone());
+    let mut uri = Some("/api/pathways/due-check?weeks=26&repeat_days=90&limit=50".to_string());
+    let mut seen: Vec<String> = Vec::new();
+    let mut pages = 0;
+    while let Some(u) = uri.take() {
+        let r = app
+            .clone()
+            .oneshot(Request::builder().uri(&u).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert!(r.status().is_success(), "{u}");
+        let v: serde_json::Value =
+            serde_json::from_slice(&to_bytes(r.into_body(), usize::MAX).await.unwrap()).unwrap();
+        for row in v["data"].as_array().unwrap() {
+            assert!(row["weeks_waited"].as_u64().unwrap() >= 26, "{row}");
+            seen.push(row["pathway_id"].as_str().unwrap().to_string());
+        }
+        uri = v["meta"]["next"].as_str().map(str::to_string);
+        pages += 1;
+        assert!(pages < 10_000, "the pages end");
+    }
+    for id in &over {
+        assert_eq!(
+            seen.iter().filter(|s| **s == id.to_string()).count(),
+            1,
+            "each over the threshold once"
+        );
+    }
+    for id in &paused {
+        assert!(
+            !seen.contains(&id.to_string()),
+            "a paused clock under the threshold is not listed"
+        );
+    }
+    s.db.run(Stmt::new(
+        "UPDATE rtt_pathways SET stopped_at = now(), status = 'stopped' WHERE target_service = 'fill-test'",
+        [],
+    ))
+    .await
+    .unwrap();
+}

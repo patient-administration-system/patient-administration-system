@@ -66,7 +66,9 @@ pub struct DueCheck {
 }
 
 /// `GET /api/pathways/due-check?weeks=26&repeat_days=90`: long waiters nobody has asked recently whether
-/// they still need this, longest first.
+/// they still need this, earliest clock start first (ties by pathway). A page is filled from the open pathways
+/// a window at a time, keeping those over the threshold, and reads at most ten pages' worth per request; a page
+/// that spent that budget may be short, with a next page from where the reading stopped.
 #[utoipa::path(
     get,
     path = "/api/pathways/due-check",
@@ -87,15 +89,29 @@ pub async fn due_for_check(
         Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
-    let due = match state.waits.due_for_check(q.weeks, q.repeat_days).await {
-        Ok(v) => v,
+    let weeks = match crate::waits::WaitsService::check_weeks(q.weeks) {
+        Ok(w) => w,
         Err(e) => return error_to_response(e),
     };
-    // Every open pathway is read and sorted in memory (QUAL-48), so the page is taken from that.
-    match page.rows().take(due) {
-        Ok(v) => crate::api::rest::handlers::ok_cursor_page(
-            &page,
-            v.into_iter()
+    // Read the open pathways a window at a time, keep those over the threshold, and stop when the page is full
+    // or ten pages' worth have been read: the page is never short for the pathways under the threshold, and a
+    // request never reads the whole table (axa-cursor-pagination `fill`).
+    // At most 500 rows a page, so ten pages always fit; the fallback only names the ceiling.
+    let budget = u64::try_from(page.limit())
+        .unwrap_or(0)
+        .checked_mul(10)
+        .unwrap_or(u64::MAX);
+    let filled = page
+        .fill(
+            budget,
+            |rows| state.waits.unchecked_window(q.repeat_days, rows),
+            |(_, p)| i64::from(p.weeks_waited) >= weeks,
+        )
+        .await;
+    match filled {
+        Ok((rows, meta, link)) => {
+            let rows: Vec<DueCheck> = rows
+                .into_iter()
                 .map(|(person_id, p)| DueCheck {
                     pathway_id: p.pathway_id,
                     person_id,
@@ -103,8 +119,15 @@ pub async fn due_for_check(
                     weeks_waited: p.weeks_waited,
                     last_check_at: p.last_check_at,
                 })
-                .collect::<Vec<_>>(),
-        ),
+                .collect();
+            let mut response = crate::api::rest::handlers::ok_json_page(rows, meta);
+            if let Some(link) = link {
+                response
+                    .headers_mut()
+                    .insert(axum::http::header::LINK, link);
+            }
+            response
+        }
         Err(e) => error_to_response(e),
     }
 }

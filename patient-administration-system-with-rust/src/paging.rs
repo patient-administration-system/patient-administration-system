@@ -131,15 +131,6 @@ impl Rows {
     pub fn offset(self) -> Result<i64> {
         Ok(in_range("offset", self.offset, 0, i64::MAX)?)
     }
-
-    /// The same window over a list already in memory.
-    pub fn take<T>(self, rows: Vec<T>) -> Result<Vec<T>> {
-        let skip = usize::try_from(self.offset()?)
-            .map_err(|_| Error::validation("offset is too large for this platform"))?;
-        let take = usize::try_from(self.fetch()?)
-            .map_err(|_| Error::validation("limit is too large for this platform"))?;
-        Ok(rows.into_iter().skip(skip).take(take).collect())
-    }
 }
 
 impl From<i64> for Rows {
@@ -158,6 +149,14 @@ impl From<u64> for Rows {
     fn from(limit: u64) -> Self {
         Self::from(i64::try_from(limit).unwrap_or(i64::MAX))
     }
+}
+
+/// The path and query inside `<...>; rel="next"`.
+fn link_target(link: &axum::http::HeaderValue) -> Option<String> {
+    let link = link.to_str().ok()?;
+    let (_, after) = link.split_once('<')?;
+    let (url, _) = after.split_once('>')?;
+    Some(url.to_string())
 }
 
 static KEY: OnceLock<CursorKey> = OnceLock::new();
@@ -243,18 +242,54 @@ impl Page {
         self.inner.next_link()
     }
 
+    /// Fill this page from `fetch`, keeping only the rows `keep` accepts, for a list whose rows are kept or
+    /// not by something worked out in Rust rather than in SQL (`axa-cursor-pagination` 0.1.4).
+    ///
+    /// `fetch(rows)` reads a window in the list's order (which must end in a unique column); it is asked for a
+    /// page and one row more at a time until the page is full, the list ends, or `max_scan` rows have been read.
+    /// The next page starts right after the last row returned, so nothing is skipped or shown twice. A page that
+    /// spent its budget may be short and still have a next page. Returns the rows, `meta` as [`Page::cut`] gives
+    /// it, and the `Link` header for the next page.
+    ///
+    /// # Errors
+    ///
+    /// The first error `fetch` returns.
+    pub async fn fill<T, F, Fut, K>(
+        &self,
+        max_scan: u64,
+        mut fetch: F,
+        keep: K,
+    ) -> Result<(Vec<T>, PageMeta, Option<axum::http::HeaderValue>)>
+    where
+        F: FnMut(Rows) -> Fut,
+        Fut: std::future::Future<Output = Result<Vec<T>>>,
+        K: FnMut(&T) -> bool,
+    {
+        let filled = self
+            .inner
+            .fill(
+                max_scan,
+                |limit, offset| fetch(Rows { limit, offset }),
+                keep,
+            )
+            .await?;
+        let meta = PageMeta {
+            limit: self.limit(),
+            returned: filled.rows.len(),
+            truncated: filled.next.is_some(),
+            next: filled.next.as_ref().and_then(link_target),
+        };
+        Ok((filled.rows, meta, filled.next))
+    }
+
     /// Keep at most the limit, and say whether there were more and where the next page is.
     pub fn cut<T>(&self, rows: Vec<T>) -> (Vec<T>, PageMeta) {
         let (rows, truncated) = self.inner.split(rows);
         let next = truncated
             .then(|| self.link())
             .flatten()
-            .and_then(|v| v.to_str().ok().map(str::to_string))
-            .and_then(|link| {
-                let (_, after) = link.split_once('<')?;
-                let (url, _) = after.split_once('>')?;
-                Some(url.to_string())
-            });
+            .as_ref()
+            .and_then(link_target);
         let meta = PageMeta {
             limit: self.limit(),
             returned: rows.len(),
@@ -389,15 +424,51 @@ mod tests {
         );
     }
 
-    #[test]
-    fn rows_in_memory_take_the_same_window() {
-        let page = Page::new(&uri("/api/x?limit=2"), 100).unwrap();
-        let next = page.cut(vec![1, 2, 3]).1.next.unwrap();
-        let second = Page::new(&uri(&next), 100).unwrap();
-        assert_eq!(
-            second.rows().take(vec![1, 2, 3, 4, 5, 6]).unwrap(),
-            vec![3, 4, 5]
-        );
+    /// A page of a list whose rows are kept in Rust (axa-cursor-pagination 0.1.4 `fill`): full pages, each
+    /// row once across pages, and a read budget that stops a request early with a next page from where it
+    /// stopped.
+    #[tokio::test]
+    async fn a_filled_page_is_full_reaches_every_kept_row_once_and_keeps_to_its_budget() {
+        let table: Vec<i64> = (0..20).collect();
+        let fetch = |rows: Rows| {
+            let table = table.clone();
+            async move {
+                let from = usize::try_from(rows.offset()?)
+                    .unwrap_or(usize::MAX)
+                    .min(table.len());
+                let to = from
+                    .saturating_add(usize::try_from(rows.limit()?).unwrap_or(0))
+                    .min(table.len());
+                Ok(table[from..to].to_vec())
+            }
+        };
+        let even = |n: &i64| n % 2 == 0;
+        let mut seen = Vec::new();
+        let mut at = "/api/x?limit=3".to_string();
+        loop {
+            let page = Page::new(&uri(&at), 100).unwrap();
+            let (rows, meta, link) = page.fill(1_000, fetch, even).await.unwrap();
+            assert_eq!(meta.returned, rows.len());
+            assert_eq!(meta.truncated, link.is_some());
+            if meta.truncated {
+                assert_eq!(rows.len(), 3, "a page with more after it is full");
+            }
+            seen.extend(rows);
+            match meta.next {
+                Some(next) => at = next,
+                None => break,
+            }
+        }
+        assert_eq!(seen, (0..20).filter(|n| n % 2 == 0).collect::<Vec<_>>());
+
+        // Nothing kept for the first sixteen rows and a budget of eight: the page stops early, short, with a
+        // next page that carries on from where the reading stopped.
+        let late = |n: &i64| *n >= 16;
+        let page = Page::new(&uri("/api/x?limit=3"), 100).unwrap();
+        let (rows, meta, _) = page.fill(8, fetch, late).await.unwrap();
+        assert!(rows.is_empty() && meta.truncated, "{meta:?}");
+        let next = Page::new(&uri(&meta.next.unwrap()), 100).unwrap();
+        assert_eq!(next.rows().offset().unwrap(), 8);
     }
 
     #[test]

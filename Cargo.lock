@@ -227,9 +227,9 @@ dependencies = [
 
 [[package]]
 name = "axa-cursor-pagination"
-version = "0.1.2"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d7343ae9911dc6136c1248b3d1418401a5f8fcfaf8bec59a5ae2867c467a6d6"
+checksum = "0e6bf574741c30d87ee294cd017d6ed9a78b3468d7c7994cae09c7f84fe39d3b"
 dependencies = [
  "axum",
  "base64 0.23.1",

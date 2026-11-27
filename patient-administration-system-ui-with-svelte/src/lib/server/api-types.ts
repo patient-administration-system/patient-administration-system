@@ -2605,7 +2605,9 @@ export interface paths {
     };
     /**
      * `GET /api/pathways/due-check?weeks=26&repeat_days=90`: long waiters nobody has asked recently whether
-     *     they still need this, longest first.
+     *     they still need this, earliest clock start first (ties by pathway). A page is filled from the open pathways
+     *     a window at a time, keeping those over the threshold, and reads at most ten pages' worth per request; a page
+     *     that spent that budget may be short, with a next page from where the reading stopped.
      */
     get: operations["get_api_pathways_due_check"];
     put?: never;

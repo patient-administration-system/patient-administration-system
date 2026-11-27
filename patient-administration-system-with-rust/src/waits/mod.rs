@@ -130,7 +130,69 @@ impl WaitsService {
         })
     }
 
-    /// Active pathways over `weeks` waited with no check asked in the last `repeat_days`, longest first. All of
+    /// One window of the open pathways with no check asked in the last `repeat_days`, earliest clock start first
+    /// (ties by id), each with the weeks it has waited. The due-check route keeps those over its threshold and
+    /// reads on until its page is full ([`crate::paging::Page::fill`]), so it never holds every pathway at once.
+    pub async fn unchecked_window(
+        &self,
+        repeat_days: Option<i64>,
+        rows: crate::paging::Rows,
+    ) -> Result<Vec<(Uuid, PathwayWait)>> {
+        let repeat = match repeat_days {
+            Some(d) => d,
+            None => env::int("PAS_CHECK_REPEAT_DAYS")?,
+        };
+        let found = self
+            .db
+            .all(Stmt::new("SELECT p.id, p.person_id, p.target_service, \
+                        (SELECT max(asked_at) FROM still_needed_checks c WHERE c.pathway_id = p.id) AS last_check \
+                 FROM rtt_pathways p WHERE p.stopped_at IS NULL \
+                   AND NOT EXISTS (SELECT 1 FROM still_needed_checks c WHERE c.pathway_id = p.id \
+                                   AND c.asked_at > now() - make_interval(days => $1::int)) \
+                 ORDER BY p.started_at, p.id LIMIT $2 OFFSET $3",
+                [
+                    crate::arith::narrow::<i32, _>("repeat days", repeat)?.into(),
+                    rows.limit()?.into(),
+                    rows.offset()?.into(),
+                ],
+            ))
+            .await?;
+        let ids = found
+            .iter()
+            .map(|r| r.col("id"))
+            .collect::<Result<Vec<Uuid>>>()?;
+        let events = RttRepository::events_for_pathways(&self.db, &ids).await?;
+        let now = Timestamp::now();
+        found
+            .iter()
+            .zip(ids)
+            .map(|(r, id)| {
+                Ok((
+                    r.col("person_id")?,
+                    PathwayWait {
+                        pathway_id: id,
+                        target_service: r.col("target_service")?,
+                        weeks_waited: compute_active_weeks(
+                            events.get(&id).map_or(&[][..], Vec::as_slice),
+                            now,
+                        ),
+                        last_check_at: r.col("last_check")?,
+                    },
+                ))
+            })
+            .collect()
+    }
+
+    /// The weeks a due check needs: the request's, or `PAS_CHECK_WEEKS`.
+    pub fn check_weeks(weeks: Option<i64>) -> Result<i64> {
+        match weeks {
+            Some(w) => Ok(w),
+            None => Ok(env::int("PAS_CHECK_WEEKS")?),
+        }
+    }
+
+    /// Active pathways over `weeks` waited with no check asked in the last `repeat_days`, most weeks waited first,
+    /// for a validation campaign. All of
     /// them, not the oldest few thousand: a campaign filters this by service, so a cut here would empty a
     /// newer service's cohort. The route pages what it shows.
     pub async fn due_for_check(
