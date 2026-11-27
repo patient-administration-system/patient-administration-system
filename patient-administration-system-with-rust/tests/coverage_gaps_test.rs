@@ -10,7 +10,7 @@ use patient_administration_system::db::repositories::audit::UserContext;
 use patient_administration_system::db::repositories::consent::ConsentRepository;
 use patient_administration_system::db::repositories::coverage::CoverageRepository;
 use patient_administration_system::db::repositories::waitlist::WaitlistRepository;
-use patient_administration_system::db::sql::{Conn, FromRow, Stmt, Table, Transact};
+use patient_administration_system::db::sql::{Conn, FromRow, Stmt, Table};
 use patient_administration_system::jobs::{Outcome, run_exclusive};
 use patient_administration_system::models::consent::{Consent, ConsentType};
 use patient_administration_system::models::coverage::Coverage;
@@ -73,12 +73,12 @@ async fn a_job_held_elsewhere_is_skipped_and_one_that_panics_is_reported() {
         Outcome::Panicked
     ));
 
-    // Another process holds the lock for the job while it is asked to run.
-    let holder = state.db.begin_txn().await.unwrap();
-    holder
-        .one(Stmt::new(
-            "SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS got",
-            [format!("pas.job.{name}").into()],
+    // Another replica holds the job's lease while it is asked to run: skipped; once the lease has lapsed it runs.
+    state
+        .db
+        .run(Stmt::new(
+            "UPDATE job_leases SET holder = $2, held_until = now() + interval '1 minute' WHERE name = $1",
+            [name.clone().into(), Uuid::new_v4().into()],
         ))
         .await
         .unwrap();
@@ -86,7 +86,18 @@ async fn a_job_held_elsewhere_is_skipped_and_one_that_panics_is_reported() {
         run_exclusive(&state.db, &name, || async { Ok(()) }).await,
         Outcome::Skipped
     ));
-    holder.rollback().await.unwrap();
+    state
+        .db
+        .run(Stmt::new(
+            "UPDATE job_leases SET held_until = now() - interval '1 second' WHERE name = $1",
+            [name.clone().into()],
+        ))
+        .await
+        .unwrap();
+    assert!(matches!(
+        run_exclusive(&state.db, &name, || async { Ok(()) }).await,
+        Outcome::Ran
+    ));
 }
 
 #[tokio::test]

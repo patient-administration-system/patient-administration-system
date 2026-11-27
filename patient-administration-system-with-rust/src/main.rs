@@ -837,9 +837,7 @@ mod tests {
     }
 
     async fn pool() -> patient_administration_system::db::sql::Pool {
-        let url = std::env::var("DB_URL")
-            .or_else(|_| std::env::var("DATABASE_URL"))
-            .unwrap();
+        let url = std::env::var("DATABASE_URL").unwrap();
         connect(&url).await.unwrap()
     }
 
@@ -1010,9 +1008,7 @@ mod tests {
     #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
     async fn the_server_starts_serves_and_stops_when_asked() {
         let mut cfg = config();
-        cfg.database_url = std::env::var("DB_URL")
-            .or_else(|_| std::env::var("DATABASE_URL"))
-            .unwrap();
+        cfg.database_url = std::env::var("DATABASE_URL").unwrap();
         cfg.server_host = "127.0.0.1".into();
         cfg.server_port = 0;
         cfg.hl7v2_mllp_bind = None;

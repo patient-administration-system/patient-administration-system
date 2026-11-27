@@ -150,3 +150,54 @@ async fn an_error_is_a_failure_and_no_connection_is_not_a_peer_running_it() {
     assert_eq!(outcome, Outcome::Unavailable);
     assert_eq!(ran.load(Ordering::SeqCst), 0, "the work did not run");
 }
+
+/// PA-09: with a pool of one connection a job still runs and its work can use the database, because the job's
+/// lease is taken in one statement and no connection is held while the work runs.
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_job_runs_and_writes_with_a_pool_of_one_connection() {
+    use patient_administration_system::db::row::RowExt;
+    use patient_administration_system::db::sql::{Conn, Stmt};
+    let url = std::env::var("DATABASE_URL").unwrap();
+    let one = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .acquire_timeout(Duration::from_secs(3))
+        .connect(&url)
+        .await
+        .unwrap();
+    let job = name();
+    let pool = one.clone();
+    let marker = job.clone();
+    let outcome = tokio::time::timeout(
+        Duration::from_secs(10),
+        run_exclusive(&one, &job, move || async move {
+            pool.run(Stmt::new(
+                "INSERT INTO job_leases (name, holder, held_until) VALUES ($1, $2, now())",
+                [format!("{marker}-wrote").into(), Uuid::new_v4().into()],
+            ))
+            .await?;
+            Ok(())
+        }),
+    )
+    .await
+    .expect("the tick finished within the time limit");
+    assert_eq!(outcome, Outcome::Ran);
+    let wrote: i64 = one
+        .one(Stmt::new(
+            "SELECT count(*)::bigint AS n FROM job_leases WHERE name = $1",
+            [format!("{job}-wrote").into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .col("n")
+        .unwrap();
+    assert_eq!(wrote, 1, "the work's write went through");
+    // The next tick, on the same single connection, runs again.
+    let again = run_exclusive(&one, &job, || async { Ok(()) }).await;
+    assert_eq!(
+        again,
+        Outcome::Ran,
+        "the lease was given back when the run ended"
+    );
+}

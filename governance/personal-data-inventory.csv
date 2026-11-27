@@ -777,3 +777,7 @@ work_items,owner,staff-identifier,Attribute work to a staff member held by worke
 work_items,opened_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 work_items,claimed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 work_items,closed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+job_leases,name,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+job_leases,holder,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+job_leases,held_until,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+job_leases,taken_at,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived

@@ -1,9 +1,9 @@
 //! Background jobs (QUAL-2): one runner for every timer loop in `main`.
 //!
-//! - **One at a time across replicas.** Each run takes a transaction-scoped
-//!   Postgres advisory lock named for the job (`pg_try_advisory_xact_lock`);
-//!   a replica that does not get it skips that tick. The lock is released by
-//!   the transaction, so a crashed process cannot keep it.
+//! - **One at a time across replicas.** Each run takes the job's lease in
+//!   `job_leases` (one statement; no connection is held while it works); a
+//!   replica that does not get it skips that tick. A run releases its lease
+//!   when it ends, and a crashed process's lease lapses after [`LEASE`].
 //! - **A panic does not end the job.** Each run is its own task; a panic is
 //!   logged and the next tick runs.
 //! - **A failure is not a success.** The work returns a `Result`; an error is
@@ -12,8 +12,7 @@
 //! - **Clean shutdown.** `Jobs::stop` tells every loop to finish the run it
 //!   is in and stop, and waits for them for a grace period.
 
-use crate::db::row::RowExt;
-use crate::db::sql::{Conn, Pool, Stmt, Transact};
+use crate::db::sql::{Conn, Pool, Stmt};
 use std::future::Future;
 use std::time::Duration;
 
@@ -37,36 +36,42 @@ pub enum Outcome {
     Panicked,
 }
 
+/// How long a run may hold its job before another replica may take it: a run that dies (a crash, a lost
+/// network) blocks the job for no longer than this. A run that takes longer may overlap the next replica's,
+/// which jobs already allow: each is safe to repeat.
+pub const LEASE: Duration = Duration::from_secs(15 * 60);
+
 /// Run `work` only if no other process is running the job `name`.
+///
+/// The job is held by a lease row in `job_leases`, taken and released each in one statement, so no connection
+/// is held while the work runs and the work can use the whole pool, a pool of one included (audit PA-09). A
+/// lease is taken when there is none or the last one has lapsed.
 pub async fn run_exclusive<F, Fut>(db: &Pool, name: &str, work: F) -> Outcome
 where
     F: FnOnce() -> Fut,
     Fut: Future<Output = crate::Result<()>> + Send + 'static,
 {
-    let txn = match db.begin_txn().await {
-        Ok(t) => t,
-        Err(e) => {
-            tracing::warn!(target: "pas::jobs", job = name, "job not run, no connection: {e}");
-            return Outcome::Unavailable;
-        }
-    };
-    let asked = txn
+    let holder = uuid::Uuid::new_v4();
+    let lease_secs = i64::try_from(LEASE.as_secs()).unwrap_or(i64::MAX);
+    let taken = db
         .one(Stmt::new(
-            "SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS got",
-            [format!("pas.job.{name}").into()],
+            "INSERT INTO job_leases (name, holder, held_until, taken_at) \
+             VALUES ($1, $2, now() + make_interval(secs => $3), now()) \
+             ON CONFLICT (name) DO UPDATE SET holder = EXCLUDED.holder, held_until = EXCLUDED.held_until, \
+               taken_at = EXCLUDED.taken_at \
+             WHERE job_leases.held_until < now() \
+             RETURNING holder",
+            [name.into(), holder.into(), lease_secs.into()],
         ))
-        .await
-        .map(|row| row.and_then(|r| r.col::<bool>("got").ok()));
-    match asked {
-        Ok(Some(true)) => {}
-        Ok(_) => {
+        .await;
+    match taken {
+        Ok(Some(_)) => {}
+        Ok(None) => {
             tracing::debug!(target: "pas::jobs", job = name, "job is running elsewhere; skipped");
-            let _ = txn.rollback().await;
             return Outcome::Skipped;
         }
         Err(e) => {
-            tracing::warn!(target: "pas::jobs", job = name, "job lock could not be asked for: {e}");
-            let _ = txn.rollback().await;
+            tracing::warn!(target: "pas::jobs", job = name, "job not run, no lease: {e}");
             return Outcome::Unavailable;
         }
     }
@@ -81,7 +86,16 @@ where
             Outcome::Panicked
         }
     };
-    let _ = txn.commit().await;
+    // Give the job back at once; if this fails the lease lapses on its own.
+    if let Err(e) = db
+        .run(Stmt::new(
+            "UPDATE job_leases SET held_until = now() WHERE name = $1 AND holder = $2",
+            [name.into(), holder.into()],
+        ))
+        .await
+    {
+        tracing::warn!(target: "pas::jobs", job = name, "job lease not released (it lapses): {e}");
+    }
     outcome
 }
 
