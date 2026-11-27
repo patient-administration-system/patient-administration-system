@@ -102,6 +102,43 @@ pub fn cut<T>(mut rows: Vec<T>, limit: i64) -> (Vec<T>, PageMeta) {
     (rows, meta)
 }
 
+/// What changed in a window (TSC-6), for an integrator that polls rather than subscribes: `updated_since`
+/// (inclusive) and, optionally, `updated_before` (exclusive). A list given `updated_since` lists the rows whose
+/// `updated_at` falls in the window, oldest change first (ties by id), and its cursor holds the window.
+///
+/// Walk with a fixed `updated_before`: the time the walk started, which is then the next poll's `updated_since`.
+/// Without it a row changed during the walk moves to the end of the list, and the rows after its old place each
+/// move up one, so one of them can fall between two pages. A transaction that commits after the walk read its
+/// window can still be missed; ending `updated_before` a few seconds in the past makes that unlikely.
+#[derive(Debug, Clone, Copy, Default, Deserialize, utoipa::IntoParams)]
+pub struct ChangedQuery {
+    /// Rows changed at or after this time (RFC 3339).
+    pub updated_since: Option<jiff::Timestamp>,
+    /// Rows changed before this time (RFC 3339); only with `updated_since`.
+    pub updated_before: Option<jiff::Timestamp>,
+}
+
+impl ChangedQuery {
+    /// The window, or `None` for a list read as before. `updated_before` alone, or not after `updated_since`,
+    /// is refused.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Validation`] for a window that cannot be walked.
+    pub fn window(&self) -> Result<Option<(jiff::Timestamp, Option<jiff::Timestamp>)>> {
+        match (self.updated_since, self.updated_before) {
+            (None, None) => Ok(None),
+            (None, Some(_)) => Err(Error::validation(
+                "updated_before is used with updated_since",
+            )),
+            (Some(since), Some(before)) if before <= since => Err(Error::validation(
+                "updated_before must be after updated_since",
+            )),
+            (Some(since), before) => Ok(Some((since, before))),
+        }
+    }
+}
+
 /// The rows a service query reads: `LIMIT` and `OFFSET`. A plain number converts to the first page, so a
 /// caller that does not page passes its limit as before.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

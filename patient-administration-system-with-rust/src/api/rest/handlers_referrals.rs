@@ -80,12 +80,13 @@ pub struct ListQuery {
     pub service: Option<String>,
 }
 
-/// `GET /api/referrals?status=&service=`: oldest first.
+/// `GET /api/referrals?status=&service=`: oldest first. With `updated_since` (and `updated_before`), the
+/// referrals changed in that window, oldest change first, for an integrator that polls (TSC-6).
 #[utoipa::path(
     get,
     path = "/api/referrals",
     tag = "Referrals",
-    params(crate::paging::PageQuery, ListQuery),
+    params(crate::paging::PageQuery, ListQuery, crate::paging::ChangedQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::referrals::Referral>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -96,14 +97,24 @@ pub async fn list(
     State(state): State<AppState>,
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<ListQuery>,
+    Query(changed): Query<crate::paging::ChangedQuery>,
 ) -> HandlerResult {
+    let window = match changed.window() {
+        Ok(w) => w,
+        Err(e) => return error_to_response(e),
+    };
     let page = match crate::paging::Page::new(&uri, 100) {
         Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
     match state
         .referrals
-        .list(q.status.as_deref(), q.service.as_deref(), page.rows())
+        .list_changed(
+            q.status.as_deref(),
+            q.service.as_deref(),
+            window,
+            page.rows(),
+        )
         .await
     {
         Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),

@@ -112,20 +112,44 @@ impl ReferralService {
         service: Option<&str>,
         rows: impl Into<crate::paging::Rows>,
     ) -> Result<Vec<Referral>> {
+        self.list_changed(status, service, None, rows).await
+    }
+
+    /// [`Self::list`], or with `changed` the referrals changed in that window (TSC-6), oldest change first.
+    pub async fn list_changed(
+        &self,
+        status: Option<&str>,
+        service: Option<&str>,
+        changed: Option<(jiff::Timestamp, Option<jiff::Timestamp>)>,
+        rows: impl Into<crate::paging::Rows>,
+    ) -> Result<Vec<Referral>> {
         let rows = rows.into();
         if let Some(s) = status {
             s.parse::<ReferralStatus>()?;
         }
+        let (since, before) = match changed {
+            Some((since, before)) => (Some(since), before),
+            None => (None, None),
+        };
+        let order = if since.is_some() {
+            "r.updated_at, r.id"
+        } else {
+            "r.received_at, r.id"
+        };
         let rows = self
             .db
             .all(Stmt::new(format!(
                     "SELECT {COLS} FROM referrals r WHERE ($1::text IS NULL OR r.status = $1) \
-                     AND ($2::text IS NULL OR r.target_service = $2) ORDER BY r.received_at, r.id LIMIT $3 OFFSET $4"
+                     AND ($2::text IS NULL OR r.target_service = $2) \
+                     AND ($5::timestamptz IS NULL OR r.updated_at >= $5) AND ($6::timestamptz IS NULL OR r.updated_at < $6) \
+                     ORDER BY {order} LIMIT $3 OFFSET $4"
                 ),
                 [
                     status.map(String::from).into(),
                     service.map(String::from).into(),
                     rows.fetch()?.into(), rows.offset()?.into(),
+                    since.into(),
+                    before.into(),
                 ],
             ))
 .await?;
@@ -254,7 +278,7 @@ impl ReferralService {
                         // took it) is skipped; the next earliest is tried.
                         match SchedulingService::book_tx(txn, slot_id, person, &ctx).await {
                             Ok(appt) => {
-                                txn.run(Stmt::new("UPDATE appointments SET referral_id = $2 WHERE id = $1",
+                                txn.run(Stmt::new("UPDATE appointments SET referral_id = $2, updated_at = now() WHERE id = $1",
                                     [appt.id.into(), id.into()],
                                 ))
 .await?;

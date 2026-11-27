@@ -38,17 +38,20 @@ pub struct BarrierBody {
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct RangeQuery {
-    pub from: jiff::Timestamp,
-    pub to: jiff::Timestamp,
+    /// Start of the window of appointment starts. Required, with `to`, unless `updated_since` is given.
+    pub from: Option<jiff::Timestamp>,
+    pub to: Option<jiff::Timestamp>,
 }
 
 /// `GET /api/appointments?from=<rfc3339>&to=<rfc3339>` — appointments
-/// starting in `[from, to)`. The range is capped at 366 days.
+/// starting in `[from, to)`. The range is capped at 366 days. With `updated_since` (and `updated_before`),
+/// the appointments changed in that window instead, oldest change first, deleted ones included (their
+/// `deleted_at` is set), within `[from, to)` when given, for an integrator that polls (TSC-6).
 #[utoipa::path(
     get,
     path = "/api/appointments",
     tag = "Appointments",
-    params(RangeQuery, crate::paging::PageQuery),
+    params(RangeQuery, crate::paging::ChangedQuery, crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::models::appointment::Appointment>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -59,24 +62,47 @@ pub async fn list_appointments(
     State(state): State<AppState>,
     axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<RangeQuery>,
+    Query(changed): Query<crate::paging::ChangedQuery>,
 ) -> HandlerResult {
-    if q.to <= q.from || q.to.duration_since(q.from) > crate::time::days(366) {
-        return error_to_response(crate::Error::validation(
-            "`from` must precede `to` by at most 366 days",
-        ));
+    use crate::db::repositories::appointment::AppointmentRepository;
+    let window = match changed.window() {
+        Ok(w) => w,
+        Err(e) => return error_to_response(e),
+    };
+    match (q.from, q.to) {
+        (Some(from), Some(to))
+            if to <= from || to.duration_since(from) > crate::time::days(366) =>
+        {
+            return error_to_response(crate::Error::validation(
+                "`from` must precede `to` by at most 366 days",
+            ));
+        }
+        (Some(_), None) | (None, Some(_)) => {
+            return error_to_response(crate::Error::validation("`from` and `to` go together"));
+        }
+        (None, None) if window.is_none() => {
+            return error_to_response(crate::Error::validation(
+                "`from` and `to` are required, or `updated_since` for the appointments that changed",
+            ));
+        }
+        _ => {}
     }
     let page = match crate::paging::Page::new(&uri, 500) {
         Ok(page) => page,
         Err(e) => return error_to_response(e),
     };
-    match crate::db::repositories::appointment::AppointmentRepository::list_between(
-        &state.db,
-        q.from,
-        q.to,
-        page.rows(),
-    )
-    .await
-    {
+    let rows = match (window, q.from, q.to) {
+        (Some((since, before)), from, to) => {
+            AppointmentRepository::list_changed(&state.db, since, before, from, to, page.rows())
+                .await
+        }
+        (None, Some(from), Some(to)) => {
+            AppointmentRepository::list_between(&state.db, from, to, page.rows()).await
+        }
+        // Refused above.
+        (None, _, _) => Ok(Vec::new()),
+    };
+    match rows {
         Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
         Err(e) => error_to_response(e),
     }

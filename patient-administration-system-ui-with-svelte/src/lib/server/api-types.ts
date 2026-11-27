@@ -612,7 +612,9 @@ export interface paths {
     };
     /**
      * `GET /api/appointments?from=<rfc3339>&to=<rfc3339>` — appointments
-     *     starting in `[from, to)`. The range is capped at 366 days.
+     *     starting in `[from, to)`. The range is capped at 366 days. With `updated_since` (and `updated_before`),
+     *     the appointments changed in that window instead, oldest change first, deleted ones included (their
+     *     `deleted_at` is set), within `[from, to)` when given, for an integrator that polls (TSC-6).
      */
     get: operations["get_api_appointments"];
     put?: never;
@@ -3669,7 +3671,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** `GET /api/referrals?status=&service=`: oldest first. */
+    /**
+     * `GET /api/referrals?status=&service=`: oldest first. With `updated_since` (and `updated_before`), the
+     *     referrals changed in that window, oldest change first, for an integrator that polls (TSC-6).
+     */
     get: operations["get_api_referrals"];
     put?: never;
     /**
@@ -5012,7 +5017,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** `GET /api/waitlist?service=cardiology`. */
+    /**
+     * `GET /api/waitlist?service=cardiology`: the service's entries, longest on the list first. With
+     *     `updated_since` (and `updated_before`), one page of the entries changed in that window instead, of one
+     *     service or all, oldest change first, for an integrator that polls (TSC-6).
+     */
     get: operations["get_api_waitlist"];
     put?: never;
     /** `POST /api/waitlist`. */
@@ -14122,8 +14131,13 @@ export interface operations {
       };
       header?: never;
       path: {
-        from: string;
-        to: string;
+        /** @description Start of the window of appointment starts. Required, with `to`, unless `updated_since` is given. */
+        from: string | null;
+        to: string | null;
+        /** @description Rows changed at or after this time (RFC 3339). */
+        updated_since: string | null;
+        /** @description Rows changed before this time (RFC 3339); only with `updated_since`. */
+        updated_before: string | null;
       };
       cookie?: never;
     };
@@ -21209,6 +21223,10 @@ export interface operations {
       path: {
         status: string | null;
         service: string | null;
+        /** @description Rows changed at or after this time (RFC 3339). */
+        updated_since: string | null;
+        /** @description Rows changed before this time (RFC 3339); only with `updated_since`. */
+        updated_before: string | null;
       };
       cookie?: never;
     };
@@ -24290,10 +24308,23 @@ export interface operations {
   };
   get_api_waitlist: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
       header?: never;
       path: {
-        service: string;
+        /** @description The service. Required unless `updated_since` is given. */
+        service: string | null;
+        /** @description Rows changed at or after this time (RFC 3339). */
+        updated_since: string | null;
+        /** @description Rows changed before this time (RFC 3339); only with `updated_since`. */
+        updated_before: string | null;
       };
       cookie?: never;
     };

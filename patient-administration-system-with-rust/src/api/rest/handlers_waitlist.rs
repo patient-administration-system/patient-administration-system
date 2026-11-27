@@ -22,7 +22,8 @@ pub struct WaitlistAddBody {
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListByServiceQuery {
-    pub service: String,
+    /// The service. Required unless `updated_since` is given.
+    pub service: Option<String>,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -135,12 +136,14 @@ pub async fn get_waitlist_entry(
     }
 }
 
-/// `GET /api/waitlist?service=cardiology`.
+/// `GET /api/waitlist?service=cardiology`: the service's entries, longest on the list first. With
+/// `updated_since` (and `updated_before`), one page of the entries changed in that window instead, of one
+/// service or all, oldest change first, for an integrator that polls (TSC-6).
 #[utoipa::path(
     get,
     path = "/api/waitlist",
     tag = "Waitlist",
-    params(ListByServiceQuery),
+    params(ListByServiceQuery, crate::paging::ChangedQuery, crate::paging::PageQuery),
     responses(
         (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::models::waitlist::WaitlistEntry>>),
         (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
@@ -149,9 +152,38 @@ pub async fn get_waitlist_entry(
 )]
 pub async fn list_waitlist(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
     Query(q): Query<ListByServiceQuery>,
+    Query(changed): Query<crate::paging::ChangedQuery>,
 ) -> HandlerResult {
-    match state.waitlist.list_by_service(&q.service).await {
+    let window = match changed.window() {
+        Ok(w) => w,
+        Err(e) => return error_to_response(e),
+    };
+    if let Some((since, before)) = window {
+        let page = match crate::paging::Page::new(&uri, 100) {
+            Ok(p) => p,
+            Err(e) => return error_to_response(e),
+        };
+        return match crate::db::repositories::waitlist::WaitlistRepository::list_changed(
+            &state.db,
+            q.service.as_deref(),
+            since,
+            before,
+            page.rows(),
+        )
+        .await
+        {
+            Ok(rows) => crate::api::rest::handlers::ok_cursor_page(&page, rows),
+            Err(e) => error_to_response(e),
+        };
+    }
+    let Some(service) = q.service else {
+        return error_to_response(crate::error::Error::validation(
+            "service is required, or updated_since for the entries that changed",
+        ));
+    };
+    match state.waitlist.list_by_service(&service).await {
         Ok(rows) => ok_json(rows),
         Err(e) => error_to_response(e),
     }

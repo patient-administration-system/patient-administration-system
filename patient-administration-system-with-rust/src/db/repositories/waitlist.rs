@@ -77,6 +77,31 @@ impl WaitlistRepository {
         rows.into_iter().map(from_model).collect()
     }
 
+    /// Entries changed in `[since, before)` (TSC-6), oldest change first, ties by id; one service's when given.
+    pub async fn list_changed<C: Conn>(
+        conn: &C,
+        service: Option<&str>,
+        since: jiff::Timestamp,
+        before: Option<jiff::Timestamp>,
+        rows: crate::paging::Rows,
+    ) -> Result<Vec<WaitlistEntry>> {
+        let rows = conn
+            .all_as::<waitlist_entry::Model>(Stmt::new(
+                "SELECT * FROM waitlist_entries WHERE ($1::text IS NULL OR target_service = $1) \
+                 AND updated_at >= $2 AND ($3::timestamptz IS NULL OR updated_at < $3) \
+                 ORDER BY updated_at, id LIMIT $4 OFFSET $5",
+                [
+                    service.map(String::from).into(),
+                    since.into(),
+                    before.into(),
+                    rows.fetch()?.into(),
+                    rows.offset()?.into(),
+                ],
+            ))
+            .await?;
+        rows.into_iter().map(from_model).collect()
+    }
+
     pub async fn list_by_priority<C: Conn>(
         conn: &C,
         priority: Priority,

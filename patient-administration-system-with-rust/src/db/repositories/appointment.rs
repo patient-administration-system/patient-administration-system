@@ -118,6 +118,38 @@ impl AppointmentRepository {
         rows.into_iter().map(from_model).collect()
     }
 
+    /// Appointments changed in `[since, before)` (TSC-6), deleted ones too (their `deleted_at` says so), oldest
+    /// change first, ties by id; within `[from, to)` of their start when a window is given.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the two windows of one query and its page"
+    )]
+    pub async fn list_changed<C: Conn>(
+        conn: &C,
+        since: Timestamp,
+        before: Option<Timestamp>,
+        from: Option<Timestamp>,
+        to: Option<Timestamp>,
+        rows: crate::paging::Rows,
+    ) -> Result<Vec<Appointment>> {
+        let rows = conn
+            .all_as::<appointment::Model>(Stmt::new(
+                "SELECT * FROM appointments WHERE updated_at >= $1 AND ($2::timestamptz IS NULL OR updated_at < $2) \
+                 AND ($3::timestamptz IS NULL OR start_datetime >= $3) AND ($4::timestamptz IS NULL OR start_datetime < $4) \
+                 ORDER BY updated_at, id LIMIT $5 OFFSET $6",
+                [
+                    since.into(),
+                    before.into(),
+                    from.into(),
+                    to.into(),
+                    rows.fetch()?.into(),
+                    rows.offset()?.into(),
+                ],
+            ))
+            .await?;
+        rows.into_iter().map(from_model).collect()
+    }
+
     /// All non-deleted appointments (any status) starting inside `[from, to)`,
     /// earliest first; backs the staff calendar.
     pub async fn list_between<C: Conn>(

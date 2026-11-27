@@ -21537,12 +21537,16 @@
         "operationId": "get_api_appointments",
         "parameters": [
           {
+            "description": "Start of the window of appointment starts. Required, with `to`, unless `updated_since` is given.",
             "in": "path",
             "name": "from",
             "required": true,
             "schema": {
               "format": "date-time",
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           {
@@ -21551,7 +21555,36 @@
             "required": true,
             "schema": {
               "format": "date-time",
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows changed at or after this time (RFC 3339).",
+            "in": "path",
+            "name": "updated_since",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows changed before this time (RFC 3339); only with `updated_since`.",
+            "in": "path",
+            "name": "updated_before",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           {
@@ -21597,7 +21630,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/appointments?from=<rfc3339>&to=<rfc3339>` — appointments\nstarting in `[from, to)`. The range is capped at 366 days.",
+        "summary": "`GET /api/appointments?from=<rfc3339>&to=<rfc3339>` — appointments\nstarting in `[from, to)`. The range is capped at 366 days. With `updated_since` (and `updated_before`),\nthe appointments changed in that window instead, oldest change first, deleted ones included (their\n`deleted_at` is set), within `[from, to)` when given, for an integrator that polls (TSC-6).",
         "tags": [
           "Appointments"
         ]
@@ -29765,6 +29798,32 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "Rows changed at or after this time (RFC 3339).",
+            "in": "path",
+            "name": "updated_since",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows changed before this time (RFC 3339); only with `updated_since`.",
+            "in": "path",
+            "name": "updated_before",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -29790,7 +29849,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/referrals?status=&service=`: oldest first.",
+        "summary": "`GET /api/referrals?status=&service=`: oldest first. With `updated_since` (and `updated_before`), the\nreferrals changed in that window, oldest change first, for an integrator that polls (TSC-6).",
         "tags": [
           "Referrals"
         ]
@@ -33672,9 +33731,58 @@
         "operationId": "get_api_waitlist",
         "parameters": [
           {
+            "description": "The service. Required unless `updated_since` is given.",
             "in": "path",
             "name": "service",
             "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows changed at or after this time (RFC 3339).",
+            "in": "path",
+            "name": "updated_since",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows changed before this time (RFC 3339); only with `updated_since`.",
+            "in": "path",
+            "name": "updated_before",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -33703,7 +33811,7 @@
             "bearer": []
           }
         ],
-        "summary": "`GET /api/waitlist?service=cardiology`.",
+        "summary": "`GET /api/waitlist?service=cardiology`: the service's entries, longest on the list first. With\n`updated_since` (and `updated_before`), one page of the entries changed in that window instead, of one\nservice or all, oldest change first, for an integrator that polls (TSC-6).",
         "tags": [
           "Waitlist"
         ]
