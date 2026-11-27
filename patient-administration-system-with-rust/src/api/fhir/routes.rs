@@ -122,6 +122,10 @@ pub fn router(state: AppState) -> Router {
             state.clone(),
             crate::api::rest::idempotency::idempotency_middleware,
         ))
+        // TSC-12: the same change sent too often is refused.
+        .layer(axum::middleware::from_fn(
+            crate::api::rest::loop_guard::loop_guard_middleware,
+        ))
         .layer(axum::middleware::from_fn(fhir_media_type))
         .with_state(state)
 }

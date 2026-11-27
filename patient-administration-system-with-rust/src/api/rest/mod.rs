@@ -56,6 +56,7 @@ pub mod handlers_work_queue;
 pub mod handlers_writeback;
 pub mod hl7_dedupe;
 pub mod idempotency;
+pub mod loop_guard;
 pub mod rate_limit;
 pub mod read_audit;
 pub mod routes;

@@ -107,6 +107,10 @@ pub fn router(state: AppState) -> Router {
             state.clone(),
             super::idempotency::idempotency_middleware,
         ))
+        // TSC-12: the same change to the same record sent too often is refused, so a loop is seen.
+        .layer(axum::middleware::from_fn(
+            super::loop_guard::loop_guard_middleware,
+        ))
         .layer(axum::middleware::from_fn(
             super::concurrency::etag_middleware,
         ))
