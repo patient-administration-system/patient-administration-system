@@ -59,6 +59,10 @@ pub(super) fn messaging() -> Router<AppState> {
             post(handlers_work_queue::assign),
         )
         .route(
+            "/api/work-items/{id}/phone-outcome",
+            post(handlers_work_queue::phone_outcome),
+        )
+        .route(
             "/api/work-queues/{queue}/next",
             post(handlers_work_queue::take_next),
         )

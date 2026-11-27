@@ -255,6 +255,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_work_queue::get,
         crate::api::rest::handlers_work_queue::claim,
         crate::api::rest::handlers_work_queue::release,
+        crate::api::rest::handlers_work_queue::phone_outcome,
         crate::api::rest::handlers_work_queue::assign,
         crate::api::rest::handlers_work_queue::take_next,
         crate::api::rest::handlers_clinical_priority::set_priority,

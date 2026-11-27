@@ -400,6 +400,7 @@
   "work.kind.validation": "Prüfen, ob die Patientin oder der Patient noch warten muss",
   "work.kind.needs_review": "Die Kommunikationsbedürfnisse mit der Patientin oder dem Patienten überprüfen",
   "work.kind.tolerance_alert": "Eine Kennzahl liegt außerhalb ihrer Toleranz",
+  "work.kind.unreached": "Die Patientin oder den Patienten anrufen: auf unsere Nachrichten kam keine Antwort",
   "work.claim": "Übernehmen",
   "work.release": "Zurückgeben",
   "work.done.claimed": "Der Eintrag gehört jetzt Ihnen.",

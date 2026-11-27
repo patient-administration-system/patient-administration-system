@@ -400,6 +400,7 @@
   "work.kind.validation": "जाँचें कि मरीज़ को अब भी प्रतीक्षा करनी है",
   "work.kind.needs_review": "मरीज़ के साथ उनकी संचार ज़रूरतों की समीक्षा करें",
   "work.kind.tolerance_alert": "सेवा का कोई माप अपनी सहनशीलता से बाहर है",
+  "work.kind.unreached": "मरीज़ को फ़ोन करके देखें: हमारे भेजे किसी संदेश का जवाब नहीं आया",
   "work.claim": "लें",
   "work.release": "वापस दें",
   "work.done.claimed": "यह अब आपका है।",

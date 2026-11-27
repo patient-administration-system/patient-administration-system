@@ -400,6 +400,7 @@
   "work.kind.validation": "Check the patient still needs to wait",
   "work.kind.needs_review": "Review the patient's communication needs with them",
   "work.kind.tolerance_alert": "A service measure is outside its tolerance",
+  "work.kind.unreached": "Try the patient by phone: nothing we sent has been answered",
   "work.claim": "Take it",
   "work.release": "Give it back",
   "work.done.claimed": "It is yours.",

@@ -5367,6 +5367,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/work-items/{id}/phone-outcome": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * `POST /api/work-items/{id}/phone-outcome`: what came of phoning the patient for an `unreached` item
+     *     (TSC-8); any outcome closes it. Another kind of item is a `409`: it closes in its own list.
+     */
+    post: operations["post_api_work_items__id__phone_outcome"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/work-items/{id}/release": {
     parameters: {
       query?: never;
@@ -11351,6 +11371,11 @@ export interface components {
      * @enum {string}
      */
     PaymentMethod: "cash" | "card" | "bank_transfer" | "insurance" | "other";
+    /**
+     * @description What came of phoning a patient for an `unreached` item, as `unreached_call_outcomes.outcome` stores it.
+     * @enum {string}
+     */
+    PhoneOutcome: "reached" | "no_answer" | "wrong_number";
     Policy: {
       /** Format: date-time */
       approved_at: string;
@@ -12852,6 +12877,10 @@ export interface components {
     "handlers_work_queue.AssignBody": {
       /** @description The person who should have the item. */
       to: string;
+    };
+    "handlers_work_queue.PhoneOutcomeBody": {
+      /** @description `reached`, `no_answer` or `wrong_number`. */
+      outcome: components["schemas"]["PhoneOutcome"];
     };
     "list_validation.Campaign": {
       /** @description Items by state (`selected`, `asked`, ...), for the campaign page. */
@@ -25279,6 +25308,47 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkItem"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_work_items__id__phone_outcome: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["handlers_work_queue.PhoneOutcomeBody"];
+      };
+    };
     responses: {
       /** @description Success; the `ApiResponse` envelope */
       200: {

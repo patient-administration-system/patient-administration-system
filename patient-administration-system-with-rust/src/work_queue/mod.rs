@@ -137,6 +137,36 @@ pub struct WorkQueueService {
     tz: TimeZone,
 }
 
+/// How far back a fact makes an `unreached` item: older than this, it is history, not work.
+const UNREACHED_DAYS: i64 = 90;
+
+/// TSC-8: each time every route to a patient was tried and nothing came back, since `$1`: the ladder's call
+/// that went unanswered (or found a wrong number), a message that bounced, a validation letter past its
+/// reply-by date. Each is open until the patient answers after it (a text, a reply receipt, a call that
+/// reached them, or the validation answered) or a phone outcome is recorded on its item. Facts only; nothing
+/// is scored or ranked (NFR-11).
+const UNREACHED: &str = "WITH facts AS ( \
+       SELECT t.id AS source_id, t.person_id, 'appointment'::text AS subject_kind, t.appointment_id AS subject_id, \
+              t.handled_at AS since \
+         FROM staff_call_tasks t \
+        WHERE t.call_outcome IN ('no_answer','wrong_number') AND t.handled_at >= $1 \
+       UNION ALL \
+       SELECT r.id, l.person_id, 'profile'::text, l.person_id, r.occurred_at \
+         FROM message_receipts r JOIN generated_letters l ON l.id = r.letter_id \
+        WHERE r.event = 'bounced' AND r.occurred_at >= $1 \
+       UNION ALL \
+       SELECT i.id, i.person_id, 'pathway'::text, i.pathway_id, i.letter_sent_at \
+         FROM validation_items i \
+        WHERE i.state = 'letter_sent' AND i.final_by < current_date AND i.letter_sent_at IS NOT NULL) \
+     SELECT f.* FROM facts f \
+      WHERE f.person_id IS NOT NULL \
+        AND NOT EXISTS (SELECT 1 FROM unreached_call_outcomes o WHERE o.source_id = f.source_id) \
+        AND NOT EXISTS (SELECT 1 FROM inbound_texts x WHERE x.person_id = f.person_id AND x.received_at > f.since) \
+        AND NOT EXISTS (SELECT 1 FROM message_receipts rr JOIN generated_letters ll ON ll.id = rr.letter_id \
+                         WHERE ll.person_id = f.person_id AND rr.event = 'replied' AND rr.occurred_at > f.since) \
+        AND NOT EXISTS (SELECT 1 FROM staff_call_tasks c WHERE c.person_id = f.person_id \
+                         AND c.call_outcome = 'reached' AND c.handled_at > f.since)";
+
 const SELECT: &str = "SELECT id, kind, source_id, person_id, subject_kind, subject_id, queue, priority, due_at, \
      status, owner, opened_at, claimed_at, closed_at FROM work_items";
 
@@ -215,6 +245,12 @@ impl WorkQueueService {
                     ))
                     .await?
             }
+            WorkKind::Unreached => {
+                let from = now
+                    .checked_sub(jiff::SignedDuration::from_hours(UNREACHED_DAYS * 24))
+                    .map_err(|e| Error::internal(format!("the unreached window: {e}")))?;
+                self.db.all(Stmt::new(UNREACHED, [from.into()])).await?
+            }
         };
         rows.iter().map(|r| self.open_row(kind, r, now)).collect()
     }
@@ -263,6 +299,22 @@ impl WorkQueueService {
                     subject_id: Some(person),
                     due: None,
                     since: now,
+                    priority: kind.priority(),
+                }
+            }
+            WorkKind::Unreached => {
+                let subject: String = r.col("subject_kind")?;
+                Open {
+                    source_id: r.col("source_id")?,
+                    person_id: r.col("person_id")?,
+                    subject_kind: match subject.as_str() {
+                        "appointment" => Some("appointment"),
+                        "pathway" => Some("pathway"),
+                        _ => Some("profile"),
+                    },
+                    subject_id: r.col("subject_id")?,
+                    due: None,
+                    since: r.col("since")?,
                     priority: kind.priority(),
                 }
             }
@@ -477,6 +529,57 @@ impl WorkQueueService {
         }
         self.set_owner(id, Some(who), "claim", &before, ctx, "status = 'open'")
             .await
+    }
+
+    /// What came of phoning the patient for an `unreached` item (TSC-8). Any outcome closes it: the item asked
+    /// for a phone attempt and one was made. A later fact about the same patient opens a new item.
+    pub async fn record_phone_outcome(
+        &self,
+        id: Uuid,
+        outcome: PhoneOutcome,
+        who: &str,
+        ctx: &UserContext,
+    ) -> Result<WorkItem> {
+        let who = crate::validation::named_person(who, "a phone outcome needs a signed-in person")?;
+        let before = self.get(id).await?;
+        if before.kind != WorkKind::Unreached {
+            return Err(Error::conflict(
+                "a phone outcome is recorded on an unreached item; this item closes in its own list",
+            ));
+        }
+        if before.status == WorkStatus::Closed {
+            return Err(Error::conflict("this item is closed"));
+        }
+        let txn = self.db.begin_txn().await?;
+        txn.run(Stmt::new(
+            "INSERT INTO unreached_call_outcomes (source_id, outcome, recorded_by) VALUES ($1,$2,$3) \
+             ON CONFLICT (source_id) DO NOTHING",
+            [before.source_id.into(), outcome.as_str().into(), who.into()],
+        ))
+        .await?;
+        let row = txn
+            .one(Stmt::new(
+                "UPDATE work_items SET status = 'closed', closed_at = now() WHERE id = $1 AND status <> 'closed' \
+                 RETURNING *",
+                [id.into()],
+            ))
+            .await?
+            .ok_or_else(|| Error::conflict("this item closed meanwhile"))?;
+        let after = WorkItem::from_row(&row)?;
+        AuditLogRepository::log(
+            &txn,
+            "work_item",
+            id,
+            "phone_outcome",
+            Some(serde_json::json!({ "status": before.status.as_str(), "owner": before.owner })),
+            Some(
+                serde_json::json!({ "status": after.status.as_str(), "outcome": outcome.as_str() }),
+            ),
+            ctx,
+        )
+        .await?;
+        txn.commit().await.map_err(Error::Database)?;
+        Ok(after)
     }
 
     /// The owner gives an item back to its queue.

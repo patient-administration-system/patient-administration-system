@@ -26,6 +26,19 @@ crate::string_enum! {
         NeedsReview = "needs_review",
         /// A service measure outside its tolerance (`tolerance_alerts`).
         ToleranceAlert = "tolerance_alert",
+        /// A patient we tried every way and heard nothing back from (TSC-8): the reminder ladder's call went
+        /// unanswered, a message to them bounced, or a list-validation letter passed its reply-by date. A fact,
+        /// not a prediction: nothing here guesses who will stop answering (NFR-11).
+        Unreached = "unreached",
+    }
+}
+
+crate::string_enum! {
+    /// What came of phoning a patient for an `unreached` item, as `unreached_call_outcomes.outcome` stores it.
+    pub enum PhoneOutcome {
+        Reached = "reached",
+        NoAnswer = "no_answer",
+        WrongNumber = "wrong_number",
     }
 }
 
@@ -55,7 +68,7 @@ impl WorkKind {
     /// The queue (team) that works this kind of item.
     pub fn queue(self) -> &'static str {
         match self {
-            WorkKind::Call | WorkKind::FollowUp => "booking",
+            WorkKind::Call | WorkKind::FollowUp | WorkKind::Unreached => "booking",
             WorkKind::Validation => "validation",
             WorkKind::NeedsReview => "communication",
             WorkKind::ToleranceAlert => "operations",
@@ -66,6 +79,7 @@ impl WorkKind {
     pub fn working_days(self) -> u32 {
         match self {
             WorkKind::ToleranceAlert | WorkKind::Call | WorkKind::FollowUp => 1,
+            WorkKind::Unreached => 2,
             WorkKind::Validation | WorkKind::NeedsReview => 10,
         }
     }
@@ -74,7 +88,7 @@ impl WorkKind {
     pub fn priority(self) -> i16 {
         match self {
             WorkKind::ToleranceAlert => HIGH,
-            WorkKind::Call | WorkKind::FollowUp => NORMAL,
+            WorkKind::Call | WorkKind::FollowUp | WorkKind::Unreached => NORMAL,
             WorkKind::Validation | WorkKind::NeedsReview => LOW,
         }
     }
@@ -87,6 +101,7 @@ impl WorkKind {
             WorkKind::Validation => "Check the patient still needs to wait",
             WorkKind::NeedsReview => "Review the patient's communication needs with them",
             WorkKind::ToleranceAlert => "A service measure is outside its tolerance",
+            WorkKind::Unreached => "Try the patient by phone: nothing we sent has been answered",
         }
     }
 

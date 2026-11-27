@@ -166,6 +166,50 @@ pub async fn claim(
     }
 }
 
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_work_queue::PhoneOutcomeBody)]
+pub struct PhoneOutcomeBody {
+    /// `reached`, `no_answer` or `wrong_number`.
+    #[schema(value_type = crate::work_queue::PhoneOutcome)]
+    pub outcome: String,
+}
+
+/// `POST /api/work-items/{id}/phone-outcome`: what came of phoning the patient for an `unreached` item
+/// (TSC-8); any outcome closes it. Another kind of item is a `409`: it closes in its own list.
+#[utoipa::path(
+    post,
+    path = "/api/work-items/{id}/phone-outcome",
+    tag = "Work queue",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = PhoneOutcomeBody,
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::work_queue::WorkItem),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn phone_outcome(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(body): Json<PhoneOutcomeBody>,
+) -> HandlerResult {
+    let outcome = match body.outcome.parse::<crate::work_queue::PhoneOutcome>() {
+        Ok(o) => o,
+        Err(e) => return error_to_response(e),
+    };
+    let ctx = request_audit_ctx(&headers);
+    // RCA-DECL-1: no caller is blank, which the service refuses (a named person is required).
+    let who = me(&headers).unwrap_or(String::new());
+    match WorkQueueService::new(state.db.clone())
+        .record_phone_outcome(id, outcome, &who, &ctx)
+        .await
+    {
+        Ok(v) => ok_json(v),
+        Err(e) => error_to_response(e),
+    }
+}
+
 /// `POST /api/work-items/{id}/release`: the person who has the item gives it back to its queue.
 #[utoipa::path(
     post,

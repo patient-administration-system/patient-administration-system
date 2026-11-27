@@ -15289,6 +15289,15 @@
         ],
         "type": "string"
       },
+      "PhoneOutcome": {
+        "description": "What came of phoning a patient for an `unreached` item, as `unreached_call_outcomes.outcome` stores it.",
+        "enum": [
+          "reached",
+          "no_answer",
+          "wrong_number"
+        ],
+        "type": "string"
+      },
       "Policy": {
         "properties": {
           "approved_at": {
@@ -19751,6 +19760,18 @@
         },
         "required": [
           "to"
+        ],
+        "type": "object"
+      },
+      "handlers_work_queue.PhoneOutcomeBody": {
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/PhoneOutcome",
+            "description": "`reached`, `no_answer` or `wrong_number`."
+          }
+        },
+        "required": [
+          "outcome"
         ],
         "type": "object"
       },
@@ -35039,6 +35060,59 @@
           }
         ],
         "summary": "`POST /api/work-items/{id}/claim`: the signed-in person takes the item. `409` if someone else has it.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-items/{id}/phone-outcome": {
+      "post": {
+        "operationId": "post_api_work_items__id__phone_outcome",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handlers_work_queue.PhoneOutcomeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItem"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/work-items/{id}/phone-outcome`: what came of phoning the patient for an `unreached` item\n(TSC-8); any outcome closes it. Another kind of item is a `409`: it closes in its own list.",
         "tags": [
           "Work queue"
         ]

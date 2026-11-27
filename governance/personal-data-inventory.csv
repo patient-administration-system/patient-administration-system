@@ -316,6 +316,10 @@ transfers,to_bed_id,none,"Not personal data (structure, status, timestamps, plac
 transfers,reason,health,"Administrative care information (why, where, what service, outcome)",record
 transfers,transferred_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 transfers,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+unreached_call_outcomes,source_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+unreached_call_outcomes,outcome,none,"Not personal data (structure, status, timestamps, places, templates)",record
+unreached_call_outcomes,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+unreached_call_outcomes,recorded_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 upstream_inbox,event_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 upstream_inbox,source,none,"Not personal data (structure, status, timestamps, places, templates)",record
 upstream_inbox,received_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

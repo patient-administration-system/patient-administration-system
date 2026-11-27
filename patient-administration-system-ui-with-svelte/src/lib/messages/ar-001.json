@@ -400,6 +400,7 @@
   "work.kind.validation": "تحقق من أن المريض لا يزال بحاجة إلى الانتظار",
   "work.kind.needs_review": "راجع احتياجات التواصل مع المريض",
   "work.kind.tolerance_alert": "مقياس خدمة خارج الحد المسموح به",
+  "work.kind.unreached": "حاول الاتصال بالمريض هاتفيًا: لم يرد على أي شيء أرسلناه",
   "work.claim": "خذه",
   "work.release": "أعده",
   "work.done.claimed": "أصبح لك.",
