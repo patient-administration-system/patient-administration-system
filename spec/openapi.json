@@ -1,6 +1,73 @@
 {
   "components": {
     "schemas": {
+      "Absence": {
+        "description": "One absence, as the API sends it, with what it did.",
+        "properties": {
+          "appointments": {
+            "description": "The booked appointments it touched when it was recorded; each is a work item to rebook.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "blocked_slots": {
+            "description": "The free slots it blocked.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "owner_kind": {
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "recorded_by": {
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "withdrawn_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "owner_kind",
+          "owner_id",
+          "starts_at",
+          "ends_at",
+          "recorded_by",
+          "recorded_at",
+          "withdrawn_at",
+          "blocked_slots",
+          "appointments"
+        ],
+        "type": "object"
+      },
       "Account": {
         "description": "A patient billing account.\n\nOne open account per patient at a time; a new account opens after the\nprevious one is closed. Currency is fixed at account creation.",
         "properties": {
@@ -14714,6 +14781,33 @@
         ],
         "type": "object"
       },
+      "NewAbsence": {
+        "description": "An absence to record.",
+        "properties": {
+          "ends_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "owner_kind": {
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner_kind",
+          "owner_id",
+          "starts_at",
+          "ends_at"
+        ],
+        "type": "object"
+      },
       "NewSuspicion": {
         "description": "What a person records: the condition, the point of suspicion and who suspected it.",
         "properties": {
@@ -20446,6 +20540,134 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/absences": {
+      "post": {
+        "operationId": "post_api_absences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewAbsence"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Absence"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/absences`: a clinician or room is unavailable for a window (no reason is asked or kept). Blocks\ntheir free slots in it and makes a work item to rebook each booked appointment it touches; nothing is\ncancelled and no patient is told.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/absences/{id}": {
+      "get": {
+        "operationId": "get_api_absences__id",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Absence"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/absences/{id}`: one absence, the slots it blocked and the appointments it touched.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/absences/{id}/withdraw": {
+      "post": {
+        "operationId": "post_api_absences__id__withdraw",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Absence"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/absences/{id}/withdraw`: the absence will not happen. The slots it blocked are free again and\nits work items close.",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
     "/api/accounts": {
       "post": {
         "operationId": "post_api_accounts",

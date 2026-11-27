@@ -400,6 +400,7 @@
   "work.kind.validation": "Comprobar que el paciente aún necesita esperar",
   "work.kind.needs_review": "Revisar con el paciente sus necesidades de comunicación",
   "work.kind.tolerance_alert": "Una medida del servicio está fuera de su tolerancia",
+  "work.kind.absence_rebook": "Volver a citar con el paciente: el profesional o la sala no está disponible",
   "work.kind.unreached": "Intentar llamar al paciente: no ha respondido a nada de lo que enviamos",
   "work.claim": "Tomarlo",
   "work.release": "Devolverlo",

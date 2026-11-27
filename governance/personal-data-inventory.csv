@@ -1,4 +1,9 @@
 table,column,category,purpose,retention_class
+absence_appointments,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+absence_appointments,absence_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+absence_appointments,appointment_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+absence_blocked_slots,absence_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+absence_blocked_slots,slot_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 accounts,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 accounts,person_id,identifier,Link a record to a person held by person-service,record
 accounts,status,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -295,6 +300,15 @@ slots,status,none,"Not personal data (structure, status, timestamps, places, tem
 slots,capacity,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 slots,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_absences,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_absences,owner_kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_absences,owner_id,staff-identifier,Attribute work to a staff member held by worker-service,record
+staff_absences,starts_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_absences,ends_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_absences,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+staff_absences,recorded_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+staff_absences,withdrawn_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+staff_absences,withdrawn_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 standby_entries,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 standby_entries,person_id,identifier,Link a record to a person held by person-service,record
 standby_entries,service_type,health,"Administrative care information (why, where, what service, outcome)",record

@@ -30,6 +30,9 @@ crate::string_enum! {
         /// unanswered, a message to them bounced, or a list-validation letter passed its reply-by date. A fact,
         /// not a prediction: nothing here guesses who will stop answering (NFR-11).
         Unreached = "unreached",
+        /// A booked appointment a clinician's or room's absence touches (TSC-10): rebook it with the patient.
+        /// Nothing was cancelled; the patient hears nothing until a person acts.
+        AbsenceRebook = "absence_rebook",
     }
 }
 
@@ -68,7 +71,9 @@ impl WorkKind {
     /// The queue (team) that works this kind of item.
     pub fn queue(self) -> &'static str {
         match self {
-            WorkKind::Call | WorkKind::FollowUp | WorkKind::Unreached => "booking",
+            WorkKind::Call | WorkKind::FollowUp | WorkKind::Unreached | WorkKind::AbsenceRebook => {
+                "booking"
+            }
             WorkKind::Validation => "validation",
             WorkKind::NeedsReview => "communication",
             WorkKind::ToleranceAlert => "operations",
@@ -78,7 +83,10 @@ impl WorkKind {
     /// Working days to act when the source names no due date of its own.
     pub fn working_days(self) -> u32 {
         match self {
-            WorkKind::ToleranceAlert | WorkKind::Call | WorkKind::FollowUp => 1,
+            WorkKind::ToleranceAlert
+            | WorkKind::Call
+            | WorkKind::FollowUp
+            | WorkKind::AbsenceRebook => 1,
             WorkKind::Unreached => 2,
             WorkKind::Validation | WorkKind::NeedsReview => 10,
         }
@@ -87,7 +95,7 @@ impl WorkKind {
     /// The default priority. A call about an urgent pathway is raised by the caller ([`call_priority`]).
     pub fn priority(self) -> i16 {
         match self {
-            WorkKind::ToleranceAlert => HIGH,
+            WorkKind::ToleranceAlert | WorkKind::AbsenceRebook => HIGH,
             WorkKind::Call | WorkKind::FollowUp | WorkKind::Unreached => NORMAL,
             WorkKind::Validation | WorkKind::NeedsReview => LOW,
         }
@@ -102,6 +110,9 @@ impl WorkKind {
             WorkKind::NeedsReview => "Review the patient's communication needs with them",
             WorkKind::ToleranceAlert => "A service measure is outside its tolerance",
             WorkKind::Unreached => "Try the patient by phone: nothing we sent has been answered",
+            WorkKind::AbsenceRebook => {
+                "Rebook with the patient: the clinician or room is unavailable"
+            }
         }
     }
 

@@ -39,50 +39,6 @@ pub(super) fn messaging() -> Router<AppState> {
             "/api/staff-call-tasks/{id}/outcome",
             post(handlers_links::call_outcome),
         )
-        // One staff work queue (TSC-1).
-        .route("/api/work-items", get(handlers_work_queue::list))
-        .route(
-            "/api/work-items/reminders",
-            get(handlers_work_queue::reminders),
-        )
-        .route("/api/work-items/{id}", get(handlers_work_queue::get))
-        .route(
-            "/api/work-items/{id}/claim",
-            post(handlers_work_queue::claim),
-        )
-        .route(
-            "/api/work-items/{id}/release",
-            post(handlers_work_queue::release),
-        )
-        .route(
-            "/api/work-items/{id}/assign",
-            post(handlers_work_queue::assign),
-        )
-        .route(
-            "/api/work-items/{id}/phone-outcome",
-            post(handlers_work_queue::phone_outcome),
-        )
-        // Saved views of the work queue (TSC-7).
-        .route(
-            "/api/work-views",
-            get(handlers_work_queue::list_views).post(handlers_work_queue::save_view),
-        )
-        .route(
-            "/api/work-views/{id}",
-            axum::routing::delete(handlers_work_queue::delete_view),
-        )
-        .route(
-            "/api/work-views/{id}/items",
-            get(handlers_work_queue::view_items),
-        )
-        .route(
-            "/api/work-views/{id}/share",
-            axum::routing::put(handlers_work_queue::share_view),
-        )
-        .route(
-            "/api/work-queues/{queue}/next",
-            post(handlers_work_queue::take_next),
-        )
         .route(
             "/api/letter-template-groups",
             post(handlers_letters::create_group),
@@ -304,5 +260,61 @@ pub(super) fn waiting() -> Router<AppState> {
         .route(
             "/api/rtt/{id}/breaching",
             get(handlers_waitlist::rtt_is_breaching),
+        )
+}
+
+/// One staff work queue (TSC-1), its saved views (TSC-7), and the absences that make work for it (TSC-10).
+pub(super) fn work() -> Router<AppState> {
+    Router::new()
+        // One staff work queue (TSC-1).
+        .route("/api/work-items", get(handlers_work_queue::list))
+        .route(
+            "/api/work-items/reminders",
+            get(handlers_work_queue::reminders),
+        )
+        .route("/api/work-items/{id}", get(handlers_work_queue::get))
+        .route(
+            "/api/work-items/{id}/claim",
+            post(handlers_work_queue::claim),
+        )
+        .route(
+            "/api/work-items/{id}/release",
+            post(handlers_work_queue::release),
+        )
+        .route(
+            "/api/work-items/{id}/assign",
+            post(handlers_work_queue::assign),
+        )
+        .route(
+            "/api/work-items/{id}/phone-outcome",
+            post(handlers_work_queue::phone_outcome),
+        )
+        // Staff and room absences make work, not cancellations (TSC-10).
+        .route("/api/absences", post(handlers_absences::record))
+        .route("/api/absences/{id}", get(handlers_absences::get))
+        .route(
+            "/api/absences/{id}/withdraw",
+            post(handlers_absences::withdraw),
+        )
+        // Saved views of the work queue (TSC-7).
+        .route(
+            "/api/work-views",
+            get(handlers_work_queue::list_views).post(handlers_work_queue::save_view),
+        )
+        .route(
+            "/api/work-views/{id}",
+            axum::routing::delete(handlers_work_queue::delete_view),
+        )
+        .route(
+            "/api/work-views/{id}/items",
+            get(handlers_work_queue::view_items),
+        )
+        .route(
+            "/api/work-views/{id}/share",
+            axum::routing::put(handlers_work_queue::share_view),
+        )
+        .route(
+            "/api/work-queues/{queue}/next",
+            post(handlers_work_queue::take_next),
         )
 }

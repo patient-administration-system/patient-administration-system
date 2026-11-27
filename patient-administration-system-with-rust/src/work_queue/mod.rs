@@ -252,6 +252,18 @@ impl WorkQueueService {
                     ))
                     .await?
             }
+            WorkKind::AbsenceRebook => {
+                self.db
+                    .all(Stmt::text(
+                        "SELECT aa.id, a.person_id, a.id AS appointment_id, s.recorded_at, a.start_datetime \
+                         FROM absence_appointments aa \
+                         JOIN staff_absences s ON s.id = aa.absence_id \
+                         JOIN appointments a ON a.id = aa.appointment_id \
+                         WHERE s.withdrawn_at IS NULL AND a.deleted_at IS NULL AND a.status = 'booked' \
+                           AND a.start_datetime < s.ends_at AND a.end_datetime > s.starts_at",
+                    ))
+                    .await?
+            }
             WorkKind::Unreached => {
                 let from = now
                     .checked_sub(jiff::SignedDuration::from_hours(UNREACHED_DAYS * 24))
@@ -306,6 +318,22 @@ impl WorkQueueService {
                     subject_id: Some(person),
                     due: None,
                     since: now,
+                    priority: kind.priority(),
+                }
+            }
+            // Due a working day after the absence was recorded, or before the appointment if that is sooner.
+            WorkKind::AbsenceRebook => {
+                let since: Timestamp = r.col("recorded_at")?;
+                let starts: Timestamp = r.col("start_datetime")?;
+                let due =
+                    due_after(since, kind.working_days(), self.calendar()?, &self.tz)?.min(starts);
+                Open {
+                    source_id: r.col("id")?,
+                    person_id: r.col("person_id")?,
+                    subject_kind: Some("appointment"),
+                    subject_id: r.col("appointment_id")?,
+                    due: Some(due),
+                    since,
                     priority: kind.priority(),
                 }
             }

@@ -86,12 +86,12 @@ mod tests {
             .iter()
             .filter(|m| !m.migration_type.is_down_migration())
             .collect();
-        assert_eq!(ups.len(), 73);
+        assert_eq!(ups.len(), 74);
         let downs = MIGRATOR
             .iter()
             .filter(|m| m.migration_type.is_down_migration())
             .count();
-        assert_eq!(downs, 67);
+        assert_eq!(downs, 68);
         assert!(ups[..6].iter().all(|m| !m.migration_type.is_reversible()));
         assert!(ups[6..].iter().all(|m| m.migration_type.is_reversible()));
     }
@@ -107,13 +107,13 @@ mod tests {
             .expect("connect to PostgreSQL");
 
         up(&pool).await.expect("apply pending migrations");
-        up_to(&pool, 20_261_127_000_073)
+        up_to(&pool, 20_261_127_000_074)
             .await
             .expect("apply through the newest migration");
         let statuses = status(&pool).await.expect("read migration status");
 
-        assert_eq!(statuses.len(), 73);
+        assert_eq!(statuses.len(), 74);
         assert!(statuses.iter().all(|migration| migration.applied));
-        assert_eq!(statuses.last().unwrap().version, 20_261_127_000_073);
+        assert_eq!(statuses.last().unwrap().version, 20_261_127_000_074);
     }
 }

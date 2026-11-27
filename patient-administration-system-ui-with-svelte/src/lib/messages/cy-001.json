@@ -400,6 +400,7 @@
   "work.kind.validation": "Gwirio bod angen i'r claf aros o hyd",
   "work.kind.needs_review": "Adolygu anghenion cyfathrebu'r claf gyda nhw",
   "work.kind.tolerance_alert": "Mae mesur gwasanaeth y tu allan i'w oddefiant",
+  "work.kind.absence_rebook": "Aildrefnu gyda'r claf: nid yw'r clinigydd na'r ystafell ar gael",
   "work.kind.unreached": "Ceisio ffonio'r claf: does dim ateb i ddim a anfonwyd gennym",
   "work.claim": "Ei gymryd",
   "work.release": "Ei roi'n ôl",

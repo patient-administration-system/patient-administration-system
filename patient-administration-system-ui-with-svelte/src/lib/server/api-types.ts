@@ -4,6 +4,64 @@
  */
 
 export interface paths {
+  "/api/absences": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * `POST /api/absences`: a clinician or room is unavailable for a window (no reason is asked or kept). Blocks
+     *     their free slots in it and makes a work item to rebook each booked appointment it touches; nothing is
+     *     cancelled and no patient is told.
+     */
+    post: operations["post_api_absences"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/absences/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** `GET /api/absences/{id}`: one absence, the slots it blocked and the appointments it touched. */
+    get: operations["get_api_absences__id"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/absences/{id}/withdraw": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * `POST /api/absences/{id}/withdraw`: the absence will not happen. The slots it blocked are free again and
+     *     its work items close.
+     */
+    post: operations["post_api_absences__id__withdraw"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/accounts": {
     parameters: {
       query?: never;
@@ -6063,6 +6121,27 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description One absence, as the API sends it, with what it did. */
+    Absence: {
+      /** @description The booked appointments it touched when it was recorded; each is a work item to rebook. */
+      appointments: string[];
+      /** @description The free slots it blocked. */
+      blocked_slots: string[];
+      /** Format: date-time */
+      ends_at: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      owner_id: string;
+      owner_kind: string;
+      /** Format: date-time */
+      recorded_at: string;
+      recorded_by: string;
+      /** Format: date-time */
+      starts_at: string;
+      /** Format: date-time */
+      withdrawn_at: string | null;
+    };
     /**
      * @description A patient billing account.
      *
@@ -11216,6 +11295,16 @@ export interface components {
       /** Format: uuid */
       person_id: string;
     };
+    /** @description An absence to record. */
+    NewAbsence: {
+      /** Format: date-time */
+      ends_at: string;
+      /** Format: uuid */
+      owner_id: string;
+      owner_kind: string;
+      /** Format: date-time */
+      starts_at: string;
+    };
     /** @description What a person records: the condition, the point of suspicion and who suspected it. */
     NewSuspicion: {
       /** @description A condition code of the active profile (`GET /api/suspicion-profile`). */
@@ -13191,6 +13280,118 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  post_api_absences: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NewAbsence"];
+      };
+    };
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Absence"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_absences__id: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Absence"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_absences__id__withdraw: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Absence"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   post_api_accounts: {
     parameters: {
       query?: never;

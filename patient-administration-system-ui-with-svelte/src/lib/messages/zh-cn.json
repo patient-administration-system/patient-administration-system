@@ -400,6 +400,7 @@
   "work.kind.validation": "核实患者仍需等候",
   "work.kind.needs_review": "与患者一起复核其沟通需求",
   "work.kind.tolerance_alert": "某项服务指标超出容差",
+  "work.kind.absence_rebook": "与患者重新预约：临床医生或诊室不可用",
   "work.kind.unreached": "请尝试致电患者：我们发送的信息均未得到回复",
   "work.claim": "领取",
   "work.release": "退回",

@@ -15,6 +15,7 @@ use axum::{
 
 use super::AppState;
 use super::handlers;
+use super::handlers_absences;
 use super::handlers_adjustments;
 use super::handlers_admin;
 use super::handlers_adt;
@@ -88,6 +89,7 @@ pub fn router(state: AppState) -> Router {
         .merge(adt())
         .merge(scheduling())
         .merge(messaging())
+        .merge(messaging_waiting::work())
         .merge(waiting())
         .merge(support())
         .merge(reporting())

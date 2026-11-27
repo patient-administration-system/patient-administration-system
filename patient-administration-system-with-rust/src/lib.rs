@@ -43,6 +43,7 @@
     )
 )]
 // Module declarations
+pub mod absences;
 pub mod adjustments;
 pub mod adt;
 pub mod analytics;
