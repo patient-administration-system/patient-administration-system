@@ -82,6 +82,7 @@ use reports_records::*;
 pub fn router(state: AppState) -> Router {
     Router::new()
         .merge(people())
+        .merge(directory::message_kinds())
         .merge(proxies())
         .merge(workforce())
         .merge(adt())

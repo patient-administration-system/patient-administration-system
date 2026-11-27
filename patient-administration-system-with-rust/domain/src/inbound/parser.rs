@@ -18,6 +18,10 @@ pub enum Intent {
     Stop,
     /// Resume messages after a STOP.
     Start,
+    /// Refuse surveys only; appointment messages carry on (TSC-11).
+    StopSurveys,
+    /// Take surveys again.
+    StartSurveys,
     Help,
     /// A bare number: the answer to an "which appointment?" question.
     Choice(u8),
@@ -116,6 +120,25 @@ const STOP: &[&str] = &[
     "dad danysgrifio",
 ];
 const START: &[&str] = &["start", "unstop", "resume", "dechrau", "ailddechrau"];
+/// Surveys only (TSC-11). Never a word that is a STOP on its own, so STOP is still never missed.
+const STOP_SURVEYS: &[&str] = &[
+    "stop surveys",
+    "stop survey",
+    "no surveys",
+    "no survey",
+    "surveys off",
+    "stopio arolygon",
+    "stopio arolwg",
+    "dim arolygon",
+    "dim arolwg",
+];
+const START_SURVEYS: &[&str] = &[
+    "start surveys",
+    "start survey",
+    "surveys on",
+    "dechrau arolygon",
+    "dechrau arolwg",
+];
 const HELP: &[&str] = &["help", "info", "cymorth", "?"];
 /// Words that may follow a keyword without changing its meaning.
 const POLITE: &[&str] = &[
@@ -165,6 +188,12 @@ pub fn parse(text: &str) -> Intent {
     }
     if matches(START, &s) {
         return Intent::Start;
+    }
+    if matches(STOP_SURVEYS, &s) {
+        return Intent::StopSurveys;
+    }
+    if matches(START_SURVEYS, &s) {
+        return Intent::StartSurveys;
     }
     if matches(HELP, &s) {
         return Intent::Help;
@@ -304,6 +333,26 @@ mod tests {
         ] {
             assert_eq!(parse(w), Intent::Stop, "{w:?}");
         }
+    }
+
+    #[test]
+    fn test_surveys_can_be_refused_and_taken_again_without_touching_stop() {
+        all(
+            &[
+                "STOP SURVEYS",
+                "no surveys please",
+                "Surveys off.",
+                "dim arolygon",
+                "Stopio arolwg",
+            ],
+            Intent::StopSurveys,
+        );
+        all(
+            &["start surveys", "Dechrau arolygon", "surveys on"],
+            Intent::StartSurveys,
+        );
+        // STOP on its own, or with a polite word, is still the full stop.
+        all(&["STOP", "stop please", "stopio"], Intent::Stop);
     }
 
     #[test]

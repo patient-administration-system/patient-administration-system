@@ -83,6 +83,10 @@ crate::string_enum! {
         AmbiguousNumber = "ambiguous_number",
         /// A confirm or cancel with no reminded appointment to apply it to.
         NoOpenReminder = "no_open_reminder",
+        /// A kind of message (surveys) was refused (TSC-11).
+        StopKind = "stop_kind",
+        /// A refused kind of message was taken again.
+        StartKind = "start_kind",
     }
 }
 
@@ -209,6 +213,8 @@ fn intent_str(i: Intent) -> &'static str {
         Intent::Reschedule => "reschedule",
         Intent::Stop => "stop",
         Intent::Start => "start",
+        Intent::StopSurveys => "stop_surveys",
+        Intent::StartSurveys => "start_surveys",
         Intent::Help => "help",
         Intent::Choice(_) => "choice",
         Intent::Unknown => "unknown",
@@ -467,7 +473,7 @@ impl InboundService {
         self.apply_reply(&reply, &who, ctx).await
     }
 
-    /// START, STOP and HELP: answered whoever sends them. STOP is honoured against the number and (when we
+    /// START, STOP, STOP SURVEYS, START SURVEYS and HELP: answered whoever sends them. STOP is honoured against the number and (when we
     /// know who) the person, on every text-style channel whichever one the word arrived on; START lifts it.
     async fn keyword_decision(
         &self,
@@ -511,6 +517,31 @@ impl InboundService {
                     }
                 }
                 (Kind::Stop, TextOutcome::Stop)
+            }
+            // TSC-11: surveys only, held against the number and the person; appointment messages carry on.
+            Intent::StopSurveys | Intent::StartSurveys => {
+                use crate::models::communication::OptionalKind;
+                let mut subjects = vec![c::address_subject(from)];
+                subjects.extend(single.map(c::person_subject));
+                for s in &subjects {
+                    if intent == Intent::StopSurveys {
+                        c::refuse_kind(
+                            &self.db,
+                            s,
+                            OptionalKind::Survey,
+                            OptOutSource::ReplyStop,
+                            None,
+                        )
+                        .await?;
+                    } else {
+                        c::resume_kind(&self.db, s, OptionalKind::Survey).await?;
+                    }
+                }
+                if intent == Intent::StopSurveys {
+                    (Kind::SurveysStopped, TextOutcome::StopKind)
+                } else {
+                    (Kind::SurveysStarted, TextOutcome::StartKind)
+                }
             }
             Intent::Help => (Kind::Help, TextOutcome::Help),
             _ => return Ok(None),

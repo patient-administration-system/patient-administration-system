@@ -11,7 +11,9 @@ use patient_administration_system::db::row::RowExt;
 use patient_administration_system::db::sql::{Conn, Stmt};
 use std::collections::BTreeSet;
 
-use patient_administration_system::models::communication::{OptOutChannel, OptOutSource};
+use patient_administration_system::models::communication::{
+    OptOutChannel, OptOutSource, OptionalKind, TemplateKind,
+};
 use patient_administration_system::{
     backfill, clinic_templates, clinical_priority, communication, contact, follow_up, identity,
     inbound, interpreter, list_validation, noshow, pifu, proxy, receipts, referrals, standby,
@@ -60,6 +62,9 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ("message_receipts_event_check", &receipts::EVENTS),
         ("message_optouts_channel_check", OptOutChannel::NAMES),
         ("message_optouts_source_check", OptOutSource::NAMES),
+        ("message_kind_refusals_kind_check", OptionalKind::NAMES),
+        ("message_kind_refusals_source_check", OptOutSource::NAMES),
+        ("template_message_kinds_kind_check", TemplateKind::NAMES),
         ("still_needed_checks_answer_check", &waits::ANSWERS),
         (
             "whatsapp_optins_source_check",

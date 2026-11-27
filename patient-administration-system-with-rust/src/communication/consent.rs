@@ -19,7 +19,10 @@ use jiff::{Timestamp, civil::Time};
 use uuid::Uuid;
 
 use crate::config::env;
-use crate::models::communication::{DeliveryChannel, OptOutChannel, OptOutSource};
+use crate::db::row::RowExt;
+use crate::models::communication::{
+    DeliveryChannel, OptOutChannel, OptOutSource, OptionalKind, TemplateKind,
+};
 use crate::{Error, Result};
 
 /// The default window: nothing intrusive between 9pm and 8am.
@@ -142,6 +145,72 @@ pub async fn record_optout<C: Conn>(
     ))
 .await?;
     Ok(())
+}
+
+/// Has the person, or the address, refused this kind of message (TSC-11)? A service message has no kind
+/// and is never refused here.
+pub async fn refuses_kind<C: Conn>(
+    conn: &C,
+    person: Uuid,
+    address: Option<&str>,
+    kind: OptionalKind,
+) -> Result<bool> {
+    let mut subjects = vec![person_subject(person)];
+    if let Some(a) = address {
+        subjects.push(address_subject(a));
+    }
+    let row = conn
+        .one(Stmt::new(
+            "SELECT 1 AS hit FROM message_kind_refusals WHERE kind = $1 AND subject = ANY($2) AND resumed_at IS NULL LIMIT 1",
+            [kind.as_str().into(), subjects.into()],
+        ))
+        .await?;
+    Ok(row.is_some())
+}
+
+/// Record that `subject` refuses a kind of message (idempotent; an earlier resume is overturned).
+pub async fn refuse_kind<C: Conn>(
+    conn: &C,
+    subject: &str,
+    kind: OptionalKind,
+    source: OptOutSource,
+    by: Option<&str>,
+) -> Result<()> {
+    conn.run(Stmt::new(
+        "INSERT INTO message_kind_refusals (subject, kind, source, recorded_by) VALUES ($1,$2,$3,$4) \
+         ON CONFLICT (subject, kind) DO UPDATE SET refused_at = now(), resumed_at = NULL, source = EXCLUDED.source, \
+           recorded_by = EXCLUDED.recorded_by",
+        [subject.into(), kind.as_str().into(), source.as_str().into(), by.map(String::from).into()],
+    ))
+    .await?;
+    Ok(())
+}
+
+/// `subject` will take this kind of message again. Returns whether a refusal was active.
+pub async fn resume_kind<C: Conn>(conn: &C, subject: &str, kind: OptionalKind) -> Result<bool> {
+    let r = conn
+        .run(Stmt::new(
+            "UPDATE message_kind_refusals SET resumed_at = now() WHERE subject = $1 AND kind = $2 AND resumed_at IS NULL",
+            [subject.into(), kind.as_str().into()],
+        ))
+        .await?;
+    Ok(r.rows_affected() > 0)
+}
+
+/// The kind of the template group `template_id` belongs to, or none for a service message.
+pub async fn template_kind<C: Conn>(conn: &C, template_id: Uuid) -> Result<Option<TemplateKind>> {
+    let row = conn
+        .one(Stmt::new(
+            "SELECT k.kind FROM letter_templates t JOIN template_message_kinds k ON k.template_name = t.name WHERE t.id = $1",
+            [template_id.into()],
+        ))
+        .await?;
+    match row {
+        None => Ok(None),
+        Some(r) => Ok(Some(r.col::<String>("kind")?.parse().map_err(|_| {
+            crate::Error::internal("template_message_kinds has an unknown kind")
+        })?)),
+    }
 }
 
 /// The patient asked to hear from us again. Returns whether anything was active.

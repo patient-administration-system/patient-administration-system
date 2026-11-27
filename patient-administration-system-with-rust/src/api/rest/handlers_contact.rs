@@ -287,6 +287,247 @@ pub async fn remove_optout(
     }
 }
 
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct KindRefusalBody {
+    /// `survey` or `experiment`.
+    #[schema(value_type = crate::models::communication::OptionalKind)]
+    pub kind: String,
+}
+
+/// One kind of message a patient has refused (TSC-11).
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct KindRefusal {
+    pub kind: crate::models::communication::OptionalKind,
+    pub refused_at: jiff::Timestamp,
+    pub source: crate::models::communication::OptOutSource,
+}
+
+/// Whether a patient refuses a kind of message, after a change.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct KindRefusalState {
+    pub kind: crate::models::communication::OptionalKind,
+    pub refused: bool,
+}
+
+/// `GET /api/patients/{id}/message-kind-refusals`: the kinds of message (surveys, wording experiments) this
+/// patient has refused. Appointment messages are never among them; the channel opt-outs govern those.
+#[utoipa::path(
+    get,
+    path = "/api/patients/{id}/message-kind-refusals",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<KindRefusal>>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn list_kind_refusals(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> HandlerResult {
+    let rows = state
+        .db
+        .all(Stmt::new(
+            "SELECT kind, refused_at, source FROM message_kind_refusals WHERE subject = $1 AND resumed_at IS NULL ORDER BY kind",
+            [crate::communication::consent::person_subject(id).into()],
+        ))
+        .await;
+    let list = rows.and_then(|rows| {
+        rows.iter()
+            .map(|r| {
+                Ok(KindRefusal {
+                    kind: r.col::<String>("kind")?.parse().map_err(|_| {
+                        Error::internal("message_kind_refusals has an unknown kind")
+                    })?,
+                    refused_at: r.col("refused_at")?,
+                    source: r.col::<String>("source")?.parse().map_err(|_| {
+                        Error::internal("message_kind_refusals has an unknown source")
+                    })?,
+                })
+            })
+            .collect::<Result<Vec<_>, Error>>()
+    });
+    match list {
+        Ok(list) => ok_json(list),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `POST /api/patients/{id}/message-kind-refusals`: staff record that the patient refuses a kind of message
+/// (surveys, or being in a wording experiment). Appointment messages carry on. Takes effect at once.
+#[utoipa::path(
+    post,
+    path = "/api/patients/{id}/message-kind-refusals",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = KindRefusalBody,
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<KindRefusalState>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn add_kind_refusal(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(body): Json<KindRefusalBody>,
+) -> HandlerResult {
+    let kind = match body
+        .kind
+        .parse::<crate::models::communication::OptionalKind>()
+    {
+        Ok(kind) => kind,
+        Err(e) => return error_to_response(e),
+    };
+    let ctx = request_audit_ctx(&headers);
+    match crate::communication::consent::refuse_kind(
+        &state.db,
+        &crate::communication::consent::person_subject(id),
+        kind,
+        crate::models::communication::OptOutSource::Staff,
+        ctx.user_id.as_deref(),
+    )
+    .await
+    {
+        Ok(()) => ok_json(KindRefusalState {
+            kind,
+            refused: true,
+        }),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `DELETE /api/patients/{id}/message-kind-refusals/{kind}`: the patient will take that kind of message again.
+#[utoipa::path(
+    delete,
+    path = "/api/patients/{id}/message-kind-refusals/{kind}",
+    tag = "Patients",
+    params(("id" = String, Path, description = "Path parameter `id`"), ("kind" = String, Path, description = "Path parameter `kind`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<KindRefusalState>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn remove_kind_refusal(
+    State(state): State<AppState>,
+    Path((id, kind)): Path<(Uuid, String)>,
+) -> HandlerResult {
+    let kind = match kind.parse::<crate::models::communication::OptionalKind>() {
+        Ok(kind) => kind,
+        Err(_) => return error_to_response(Error::validation("unknown kind of message")),
+    };
+    match crate::communication::consent::resume_kind(
+        &state.db,
+        &crate::communication::consent::person_subject(id),
+        kind,
+    )
+    .await
+    {
+        Ok(true) => ok_json(KindRefusalState {
+            kind,
+            refused: false,
+        }),
+        Ok(false) => error_to_response(Error::not_found(
+            "that patient has not refused that kind of message",
+        )),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct TemplateKindBody {
+    /// `survey`, or none to make the group a service message again.
+    #[schema(value_type = Option<crate::models::communication::TemplateKind>)]
+    pub kind: Option<String>,
+}
+
+/// A template group's kind, after a change.
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct TemplateKindState {
+    pub template_name: String,
+    /// None for a service message.
+    #[schema(required = true)]
+    pub kind: Option<crate::models::communication::TemplateKind>,
+}
+
+/// `PUT /api/letter-templates/kinds/{name}`: say what the template group `name` (every language variant) is:
+/// `survey`, which a patient can refuse on its own, or none, a service message governed only by the channel
+/// opt-outs (TSC-11).
+#[utoipa::path(
+    put,
+    path = "/api/letter-templates/kinds/{name}",
+    tag = "Letters",
+    params(("name" = String, Path, description = "The template group's name")),
+    request_body = TemplateKindBody,
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<TemplateKindState>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn put_template_kind(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(name): Path<String>,
+    Json(body): Json<TemplateKindBody>,
+) -> HandlerResult {
+    let kind = match body
+        .kind
+        .as_deref()
+        .map(str::parse::<crate::models::communication::TemplateKind>)
+    {
+        None => None,
+        Some(Ok(k)) => Some(k),
+        Some(Err(e)) => return error_to_response(e),
+    };
+    let known = state
+        .db
+        .one(Stmt::new(
+            "SELECT 1 AS hit FROM letter_templates WHERE name = $1 LIMIT 1",
+            [name.clone().into()],
+        ))
+        .await;
+    match known {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            return error_to_response(Error::not_found(format!("letter template group {name}")));
+        }
+        Err(e) => return error_to_response(e),
+    }
+    let ctx = request_audit_ctx(&headers);
+    let done = match kind {
+        Some(k) => {
+            state
+                .db
+                .run(Stmt::new(
+                    "INSERT INTO template_message_kinds (template_name, kind, set_by) VALUES ($1,$2,$3) \
+                     ON CONFLICT (template_name) DO UPDATE SET kind = EXCLUDED.kind, set_by = EXCLUDED.set_by, updated_at = now()",
+                    [name.clone().into(), k.as_str().into(), ctx.user_id.clone().into()],
+                ))
+                .await
+        }
+        None => {
+            state
+                .db
+                .run(Stmt::new(
+                    "DELETE FROM template_message_kinds WHERE template_name = $1",
+                    [name.clone().into()],
+                ))
+                .await
+        }
+    };
+    match done {
+        Ok(_) => ok_json(TemplateKindState {
+            template_name: name,
+            kind,
+        }),
+        Err(e) => error_to_response(e),
+    }
+}
+
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct IdentifierBody {
     /// The identifier system URI, as in FHIR `Identifier.system`.

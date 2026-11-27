@@ -49,6 +49,31 @@ crate::string_enum! {
 }
 
 crate::string_enum! {
+    /// A kind of message a patient can refuse on its own, whatever the channel (TSC-11). Service messages
+    /// about an appointment (booking, change, reminder) are not one: only the channel opt-out (STOP) governs
+    /// them. `experiment` refuses the wording experiments: the patient gets the usual wording.
+    pub enum OptionalKind {
+        Survey = "survey",
+        Experiment = "experiment",
+    }
+}
+
+crate::string_enum! {
+    /// What a template group is when it is not a service message (TSC-11).
+    pub enum TemplateKind {
+        Survey = "survey",
+    }
+}
+
+impl From<TemplateKind> for OptionalKind {
+    fn from(k: TemplateKind) -> Self {
+        match k {
+            TemplateKind::Survey => OptionalKind::Survey,
+        }
+    }
+}
+
+crate::string_enum! {
     /// A channel whose opt-out staff may record or lift through the patient API.
     ///
     /// `voice` is reserved in storage but is not a supported patient API channel.

@@ -189,6 +189,12 @@ letter_templates,channels,none,"Not personal data (structure, status, timestamps
 letter_templates,active,none,"Not personal data (structure, status, timestamps, places, templates)",record
 letter_templates,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 letter_templates,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_kind_refusals,subject,contact,"A way to reach a person (their own or a carer's or emergency contact's): phone, email, name",record
+message_kind_refusals,kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_kind_refusals,refused_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_kind_refusals,resumed_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_kind_refusals,source,none,"Not personal data (structure, status, timestamps, places, templates)",record
+message_kind_refusals,recorded_by,staff-identifier,Attribute work to a staff member held by worker-service,record
 outbox_dead_letters,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_dead_letters,original_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 outbox_dead_letters,event_type,none,"Not personal data (structure, status, timestamps, places, templates)",record
@@ -299,6 +305,10 @@ standby_entries,phone_only,preference,"A personal preference or need that shapes
 standby_entries,active,none,"Not personal data (structure, status, timestamps, places, templates)",record
 standby_entries,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 standby_entries,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+template_message_kinds,template_name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+template_message_kinds,kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
+template_message_kinds,set_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+template_message_kinds,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
 transfers,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 transfers,admission_id,none,"Not personal data (structure, status, timestamps, places, templates)",record
 transfers,from_bed_id,none,"Not personal data (structure, status, timestamps, places, templates)",record

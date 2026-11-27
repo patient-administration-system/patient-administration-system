@@ -2228,6 +2228,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/letter-templates/kinds/{name}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * `PUT /api/letter-templates/kinds/{name}`: say what the template group `name` (every language variant) is:
+     *     `survey`, which a patient can refuse on its own, or none, a service message governed only by the channel
+     *     opt-outs (TSC-11).
+     */
+    put: operations["put_api_letter_templates_kinds__name"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/letter-templates/{id}": {
     parameters: {
       query?: never;
@@ -3121,6 +3142,47 @@ export interface paths {
     put?: never;
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/patients/{id}/message-kind-refusals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/patients/{id}/message-kind-refusals`: the kinds of message (surveys, wording experiments) this
+     *     patient has refused. Appointment messages are never among them; the channel opt-outs govern those.
+     */
+    get: operations["get_api_patients__id__message_kind_refusals"];
+    put?: never;
+    /**
+     * `POST /api/patients/{id}/message-kind-refusals`: staff record that the patient refuses a kind of message
+     *     (surveys, or being in a wording experiment). Appointment messages carry on. Takes effect at once.
+     */
+    post: operations["post_api_patients__id__message_kind_refusals"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/patients/{id}/message-kind-refusals/{kind}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** `DELETE /api/patients/{id}/message-kind-refusals/{kind}`: the patient will take that kind of message again. */
+    delete: operations["delete_api_patients__id__message_kind_refusals__kind"];
     options?: never;
     head?: never;
     patch?: never;
@@ -7030,6 +7092,19 @@ export interface components {
      * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
      *     an RFC 9457 problem: see [`problem`].
      */
+    ApiResponse_KindRefusalState: {
+      /** @description Whether a patient refuses a kind of message, after a change. */
+      data?: {
+        kind: components["schemas"]["OptionalKind"];
+        refused: boolean;
+      };
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
     ApiResponse_LetterTemplate: {
       data?: {
         active: boolean;
@@ -7931,6 +8006,19 @@ export interface components {
      * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
      *     an RFC 9457 problem: see [`problem`].
      */
+    ApiResponse_TemplateKindState: {
+      /** @description A template group's kind, after a change. */
+      data?: {
+        kind: components["schemas"]["TemplateKind"] | null;
+        template_name: string;
+      };
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
     ApiResponse_TemplateVersion: {
       /** @description A template version that was proposed or approved. */
       data?: {
@@ -8630,6 +8718,20 @@ export interface components {
         room: string | null;
         /** Format: int64 */
         waiting_minutes: number;
+      }[];
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
+    ApiResponse_Vec_KindRefusal: {
+      data?: {
+        kind: components["schemas"]["OptionalKind"];
+        /** Format: date-time */
+        refused_at: string;
+        source: components["schemas"]["OptOutSource"];
       }[];
       meta?: components["schemas"]["PageMeta"] | null;
       success: boolean;
@@ -10820,6 +10922,22 @@ export interface components {
      * @enum {string}
      */
     ItemState: "selected" | "asked" | "answered" | "letter_sent" | "kept" | "removed" | "reinstated";
+    /** @description One kind of message a patient has refused (TSC-11). */
+    KindRefusal: {
+      kind: components["schemas"]["OptionalKind"];
+      /** Format: date-time */
+      refused_at: string;
+      source: components["schemas"]["OptOutSource"];
+    };
+    KindRefusalBody: {
+      /** @description `survey` or `experiment`. */
+      kind: components["schemas"]["OptionalKind"];
+    };
+    /** @description Whether a patient refuses a kind of message, after a change. */
+    KindRefusalState: {
+      kind: components["schemas"]["OptionalKind"];
+      refused: boolean;
+    };
     LeadTime: {
       /** Format: uuid */
       appointment_id: string;
@@ -11137,6 +11255,13 @@ export interface components {
       channel: components["schemas"]["PatientOptOutChannel"];
       opted_out: boolean;
     };
+    /**
+     * @description A kind of message a patient can refuse on its own, whatever the channel (TSC-11). Service messages
+     *     about an appointment (booking, change, reminder) are not one: only the channel opt-out (STOP) governs
+     *     them. `experiment` refuses the wording experiments: the patient gets the usual wording.
+     * @enum {string}
+     */
+    OptionalKind: "survey" | "experiment";
     /** @description What a list response says about itself, under `meta` in the envelope. */
     PageMeta: {
       /**
@@ -12252,6 +12377,19 @@ export interface components {
       name: string;
       variants: components["schemas"]["TemplateVariant"][];
     };
+    /**
+     * @description What a template group is when it is not a service message (TSC-11).
+     * @enum {string}
+     */
+    TemplateKind: "survey";
+    TemplateKindBody: {
+      kind?: components["schemas"]["TemplateKind"] | null;
+    };
+    /** @description A template group's kind, after a change. */
+    TemplateKindState: {
+      kind: components["schemas"]["TemplateKind"] | null;
+      template_name: string;
+    };
     /** @description One language of a template group, with what its body would cost as a text. */
     TemplateVariant: {
       sms: components["schemas"]["SmsLength"] | null;
@@ -12291,7 +12429,9 @@ export interface components {
       | "unknown"
       | "unmatched"
       | "ambiguous_number"
-      | "no_open_reminder";
+      | "no_open_reminder"
+      | "stop_kind"
+      | "start_kind";
     ToleranceStatus: {
       /** @description The measures that can be read for one service, for each service that has data (or its own tolerance). */
       by_service: components["schemas"]["Reading"][];
@@ -17679,6 +17819,47 @@ export interface operations {
       };
     };
   };
+  put_api_letter_templates_kinds__name: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The template group's name */
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TemplateKindBody"];
+      };
+    };
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_TemplateKindState"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   get_api_letter_templates__id: {
     parameters: {
       query?: never;
@@ -19762,6 +19943,123 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_patients__id__message_kind_refusals: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_KindRefusal"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_patients__id__message_kind_refusals: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["KindRefusalBody"];
+      };
+    };
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_KindRefusalState"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  delete_api_patients__id__message_kind_refusals__kind: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+        /** @description Path parameter `kind` */
+        kind: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_KindRefusalState"];
+        };
       };
       /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
       "4XX": {

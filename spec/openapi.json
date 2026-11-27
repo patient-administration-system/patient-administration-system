@@ -2967,6 +2967,45 @@
         ],
         "type": "object"
       },
+      "ApiResponse_KindRefusalState": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "description": "Whether a patient refuses a kind of message, after a change.",
+            "properties": {
+              "kind": {
+                "$ref": "#/components/schemas/OptionalKind"
+              },
+              "refused": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "refused"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_LetterTemplate": {
         "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
         "properties": {
@@ -5668,6 +5707,53 @@
         ],
         "type": "object"
       },
+      "ApiResponse_TemplateKindState": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "description": "A template group's kind, after a change.",
+            "properties": {
+              "kind": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TemplateKind",
+                    "description": "None for a service message."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "template_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "template_name",
+              "kind"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_TemplateVersion": {
         "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
         "properties": {
@@ -7787,6 +7873,53 @@
                 "arrived_at",
                 "appointment_start",
                 "waiting_minutes"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Vec_KindRefusal": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "One kind of message a patient has refused (TSC-11).",
+              "properties": {
+                "kind": {
+                  "$ref": "#/components/schemas/OptionalKind"
+                },
+                "refused_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "source": {
+                  "$ref": "#/components/schemas/OptOutSource"
+                }
+              },
+              "required": [
+                "kind",
+                "refused_at",
+                "source"
               ],
               "type": "object"
             },
@@ -14014,6 +14147,55 @@
         ],
         "type": "string"
       },
+      "KindRefusal": {
+        "description": "One kind of message a patient has refused (TSC-11).",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/OptionalKind"
+          },
+          "refused_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/OptOutSource"
+          }
+        },
+        "required": [
+          "kind",
+          "refused_at",
+          "source"
+        ],
+        "type": "object"
+      },
+      "KindRefusalBody": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/OptionalKind",
+            "description": "`survey` or `experiment`."
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "KindRefusalState": {
+        "description": "Whether a patient refuses a kind of message, after a change.",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/OptionalKind"
+          },
+          "refused": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "refused"
+        ],
+        "type": "object"
+      },
       "LeadTime": {
         "properties": {
           "appointment_id": {
@@ -14899,6 +15081,14 @@
           "opted_out"
         ],
         "type": "object"
+      },
+      "OptionalKind": {
+        "description": "A kind of message a patient can refuse on its own, whatever the channel (TSC-11). Service messages\nabout an appointment (booking, change, reminder) are not one: only the channel opt-out (STOP) governs\nthem. `experiment` refuses the wording experiments: the patient gets the usual wording.",
+        "enum": [
+          "survey",
+          "experiment"
+        ],
+        "type": "string"
       },
       "PageMeta": {
         "description": "What a list response says about itself, under `meta` in the envelope.",
@@ -18081,6 +18271,53 @@
         ],
         "type": "object"
       },
+      "TemplateKind": {
+        "description": "What a template group is when it is not a service message (TSC-11).",
+        "enum": [
+          "survey"
+        ],
+        "type": "string"
+      },
+      "TemplateKindBody": {
+        "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TemplateKind",
+                "description": "`survey`, or none to make the group a service message again."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "TemplateKindState": {
+        "description": "A template group's kind, after a change.",
+        "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TemplateKind",
+                "description": "None for a service message."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_name",
+          "kind"
+        ],
+        "type": "object"
+      },
       "TemplateVariant": {
         "description": "One language of a template group, with what its body would cost as a text.",
         "properties": {
@@ -18175,7 +18412,9 @@
           "unknown",
           "unmatched",
           "ambiguous_number",
-          "no_open_reminder"
+          "no_open_reminder",
+          "stop_kind",
+          "start_kind"
         ],
         "type": "string"
       },
@@ -25597,6 +25836,59 @@
         ]
       }
     },
+    "/api/letter-templates/kinds/{name}": {
+      "put": {
+        "operationId": "put_api_letter_templates_kinds__name",
+        "parameters": [
+          {
+            "description": "The template group's name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateKindBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TemplateKindState"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`PUT /api/letter-templates/kinds/{name}`: say what the template group `name` (every language variant) is:\n`survey`, which a patient can refuse on its own, or none, a service message governed only by the channel\nopt-outs (TSC-11).",
+        "tags": [
+          "Letters"
+        ]
+      }
+    },
     "/api/letter-templates/{id}": {
       "get": {
         "operationId": "get_api_letter_templates__id",
@@ -28029,6 +28321,152 @@
           }
         ],
         "summary": "Masked patient",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/api/patients/{id}/message-kind-refusals": {
+      "get": {
+        "operationId": "get_api_patients__id__message_kind_refusals",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_KindRefusal"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/patients/{id}/message-kind-refusals`: the kinds of message (surveys, wording experiments) this\npatient has refused. Appointment messages are never among them; the channel opt-outs govern those.",
+        "tags": [
+          "Patients"
+        ]
+      },
+      "post": {
+        "operationId": "post_api_patients__id__message_kind_refusals",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KindRefusalBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_KindRefusalState"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/patients/{id}/message-kind-refusals`: staff record that the patient refuses a kind of message\n(surveys, or being in a wording experiment). Appointment messages carry on. Takes effect at once.",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/api/patients/{id}/message-kind-refusals/{kind}": {
+      "delete": {
+        "operationId": "delete_api_patients__id__message_kind_refusals__kind",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Path parameter `kind`",
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_KindRefusalState"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`DELETE /api/patients/{id}/message-kind-refusals/{kind}`: the patient will take that kind of message again.",
         "tags": [
           "Patients"
         ]

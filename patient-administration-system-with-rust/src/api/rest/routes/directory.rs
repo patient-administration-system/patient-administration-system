@@ -206,3 +206,21 @@ pub(super) fn workforce() -> Router<AppState> {
             get(upstream_proxy::audit_practitioner),
         )
 }
+
+/// TSC-11: kinds of message (surveys, wording experiments) a patient refuses on their own, and what kind a
+/// template group is.
+pub(super) fn message_kinds() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/api/patients/{id}/message-kind-refusals",
+            get(handlers_contact::list_kind_refusals).post(handlers_contact::add_kind_refusal),
+        )
+        .route(
+            "/api/patients/{id}/message-kind-refusals/{kind}",
+            axum::routing::delete(handlers_contact::remove_kind_refusal),
+        )
+        .route(
+            "/api/letter-templates/kinds/{name}",
+            axum::routing::put(handlers_contact::put_template_kind),
+        )
+}

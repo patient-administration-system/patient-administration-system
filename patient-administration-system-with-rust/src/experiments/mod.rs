@@ -48,7 +48,8 @@ pub fn pick(experiment: Uuid, appointment: Uuid, variants: usize) -> usize {
 }
 
 /// The template group to send for this appointment: the assigned variant's, if a live experiment covers
-/// `template_name`, else `template_name` itself. Assigns (and records) on first use.
+/// `template_name` and the patient has not refused experiments, else `template_name` itself. Assigns (and
+/// records) on first use.
 pub async fn resolve_name<C: Conn>(
     conn: &C,
     appointment_id: Uuid,
@@ -64,6 +65,24 @@ pub async fn resolve_name<C: Conn>(
         return Ok(template_name.to_string());
     };
     let exp_id: Uuid = exp.col("id")?;
+    // A patient who refused wording experiments gets the usual wording and is not assigned, even if they
+    // were before they refused (TSC-11).
+    if let Some(row) = conn
+        .one(Stmt::new(
+            "SELECT person_id FROM appointments WHERE id = $1",
+            [appointment_id.into()],
+        ))
+        .await?
+        && crate::communication::consent::refuses_kind(
+            conn,
+            row.col("person_id")?,
+            None,
+            crate::models::communication::OptionalKind::Experiment,
+        )
+        .await?
+    {
+        return Ok(template_name.to_string());
+    }
     // Already assigned: the same wording as before.
     if let Some(r) = conn
         .one(Stmt::new("SELECT v.template_name FROM message_experiment_assignments a \

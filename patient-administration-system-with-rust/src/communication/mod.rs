@@ -344,7 +344,8 @@ impl CommunicationService {
 
     /// The refusals every message must pass before anything is written: a letter-only patient is never sent
     /// a text, WhatsApp, email or portal message (CAS-10); an opt-out is honoured (PILOT-7); WhatsApp needs
-    /// the patient's opt-in and an approved template (CAP-13). No caller can skip this.
+    /// the patient's opt-in and an approved template (CAP-13); a refused kind of message (a survey) is not sent
+    /// (TSC-11). No caller can skip this.
     async fn check_may_send(
         &self,
         channel: DeliveryChannel,
@@ -371,6 +372,17 @@ impl CommunicationService {
             return Err(Error::conflict(format!(
                 "the recipient has opted out of {} messages",
                 channel_label(channel)
+            )));
+        }
+
+        // 1b'. A kind the patient refused (a survey) is never sent, on any channel; a service message has no
+        //      kind, so a refusal of surveys never holds back a reminder (TSC-11).
+        if let Some(kind) = consent::template_kind(&self.db, template_id).await?
+            && consent::refuses_kind(&self.db, person_id, address.as_deref(), kind.into()).await?
+        {
+            return Err(Error::conflict(format!(
+                "the recipient has refused {} messages",
+                kind.as_str()
             )));
         }
 
