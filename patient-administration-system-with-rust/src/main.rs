@@ -38,7 +38,6 @@ use patient_administration_system::{
     config::Config,
     db::connect,
     observability,
-    streaming::InMemoryEventPublisher,
 };
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -73,13 +72,7 @@ async fn run(
     let db = connect(&cfg.database_url).await?;
     let (person_client, worker_client) = upstream_clients(cfg)?;
     let publisher = publisher_chain(cfg, &db, person_client.as_ref(), worker_client.as_ref())?;
-    let state = build_state(
-        &db,
-        publisher.clone(),
-        sms_provider(cfg),
-        person_client,
-        worker_client,
-    );
+    let state = build_state(&db, sms_provider(cfg), person_client, worker_client);
 
     // Every timer loop runs under `jobs`: one at a time across replicas, a panic does not end it, and it
     // stops cleanly on SIGTERM (QUAL-2).
@@ -228,11 +221,16 @@ fn publisher_chain(
         }
         children.push(Arc::new(mllp));
     }
+    if children.is_empty() {
+        tracing::warn!(
+            "no outbound event sink (PAS_WEBHOOK_URL, HL7V2_OUTBOUND_PEER): outbox events are marked published and \
+             sent nowhere; subscriptions still receive theirs"
+        );
+    }
     Ok(match children.len() {
-        0 | 1 => children
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| Arc::new(InMemoryEventPublisher::new())),
+        0 | 1 => children.into_iter().next().unwrap_or_else(|| {
+            Arc::new(patient_administration_system::streaming::DiscardingPublisher)
+        }),
         _ => Arc::new(patient_administration_system::streaming::CompositePublisher::new(children)),
     })
 }
@@ -240,12 +238,17 @@ fn publisher_chain(
 /// The application state, with the senders, portal address and upstream clients the environment names.
 fn build_state(
     db: &patient_administration_system::db::sql::Pool,
-    publisher: Publisher,
     sms_provider: Arc<dyn patient_administration_system::communication::SmsProvider>,
     person_client: Option<PersonClient>,
     worker_client: Option<WorkerClient>,
 ) -> AppState {
-    let mut state = AppState::new(db.clone(), publisher).with_sms_provider(sms_provider);
+    // The services' after-commit events stay in the process: the outbox, which each service writes in the same
+    // transaction as its change, is the one path to the network (audit PA-05).
+    let mut state = AppState::new(
+        db.clone(),
+        Arc::new(patient_administration_system::streaming::DiscardingPublisher),
+    )
+    .with_sms_provider(sms_provider);
     // Public address of the patient portal, exposed to message templates as `portal_url`.
     if let Some(url) = patient_administration_system::config::env::text("PAS_PORTAL_URL") {
         state = state.with_portal_base_url(url.trim());
@@ -875,8 +878,7 @@ mod tests {
         cfg.person_service_url = Some("http://127.0.0.1:1".into());
         cfg.worker_service_url = Some("http://127.0.0.1:2".into());
         let (person, worker) = upstream_clients(&cfg).unwrap();
-        let publisher = publisher_chain(&cfg, &db, None, None).unwrap();
-        let _ = build_state(&db, publisher, sms_provider(&cfg), person, worker);
+        let _ = build_state(&db, sms_provider(&cfg), person, worker);
     }
 
     #[test]
@@ -902,8 +904,9 @@ mod tests {
     async fn every_job_switched_on_runs_once_and_stops() {
         let db = pool().await;
         let cfg = config();
-        let publisher: Publisher = Arc::new(InMemoryEventPublisher::new());
-        let state = build_state(&db, publisher.clone(), sms_provider(&cfg), None, None);
+        let publisher: Publisher =
+            Arc::new(patient_administration_system::streaming::InMemoryEventPublisher::new());
+        let state = build_state(&db, sms_provider(&cfg), None, None);
         for vars in [
             vec![
                 ("PAS_TOLERANCE_CHECK_MINUTES", "1"),
@@ -933,9 +936,8 @@ mod tests {
     async fn the_app_is_built_with_and_without_authentication() {
         let db = pool().await;
         let mut cfg = config();
-        let publisher: Publisher = Arc::new(InMemoryEventPublisher::new());
         let sms = sms_provider(&cfg);
-        let state = || build_state(&db, publisher.clone(), sms.clone(), None, None);
+        let state = || build_state(&db, sms.clone(), None, None);
         {
             let _env = Env::set(&[("PAS_RATE_LIMIT_BURST", "5")]);
             cfg.api_token = None;
@@ -1023,6 +1025,170 @@ mod tests {
         assert!(
             run(&cfg, async {}).await.is_err(),
             "a database that is not there"
+        );
+    }
+
+    /// A webhook receiver that keeps each POST's `x-pas-event-id` header and body.
+    async fn recording_webhook() -> (
+        String,
+        Arc<std::sync::Mutex<Vec<(String, serde_json::Value)>>>,
+    ) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/hook", listener.local_addr().unwrap());
+        let seen: Arc<std::sync::Mutex<Vec<(String, serde_json::Value)>>> = Arc::default();
+        let keep = seen.clone();
+        tokio::spawn(async move {
+            while let Ok((mut socket, _)) = listener.accept().await {
+                let keep = keep.clone();
+                tokio::spawn(async move {
+                    let mut buf = Vec::new();
+                    let mut chunk = [0u8; 8192];
+                    // Read the head, then as much body as its content-length says.
+                    loop {
+                        let n = socket.read(&mut chunk).await.unwrap_or(0);
+                        if n == 0 {
+                            break;
+                        }
+                        buf.extend_from_slice(&chunk[..n]);
+                        let text = String::from_utf8_lossy(&buf).to_string();
+                        if let Some((head, body)) = text.split_once("\r\n\r\n") {
+                            let length = head
+                                .lines()
+                                .find_map(|l| {
+                                    l.to_ascii_lowercase()
+                                        .strip_prefix("content-length:")
+                                        .map(|v| v.trim().parse::<usize>().unwrap_or(0))
+                                })
+                                .unwrap_or(0);
+                            if body.len() >= length {
+                                let id = head
+                                    .lines()
+                                    .find_map(|l| {
+                                        l.to_ascii_lowercase()
+                                            .strip_prefix("x-pas-event-id:")
+                                            .map(|v| v.trim().to_string())
+                                    })
+                                    .unwrap_or_default();
+                                keep.lock()
+                                    .unwrap()
+                                    .push((id, serde_json::from_str(body).unwrap_or_default()));
+                                break;
+                            }
+                        }
+                    }
+                    let _ = socket
+                        .write_all(
+                            b"HTTP/1.1 200 OK\r\ncontent-length: 0\r\nconnection: close\r\n\r\n",
+                        )
+                        .await;
+                });
+            }
+        });
+        (url, seen)
+    }
+
+    /// PA-05: with the server's own wiring and a webhook, one admission reaches the receiver once, as the outbox
+    /// row, with the row's id; the service's after-commit announcement does not reach the network.
+    #[tokio::test]
+    #[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+    async fn one_admission_reaches_a_webhook_once_with_its_outbox_id() {
+        use patient_administration_system::db::row::RowExt;
+        use patient_administration_system::db::sql::{Conn, Stmt};
+        let db = pool().await;
+        let (url, seen) = recording_webhook().await;
+        let mut cfg = config();
+        cfg.pas_webhook_url = Some(url);
+        cfg.pas_webhook_secret = None;
+        cfg.hl7v2_outbound_peer = None;
+        let publisher = publisher_chain(&cfg, &db, None, None).unwrap();
+        let state = build_state(&db, sms_provider(&cfg), None, None);
+
+        // A bed of its own.
+        let tag = uuid::Uuid::new_v4().simple().to_string()[..10].to_string();
+        let (facility, ward, room, bed) = (
+            uuid::Uuid::new_v4(),
+            uuid::Uuid::new_v4(),
+            uuid::Uuid::new_v4(),
+            uuid::Uuid::new_v4(),
+        );
+        for (sql, binds) in [
+            (
+                "INSERT INTO facilities (id, name, code, address, active, created_at, updated_at) VALUES ($1,$2,$2,'{}'::jsonb,true,now(),now())",
+                vec![facility.into(), format!("F{tag}").into()],
+            ),
+            (
+                "INSERT INTO wards (id, facility_id, name, code, capacity, active, created_at, updated_at) VALUES ($1,$2,$3,$3,1,true,now(),now())",
+                vec![ward.into(), facility.into(), format!("W{tag}").into()],
+            ),
+            (
+                "INSERT INTO rooms (id, ward_id, name, code, active, created_at, updated_at) VALUES ($1,$2,'r',$3,true,now(),now())",
+                vec![room.into(), ward.into(), format!("R{tag}").into()],
+            ),
+            (
+                "INSERT INTO beds (id, room_id, name, code, status, created_at, updated_at) VALUES ($1,$2,'b',$3,'available',now(),now())",
+                vec![bed.into(), room.into(), format!("B{tag}").into()],
+            ),
+        ] {
+            db.run(Stmt::new(sql, binds)).await.unwrap();
+        }
+        let admitted = state
+            .adt
+            .admit(
+                uuid::Uuid::new_v4(),
+                bed,
+                &patient_administration_system::db::repositories::audit::UserContext::system(),
+            )
+            .await
+            .unwrap();
+        let admission = admitted.admission.id;
+        let outbox_id: uuid::Uuid = db
+            .one(Stmt::new(
+                "SELECT id FROM outbox_events WHERE event_type = 'EncounterAdmitted' AND payload->>'admission_id' = $1",
+                [admission.to_string().into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .col("id")
+            .unwrap();
+        // Drain the outbox until this admission's row is delivered.
+        for _ in 0..50 {
+            patient_administration_system::streaming::dispatcher::tick(&db, &publisher, 5)
+                .await
+                .unwrap();
+            let published: bool = db
+                .one(Stmt::new(
+                    "SELECT published FROM outbox_events WHERE id = $1",
+                    [outbox_id.into()],
+                ))
+                .await
+                .unwrap()
+                .unwrap()
+                .col("published")
+                .unwrap();
+            if published {
+                break;
+            }
+        }
+        let mine: Vec<(String, serde_json::Value)> = seen
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, e)| e["payload"]["admission_id"] == admission.to_string())
+            .cloned()
+            .collect();
+        assert_eq!(mine.len(), 1, "one logical event: {mine:?}");
+        assert_eq!(
+            mine[0].0,
+            outbox_id.to_string(),
+            "the receiver sees the outbox row's id"
+        );
+        assert_eq!(mine[0].1["id"], outbox_id.to_string());
+        assert_eq!(mine[0].1["event_type"], "EncounterAdmitted");
+        assert!(
+            mine[0].1["payload"]["bed_id"].is_string(),
+            "the persisted payload, not the shorter announcement"
         );
     }
 }

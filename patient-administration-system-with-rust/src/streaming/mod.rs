@@ -73,7 +73,25 @@ pub trait EventPublisher: Send + Sync {
     async fn publish(&self, event: DomainEvent) -> Result<()>;
 }
 
-/// In-memory publisher used by tests and the outbox dispatcher.
+/// A publisher that keeps nothing (audit PA-05, PA-11). Two uses:
+///
+/// - **The services' after-commit events.** Every service writes its event to the outbox in the same
+///   transaction as the change, and the outbox dispatcher alone delivers outbox rows to the network. The
+///   services also announce each change once more after the commit, for in-process listeners; there are none,
+///   and giving them the network publisher sent every event twice with two ids, so they get this one.
+/// - **The dispatcher when no sink is configured.** Events are marked published and go nowhere, in constant
+///   memory (the in-memory publisher kept every event for the life of the process). The server warns at start.
+pub struct DiscardingPublisher;
+
+#[async_trait]
+impl EventPublisher for DiscardingPublisher {
+    async fn publish(&self, event: DomainEvent) -> Result<()> {
+        tracing::trace!(target: "pas::events", event_type = %event.event_type, "event kept in process only");
+        Ok(())
+    }
+}
+
+/// In-memory publisher for tests: it keeps every event so a test can read them back.
 ///
 /// Events are appended to an internal `Vec` guarded by a `tokio::sync::Mutex`
 /// and can be inspected via [`InMemoryEventPublisher::events`].
