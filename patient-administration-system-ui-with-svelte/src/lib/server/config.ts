@@ -3,6 +3,20 @@
 import * as env from "$app/env/private";
 import { readFileSync } from "node:fs";
 import type { OidcConfig } from "./oidc";
+import { knownZone } from "../views.js";
+
+/**
+ * The clinic's time zone (`PAS_TIMEZONE`, the same setting the PAS reads; default Europe/London). Pages show
+ * appointment days and times on this clock, as the reminders do (PA-13). A name the runtime does not know falls
+ * back to the default, with a warning.
+ */
+export function clinicTimeZone(): string {
+  const zone = knownZone(env.PAS_TIMEZONE);
+  if (!zone && (env.PAS_TIMEZONE ?? "").trim()) {
+    console.warn(`PAS_TIMEZONE=${env.PAS_TIMEZONE} is not a time zone name; using Europe/London`);
+  }
+  return zone ?? "Europe/London";
+}
 
 /** PAS REST API base URL and the shared bearer token the BFF adds to every call. */
 export const PAS_API_URL = (env.PAS_API_URL || "http://localhost:8080").replace(/\/$/, "");

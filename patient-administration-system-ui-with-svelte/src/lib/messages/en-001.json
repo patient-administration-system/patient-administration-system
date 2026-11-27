@@ -40,6 +40,7 @@
   "myAppointments.empty": "You have no appointments.",
   "myAppointments.calendarLabel": "My appointments",
   "myAppointments.listHeading": "As a list",
+  "time.zoneNote": "Times are shown on the clinic's clock ({zone}).",
   "myMessages.title": "My messages",
   "myMessages.empty": "You have no messages.",
   "appointments.title": "Appointments",

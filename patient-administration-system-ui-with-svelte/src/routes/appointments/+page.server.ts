@@ -8,10 +8,13 @@ import {
   type NoShowItem,
 } from "#lib/server/pas.js";
 import { fromPas, signedInFetch } from "#lib/server/route.js";
+import { clinicTimeZone } from "#lib/server/config.js";
+import { todayIn } from "#lib/views.js";
 
 const DAY = 86_400_000;
 
 export const load: PageServerLoad = async ({ locals, fetch }) => {
+  const zone = clinicTimeZone();
   requireStaff(locals, "/appointments");
   const now = Date.now();
   const f = signedInFetch(fetch, locals);
@@ -34,5 +37,5 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
   } catch {
     adjustments = [];
   }
-  return { appointments, noshow, adjustments, today: new Date(now).toISOString().slice(0, 10) };
+  return { appointments, noshow, adjustments, today: todayIn(zone, now), timeZone: zone };
 };

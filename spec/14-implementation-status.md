@@ -10,12 +10,12 @@ The block below is generated from the repository by [`scripts/generate-status.sh
 | Server route registrations | 316 |
 | Migrations | 69 |
 | UI page routes | 19 |
-| UI unit test files | 25 |
+| UI unit test files | 26 |
 | UI browser spec files | 20 |
 | UI locale catalogues | 10 |
 | Functional requirements | 228 |
 | Non-functional requirements | 38 |
 | Requirements marked not yet tested or not yet built | 9 |
-| Tasks done | 223 |
+| Tasks done | 224 |
 | Tasks open | 57 |
 <!-- status:end -->

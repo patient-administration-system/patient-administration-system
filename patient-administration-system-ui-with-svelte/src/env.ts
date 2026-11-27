@@ -8,6 +8,8 @@ export const variables = defineEnvVars({
   PAS_API_TOKEN: optional,
   // A file holding a short-lived service token, re-read as it rotates. Takes precedence over PAS_API_TOKEN.
   PAS_API_TOKEN_FILE: optional,
+  // The clinic's time zone, as the PAS reads it: appointment days and times are shown on this clock.
+  PAS_TIMEZONE: optional,
   // OpenID Connect against Keycloak (see ../podman/keycloak/pas-realm.json).
   OIDC_ISSUER: optional,
   OIDC_CLIENT_ID: optional,

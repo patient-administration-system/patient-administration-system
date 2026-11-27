@@ -40,6 +40,7 @@
   "myAppointments.empty": "Nid oes gennych unrhyw apwyntiadau.",
   "myAppointments.calendarLabel": "Fy apwyntiadau",
   "myAppointments.listHeading": "Ar ffurf rhestr",
+  "time.zoneNote": "Dangosir amseroedd yn ôl cloc y clinig ({zone}).",
   "myMessages.title": "Fy negeseuon",
   "myMessages.empty": "Nid oes gennych unrhyw negeseuon.",
   "appointments.title": "Apwyntiadau",

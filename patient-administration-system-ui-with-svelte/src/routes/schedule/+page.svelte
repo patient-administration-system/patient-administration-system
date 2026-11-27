@@ -5,8 +5,8 @@
   import { appointmentGantt, ganttRange } from "#lib/views.js";
 
   let { data }: { data: PageData } = $props();
-  const tasks = $derived(appointmentGantt(data.appointments, t));
-  const range = $derived(ganttRange(data.appointments, data.today));
+  const tasks = $derived(appointmentGantt(data.appointments, t, data.timeZone));
+  const range = $derived(ganttRange(data.appointments, data.today, data.timeZone));
 </script>
 
 <svelte:head><title>{t("schedule.title")} – {t("app.name")}</title></svelte:head>

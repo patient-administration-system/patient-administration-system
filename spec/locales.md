@@ -46,7 +46,7 @@ One flat JSON file per locale in `src/lib/messages/`: dotted keys, `{name}` plac
 ## Known gaps
 
 - Text inside the Lily widgets that the widgets do not let us set (the data grid's and the board's own labels) may remain English in some languages.
-- Dates and times are shown as ISO values in UTC.
+- Appointment days and times in the portal, the staff calendar and the schedule are on the clinic's clock (`PAS_TIMEZONE`, as in the reminders), shown as `YYYY-MM-DD` and 24-hour `HH:MM`, not yet in each language's own date format. Other dates (suspected conditions) are formatted in UTC.
 - Content written by administrators (message templates) exists in one language each (CAP-9).
 - Right-to-left layout has been checked for overflow only, not by an Arabic reader.
 - No `sitemap.xml` with `hreflang` alternates yet.

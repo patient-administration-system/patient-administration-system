@@ -14,7 +14,7 @@
   let anchorDate = $state(untrack(() => data.today));
   let search = $state("");
 
-  const events = $derived(appointmentEvents(data.appointments, t, data.noshow, data.adjustments));
+  const events = $derived(appointmentEvents(data.appointments, t, data.noshow, data.adjustments, data.timeZone));
   const fields = $derived<CalendarEventField[]>([
     { id: "time", header: t("col.time"), type: "text" },
     { id: "status", header: t("col.status"), type: "text" },

@@ -40,6 +40,7 @@
   "myAppointments.empty": "Sie haben keine Termine.",
   "myAppointments.calendarLabel": "Meine Termine",
   "myAppointments.listHeading": "Als Liste",
+  "time.zoneNote": "Die Zeiten sind in der Ortszeit der Klinik angegeben ({zone}).",
   "myMessages.title": "Meine Nachrichten",
   "myMessages.empty": "Sie haben keine Nachrichten.",
   "appointments.title": "Termine",

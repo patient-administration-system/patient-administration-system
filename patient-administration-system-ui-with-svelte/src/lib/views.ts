@@ -14,11 +14,63 @@ export interface AppointmentLike {
   reason?: string | null;
 }
 
-/** `YYYY-MM-DD` of an instant, in UTC. The PAS stores UTC. */
-export const dayOf = (iso: string): string => iso.slice(0, 10);
+/** The wall-clock parts of an instant in a time zone (an IANA name such as `Europe/London`). */
+function wallClock(iso: string, zone: string): Record<string, string> {
+  const f = new Intl.DateTimeFormat("en-GB", {
+    timeZone: zone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  return Object.fromEntries(f.formatToParts(new Date(iso)).map((p) => [p.type, p.value]));
+}
 
-/** `HH:MM` of an instant, in UTC. */
-export const timeOf = (iso: string): string => iso.slice(11, 16);
+/**
+ * `YYYY-MM-DD` of an instant on the clock of `zone`. The PAS stores UTC; a patient and a reminder read the
+ * clinic's clock (`PAS_TIMEZONE`), so pages pass the clinic zone and every surface shows the same day (PA-13).
+ */
+export const dayOf = (iso: string, zone = "UTC"): string => {
+  const p = wallClock(iso, zone);
+  return `${p.year}-${p.month}-${p.day}`;
+};
+
+/** `HH:MM` (24-hour) of an instant on the clock of `zone`. */
+export const timeOf = (iso: string, zone = "UTC"): string => {
+  const p = wallClock(iso, zone);
+  return `${p.hour}:${p.minute}`;
+};
+
+/** Today's `YYYY-MM-DD` on the clock of `zone` at the instant `now` (milliseconds). */
+export const todayIn = (zone: string, now: number): string => dayOf(new Date(now).toISOString(), zone);
+
+/** The instant at which today (on the clock of `zone`, at `now`) began: local midnight, as a `Date`. */
+export function startOfDayIn(zone: string, now: number): Date {
+  const day = todayIn(zone, now);
+  const asUtc = Date.parse(`${day}T00:00:00Z`);
+  // The zone's offset at that moment: its wall clock read back as if it were UTC, less the instant.
+  const offset = (at: number) => {
+    const p = wallClock(new Date(at).toISOString(), zone);
+    return Date.parse(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:00Z`) - at;
+  };
+  const first = asUtc - offset(asUtc);
+  // Once more, in case midnight falls on the other side of a clock change from the first guess.
+  return new Date(asUtc - offset(first));
+}
+
+/** An IANA time zone name the runtime knows, or `null`. */
+export function knownZone(zone: string | undefined): string | null {
+  const z = (zone ?? "").trim();
+  if (!z) return null;
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: z });
+    return z;
+  } catch {
+    return null;
+  }
+}
 
 /** Translates a catalogue key; `t` from `i18n.svelte.ts`, or a stand-in in tests. */
 export type Translate = (key: string, values?: Record<string, string | number>) => string;
@@ -78,6 +130,7 @@ export function appointmentEvents(
   t: Translate,
   noshow: NoShowLike[] = [],
   adjustments: AdjustmentsLike[] = [],
+  zone = "UTC",
 ): CalendarEvent[] {
   const flags = new Map(noshow.map((n) => [n.appointment_id, n]));
   const needs = new Map(adjustments.map((a) => [a.appointment_id, a]));
@@ -85,11 +138,11 @@ export function appointmentEvents(
     const flag = flags.get(a.id);
     return {
       id: a.id,
-      date: dayOf(a.start_datetime),
-      title: `${timeOf(a.start_datetime)} ${a.reason?.trim() || t("appointments.generic")}`,
+      date: dayOf(a.start_datetime, zone),
+      title: `${timeOf(a.start_datetime, zone)} ${a.reason?.trim() || t("appointments.generic")}`,
       done: a.status === "fulfilled",
       values: {
-        time: `${timeOf(a.start_datetime)}–${timeOf(a.end_datetime)}`,
+        time: `${timeOf(a.start_datetime, zone)}–${timeOf(a.end_datetime, zone)}`,
         status: t(statusKey(a.status)),
         ...(flag ? { support: noshowText(flag, t) } : {}),
         ...(needs.has(a.id) ? { adjustments: adjustmentsText(needs.get(a.id)!, t) } : {}),
@@ -99,14 +152,14 @@ export function appointmentEvents(
 }
 
 /** One parent task per day, with each appointment as a one-day milestone beneath it. */
-export function appointmentGantt(rows: AppointmentLike[], t: Translate): GanttTask[] {
-  const days = [...new Set(rows.map((a) => dayOf(a.start_datetime)))].sort();
+export function appointmentGantt(rows: AppointmentLike[], t: Translate, zone = "UTC"): GanttTask[] {
+  const days = [...new Set(rows.map((a) => dayOf(a.start_datetime, zone)))].sort();
   const tasks: GanttTask[] = days.map((d) => ({ id: `day:${d}`, label: d, start: d, end: d }));
   for (const a of [...rows].sort((x, y) => x.start_datetime.localeCompare(y.start_datetime))) {
-    const d = dayOf(a.start_datetime);
+    const d = dayOf(a.start_datetime, zone);
     tasks.push({
       id: a.id,
-      label: `${timeOf(a.start_datetime)} ${a.reason?.trim() || t("appointments.generic")}`,
+      label: `${timeOf(a.start_datetime, zone)} ${a.reason?.trim() || t("appointments.generic")}`,
       start: d,
       end: d,
       parentId: `day:${d}`,
@@ -117,8 +170,8 @@ export function appointmentGantt(rows: AppointmentLike[], t: Translate): GanttTa
 }
 
 /** The inclusive `{start,end}` day range that covers the rows, padded to at least a week. */
-export function ganttRange(rows: AppointmentLike[], today: string): { start: string; end: string } {
-  const days = rows.map((a) => dayOf(a.start_datetime)).sort();
+export function ganttRange(rows: AppointmentLike[], today: string, zone = "UTC"): { start: string; end: string } {
+  const days = rows.map((a) => dayOf(a.start_datetime, zone)).sort();
   const start = days[0] && days[0] < today ? days[0] : today;
   const last = days[days.length - 1] ?? today;
   const minEnd = new Date(Date.parse(`${start}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);

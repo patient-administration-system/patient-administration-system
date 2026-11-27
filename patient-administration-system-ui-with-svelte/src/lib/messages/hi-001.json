@@ -40,6 +40,7 @@
   "myAppointments.empty": "आपका कोई अपॉइंटमेंट नहीं है।",
   "myAppointments.calendarLabel": "मेरे अपॉइंटमेंट",
   "myAppointments.listHeading": "सूची के रूप में",
+  "time.zoneNote": "समय क्लिनिक की घड़ी के अनुसार दिखाए गए हैं ({zone})।",
   "myMessages.title": "मेरे संदेश",
   "myMessages.empty": "आपका कोई संदेश नहीं है।",
   "appointments.title": "अपॉइंटमेंट",

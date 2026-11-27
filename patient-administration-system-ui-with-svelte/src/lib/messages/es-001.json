@@ -40,6 +40,7 @@
   "myAppointments.empty": "No tiene citas.",
   "myAppointments.calendarLabel": "Mis citas",
   "myAppointments.listHeading": "En forma de lista",
+  "time.zoneNote": "Las horas se muestran en la hora de la clínica ({zone}).",
   "myMessages.title": "Mis mensajes",
   "myMessages.empty": "No tiene mensajes.",
   "appointments.title": "Citas",

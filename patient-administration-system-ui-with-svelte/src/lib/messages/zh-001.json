@@ -40,6 +40,7 @@
   "myAppointments.empty": "您目前没有预约。",
   "myAppointments.calendarLabel": "我的预约",
   "myAppointments.listHeading": "列表视图",
+  "time.zoneNote": "时间按诊所所在时区显示（{zone}）。",
   "myMessages.title": "我的消息",
   "myMessages.empty": "您目前没有消息。",
   "appointments.title": "预约",

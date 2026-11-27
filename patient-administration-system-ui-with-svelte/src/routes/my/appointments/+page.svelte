@@ -12,7 +12,7 @@
   // From the server, so the first HTML shows this month, with or without JavaScript.
   let anchorDate = $state(untrack(() => data.today));
 
-  const events = $derived(appointmentEvents(data.appointments, t));
+  const events = $derived(appointmentEvents(data.appointments, t, [], [], data.timeZone));
   const fields = $derived<CalendarEventField[]>([
     { id: "time", header: t("col.time"), type: "text" },
     { id: "status", header: t("col.status"), type: "text" },
@@ -29,6 +29,7 @@
 {#if data.appointments.length === 0}
   <p>{t("myAppointments.empty")}</p>
 {:else}
+  <p>{t("time.zoneNote", { zone: data.timeZone })}</p>
   <CalendarView
     label={t("myAppointments.calendarLabel")}
     view="agenda"
@@ -49,8 +50,8 @@
     <tbody>
       {#each data.appointments as a (a.id)}
         <tr>
-          <td>{dayOf(a.start_datetime)}</td>
-          <td>{timeOf(a.start_datetime)}–{timeOf(a.end_datetime)}</td>
+          <td>{dayOf(a.start_datetime, data.timeZone)}</td>
+          <td>{timeOf(a.start_datetime, data.timeZone)}–{timeOf(a.end_datetime, data.timeZone)}</td>
           <td>{a.reason ?? t("appointments.generic")}</td>
           <td>{t(statusKey(a.status))}</td>
         </tr>

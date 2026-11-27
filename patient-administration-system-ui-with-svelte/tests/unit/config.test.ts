@@ -24,6 +24,7 @@ const NAMES = [
   "OIDC_END_SESSION",
   "OIDC_SESSION_STORE",
   "REDIS_URL",
+  "PAS_TIMEZONE",
 ];
 
 async function withEnv(env: Record<string, string>) {
@@ -68,6 +69,16 @@ describe("serviceToken", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the clinic time zone", () => {
+  it("is PAS_TIMEZONE when the runtime knows it, and Europe/London otherwise, with a warning for a bad name", async () => {
+    expect((await withEnv({ PAS_TIMEZONE: "America/New_York" })).config.clinicTimeZone()).toBe("America/New_York");
+    expect((await withEnv({})).config.clinicTimeZone()).toBe("Europe/London");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect((await withEnv({ PAS_TIMEZONE: "Mars/Olympus" })).config.clinicTimeZone()).toBe("Europe/London");
+    expect(warn).toHaveBeenCalledOnce();
   });
 });
 
