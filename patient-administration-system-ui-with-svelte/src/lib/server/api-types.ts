@@ -11,7 +11,8 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** `GET /api/absences`: absences, soonest first, a page at a time; by owner, still active, overlapping a window. */
+    get: operations["get_api_absences"];
     put?: never;
     /**
      * `POST /api/absences`: a clinician or room is unavailable for a window (no reason is asked or kept). Blocks
@@ -13339,6 +13340,57 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  get_api_absences: {
+    parameters: {
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
+      header?: never;
+      path: {
+        /** @description One practitioner or room. */
+        owner_id: string | null;
+        /** @description Only absences not withdrawn (default true). */
+        active: boolean | null;
+        /** @description Only absences that end after this instant. */
+        from: string | null;
+        /** @description Only absences that start before this instant. */
+        to: string | null;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Absence"][];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   post_api_absences: {
     parameters: {
       query?: never;

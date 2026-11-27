@@ -271,3 +271,75 @@ async fn a_rebooked_appointment_closes_its_item_and_a_slot_two_absences_block_st
     let ok = post(body(h(10), h(11)), Some("Rota")).await.unwrap();
     assert_eq!(ok.status(), StatusCode::OK);
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn absences_are_listed_by_owner_active_and_window_soonest_first() {
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let svc = AbsenceService::new(state.db.clone());
+    let owner = Uuid::new_v4();
+    let t = day();
+    let h = |n: i64| t + SignedDuration::from_hours(n);
+    let new = |s, e| NewAbsence {
+        owner_kind: AbsentKind::Practitioner,
+        owner_id: owner,
+        starts_at: s,
+        ends_at: e,
+    };
+    let later = svc.record(new(h(48), h(50)), "Rota", &ctx()).await.unwrap();
+    let sooner = svc.record(new(h(1), h(3)), "Rota", &ctx()).await.unwrap();
+    let gone = svc.record(new(h(10), h(12)), "Rota", &ctx()).await.unwrap();
+    svc.withdraw(gone.id, "Rota", &ctx()).await.unwrap();
+    let app = patient_administration_system::api::rest::router(state);
+    let list = |q: String| {
+        let app = app.clone();
+        async move {
+            let r = app
+                .oneshot(
+                    Request::get(format!("/api/absences?owner_id={owner}{q}").replace('+', "%2B"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let status = r.status();
+            let v: serde_json::Value = serde_json::from_slice(
+                &axum::body::to_bytes(r.into_body(), 1 << 20).await.unwrap(),
+            )
+            .unwrap_or_default();
+            (status, v)
+        }
+    };
+    let ids = |v: &serde_json::Value| -> Vec<String> {
+        v["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|a| a["id"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let (st, v) = list(String::new()).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert_eq!(
+        ids(&v),
+        vec![sooner.id.to_string(), later.id.to_string()],
+        "active only, soonest first"
+    );
+    let (_, v) = list("&active=false".into()).await;
+    assert_eq!(
+        ids(&v),
+        vec![
+            sooner.id.to_string(),
+            gone.id.to_string(),
+            later.id.to_string()
+        ]
+    );
+    let (_, v) = list(format!("&from={}&to={}", h(2), h(20))).await;
+    assert_eq!(
+        ids(&v),
+        vec![sooner.id.to_string()],
+        "overlapping the window"
+    );
+    let (st, _) = list(format!("&from={}&to={}", h(5), h(1))).await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+}

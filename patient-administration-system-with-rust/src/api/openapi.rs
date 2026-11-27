@@ -257,6 +257,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_work_queue::release,
         crate::api::rest::handlers_work_queue::phone_outcome,
         crate::api::rest::handlers_absences::record,
+        crate::api::rest::handlers_absences::list,
         crate::api::rest::handlers_absences::get,
         crate::api::rest::handlers_absences::withdraw,
         crate::api::rest::handlers_work_queue::save_view,

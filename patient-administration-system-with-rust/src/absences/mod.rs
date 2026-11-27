@@ -219,6 +219,43 @@ impl AbsenceService {
         self.get(id).await
     }
 
+    /// Absences, soonest first (then by id): of one owner if given, only those not withdrawn if `active`, and
+    /// only those overlapping `[from, to)` when a window is given.
+    pub async fn list(
+        &self,
+        owner_id: Option<Uuid>,
+        active: bool,
+        from: Option<Timestamp>,
+        to: Option<Timestamp>,
+        rows: crate::paging::Rows,
+    ) -> Result<Vec<Absence>> {
+        let ids: Vec<Uuid> = self
+            .db
+            .all(Stmt::new(
+                "SELECT id FROM staff_absences WHERE ($1::uuid IS NULL OR owner_id = $1) \
+                 AND (NOT $2 OR withdrawn_at IS NULL) \
+                 AND ($3::timestamptz IS NULL OR ends_at > $3) AND ($4::timestamptz IS NULL OR starts_at < $4) \
+                 ORDER BY starts_at, id LIMIT $5 OFFSET $6",
+                [
+                    owner_id.into(),
+                    active.into(),
+                    from.into(),
+                    to.into(),
+                    rows.fetch()?.into(),
+                    rows.offset()?.into(),
+                ],
+            ))
+            .await?
+            .iter()
+            .map(|r| r.col("id"))
+            .collect::<Result<_>>()?;
+        let mut out = Vec::with_capacity(ids.len());
+        for id in ids {
+            out.push(self.get(id).await?);
+        }
+        Ok(out)
+    }
+
     /// One absence and what it did.
     pub async fn get(&self, id: Uuid) -> Result<Absence> {
         let r = self

@@ -1,7 +1,7 @@
 //! REST handlers for staff absences (TSC-10). The person acting is the signed-in user; recording and
 //! withdrawing are audited.
 
-use axa::extract::{Json, Path};
+use axa::extract::{Json, Path, Query};
 use axum::{extract::State, http::HeaderMap};
 use uuid::Uuid;
 
@@ -84,6 +84,59 @@ pub async fn withdraw(
         .await
     {
         Ok(v) => ok_json(v),
+        Err(e) => error_to_response(e),
+    }
+}
+
+#[derive(Debug, serde::Deserialize, utoipa::IntoParams)]
+pub struct AbsenceQuery {
+    /// One practitioner or room.
+    pub owner_id: Option<Uuid>,
+    /// Only absences not withdrawn (default true).
+    pub active: Option<bool>,
+    /// Only absences that end after this instant.
+    pub from: Option<jiff::Timestamp>,
+    /// Only absences that start before this instant.
+    pub to: Option<jiff::Timestamp>,
+}
+
+/// `GET /api/absences`: absences, soonest first, a page at a time; by owner, still active, overlapping a window.
+#[utoipa::path(
+    get,
+    path = "/api/absences",
+    tag = "Scheduling",
+    params(crate::paging::PageQuery, AbsenceQuery),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = Vec<crate::absences::Absence>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn list(
+    State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+    Query(q): Query<AbsenceQuery>,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
+        Err(e) => return error_to_response(e),
+    };
+    if let (Some(f), Some(t)) = (q.from, q.to)
+        && t <= f
+    {
+        return error_to_response(crate::Error::validation("to must be after from"));
+    }
+    match AbsenceService::new(state.db.clone())
+        .list(
+            q.owner_id,
+            q.active.unwrap_or(true),
+            q.from,
+            q.to,
+            page.rows(),
+        )
+        .await
+    {
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
         Err(e) => error_to_response(e),
     }
 }

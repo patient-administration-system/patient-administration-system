@@ -294,7 +294,10 @@ pub(super) fn work() -> Router<AppState> {
             post(handlers_work_queue::phone_outcome),
         )
         // Staff and room absences make work, not cancellations (TSC-10).
-        .route("/api/absences", post(handlers_absences::record))
+        .route(
+            "/api/absences",
+            get(handlers_absences::list).post(handlers_absences::record),
+        )
         .route("/api/absences/{id}", get(handlers_absences::get))
         .route(
             "/api/absences/{id}/withdraw",
