@@ -55,3 +55,47 @@ test("the work page is in the staff navigation", async ({ page }) => {
     page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Work", exact: true }),
   ).toBeVisible();
 });
+
+// Saved views (TSC-7).
+test("a view someone else shared can be used but not changed", async ({ page }) => {
+  await keycloakLogin(page, "admin");
+  await page.goto("/en-001/work");
+  const shared = page.locator('li[data-view="ffffffff-0000-4000-8000-000000000001"]');
+  // Names are wrapped in Unicode isolates (FSI and PDI) so a right-to-left name cannot reorder the sentence.
+  await expect(shared).toContainText(/made by .?Team lead.?\)/);
+  await expect(shared).toContainText(/shared with .?booking.?\)/);
+  await shared.getByRole("link", { name: "Booking team: overdue" }).click();
+  await expect(page.locator("table[data-work] caption")).toHaveText("Booking team: overdue");
+  await expect(page.locator('tr[data-item="eeeeeeee-0000-4000-8000-000000000001"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete this view" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Share", exact: true })).toHaveCount(0);
+  expect(serious(await axe(page))).toEqual([]);
+});
+
+test("a person saves what is shown, shares it, stops sharing it and deletes it", async ({ page }) => {
+  await keycloakLogin(page, "admin");
+  await page.goto("/en-001/work?view=unassigned&queue=booking");
+  await page.getByLabel("Save what is shown as").fill("Booking, nobody's");
+  await page.getByRole("button", { name: "Save view" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "The view is saved." })).toBeVisible();
+  await page.getByRole("link", { name: "Booking, nobody's" }).click();
+  await expect(page.locator("table[data-work] caption")).toHaveText("Booking, nobody's");
+  await expect(page.locator('tr[data-item="eeeeeeee-0000-4000-8000-000000000002"]')).toContainText("Nobody");
+  // The same name again is refused.
+  await page.goto("/en-001/work?view=unassigned&queue=booking");
+  await page.getByLabel("Save what is shown as").fill("Booking, nobody's");
+  await page.getByRole("button", { name: "Save view" }).click();
+  await expect(page.getByRole("alert")).toContainText("already one of your views");
+
+  await page.getByRole("link", { name: "Booking, nobody's" }).click();
+  await page.getByLabel("Share with the role").fill("booking-team");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "The view is shared." })).toBeVisible();
+  await expect(page.getByTestId("saved-views")).toContainText(/shared with .?booking-team.?\)/);
+  await page.getByRole("button", { name: "Stop sharing" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "The view is no longer shared." })).toBeVisible();
+  await page.getByRole("button", { name: "Delete this view" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "The view is deleted." })).toBeVisible();
+  await page.goto("/en-001/work");
+  await expect(page.getByRole("link", { name: "Booking, nobody's" })).toHaveCount(0);
+});

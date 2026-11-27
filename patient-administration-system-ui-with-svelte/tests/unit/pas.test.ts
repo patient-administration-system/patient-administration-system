@@ -51,6 +51,11 @@ const {
   claimWork,
   releaseWork,
   takeNextWork,
+  workViews,
+  workViewItems,
+  saveWorkView,
+  shareWorkView,
+  deleteWorkView,
 } = await import("#lib/server/pas.js");
 
 type Call = { url: string; init: RequestInit };
@@ -412,6 +417,32 @@ describe("typed PAS route wrappers", () => {
       ["GET", "http://pas.test/api/suspicions", undefined],
       ["PUT", "http://pas.test/api/letter-templates/template%2F1", '{"id":"template/1"}'],
     ]);
+  });
+});
+
+describe("saved views of the work queue (TSC-7)", () => {
+  it("lists, reads, saves, shares and deletes a view, escaping the id", async () => {
+    const { fetch, calls } = fake(
+      200,
+      JSON.stringify({ data: [], meta: { limit: 200, returned: 0, truncated: false } }),
+    );
+    await workViews(fetch);
+    await workViewItems(fetch, "v/1", "c1");
+    await saveWorkView(fetch, "Mine", { queue: "booking", owner: "me" });
+    await saveWorkView(fetch, "Overdue", { overdue: true });
+    await shareWorkView(fetch, "v/1", "booking-team");
+    await shareWorkView(fetch, "v/1", null);
+    await deleteWorkView(fetch, "v/1");
+    expect(calls.map((c) => [c.init.method, c.url.split("?")[0], c.init.body])).toEqual([
+      ["GET", "http://pas.test/api/work-views", undefined],
+      ["GET", "http://pas.test/api/work-views/v%2F1/items", undefined],
+      ["POST", "http://pas.test/api/work-views", '{"name":"Mine","queue":"booking","owner":"me","overdue":false}'],
+      ["POST", "http://pas.test/api/work-views", '{"name":"Overdue","queue":null,"owner":null,"overdue":true}'],
+      ["PUT", "http://pas.test/api/work-views/v%2F1/share", '{"role":"booking-team"}'],
+      ["PUT", "http://pas.test/api/work-views/v%2F1/share", '{"role":null}'],
+      ["DELETE", "http://pas.test/api/work-views/v%2F1", undefined],
+    ]);
+    expect(calls[1]!.url).toContain("cursor=c1");
   });
 });
 

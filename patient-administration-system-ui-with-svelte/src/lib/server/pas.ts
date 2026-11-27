@@ -441,6 +441,31 @@ export const claimWork = (f: FetchFn, id: string) =>
 export const releaseWork = (f: FetchFn, id: string) =>
   pas<WorkItem>(f, `/api/work-items/${encodeURIComponent(id)}/release`, { method: "POST" });
 
+/** A saved view of the work queue (TSC-7): a named filter, the person's own or shared with one of their roles. */
+export type WorkView = Schemas["WorkView"];
+
+/** The views the signed-in person may use: their own and those shared with a role of theirs. */
+export const workViews = (f: FetchFn) => pas<WorkView[]>(f, "/api/work-views");
+
+/** The items of a saved view, as the signed-in person sees them. */
+export const workViewItems = (f: FetchFn, id: string, cursor?: string | null) =>
+  pasPage<WorkItem>(f, `/api/work-views/${encodeURIComponent(id)}/items`, cursor);
+
+/** Save the filter that is shown under a name of the signed-in person's. */
+export const saveWorkView = (f: FetchFn, name: string, filter: WorkFilter) =>
+  pas<WorkView>(f, "/api/work-views", {
+    method: "POST",
+    body: { name, queue: filter.queue ?? null, owner: filter.owner ?? null, overdue: !!filter.overdue },
+  });
+
+/** Share a view the signed-in person saved with a role, or stop sharing it (`null`). */
+export const shareWorkView = (f: FetchFn, id: string, role: string | null) =>
+  pas<WorkView>(f, `/api/work-views/${encodeURIComponent(id)}/share`, { method: "PUT", body: { role } });
+
+/** Delete a view the signed-in person saved. */
+export const deleteWorkView = (f: FetchFn, id: string) =>
+  pas<unknown>(f, `/api/work-views/${encodeURIComponent(id)}`, { method: "DELETE" });
+
 /** The signed-in person takes the next open item of a queue: most urgent, soonest due, oldest. */
 export const takeNextWork = (f: FetchFn, queue: WorkQueue) =>
   pas<WorkItem>(f, `/api/work-queues/${encodeURIComponent(queue)}/next`, { method: "POST" });

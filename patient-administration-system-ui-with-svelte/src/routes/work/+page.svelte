@@ -66,6 +66,58 @@
   {/each}
 </nav>
 
+<section aria-labelledby="saved-views">
+  <h2 id="saved-views">{t("work.saved")}</h2>
+  {#if data.savedViews.length === 0}
+    <p data-testid="saved-none">{t("work.saved.none")}</p>
+  {:else}
+    <ul data-testid="saved-views">
+      {#each data.savedViews as v (v.id)}
+        <li data-view={v.id}>
+          {#if data.saved?.id === v.id}
+            <span aria-current="page">{v.name}</span>
+          {:else}
+            <a href={`?saved=${v.id}`}>{v.name}</a>
+          {/if}
+          {#if v.created_by !== data.me}({t("work.saved.by", { name: v.created_by })}){/if}
+          {#if v.shared_with_role}({t("work.saved.shared", { role: v.shared_with_role })}){/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
+  {#if data.saved && data.saved.created_by === data.me}
+    <!-- The view stays in the address, so the page shows it again after the action. -->
+    <form method="POST" action={`?saved=${data.saved.id}&/shareView`}>
+      <input type="hidden" name="saved" value={data.saved.id} />
+      <label>
+        {t("work.saved.role")}
+        <input name="role" required maxlength="100" autocomplete="off" value={data.saved.shared_with_role ?? ""} />
+      </label>
+      <button class="button" type="submit">{t("work.saved.share")}</button>
+    </form>
+    {#if data.saved.shared_with_role}
+      <form method="POST" action={`?saved=${data.saved.id}&/unshareView`}>
+        <input type="hidden" name="saved" value={data.saved.id} />
+        <button class="button" type="submit">{t("work.saved.unshare")}</button>
+      </form>
+    {/if}
+    <form method="POST" action="?/deleteView">
+      <input type="hidden" name="saved" value={data.saved.id} />
+      <button class="button" type="submit">{t("work.saved.delete")}</button>
+    </form>
+  {:else if !data.saved}
+    <form method="POST" action="?/saveView">
+      <input type="hidden" name="view" value={data.view} />
+      <input type="hidden" name="queue" value={data.queue ?? ""} />
+      <label>
+        {t("work.saved.name")}
+        <input name="name" required maxlength="100" autocomplete="off" />
+      </label>
+      <button class="button" type="submit">{t("work.saved.save")}</button>
+    </form>
+  {/if}
+</section>
+
 <form method="POST" action="?/next">
   <label>
     {t("work.next.queue")}
@@ -89,7 +141,7 @@
 {:else}
   <ListCut at={data.cutAt} next={data.nextHref} first={data.firstHref} />
   <table data-work>
-    <caption>{t(`work.view.${data.view}`)}</caption>
+    <caption>{data.saved ? data.saved.name : t(`work.view.${data.view}`)}</caption>
     <thead>
       <tr>
         <th scope="col">{t("work.col.what")}</th>

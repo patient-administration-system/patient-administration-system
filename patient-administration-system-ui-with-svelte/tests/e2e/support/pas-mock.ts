@@ -39,6 +39,23 @@ const acts: { token: string; action: string }[] = [];
 // person's subject is Keycloak's, unknown until the first call, so the overdue call is given to the first caller.
 const FIRST_CALLER = "first-caller";
 type MockWork = Pick<S["WorkItem"], "id" | "kind" | "queue" | "priority" | "due_at" | "status" | "owner">;
+// Saved views of the work queue (TSC-7). The one made by "Team lead" is shared with a role the mock treats every
+// caller as having, so a person can use a view they did not make but not change it.
+const workViews: S["WorkView"][] = [
+  {
+    id: "ffffffff-0000-4000-8000-000000000001",
+    name: "Booking team: overdue",
+    created_by: "Team lead",
+    queue: "booking",
+    owner: null,
+    priority: null,
+    overdue: true,
+    kind: null,
+    shared_with_role: "booking",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
 const work: MockWork[] = [
   {
     id: "eeeeeeee-0000-4000-8000-000000000001",
@@ -651,6 +668,62 @@ http
         claimed_at: w.owner ? new Date().toISOString() : null,
         closed_at: null,
       });
+      const listOf = (owner: string | null, queue: string | null, overdue: boolean) =>
+        work
+          .filter((w) => w.status !== "closed")
+          .filter((w) => !queue || w.queue === queue)
+          .filter((w) => owner !== "me" || w.owner === me)
+          .filter((w) => owner !== "none" || w.owner === null)
+          .map(view)
+          .filter((w) => !overdue || w.overdue);
+      if (url.pathname === "/api/work-views") {
+        if (req.method === "POST") {
+          const b = (await readBody(req)) as unknown as Partial<S["NewView"]>;
+          const name = String(b.name ?? "").trim();
+          if (!name || workViews.some((v) => v.created_by === me && v.name === name)) {
+            return problem(409, "conflict", "you already have a view with that name");
+          }
+          const now = new Date().toISOString();
+          const v: S["WorkView"] = {
+            id: crypto.randomUUID(),
+            name,
+            created_by: me,
+            queue: b.queue ?? null,
+            owner: b.owner ?? null,
+            priority: b.priority ?? null,
+            overdue: !!b.overdue,
+            kind: b.kind ?? null,
+            shared_with_role: null,
+            created_at: now,
+            updated_at: now,
+          };
+          workViews.push(v);
+          acts.push({ token: v.id, action: `work-view-save:${me}:${name}` });
+          return res.end(envelope(v));
+        }
+        return res.end(envelope(workViews.filter((v) => v.created_by === me || v.shared_with_role)));
+      }
+      const wv = /^\/api\/work-views\/([0-9a-f-]+)(\/items|\/share)?$/.exec(url.pathname);
+      if (wv) {
+        const v = workViews.find((x) => x.id === wv[1] && (x.created_by === me || x.shared_with_role));
+        if (!v) return problem(404, "not_found", "no such view");
+        if (wv[2] === "/items") {
+          const owner = v.owner === "me" || v.owner === "none" ? v.owner : null;
+          return res.end(paged<S["WorkItem"][]>(listOf(owner, v.queue ?? null, v.overdue), url));
+        }
+        if (v.created_by !== me) return problem(409, "conflict", "only the person who saved a view may change it");
+        if (wv[2] === "/share" && req.method === "PUT") {
+          const b = (await readBody(req)) as unknown as { role?: string | null };
+          v.shared_with_role = b.role ?? null;
+          acts.push({ token: v.id, action: `work-view-share:${v.shared_with_role ?? ""}` });
+          return res.end(envelope(v));
+        }
+        if (!wv[2] && req.method === "DELETE") {
+          workViews.splice(workViews.indexOf(v), 1);
+          acts.push({ token: v.id, action: "work-view-delete" });
+          return res.end(envelope({ deleted: true }));
+        }
+      }
       if (url.pathname === "/api/work-items/reminders") {
         const mine = work.filter((w) => w.owner === me && w.status === "claimed").map(view);
         const by = new Date(Date.now() + 8 * 3600_000).toISOString();
@@ -663,15 +736,11 @@ http
         );
       }
       if (url.pathname === "/api/work-items") {
-        const owner = url.searchParams.get("owner");
-        const queue = url.searchParams.get("queue");
-        const rows = work
-          .filter((w) => w.status !== "closed")
-          .filter((w) => !queue || w.queue === queue)
-          .filter((w) => owner !== "me" || w.owner === me)
-          .filter((w) => owner !== "none" || w.owner === null)
-          .map(view)
-          .filter((w) => url.searchParams.get("overdue") !== "true" || w.overdue);
+        const rows = listOf(
+          url.searchParams.get("owner"),
+          url.searchParams.get("queue"),
+          url.searchParams.get("overdue") === "true",
+        );
         return res.end(paged<S["WorkItem"][]>(rows, url));
       }
       const m = /^\/api\/work-items\/([0-9a-f-]+)\/(claim|release)$/.exec(url.pathname);
