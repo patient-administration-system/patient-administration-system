@@ -362,7 +362,7 @@ fn to_row(a: &Appointment) -> appointment::Model {
         arrived_at: a.arrived_at,
         completed_at: a.completed_at,
         current_room: a.current_room.clone(),
-        deleted_at: None,
+        deleted_at: a.deleted_at,
         created_at: a.created_at,
         updated_at: a.updated_at,
     }
@@ -407,6 +407,7 @@ fn from_model(m: appointment::Model) -> Result<Appointment> {
         current_room: m.current_room,
         // Derived on read, never stored, so it cannot disagree with status and notice.
         release_class: classify_release(appointment_status_from_str(&m.status)?, m.notice_days),
+        deleted_at: m.deleted_at,
         created_at: m.created_at,
         updated_at: m.updated_at,
     })

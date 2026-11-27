@@ -1000,6 +1000,14 @@
                   "null"
                 ]
               },
+              "deleted_at": {
+                "description": "When it was deleted. Most reads leave deleted appointments out; the lists of what changed in a window\n(TSC-6) include them, and this says which they are.",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "end_datetime": {
                 "format": "date-time",
                 "type": "string"
@@ -6488,6 +6496,14 @@
                     "null"
                   ]
                 },
+                "deleted_at": {
+                  "description": "When it was deleted. Most reads leave deleted appointments out; the lists of what changed in a window\n(TSC-6) include them, and this says which they are.",
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "end_datetime": {
                   "format": "date-time",
                   "type": "string"
@@ -11140,6 +11156,14 @@
           },
           "current_room": {
             "description": "A short label for where the patient is now (CORE-4), set when a person moves them.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deleted_at": {
+            "description": "When it was deleted. Most reads leave deleted appointments out; the lists of what changed in a window\n(TSC-6) include them, and this says which they are.",
+            "format": "date-time",
             "type": [
               "string",
               "null"
@@ -36093,6 +36117,62 @@
           }
         ],
         "summary": "Writes a FHIR `transaction` or `batch` Bundle.",
+        "tags": [
+          "FHIR"
+        ]
+      }
+    },
+    "/fhir/Appointment": {
+      "get": {
+        "operationId": "get_fhir_Appointment",
+        "parameters": [
+          {
+            "description": "Changed in this window: `ge` or `gt` an instant (required), and optionally `lt` or `le` one; repeat the parameter for both",
+            "in": "query",
+            "name": "_lastUpdated",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Entries per page, 1 to 500 (default 100); a `next` link gives the rest",
+            "in": "query",
+            "name": "_count",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Where the page starts; set by the `next` link",
+            "in": "query",
+            "name": "_offset",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FHIR resource, Bundle or OperationOutcome"
+          },
+          "4XX": {
+            "description": "Error; an OperationOutcome"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an OperationOutcome"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Search appointments by when they last changed",
         "tags": [
           "FHIR"
         ]

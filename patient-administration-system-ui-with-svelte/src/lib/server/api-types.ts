@@ -5700,6 +5700,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/fhir/Appointment": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Search appointments by when they last changed */
+    get: operations["get_fhir_Appointment"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/fhir/Appointment/{id}": {
     parameters: {
       query?: never;
@@ -6493,6 +6510,12 @@ export interface components {
         created_at: string;
         /** @description A short label for where the patient is now (CORE-4), set when a person moves them. */
         current_room?: string | null;
+        /**
+         * Format: date-time
+         * @description When it was deleted. Most reads leave deleted appointments out; the lists of what changed in a window
+         *     (TSC-6) include them, and this says which they are.
+         */
+        deleted_at?: string | null;
         /** Format: date-time */
         end_datetime: string;
         /** Format: uuid */
@@ -8401,6 +8424,12 @@ export interface components {
         created_at: string;
         /** @description A short label for where the patient is now (CORE-4), set when a person moves them. */
         current_room?: string | null;
+        /**
+         * Format: date-time
+         * @description When it was deleted. Most reads leave deleted appointments out; the lists of what changed in a window
+         *     (TSC-6) include them, and this says which they are.
+         */
+        deleted_at?: string | null;
         /** Format: date-time */
         end_datetime: string;
         /** Format: uuid */
@@ -9910,6 +9939,12 @@ export interface components {
       created_at: string;
       /** @description A short label for where the patient is now (CORE-4), set when a person moves them. */
       current_room?: string | null;
+      /**
+       * Format: date-time
+       * @description When it was deleted. Most reads leave deleted appointments out; the lists of what changed in a window
+       *     (TSC-6) include them, and this says which they are.
+       */
+      deleted_at?: string | null;
       /** Format: date-time */
       end_datetime: string;
       /** Format: uuid */
@@ -26201,6 +26236,45 @@ export interface operations {
         content?: never;
       };
       /** @description Error; an OperationOutcome. A transaction writes nothing */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an OperationOutcome */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_fhir_Appointment: {
+    parameters: {
+      query: {
+        /** @description Changed in this window: `ge` or `gt` an instant (required), and optionally `lt` or `le` one; repeat the parameter for both */
+        _lastUpdated: string;
+        /** @description Entries per page, 1 to 500 (default 100); a `next` link gives the rest */
+        _count?: number;
+        /** @description Where the page starts; set by the `next` link */
+        _offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description FHIR resource, Bundle or OperationOutcome */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Error; an OperationOutcome */
       "4XX": {
         headers: {
           [name: string]: unknown;

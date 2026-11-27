@@ -265,6 +265,10 @@ pub struct Appointment {
     /// Derived from status and notice; never stored, so it cannot disagree with them.
     #[serde(default)]
     pub release_class: Option<ReleaseClass>,
+    /// When it was deleted. Most reads leave deleted appointments out; the lists of what changed in a window
+    /// (TSC-6) include them, and this says which they are.
+    #[serde(default)]
+    pub deleted_at: Option<Timestamp>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
 }
@@ -297,6 +301,7 @@ impl Appointment {
             completed_at: None,
             current_room: None,
             release_class: None,
+            deleted_at: None,
             created_at: now,
             updated_at: now,
         }

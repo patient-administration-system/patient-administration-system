@@ -58,6 +58,177 @@ pub async fn get_appointment(State(state): State<AppState>, Path(id): Path<Uuid>
     }
 }
 
+/// One bound of `_lastUpdated`: `ge`, `gt`, `lt` or `le` and an instant (or a date, its midnight UTC).
+fn last_updated_bound(v: &str) -> Result<(&str, jiff::Timestamp), Error> {
+    let bad = || {
+        Error::validation(format!(
+            "_lastUpdated {v:?}: give ge, gt, lt or le and an instant, such as ge2026-11-01T00:00:00Z"
+        ))
+    };
+    let (prefix, rest) = (v.get(..2).ok_or_else(bad)?, v.get(2..).ok_or_else(bad)?);
+    if !matches!(prefix, "ge" | "gt" | "lt" | "le") {
+        return Err(bad());
+    }
+    let at = match rest.parse::<jiff::Timestamp>() {
+        Ok(t) => t,
+        Err(_) => rest
+            .parse::<jiff::civil::Date>()
+            .map_err(|_| bad())?
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC)
+            .map_err(|_| bad())?
+            .timestamp(),
+    };
+    Ok((prefix, at))
+}
+
+/// `_lastUpdated` as the half-open window `[since, before)` the repository reads (TSC-6).
+pub(crate) fn last_updated_window(
+    values: &[&str],
+) -> Result<(jiff::Timestamp, Option<jiff::Timestamp>), Error> {
+    let tick = jiff::SignedDuration::from_micros(1);
+    let (mut since, mut before) = (None, None);
+    for v in values {
+        let (prefix, at) = last_updated_bound(v)?;
+        let slot = if matches!(prefix, "ge" | "gt") {
+            &mut since
+        } else {
+            &mut before
+        };
+        if slot.is_some() {
+            return Err(Error::validation(
+                "_lastUpdated takes one lower and one upper bound at most",
+            ));
+        }
+        // Postgres keeps microseconds, so the next microsecond is the first instant after `at`.
+        *slot = Some(if matches!(prefix, "gt" | "le") {
+            at.checked_add(tick)
+                .map_err(|e| Error::validation(format!("_lastUpdated: {e}")))?
+        } else {
+            at
+        });
+    }
+    let since = since.ok_or_else(|| {
+        Error::validation("search by _lastUpdated: a lower bound (ge or gt) is required")
+    })?;
+    if before.is_some_and(|b| b <= since) {
+        return Err(Error::validation(
+            "_lastUpdated: the upper bound must be after the lower",
+        ));
+    }
+    Ok((since, before))
+}
+
+#[utoipa::path(
+    get,
+    path = "/fhir/Appointment",
+    tag = "FHIR",
+    summary = "Search appointments by when they last changed",
+    params(
+        ("_lastUpdated" = String, Query, description = "Changed in this window: `ge` or `gt` an instant (required), and optionally `lt` or `le` one; repeat the parameter for both"),
+        ("_count" = Option<i64>, Query, description = "Entries per page, 1 to 500 (default 100); a `next` link gives the rest"),
+        ("_offset" = Option<i64>, Query, description = "Where the page starts; set by the `next` link"),
+    ),
+    responses(
+        (status = 200, description = "FHIR resource, Bundle or OperationOutcome"),
+        (status = "4XX", description = "Error; an OperationOutcome"),
+        (status = "5XX", description = "Server or upstream error; an OperationOutcome"),
+    )
+)]
+/// `GET /fhir/Appointment?_lastUpdated=ge…` (TSC-6): appointments changed in a window, oldest change first,
+/// for a system that polls. A deleted appointment is in the list as `entered-in-error`, so the poller learns
+/// of it. Walk a fixed window (give an upper bound) and use it as the next poll's lower bound.
+pub async fn search_appointments(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<Vec<(String, String)>>,
+) -> FhirResult {
+    let values = |name: &str| -> Vec<&str> {
+        q.iter()
+            .filter(|(k, _)| k == name)
+            .map(|(_, v)| v.as_str())
+            .collect()
+    };
+    if let Some((k, _)) = q
+        .iter()
+        .find(|(k, _)| !matches!(k.as_str(), "_lastUpdated" | "_count" | "_offset"))
+    {
+        return Err(error_to_response(Error::validation(format!(
+            "Appointment search does not support {k}; it takes _lastUpdated, _count and _offset"
+        ))));
+    }
+    let (since, before) =
+        last_updated_window(&values("_lastUpdated")).map_err(error_to_response)?;
+    let number = |name: &str, default: i64, min: i64, max: i64| -> Result<i64, Error> {
+        match values(name).as_slice() {
+            [] => Ok(default),
+            [v] => v
+                .parse::<i64>()
+                .ok()
+                .filter(|n| (min..=max).contains(n))
+                .ok_or_else(|| {
+                    Error::validation(format!("{name} must be a whole number from {min} to {max}"))
+                }),
+            _ => Err(Error::validation(format!("{name} is given once"))),
+        }
+    };
+    let count = number("_count", 100, 1, 500).map_err(error_to_response)?;
+    let offset = number("_offset", 0, 0, i64::MAX).map_err(error_to_response)?;
+    let fetch = count
+        .checked_add(1)
+        .ok_or_else(|| error_to_response(Error::validation("_count")))?;
+    let mut rows = AppointmentRepository::list_changed(
+        &state.db,
+        since,
+        before,
+        None,
+        None,
+        crate::paging::Rows::window(fetch, offset),
+    )
+    .await
+    .map_err(error_to_response)?;
+    let more = i64::try_from(rows.len()).unwrap_or(i64::MAX) > count;
+    rows.truncate(usize::try_from(count).unwrap_or(usize::MAX));
+    let resources: Vec<Value> = rows
+        .iter()
+        .map(|a| {
+            let mut r = crate::api::fhir::r5::appointment(a);
+            if let Value::Object(m) = &mut r {
+                m.insert(
+                    "meta".into(),
+                    serde_json::json!({ "lastUpdated": a.updated_at }),
+                );
+                if a.deleted_at.is_some() {
+                    m.insert("status".into(), Value::String("entered-in-error".into()));
+                }
+            }
+            r
+        })
+        .collect();
+    let mut query = format!("_lastUpdated=ge{since}");
+    if let Some(b) = before {
+        query.push_str(&format!("&_lastUpdated=lt{b}"));
+    }
+    query.push_str(&format!("&_count={count}"));
+    let base = crate::api::fhir::r5::base_url(&headers);
+    let mut bundle = crate::api::fhir::r5::searchset(
+        &base,
+        &format!("/Appointment?{query}&_offset={offset}").replace('+', "%2B"),
+        resources,
+    );
+    if let Value::Object(m) = &mut bundle {
+        // The page's size is not the number of matches, so no total is claimed.
+        m.remove("total");
+        if more && let Some(Value::Array(links)) = m.get_mut("link") {
+            let next = offset.checked_add(count).unwrap_or(i64::MAX);
+            links.push(serde_json::json!({
+                "relation": "next",
+                "url": format!("{base}/Appointment?{query}&_offset={next}").replace('+', "%2B"),
+            }));
+        }
+    }
+    Ok(Json(bundle))
+}
+
 #[utoipa::path(
     get,
     path = "/fhir/Coverage/{id}",
@@ -305,4 +476,30 @@ pub async fn search_subscriptions(State(state): State<AppState>) -> FhirResult {
     Ok(Json(serde_json::json!({
         "resourceType": "Bundle", "type": "searchset", "total": entries.len(), "entry": entries,
     })))
+}
+
+#[cfg(test)]
+mod last_updated_tests {
+    use super::last_updated_window;
+
+    #[test]
+    fn the_window_is_half_open_and_needs_a_lower_bound() {
+        let (s, b) = last_updated_window(&["ge2026-11-01T00:00:00Z", "lt2026-11-02"]).unwrap();
+        assert_eq!(s.to_string(), "2026-11-01T00:00:00Z");
+        assert_eq!(b.unwrap().to_string(), "2026-11-02T00:00:00Z");
+        let (s, b) =
+            last_updated_window(&["gt2026-11-01T00:00:00Z", "le2026-11-01T00:00:01Z"]).unwrap();
+        assert_eq!(s.to_string(), "2026-11-01T00:00:00.000001Z");
+        assert_eq!(b.unwrap().to_string(), "2026-11-01T00:00:01.000001Z");
+        for bad in [
+            &["lt2026-11-02"][..],
+            &["eq2026-11-02"],
+            &["ge2026-11-02", "ge2026-11-03"],
+            &["ge2026-11-02", "lt2026-11-01"],
+            &["genot-a-date"],
+            &[""],
+        ] {
+            assert!(last_updated_window(bad).is_err(), "{bad:?}");
+        }
+    }
 }

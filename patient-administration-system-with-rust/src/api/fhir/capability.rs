@@ -33,7 +33,7 @@ pub const SUPPORTED: &[Supported] = &[
     },
     Supported {
         resource: "Appointment",
-        interactions: &["read"],
+        interactions: &["read", "search-type"],
     },
     Supported {
         resource: "Encounter",

@@ -51,6 +51,10 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/fhir/Encounter/{id}", get(super::handlers::get_encounter))
         .route(
+            "/fhir/Appointment",
+            get(super::handlers::search_appointments),
+        )
+        .route(
             "/fhir/Appointment/{id}",
             get(super::handlers::get_appointment),
         )

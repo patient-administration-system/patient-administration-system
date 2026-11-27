@@ -485,6 +485,7 @@ impl utoipa::Modify for Credentials {
         crate::api::fhir::handlers::delete_patient,
         crate::api::fhir::handlers::get_encounter,
         crate::api::fhir::handlers::get_appointment,
+        crate::api::fhir::handlers::search_appointments,
         crate::api::fhir::handlers::create_practitioner,
         crate::api::fhir::handlers::get_practitioner,
         crate::api::fhir::handlers::update_practitioner,
