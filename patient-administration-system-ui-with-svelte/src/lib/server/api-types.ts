@@ -5424,6 +5424,81 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/work-views": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** `GET /api/work-views`: the signed-in person's views and those shared with one of their roles. */
+    get: operations["get_api_work_views"];
+    put?: never;
+    /** `POST /api/work-views`: save a named filter of the work queue (TSC-7) for the signed-in person. */
+    post: operations["post_api_work_views"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/work-views/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** `DELETE /api/work-views/{id}`: delete a view. Only the person who saved it; audited. */
+    delete: operations["delete_api_work_views__id"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/work-views/{id}/items": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/work-views/{id}/items`: the items of a view, as the signed-in person sees them; the same as
+     *     `GET /api/work-items` with the view's filter.
+     */
+    get: operations["get_api_work_views__id__items"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/work-views/{id}/share": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * `PUT /api/work-views/{id}/share`: share a view with a role, or stop sharing it. Only the person who saved
+     *     it; audited.
+     */
+    put: operations["put_api_work_views__id__share"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/write-back/batch": {
     parameters: {
       query?: never;
@@ -10422,6 +10497,10 @@ export interface components {
       decision: string;
       note?: string | null;
     };
+    /** @description The answer to a delete. */
+    Deleted: {
+      deleted: boolean;
+    };
     /**
      * @description How a letter should reach its recipient.
      *
@@ -11153,6 +11232,17 @@ export interface components {
       /** Format: date */
       suspected_on: string;
       unique_pathway_identifier?: string | null;
+    };
+    /** @description A view to save. */
+    NewView: {
+      kind?: string | null;
+      name: string;
+      overdue?: boolean;
+      /** @description `me`, `none`, or a person's name. */
+      owner?: string | null;
+      /** Format: int32 */
+      priority?: number | null;
+      queue?: string | null;
     };
     /**
      * @description The `data` of a success that has nothing to return: it serializes to `null`.
@@ -12674,6 +12764,27 @@ export interface components {
       subject_kind: string | null;
       title: string;
     };
+    /** @description One saved view, as the API sends it. */
+    WorkView: {
+      /** Format: date-time */
+      created_at: string;
+      /** @description Who saved it; only they may share or delete it. */
+      created_by: string;
+      /** Format: uuid */
+      id: string;
+      kind: string | null;
+      name: string;
+      overdue: boolean;
+      /** @description `me` (whoever looks), `none` (nobody has the item), or a person's name. */
+      owner: string | null;
+      /** Format: int32 */
+      priority: number | null;
+      queue: string | null;
+      /** @description The role it is shared with, or none (only its maker sees it). */
+      shared_with_role: string | null;
+      /** Format: date-time */
+      updated_at: string;
+    };
     "analytics.RefillReport": {
       cells: components["schemas"]["RefillCell"][];
       /** Format: date-time */
@@ -12881,6 +12992,10 @@ export interface components {
     "handlers_work_queue.PhoneOutcomeBody": {
       /** @description `reached`, `no_answer` or `wrong_number`. */
       outcome: components["schemas"]["PhoneOutcome"];
+    };
+    "handlers_work_queue.ShareBody": {
+      /** @description The role to share with, or none to stop sharing. */
+      role?: string | null;
     };
     "list_validation.Campaign": {
       /** @description Items by state (`selected`, `asked`, ...), for the campaign page. */
@@ -25155,6 +25270,10 @@ export interface operations {
         owner: string | null;
         /** @description Only items due before now. */
         overdue: boolean | null;
+        /** @description Only items of this priority: 1 (high) to 3 (low). */
+        priority: number | null;
+        /** @description Only items of this kind: `call`, `follow_up`, `validation`, `needs_review`, `tolerance_alert` or `unreached`. */
+        kind: string | null;
       };
       cookie?: never;
     };
@@ -25431,6 +25550,201 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["WorkItem"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_work_views: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkView"][];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_work_views: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NewView"];
+      };
+    };
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkView"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  delete_api_work_views__id: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Deleted"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_work_views__id__items: {
+    parameters: {
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkItem"][];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  put_api_work_views__id__share: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["handlers_work_queue.ShareBody"];
+      };
+    };
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkView"];
         };
       };
       /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */

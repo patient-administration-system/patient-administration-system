@@ -62,6 +62,23 @@ pub(super) fn messaging() -> Router<AppState> {
             "/api/work-items/{id}/phone-outcome",
             post(handlers_work_queue::phone_outcome),
         )
+        // Saved views of the work queue (TSC-7).
+        .route(
+            "/api/work-views",
+            get(handlers_work_queue::list_views).post(handlers_work_queue::save_view),
+        )
+        .route(
+            "/api/work-views/{id}",
+            axum::routing::delete(handlers_work_queue::delete_view),
+        )
+        .route(
+            "/api/work-views/{id}/items",
+            get(handlers_work_queue::view_items),
+        )
+        .route(
+            "/api/work-views/{id}/share",
+            axum::routing::put(handlers_work_queue::share_view),
+        )
         .route(
             "/api/work-queues/{queue}/next",
             post(handlers_work_queue::take_next),

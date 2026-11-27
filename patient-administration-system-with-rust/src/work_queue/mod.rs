@@ -27,6 +27,9 @@ use crate::{Error, Result};
 
 pub use patient_administration_system_domain::work_queue::*;
 
+mod views;
+pub use views::{NewView, WorkView};
+
 /// One work item, as the API sends it.
 #[derive(Debug, Clone, PartialEq, Serialize, utoipa::ToSchema)]
 pub struct WorkItem {
@@ -96,6 +99,10 @@ pub struct Filter {
     pub unclaimed: bool,
     /// Only items due before now.
     pub overdue: bool,
+    /// Only items of this priority (1 high to 3 low).
+    pub priority: Option<i16>,
+    /// Only items of this kind.
+    pub kind: Option<WorkKind>,
 }
 
 /// A person's reminders: their items already past due, and those due by the end of the current working day.
@@ -456,6 +463,11 @@ impl WorkQueueService {
         if let Some(q) = &filter.queue {
             check_queue(q)?;
         }
+        if let Some(p) = filter.priority
+            && !(HIGH..=LOW).contains(&p)
+        {
+            return Err(Error::validation("priority is 1 (high) to 3 (low)"));
+        }
         let rows = rows.into();
         self.db
             .all_as::<WorkItem>(Stmt::new(
@@ -463,6 +475,7 @@ impl WorkQueueService {
                     "{SELECT} WHERE status <> 'closed' AND ($1::text IS NULL OR queue = $1) \
                      AND ($2::text IS NULL OR owner = $2) AND (NOT $3 OR owner IS NULL) \
                      AND (NOT $4 OR due_at < now()) \
+                     AND ($7::smallint IS NULL OR priority = $7) AND ($8::text IS NULL OR kind = $8) \
                      ORDER BY priority, due_at, opened_at, id LIMIT $5 OFFSET $6"
                 ),
                 [
@@ -472,6 +485,8 @@ impl WorkQueueService {
                     filter.overdue.into(),
                     rows.fetch()?.into(),
                     rows.offset()?.into(),
+                    filter.priority.into(),
+                    filter.kind.map(|k| k.as_str().to_string()).into(),
                 ],
             ))
             .await

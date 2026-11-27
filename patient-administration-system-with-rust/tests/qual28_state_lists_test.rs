@@ -65,6 +65,10 @@ async fn every_code_side_state_list_matches_its_check_constraint() {
         ("message_kind_refusals_kind_check", OptionalKind::NAMES),
         ("message_kind_refusals_source_check", OptOutSource::NAMES),
         ("template_message_kinds_kind_check", TemplateKind::NAMES),
+        (
+            "work_views_kind_check",
+            patient_administration_system::work_queue::WorkKind::NAMES,
+        ),
         ("still_needed_checks_answer_check", &waits::ANSWERS),
         (
             "whatsapp_optins_source_check",

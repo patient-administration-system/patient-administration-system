@@ -795,3 +795,14 @@ job_leases,name,none,"Not personal data (structure, status, timestamps, places, 
 job_leases,holder,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
 job_leases,held_until,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
 job_leases,taken_at,none,"Not personal data (structure, status, timestamps, places, templates)",short-lived
+work_views,id,none,"Not personal data (structure, status, timestamps, places, templates)",record
+work_views,name,none,"Not personal data (structure, status, timestamps, places, templates)",record
+work_views,created_by,staff-identifier,Attribute work to a staff member held by worker-service,record
+work_views,queue,none,"Not personal data (structure, status, timestamps, places, templates)",record
+work_views,owner_filter,staff-identifier,Attribute work to a staff member held by worker-service,record
+work_views,priority,none,"Not personal data (structure, status, timestamps, places, templates)",record
+work_views,overdue,none,"Not personal data (structure, status, timestamps, places, templates)",record
+work_views,kind,none,"Not personal data (structure, status, timestamps, places, templates)",record
+work_views,shared_with_role,none,"Not personal data (structure, status, timestamps, places, templates)",record
+work_views,created_at,none,"Not personal data (structure, status, timestamps, places, templates)",record
+work_views,updated_at,none,"Not personal data (structure, status, timestamps, places, templates)",record

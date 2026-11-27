@@ -108,6 +108,14 @@ pub struct RequestAuth {
 }
 
 impl RequestAuth {
+    /// The roles of a verified token; none for any other caller (TSC-7 shares saved views by role).
+    pub fn roles(&self) -> Vec<String> {
+        match &self.principal {
+            Principal::Verified(claims) => claims.roles.clone(),
+            Principal::Legacy => Vec::new(),
+        }
+    }
+
     /// Would this caller be allowed to send this request directly?
     pub fn allows(&self, method: &Method, path: &str) -> bool {
         self.auth.authorize(&self.principal, method, path).is_ok()

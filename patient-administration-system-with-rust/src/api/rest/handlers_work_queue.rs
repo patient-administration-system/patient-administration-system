@@ -19,6 +19,10 @@ pub struct WorkQuery {
     pub owner: Option<String>,
     /// Only items due before now.
     pub overdue: Option<bool>,
+    /// Only items of this priority: 1 (high) to 3 (low).
+    pub priority: Option<i16>,
+    /// Only items of this kind: `call`, `follow_up`, `validation`, `needs_review`, `tolerance_alert` or `unreached`.
+    pub kind: Option<String>,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -68,9 +72,20 @@ pub async fn list(
         Ok(p) => p,
         Err(e) => return error_to_response(e),
     };
+    let kind = match q
+        .kind
+        .as_deref()
+        .map(str::parse::<crate::work_queue::WorkKind>)
+    {
+        None => None,
+        Some(Ok(k)) => Some(k),
+        Some(Err(e)) => return error_to_response(e),
+    };
     let mut filter = Filter {
         queue: q.queue,
         overdue: q.overdue.unwrap_or(false),
+        priority: q.priority,
+        kind,
         ..Filter::default()
     };
     match q.owner.as_deref() {
@@ -315,4 +330,185 @@ mod tests {
         );
         assert_eq!(person_of("svc:pas-ui for  "), "svc:pas-ui for  ");
     }
+}
+
+/// The verified roles of the caller (none without a verified token).
+fn roles(auth: Option<&axum::Extension<crate::api::rest::user_auth::RequestAuth>>) -> Vec<String> {
+    auth.map(|a| a.roles()).unwrap_or_default()
+}
+
+fn signed_in(headers: &HeaderMap) -> Result<String, Error> {
+    me(headers).ok_or_else(|| Error::validation("saved views need a signed-in person"))
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[schema(as = handlers_work_queue::ShareBody)]
+pub struct ShareBody {
+    /// The role to share with, or none to stop sharing.
+    pub role: Option<String>,
+}
+
+/// `POST /api/work-views`: save a named filter of the work queue (TSC-7) for the signed-in person.
+#[utoipa::path(
+    post,
+    path = "/api/work-views",
+    tag = "Work queue",
+    request_body = crate::work_queue::NewView,
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::work_queue::WorkView),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn save_view(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<crate::work_queue::NewView>,
+) -> HandlerResult {
+    let who = match signed_in(&headers) {
+        Ok(w) => w,
+        Err(e) => return error_to_response(e),
+    };
+    match WorkQueueService::new(state.db.clone())
+        .save_view(&who, body, &request_audit_ctx(&headers))
+        .await
+    {
+        Ok(v) => ok_json(v),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `GET /api/work-views`: the signed-in person's views and those shared with one of their roles.
+#[utoipa::path(
+    get,
+    path = "/api/work-views",
+    tag = "Work queue",
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = Vec<crate::work_queue::WorkView>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn list_views(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    auth: Option<axum::Extension<crate::api::rest::user_auth::RequestAuth>>,
+) -> HandlerResult {
+    let who = match signed_in(&headers) {
+        Ok(w) => w,
+        Err(e) => return error_to_response(e),
+    };
+    match WorkQueueService::new(state.db.clone())
+        .views_for(&who, &roles(auth.as_ref()))
+        .await
+    {
+        Ok(v) => ok_json(v),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `GET /api/work-views/{id}/items`: the items of a view, as the signed-in person sees them; the same as
+/// `GET /api/work-items` with the view's filter.
+#[utoipa::path(
+    get,
+    path = "/api/work-views/{id}/items",
+    tag = "Work queue",
+    params(("id" = String, Path, description = "Path parameter `id`"), crate::paging::PageQuery),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = Vec<crate::work_queue::WorkItem>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn view_items(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    auth: Option<axum::Extension<crate::api::rest::user_auth::RequestAuth>>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+    Path(id): Path<Uuid>,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 200) {
+        Ok(p) => p,
+        Err(e) => return error_to_response(e),
+    };
+    let who = match signed_in(&headers) {
+        Ok(w) => w,
+        Err(e) => return error_to_response(e),
+    };
+    match WorkQueueService::new(state.db.clone())
+        .view_items(id, &who, &roles(auth.as_ref()), page.rows())
+        .await
+    {
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `PUT /api/work-views/{id}/share`: share a view with a role, or stop sharing it. Only the person who saved
+/// it; audited.
+#[utoipa::path(
+    put,
+    path = "/api/work-views/{id}/share",
+    tag = "Work queue",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ShareBody,
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::work_queue::WorkView),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn share_view(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(body): Json<ShareBody>,
+) -> HandlerResult {
+    let who = match signed_in(&headers) {
+        Ok(w) => w,
+        Err(e) => return error_to_response(e),
+    };
+    match WorkQueueService::new(state.db.clone())
+        .share_view(id, &who, body.role.as_deref(), &request_audit_ctx(&headers))
+        .await
+    {
+        Ok(v) => ok_json(v),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `DELETE /api/work-views/{id}`: delete a view. Only the person who saved it; audited.
+#[utoipa::path(
+    delete,
+    path = "/api/work-views/{id}",
+    tag = "Work queue",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::rest::handlers_work_queue::Deleted),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn delete_view(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> HandlerResult {
+    let who = match signed_in(&headers) {
+        Ok(w) => w,
+        Err(e) => return error_to_response(e),
+    };
+    match WorkQueueService::new(state.db.clone())
+        .delete_view(id, &who, &request_audit_ctx(&headers))
+        .await
+    {
+        Ok(()) => ok_json(Deleted { deleted: true }),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// The answer to a delete.
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct Deleted {
+    pub deleted: bool,
 }

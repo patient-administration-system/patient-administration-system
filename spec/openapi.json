@@ -12743,6 +12743,18 @@
         ],
         "type": "object"
       },
+      "Deleted": {
+        "description": "The answer to a delete.",
+        "properties": {
+          "deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "type": "object"
+      },
       "DeliveryChannel": {
         "description": "How a letter should reach its recipient.\n\n- `Print` — render and store; an external process picks up the body and\n  produces the physical mail. The PAS never flips status on its own;\n  `POST /api/letters/{id}/sent` is the manual signal.\n- `Email` — render and store; same manual-flip semantics as `Print`.\n- `Sms` — render and store. As of v0.8, when an enabled\n  the server's `communication::SmsProvider` is wired (`PAS_SMS_PROVIDER=log`\n  or a consumer-supplied provider), `CommunicationService::generate_letter`\n  also auto-dispatches the message to the patient's first\n  `ContactPoint { system: Phone }` and flips status to `Sent` on success\n  or `Failed` on error. When the configured provider is\n  the server's `communication::NoopSmsProvider` (the default), the letter\n  stays `Pending` — the same behavior as `Print` and `Email`.",
         "enum": [
@@ -14745,6 +14757,47 @@
           "suspected_on",
           "suspected_by",
           "recorded_by"
+        ],
+        "type": "object"
+      },
+      "NewView": {
+        "description": "A view to save.",
+        "properties": {
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "boolean"
+          },
+          "owner": {
+            "description": "`me`, `none`, or a person's name.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "queue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name"
         ],
         "type": "object"
       },
@@ -19124,6 +19177,80 @@
         ],
         "type": "object"
       },
+      "WorkView": {
+        "description": "One saved view, as the API sends it.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "description": "Who saved it; only they may share or delete it.",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "boolean"
+          },
+          "owner": {
+            "description": "`me` (whoever looks), `none` (nobody has the item), or a person's name.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "queue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shared_with_role": {
+            "description": "The role it is shared with, or none (only its maker sees it).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_by",
+          "queue",
+          "owner",
+          "priority",
+          "overdue",
+          "kind",
+          "shared_with_role",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "analytics.RefillReport": {
         "properties": {
           "cells": {
@@ -19773,6 +19900,18 @@
         "required": [
           "outcome"
         ],
+        "type": "object"
+      },
+      "handlers_work_queue.ShareBody": {
+        "properties": {
+          "role": {
+            "description": "The role to share with, or none to stop sharing.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
         "type": "object"
       },
       "list_validation.Campaign": {
@@ -34860,6 +34999,31 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "Only items of this priority: 1 (high) to 3 (low).",
+            "in": "path",
+            "name": "priority",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Only items of this kind: `call`, `follow_up`, `validation`, `needs_review`, `tolerance_alert` or `unreached`.",
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -35199,6 +35363,242 @@
           }
         ],
         "summary": "`POST /api/work-queues/{queue}/next`: the signed-in person takes the next open item of the queue (most\nurgent, then soonest due, then oldest). `404` when the queue is empty.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-views": {
+      "get": {
+        "operationId": "get_api_work_views",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/work-views`: the signed-in person's views and those shared with one of their roles.",
+        "tags": [
+          "Work queue"
+        ]
+      },
+      "post": {
+        "operationId": "post_api_work_views",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewView"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkView"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/work-views`: save a named filter of the work queue (TSC-7) for the signed-in person.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-views/{id}": {
+      "delete": {
+        "operationId": "delete_api_work_views__id",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deleted"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`DELETE /api/work-views/{id}`: delete a view. Only the person who saved it; audited.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-views/{id}/items": {
+      "get": {
+        "operationId": "get_api_work_views__id__items",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/work-views/{id}/items`: the items of a view, as the signed-in person sees them; the same as\n`GET /api/work-items` with the view's filter.",
+        "tags": [
+          "Work queue"
+        ]
+      }
+    },
+    "/api/work-views/{id}/share": {
+      "put": {
+        "operationId": "put_api_work_views__id__share",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handlers_work_queue.ShareBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkView"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`PUT /api/work-views/{id}/share`: share a view with a role, or stop sharing it. Only the person who saved\nit; audited.",
         "tags": [
           "Work queue"
         ]
