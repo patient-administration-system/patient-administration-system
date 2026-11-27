@@ -82,7 +82,7 @@ Before you push: all of the above is green. **After you push, check `gh run list
 - **Privacy-safe analytics.** Cells under k are hidden (k never below 5; default 10), with secondary suppression; no identifiers; a per-caller daily query budget. See `governance/analytics-differencing.md` for what is not prevented.
 - **Reply links and offers:** single-use hashed tokens; GET reads, POST acts.
 - **Consent first:** opt-outs and quiet hours (`PAS_QUIET_HOURS`) are enforced at the one choke point every message passes.
-- **Nothing a carrier or the API says reaches an error page.** The UI logs PAS error text on the server and shows its own translated text.
+- **Nothing a carrier or the API says reaches an error page or a log.** The UI shows its own translated text; its server log gets only the method, the route with its values replaced (`routeOf`), the status, the problem's code and the request id, and the API's own log holds the detail. The log-only senders record that a message went, never to whom or what it said (PA-02, `tests/hub5_no_personal_data_leaks_test.rs`).
 - **Chaos tests** (`governance/chaos-testing.md`) hit every route with hostile input; no panic, no 500, no leak. Seeded: `PAS_CHAOS_SEED`. The API-input test refuses to run on a database not named like `pas_chaos` outside CI.
 
 ## Rust conventions

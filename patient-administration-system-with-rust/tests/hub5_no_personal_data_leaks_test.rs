@@ -221,3 +221,32 @@ async fn the_marker_reaches_no_response_and_no_log_line() {
     }
     assert!(leaks.is_empty(), "the marker leaked:\n{}", leaks.join("\n"));
 }
+
+/// PA-02: the log-only senders a development deployment switches on record that a message went, never to whom
+/// or what it said.
+#[tokio::test]
+async fn the_log_only_senders_log_no_recipient_subject_or_text() {
+    use patient_administration_system::communication::{
+        LogMessageSender, LogSmsProvider, MessageSender, SmsProvider,
+    };
+    let buf = logs().clone();
+    LogMessageSender { channel: "email" }
+        .send(
+            &format!("{NEEDLE}@example.org"),
+            &format!("Subject {NEEDLE}"),
+            &format!("Body {NEEDLE}"),
+        )
+        .await
+        .unwrap();
+    LogSmsProvider
+        .send(&format!("+4477009{NEEDLE}"), &format!("Text {NEEDLE}"))
+        .await
+        .unwrap();
+    let text = String::from_utf8_lossy(&buf.lock().unwrap()).to_string();
+    assert!(
+        text.contains("message dispatched (log-only)"),
+        "the sender still says it ran: {text}"
+    );
+    assert!(text.contains("SMS dispatched (LogSmsProvider)"), "{text}");
+    assert!(!text.contains(NEEDLE), "personal data in the log: {text}");
+}

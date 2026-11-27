@@ -71,10 +71,11 @@ impl SmsProvider for NoopSmsProvider {
     }
 }
 
-/// Dev / test provider: emits every outbound message to the `pas::sms`
+/// Dev / test provider: records each outbound message on the `pas::sms`
 /// tracing target at `info!` and returns `Ok(())`. No money spent, no
 /// real gateway involved, but the auto-send code path runs end-to-end
-/// so the letter flips to `Sent` and gets `sent_at` stamped.
+/// so the letter flips to `Sent` and gets `sent_at` stamped. Only the
+/// length is logged, never the number or the text (NFR-33, audit PA-02).
 pub struct LogSmsProvider;
 
 #[async_trait]
@@ -82,9 +83,9 @@ impl SmsProvider for LogSmsProvider {
     async fn send(&self, to: &str, body: &str) -> Result<()> {
         tracing::info!(
             target: "pas::sms",
-            recipient = %to,
+            has_recipient = !to.trim().is_empty(),
             chars = body.chars().count(),
-            "SMS dispatched (LogSmsProvider): {body}"
+            "SMS dispatched (LogSmsProvider)"
         );
         Ok(())
     }

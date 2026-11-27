@@ -11,6 +11,8 @@ vi.mock("$app/env/private", () => ({
 
 const {
   PasError,
+  failureLine,
+  routeOf,
   acknowledgeToleranceAlert,
   adjustmentsFor,
   appointmentHistory,
@@ -64,6 +66,39 @@ function fake(status: number, body: string): { fetch: typeof fetch; calls: Call[
 
 afterEach(() => vi.restoreAllMocks());
 
+describe("what a refused call writes to the server log (PA-02)", () => {
+  const token = "ab12".repeat(16);
+  const person = "6f9619ff-8b86-d011-b42d-00c04fc964ff";
+
+  it("keeps the route and replaces every value in it", () => {
+    expect(routeOf(`/api/reply-links/${token}/confirm`)).toBe("/api/reply-links/{id}/confirm");
+    expect(routeOf(`/api/patients/${person}/appointments?limit=5&person=${person}`)).toBe(
+      "/api/patients/{id}/appointments",
+    );
+    expect(routeOf("/api/hl7/v2/admit")).toBe("/api/hl7/v2/admit");
+    expect(routeOf("/api/persons/Lovelace%20Ada")).toBe("/api/persons/{id}");
+  });
+
+  it("adds only a code and a request id of a safe shape", () => {
+    expect(failureLine("POST", `/api/offer-links/${token}/accept`, 409, "conflict", "req-1.a_b")).toBe(
+      "POST /api/offer-links/{id}/accept answered 409 code=conflict request=req-1.a_b",
+    );
+    expect(failureLine("GET", "/api/x", 500, "a code with words", "<script>")).toBe("GET /api/x answered 500");
+  });
+
+  it("logs neither a reply token nor a body that is not JSON", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const f = vi.fn(
+      async () => new Response("Ada Lovelace, 07700 900123", { status: 502, headers: { "x-request-id": "rid-7" } }),
+    ) as unknown as typeof fetch;
+    await pas(f, `/api/reply-links/${token}`).catch(() => undefined);
+    const line = String(log.mock.calls[0]![0]);
+    expect(line).toBe("[pas] GET /api/reply-links/{id} answered 502 request=rid-7");
+    expect(line).not.toContain(token);
+    expect(line).not.toContain("Lovelace");
+  });
+});
+
 describe("pas()", () => {
   it("calls the configured API with the service token and returns the envelope's data", async () => {
     const { fetch, calls } = fake(200, JSON.stringify({ success: true, data: { id: "a1" } }));
@@ -92,7 +127,7 @@ describe("pas()", () => {
     expect((e as Error).message).not.toContain("10.0.0.5");
   });
 
-  it("keeps the API's status and never its words: they go to the server log only", async () => {
+  it("keeps the API's status and puts neither its words nor the path's values in the log", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const secret = 'relation "patients" does not exist at /srv/pas/src/db.rs:42';
     const { fetch } = fake(
@@ -104,9 +139,13 @@ describe("pas()", () => {
     expect(e.status).toBe(500);
     expect(e.message).toBe("the PAS API answered 500");
     expect(log).toHaveBeenCalledOnce();
-    expect(String(log.mock.calls[0]![0])).toContain(secret);
+    const line = String(log.mock.calls[0]![0]);
+    // PA-02: the API's words can carry personal data; the log has the status and the code, not the detail.
+    expect(line).not.toContain("patients");
+    expect(line).toContain("answered 500");
+    expect(line).toContain("code=DB");
     // The query string (which can hold an identifier) is not logged.
-    expect(String(log.mock.calls[0]![0])).not.toContain("person=abc");
+    expect(line).not.toContain("person=abc");
   });
 
   it("does not trip over an error that is not JSON", async () => {

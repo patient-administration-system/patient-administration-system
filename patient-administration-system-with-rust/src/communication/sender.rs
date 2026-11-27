@@ -19,7 +19,11 @@ pub trait MessageSender: Send + Sync {
     }
 }
 
-/// Logs the message instead of sending it. Useful for development.
+/// Records that a message would have been sent, instead of sending it. Useful for development.
+///
+/// Only delivery metadata is logged (the channel and the lengths), never the recipient, the subject or the
+/// text: a log is kept and shipped where personal data must not go (NFR-33, audit PA-02). The rendered text is
+/// in the generated letter, where its access is audited.
 pub struct LogMessageSender {
     pub channel: &'static str,
 }
@@ -30,8 +34,10 @@ impl MessageSender for LogMessageSender {
         tracing::info!(
             target: "pas::message",
             channel = self.channel,
-            recipient = %to,
-            "message dispatched (log-only): {subject}: {body}"
+            has_recipient = !to.trim().is_empty(),
+            subject_chars = subject.chars().count(),
+            body_chars = body.chars().count(),
+            "message dispatched (log-only)"
         );
         Ok(())
     }

@@ -26,7 +26,7 @@ CI runs the Rust chaos tests with the other database tests (random seed each tim
 ## What it has found
 
 - **A panic on any multi-byte text in an HL7 batch** (`POST /api/hl7/v2/batch` with an emoji where a segment name or a date belongs): byte slicing split a character. Fixed in `hl7v2/batch.rs` and `pid_translation.rs` with regression tests.
-- **API error text reaching the browser**: the staff pages put the PAS's own error message into the error page payload. Now the message stays in the server log and the page shows its own translated text.
+- **API error text reaching the browser**: the staff pages put the PAS's own error message into the error page payload. Now the page shows its own translated text, and the UI's server log has the status, route and request id but not the message (PA-02), which is in the API's log.
 - **Pages that fell over on a wrong-shaped answer** (a string where a list belongs): list endpoints are now checked (`pasArray`) and become a clean 502.
 
 ## Known by design, not a bug

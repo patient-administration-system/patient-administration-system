@@ -39,6 +39,34 @@ interface Envelope<T> {
   detail?: string;
 }
 
+/** A path segment that is part of a route ("reply-links", "confirm", "v2") rather than a value (an id, a token). */
+const ROUTE_WORD = /^[a-z][a-z-]{0,30}[a-z0-9]?$/;
+/** A problem's machine-readable code, or a request id, of a shape that cannot carry anything else. */
+const CODE = /^[A-Za-z_]{1,40}$/;
+const REQUEST = /^[A-Za-z0-9._-]{1,128}$/;
+
+/** The route of a call with every value replaced by `{id}` and the query dropped: `/api/reply-links/{id}/confirm`. */
+export function routeOf(path: string): string {
+  return (path.split("?")[0] ?? "")
+    .split("/")
+    .map((s) => (s === "" || ROUTE_WORD.test(s) ? s : "{id}"))
+    .join("/");
+}
+
+/** The server log's line for a refused call: nothing the API or the caller wrote, apart from allow-listed shapes. */
+export function failureLine(
+  method: string,
+  path: string,
+  status: number,
+  code: string | undefined,
+  requestId: string | null,
+): string {
+  const parts = [`${method} ${routeOf(path)} answered ${status}`];
+  if (code && CODE.test(code)) parts.push(`code=${code}`);
+  if (requestId && REQUEST.test(requestId)) parts.push(`request=${requestId}`);
+  return parts.join(" ");
+}
+
 export async function pas<T>(
   fetchFn: FetchFn,
   path: string,
@@ -74,10 +102,12 @@ async function pasBody<T>(
     /* not JSON: fall through to the status check */
   }
   if (!res.ok) {
-    // What the PAS said stays in the server log. It never travels into an error page: it can hold anything
-    // (a database message, a path), and the page shows its own translated text for the status instead.
+    // What the PAS said goes neither into the page nor into this log (audit PA-02): its words can carry a
+    // patient's data, and the path can carry a reply token or an id. The log has the method, the route with its
+    // values replaced, the status, the problem's machine code and the request id; the API's own log, found by
+    // that id, holds the rest. The page shows its own translated text for the status.
     console.error(
-      `[pas] ${init.method ?? "GET"} ${path.split("?")[0]} answered ${res.status}: ${env.detail ?? text.slice(0, 200)}`,
+      `[pas] ${failureLine(init.method ?? "GET", path, res.status, env.code, res.headers.get("x-request-id"))}`,
     );
     throw new PasError(res.status, `the PAS API answered ${res.status}`);
   }
