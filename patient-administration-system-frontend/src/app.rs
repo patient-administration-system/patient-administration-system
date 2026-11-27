@@ -9,6 +9,7 @@ use axa::{
     config::{Config, Defaults, MB},
     routes::AppRoutes,
     server,
+    task::Tasks,
 };
 use axum::{Extension, Router, middleware::from_fn};
 use tower_http::services::ServeDir;
@@ -138,46 +139,34 @@ impl App {
     ///
     /// Fails when the service cannot boot, or the command fails.
     pub async fn run(cli: Cli) -> Result<()> {
-        let environment = cli
-            .environment
-            .as_deref()
-            .map_or_else(Environment::from_env, Environment::parse);
-        // Before the database, so that settings can be checked anywhere they are going to run.
-        if matches!(cli.command, Command::Check) {
-            let report =
-                cli::check_report(&environment, &defaults(), |name| lookup(&environment, name))?;
-            print!("{report}");
-            return Ok(());
+        let environment = cli.environment();
+        let lookup = |name: &str| lookup(&environment, name);
+        // `check` and `health` open nothing, so settings can be checked anywhere they are going to run and a
+        // container's probe works with the database down (axa 0.24).
+        if let Some(answered) = cli::answer_from(&cli, &environment, &defaults(), lookup).await {
+            return answered;
         }
-        // Asks the running server for its health, for an image with no `curl`; before the database too.
-        if let Command::Health { ready, port } = cli.command {
-            return cli::health(&environment, &defaults(), ready, port).await;
-        }
-        // A command that does not listen (`db`, `task`) leaves out the server-only settings, so a bad CORS origin does not
-        // stop an operator checking a restored database.
-        let mut config = if matches!(cli.command, Command::Start { .. }) {
-            Self::config(&environment)?
+        // `start` reads every setting, with `--binding` and `--port` applied, and `task` the task settings (axa's
+        // own rule). `db` does not listen either, so it reads the task settings too, and a bad CORS origin does
+        // not stop an operator checking a restored database.
+        let config = if matches!(cli.command, Command::Db { .. }) {
+            Config::for_task_from_lookup(&environment, &defaults(), lookup)?
         } else {
-            Config::for_task_from_lookup(&environment, &defaults(), |name| {
-                lookup(&environment, name)
-            })?
+            cli.config_from_lookup(&environment, &defaults(), lookup)?
         };
-        if let Command::Start { binding, port, .. } = &cli.command {
-            if let Some(binding) = binding {
-                config.server.binding.clone_from(binding);
-            }
-            if let Some(port) = port {
-                config.server.port = *port;
-            }
-        }
         let ctx = Self::context(environment, config).await?;
         axa::logger::init(env!("CARGO_CRATE_NAME"), &ctx.config.logger);
         match cli.command {
             Command::Start { .. } => server::serve(Self::router(&ctx)?, &ctx.config.server).await,
             Command::Db { command } => Self::db(&ctx, command).await,
-            // There are no tasks and no background jobs: the PAS binary owns the outbox dispatcher.
-            Command::Task { name: None, .. } => Ok(()),
-            Command::Task { name: Some(_), .. } => Err(Error::string("this service has no tasks")),
+            // There are no tasks and no background jobs: the PAS binary owns the outbox dispatcher. With no name
+            // this lists none; a name is an unknown task.
+            Command::Task { name, params } => {
+                Tasks::default()
+                    .run_or_list(name.as_deref(), &ctx, &params)
+                    .await
+            }
+            // Answered above.
             Command::Check | Command::Health { .. } => Ok(()),
         }
     }

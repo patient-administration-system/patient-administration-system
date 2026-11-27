@@ -11,7 +11,7 @@ publish = false
 
 [dependencies]
 # Shared service plumbing: routes, middleware, configuration, logging, shutdown, the command line.
-axa = { version = "0.23", features = ["postgres-sqlx", "tracing"] }
+axa = { version = "0.24.1", features = ["postgres-sqlx", "tracing"] }
 axum = { version = "0.8", default-features = false }
 
 # HTML templates (`views`), and the files under `/static`.
@@ -52,9 +52,9 @@ tracing = "0.1"
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive"] }
-axa = { version = "0.23", features = ["postgres-sqlx", "tracing"] }
+axa = { version = "0.24.1", features = ["postgres-sqlx", "tracing"] }
 # The request-level test helpers, their own crate since axa 0.10.
-axa-test = "0.14"
+axa-test = "0.15.1"
 serial_test = "4.0"
 
 [[bin]]

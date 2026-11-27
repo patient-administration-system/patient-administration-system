@@ -69,7 +69,7 @@ base64 = "0.23"
 # Utilities
 axa-problem = "0.2"
 # Json, Path and Query that refuse a bad request with a problem quoting nothing sent (`axa::extract`).
-axa = { version = "0.23", default-features = false }
+axa = { version = "0.24.1", default-features = false }
 # Requests per client, and the lockout after repeated 401s (`api::rest::rate_limit`).
 axa-request-rate-limit = "0.3"
 # Which environment this is, so that `pas-seed` refuses outside development and test.

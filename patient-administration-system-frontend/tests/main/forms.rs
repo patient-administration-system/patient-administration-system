@@ -158,6 +158,12 @@ async fn the_command_line_checks_reports_and_refuses_what_it_must() {
         .await
         .unwrap();
     run(&["--environment", "test", "task"]).await.unwrap();
+    // `health` is answered before the database is opened; nothing listens on port 1.
+    assert!(
+        run(&["--environment", "test", "health", "--port", "1"])
+            .await
+            .is_err()
+    );
     assert!(
         run(&["--environment", "test", "task", "nothing"])
             .await
