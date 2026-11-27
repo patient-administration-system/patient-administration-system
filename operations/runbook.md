@@ -14,6 +14,7 @@
 | Events not reaching consumers | Publisher failing | `GET /api/admin/outbox/unpublished`, `GET /api/admin/outbox/dead-letters`; replay with `POST /api/admin/outbox/dead-letters/{id}/replay` |
 | No reminders sent | Reminders off, no sender enabled, patient has no contact point, outside the lead window | `PAS_REMINDERS_ENABLED=true`; a channel provider set; check `pas::reminders` log lines |
 | Same reminder sent twice | Should not happen (a letter is the marker) | Report it; include the appointment id and the `generated_letters` rows |
+| A receiver refuses our webhooks or subscription notifications as unsigned or stale | It checks `X-PAS-Signature-V1` (TSC-13) and our clock or theirs is wrong by more than its tolerance (five minutes recommended), or it still checks only the old `X-PAS-Signature`, which goes after this release | Compare both clocks (NTP); point the receiver at the V1 header: `t=<unix seconds>,v1=<hex>`, the HMAC-SHA256 of `<t>.<body>` under the shared secret |
 | Worker merge webhook returns 500 | Missing column rename | Apply all migrations (`pas-migrate up`) |
 | Startup says "trusted-caller mode" | No `PAS_PASETO_KEYS_URL` and no `API_TOKEN` | Configure per-user auth and set `PAS_REQUIRE_AUTH=true` |
 | Rotating the issuer key | Planned | See "Issuing API tokens" in deployment.md: new `kid`, publish both keys, switch, drop the old |

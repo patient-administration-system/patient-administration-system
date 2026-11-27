@@ -472,10 +472,19 @@ impl SubscriptionService {
             let secret = env::text(name).ok_or_else(|| {
                 format!("the signing secret {name} is not set; not sent unsigned")
             })?;
-            req = req.header(
-                "x-pas-signature",
-                WebhookEventPublisher::sign(secret.as_bytes(), &bytes),
-            );
+            req = req
+                .header(
+                    "x-pas-signature",
+                    WebhookEventPublisher::sign(secret.as_bytes(), &bytes),
+                )
+                .header(
+                    "x-pas-signature-v1",
+                    WebhookEventPublisher::sign_timed(
+                        secret.as_bytes(),
+                        jiff::Timestamp::now().as_second(),
+                        &bytes,
+                    ),
+                );
         }
         let resp = req
             .body(bytes)

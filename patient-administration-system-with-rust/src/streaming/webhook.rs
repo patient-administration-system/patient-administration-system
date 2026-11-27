@@ -29,7 +29,8 @@
 //! | `Content-Type`       | yes          | `application/json`                          |
 //! | `X-PAS-Event-Id`     | yes          | UUID of the event                           |
 //! | `X-PAS-Event-Type`   | yes          | e.g. `EncounterAdmitted`                    |
-//! | `X-PAS-Signature`    | when secret set | `sha256=<lowercase hex>` of HMAC-SHA256 over the raw body, keyed by the secret. Receivers MUST verify this constant-time. |
+//! | `X-PAS-Signature-V1` | when secret set | `t=<unix seconds>,v1=<lowercase hex>`: HMAC-SHA256, keyed by the secret, over the timestamp, a dot and the raw body (TSC-13). Receivers MUST verify it in constant time, refuse a timestamp more than five minutes from their clock, and drop an `X-PAS-Event-Id` already seen. [`WebhookEventPublisher::verify_timed`] does the first two. |
+//! | `X-PAS-Signature`    | when secret set | `sha256=<lowercase hex>` of HMAC-SHA256 over the raw body only. Deprecated: it does not cover the time, so a captured delivery can be replayed. Sent beside the V1 header for one release, then removed. |
 //!
 //! No bearer / static auth header is sent; HMAC is the only auth mode in
 //! v0.14. Use `PAS_WEBHOOK_SECRET` to enable it.
@@ -114,10 +115,82 @@ impl WebhookEventPublisher {
         out
     }
 
+    /// `t=<unix seconds>,v1=<lowercase hex>`: HMAC-SHA256 under `secret` of the timestamp, a dot and the body
+    /// (TSC-13), sent as `X-PAS-Signature-V1`. Signing the time with the body lets a receiver refuse a captured
+    /// delivery that is replayed later, which the body-only `X-PAS-Signature` cannot.
+    pub fn sign_timed(secret: &[u8], unix_seconds: i64, body: &[u8]) -> String {
+        let Ok(mut mac) = HmacSha256::new_from_slice(secret) else {
+            // Not reachable (HMAC-SHA256 takes a key of any length); an empty value fails every check.
+            return String::new();
+        };
+        mac.update(unix_seconds.to_string().as_bytes());
+        mac.update(b".");
+        mac.update(body);
+        let mut out = format!("t={unix_seconds},v1=");
+        for byte in mac.finalize().into_bytes() {
+            out.push_str(&format!("{byte:02x}"));
+        }
+        out
+    }
+
+    /// What a receiver does with `X-PAS-Signature-V1`: true only when `header` is `t=...,v1=...`, its timestamp is
+    /// within `tolerance_secs` of `now_unix` (either side), and its HMAC over the timestamp, a dot and `body`
+    /// matches, compared in constant time. Receivers should also drop an `X-PAS-Event-Id` they have already seen.
+    pub fn verify_timed(
+        secret: &[u8],
+        header: &str,
+        body: &[u8],
+        now_unix: i64,
+        tolerance_secs: i64,
+    ) -> bool {
+        let mut t = None;
+        let mut v1 = None;
+        for part in header.split(',') {
+            match part.trim().split_once('=') {
+                Some(("t", value)) => t = value.parse::<i64>().ok(),
+                Some(("v1", value)) => v1 = Some(value),
+                _ => {}
+            }
+        }
+        let (Some(t), Some(v1)) = (t, v1) else {
+            return false;
+        };
+        if now_unix
+            .checked_sub(t)
+            .is_none_or(|age| age.checked_abs().is_none_or(|a| a > tolerance_secs))
+        {
+            return false;
+        }
+        let Some(expected) = decode_hex(v1) else {
+            return false;
+        };
+        let Ok(mut mac) = HmacSha256::new_from_slice(secret) else {
+            return false;
+        };
+        mac.update(t.to_string().as_bytes());
+        mac.update(b".");
+        mac.update(body);
+        mac.verify_slice(&expected).is_ok()
+    }
+
     /// The configured destination URL (for logs and tests).
     pub fn url(&self) -> &str {
         &self.url
     }
+}
+
+/// Lowercase or uppercase hex to bytes; `None` for anything else.
+fn decode_hex(text: &str) -> Option<Vec<u8>> {
+    if !text.len().is_multiple_of(2) {
+        return None;
+    }
+    (0..text.len())
+        .step_by(2)
+        .map(|i| {
+            text.get(i..i.checked_add(2)?)
+                .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+        })
+        .collect()
 }
 
 #[async_trait]
@@ -132,7 +205,13 @@ impl EventPublisher for WebhookEventPublisher {
             .header("x-pas-event-id", event.id.to_string())
             .header("x-pas-event-type", &event.event_type);
         if let Some(secret) = &self.secret {
-            req = req.header("x-pas-signature", Self::sign(secret, &body));
+            // Both forms for one release, so a receiver can move to the timed one before the other goes (TSC-13).
+            req = req
+                .header("x-pas-signature", Self::sign(secret, &body))
+                .header(
+                    "x-pas-signature-v1",
+                    Self::sign_timed(secret, jiff::Timestamp::now().as_second(), &body),
+                );
         }
         let resp = req
             .body(body)
@@ -251,6 +330,68 @@ mod tests {
         assert_eq!(a.len(), 7 + 64);
     }
 
+    /// TSC-13: the timed signature verifies, and a changed timestamp, body or secret, a stale time, or a
+    /// malformed header does not.
+    #[test]
+    fn a_timed_signature_verifies_and_any_change_or_a_stale_time_fails() {
+        let (secret, t, body) = (
+            b"secret".as_slice(),
+            1_800_000_000_i64,
+            br#"{"id":1}"#.as_slice(),
+        );
+        let header = WebhookEventPublisher::sign_timed(secret, t, body);
+        assert!(header.starts_with(&format!("t={t},v1=")), "{header}");
+        assert!(WebhookEventPublisher::verify_timed(
+            secret,
+            &header,
+            body,
+            t + 60,
+            300
+        ));
+        assert!(
+            WebhookEventPublisher::verify_timed(secret, &header, body, t - 60, 300),
+            "a receiver clock behind"
+        );
+        // Another time with the same MAC: the time is signed.
+        let moved = header.replacen(&format!("t={t}"), &format!("t={}", t + 1), 1);
+        assert!(!WebhookEventPublisher::verify_timed(
+            secret, &moved, body, t, 300
+        ));
+        assert!(!WebhookEventPublisher::verify_timed(
+            secret,
+            &header,
+            br#"{"id":2}"#,
+            t,
+            300
+        ));
+        assert!(!WebhookEventPublisher::verify_timed(
+            b"other", &header, body, t, 300
+        ));
+        // Replayed after the tolerance.
+        assert!(!WebhookEventPublisher::verify_timed(
+            secret,
+            &header,
+            body,
+            t + 301,
+            300
+        ));
+        for bad in [
+            "",
+            "t=1",
+            "v1=00",
+            "t=x,v1=00",
+            "t=1800000000,v1=zz",
+            "t=1800000000,v1=abc",
+        ] {
+            assert!(
+                !WebhookEventPublisher::verify_timed(secret, bad, body, t, 300),
+                "{bad}"
+            );
+        }
+        // The body-only form differs, so a receiver cannot mistake one for the other.
+        assert_ne!(header, WebhookEventPublisher::sign(secret, body));
+    }
+
     #[test]
     fn test_sign_changes_with_secret() {
         let a = WebhookEventPublisher::sign(b"secret-A", b"body");
@@ -324,6 +465,7 @@ mod tests {
             .expect("ok");
         let (_, headers) = recorder.lock().await.clone().unwrap();
         assert!(!headers.contains_key("x-pas-signature"));
+        assert!(!headers.contains_key("x-pas-signature-v1"));
     }
 
     #[tokio::test]

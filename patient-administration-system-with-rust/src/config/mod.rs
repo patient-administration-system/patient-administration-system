@@ -85,9 +85,10 @@ pub struct Config {
     /// from `PAS_WEBHOOK_URL`.
     pub pas_webhook_url: Option<String>,
     /// Optional HMAC-SHA256 secret for the webhook publisher (v0.14).
-    /// When set, every request carries an `X-PAS-Signature:
-    /// sha256=<hex>` header signing the raw body. Receivers MUST
-    /// verify this constant-time. Read from `PAS_WEBHOOK_SECRET`.
+    /// When set, every request carries `X-PAS-Signature-V1: t=<unix seconds>,v1=<hex>`, signing the
+    /// timestamp with the raw body (TSC-13), and for one release the older body-only `X-PAS-Signature:
+    /// sha256=<hex>`. Receivers MUST verify V1 in constant time and refuse a stale timestamp. Read from
+    /// `PAS_WEBHOOK_SECRET`.
     pub pas_webhook_secret: Option<String>,
     /// Webhook request timeout in seconds (v0.14). Keep strictly
     /// shorter than the dispatcher poll interval (2 s base) for

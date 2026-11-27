@@ -15,8 +15,9 @@ use patient_administration_system::streaming::WebhookEventPublisher;
 use patient_administration_system::subscriptions::SubscriptionService;
 use uuid::Uuid;
 
-/// What a receiver saw: the body and the signature of each request.
-type Seen = Arc<Mutex<Vec<(String, Option<String>)>>>;
+/// What a receiver saw: the body and the signature of each request, and whether its timed signature (TSC-13)
+/// verified against the subscription's secret, `s3cret`, within five minutes.
+type Seen = Arc<Mutex<Vec<(String, Option<String>, bool)>>>;
 
 #[derive(Clone)]
 struct Receiver {
@@ -26,12 +27,25 @@ struct Receiver {
 }
 
 async fn hook(State(r): State<Receiver>, headers: HeaderMap, body: Bytes) -> StatusCode {
+    let timed = headers
+        .get("x-pas-signature-v1")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| {
+            WebhookEventPublisher::verify_timed(
+                b"s3cret",
+                v,
+                &body,
+                jiff::Timestamp::now().as_second(),
+                300,
+            )
+        });
     r.seen.lock().unwrap().push((
         String::from_utf8_lossy(&body).to_string(),
         headers
             .get("x-pas-signature")
             .and_then(|v| v.to_str().ok())
             .map(str::to_string),
+        timed,
     ));
     let mut left = r.fail_first.lock().unwrap();
     if *left > 0 {
@@ -147,7 +161,8 @@ async fn a_change_reaches_each_subscriber_once_and_only_the_right_topic() {
     assert_eq!(status_of(&state.db, w.id).await, (0, 0, 0));
 
     // The body is an R5 notification pointing at the appointment, signed with the named secret.
-    let (body, sig) = seen_a.lock().unwrap()[0].clone();
+    let (body, sig, timed) = seen_a.lock().unwrap()[0].clone();
+    assert!(timed, "the timed signature verifies (TSC-13)");
     let n: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(n["type"], "subscription-notification");
     assert_eq!(

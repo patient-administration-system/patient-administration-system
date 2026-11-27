@@ -108,6 +108,17 @@ async fn webhook_publisher_posts_event_with_hmac_signature() {
     assert_eq!(sig, &expected);
     assert!(sig.starts_with("sha256="));
     assert_eq!(sig.len(), 7 + 64);
+    // TSC-13: the timed form is sent beside it, and verifies within five minutes.
+    let timed = headers
+        .get("x-pas-signature-v1")
+        .expect("the timed signature is sent when a secret is set");
+    assert!(WebhookEventPublisher::verify_timed(
+        b"production-secret",
+        timed,
+        &body,
+        jiff::Timestamp::now().as_second(),
+        300
+    ));
 }
 
 /// Composite publisher: when a webhook + an in-memory publisher are
