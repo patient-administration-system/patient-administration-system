@@ -231,7 +231,8 @@ workflows:
 restore: need-pg-container
     {{ container_cmd }} exec -i "$PG_CONTAINER" psql -U pas -d pas -v ON_ERROR_STOP=1 -q < scripts/restore-seed.sql
     scripts/restore-test.sh
-    @if RESTORE_DRILL_TAMPER=1 scripts/restore-test.sh; then echo "the drill passed although a restored row was altered" >&2; exit 1; fi
+    @# The tamper run must find a difference (exit 1); 0 means it noticed nothing, 2 that the drill itself failed.
+    @status=0; RESTORE_DRILL_TAMPER=1 scripts/restore-test.sh || status=$?; if [ "$status" -ne 1 ]; then echo "the tamper run should exit 1 (contents differ), not $status" >&2; exit 1; fi
 
 [private]
 need-pg-container:
