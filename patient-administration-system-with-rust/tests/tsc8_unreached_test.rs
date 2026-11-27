@@ -255,3 +255,98 @@ async fn a_phone_outcome_closes_the_item_for_good_and_only_an_unreached_item_tak
         Err(patient_administration_system::Error::Conflict(_))
     ));
 }
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_returned_paper_letter_is_recorded_once_and_makes_the_patient_unreached() {
+    use axum::body::{Body, to_bytes};
+    use axum::http::{Request, StatusCode};
+    use tower::ServiceExt;
+    let state = common::build_state(&common::database_url().unwrap()).await;
+    let db = state.db.clone();
+    let person = Uuid::new_v4();
+    let t = LetterRepository::create_template(
+        &db,
+        &LetterTemplate::new(
+            format!("tsc8-post-{}", Uuid::new_v4()),
+            "S".into(),
+            "B".into(),
+        ),
+    )
+    .await
+    .unwrap();
+    let letter = |channel: &'static str| {
+        let db = db.clone();
+        async move {
+            let id = Uuid::new_v4();
+            run(
+                &db,
+                "INSERT INTO generated_letters (id, template_id, person_id, rendered_subject, rendered_body, channel, status, created_at, updated_at) \
+                 VALUES ($1, $2, $3, 'S', 'B', $4, 'sent', now() - interval '3 days', now())",
+                vec![id.into(), t.id.into(), person.into(), channel.into()],
+            )
+            .await;
+            id
+        }
+    };
+    let (paper, email) = (letter("print").await, letter("email").await);
+    let app = patient_administration_system::api::rest::router(state);
+    let post = |id: Uuid, body: &'static str| {
+        app.clone().oneshot(
+            Request::post(format!("/api/letters/{id}/returned"))
+                .header("content-type", "application/json")
+                .header("x-user-id", "Post room")
+                .body(Body::from(body))
+                .unwrap(),
+        )
+    };
+    let r = post(paper, r#"{"reason":"gone_away"}"#).await.unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    let v: serde_json::Value =
+        serde_json::from_slice(&to_bytes(r.into_body(), 1 << 16).await.unwrap()).unwrap();
+    assert_eq!(v["data"]["duplicate"], false, "{v}");
+    let r = post(paper, "{}").await.unwrap();
+    let v: serde_json::Value =
+        serde_json::from_slice(&to_bytes(r.into_body(), 1 << 16).await.unwrap()).unwrap();
+    assert_eq!(v["data"]["duplicate"], true, "once per letter: {v}");
+    assert_eq!(
+        post(email, "{}").await.unwrap().status(),
+        StatusCode::CONFLICT,
+        "only paper comes back by post"
+    );
+    assert_eq!(
+        post(Uuid::new_v4(), "{}").await.unwrap().status(),
+        StatusCode::NOT_FOUND
+    );
+
+    let status: String = db
+        .one(Stmt::new(
+            "SELECT status FROM generated_letters WHERE id = $1",
+            [paper.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .col("status")
+        .unwrap();
+    assert_eq!(status, "failed");
+    let receipt: Uuid = db
+        .one(Stmt::new(
+            "SELECT id FROM message_receipts WHERE letter_id = $1 AND carrier = 'post' AND event = 'bounced' AND detail = 'gone_away'",
+            [paper.into()],
+        ))
+        .await
+        .unwrap()
+        .expect("the post's bounce")
+        .col("id")
+        .unwrap();
+    WorkQueueService::new(db.clone())
+        .sync(Timestamp::now())
+        .await
+        .unwrap();
+    assert_eq!(
+        item(&db, receipt).await.unwrap().1,
+        "open",
+        "a person is asked to phone"
+    );
+}

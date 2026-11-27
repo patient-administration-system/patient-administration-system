@@ -17217,6 +17217,18 @@
         ],
         "type": "string"
       },
+      "ReturnedBody": {
+        "properties": {
+          "reason": {
+            "description": "A short reason code from the envelope, such as `gone_away` or `addressee_unknown`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "Reverted": {
         "description": "The answer to cancelling a transfer.",
         "properties": {
@@ -26684,6 +26696,52 @@
           }
         ],
         "summary": "`GET /api/letters/{id}/receipts`: what the carrier has said about one message.",
+        "tags": [
+          "Letters"
+        ]
+      }
+    },
+    "/api/letters/{id}/returned": {
+      "post": {
+        "operationId": "post_api_letters__id__returned",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnedBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`POST /api/letters/{id}/returned`: a printed letter came back by post (TSC-8). Recorded once as a bounce:\nthe letter is failed, the patient joins the contact problems, and the work queue asks a person to phone.",
         "tags": [
           "Letters"
         ]

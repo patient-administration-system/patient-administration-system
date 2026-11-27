@@ -2440,6 +2440,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/letters/{id}/returned": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * `POST /api/letters/{id}/returned`: a printed letter came back by post (TSC-8). Recorded once as a bounce:
+     *     the letter is failed, the patient joins the contact problems, and the work queue asks a person to phone.
+     */
+    post: operations["post_api_letters__id__returned"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/letters/{id}/sent": {
     parameters: {
       query?: never;
@@ -12183,6 +12203,10 @@ export interface components {
      * @enum {string}
      */
     RequestRoute: "booking" | "person";
+    ReturnedBody: {
+      /** @description A short reason code from the envelope, such as `gone_away` or `addressee_unknown`. */
+      reason?: string | null;
+    };
     /** @description The answer to cancelling a transfer. */
     Reverted: {
       /** Format: uuid */
@@ -18557,6 +18581,45 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  post_api_letters__id__returned: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReturnedBody"];
+      };
+    };
     responses: {
       /** @description Success; the `ApiResponse` envelope */
       200: {

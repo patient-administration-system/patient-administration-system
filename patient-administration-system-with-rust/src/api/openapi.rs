@@ -324,6 +324,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_contact::list_identifier_schemes,
         crate::api::rest::handlers_receipts::post_receipt,
         crate::api::rest::handlers_receipts::letter_receipts,
+        crate::api::rest::handlers_receipts::letter_returned,
         crate::api::rest::handlers_receipts::contact_problems,
         crate::api::rest::handlers_receipts::resolve_problem,
         crate::api::rest::handlers_identity::record,

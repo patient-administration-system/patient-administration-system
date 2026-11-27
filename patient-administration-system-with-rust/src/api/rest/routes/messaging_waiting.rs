@@ -76,6 +76,10 @@ pub(super) fn messaging() -> Router<AppState> {
             get(handlers_receipts::letter_receipts),
         )
         .route(
+            "/api/letters/{id}/returned",
+            post(handlers_receipts::letter_returned),
+        )
+        .route(
             "/api/contact-problems",
             get(handlers_receipts::contact_problems),
         )

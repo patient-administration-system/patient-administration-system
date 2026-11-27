@@ -23,6 +23,9 @@ use crate::{Error, Result};
 
 pub const EVENTS: [&str; 3] = ["delivered", "bounced", "replied"];
 
+/// The carrier name a returned paper letter is recorded under (TSC-8).
+pub const POST_CARRIER: &str = "post";
+
 /// How long to wait after `failed_attempts` failed attempts before trying again: 5 minutes, then 15, an hour,
 /// four hours, twelve; longer than that is "give up" (see `reminders::MAX_FAILED_ATTEMPTS`).
 pub fn retry_delay(failed_attempts: i64) -> SignedDuration {
@@ -61,6 +64,43 @@ pub struct ReceiptService {
 impl ReceiptService {
     pub fn new(db: Pool) -> Self {
         Self { db }
+    }
+
+    /// A paper letter came back undelivered (TSC-8): recorded as the post's `bounced` receipt, so the letter is
+    /// marked failed, the patient joins the contact problems and, with nothing else answered, the work queue
+    /// asks a person to try by phone. Once per letter; only a printed letter can be returned. `reason` is a
+    /// short code such as `gone_away` or `addressee_unknown`.
+    pub async fn record_returned(
+        &self,
+        letter_id: Uuid,
+        reason: Option<&str>,
+        ctx: &UserContext,
+    ) -> Result<Receipt> {
+        let channel: String = self
+            .db
+            .one(Stmt::new(
+                "SELECT channel FROM generated_letters WHERE id = $1",
+                [letter_id.into()],
+            ))
+            .await?
+            .ok_or_else(|| Error::not_found(format!("letter {letter_id}")))?
+            .col("channel")?;
+        if channel != "print" {
+            return Err(Error::conflict(
+                "only a printed letter can be returned by post; a carrier reports other bounces",
+            ));
+        }
+        let reason = reason.map(str::trim).filter(|r| !r.is_empty());
+        self.record(
+            POST_CARRIER,
+            &format!("returned:{letter_id}"),
+            letter_id,
+            "bounced",
+            Some(reason.unwrap_or("returned")),
+            None,
+            ctx,
+        )
+        .await
     }
 
     /// Store a carrier's report about a letter. Idempotent by `(carrier, receipt_id)`.

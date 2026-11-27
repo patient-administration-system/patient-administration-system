@@ -82,6 +82,42 @@ pub async fn letter_receipts(State(state): State<AppState>, Path(id): Path<Uuid>
     }
 }
 
+#[derive(Debug, Default, Deserialize, utoipa::ToSchema)]
+pub struct ReturnedBody {
+    /// A short reason code from the envelope, such as `gone_away` or `addressee_unknown`.
+    pub reason: Option<String>,
+}
+
+/// `POST /api/letters/{id}/returned`: a printed letter came back by post (TSC-8). Recorded once as a bounce:
+/// the letter is failed, the patient joins the contact problems, and the work queue asks a person to phone.
+#[utoipa::path(
+    post,
+    path = "/api/letters/{id}/returned",
+    tag = "Letters",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    request_body = ReturnedBody,
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope"),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn letter_returned(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(body): Json<ReturnedBody>,
+) -> HandlerResult {
+    match state
+        .receipts
+        .record_returned(id, body.reason.as_deref(), &request_audit_ctx(&headers))
+        .await
+    {
+        Ok(r) => ok_json(r),
+        Err(e) => error_to_response(e),
+    }
+}
+
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ProblemsQuery {
     pub since_days: Option<i64>,
