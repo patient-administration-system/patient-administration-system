@@ -8111,6 +8111,64 @@
         ],
         "type": "object"
       },
+      "ApiResponse_Vec_NotBooked": {
+        "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
+        "properties": {
+          "data": {
+            "items": {
+              "description": "An upcoming appointment whose ride nobody booked (PA-01): no provider, a made-up booking, or a provider\nfailure. Staff arrange these by hand.",
+              "properties": {
+                "appointment_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "appointment_start": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "booking_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "person_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/BookingStatus"
+                }
+              },
+              "required": [
+                "booking_id",
+                "appointment_id",
+                "person_id",
+                "appointment_start",
+                "status"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PageMeta",
+                "description": "Present on list responses: the limit that applied and whether the list was cut short."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Vec_OccupancyEvent": {
         "description": "Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but\nan RFC 9457 problem: see [`problem`].",
         "properties": {
@@ -11873,7 +11931,9 @@
           "requested",
           "booked",
           "cancelled",
-          "failed"
+          "failed",
+          "no_provider",
+          "unconfirmed"
         ],
         "type": "string"
       },
@@ -14916,6 +14976,38 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "NotBooked": {
+        "description": "An upcoming appointment whose ride nobody booked (PA-01): no provider, a made-up booking, or a provider\nfailure. Staff arrange these by hand.",
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "appointment_start": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "booking_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BookingStatus"
+          }
+        },
+        "required": [
+          "booking_id",
+          "appointment_id",
+          "person_id",
+          "appointment_start",
+          "status"
         ],
         "type": "object"
       },
@@ -33938,6 +34030,59 @@
         "summary": "`PUT /api/tolerances/{metric}`: a named person sets a measure's tiers.",
         "tags": [
           "Tolerances"
+        ]
+      }
+    },
+    "/api/transport/not-booked": {
+      "get": {
+        "operationId": "get_api_transport_not_booked",
+        "parameters": [
+          {
+            "description": "Rows to return, 1 to 500. Each list has its own default.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this\nlist and its filters.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_NotBooked"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/transport/not-booked?limit&cursor`: upcoming appointments, still booked, whose ride nobody booked\n(PA-01), soonest first: `no_provider` (no transport provider is configured), `unconfirmed` (made up by the\nstand-in client before PA-01) or `failed`. Staff arrange each by hand. Paged.",
+        "tags": [
+          "Appointments"
         ]
       }
     },

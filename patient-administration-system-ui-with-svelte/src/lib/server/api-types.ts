@@ -4879,6 +4879,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/transport/not-booked": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * `GET /api/transport/not-booked?limit&cursor`: upcoming appointments, still booked, whose ride nobody booked
+     *     (PA-01), soonest first: `no_provider` (no transport provider is configured), `unconfirmed` (made up by the
+     *     stand-in client before PA-01) or `failed`. Staff arrange each by hand. Paged.
+     */
+    get: operations["get_api_transport_not_booked"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/triage/queue": {
     parameters: {
       query?: never;
@@ -9008,6 +9029,25 @@ export interface components {
      * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
      *     an RFC 9457 problem: see [`problem`].
      */
+    ApiResponse_Vec_NotBooked: {
+      data?: {
+        /** Format: uuid */
+        appointment_id: string;
+        /** Format: date-time */
+        appointment_start: string;
+        /** Format: uuid */
+        booking_id: string;
+        /** Format: uuid */
+        person_id: string;
+        status: components["schemas"]["BookingStatus"];
+      }[];
+      meta?: components["schemas"]["PageMeta"] | null;
+      success: boolean;
+    };
+    /**
+     * @description Envelope for every successful JSON response from the PAS REST API. A refusal or failure is not an envelope but
+     *     an RFC 9457 problem: see [`problem`].
+     */
     ApiResponse_Vec_OccupancyEvent: {
       data?: {
         /** @description The member of staff, or `system` for the sweep. */
@@ -10245,7 +10285,7 @@ export interface components {
      * @description Where a transport booking has got to.
      * @enum {string}
      */
-    BookingStatus: "requested" | "booked" | "cancelled" | "failed";
+    BookingStatus: "requested" | "booked" | "cancelled" | "failed" | "no_provider" | "unconfirmed";
     /**
      * @description Predicted against observed for one tenth of predicted probability. A tenth under the minimum size is
      *     listed with `suppressed: true` and none of the figures.
@@ -11405,6 +11445,21 @@ export interface components {
       /** Format: int32 */
       priority?: number | null;
       queue?: string | null;
+    };
+    /**
+     * @description An upcoming appointment whose ride nobody booked (PA-01): no provider, a made-up booking, or a provider
+     *     failure. Staff arrange these by hand.
+     */
+    NotBooked: {
+      /** Format: uuid */
+      appointment_id: string;
+      /** Format: date-time */
+      appointment_start: string;
+      /** Format: uuid */
+      booking_id: string;
+      /** Format: uuid */
+      person_id: string;
+      status: components["schemas"]["BookingStatus"];
     };
     /**
      * @description The `data` of a success that has nothing to return: it serializes to `null`.
@@ -24474,6 +24529,48 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponse_Nothing"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_transport_not_booked: {
+    parameters: {
+      query?: {
+        /** @description Rows to return, 1 to 500. Each list has its own default. */
+        limit?: number;
+        /**
+         * @description The next page, from `meta.next` or the `Link` header of the page before. Opaque, and tied to this
+         *     list and its filters.
+         */
+        cursor?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_Vec_NotBooked"];
         };
       };
       /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */

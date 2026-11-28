@@ -219,6 +219,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_transport::record_consent,
         crate::api::rest::handlers_transport::withdraw_consent,
         crate::api::rest::handlers_transport::booking,
+        crate::api::rest::handlers_transport::not_booked,
         crate::api::rest::handlers_analytics::outcomes,
         crate::api::rest::handlers_analytics::refill_rates,
         crate::api::rest::handlers_analytics::load_deprivation_lookup,

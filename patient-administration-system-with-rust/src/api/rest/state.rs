@@ -84,10 +84,7 @@ impl AppState {
             scheduling.clone(),
         ));
         let communication = Arc::new(CommunicationService::new(db.clone(), publisher.clone()));
-        let transport = Arc::new(crate::transport::TransportService::new(
-            db.clone(),
-            Arc::new(crate::transport::LoggingTransportClient),
-        ));
+        let transport = Arc::new(crate::transport::TransportService::new(db.clone(), None));
         scheduling.set_transport(transport.clone());
         let standby = Arc::new(crate::standby::StandbyService::new(
             db.clone(),

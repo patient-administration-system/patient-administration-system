@@ -23,6 +23,22 @@ test("staff land on a home page of tiles for their own areas, with the count pas
   expect(serious(await axe(page))).toEqual([]);
 });
 
+// PA-01: with no transport provider, staff see the rides nobody booked before anything else.
+test("the home page alerts staff to rides nobody booked, each linked to the patient", async ({ page }) => {
+  await keycloakLogin(page, "admin");
+  await page.goto("/en-001/home");
+  const alert = page.getByTestId("transport-alert");
+  await expect(alert).toHaveAttribute("role", "alert");
+  await expect(alert).toContainText("Rides to arrange by hand: 1. No ride is booked for these upcoming appointments.");
+  const ride = alert.locator('li[data-booking="56565656-5656-4565-8565-565656565656"]');
+  await expect(ride).toContainText("no transport provider is set up");
+  await expect(ride.getByRole("link", { name: "Open the patient's record" })).toHaveAttribute(
+    "href",
+    /\/en-001\/enquiry\?patient=/,
+  );
+  expect(serious(await axe(page))).toEqual([]);
+});
+
 test("a patient cannot open the staff home page", async ({ page }) => {
   await keycloakLogin(page, "patient");
   const res = await page.goto("/en-001/home");

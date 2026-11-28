@@ -249,6 +249,12 @@ fn build_state(
         Arc::new(patient_administration_system::streaming::DiscardingPublisher),
     )
     .with_sms_provider(sms_provider);
+    // Non-emergency transport (PA-01): no provider unless one is named; `demo` makes rides up.
+    if let Some(client) = patient_administration_system::transport::client_named(
+        patient_administration_system::config::env::text("PAS_TRANSPORT_PROVIDER").as_deref(),
+    ) {
+        state = state.with_transport_client(client);
+    }
     // Public address of the patient portal, exposed to message templates as `portal_url`.
     if let Some(url) = patient_administration_system::config::env::text("PAS_PORTAL_URL") {
         state = state.with_portal_base_url(url.trim());

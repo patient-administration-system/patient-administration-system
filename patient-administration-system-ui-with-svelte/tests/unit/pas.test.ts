@@ -29,6 +29,7 @@ const {
   offerLinkAct,
   offerLinkInfo,
   openSuspicions,
+  transportNotBooked,
   pas,
   pasAllPages,
   pasArray,
@@ -410,11 +411,13 @@ describe("typed PAS route wrappers", () => {
     const { fetch, calls } = fake(200, JSON.stringify({ data: [] }));
     await replyLinkAct(fetch, "token", "cancel");
     await openSuspicions(fetch, null);
+    await transportNotBooked(fetch);
     await updateLetterTemplate(fetch, { id: "template/1" } as Parameters<typeof updateLetterTemplate>[1]);
     expect(nextCursor({ limit: 1, returned: 1, truncated: true, next: "http://[" })).toBeNull();
     expect(calls.map((c) => [c.init.method, c.url, c.init.body])).toEqual([
       ["POST", "http://pas.test/api/reply-links/token/cancel", '{"confirmed":false}'],
       ["GET", "http://pas.test/api/suspicions", undefined],
+      ["GET", "http://pas.test/api/transport/not-booked", undefined],
       ["PUT", "http://pas.test/api/letter-templates/template%2F1", '{"id":"template/1"}'],
     ]);
   });

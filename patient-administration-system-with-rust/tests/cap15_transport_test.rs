@@ -77,6 +77,11 @@ struct W {
 }
 
 async fn world(with_address: bool) -> W {
+    world_with(with_address, true).await
+}
+
+/// `provider: false` is the server's ordinary wiring with no transport provider configured (PA-01).
+async fn world_with(with_address: bool, provider: bool) -> W {
     let rec = Arc::new(Recording::default());
     let person = Uuid::new_v4();
     let mut data = serde_json::Map::new();
@@ -94,8 +99,16 @@ async fn world(with_address: bool) -> W {
     stub.insert(Person { id: person, data });
     let s = common::build_state(&common::database_url().unwrap())
         .await
-        .with_person_client(stub)
-        .with_transport_client(rec.clone());
+        .with_person_client(stub);
+    assert!(
+        !s.transport.has_provider(),
+        "no provider unless one is configured"
+    );
+    let s = if provider {
+        s.with_transport_client(rec.clone())
+    } else {
+        s
+    };
     let schedule = common::new_schedule(&s.db).await.id;
     W {
         s,
@@ -449,4 +462,183 @@ async fn the_http_endpoints_record_decisions_with_names_and_show_the_ride() {
     )
     .await;
     assert_eq!(st, StatusCode::NOT_FOUND);
+}
+
+/// The rides nobody booked, read through the API: every page, as a client would.
+async fn not_booked(s: &AppState) -> Vec<serde_json::Value> {
+    let app = patient_administration_system::api::rest::router(s.clone());
+    let mut all = Vec::new();
+    let mut uri = Some("/api/transport/not-booked?limit=500".to_string());
+    while let Some(u) = uri.take() {
+        let r = app
+            .clone()
+            .oneshot(Request::get(&u).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(r.status(), StatusCode::OK);
+        let v: serde_json::Value =
+            serde_json::from_slice(&to_bytes(r.into_body(), 1 << 24).await.unwrap()).unwrap();
+        all.extend(v["data"].as_array().unwrap().iter().cloned());
+        uri = v["meta"]["next"].as_str().map(String::from);
+    }
+    all
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn with_no_provider_a_ride_is_not_booked_and_staff_see_it() {
+    // No address on record: reading one would fail the booking, so `no_provider` also shows none was read.
+    let w = world_with(false, false).await;
+    w.entitle().await;
+    let a = w.book().await;
+    w.confirm(a.id).await;
+    w.confirm(a.id).await;
+
+    let b = w.s.transport.booking_for(a.id).await.unwrap().unwrap();
+    assert_eq!(b.status, "no_provider");
+    assert_eq!(b.provider_ref, None, "no made-up reference");
+    assert_eq!(
+        (b.window_start, b.window_end),
+        (None, None),
+        "no made-up pick-up window"
+    );
+    let rows: i64 =
+        w.s.db
+            .one(Stmt::new(
+                "SELECT count(*)::bigint AS n FROM transport_bookings WHERE appointment_id = $1",
+                [a.id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .col("n")
+            .unwrap();
+    assert_eq!(rows, 1, "confirming twice records it once");
+    assert_eq!(
+        common::audit_count(&w.s.db, a.id, "transport_not_booked").await,
+        1
+    );
+    assert_eq!(
+        common::audit_count(&w.s.db, a.id, "transport_booked").await,
+        0
+    );
+    // The appointment is untouched.
+    let still = AppointmentRepository::find_by_id(&w.s.db, a.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(still.status, a.status);
+    assert!(still.confirmed_at.is_some());
+    // Staff see it in the list of rides to arrange.
+    let listed = not_booked(&w.s).await;
+    let mine = listed
+        .iter()
+        .find(|r| r["appointment_id"] == a.id.to_string())
+        .expect("listed");
+    assert_eq!(mine["status"], "no_provider");
+    assert_eq!(mine["person_id"], w.person.to_string());
+
+    // Cancelling the appointment closes it, with nothing sent anywhere.
+    w.s.scheduling
+        .cancel(
+            a.id,
+            patient_administration_system::models::appointment::CancellationReason::PatientRequest,
+            &sys(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        w.s.transport
+            .booking_for(a.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .status,
+        "cancelled"
+    );
+    assert!(
+        !not_booked(&w.s)
+            .await
+            .iter()
+            .any(|r| r["appointment_id"] == a.id.to_string())
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL (DATABASE_URL); run with `cargo test -- --ignored`"]
+async fn a_ride_the_stand_in_made_up_is_unconfirmed_and_an_upcoming_one_gets_a_call() {
+    let w = world(true).await;
+    let upcoming = w.book().await;
+    let other = common::free_slot(&w.s.db, w.schedule, 9).await;
+    let past =
+        w.s.scheduling
+            .book_slot(other.id, w.person, &sys())
+            .await
+            .unwrap();
+    w.s.db
+        .run(Stmt::new(
+            "UPDATE appointments SET start_datetime = now() - interval '2 days', end_datetime = now() - interval '2 days' + interval '15 minutes' WHERE id = $1",
+            [past.id.into()],
+        ))
+        .await
+        .unwrap();
+    for a in [upcoming.id, past.id] {
+        let id = Uuid::new_v4();
+        w.s.db
+            .run(Stmt::new(
+                "INSERT INTO transport_bookings (id, appointment_id, person_id, status, provider_ref, window_start, window_end) \
+                 VALUES ($1,$2,$3,'booked',$4, now(), now() + interval '30 minutes')",
+                [id.into(), a.into(), w.person.into(), format!("stub-{id}").into()],
+            ))
+            .await
+            .unwrap();
+    }
+    // Migration 75 again: every statement in it can run twice.
+    let sql = include_str!("../migrations/sql/20261128000075_transport_no_provider.up.sql");
+    let body: String = sql
+        .lines()
+        .filter(|l| !l.starts_with("--"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for stmt in body.split(';').map(str::trim).filter(|s| !s.is_empty()) {
+        w.s.db.run(Stmt::text(stmt.to_string())).await.unwrap();
+    }
+    for a in [upcoming.id, past.id] {
+        let b = w.s.transport.booking_for(a).await.unwrap().unwrap();
+        assert_eq!(b.status, "unconfirmed");
+        assert_eq!(
+            (b.window_start, b.window_end),
+            (None, None),
+            "the made-up window is gone"
+        );
+        assert!(
+            b.provider_ref.unwrap().starts_with("stub-"),
+            "kept, to match what the patient was told"
+        );
+    }
+    let calls = |a: Uuid| {
+        let db = w.s.db.clone();
+        async move {
+            db.one(Stmt::new(
+                "SELECT count(*)::bigint AS n FROM staff_call_tasks WHERE appointment_id = $1 AND reason = 'transport_unconfirmed' AND handled_at IS NULL",
+                [a.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .col::<i64>("n")
+            .unwrap()
+        }
+    };
+    assert_eq!(calls(upcoming.id).await, 1);
+    assert_eq!(calls(past.id).await, 0, "a past appointment needs no ride");
+    let listed = not_booked(&w.s).await;
+    assert!(listed.iter().any(|r| r["appointment_id"] == upcoming.id.to_string() && r["status"] == "unconfirmed"));
+    assert!(
+        !listed
+            .iter()
+            .any(|r| r["appointment_id"] == past.id.to_string())
+    );
+    // A confirmation now books nothing new over it: the appointment still has its one open booking.
+    assert_eq!(w.booked(), 0);
 }

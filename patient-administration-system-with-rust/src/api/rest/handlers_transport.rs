@@ -155,3 +155,31 @@ pub async fn booking(State(state): State<AppState>, Path(id): Path<Uuid>) -> Han
         Err(e) => error_to_response(e),
     }
 }
+
+/// `GET /api/transport/not-booked?limit&cursor`: upcoming appointments, still booked, whose ride nobody booked
+/// (PA-01), soonest first: `no_provider` (no transport provider is configured), `unconfirmed` (made up by the
+/// stand-in client before PA-01) or `failed`. Staff arrange each by hand. Paged.
+#[utoipa::path(
+    get,
+    path = "/api/transport/not-booked",
+    tag = "Appointments",
+    params(crate::paging::PageQuery),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<Vec<crate::transport::NotBooked>>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn not_booked(
+    State(state): State<AppState>,
+    axum::extract::OriginalUri(uri): axum::extract::OriginalUri,
+) -> HandlerResult {
+    let page = match crate::paging::Page::new(&uri, 100) {
+        Ok(p) => p,
+        Err(e) => return error_to_response(e),
+    };
+    match state.transport.not_booked(page.rows()).await {
+        Ok(v) => crate::api::rest::handlers::ok_cursor_page(&page, v),
+        Err(e) => error_to_response(e),
+    }
+}

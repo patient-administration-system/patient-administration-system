@@ -1,7 +1,7 @@
 //! Non-emergency transport booked from a confirmed appointment (CAP-15).
 //!
 //! When an appointment is confirmed, an eligible patient who has consented gets a ride requested through a
-//! transport coordinator's interface ([`TransportClient`]; the default logs and books nothing real). The rules:
+//! transport coordinator's interface ([`TransportClient`]). The rules:
 //!
 //! - **Eligibility is recorded by staff**, with who and on what basis. The PAS never infers it.
 //! - **Consent to share the pick-up address is explicit** and its lawful basis recorded. Without it, no
@@ -13,6 +13,11 @@
 //!   appointment) cancels the ride; the new appointment gets its own ride when it is confirmed.
 //! - **A provider failure never undoes the appointment.** The booking is marked `failed` and the patient goes
 //!   on the staff call list.
+//! - **No provider, no ride (PA-01).** With no provider configured (the default: `PAS_TRANSPORT_PROVIDER`
+//!   unset or `none`) the booking is `no_provider`: no reference, no pick-up window, no address read. Staff see
+//!   it at `GET /api/transport/not-booked` and on their home page, and arrange the ride themselves. The
+//!   [`LoggingTransportClient`], which makes a ride up, runs only when `PAS_TRANSPORT_PROVIDER=demo` says so.
+//!   The rides it made up before this rule are `unconfirmed` (migration 75), each upcoming one with a call task.
 //!
 //! Not built: the real provider (none is chosen), and telling the patient the pick-up window in a message.
 //! The window is recorded on the booking and readable at `GET /api/appointments/{id}/transport`.
@@ -58,7 +63,9 @@ pub trait TransportClient: Send + Sync {
     async fn cancel(&self, provider_ref: &str) -> Result<()>;
 }
 
-/// The default: logs that a ride would be requested (never the address) and returns a made-up reference.
+/// For demonstrations only (`PAS_TRANSPORT_PROVIDER=demo`): logs that a ride would be requested (never the
+/// address) and returns a made-up reference and window, so a demonstration shows a booked ride. Never the
+/// default: a ride nobody was asked for must not look booked (PA-01).
 pub struct LoggingTransportClient;
 
 #[async_trait]
@@ -74,6 +81,26 @@ impl TransportClient for LoggingTransportClient {
     async fn cancel(&self, provider_ref: &str) -> Result<()> {
         tracing::info!(target: "pas::transport", provider_ref, "transport would be cancelled");
         Ok(())
+    }
+}
+
+/// The client `PAS_TRANSPORT_PROVIDER` names (PA-01): `demo` is the [`LoggingTransportClient`], which makes
+/// rides up for a demonstration; unset, empty or `none` is no provider. Any other name is no provider too, with
+/// a warning, so a typo can never make rides look booked. Each choice is logged at start-up.
+pub fn client_named(name: Option<&str>) -> Option<Arc<dyn TransportClient>> {
+    match name.map(|n| n.trim().to_lowercase()).as_deref() {
+        Some("demo") => {
+            tracing::warn!(target: "pas::transport", "transport provider: demo (rides are made up and look booked; never use this with patients)");
+            Some(Arc::new(LoggingTransportClient))
+        }
+        None | Some("" | "none") => {
+            tracing::warn!(target: "pas::transport", "no transport provider is configured: eligible patients' rides are not booked, and staff arrange them (GET /api/transport/not-booked)");
+            None
+        }
+        Some(other) => {
+            tracing::warn!(target: "pas::transport", "PAS_TRANSPORT_PROVIDER={other:?} is not recognised: no transport provider, so rides are not booked");
+            None
+        }
     }
 }
 
@@ -112,7 +139,32 @@ crate::string_enum! {
         Booked = "booked",
         Cancelled = "cancelled",
         Failed = "failed",
+        /// No transport provider is configured, so no ride was asked for: staff arrange it (PA-01).
+        NoProvider = "no_provider",
+        /// Made up by the stand-in client before PA-01: no provider was asked, whatever the reference says.
+        Unconfirmed = "unconfirmed",
     }
+}
+
+impl BookingStatus {
+    /// An open booking: the appointment has its one ride, or its one reason for having none.
+    pub fn is_open(self) -> bool {
+        matches!(
+            self,
+            Self::Requested | Self::Booked | Self::NoProvider | Self::Unconfirmed
+        )
+    }
+}
+
+/// An upcoming appointment whose ride nobody booked (PA-01): no provider, a made-up booking, or a provider
+/// failure. Staff arrange these by hand.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct NotBooked {
+    pub booking_id: Uuid,
+    pub appointment_id: Uuid,
+    pub person_id: Uuid,
+    pub appointment_start: Timestamp,
+    pub status: BookingStatus,
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize, utoipa::ToSchema)]
@@ -132,12 +184,13 @@ pub struct Booking {
 
 pub struct TransportService {
     db: Pool,
-    client: Arc<dyn TransportClient>,
+    /// `None`: no provider is configured, so no ride is ever booked (PA-01).
+    client: Option<Arc<dyn TransportClient>>,
     person_client: Option<Arc<dyn PersonClient>>,
 }
 
 impl TransportService {
-    pub fn new(db: Pool, client: Arc<dyn TransportClient>) -> Self {
+    pub fn new(db: Pool, client: Option<Arc<dyn TransportClient>>) -> Self {
         Self {
             db,
             client,
@@ -156,7 +209,7 @@ impl TransportService {
     pub fn with_client(&self, c: Arc<dyn TransportClient>) -> Self {
         Self {
             db: self.db.clone(),
-            client: c,
+            client: Some(c),
             person_client: self.person_client.clone(),
         }
     }
@@ -343,10 +396,13 @@ impl TransportService {
             return Ok(());
         }
         if let Some(b) = self.booking_for(appointment_id).await?
-            && matches!(b.status, BookingStatus::Requested | BookingStatus::Booked)
+            && b.status.is_open()
         {
             return Ok(());
         }
+        let Some(client) = &self.client else {
+            return self.no_provider(appointment_id, appt.person_id).await;
+        };
         let Some(people) = &self.person_client else {
             return Ok(());
         };
@@ -397,7 +453,7 @@ impl TransportService {
             appointment_start: appt.start_datetime,
             appointment_end: appt.end_datetime,
         };
-        match self.client.book(&req).await {
+        match client.book(&req).await {
             Ok(c) => {
                 self.db
                     .run(Stmt::new("UPDATE transport_bookings SET status = 'booked', provider_ref = $2, window_start = $3, \
@@ -431,11 +487,88 @@ impl TransportService {
         Ok(())
     }
 
+    /// No provider is configured: record that the ride was not booked, once, reading no address.
+    async fn no_provider(&self, appointment_id: Uuid, person: Uuid) -> Result<()> {
+        let id = Uuid::new_v4();
+        let claimed = self
+            .db
+            .run(Stmt::new(
+                "INSERT INTO transport_bookings (id, appointment_id, person_id, status, last_error) \
+                 VALUES ($1,$2,$3,'no_provider','no transport provider is configured') ON CONFLICT DO NOTHING",
+                [id.into(), appointment_id.into(), person.into()],
+            ))
+            .await?;
+        if claimed.rows_affected() == 0 {
+            return Ok(());
+        }
+        tracing::warn!(target: "pas::transport", booking_id = %id, "no transport provider is configured: the ride was not booked; staff must arrange it");
+        AuditLogRepository::log(
+            &self.db,
+            "appointment",
+            appointment_id,
+            "transport_not_booked",
+            None,
+            Some(serde_json::json!({ "booking_id": id, "reason": "no_provider" })),
+            &UserContext::system(),
+        )
+        .await
+    }
+
+    /// Is a provider configured? `false` means every eligible patient's ride is arranged by hand.
+    pub fn has_provider(&self) -> bool {
+        self.client.is_some()
+    }
+
+    /// Upcoming appointments, still booked, whose ride nobody booked (PA-01), soonest first.
+    pub async fn not_booked(&self, rows: crate::paging::Rows) -> Result<Vec<NotBooked>> {
+        self.db
+            .all(Stmt::new(
+                "SELECT b.id, b.appointment_id, b.person_id, a.start_datetime, b.status \
+                 FROM transport_bookings b JOIN appointments a ON a.id = b.appointment_id \
+                 WHERE b.status IN ('no_provider','unconfirmed','failed') AND a.status = 'booked' \
+                   AND a.deleted_at IS NULL AND a.start_datetime > now() \
+                   AND NOT EXISTS (SELECT 1 FROM transport_bookings o WHERE o.appointment_id = b.appointment_id \
+                                   AND o.status IN ('requested','booked')) \
+                 ORDER BY a.start_datetime, b.id LIMIT $1 OFFSET $2",
+                [rows.fetch()?.into(), rows.offset()?.into()],
+            ))
+            .await?
+            .iter()
+            .map(|r| {
+                Ok(NotBooked {
+                    booking_id: r.col("id")?,
+                    appointment_id: r.col("appointment_id")?,
+                    person_id: r.col("person_id")?,
+                    appointment_start: r.col("start_datetime")?,
+                    status: r.col::<String>("status")?.parse()?,
+                })
+            })
+            .collect()
+    }
+
     /// An appointment was cancelled or moved: cancel its ride.
     pub async fn on_cancelled(&self, appointment_id: Uuid) -> Result<()> {
         let Some(b) = self.booking_for(appointment_id).await? else {
             return Ok(());
         };
+        if matches!(
+            b.status,
+            BookingStatus::NoProvider | BookingStatus::Unconfirmed
+        ) {
+            // Nothing was asked of a provider, so there is nothing to cancel there.
+            self.set_status(b.id, BookingStatus::Cancelled, None)
+                .await?;
+            return AuditLogRepository::log(
+                &self.db,
+                "appointment",
+                appointment_id,
+                "transport_cancelled",
+                None,
+                Some(serde_json::json!({ "booking_id": b.id })),
+                &UserContext::system(),
+            )
+            .await;
+        }
         if b.status != BookingStatus::Booked {
             return Ok(());
         }
@@ -449,9 +582,11 @@ impl TransportService {
             .ok_or_else(|| Error::internal("booking vanished"))?
             .col("person_id")?;
         // A booking the provider never confirmed has no reference to cancel there, so nothing is sent.
-        let cancelled = match b.provider_ref.as_deref() {
-            Some(reference) => self.client.cancel(reference).await,
-            None => Ok(()),
+        let cancelled = match (b.provider_ref.as_deref(), &self.client) {
+            (Some(reference), Some(client)) => client.cancel(reference).await,
+            // Booked through a provider that is no longer configured: a person cancels it there.
+            (Some(_), None) => Err(Error::upstream("no transport provider is configured")),
+            (None, _) => Ok(()),
         };
         match cancelled {
             Ok(()) => {
@@ -514,6 +649,31 @@ mod default_client_tests {
         assert_eq!(got.window_start, start - SignedDuration::from_mins(90));
         assert_eq!(got.window_end, start - SignedDuration::from_mins(60));
         c.cancel(&got.provider_ref).await.unwrap();
+    }
+
+    #[test]
+    fn only_demo_names_a_client_and_nothing_else_makes_rides_look_booked() {
+        assert!(client_named(Some("demo")).is_some());
+        assert!(client_named(Some(" Demo ")).is_some());
+        for none in [
+            None,
+            Some(""),
+            Some("none"),
+            Some("NONE"),
+            Some("log"),
+            Some("acme"),
+        ] {
+            assert!(client_named(none).is_none(), "{none:?}");
+        }
+    }
+
+    #[test]
+    fn every_status_but_cancelled_and_failed_is_open() {
+        use BookingStatus::*;
+        for s in [Requested, Booked, NoProvider, Unconfirmed] {
+            assert!(s.is_open(), "{s:?}");
+        }
+        assert!(!Cancelled.is_open() && !Failed.is_open());
     }
 
     #[test]

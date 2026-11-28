@@ -141,6 +141,7 @@ const ENDPOINTS: &[(&str, &str)] = &[
     ("GET", "/api/reports/validation-removals"),
     ("GET", "/api/rooms/{id}"),
     ("GET", "/api/rtt/{id}"),
+    ("GET", "/api/transport/not-booked"),
     ("GET", "/api/rtt/{id}/breaching"),
     ("GET", "/api/rtt/{id}/weeks-waiting"),
     ("GET", "/api/session-templates"),

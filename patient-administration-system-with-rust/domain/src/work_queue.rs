@@ -127,7 +127,8 @@ impl WorkKind {
 
 /// A call's priority by its reason: an urgent pathway is high, the rest normal.
 pub fn call_priority(reason: &str) -> i16 {
-    if reason == "urgent_pathway" {
+    // A ride the patient was told about that nobody booked (PA-01) is as urgent as an urgent pathway.
+    if reason == "urgent_pathway" || reason == "transport_unconfirmed" {
         HIGH
     } else {
         NORMAL

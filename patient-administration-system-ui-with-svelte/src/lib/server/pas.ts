@@ -377,6 +377,12 @@ export const openSuspicions = (f: FetchFn, condition: string | null, cursor?: st
     cursor,
   );
 
+export type NotBooked = Schemas["NotBooked"];
+
+/** Upcoming appointments whose ride nobody booked (PA-01), soonest first: staff arrange each by hand. */
+export const transportNotBooked = (f: FetchFn, cursor?: string | null) =>
+  pasPage<NotBooked>(f, "/api/transport/not-booked", cursor);
+
 export type Enquiry = Schemas["Enquiry"];
 
 /** Everything the PAS holds for one person. The PAS audits the read. */

@@ -857,6 +857,19 @@ http
         }),
       );
     }
+    if (url.pathname === "/api/transport/not-booked") {
+      // PA-01: one ride nobody booked, because no transport provider is set up.
+      const rides: S["NotBooked"][] = [
+        {
+          booking_id: "56565656-5656-4565-8565-565656565656",
+          appointment_id: "57575757-5757-4575-8575-575757575757",
+          person_id: PATIENT,
+          appointment_start: "2026-12-01T09:30:00Z",
+          status: "no_provider",
+        },
+      ];
+      return res.end(paged<S["NotBooked"][]>(rides, url));
+    }
     if (url.pathname === "/api/suspicions") {
       const all: S["Suspicion"][] = [
         {

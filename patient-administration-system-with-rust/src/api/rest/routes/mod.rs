@@ -84,6 +84,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .merge(people())
         .merge(directory::message_kinds())
+        .merge(directory::transport())
         .merge(proxies())
         .merge(workforce())
         .merge(adt())

@@ -129,14 +129,6 @@ pub(super) fn people() -> Router<AppState> {
             get(handlers_waits::patient_waits),
         )
         .route(
-            "/api/patients/{id}/transport-eligibility",
-            put(handlers_transport::set_eligible).delete(handlers_transport::withdraw_eligible),
-        )
-        .route(
-            "/api/patients/{id}/transport-consent",
-            put(handlers_transport::record_consent).delete(handlers_transport::withdraw_consent),
-        )
-        .route(
             "/api/validate/identifier",
             post(handlers_contact::validate_identifier),
         )
@@ -204,6 +196,23 @@ pub(super) fn workforce() -> Router<AppState> {
         .route(
             "/api/practitioners/{id}/audit",
             get(upstream_proxy::audit_practitioner),
+        )
+}
+
+/// Non-emergency transport (CAP-15, PA-01): eligibility, consent and the rides nobody booked.
+pub(super) fn transport() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/api/patients/{id}/transport-eligibility",
+            put(handlers_transport::set_eligible).delete(handlers_transport::withdraw_eligible),
+        )
+        .route(
+            "/api/patients/{id}/transport-consent",
+            put(handlers_transport::record_consent).delete(handlers_transport::withdraw_consent),
+        )
+        .route(
+            "/api/transport/not-booked",
+            get(handlers_transport::not_booked),
         )
 }
 
