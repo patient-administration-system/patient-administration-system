@@ -60,5 +60,5 @@ An item that needs a person or an outside party stays low however much code surr
 | Item | Estimate | Done | Not done |
 |---|---:|---|---|
 | Dependency licences and advisories checked | 100% | `cargo deny check` passes in CI; each exception justified in `deny.toml` | |
-| CI required before a change reaches the main branch | 60% | Full CI runs on every push and must be green before a release | Branch protection is off, so nothing enforces it (QUAL-43) |
+| CI required before a change reaches the main branch | 60% | Full CI runs on every push; a release refuses a commit whose `ci-ok` did not pass, and publishes nothing before its SBOMs exist (`scripts/release-gate.py`, REL-3) | Branch protection is off, so nothing enforces it (QUAL-43) |
 | Software bill of materials with each release | 100% | The release workflow makes CycloneDX SBOMs and attaches them (REL-1) | |

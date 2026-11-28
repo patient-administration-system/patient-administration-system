@@ -3,6 +3,9 @@
 # A dry run builds everything and publishes nothing: run it by hand (Actions -> Release -> Run workflow) with
 # the version to try. It checks the tag, crate and changelog agree, builds both images with their labels,
 # makes the SBOMs, and stops: no image is pushed, nothing is attested, no release is created.
+#
+# Both a tag and a dry run first require the ci-ok check of ci.yml to have passed for the same commit
+# (scripts/release-gate.py, audit PA-08); push the commit to main and let CI finish before tagging.
 name: Release
 
 on:
@@ -84,9 +87,30 @@ jobs:
             **/*.cdx.json
             sbom-ui.cdx.json
 
+  # Nothing is published unless CI passed for this exact commit (audit PA-08). The gate only reads: it asks
+  # GitHub for the commit's ci-ok check run and waits while CI is still running. A dry run is gated the same way.
+  gate:
+    name: CI passed for this commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 scripts/release-gate.py --self-test
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: python3 scripts/release-gate.py --sha "$SHA" --repo "$REPO" --wait 3600
+
+  # The images wait for the gate and for the SBOMs, so a failure in either leaves the registry untouched.
   images:
     name: Container images
-    needs: [verify, deny]
+    needs: [verify, deny, sbom, gate]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
@@ -168,7 +192,7 @@ jobs:
   release:
     name: GitHub release
     if: github.event_name == 'push'
-    needs: [verify, deny, sbom, images]
+    needs: [verify, deny, sbom, gate, images]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

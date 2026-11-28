@@ -204,6 +204,7 @@ script-tests:
     python3 scripts/check-nfr-tests.py --self-test
     python3 scripts/criterion-summary.py --self-test
     python3 scripts/coverage-summary.py --self-test
+    python3 scripts/release-gate.py --self-test
 
 # The hazard log against a base commit: no hazard row deleted, closures only appended (SAFE-2);
 # then the hazards whose code or tests the change since the base touches, for the CSO (SAFE-6).

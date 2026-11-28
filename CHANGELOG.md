@@ -9,6 +9,8 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
+- **Changed, releases (REL-3, audit PA-08):** a tag publishes images only when `ci-ok` passed for that exact commit (`scripts/release-gate.py`, waiting up to an hour for a running CI) and the SBOMs are built; a dry run is gated the same way and still publishes nothing.
+
 ## Release 0.50.0 (2026-11-24)
 
 Server crate 0.50.0 and the domain crate 0.50.0. Tag `v0.50.0`. **Licence:** `CC-BY-SA-4.0` replaces `CC-BY-NC-SA-4.0` in the choice of licences. 0.49.0 was prepared but never tagged, so this release carries its changes too.

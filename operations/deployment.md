@@ -83,6 +83,8 @@ Terminate TLS in front of the UI and send `X-Forwarded-Proto: https` (see `conta
 
 Both images carry the standard OCI labels `org.opencontainers.image.version`, `.revision`, `.source`, `.licenses` and `.title`. The release workflow (`.github/workflows/release.yml`) fills them from build arguments: `VERSION` is the tag without its `v`, which `scripts/release-notes.sh` has already checked against the server crate's version and the changelog; `REVISION` is the commit; `SOURCE` is the repository. After pushing, the workflow pulls each image and fails the release if its `version` label is not that version. A local build without the arguments is labelled `unknown`, never a guess:
 
+Before anything is built for publication, the release workflow's `gate` job requires the `ci-ok` check of `.github/workflows/ci.yml` to have passed for the tagged commit itself (`scripts/release-gate.py`; it waits up to an hour while CI is still running). Push the commit to `main`, let CI finish green, then tag it. A refused gate names the reason (`no ci-ok check run`, `concluded failure`, still `queued` at the deadline) and nothing reaches the registry.
+
     podman build --format docker -f patient-administration-system-with-rust/Containerfile --build-arg VERSION=0.45.0 --build-arg REVISION=$(git rev-parse HEAD) -t pas-server .
     podman inspect pas-server --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
 
