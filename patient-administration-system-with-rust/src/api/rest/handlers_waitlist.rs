@@ -261,7 +261,26 @@ pub async fn rtt_start(
     }
 }
 
-/// `POST /api/rtt/:id/pause`.
+/// `GET /api/rtt/{id}`: one pathway, its status and its version as `ETag` (OFH-12).
+#[utoipa::path(
+    get,
+    path = "/api/rtt/{id}",
+    tag = "Rtt",
+    params(("id" = String, Path, description = "Path parameter `id`")),
+    responses(
+        (status = 200, description = "Success; the `ApiResponse` envelope", body = crate::api::ApiResponse<crate::models::rtt::RTTPathway>),
+        (status = "4XX", description = "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"),
+        (status = "5XX", description = "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"),
+    )
+)]
+pub async fn rtt_get(State(state): State<AppState>, Path(pathway_id): Path<Uuid>) -> HandlerResult {
+    match state.rtt.get(pathway_id).await {
+        Ok(p) => ok_json(p),
+        Err(e) => error_to_response(e),
+    }
+}
+
+/// `POST /api/rtt/:id/pause`. Needs `If-Match` with the pathway's `ETag` (`GET /api/rtt/{id}`): none is `428`, a stale one `412`; pausing a paused or stopped clock is `409` (OFH-12).
 #[utoipa::path(
     post,
     path = "/api/rtt/{id}/pause",
@@ -280,14 +299,22 @@ pub async fn rtt_pause(
     headers: HeaderMap,
     Json(body): Json<RttReasonBody>,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "RTT pathway") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.rtt.pause(pathway_id, body.reason, &ctx).await {
+    match state
+        .rtt
+        .pause(pathway_id, body.reason, expected, &ctx)
+        .await
+    {
         Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
 
-/// `POST /api/rtt/:id/resume`.
+/// `POST /api/rtt/:id/resume`. Needs `If-Match` as for pause; only a paused clock resumes, anything else is `409` (OFH-12).
 #[utoipa::path(
     post,
     path = "/api/rtt/{id}/resume",
@@ -304,14 +331,18 @@ pub async fn rtt_resume(
     Path(pathway_id): Path<Uuid>,
     headers: HeaderMap,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "RTT pathway") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.rtt.resume(pathway_id, &ctx).await {
+    match state.rtt.resume(pathway_id, expected, &ctx).await {
         Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }
 }
 
-/// `POST /api/rtt/:id/stop`.
+/// `POST /api/rtt/:id/stop`. Needs `If-Match` as for pause; a stopped clock is `409` (OFH-12).
 #[utoipa::path(
     post,
     path = "/api/rtt/{id}/stop",
@@ -330,8 +361,16 @@ pub async fn rtt_stop(
     headers: HeaderMap,
     Json(body): Json<RttReasonBody>,
 ) -> HandlerResult {
+    let expected = match crate::api::rest::concurrency::require_if_match(&headers, "RTT pathway") {
+        Ok(t) => t,
+        Err(e) => return error_to_response(e),
+    };
     let ctx = audit_ctx(&user_context_from_headers(&headers));
-    match state.rtt.stop(pathway_id, body.reason, &ctx).await {
+    match state
+        .rtt
+        .stop(pathway_id, body.reason, expected, &ctx)
+        .await
+    {
         Ok(e) => ok_json(e),
         Err(e) => error_to_response(e),
     }

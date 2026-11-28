@@ -11,8 +11,11 @@ use crate::db::repositories::{
     rtt::RttRepository,
     waitlist::WaitlistRepository,
 };
+use crate::db::row::RowExt;
 use crate::error::LogErr;
-use crate::models::rtt::{RTTClockEvent, RTTPathway, RTTStatus, compute_active_weeks};
+use crate::models::rtt::{
+    RTTClockEvent, RTTEventKind, RTTPathway, RTTStatus, compute_active_weeks,
+};
 use crate::models::waitlist::{Priority, WaitlistEntry, WaitlistStatus};
 use crate::streaming::{DomainEvent, EventPublisher};
 use crate::{Error, Result};
@@ -186,12 +189,13 @@ impl RttService {
         &self,
         pathway_id: Uuid,
         reason: String,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<RTTClockEvent> {
         self.transition(
             pathway_id,
+            expected,
             RTTClockEvent::paused(pathway_id, reason),
-            RTTStatus::Paused,
             "pause",
             "RTTClockPaused",
             ctx,
@@ -199,11 +203,16 @@ impl RttService {
         .await
     }
 
-    pub async fn resume(&self, pathway_id: Uuid, ctx: &UserContext) -> Result<RTTClockEvent> {
+    pub async fn resume(
+        &self,
+        pathway_id: Uuid,
+        expected: Option<jiff::Timestamp>,
+        ctx: &UserContext,
+    ) -> Result<RTTClockEvent> {
         self.transition(
             pathway_id,
+            expected,
             RTTClockEvent::resumed(pathway_id),
-            RTTStatus::Active,
             "resume",
             "RTTClockResumed",
             ctx,
@@ -215,12 +224,13 @@ impl RttService {
         &self,
         pathway_id: Uuid,
         reason: String,
+        expected: Option<jiff::Timestamp>,
         ctx: &UserContext,
     ) -> Result<RTTClockEvent> {
         self.transition(
             pathway_id,
+            expected,
             RTTClockEvent::stopped(pathway_id, reason),
-            RTTStatus::Stopped,
             "stop",
             "RTTClockStopped",
             ctx,
@@ -228,23 +238,67 @@ impl RttService {
         .await
     }
 
+    /// One pathway, with its status and version (`updated_at`, the `ETag` of `GET /api/rtt/{id}`).
+    pub async fn get(&self, pathway_id: Uuid) -> Result<RTTPathway> {
+        RttRepository::find_pathway_by_id(&self.db, pathway_id)
+            .await?
+            .ok_or_else(|| Error::not_found(format!("rtt_pathway {pathway_id}")))
+    }
+
+    /// Moves the clock (OFH-12). In one transaction it locks the pathway, refuses a stale version (`412`)
+    /// and a move [`RTTStatus::may_become`] does not allow (`409`), and only then records the event.
     async fn transition(
         &self,
         pathway_id: Uuid,
+        expected: Option<jiff::Timestamp>,
         event: RTTClockEvent,
-        new_status: RTTStatus,
         action: &'static str,
         event_type: &'static str,
         ctx: &UserContext,
     ) -> Result<RTTClockEvent> {
+        let new_status = match event.kind {
+            RTTEventKind::Paused => RTTStatus::Paused,
+            RTTEventKind::Resumed => RTTStatus::Active,
+            RTTEventKind::Stopped => RTTStatus::Stopped,
+            RTTEventKind::Started => {
+                return Err(Error::internal(
+                    "a clock starts with start, not a transition",
+                ));
+            }
+        };
         let ctx_clone = ctx.clone();
         let event_clone = event.clone();
         let res = self
             .db
             .in_txn::<_, RTTClockEvent>(|txn| {
                 Box::pin(async move {
+                    let r = txn
+                        .one(Stmt::new(
+                            "SELECT status, updated_at FROM rtt_pathways WHERE id = $1 FOR UPDATE",
+                            [pathway_id.into()],
+                        ))
+                        .await?
+                        .ok_or_else(|| Error::not_found(format!("rtt_pathway {pathway_id}")))?;
+                    let stored: jiff::Timestamp = r.col("updated_at")?;
+                    if !crate::api::rest::concurrency::is_current(stored, expected) {
+                        return Err(Error::precondition_failed(
+                            "that RTT pathway has changed since you read it; read it again",
+                        ));
+                    }
+                    let current = match r.col::<String>("status")?.as_str() {
+                        "active" => RTTStatus::Active,
+                        "paused" => RTTStatus::Paused,
+                        "stopped" => RTTStatus::Stopped,
+                        other => {
+                            return Err(Error::internal(format!(
+                                "rtt_pathway {pathway_id} has an unknown status {other}"
+                            )));
+                        }
+                    };
+                    if !current.may_become(new_status) {
+                        return Err(Error::conflict(current.refusal(new_status)));
+                    }
                     let e = RttRepository::create_event(txn, &event_clone).await?;
-                    // Update pathway status inline via ActiveModel
                     let m = txn
                         .one_as::<rtt_pathway::Model>(Stmt::new(
                             "SELECT * FROM rtt_pathways WHERE id = $1 LIMIT 1",

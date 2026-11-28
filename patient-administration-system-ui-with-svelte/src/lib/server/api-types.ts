@@ -4124,6 +4124,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/rtt/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** `GET /api/rtt/{id}`: one pathway, its status and its version as `ETag` (OFH-12). */
+    get: operations["get_api_rtt__id"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/rtt/{id}/breaching": {
     parameters: {
       query?: never;
@@ -4150,7 +4167,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** `POST /api/rtt/:id/pause`. */
+    /** `POST /api/rtt/:id/pause`. Needs `If-Match` with the pathway's `ETag` (`GET /api/rtt/{id}`): none is `428`, a stale one `412`; pausing a paused or stopped clock is `409` (OFH-12). */
     post: operations["post_api_rtt__id__pause"];
     delete?: never;
     options?: never;
@@ -4167,7 +4184,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** `POST /api/rtt/:id/resume`. */
+    /** `POST /api/rtt/:id/resume`. Needs `If-Match` as for pause; only a paused clock resumes, anything else is `409` (OFH-12). */
     post: operations["post_api_rtt__id__resume"];
     delete?: never;
     options?: never;
@@ -4184,7 +4201,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** `POST /api/rtt/:id/stop`. */
+    /** `POST /api/rtt/:id/stop`. Needs `If-Match` as for pause; a stopped clock is `409` (OFH-12). */
     post: operations["post_api_rtt__id__stop"];
     delete?: never;
     options?: never;
@@ -22719,6 +22736,43 @@ export interface operations {
         "application/json": components["schemas"]["RttStartBody"];
       };
     };
+    responses: {
+      /** @description Success; the `ApiResponse` envelope */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_RTTPathway"];
+        };
+      };
+      /** @description Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code` */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Server or upstream error; an RFC 9457 problem (`application/problem+json`) */
+      "5XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  get_api_rtt__id: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Path parameter `id` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
     responses: {
       /** @description Success; the `ApiResponse` envelope */
       200: {

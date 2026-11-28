@@ -422,6 +422,7 @@ impl utoipa::Modify for Credentials {
         crate::api::rest::handlers_waitlist::rtt_resume,
         crate::api::rest::handlers_waitlist::rtt_stop,
         crate::api::rest::handlers_waitlist::rtt_weeks_waiting,
+        crate::api::rest::handlers_waitlist::rtt_get,
         crate::api::rest::handlers_waitlist::rtt_is_breaching,
         crate::api::rest::handlers_audit::list_recent,
         crate::api::rest::handlers_audit::list_for_entity,

@@ -12,6 +12,39 @@ pub enum RTTStatus {
     Stopped,
 }
 
+impl RTTStatus {
+    /// The clock moves allowed (OFH-12): an active clock may pause or stop, a paused one may resume or stop,
+    /// and a stopped one stays stopped. Anything else (pausing a paused clock, resuming an active or stopped
+    /// one, stopping twice) would put a wrong waiting time on the record.
+    ///
+    /// ```
+    /// use patient_administration_system_domain::models::rtt::RTTStatus::{Active, Paused, Stopped};
+    /// assert!(Active.may_become(Paused) && Active.may_become(Stopped));
+    /// assert!(Paused.may_become(Active) && Paused.may_become(Stopped));
+    /// assert!(!Stopped.may_become(Active) && !Paused.may_become(Paused) && !Active.may_become(Active));
+    /// ```
+    pub fn may_become(self, next: RTTStatus) -> bool {
+        use RTTStatus::{Active, Paused, Stopped};
+        matches!(
+            (self, next),
+            (Active, Paused | Stopped) | (Paused, Active | Stopped)
+        )
+    }
+
+    /// Why a move is refused, in the words the caller sees.
+    pub fn refusal(self, next: RTTStatus) -> &'static str {
+        use RTTStatus::{Active, Paused, Stopped};
+        match (self, next) {
+            (Stopped, _) => {
+                "that RTT clock has stopped; a stopped clock cannot be paused, resumed or stopped again"
+            }
+            (Paused, Paused) => "that RTT clock is already paused",
+            (Active, Active) => "that RTT clock is running, so it cannot be resumed",
+            _ => "that move of the RTT clock is not allowed",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RTTEventKind {

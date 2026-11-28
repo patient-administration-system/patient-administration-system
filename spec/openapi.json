@@ -31746,6 +31746,49 @@
         ]
       }
     },
+    "/api/rtt/{id}": {
+      "get": {
+        "operationId": "get_api_rtt__id",
+        "parameters": [
+          {
+            "description": "Path parameter `id`",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RTTPathway"
+                }
+              }
+            },
+            "description": "Success; the `ApiResponse` envelope"
+          },
+          "4XX": {
+            "description": "Client error; an RFC 9457 problem (`application/problem+json`) with a machine-readable `code`"
+          },
+          "5XX": {
+            "description": "Server or upstream error; an RFC 9457 problem (`application/problem+json`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "`GET /api/rtt/{id}`: one pathway, its status and its version as `ETag` (OFH-12).",
+        "tags": [
+          "Rtt"
+        ]
+      }
+    },
     "/api/rtt/{id}/breaching": {
       "get": {
         "operationId": "get_api_rtt__id__breaching",
@@ -31829,7 +31872,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/rtt/:id/pause`.",
+        "summary": "`POST /api/rtt/:id/pause`. Needs `If-Match` with the pathway's `ETag` (`GET /api/rtt/{id}`): none is `428`, a stale one `412`; pausing a paused or stopped clock is `409` (OFH-12).",
         "tags": [
           "Rtt"
         ]
@@ -31872,7 +31915,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/rtt/:id/resume`.",
+        "summary": "`POST /api/rtt/:id/resume`. Needs `If-Match` as for pause; only a paused clock resumes, anything else is `409` (OFH-12).",
         "tags": [
           "Rtt"
         ]
@@ -31925,7 +31968,7 @@
             "bearer": []
           }
         ],
-        "summary": "`POST /api/rtt/:id/stop`.",
+        "summary": "`POST /api/rtt/:id/stop`. Needs `If-Match` as for pause; a stopped clock is `409` (OFH-12).",
         "tags": [
           "Rtt"
         ]

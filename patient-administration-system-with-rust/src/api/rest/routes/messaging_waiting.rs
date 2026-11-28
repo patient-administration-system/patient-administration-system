@@ -254,6 +254,7 @@ pub(super) fn waiting() -> Router<AppState> {
             put(handlers_follow_up_delay::set_target),
         )
         .route("/api/rtt/start", post(handlers_waitlist::rtt_start))
+        .route("/api/rtt/{id}", get(handlers_waitlist::rtt_get))
         .route("/api/rtt/{id}/pause", post(handlers_waitlist::rtt_pause))
         .route("/api/rtt/{id}/resume", post(handlers_waitlist::rtt_resume))
         .route("/api/rtt/{id}/stop", post(handlers_waitlist::rtt_stop))
