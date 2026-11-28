@@ -1,5 +1,8 @@
 //! The HL7 v2 routes answer a resent message from its first ACK instead of processing it again (NFR-31,
 //! HUB-2). This layer reads the message's MSH and runs the handler through [`crate::hl7v2::dedupe::guarded`].
+//! First it refuses, with an AR, a message whose MSH-9 is not the type the path handles
+//! ([`crate::hl7v2::routing::refusal`], DEV-4): nothing is changed and nothing is remembered, so the same
+//! message sent to the right path afterwards is processed.
 //! `parse` changes nothing and `batch` is guarded per message inside it, so both pass straight through.
 
 use axum::{
@@ -11,7 +14,7 @@ use axum::{
 };
 
 use crate::api::rest::AppState;
-use crate::hl7v2::ack::Inbound;
+use crate::hl7v2::ack::{AckCode, Inbound, ack_to};
 use crate::hl7v2::parse_message;
 
 /// The largest HL7 v2 body this layer reads, the same as the MLLP frame limit.
@@ -33,11 +36,17 @@ pub async fn hl7_dedupe_middleware(
         return (StatusCode::PAYLOAD_TOO_LARGE, "HL7 v2 message too large").into_response();
     };
     // A body that will not parse goes to the handler, which answers AR; it cannot be recognised anyway.
-    let inbound = std::str::from_utf8(&bytes)
+    let parsed = std::str::from_utf8(&bytes)
         .ok()
-        .and_then(|text| parse_message(text).ok())
-        .map(|m| Inbound::of(&m));
-    let Some(inbound) = inbound else {
+        .and_then(|text| parse_message(text).ok());
+    if let Some(m) = &parsed
+        && let Some(why) = crate::hl7v2::routing::refusal(parts.uri.path(), m)
+    {
+        tracing::warn!(target: "pas::hl7v2", path = parts.uri.path(), "{why}");
+        let ack = ack_to(&Inbound::of(m), AckCode::Reject, Some(&why));
+        return (StatusCode::OK, [(CONTENT_TYPE, "text/plain")], ack).into_response();
+    }
+    let Some(inbound) = parsed.map(|m| Inbound::of(&m)) else {
         return next
             .run(Request::from_parts(parts, Body::from(bytes)))
             .await;

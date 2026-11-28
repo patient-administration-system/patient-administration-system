@@ -1,0 +1,14 @@
+{
+  "accepted_at": {
+    "hl7-adt-a01": "/api/hl7/v2/admit",
+    "hl7-adt-a02": "/api/hl7/v2/transfer",
+    "hl7-adt-a03": "/api/hl7/v2/discharge",
+    "hl7-adt-a04": "/api/hl7/v2/register",
+    "hl7-adt-a08": "/api/hl7/v2/update",
+    "hl7-adt-a28": "/api/hl7/v2/patient",
+    "hl7-adt-a40": "/api/hl7/v2/merge",
+    "hl7-dft-p03": "/api/hl7/v2/dft",
+    "hl7-siu-s12": "/api/hl7/v2/schedule-book"
+  },
+  "lab_result_posted_as_admission": "MSH|^~\\&|PAS|HOSP|LAB|HOSP|<time>||ACK^R01^ACK|<ack id>|P|2.5\rMSA|AR|LAB-1|MSH-9 does not match this path, which takes ADT\\S\\A01\r"
+}

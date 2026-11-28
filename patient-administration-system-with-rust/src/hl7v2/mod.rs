@@ -39,6 +39,7 @@ pub mod mllp;
 pub mod parser;
 pub mod pid_translation;
 pub mod redact;
+pub mod routing;
 
 pub use ack::{AckCode, ack};
 pub use batch::{

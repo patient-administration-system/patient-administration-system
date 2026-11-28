@@ -187,19 +187,19 @@ async fn a_booking_is_taken_moved_changed_and_cancelled_by_message() {
 async fn a_scheduling_message_without_what_it_needs_is_refused_with_an_ae() {
     let w = world().await;
     let gone = Uuid::new_v4().to_string();
-    // No SCH segment at all.
-    let no_sch = format!(
-        "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||SIU^S12|{}|P|2.5\rPID|1||{}^^^HOSP^MR||Lovelace^Ada||19900115|F\r",
-        w.sender,
-        Uuid::new_v4().simple(),
-        w.mrn
-    );
-    for path in [
-        "schedule-book",
-        "schedule-reschedule",
-        "schedule-modify",
-        "schedule-cancel",
+    // No SCH segment at all, each path sent its own trigger (another one is refused before it is read, DEV-4).
+    for (path, trigger) in [
+        ("schedule-book", "S12"),
+        ("schedule-reschedule", "S13"),
+        ("schedule-modify", "S14"),
+        ("schedule-cancel", "S15"),
     ] {
+        let no_sch = format!(
+            "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||SIU^{trigger}|{}|P|2.5\rPID|1||{}^^^HOSP^MR||Lovelace^Ada||19900115|F\r",
+            w.sender,
+            Uuid::new_v4().simple(),
+            w.mrn
+        );
         let url = format!("/api/hl7/v2/{path}");
         let ack = post(&w, &url, &no_sch).await;
         assert_eq!(code(&ack), "AE", "{path} without SCH: {ack:?}");
@@ -208,14 +208,18 @@ async fn a_scheduling_message_without_what_it_needs_is_refused_with_an_ae() {
     let ack = post(&w, "/api/hl7/v2/schedule-book", &siu(&w, "S12", None, None)).await;
     assert_eq!(code(&ack), "AE", "{ack:?}");
     // No filler id, and a filler id that is nobody's.
-    for path in ["schedule-reschedule", "schedule-modify", "schedule-cancel"] {
+    for (path, trigger) in [
+        ("schedule-reschedule", "S13"),
+        ("schedule-modify", "S14"),
+        ("schedule-cancel", "S15"),
+    ] {
         let url = format!("/api/hl7/v2/{path}");
-        let none = post(&w, &url, &siu(&w, "S13", None, Some("20271203093000"))).await;
+        let none = post(&w, &url, &siu(&w, trigger, None, Some("20271203093000"))).await;
         assert_eq!(code(&none), "AE", "{path} without a filler id: {none:?}");
         let unknown = post(
             &w,
             &url,
-            &siu(&w, "S13", Some(&gone), Some("20271203093000")),
+            &siu(&w, trigger, Some(&gone), Some("20271203093000")),
         )
         .await;
         assert_eq!(
@@ -234,12 +238,18 @@ async fn a_scheduling_message_without_what_it_needs_is_refused_with_an_ae() {
     }
 }
 
+/// A staff master file message (MFN^M02); [`to_locations`] makes it the type the location path takes.
 fn mfn(w: &World, file: &str, event: &str, key: &str, row: &str) -> String {
     format!(
         "MSH|^~\\&|{}|WARDS|PAS|HOSP|20261116120000||MFN^M02|{}|P|2.5\rMFI|{file}|||UPD|AL\rMFE|{event}||20261116|{key}\r{row}\r",
         w.sender,
         Uuid::new_v4().simple(),
     )
+}
+
+/// The same message as MFN^M05, the type `/api/hl7/v2/mfn-location` takes (DEV-4).
+fn to_locations(msg: &str) -> String {
+    msg.replacen("||MFN^M02|", "||MFN^M05|", 1)
 }
 
 #[tokio::test]
@@ -311,7 +321,7 @@ async fn master_file_location_rows_add_change_and_retire_beds() {
     let new_bed = format!("MB-{}", Uuid::new_v4().simple());
     let loc = |bed: &str, room: &str| format!("LOC|WARD1^{room}^{bed}|Bed name");
     let send = |event: &'static str, row: String| {
-        let (w, msg) = (&w, mfn(&w, "LOC", event, &new_bed, &row));
+        let (w, msg) = (&w, to_locations(&mfn(&w, "LOC", event, &new_bed, &row)));
         async move { post(w, "/api/hl7/v2/mfn-location", &msg).await }
     };
     let mad = send("MAD", loc(&new_bed, &w.room_code)).await;
@@ -335,7 +345,7 @@ async fn master_file_location_rows_add_change_and_retire_beds() {
     let wrong_file = post(
         &w,
         "/api/hl7/v2/mfn-location",
-        &mfn(&w, "PRA", "MAD", "X", &loc("X", "R")),
+        &to_locations(&mfn(&w, "PRA", "MAD", "X", &loc("X", "R"))),
     )
     .await;
     assert_eq!(code(&wrong_file), "AE", "{wrong_file:?}");

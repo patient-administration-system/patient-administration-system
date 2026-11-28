@@ -17,23 +17,10 @@ use tower::ServiceExt;
 
 use crate::hl7v2::mllp::Frame;
 
-use crate::hl7v2::{Message, SegmentRead, mllp, parse_message};
+use crate::hl7v2::{mllp, parse_message};
 use crate::{Error, Result};
 
-/// Local replacement for the deleted `mapping::message_type` helper.
-/// Reads MSH-9.1 (message code) and MSH-9.2 (trigger event); returns
-/// empty strings when either is missing.
-fn message_type(msg: &Message) -> (String, String) {
-    let msh = match msg.segment("MSH") {
-        Some(s) => s,
-        None => return (String::new(), String::new()),
-    };
-    let field = msh.raw(9);
-    let mut parts = field.split('^');
-    let code = parts.next().unwrap_or("").to_string();
-    let event = parts.next().unwrap_or("").to_string();
-    (code, event)
-}
+use crate::hl7v2::routing::message_type;
 
 /// Whether this process's MLLP listener is taking connections, for `GET /api/health` (NFR-34).
 static LISTENER_STATE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(OFF);
@@ -387,34 +374,7 @@ fn route_for_payload(body: &str) -> Option<&'static str> {
         Err(_) => return Some("/api/hl7/v2/patient"),
     };
     let (code, event) = message_type(&msg);
-    let path = match (code.as_str(), event.as_str()) {
-        ("ADT", "A28") => "/api/hl7/v2/patient",
-        ("ADT", "A01") => "/api/hl7/v2/admit",
-        ("ADT", "A02") => "/api/hl7/v2/transfer",
-        ("ADT", "A03") => "/api/hl7/v2/discharge",
-        ("ADT", "A04") => "/api/hl7/v2/register",
-        ("ADT", "A05") => "/api/hl7/v2/pre-admit",
-        ("ADT", "A06") => "/api/hl7/v2/change-to-inpatient",
-        ("ADT", "A07") => "/api/hl7/v2/change-to-outpatient",
-        ("ADT", "A21") => "/api/hl7/v2/leave-start",
-        ("ADT", "A22") => "/api/hl7/v2/leave-end",
-        ("ADT", "A23") => "/api/hl7/v2/delete-patient",
-        ("ADT", "A38") => "/api/hl7/v2/cancel-pre-admit",
-        ("ADT", "A08") => "/api/hl7/v2/update",
-        ("ADT", "A11") => "/api/hl7/v2/cancel-admit",
-        ("ADT", "A12") => "/api/hl7/v2/cancel-transfer",
-        ("ADT", "A13") => "/api/hl7/v2/cancel-discharge",
-        ("ADT", "A40") => "/api/hl7/v2/merge",
-        ("DFT", "P03") => "/api/hl7/v2/dft",
-        ("MFN", "M02") => "/api/hl7/v2/mfn-staff",
-        ("MFN", "M05") => "/api/hl7/v2/mfn-location",
-        ("SIU", "S12") => "/api/hl7/v2/schedule-book",
-        ("SIU", "S13") => "/api/hl7/v2/schedule-reschedule",
-        ("SIU", "S14") => "/api/hl7/v2/schedule-modify",
-        ("SIU", "S15") => "/api/hl7/v2/schedule-cancel",
-        _ => return None,
-    };
-    Some(path)
+    crate::hl7v2::routing::path_for(&code, &event)
 }
 
 /// Public entry-point usable in tests: dispatch one MLLP frame end-to-end

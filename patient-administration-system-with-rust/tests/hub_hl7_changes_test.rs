@@ -279,18 +279,23 @@ async fn a_pre_admission_is_cancelled_and_an_outpatient_is_promoted_and_returned
     )
     .await;
     assert_eq!(code(&outpatient), "AA", "{outpatient:?}");
-    for path in ["change-to-inpatient", "pre-admit", "cancel-pre-admit"] {
+    // Each path is sent its own trigger: another one is refused before it is read (DEV-4).
+    for (path, trigger) in [
+        ("change-to-inpatient", "A06"),
+        ("pre-admit", "A05"),
+        ("cancel-pre-admit", "A38"),
+    ] {
         let none = post(
             &w,
             &format!("/api/hl7/v2/{path}"),
-            &message(&w, "A06", true, false),
+            &message(&w, trigger, true, false),
         )
         .await;
         assert_eq!(code(&none), "AE", "{path} without a bed: {none:?}");
         let unknown = post(
             &w,
             &format!("/api/hl7/v2/{path}"),
-            &in_bed(&w, "A06", "NO-SUCH-BED"),
+            &in_bed(&w, trigger, "NO-SUCH-BED"),
         )
         .await;
         assert_eq!(code(&unknown), "AE", "{path} unknown bed: {unknown:?}");

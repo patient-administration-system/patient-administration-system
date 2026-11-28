@@ -13,6 +13,7 @@ use patient_administration_system::hl7v2::pid_translation::{
     extract_bed_code_from_pv1, extract_mrn_from_mrg, extract_mrn_from_pid, parse_ft1, parse_sch,
     pid_to_person_create,
 };
+use patient_administration_system::hl7v2::routing::{ROUTES, refusal};
 use patient_administration_system::hl7v2::{Message, SegmentRead, parse_batch, parse_message};
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -163,5 +164,39 @@ fn the_batch_example_reads_as_its_golden_file_says() {
             "bhs_control_id": batch.bhs.as_ref().map(|b| b.raw(11)),
             "messages": messages,
         }),
+    );
+}
+
+/// DEV-4: which HTTP paths each example is accepted at (exactly one), and the refusal everywhere else, with
+/// the refusal ACK for a lab result posted as an admission.
+#[test]
+fn each_example_is_accepted_only_at_its_own_path() {
+    let mut accepted = serde_json::Map::new();
+    for name in EXAMPLES {
+        let msg = parse_message(&example(name)).unwrap();
+        let at: Vec<&str> = ROUTES
+            .iter()
+            .map(|(_, _, p)| *p)
+            .filter(|p| refusal(p, &msg).is_none())
+            .collect();
+        assert_eq!(at.len(), 1, "{name} is accepted at {at:?}");
+        accepted.insert(name.to_string(), json!(at[0]));
+    }
+    let lab = parse_message(
+        "MSH|^~\\&|LAB|HOSP|PAS|HOSP|20261128120000||ORU^R01|LAB-1|P|2.5\rPID|1||X^^^HOSP^MR\r",
+    )
+    .unwrap();
+    let why = refusal("/api/hl7/v2/admit", &lab).unwrap();
+    let mut ack: Vec<String> = ack_to(&Inbound::of(&lab), AckCode::Reject, Some(&why))
+        .split('\r')
+        .map(str::to_string)
+        .collect();
+    let mut msh: Vec<String> = ack[0].split('|').map(str::to_string).collect();
+    msh[6] = "<time>".into();
+    msh[9] = "<ack id>".into();
+    ack[0] = msh.join("|");
+    check_or_write(
+        "hl7-type-check",
+        &json!({ "accepted_at": accepted, "lab_result_posted_as_admission": ack.join("\r") }),
     );
 }

@@ -9,6 +9,7 @@ the member crates at a point in time. For per-crate detail, see:
 
 ## Unreleased
 
+- **Changed, HL7 v2 over HTTP (HUB-11, audit PA-16, DEV-4):** each mutating `/api/hl7/v2/` path takes only the MSH-9 type the MLLP routing table sends to it; any other type is answered AR, changes nothing and is not remembered. A sender that posted another type to a path must be corrected.
 - **Changed, releases (REL-3, audit PA-08):** a tag publishes images only when `ci-ok` passed for that exact commit (`scripts/release-gate.py`, waiting up to an hour for a running CI) and the SBOMs are built; a dry run is gated the same way and still publishes nothing.
 
 ## Release 0.50.0 (2026-11-24)

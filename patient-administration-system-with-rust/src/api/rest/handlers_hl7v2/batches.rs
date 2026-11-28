@@ -8,18 +8,8 @@ pub(super) async fn dispatch_inner_to_ack_body(
     msg: &crate::hl7v2::Message,
 ) -> String {
     let body = encode_message(msg);
-    let msh = msg.segment("MSH");
-    let (code, event) = match msh {
-        Some(s) => {
-            let field = s.raw(9);
-            let mut parts = field.split('^');
-            (
-                parts.next().unwrap_or("").to_string(),
-                parts.next().unwrap_or("").to_string(),
-            )
-        }
-        None => (String::new(), String::new()),
-    };
+    // The same pairs as `crate::hl7v2::routing::ROUTES`; each arm calls the handler that table names.
+    let (code, event) = crate::hl7v2::routing::message_type(msg);
     // Each message in a batch is recognised on its own, as it would be sent alone (NFR-31, HUB-2).
     let inbound = Inbound::of(msg);
     macro_rules! call {
